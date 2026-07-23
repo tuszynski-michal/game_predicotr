@@ -6,27 +6,12 @@ last_updated: 2026-07-24
 
 # Otwarte pytania
 
-Pytania Q-001–Q-014 zostały rozstrzygnięte z właścicielem produktu w `tasks/0001-architecture-clarification.md`. Zaakceptowane decyzje architektoniczne i wykonawcze znajdują się w `process/DECISION_LOG.md`.
+Ten dokument zawiera wyłącznie pytania, które nadal wymagają odpowiedzi.
 
-## Rozstrzygnięte 2026-07-24
-
-| ID | Rozstrzygnięcie | Źródło |
-|---|---|---|
-| Q-001 | Mobile działa całkowicie offline już w M1; dane są dołączone do APK. | Task 0001, D-002, D-005 |
-| Q-002 | Do około 500 000 layoutów na grę, około 12–15 gier; bez zdjęć w mobile. | Task 0001 |
-| Q-003 | `sequence_number` jest ciągły i bez luk; duplikaty dotyczą treści layoutu, nie numeru. | Task 0001, D-007 |
-| Q-004 | Sekwencja jest cykliczna. Pełny cykl ocenia `N - 1` przyszłych layoutów. | Task 0001, D-009 |
-| Q-005 | Jedynym typem wzorca jest konkretna `PAYLINE`. | Task 0001 |
-| Q-006 | Zwycięski ciąg może zacząć się w dowolnej kolumnie i ma co najmniej 3 kolejne kolumny bez luki. | Task 0001 |
-| Q-007 | Dla jednego ciągu wypłacana jest tylko najdłuższa pasująca długość. | Task 0001 |
-| Q-008 | Payline wybiera jedno pole na kolumnę; komórki mogą uczestniczyć w wielu paylines. | Task 0001 |
-| Q-009 | Joker zastępuje zwykłe symbole niezależnie na każdej payline, bez własnej wypłaty i bez wygranej samych jokerów. | Task 0001 |
-| Q-010 | Sumowane są wszystkie niezależnie prawidłowe paylines i symbole; wspólne komórki nie są „zużywane”. | Task 0001 |
-| Q-011 | Rozpoznany layout to spin 0 bez kosztu i payoutu. | Task 0001 |
-| Q-012 | Wynik netto to skumulowane payouty minus koszt wszystkich ocenionych spinów; dodatni oznacza `> 0`. | Task 0001 |
-| Q-013 | Tabela zawiera każde dodatnie lokalne maksimum netto, a nie wyłącznie rekordy globalne. Plateau wybiera pierwszy spin. | Task 0001, D-009 |
-| Q-014 | Duplikat blokuje prognozę; reset rozpoczyna zupełnie nowe wyszukiwanie, bez łańcucha potwierdzeń. | Task 0001, D-008 |
-| Q-018 | Administrator przygotowuje wersjonowany snapshot i nowe APK; mobile nie pobiera danych przez API. | Task 0001, D-005 |
+Q-001–Q-014 oraz Q-018 zostały rozstrzygnięte. Obowiązujące decyzje znajdują
+się w [Decision Log](../process/DECISION_LOG.md), a dokładny zapis odpowiedzi
+właściciela w
+[ukończonym Task 0001](../tasks/completed/0001-architecture-clarification.md).
 
 ## Obraz i import
 

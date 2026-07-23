@@ -6,6 +6,9 @@ last_updated: 2026-07-24
 
 # TASK-0001 — Zamknięcie pytań architektonicznych
 
+> Zadanie historyczne. Zostało ukończone przed rozpoczęciem M1 i nie jest
+> aktywnym kontekstem implementacyjnym.
+
 ## Goal
 
 Uzupełnić decyzje niezbędne do bezpiecznej inicjalizacji Milestone 01.

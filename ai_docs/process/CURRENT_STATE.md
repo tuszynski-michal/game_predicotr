@@ -25,7 +25,9 @@ last_updated: 2026-07-24
 - zsynchronizowano wymagania, architekturę, model danych, kontrakty, roadmapę i testy,
 - podzielono M1 na sześć podetapów z osobnymi bramkami jakości,
 - ustalono wersjonowaną aktywację snapshotu po aktualizacji APK,
-- finalne APK M1 nie deklaruje uprawnienia Android `INTERNET`.
+- finalne APK M1 nie deklaruje uprawnienia Android `INTERNET`,
+- usunięto artefakty instalacyjne pakietu dokumentacji, a materiały historyczne
+  przeniesiono do `ai_docs/archive/` i `ai_docs/tasks/completed/`.
 
 ## In progress
 

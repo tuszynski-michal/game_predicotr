@@ -12,9 +12,12 @@ Przed rozpoczęciem każdego zadania przeczytaj:
 2. `ai_docs/process/CURRENT_STATE.md`
 3. dokument wymagań dotyczący zmienianego obszaru,
 4. dokument architektury dotyczący zmienianego obszaru,
-5. aktywne zadanie w `ai_docs/tasks/`, jeśli istnieje.
+5. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
+   istnieje.
 
 Nie czytaj całej dokumentacji bez potrzeby. Otwieraj dokumenty wskazane w sekcji `Relevant docs` aktywnego zadania.
+Nie wczytuj `ai_docs/tasks/completed/` ani `ai_docs/archive/`, chyba że aktywne
+zadanie odwołuje się do nich jawnie.
 
 ## Zasady nadrzędne
 
@@ -53,7 +56,9 @@ Nie czytaj całej dokumentacji bez potrzeby. Otwieraj dokumenty wskazane w sekcj
 2. Zaktualizuj dokumentację, jeżeli zmieniło się zachowanie, API, model danych lub decyzja.
 3. Zaktualizuj `ai_docs/process/CURRENT_STATE.md`.
 4. Uzupełnij sekcję `Outcome` aktywnego zadania.
-5. W raporcie końcowym podaj:
+5. Po zakończeniu zadania przenieś plik ze statusem `done` do
+   `ai_docs/tasks/completed/`.
+6. W raporcie końcowym podaj:
    - co zmieniono,
    - jakie testy uruchomiono,
    - czego nie wykonano,

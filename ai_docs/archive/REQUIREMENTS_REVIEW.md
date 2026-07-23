@@ -1,10 +1,14 @@
 ---
 title: Requirements review
-status: accepted
+status: superseded
 last_updated: 2026-07-24
 ---
 
 # Analiza pierwotnych wymagań
+
+> Dokument historyczny. Obowiązujące źródła prawdy znajdują się w
+> `ai_docs/requirements/`, `ai_docs/architecture/` oraz
+> `ai_docs/process/DECISION_LOG.md`.
 
 ## Ocena ogólna
 

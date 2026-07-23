@@ -8,16 +8,29 @@ last_updated: 2026-07-24
 
 ## Cel
 
-Dokumentacja dzieli produkt na niezależne obszary, dzięki czemu model AI może realizować małe iteracje bez utraty kontekstu i bez przypadkowego łączenia niegotowych części systemu.
+Dokumentacja dzieli produkt na niezależne obszary, dzięki czemu model AI może
+realizować małe iteracje bez utraty kontekstu i bez przypadkowego łączenia
+niegotowych części systemu.
 
-## Mapa dokumentacji
+## Wejście do zadania
+
+Przed rozpoczęciem pracy czytaj w tej kolejności:
+
+1. ten indeks,
+2. [Current State](process/CURRENT_STATE.md),
+3. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`,
+4. wyłącznie dokumenty wskazane w sekcji `Relevant docs` tego zadania.
+
+Materiały archiwalne i ukończone zadania nie są domyślnym kontekstem
+implementacyjnym.
+
+## Aktywna dokumentacja
 
 ### Projekt
 
-- [Requirements review](project/REQUIREMENTS_REVIEW.md) — analiza i korekty pierwotnego opisu.
 - [Project brief](project/PROJECT_BRIEF.md) — cel, użytkownicy, zakres i ograniczenia.
 - [Glossary](project/GLOSSARY.md) — jednoznaczne pojęcia domenowe.
-- [Open questions](project/OPEN_QUESTIONS.md) — pytania wymagające decyzji właściciela produktu.
+- [Open questions](project/OPEN_QUESTIONS.md) — wyłącznie nierozstrzygnięte pytania.
 - [Traceability](project/TRACEABILITY.md) — mapa wymaganie → dokument → milestone.
 
 ### Wymagania
@@ -49,14 +62,20 @@ Dokumentacja dzieli produkt na niezależne obszary, dzięki czemu model AI może
 - [Task template](process/TASK_TEMPLATE.md)
 - [Test strategy](quality/TEST_STRATEGY.md)
 
-### Dodatkowe materiały
+### Materiały warunkowe
 
-- [Analiza istniejącej aplikacji](reverse_engineering/REFERENCE_APP_ANALYSIS.md)
-- [Task 0001](tasks/0001-architecture-clarification.md) — ukończone wyjaśnienie architektury.
+- [Analiza aplikacji referencyjnej](reverse_engineering/REFERENCE_APP_ANALYSIS.md)
+  — używać dopiero po rozstrzygnięciu Q-020.
+
+## Historia
+
+- [Archiwum dokumentacji](archive/README.md)
+- [Ukończone zadania](tasks/completed/README.md)
+
+Historia wyjaśnia pochodzenie decyzji, ale nie zastępuje aktualnych wymagań,
+architektury ani Decision Log.
 
 ## Zasada pojedynczego źródła prawdy
-
-Nie kopiuj tej samej reguły do kilku plików. Zamiast tego linkuj do dokumentu, który jest jej właścicielem.
 
 | Rodzaj informacji | Dokument właścicielski |
 |---|---|
@@ -69,13 +88,28 @@ Nie kopiuj tej samej reguły do kilku plików. Zamiast tego linkuj do dokumentu,
 | Historia decyzji | `DECISION_LOG.md` |
 | Kryteria ukończenia | `DEFINITION_OF_DONE.md` |
 
-## Statusy dokumentów
+Nie kopiuj pełnej reguły do kilku dokumentów. W dokumentach pomocniczych podaj
+krótkie podsumowanie i link do właściciela reguły.
 
-- `draft` — materiał roboczy.
-- `proposed` — konkretna propozycja oczekująca na zatwierdzenie.
-- `accepted` — obowiązujące źródło prawdy.
-- `superseded` — dokument zastąpiony nowszą decyzją.
+## Statusy
+
+### Dokumenty
+
+- `draft` — materiał roboczy,
+- `proposed` — propozycja oczekująca na zatwierdzenie,
+- `accepted` — obowiązujące źródło prawdy,
+- `active` — dokument procesowy utrzymywany na bieżąco,
+- `superseded` — dokument historyczny zastąpiony nowszym źródłem.
+
+### Zadania
+
+- `todo` — gotowe do rozpoczęcia,
+- `in_progress` — aktualnie realizowane,
+- `blocked` — nie może być kontynuowane bez decyzji lub zmiany stanu,
+- `done` — ukończone i przenoszone do `tasks/completed/`.
 
 ## Reguła aktualizacji
 
-Każda zmiana zachowania produktu musi aktualizować odpowiedni plik wymagań. Każda zmiana techniczna wpływająca na strukturę systemu musi aktualizować dokument architektury i, jeśli jest istotna, `DECISION_LOG.md`.
+Zmiana zachowania produktu aktualizuje właściwy plik wymagań. Zmiana techniczna
+wpływająca na strukturę systemu aktualizuje dokument architektury i, jeżeli
+jest istotna, `DECISION_LOG.md`.

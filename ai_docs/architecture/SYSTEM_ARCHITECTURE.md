@@ -1,7 +1,7 @@
 ---
 title: System architecture
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Architektura systemu
@@ -10,157 +10,225 @@ last_updated: 2026-07-23
 
 ```mermaid
 flowchart LR
-    U[Mobile user] --> M[Android app]
-    A[Administrator] --> W[Admin web]
-    M --> API[FastAPI]
-    W --> API
-    API --> DB[(PostgreSQL)]
-    A --> F[Photo folders]
-    F --> WORKER[Python import worker]
-    WORKER --> DB
-    WORKER --> FS[(Local file storage)]
+    MU["Użytkownik mobile"] --> M["Android app"]
+    M --> SDB[("Bundled SQLite snapshot")]
+
+    A["Administrator"] --> W["Local Admin web"]
+    W --> API["Local FastAPI Admin API"]
+    API --> PG[("PostgreSQL")]
+
+    A --> F["Photo folders"]
+    F --> WORKER["Python worker / CLI"]
+    WORKER <--> PG
+    WORKER <--> FS[("Local file storage")]
+    WORKER --> SNAP["Versioned SQLite snapshot"]
+    SNAP --> BUILD["Local Android build"]
+    BUILD --> APK["Versioned APK"]
+    APK -. "manual sideload" .-> M
 ```
+
+Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. Jedynym źródłem danych runtime jest snapshot dołączony do konkretnego APK.
 
 ## Odpowiedzialności
 
 ### Mobile app
 
-- prezentacja gier i symboli,
-- lokalny stan planszy,
-- undo/reset,
-- wysyłanie prefiksu i pełnego layoutu,
-- prezentacja wyniku i targetu,
-- brak bezpośredniego dostępu do bazy.
+- odczyt konfiguracji i symboli z lokalnego SQLite,
+- stan planszy, undo i reset,
+- lokalny exact/prefix matching,
+- wykrycie duplikatu bez arbitralnego wyboru pozycji,
+- skan gotowych payoutów dla pełnego cyklu,
+- wykrycie dodatnich lokalnych maksimów,
+- prezentacja wyniku i wirtualizowanej tabeli,
+- diagnostyka wersji i integralności snapshotu.
 
 ### Admin web
 
 - CRUD konfiguracji,
-- edycja wzorców i wypłat,
-- uruchamianie i obserwacja importów,
+- edytor paylines i payoutów,
+- generowanie/import i podgląd layoutów,
+- uruchamianie i obserwacja jobs,
 - manual review,
-- publikacja danych.
+- publikacja wersji datasetów i reguł,
+- zlecenie przygotowania snapshotu i APK.
 
-### API
+### Admin API
 
-- walidacja wejścia,
-- kontrola transakcji,
-- layout matching,
-- payout evaluation,
-- target forecast,
+- walidacja kontraktów,
+- transakcje PostgreSQL,
 - operacje administracyjne,
-- generowanie OpenAPI.
+- kontrolowane zlecanie typowanych jobs,
+- raportowanie postępu i artefaktów,
+- generowanie OpenAPI dla klienta admin.
 
-### Worker
+Admin API nie wykonuje długiego importu, pełnego precomputingu ani Android build wewnątrz requestu.
 
-- operacje długotrwałe,
+### Worker / CLI
+
+- operacje długotrwałe i wznawialne,
 - skanowanie folderów,
 - OpenCV/OCR/klasyfikacja,
-- zapisy staging,
-- raportowanie postępu,
-- brak logiki UI.
+- zapis stagingu,
+- walidacja ciągłości i integralności,
+- obliczanie payoutów,
+- generowanie SQLite,
+- kontrolowane uruchamianie lokalnego workflow Android build,
+- raportowanie postępu i błędów.
 
 ### PostgreSQL
 
 - kanoniczne konfiguracje,
-- wersje danych,
+- wersje danych i reguł,
 - sekwencje layoutów,
-- reguły i wyniki importu,
-- integralność i indeksy.
+- staging, review i historia jobs,
+- payouty powiązane z wersjami,
+- manifesty wydań.
 
 ### File storage
 
 - oryginalne zdjęcia,
-- pliki robocze,
-- wycinki,
-- dane treningowe,
-- eksporty.
+- pliki robocze i wycinki,
+- dane treningowe i modele,
+- eksporty,
+- wygenerowane snapshoty i APK.
 
-## Przepływ dopasowania
+## Przepływ dopasowania offline
 
 ```mermaid
 sequenceDiagram
     participant User
     participant Mobile
-    participant API
-    participant DB
+    participant SQLite
 
     User->>Mobile: wybiera symbol
-    Mobile->>API: POST /layouts/match z prefiksem
-    API->>DB: wyszukaj kandydatów
-    DB-->>API: kandydaci
-    API-->>Mobile: candidate_count + opcjonalna propozycja
+    Mobile->>SQLite: wyszukaj prefix sygnatury
+    SQLite-->>Mobile: liczba kandydatów i opcjonalna propozycja
     Mobile-->>User: plansza lub modal
+    User->>Mobile: kończy layout
+    Mobile->>SQLite: exact match sygnatury
+    SQLite-->>Mobile: 0, 1 albo wiele pozycji
+    Mobile-->>User: not found, sequence number albo duplicate
 ```
 
-## Przepływ targetu
+## Przepływ Target offline
 
 ```mermaid
 sequenceDiagram
     participant Mobile
-    participant API
-    participant DB
+    participant SQLite
 
-    Mobile->>API: POST /targets/calculate
-    API->>DB: pobierz zakres layoutów i reguły
-    DB-->>API: dane
-    API->>API: evaluate payouts + cumulative net
-    API-->>Mobile: high-water marks + metadata
+    Mobile->>SQLite: strumień N-1 payoutów po spinie 0
+    SQLite-->>Mobile: sequence number + payout, w kolejności cyklicznej
+    Mobile->>Mobile: kumuluj payout i koszt
+    Mobile->>Mobile: znajdź dodatnie lokalne maksima
+    Mobile->>Mobile: pokaż podsumowanie i wirtualizowaną tabelę
 ```
 
-## Przepływ importu
+Payout reguł nie jest liczony w runtime mobile. Został obliczony przy przygotowaniu wydania.
+
+## Przepływ publikacji wydania
+
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Web
+    participant API
+    participant Worker
+    participant PG
+    participant FS
+
+    Admin->>Web: wybiera wersje i tworzy wydanie
+    Web->>API: POST /admin/mobile-releases
+    API->>PG: zapisz release job
+    Worker->>PG: pobierz zadanie
+    Worker->>PG: waliduj dataset i rules
+    Worker->>PG: oblicz payouty
+    Worker->>FS: wygeneruj i zweryfikuj SQLite
+    Worker->>FS: zbuduj APK
+    Worker->>PG: zapisz wersje, checksumy i wynik
+    API-->>Web: status oraz ścieżki artefaktów
+```
+
+Publikacja jest niezmienna. Zmiana danych tworzy nowe wydanie i nie modyfikuje już zainstalowanego APK.
+
+## Przepływ importu zdjęć
 
 1. Admin tworzy import job.
-2. Worker pobiera job i skanuje folder.
-3. Każde zdjęcie przechodzi pipeline.
+2. Worker skanuje folder i zapisuje checksumy.
+3. Każde zdjęcie przechodzi wersjonowany pipeline.
 4. Niepewne elementy trafiają do review.
 5. Admin zatwierdza poprawki.
-6. Worker wykonuje walidację.
-7. Zatwierdzony staging jest publikowany jako wersja datasetu.
+6. Worker wykonuje walidację ciągłości.
+7. Zatwierdzony staging tworzy nową wersję datasetu.
 
-## Granice modułów backendu
+## Granice kodu
 
 ```text
 services/api/app/
   api/
   application/
   domain/
-    matching/
-    payouts/
-    forecasting/
   storage/
   models/
   schemas/
+
+services/worker/
+  jobs/
+  image/
+    geometry/
+    ocr/
+    classification/
+  publication/
+  build/
+
+apps/mobile/src/
+  features/
+  domain/
+    matching/
+    forecasting/
+  data/
+    sqlite/
+  ui/
 ```
 
-Algorytmy w `domain/` nie importują FastAPI ani komponentów UI. Preferowane wejścia to proste struktury i typy domenowe.
+Moduły `domain/` nie importują FastAPI, React, Expo ani ORM. Porty oddzielają:
 
-## Model wdrożenia MVP
+- matching od formatu sygnatury i SQLite,
+- forecast od sposobu pobierania payoutów,
+- OCR i klasyfikację od konkretnych bibliotek,
+- przygotowanie wydania od konkretnej komendy Android build.
 
-- PostgreSQL w Docker Compose na komputerze Windows.
-- FastAPI uruchomione lokalnie na hoście.
-- Admin pod lokalnym adresem webowym.
-- Telefon Android łączy się z API przez adres IP komputera w tej samej sieci.
-- CORS i firewall są skonfigurowane wyłącznie dla środowiska developerskiego.
+## Model wdrożenia
 
-Ten model jest propozycją do czasu zamknięcia Q-001.
+### Mobile
 
-## Przyszły offline mode
+- prywatne, podpisane lub testowe APK,
+- ręczny sideload na maksymalnie 3–5 urządzeń,
+- brak usług runtime poza systemem Android,
+- nowy APK po każdej opublikowanej zmianie danych,
+- stały `applicationId` i ten sam klucz podpisujący pozwalają aktualizować
+  istniejącą instalację,
+- snapshot jest aktywowany według release version/checksum, a nie według samego
+  faktu istnienia lokalnego pliku,
+- finalny manifest nie deklaruje uprawnienia `INTERNET`.
 
-Jeżeli mobile ma działać offline:
+### Administracja
 
-1. admin publikuje wersję datasetu,
-2. backend tworzy zoptymalizowany snapshot,
-3. mobile pobiera snapshot,
-4. wyszukiwanie i forecast mogą działać lokalnie,
-5. aktualizacja jest wersjonowana i atomowa.
+- PostgreSQL w Docker Compose na komputerze Windows,
+- FastAPI, Next.js i worker uruchamiane lokalnie,
+- lokalny system plików dla zdjęć i artefaktów,
+- brak publicznego hostingu i chmury.
 
-Nie należy implementować tego w MVP bez potwierdzonego wymagania.
+## Integralność i bezpieczeństwo publikacji
 
-## Integralność
-
-- `sequence_number` unikalny w ramach gry i wersji datasetu,
+- `sequence_number` jest unikalny i ciągły w ramach wersji datasetu,
 - sygnatura layoutu nie jest unikalna,
-- wszystkie symbole layoutu muszą należeć do gry,
-- publikowana wersja danych jest immutable,
-- import staging nie jest widoczny dla mobile,
-- wynik targetu wskazuje wersję danych i reguł.
+- wszystkie symbole layoutu należą do gry,
+- opublikowane wersje danych, reguł i wydań są niezmienne,
+- staging nie trafia do mobile,
+- snapshot zawiera manifest wersji i checksumę,
+- aplikacja odmawia obliczeń przy niezgodnym lub uszkodzonym schemacie,
+- aktualizacja APK nie może po cichu pozostawić aktywnego snapshotu poprzedniego
+  wydania,
+- worker buduje tylko wskazane, zatwierdzone wersje,
+- wynik Target wskazuje wersję wydania.

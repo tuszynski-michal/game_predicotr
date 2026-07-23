@@ -1,7 +1,7 @@
 ---
 title: Project brief
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Project brief
@@ -17,10 +17,12 @@ Nazwa jest tymczasowa i nie wpływa na identyfikatory domenowe.
 Użytkownik zna wizualny układ symboli z gry i chce:
 
 1. odnaleźć dokładną pozycję tego układu w deterministycznej sekwencji,
-2. rozstrzygnąć niejednoznaczność, gdy ten sam układ występuje więcej niż raz,
-3. obliczyć przyszłe wyniki kredytowe dla kolejnych pozycji sekwencji,
-4. zarządzać grami, symbolami, regułami wygranych i danymi wejściowymi,
-5. docelowo importować duże zbiory układów ze zdjęć.
+2. wykryć niejednoznaczność, gdy ten sam układ występuje więcej niż raz,
+3. obliczyć wyniki kredytowe dla pełnego przyszłego cyklu,
+4. zobaczyć dodatnie lokalne maksima wyniku netto,
+5. zarządzać grami, symbolami, paylines, wypłatami i danymi wejściowymi,
+6. przygotowywać wersjonowane, instalowalne wydania Android,
+7. docelowo importować duże zbiory układów ze zdjęć.
 
 ## Użytkownicy
 
@@ -29,74 +31,96 @@ Użytkownik zna wizualny układ symboli z gry i chce:
 - wybiera grę,
 - wprowadza symbole planszy,
 - identyfikuje pozycję sekwencji,
-- sprawdza prognozę targetu.
+- obsługuje informację o duplikacie przez reset i wprowadzenie kolejnego layoutu,
+- sprawdza pełną prognozę targetu bez połączenia z siecią.
 
 ### Administrator danych
 
-- zarządza grami i symbolami,
-- definiuje reguły wygranych,
-- importuje lub generuje układy,
+- zarządza grami, wymiarami plansz i symbolami,
+- definiuje paylines oraz wypłaty dla symboli i długości dopasowania,
+- importuje lub generuje layouty,
 - przegląda błędy rozpoznawania zdjęć,
-- zatwierdza dane przed publikacją.
+- publikuje wersjonowany snapshot danych,
+- uruchamia przygotowanie instalowalnego wydania Android.
 
 ## Główne moduły
 
-1. **Mobile Client** — aplikacja Android do ręcznego wprowadzania planszy i prezentacji wyniku.
-2. **Admin Web** — aplikacja uruchamiana w przeglądarce na Windows.
-3. **API** — spójny dostęp do danych oraz logiki aplikacyjnej.
-4. **Database** — kanoniczne dane gier, sekwencji, symboli i reguł.
-5. **Import Worker** — oddzielny proces do masowego przetwarzania zdjęć.
+1. **Mobile Client** — całkowicie offline aplikacja Android z lokalnym snapshotem SQLite.
+2. **Admin Web** — lokalna aplikacja uruchamiana w przeglądarce na Windows.
+3. **Admin API** — lokalny backend dla panelu administracyjnego; nie jest zależnością aplikacji mobilnej.
+4. **Canonical Database** — lokalny PostgreSQL z kanonicznymi danymi administracyjnymi.
+5. **Worker / CLI** — oddzielny lokalny proces dla importu, walidacji, obliczania payoutów, generowania snapshotu i przygotowania wydania.
+6. **Release artifacts** — niezmienny snapshot SQLite oraz APK przygotowane dla konkretnej wersji danych i reguł.
 
-## Zakres pierwszej wersji działającej
+## Docelowa skala
+
+- około 12–15 gier, z możliwością dodania kolejnych,
+- do około 500 000 uporządkowanych layoutów na grę,
+- około 7,5 miliona layoutów przy 15 grach,
+- do aplikacji mobilnej trafiają rekordy domenowe i obliczony payout, bez zdjęć źródłowych,
+- rozmiar aplikacji do kilku GB jest akceptowalny; nie jest wymagana agresywna kompresja kosztem poprawności lub prostoty.
+
+## Zakres pierwszej wersji działającej — M1
 
 Pierwsza wersja ma:
 
 - obsługiwać 3 gry,
-- zawierać po 1000 zamockowanych układów dla każdej gry,
-- posiadać planszę domyślnie 3 × 5,
+- zawierać po 1000 zamockowanych layoutów dla każdej gry,
+- posiadać planszę 3 × 5,
 - pozwalać wybierać symbole tekstowe `S1`, `S2`, ...,
 - obsługiwać undo i reset,
-- wyszukiwać pasujące układy podczas wprowadzania,
+- wyszukiwać pasujące layouty lokalnie podczas wprowadzania,
 - proponować automatyczne uzupełnienie, gdy pozostaje jeden kandydat,
-- zwracać numer sekwencji dla kompletnej planszy,
-- wykrywać duplikaty układu,
-- nie zawierać jeszcze docelowej prognozy kredytowej ani rozpoznawania zdjęć.
+- zwracać `sequence_number` dla kompletnej planszy,
+- wykrywać duplikaty layoutu i blokować prognozę,
+- obliczać payout według zamockowanych paylines i wartości,
+- liczyć pełny cykl od layoutu następującego po spinie startowym do layoutu bezpośrednio go poprzedzającego,
+- pokazywać dodatnie lokalne maksima wyniku netto w tabeli na dole ekranu,
+- działać całkowicie offline z danymi dołączonymi do APK,
+- dać się ręcznie zainstalować i przetestować co najmniej na Google Pixel 10 Pro XL oraz Samsung Galaxy S21 Ultra.
 
-## Poza zakresem pierwszej wersji
+## Poza zakresem M1
 
-- automatyczne rozpoznawanie zdjęć,
-- OCR numerów układów,
-- uczenie modelu klasyfikacji symboli,
-- pełny edytor reguł wygranych,
+- panel administracyjny i kanoniczna baza PostgreSQL,
+- automatyczne rozpoznawanie zdjęć i OCR,
+- uczenie produkcyjnego modelu klasyfikacji symboli,
+- pełny proces importu i ręcznej korekty,
+- generowanie APK z poziomu panelu administracyjnego,
 - publikacja w Google Play,
-- synchronizacja offline,
-- autoryzacja produkcyjna,
-- infrastruktura chmurowa.
+- synchronizacja mobilna, chmura i publiczna infrastruktura,
+- produkcyjna autoryzacja wielu administratorów.
 
 ## Najważniejsze ograniczenia
 
-- środowisko deweloperskie: Windows,
+- środowisko deweloperskie i administracyjne: Windows,
 - główny klient: Android,
-- frontend: TypeScript i React,
-- backend: Python,
-- kolejność danych jest krytyczna,
-- ten sam layout może wystąpić wiele razy,
-- liczba rekordów może osiągnąć miliony,
+- aplikacja mobilna nigdy nie łączy się z Internetem, LAN ani backendem,
+- wdrożenie prywatne na maksymalnie 3–5 urządzeniach,
+- zmiana danych lub reguł wymaga przygotowania i ręcznego zainstalowania nowego APK,
+- frontend: TypeScript w trybie strict i React,
+- backend administracyjny oraz przetwarzanie danych: Python,
+- `sequence_number` jest krytyczną, ciągłą wartością domenową,
+- duplikaty treści layoutu są dozwolone, ale muszą zostać jawnie wykryte,
 - import zdjęć musi być wznawialny i odporny na pojedyncze błędy.
 
-## Ryzyka domenowe
+## Najważniejsze ryzyka
 
-1. Nie jest jeszcze rozstrzygnięte, czy 500 000 oznacza zdjęcia, układy na grę, czy oba warianty. Jeżeli jedno zdjęcie zawiera 9 układów, 500 000 zdjęć oznacza do 4 500 000 rozpoznanych układów.
-2. Opis zawiera co najmniej dwa typy reguł wygranej: konkretną linię pozycji oraz dowolny rząd w kolejnych kolumnach.
-3. Nie jest ustalone, czy aplikacja mobilna ma działać bez połączenia z backendem.
-4. Reguły jokera i liczenia wielu kombinacji nie są jeszcze kompletne.
+1. Trzeba zmierzyć rozmiar i czas lokalnego wyszukiwania oraz pełnego skanu dla 500 000 layoutów na grę.
+2. Jakość zdjęć obejmuje perspektywę, krzywiznę ekranu, moiré, odbicia, rozmycie i zasłonięcia; stos technologiczny rozpoznawania pozostaje wymienny do czasu benchmarku.
+3. Generowanie wersjonowanego snapshotu i APK musi być deterministyczne, audytowalne oraz możliwe do ponowienia.
+4. Semantyka kilku rozłącznych zwycięskich ciągów na jednej payline dla plansz szerszych niż 5 kolumn wymaga decyzji przed obsługą takiej gry.
+5. Ostateczna liczba i jakość oznaczonych zdjęć może ograniczyć automatyzację importu.
 
 ## Kryterium sukcesu fazy architektonicznej
 
-Można rozpocząć implementację, gdy zaakceptowane są:
+Faza jest ukończona po zapisaniu decyzji o:
 
-- model wdrożenia online/offline,
-- znaczenie liczby 500 000,
-- semantyka numeru sekwencji,
-- typy reguł wygranych,
-- definicja targetu i sposobu prezentacji rekordów rosnących.
+- całkowicie offline modelu mobilnym,
+- skali do 500 000 layoutów na grę,
+- cyklicznej i ciągłej sekwencji,
+- jednym typie wzorca `PAYLINE`,
+- zasadach payoutu, jokera, sumowania i duplikatów,
+- definicji pełnego cyklu oraz dodatniego lokalnego maksimum,
+- monorepo i stosie technologicznym,
+- oddzieleniu kanonicznego PostgreSQL od mobilnego snapshotu SQLite,
+- wersjonowanym procesie przygotowania APK.

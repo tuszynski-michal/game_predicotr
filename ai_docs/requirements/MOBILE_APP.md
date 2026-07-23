@@ -1,16 +1,38 @@
 ---
 title: Mobile application requirements
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Wymagania aplikacji mobilnej
 
-## Platforma
+## Platforma i dystrybucja
 
 - Główna platforma: Android.
-- Interfejs projektowany przede wszystkim dla telefonu w orientacji pionowej.
-- MVP może być uruchamiane przez Expo development build lub Expo Go, zależnie od użytych bibliotek.
+- Interfejs jest projektowany przede wszystkim dla telefonu w orientacji pionowej.
+- Aplikacja działa całkowicie offline już w M1.
+- Aplikacja nie łączy się z Internetem, siecią lokalną, panelem ani backendem.
+- Finalne APK M1 nie deklaruje uprawnienia Android `INTERNET`.
+- Konfiguracja, sygnatury layoutów i obliczone payouty są dołączone do wersji APK w snapshotcie SQLite.
+- Zmiana danych lub reguł wymaga utworzenia nowego wydania i ręcznego zainstalowania APK.
+- Dystrybucja jest prywatna, na maksymalnie 3–5 urządzeniach; publikacja w sklepie nie jest wymagana.
+- Pierwsze urządzenia akceptacyjne: Google Pixel 10 Pro XL i Samsung Galaxy S21 Ultra.
+
+Development build może być używany w czasie tworzenia, ale kryterium M1 spełnia samodzielnie instalowalne APK działające bez komputera deweloperskiego.
+
+## Cykl życia snapshotu
+
+- Każde APK wskazuje dokładnie jedną wersję wydania i checksum snapshotu.
+- Snapshot jest materializowany pod nazwą zawierającą wersję lub checksumę,
+  dlatego aktualizacja aplikacji nie może otworzyć starej kopii tylko dlatego,
+  że istnieje już w katalogu danych.
+- Przed aktywacją aplikacja waliduje wersję schematu i podstawowe metadata.
+- Przy niezgodności aplikacja pokazuje `local_data_error` i nie wykonuje
+  matching ani Target.
+- M1 nie przechowuje trwałych danych użytkownika wymagających migracji.
+  Wprowadzana plansza i wynik są stanem sesji.
+- Poprzednia nieaktywna kopia snapshotu może zostać usunięta dopiero po
+  prawidłowej aktywacji nowej.
 
 ## Ekran główny
 
@@ -19,7 +41,10 @@ Ekran składa się kolejno z sekcji:
 1. Header
 2. Layout
 3. Selection
-4. Target
+4. Result / Target
+5. tabela dodatnich lokalnych maksimów na samym dole
+
+Ostateczna etykieta użytkowa `Result` albo `Target` zostanie ustalona przy projekcie UI. W dokumentacji domenowej używana jest nazwa `Target`.
 
 ## Header
 
@@ -27,13 +52,14 @@ Ekran składa się kolejno z sekcji:
 
 - wybór gry,
 - przycisk `Undo`,
-- przycisk `Reset`.
+- przycisk `Reset`,
+- widoczna wersja wydania lub danych w ekranie informacji/diagnostyki.
 
 ### Zachowanie wyboru gry
 
-- po zmianie gry aplikacja pobiera konfigurację planszy i symbole,
+- konfiguracja planszy, symbole i lokalny indeks wyszukiwania są odczytywane ze snapshotu,
 - istniejący wybór layoutu jest czyszczony,
-- kontekst rozstrzygania duplikatów jest czyszczony,
+- wynik dopasowania i prognoza są czyszczone,
 - sekcja Target wraca do stanu początkowego.
 
 ### Undo
@@ -41,33 +67,35 @@ Ekran składa się kolejno z sekcji:
 - usuwa ostatnio dodany symbol,
 - działa tylko na historię bieżącego wprowadzania,
 - nie zmienia wybranej gry,
-- po cofnięciu ponownie uruchamia wyszukiwanie kandydatów,
-- gdy brak symboli, jest nieaktywny.
+- po cofnięciu ponownie uruchamia lokalne wyszukiwanie kandydatów,
+- gdy brak symboli, jest nieaktywny,
+- automatyczne uzupełnienie można cofnąć jako jedną operację.
 
 ### Reset
 
 - czyści wszystkie pola planszy,
 - czyści historię undo,
-- czyści propozycję automatycznego uzupełnienia,
-- czyści wynik i confirmation chain,
-- zachowuje wybraną grę.
+- czyści odrzuconą propozycję automatycznego uzupełnienia,
+- czyści wynik dopasowania, prognozę i tabelę,
+- zachowuje wybraną grę,
+- po wykryciu duplikatu rozpoczyna całkowicie nowe wyszukiwanie.
 
 ## Layout
 
 ### Prezentacja
 
 - rozmiar planszy pochodzi z konfiguracji gry,
-- najczęstszy i domyślny rozmiar to 3 rzędy × 5 kolumn,
+- M1 używa 3 rzędów × 5 kolumn,
 - puste pole jest szarym kafelkiem,
 - każde pole ma stabilną pozycję `row_index` i `column_index`,
-- kolejność wprowadzania jest `row-major`.
+- kolejność wprowadzania i serializacji jest `row-major`.
 
 ### Stan danych
 
 Przykład dla 3 × 5:
 
 ```ts
-type BoardState = Array<SymbolId | null>; // długość 15, row-major
+type BoardState = Array<SymbolCode | null>; // długość 15, row-major
 ```
 
 Indeks komórki:
@@ -83,13 +111,13 @@ Kliknięcie symbolu w Selection:
 1. znajduje pierwszą pustą komórkę,
 2. wpisuje symbol,
 3. zapisuje operację w historii undo,
-4. uruchamia dopasowanie prefiksu.
+4. uruchamia lokalne dopasowanie prefiksu.
 
-Gdy plansza jest pełna, Selection może być nieaktywne do czasu Undo lub Reset.
+Gdy plansza jest pełna, Selection jest nieaktywne do czasu Undo lub Reset.
 
 ## Automatyczna propozycja
 
-Po każdej zmianie aplikacja wysyła bieżący prefiks do API.
+Po każdej zmianie aplikacja wyszukuje prefiks w lokalnym snapshotcie.
 
 ### Warunki otwarcia modala
 
@@ -109,9 +137,9 @@ Modal jest otwierany, gdy:
 ### Akceptuj
 
 - uzupełnia brakujące pola,
-- zapisuje operację pozwalającą cofnąć automatyczne uzupełnienie jako jeden krok,
-- ustawia jednoznaczny wynik,
-- w przyszłej fazie uruchamia target forecast.
+- zapisuje automatyczne uzupełnienie jako jeden krok undo,
+- uruchamia dokładne dopasowanie kompletnego layoutu,
+- uruchamia Target tylko wtedy, gdy pełne dopasowanie jest jednoznaczne.
 
 ### Zamknij
 
@@ -124,25 +152,28 @@ Modal jest otwierany, gdy:
 Dla pełnej planszy aplikacja obsługuje stany:
 
 - `unique` — dokładnie jedna pozycja sekwencji,
-- `ambiguous` — kilka pozycji ma identyczny layout,
+- `duplicate` — kilka pozycji ma identyczny layout,
 - `not_found` — brak layoutu,
-- `error` — błąd techniczny.
+- `local_data_error` — snapshot jest niekompletny albo uszkodzony.
 
 ### Unique
 
-Wyświetl:
+Wyświetl numer, np.:
 
 ```text
 Układ: 256 700
 ```
 
-### Ambiguous
+Następnie uruchom prognozę dla pełnego cyklu.
 
-- wyświetl liczbę kandydatów i ich numery, jeśli lista jest mała,
-- nie uruchamiaj target forecast,
-- poinformuj użytkownika, że musi podać następny layout,
-- zachowaj kandydatów jako confirmation chain,
-- po wprowadzeniu kolejnego layoutu dopasuj go do następników każdego kandydata.
+### Duplicate
+
+- wyświetl czytelny komunikat, że layout ma duplikat,
+- opcjonalnie wyświetl liczbę wystąpień i ich numery, jeżeli lista jest mała,
+- nie wybieraj arbitralnie żadnego `sequence_number`,
+- nie uruchamiaj Target,
+- wskaż procedurę: `Reset`, zmiana gry/układu w obserwowanym źródle i wprowadzenie kolejnego layoutu,
+- nie zachowuj kontekstu poprzednich kandydatów po Reset.
 
 ### Not found
 
@@ -152,49 +183,81 @@ Układ: 256 700
 
 ## Selection
 
-- lista zawiera około 10–12 symboli danej gry,
-- MVP używa etykiet `S1`, `S2`, ...,
-- docelowo używa obrazów symboli,
+- lista zawiera symbole danej gry,
+- M1 używa etykiet `S1`, `S2`, ...,
+- docelowo używa lokalnych obrazów symboli,
 - lista może przewijać się poziomo,
-- każdy kafelek ma dostępny tekst alternatywny/nazwę,
-- symbol jokera jest wizualnie oznaczony.
+- każdy kafelek ma nazwę dostępną dla czytnika ekranu,
+- joker jest wizualnie oznaczony.
 
 ## Target
 
-### MVP
+Sekcja jest aktywna wyłącznie dla jednoznacznego `sequence_number`.
 
-Sekcja wyświetla tylko stan dopasowania i numer układu. Nie liczy prognozy.
+### Zasady
 
-### Wersja docelowa
+- rozpoznany layout jest spinem 0 bez kosztu i payoutu,
+- pierwszy oceniany spin to następny layout w cyklicznej sekwencji,
+- każdy oceniany spin zwiększa koszt skumulowany o `spin_cost`,
+- każdy payout po drodze zwiększa `cumulative_payout`, także gdy wynik netto pozostaje ujemny,
+- `net_credits = cumulative_payout - cumulative_cost`,
+- wynik dodatni oznacza wyłącznie `net_credits > 0`,
+- analiza kończy się na layoucie bezpośrednio poprzedzającym spin 0,
+- dla `N` layoutów ocenianych jest `N - 1` spinów.
 
-Sekcja jest aktywna tylko dla jednoznacznego `sequence_number`. Pokazuje:
+### Tabela
 
-- punkt startowy,
-- koszt spinu,
-- limit analizowanych spinów,
-- pierwszy wynik dodatni,
-- tabelę kolejnych high-water marks,
-- stan końca sekwencji lub osiągnięcia limitu.
+Tabela jest umieszczona na dole ekranu, poniżej wprowadzania i podsumowania. Pokazuje każde dodatnie lokalne maksimum wyniku netto, nie tylko rekord globalny.
+
+Minimalne kolumny:
+
+- numer spinu względem spin 0,
+- `sequence_number` layoutu,
+- payout bieżącego spinu,
+- skumulowany payout,
+- skumulowany koszt,
+- wynik netto.
+
+Podczas płaskiego maksimum wybierany jest pierwszy spin. Wiersze są uporządkowane rosnąco według numeru spinu.
+
+Tabela może być długa, dlatego:
+
+- renderowanie listy jest wirtualizowane,
+- cały ekran przewija się pionowo jako jedna lista, a sekcje wejściowe są jej
+  nagłówkiem,
+- nie zagnieżdżaj pionowej listy wirtualizowanej w zwykłym `ScrollView`,
+- UI nie tworzy jednocześnie komponentu dla każdego wiersza,
+- obliczenia nie blokują trwale wątku interfejsu.
 
 ## Stany techniczne
 
-Każda sekcja komunikująca się z API obsługuje:
+Mobile obsługuje lokalnie:
 
-- loading,
-- empty,
-- validation error,
-- server error,
-- retry.
+- inicjalizację snapshotu,
+- pusty stan,
+- błąd walidacji wejścia,
+- uszkodzony lub niezgodny snapshot,
+- postęp dłuższego skanu,
+- anulowanie lub ponowienie obliczenia.
 
-## Kryteria akceptacyjne MVP
+Nie występują stany błędu serwera ani ponawianie połączenia sieciowego.
+
+## Kryteria akceptacyjne M1
 
 1. Użytkownik wybiera jedną z 3 gier.
-2. Plansza zmienia rozmiar zgodnie z konfiguracją gry.
-3. Symbole uzupełniają komórki w poprawnej kolejności.
-4. Undo usuwa ostatnią operację.
-5. Reset czyści layout i wynik.
-6. API zwraca liczbę kandydatów dla częściowego layoutu.
-7. Jeden kandydat otwiera modal propozycji.
-8. Pełny jednoznaczny layout pokazuje `sequence_number`.
-9. Pełny zduplikowany layout nie uruchamia targetu.
-10. UI działa na typowym ekranie Android bez przewijania poziomego całej strony.
+2. Każda gra ma planszę 3 × 5 i 1000 zamockowanych layoutów.
+3. Symbole uzupełniają komórki w kolejności `row-major`.
+4. Undo cofa ostatnią operację, a Reset czyści layout i wynik.
+5. Lokalne wyszukiwanie zwraca liczbę kandydatów dla częściowego layoutu.
+6. Jeden kandydat otwiera modal propozycji.
+7. Pełny jednoznaczny layout pokazuje `sequence_number`.
+8. Pełny zduplikowany layout pokazuje błąd, nie uruchamia Target i po Reset nie zachowuje kontekstu.
+9. Target ocenia dokładnie 999 spinów dla zbioru 1000 layoutów, z zawinięciem sekwencji.
+10. Koszt każdego spinu i wszystkie payouty po drodze są poprawnie kumulowane.
+11. Tabela zawiera dodatnie lokalne maksima, w tym późniejsze niższe maksimum; zero nie jest wynikiem dodatnim.
+12. Pierwszy element plateau jest wybierany jako wiersz maksimum.
+13. Tabela znajduje się na dole i jest płynnie przewijalna.
+14. APK działa bez sieci na Google Pixel 10 Pro XL i Samsung Galaxy S21 Ultra.
+15. UI nie wymaga poziomego przewijania całej strony.
+16. Aktualizacja APK z inną wersją danych używa nowego snapshotu.
+17. Finalny manifest APK nie zawiera uprawnienia `INTERNET`.

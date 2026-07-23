@@ -5,6 +5,7 @@ ai_docs/architecture/API_CONTRACT.md
 ai_docs/architecture/DATA_MODEL.md
 ai_docs/architecture/SYSTEM_ARCHITECTURE.md
 ai_docs/architecture/TECH_STACK.md
+ai_docs/delivery/MILESTONE_01_EXECUTION_PLAN.md
 ai_docs/delivery/MILESTONE_01_MOCKED_MOBILE.md
 ai_docs/delivery/ROADMAP.md
 ai_docs/process/AI_DRIVEN_DEVELOPMENT.md

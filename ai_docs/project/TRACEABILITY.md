@@ -1,37 +1,47 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 ---
 
 # Mapa śledzenia wymagań
 
-| Pierwotny obszar | Dokument źródła prawdy | Milestone |
+| Obszar | Dokument źródła prawdy | Milestone |
 |---|---|---|
-| Android jako główny klient | `requirements/MOBILE_APP.md` | M1 |
+| Android całkowicie offline | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md` | M1 |
+| Brak uprawnienia `INTERNET` w finalnym APK | `requirements/MOBILE_APP.md` | M1.6 |
+| Prywatny APK na 3–5 urządzeń | `requirements/MOBILE_APP.md` | M1, M8 |
+| Nowy APK aktywuje właściwy snapshot | `requirements/MOBILE_APP.md`, D-012 | M1.1, M1.6 |
 | Header: game, undo, reset | `requirements/MOBILE_APP.md` | M1 |
 | Plansza 3 × 5 i row-major | `requirements/MOBILE_APP.md` | M1 |
 | Selection 10–12 symboli | `requirements/MOBILE_APP.md` | M1 |
 | Modal jednego kandydata | `requirements/MOBILE_APP.md`, `requirements/ALGORITHMS.md` | M1 |
-| Exact layout lookup | `requirements/ALGORITHMS.md`, `architecture/API_CONTRACT.md` | M1 |
-| Powtarzające się layouty | `requirements/ALGORITHMS.md` | M1 |
-| Confirmation przez kolejny layout | `requirements/ALGORITHMS.md`, `architecture/API_CONTRACT.md` | M1 |
-| Admin gier i symboli | `requirements/ADMIN_APP.md` | M2 |
-| Wzorce wygranych | `requirements/ADMIN_APP.md`, `requirements/ALGORITHMS.md` | M2–M3 |
-| Joker | `requirements/ALGORITHMS.md`, Q-009 | M3 |
-| Sumowanie wygranych | `requirements/ALGORITHMS.md`, Q-010 | M3 |
-| Koszt spinu | `requirements/ALGORITHMS.md` | M4 |
-| Maksymalnie 100 000 pozycji | `requirements/ALGORITHMS.md` | M4 |
-| Tabela rosnących wyników | `requirements/ALGORITHMS.md`, Q-013 | M4 |
-| Ręczne dostarczenie danych | `delivery/ROADMAP.md` | M5 |
-| Zdjęcia z telefonu i perspektywa | `requirements/IMAGE_INGESTION.md` | M6 |
-| 9 layoutów na zdjęciu | `requirements/IMAGE_INGESTION.md`, Q-002/Q-016 | M6 |
-| OCR numeru pod layoutem | `requirements/IMAGE_INGESTION.md` | M6 |
-| Próbki symboli 10–20 | `requirements/IMAGE_INGESTION.md` | M6–M7 |
-| Manual review | `requirements/IMAGE_INGESTION.md`, `requirements/ADMIN_APP.md` | M7 |
-| Masowy import 500k | `requirements/IMAGE_INGESTION.md` | M8 |
-| Dostarczenie danych do mobile | Q-001/Q-018, `architecture/SYSTEM_ARCHITECTURE.md` | M9 |
-| Analiza aplikacji kolegi | `reverse_engineering/REFERENCE_APP_ANALYSIS.md` | opcjonalne |
+| Local exact/prefix lookup | `requirements/ALGORITHMS.md`, `architecture/DATA_MODEL.md` | M1 |
+| Duplikat bez confirmation chain | `requirements/ALGORITHMS.md`, D-008 | M1 |
+| Cykliczna sekwencja `N - 1` | `requirements/ALGORITHMS.md`, D-009 | M1 |
+| PAYLINE po jednym polu na kolumnę | `requirements/ADMIN_APP.md`, `requirements/ALGORITHMS.md` | M1–M2 |
+| Edytor i zakaz duplikatu payline | `requirements/ADMIN_APP.md` | M2 |
+| Joker | `requirements/ALGORITHMS.md` | M1 |
+| Sumowanie wszystkich prawidłowych linii | `requirements/ALGORITHMS.md` | M1 |
+| Payout symbol + długość | `requirements/ALGORITHMS.md`, `requirements/ADMIN_APP.md` | M1–M2 |
+| Spin 0 bez kosztu/payoutu | `requirements/ALGORITHMS.md` | M1 |
+| Koszt każdego ocenianego spinu | `requirements/ALGORITHMS.md` | M1 |
+| Kumulacja wszystkich payoutów po drodze | `requirements/ALGORITHMS.md` | M1 |
+| Dodatnie lokalne maksima i plateau | `requirements/ALGORITHMS.md`, D-009 | M1 |
+| Tabela Target na dole i wirtualizacja | `requirements/MOBILE_APP.md` | M1 |
+| Admin gier, symboli i reguł | `requirements/ADMIN_APP.md` | M2 |
+| PostgreSQL jako baza kanoniczna | `architecture/DATA_MODEL.md`, D-005 | M2 |
+| Precomputed payout i SQLite | `architecture/DATA_MODEL.md`, D-005 | M1, M3 |
+| Panel przygotowania Android release | `requirements/ADMIN_APP.md`, `architecture/API_CONTRACT.md` | M3 |
+| Ręczne dostarczenie danych | `delivery/ROADMAP.md` | M4 |
+| Zdjęcia z telefonu i perspektywa | `requirements/IMAGE_INGESTION.md` | M5 |
+| 9 layoutów na zdjęciu | `requirements/IMAGE_INGESTION.md` | M5 |
+| OCR numeru pod layoutem | `requirements/IMAGE_INGESTION.md` | M5 |
+| Około 100 próbek na symbol | `requirements/IMAGE_INGESTION.md` | M6 |
+| Manual review | `requirements/IMAGE_INGESTION.md`, `requirements/ADMIN_APP.md` | M6 |
+| Masowy wznawialny import | `requirements/IMAGE_INGESTION.md` | M7 |
+| Skala 500 000 layoutów na grę | `project/PROJECT_BRIEF.md`, `quality/TEST_STRATEGY.md` | M3, M7 |
+| Analiza aplikacji referencyjnej | `reverse_engineering/REFERENCE_APP_ANALYSIS.md`, Q-020 | opcjonalne |
 
 ## Reguła utrzymania
 
@@ -40,4 +50,4 @@ Przy dodaniu nowego wymagania:
 1. wpisz je do właściwego dokumentu źródła prawdy,
 2. wskaż milestone,
 3. dodaj lub zaktualizuj wiersz tej tabeli,
-4. nie traktuj samego wiersza w tej tabeli jako pełnej specyfikacji.
+4. nie traktuj samego wiersza jako pełnej specyfikacji.

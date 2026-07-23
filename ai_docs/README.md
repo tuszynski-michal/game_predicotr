@@ -1,7 +1,7 @@
 ---
 title: AI documentation index
 status: active
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 ---
 
 # Dokumentacja AI Driven Development
@@ -38,6 +38,7 @@ Dokumentacja dzieli produkt na niezależne obszary, dzięki czemu model AI może
 
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)
+- [Milestone 01 execution plan](delivery/MILESTONE_01_EXECUTION_PLAN.md)
 
 ### Proces i jakość
 
@@ -51,7 +52,7 @@ Dokumentacja dzieli produkt na niezależne obszary, dzięki czemu model AI może
 ### Dodatkowe materiały
 
 - [Analiza istniejącej aplikacji](reverse_engineering/REFERENCE_APP_ANALYSIS.md)
-- [Task 0001](tasks/0001-architecture-clarification.md)
+- [Task 0001](tasks/0001-architecture-clarification.md) — ukończone wyjaśnienie architektury.
 
 ## Zasada pojedynczego źródła prawdy
 

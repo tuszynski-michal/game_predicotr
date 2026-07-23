@@ -1,107 +1,107 @@
 ---
 title: Requirements review
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Analiza pierwotnych wymagań
 
 ## Ocena ogólna
 
-Opis dobrze definiuje wartość produktu, główny przepływ aplikacji mobilnej oraz kierunek etapowania. Nie jest jednak jeszcze gotową specyfikacją implementacyjną, ponieważ łączy wymagania produktu, pomysły techniczne, niepewne założenia i kilka sprzecznych wariantów algorytmu.
+Pierwotny opis dobrze definiował wartość produktu i główny przepływ, ale łączył wymagania, pomysły techniczne i nieustalone warianty algorytmu. Task 0001 zamknął pytania blokujące M1. Ten dokument zachowuje uzasadnienie najważniejszych korekt; obowiązujące szczegóły znajdują się w wymaganiach, architekturze i Decision Log.
 
-Dokumentacja została przeorganizowana tak, aby Codex mógł pracować po jednym ograniczonym obszarze, bez samodzielnego dopowiadania zasad gry.
+## Mocne strony pierwotnego opisu
 
-## Mocne strony wymagań
-
-- jasny podstawowy przepływ: wybór gry → wprowadzenie layoutu → identyfikacja pozycji → target,
-- określona kolejność uzupełniania `row-major`,
+- jasny przepływ: wybór gry → wprowadzenie layoutu → identyfikacja pozycji → Target,
+- określona kolejność `row-major`,
 - zauważony problem zduplikowanych layoutów,
-- rozdzielenie aplikacji użytkownika i modułu administracyjnego,
-- zaplanowane etapowanie od mocków do importu zdjęć,
-- świadomość, że kolejność rekordów jest krytyczna,
-- założenie ręcznej obsługi przypadków o niskiej pewności rozpoznania.
+- rozdzielenie mobile i administracji,
+- etapowanie od mocków do zdjęć,
+- kolejność rekordów traktowana jako domenowa,
+- ręczna obsługa przypadków o niskiej pewności obrazu.
 
-## Problemy wymagające korekty
+## Rozstrzygnięte korekty
 
-### 1. Trzy algorytmy były opisane jako jeden
+### 1. Trzy algorytmy pozostają oddzielne
 
-Należy utrzymywać osobno:
+1. `Layout matching` odnajduje pozycję lub duplikat.
+2. `Payout evaluation` liczy wypłatę pojedynczego layoutu podczas builda.
+3. `Target forecast` skanuje lokalne gotowe payouty, koszty i maksima.
 
-1. `Layout matching` — odnalezienie pozycji sekwencji.
-2. `Payout evaluation` — policzenie wypłat pojedynczego layoutu.
-3. `Target forecast` — przejście przez kolejne layouty, koszty i skumulowany wynik.
+Każdy moduł ma osobne testy i nie zależy od HTTP ani UI.
 
-Dzięki temu każdy moduł można testować niezależnie.
+### 2. `sequence_number` nie jest kluczem technicznym
 
-### 2. Id rekordu i numer układu nie mogą być tym samym
+Numer layoutu:
 
-Automatyczny klucz bazy służy technicznie. Widoczny numer układu musi być osobnym `sequence_number`, ponieważ:
+- jest częścią cyklicznej kolejności,
+- jest ciągły bez luk w opublikowanej wersji,
+- jest unikalny w dataset version,
+- pozostaje niezależny od `id` bazy.
 
-- może pochodzić ze zdjęcia,
-- jest częścią kolejności domenowej,
-- może wymagać walidacji luk,
-- baza może mieć kilka wersji datasetu.
+### 3. Duplikat nie jest rozstrzygany łańcuchem
 
-### 3. Duplikat wymaga kontekstu sekwencji
+Pierwotna rekomendacja confirmation chain została odrzucona przez właściciela. Duplikat blokuje Target, a Reset rozpoczyna nowe wyszukiwanie następnego layoutu. Nie powstają tokeny ani stan serwerowy.
 
-Samo pokazanie komunikatu nie rozwiązuje problemu. System musi przechować listę kandydatów i porównać kolejną planszę z następnikiem każdego kandydata. Proces może wymagać więcej niż jednego następnego layoutu.
+### 4. Skala jest znana
 
-### 4. Skala może być dziewięć razy większa
+`500 000` oznacza layouty na grę, nie zdjęcia. Przy około 15 grach projektuje się około 7,5 miliona rekordów. Zdjęcia nie trafiają do mobile.
 
-Wymagania wspominają zarówno o około 500 000 rekordów na grę, jak i o 500 000 zdjęć z 9 układami. To mogą być całkowicie różne skale: 500 000 albo 4 500 000 layoutów. Ta odpowiedź wpływa na import, czas, storage i benchmarki.
+### 5. PostgreSQL i SQLite pełnią różne role
 
-### 5. „Lekka baza” nie powinna oznaczać automatycznie SQLite
+- PostgreSQL jest lokalnym kanonicznym źródłem administracyjnym.
+- SQLite jest niezmiennym snapshotem generowanym do APK.
 
-Przy milionach danych, równoległym adminie i workerze, stagingu oraz publikacji danych ważniejsza jest integralność i indeksowanie niż minimalny instalator. Dlatego jako źródło prawdy zaproponowano PostgreSQL. SQLite pozostaje sensownym formatem przyszłego snapshotu offline.
+Nie ma synchronizacji ani mobilnego połączenia z backendem.
 
-### 6. Dwa różne modele wygranych
+### 6. Istnieje tylko jeden typ wzorca
 
-Opis zawiera:
+Jedynym wzorcem jest konkretna `PAYLINE` wskazująca jedno pole w każdej kolumnie. Nie występuje `CONSECUTIVE_COLUMNS_ANY_ROW`.
 
-- konkretną linię pozycji, np. V,
-- wystąpienie symbolu w kolejnych kolumnach bez znaczenia rzędu.
+### 7. Payout zależy od symbolu i długości
 
-To nie jest jeden wzorzec. Model danych musi obsługiwać osobne `pattern_type`.
+Wypłata:
 
-### 7. Wartość nie należy wyłącznie do symbolu ani wyłącznie do layoutu
+- używa ciągu co najmniej 3 kolejnych kolumn bez luki,
+- może zacząć się w dowolnej kolumnie,
+- dla jednego ciągu wybiera najdłuższą długość,
+- uwzględnia jokera według niezależnej interpretacji payline,
+- sumuje wszystkie prawidłowe pary payline/symbol.
 
-Najbardziej elastyczna interpretacja to reguła wypłaty zależna od:
+### 8. Target używa wyniku netto
 
-- symbolu,
-- liczby kolejnych kolumn,
-- typu lub konkretnego wzorca,
-- reguł jokera.
+- spin 0 nie kosztuje i nie daje payoutu,
+- każdy kolejny spin dodaje swój payout i koszt,
+- payouty kumulują się także przed wyjściem na plus,
+- pełny cykl ma `N - 1` spinów,
+- tabela pokazuje dodatnie lokalne maksima, nie pierwszy plus ani rekordy globalne.
 
-Pojedynczy layout może wygenerować kilka wygranych, które następnie są sumowane według ustalonych zasad.
+### 9. Import zdjęć jest osobnym workerem
 
-### 8. Import zdjęć musi być osobnym workerem
+Przetwarzanie:
 
-Przetwarzanie setek tysięcy zdjęć:
+- jest wznawialne,
+- zapisuje postęp,
+- używa stagingu i manual review,
+- nie działa w jednym requestcie HTTP,
+- ma wymienne adaptery geometrii, OCR i klasyfikacji.
 
-- nie może działać w jednym requestcie HTTP,
-- musi zapisywać postęp,
-- musi obsługiwać restart,
-- musi tworzyć review queue,
-- powinno używać stagingu przed publikacją.
+### 10. Prototyp obrazu wymaga większego zbioru
 
-### 9. Automatyczne „odkrycie wszystkich symboli” jest ryzykowne
+Trzy przekazane zdjęcia wystarczają do prototypu geometrii. Finalna walidacja wymaga 20–100 zdjęć i około 100 wycinków na symbol, z podziałem według zdjęcia źródłowego.
 
-Clustering może podpowiadać grupy podobnych kafelków, ale bez oznaczonych przykładów nie gwarantuje poprawnego zestawu symboli. Rozsądny pierwszy wariant to 10–20 oznaczonych próbek na symbol i klasyfikacja z confidence.
+### 11. Mobile jest offline od M1
 
-### 10. Mobile deployment jest nieokreślony
+M1 nie jest klientem lokalnego API. Jest instalowalnym APK z dołączonym SQLite, pełnym matching i Target. Zmiana danych oznacza nowe wydanie.
 
-Sposób działania aplikacji zależy od tego, czy ma być online, offline czy hybrydowa. MVP można szybko zbudować jako klient API w lokalnej sieci, ale nie należy uznawać tego za finalną decyzję bez potwierdzenia.
+## Zachowane bramki etapowania
 
-## Zmiany w etapowaniu
+- działający offline mock M1 przed panelem,
+- panel i wersje danych przed zautomatyzowanym wydaniem,
+- ręczny import przed automatycznym OCR,
+- prototyp obrazu przed masowym workerem,
+- benchmark 500 000 layoutów przed zatwierdzeniem docelowej wydajności.
 
-Pierwotne etapy zostały uzupełnione o dwie ważne bramki:
+## Rekomendacja wykonawcza
 
-- ręczny import i walidacja danych przed automatycznym OCR,
-- prototyp image ingestion na małym reprezentatywnym zbiorze przed masowym workerem.
-
-Pozwala to sprawdzić poprawność domeny bez czekania na najtrudniejszą część computer vision.
-
-## Najważniejsza rekomendacja wykonawcza
-
-Nie zlecaj Codexowi jednego promptu „stwórz aplikację”. Najpierw zamknij Task 0001, potem generuj zadania dla Milestone 01 i wykonuj je pojedynczo. Dokument `AGENTS.md` wymusza aktualizację stanu oraz dokumentacji po każdej iteracji.
+Implementację należy prowadzić małymi zadaniami z jawnym zakresem. Po Task 0001 następnym zalecanym zadaniem jest bootstrap fundamentu offline M1, ale jego utworzenie i wykonanie czeka na osobne polecenie właściciela.

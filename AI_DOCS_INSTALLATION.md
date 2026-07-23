@@ -28,6 +28,9 @@ Nie twórz jeszcze kodu. Przeanalizuj odpowiedzi na pytania, wskaż sprzecznośc
 Po zamknięciu pytań:
 
 ```text
-Przeczytaj AGENTS.md, ai_docs/process/CURRENT_STATE.md i ai_docs/delivery/MILESTONE_01_MOCKED_MOBILE.md.
-Utwórz plan realizacji pierwszego milestone'u jako nowe zadania w ai_docs/tasks/. Nie implementuj więcej niż jedno zadanie jednocześnie.
+Przeczytaj AGENTS.md, ai_docs/process/CURRENT_STATE.md,
+ai_docs/delivery/MILESTONE_01_MOCKED_MOBILE.md oraz
+ai_docs/delivery/MILESTONE_01_EXECUTION_PLAN.md.
+Utwórz wyłącznie pierwsze zadanie wskazane w planie i nie rozpoczynaj kolejnego
+podetapu przed przejściem jego bramki jakości.
 ```

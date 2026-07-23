@@ -1,12 +1,12 @@
 ---
 title: Algorithms specification
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Specyfikacja algorytmów
 
-Logikę należy podzielić na trzy niezależne algorytmy. Każdy ma być czystym modułem domenowym z osobnymi testami.
+Logika jest podzielona na niezależne, deterministyczne moduły domenowe. Każdy moduł ma czyste wejścia i wyjścia oraz osobne testy. Dostęp do SQLite, UI i zadania administracyjne są adapterami poza logiką domenową.
 
 ## A. Layout matching
 
@@ -14,47 +14,45 @@ Logikę należy podzielić na trzy niezależne algorytmy. Każdy ma być czystym
 
 ```text
 game_id
-symbols: [symbol_id | null] w kolejności row-major
-confirmation_chain: opcjonalna lista poprzednich pełnych layoutów/kandydatów
+symbols: [symbol_code | null] w kolejności row-major
+mobile_release_version
 ```
 
 ### Walidacja
 
 - długość tablicy odpowiada `rows * columns`,
 - niepuste symbole należą do gry,
-- po pierwszym `null` w MVP nie może wystąpić kolejny niepusty symbol, ponieważ wprowadzanie jest prefiksowe,
-- gra jest aktywna.
+- po pierwszym `null` nie może wystąpić niepusty symbol, ponieważ wprowadzanie jest prefiksowe,
+- gra i snapshot są aktywne oraz zgodne wersją,
+- sygnatura używa tej samej stałej szerokości kodów co etap generowania wydania.
 
 ### Częściowy layout
 
 1. Zamień wprowadzone symbole na prefiks sygnatury.
-2. Znajdź pozycje sekwencji, których sygnatura zaczyna się od prefiksu.
+2. Wyszukaj lokalnie pozycje, których sygnatura zaczyna się od prefiksu.
 3. Zwróć:
    - `candidate_count`,
-   - pełny layout tylko wtedy, gdy istnieje dokładnie jeden kandydat,
+   - pełny layout wyłącznie przy dokładnie jednym kandydacie,
    - `sequence_number` pojedynczego kandydata.
 
 ### Pełny layout
 
 1. Wylicz pełną sygnaturę.
-2. Znajdź wszystkie rekordy o `(game_id, signature)`.
+2. Znajdź wszystkie rekordy o tej sygnaturze w grze i wersji datasetu.
 3. Zwróć:
    - `not_found` dla 0 rekordów,
    - `unique` dla 1 rekordu,
-   - `ambiguous` dla więcej niż 1 rekordu.
-
-### Rozstrzyganie duplikatu
-
-Dla kandydatów `C = [c1, c2, ...]` i kolejnego podanego layoutu:
-
-1. dla każdego kandydata pobierz layout o `sequence_number = candidate.sequence_number + offset`,
-2. porównaj z kolejnym layoutem użytkownika,
-3. zachowaj tylko zgodne kandydaty,
-4. zwiększ `offset`, jeżeli nadal istnieje więcej niż jeden kandydat,
-5. po jednym kandydacie zwróć jego pierwotną pozycję oraz długość confirmation chain,
-6. przy 0 kandydatach zgłoś sprzeczność danych lub błędnie podany następny layout.
+   - `duplicate` dla więcej niż 1 rekordu.
 
 Nie wolno wybierać pierwszego rekordu tylko dlatego, że ma najniższy numer.
+
+### Obsługa duplikatu
+
+- wynik zawiera liczbę wystąpień oraz numery, jeżeli ich zwrócenie mieści się w limicie diagnostycznym,
+- prognoza nie jest uruchamiana,
+- nie powstaje token ani łańcuch potwierdzania,
+- Reset usuwa wynik i wszystkie kandydatury,
+- kolejny layout podany po Reset jest całkowicie nowym wyszukiwaniem i, jeżeli jest jednoznaczny, staje się nowym spinem 0.
 
 ## B. Payout evaluation
 
@@ -63,7 +61,8 @@ Nie wolno wybierać pierwszego rekordu tylko dlatego, że ma najniższy numer.
 ```text
 game configuration
 pełny layout
-aktywne patterns
+aktywna rules_version
+aktywne paylines
 aktywne payout rules
 ```
 
@@ -72,117 +71,203 @@ aktywne payout rules
 ```text
 total_payout
 matches[]:
-  symbol_id
-  pattern_id lub pattern_type
-  matched_columns
+  symbol_code
+  payline_id
+  start_column
+  matched_length
   matched_cells
+  joker_cells
   payout
+  interpretation
 ```
 
-### PAYLINE
+### Payline
 
-Payline jest tablicą indeksów rzędów dla kolejnych kolumn, np.:
+`row_path` ma dokładnie jeden indeks wiersza dla każdej kolumny:
 
 ```json
 {
-  "type": "PAYLINE",
   "row_path": [0, 1, 2, 1, 0]
 }
 ```
 
-Algorytm czyta symbole od lewej do prawej w wyznaczonych komórkach. Dopasowanie kończy się przy pierwszym symbolu, którego nie można uzgodnić z symbolem bazowym z uwzględnieniem jokera.
+Walidacja odrzuca:
 
-### CONSECUTIVE_COLUMNS_ANY_ROW
+- długość inną niż liczba kolumn,
+- indeks wiersza spoza planszy,
+- duplikat identycznego `row_path` w tej samej wersji reguł.
 
-Dla każdej kolumny sprawdzane jest wystąpienie symbolu w dowolnym rzędzie. Semantyka wielu wystąpień w jednej kolumnie pozostaje otwartym pytaniem Q-008.
+UI administracyjne pokazuje numery wierszy od 1, ale granica API normalizuje je do indeksów od 0.
+
+### Zwycięski ciąg
+
+Dla każdej pary `(payline, zwykły symbol)`:
+
+1. odczytaj po jednej komórce z kolejnych kolumn,
+2. traktuj komórkę jako zgodną, gdy zawiera oceniany symbol albo joker,
+3. znajdź nieprzerwane ciągi zgodnych komórek,
+4. odrzuć ciąg krótszy niż 3 albo złożony wyłącznie z jokerów,
+5. wybierz długość z najwyższą zdefiniowaną wypłatą dla tego ciągu,
+6. zapisz użyte komórki i interpretację jokerów.
+
+Ciąg:
+
+- może rozpoczynać się w dowolnej kolumnie,
+- nie może przeskakiwać nad niezgodną kolumną,
+- dla tego samego symbolu, payline i ciągłego wystąpienia nalicza wyłącznie najdłuższą pasującą długość.
+
+Przykład dla `row_path = [2,3,1,1,2]` w numeracji UI:
+
+- kolumny `[x,3,1,1,x]` tworzą ciąg długości 3,
+- `[2,x,1,1,x]` nie tworzy ciągu, ponieważ występuje luka.
+
+M1 ma 5 kolumn, więc na jednej payline nie wystąpią dwa rozłączne ciągi długości co najmniej 3. Zasady dla szerszej planszy z kilkoma takimi ciągami wymagają osobnej decyzji przed publikacją tej gry.
 
 ### Joker
 
-Do czasu zamknięcia Q-009 implementacja produkcyjna jokera jest zablokowana. MVP może mieć jawnie ograniczoną regułę testową:
-
-- joker zastępuje zwykły symbol,
-- nie tworzy samodzielnej wygranej,
-- nie posiada własnej wypłaty,
-- przy niejednoznaczności wybierana jest interpretacja dająca najwyższą wypłatę, ale wynik zawiera ślad interpretacji.
+- zastępuje dowolny zwykły symbol,
+- nie ma własnej reguły payoutu,
+- ciąg złożony wyłącznie z jokerów nie wygrywa,
+- dla jednej pary `(payline, symbol)` wybierana jest interpretacja o najwyższym payout,
+- każda payline jest oceniana niezależnie,
+- ta sama komórka jokera może reprezentować `S1` na jednej payline i `S3` na innej,
+- wynik zawiera ślad interpretacji.
 
 ### Sumowanie
 
-Domyślna propozycja:
+- sumowane są wszystkie prawidłowe pary `(payline, symbol)`,
+- ten sam symbol na dwóch różnych paylines jest liczony dwa razy,
+- komórka może uczestniczyć w wielu wzorcach i nie jest „zużywana”,
+- wspólne komórki i jokery nie blokują innych wypłat,
+- dla jednej pary i tego samego ciągu nie sumuje się wartości za długości 3, 4 i 5; wybierana jest wartość najdłuższego dopasowania.
 
-- różne symbole i różne paylines sumują się,
-- dla tego samego symbolu i tej samej ścieżki liczy się tylko najwyższa osiągnięta długość,
-- wynik zawiera listę wszystkich naliczonych pozycji, aby dało się go audytować.
+### Precomputing
+
+Podczas przygotowania wydania:
+
+1. oblicz payout każdego layoutu dla konkretnej `dataset_version`, `rules_version` i `algorithm_version`,
+2. przerwij publikację przy brakującej lub sprzecznej regule,
+3. zapisz gotowy `total_payout` w mobilnym snapshotcie,
+4. zachowaj możliwość odtworzenia audytu w danych administracyjnych lub raporcie builda.
+
+Zmiana layoutów, paylines, symboli, kosztu albo wypłat wymaga ponownego obliczenia i nowego wydania.
 
 ## C. Target forecast
 
 ### Warunki startu
 
-- `sequence_number` jest jednoznaczny,
-- gra ma koszt spinu,
-- dane kolejnych layoutów są dostępne,
-- reguły wypłat są kompletne.
+- pełny layout ma dokładnie jeden `sequence_number`,
+- snapshot ma ciągłe numery od 1 do `layout_count`,
+- gra ma nieujemny, jawnie skonfigurowany koszt spinu,
+- każdy layout ma obliczony payout dla wersji wydania.
 
-### Domyślna interpretacja
+### Zakres pełnego cyklu
 
-Rozpoznany layout jest punktem startowym `spin 0`. Pierwszy analizowany layout to `sequence_number + 1`.
-
-Dla `n` od 1 do `limit`:
+Rozpoznany layout jest spinem 0 i nie jest oceniany. Dla datasetu z `N` layoutami algorytm ocenia dokładnie `N - 1` kolejnych pozycji:
 
 ```text
-next_sequence_number = start_sequence_number + n
+spin 1: pozycja bezpośrednio po spinie 0
+...
+spin N - 1: pozycja bezpośrednio przed spinem 0
+```
+
+Numer pozycji zawija się cyklicznie z `N` do `1`. Spin 0 nie jest oceniany ponownie.
+
+### Kumulacja
+
+Ustaw:
+
+```text
+cumulative_payout = 0
+cumulative_cost = 0
+net[0] = 0
+```
+
+Dla każdego ocenianego spinu `n`:
+
+```text
+sequence_number = ((start_sequence_number - 1 + n) mod N) + 1
+payout[n] = precomputed_payout[sequence_number]
+cumulative_payout += payout[n]
 cumulative_cost += spin_cost
-payout = evaluate(layout[next_sequence_number])
-cumulative_payout += payout
-net_credits = cumulative_payout - cumulative_cost
+net[n] = cumulative_payout - cumulative_cost
 ```
 
-### Rekordy tabeli
+Każdy payout jest dodawany do całości, również gdy nie wystarcza do wyjścia na plus. Nie odejmuje się wygranej ani nie zeruje wyniku po słabym spinie.
 
-Tabela skrócona zawiera rekord, gdy:
+Przykład: po 100 ocenionych spinach o koszcie 10, przy łącznym payoucie 900:
 
 ```text
-net_credits > 0 AND net_credits > best_positive_net_so_far
+cumulative_cost = 1000
+cumulative_payout = 900
+net = -100
 ```
 
-To oznacza, że pokazujemy pierwszy wynik dodatni oraz każdy kolejny nowy rekord dodatni.
+Taki punkt nie jest dodatni i nie trafia do tabeli.
 
-### Przykład
+### Dodatnie lokalne maksimum
 
-Przy koszcie 10:
+Tabela nie pokazuje każdego dodatniego spinu ani wyłącznie nowych rekordów globalnych.
 
-| Spin | Payout | Cumulative cost | Cumulative payout | Net | Pokazać |
-|---:|---:|---:|---:|---:|---|
-| 1 | 0 | 10 | 0 | -10 | nie |
-| 2 | 30 | 20 | 30 | 10 | tak |
-| 3 | 0 | 30 | 30 | 0 | nie |
-| 4 | 50 | 40 | 80 | 40 | tak |
-| 5 | 0 | 50 | 80 | 30 | nie |
-| 6 | 30 | 60 | 110 | 50 | tak |
+Lokalny szczyt jest określany na przebiegu `net[1..N-1]`:
 
-### Zatrzymanie
+1. znajdź odcinek, na którym wynik wzrósł ponad wartość poprzedzającą,
+2. jeżeli po wzroście występuje plateau, traktuj całe plateau jako jeden szczyt,
+3. zapisz pierwszy spin plateau, gdy po nim wynik spada albo odcinek kończy się na granicy pełnego cyklu,
+4. zapisz punkt tylko wtedy, gdy jego `net > 0`,
+5. po spadku szukaj kolejnego lokalnego szczytu niezależnie od wysokości poprzedniego.
 
-Algorytm kończy się, gdy:
+Przykład:
 
-- osiągnięto limit, domyślnie 100 000,
-- osiągnięto koniec sekwencji, jeżeli sekwencja nie jest cykliczna,
-- wykryto brak layoutu w wymaganym numerze,
-- przerwano operację.
+```text
+net: 5, 10, 15, 25, 20
+wynik tabeli: pierwszy spin z wartością 25
+```
+
+```text
+net: 10, 25, 25, 25, 20
+wynik tabeli: pierwszy spin z wartością 25
+```
+
+Późniejszy lokalny szczyt 18 jest pokazywany nawet wtedy, gdy wcześniej wystąpił szczyt 25.
+
+### Wyjście
+
+```text
+start_sequence_number
+evaluated_spin_count = layout_count - 1
+spin_cost
+dataset_version
+rules_version
+algorithm_version
+positive_local_peaks[]:
+  spin_number
+  sequence_number
+  spin_payout
+  cumulative_payout
+  cumulative_cost
+  net_credits
+```
+
+Wiersze są uporządkowane rosnąco według `spin_number`.
 
 ### Wydajność
 
-- nie wykonuj jednego zapytania SQL na każdy spin,
-- pobieraj layouty zakresami lub strumieniem,
-- obliczaj wypłaty w procesie backendu,
-- rozważ precomputing payout per layout dopiero po pomiarach i ustabilizowaniu reguł,
-- wynik ma być deterministyczny dla tej samej wersji danych i reguł.
+- mobile skanuje lokalnie gotowe payouty, bez oceny reguł dla każdego spinu,
+- nie wykonuje osobnego otwarcia ani przygotowania zapytania SQL na każdy layout,
+- przetwarza dane strumieniowo lub partiami i nie ładuje całych rekordów domenowych do UI,
+- długie obliczenie można przenieść poza główny wątek JS po pomiarach,
+- tabela używa wirtualizacji,
+- wynik jest deterministyczny dla tej samej wersji wydania.
 
 ## Wersjonowanie algorytmu
 
-Wynik prognozy powinien zawierać:
+Każdy raport przygotowania wydania i wynik diagnostyczny zawiera:
 
+- `mobile_release_version`,
 - `dataset_version`,
 - `rules_version`,
 - `algorithm_version`,
-- `calculated_at`.
+- checksum snapshotu.
 
-Pozwala to odtworzyć wynik po zmianie reguł.
+Pozwala to odtworzyć wynik po zmianie danych lub reguł.

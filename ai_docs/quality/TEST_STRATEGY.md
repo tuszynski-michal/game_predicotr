@@ -1,16 +1,16 @@
 ---
 title: Test strategy
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Strategia testów
 
 ## Zasada
 
-Największe ryzyko znajduje się w logice domenowej i integralności kolejności, dlatego testy algorytmów są ważniejsze niż snapshoty UI.
+Największe ryzyko znajduje się w logice domenowej, integralności kolejności, generowaniu wydania i wydajności offline. Testy algorytmów i danych są ważniejsze niż rozbudowane snapshoty UI.
 
-## Backend unit tests
+## Domain unit tests
 
 ### Matching
 
@@ -20,55 +20,92 @@ Największe ryzyko znajduje się w logice domenowej i integralności kolejności
 - prefiks z wieloma kandydatami,
 - exact unique,
 - exact duplicate,
+- duplikat nie wybiera najniższego numeru,
+- Reset usuwa wynik duplikatu,
+- kolejne wyszukiwanie po Reset nie ma starego kontekstu,
 - nieprawidłowy symbol,
 - nieprawidłowa długość tablicy,
-- confirmation chain rozstrzygnięty po 1 i kilku layoutach,
-- confirmation chain kończący się 0 kandydatów.
+- nieprefiksowy układ z `null`,
+- poprawność kodowania stałoszerokiej sygnatury.
 
 ### Payouts
 
-Po wdrożeniu M3:
-
-- linia prosta,
-- V,
-- długość 2/3/4/5,
-- przerwanie dopasowania,
-- joker na początku/w środku/końcu,
+- pozioma payline i V,
+- ciąg rozpoczynający się w kolumnie 1, 2 i 3,
+- długość 2 nie wygrywa,
+- długości 3/4/5,
+- długość 5 nie sumuje wypłat 3 i 4,
+- luka przerywa dopasowanie,
+- joker na początku, w środku i na końcu,
+- ciąg samych jokerów nie wygrywa,
+- wybór najbardziej korzystnej interpretacji,
+- jeden joker interpretowany różnie na różnych paylines,
 - kilka symboli i kilka linii,
-- brak podwójnego naliczania,
-- audytowalne matched cells.
+- wspólna komórka liczona na obu liniach,
+- identyczna payline odrzucona,
+- audyt zawiera komórki i interpretacje.
 
 ### Forecast
 
-Po wdrożeniu M4:
-
-- pierwszy wynik dodatni,
-- spadek po dodatnim wyniku,
-- kolejny high-water mark,
+- spin 0 bez kosztu i payoutu,
+- pierwszy oceniany layout jest następnikiem,
+- zawinięcie z końca do początku,
+- dokładnie `N - 1` ocenionych spinów,
+- wszystkie payouty po drodze są kumulowane,
+- koszt jest dodawany dla każdego ocenionego spinu,
+- `net = cumulative_payout - cumulative_cost`,
+- zero nie jest dodatnie,
 - brak dodatniego wyniku,
-- koniec sekwencji,
-- limit 100 000,
-- brak numeru pośrodku zakresu,
+- jeden dodatni lokalny szczyt,
+- późniejszy lokalny szczyt niższy od poprzedniego,
+- rosnący odcinek zapisuje tylko końcowy szczyt,
+- plateau zapisuje pierwszy spin,
+- szczyt na granicy końca pełnego cyklu,
+- brak numeru pośrodku datasetu powoduje błąd integralności, nie częściowy wynik,
 - deterministyczny wynik.
 
-## Repository/integration tests
+## SQLite snapshot tests
 
-Uruchamiane na testowym PostgreSQL:
+- wymagane metadata istnieją,
+- wersja schematu jest obsługiwana,
+- liczba gier i layoutów zgadza się z manifestem,
+- numery sekwencji są ciągłe,
+- duplikaty sygnatur są dozwolone,
+- exact lookup zwraca 0/1/wiele,
+- prefix lookup korzysta z poprawnej semantyki stałej szerokości,
+- cykliczny odczyt zwraca właściwą kolejność,
+- każdy layout ma nieujemny payout,
+- uszkodzona lub niezgodna baza daje `local_data_error`,
+- generator snapshotu jest deterministyczny dla tych samych wejść.
 
-- unikalność sequence_number,
-- dozwolone duplikaty signature,
-- wydajne exact lookup,
-- transakcja publikacji datasetu,
-- idempotentny seeder,
-- staging nie jest widoczny dla publicznego API.
+## PostgreSQL repository/integration tests
 
-## API tests
+Od M2, na testowym PostgreSQL:
+
+- unikalność i ciągłość `sequence_number`,
+- dozwolone duplikaty `signature`,
+- walidacja długości `row_path`,
+- zakaz duplikatu payline,
+- zakaz payout rule dla jokera,
+- zgodność wymiarów dataset/rules,
+- niezmienność opublikowanej wersji,
+- idempotentny import,
+- staging nie trafia do wydania,
+- transakcja publikacji,
+- zmiany schematu wyłącznie przez Alembic.
+
+## Admin API tests
 
 - poprawne statusy HTTP,
-- schema odpowiedzi zgodna z OpenAPI,
+- schema zgodna z OpenAPI,
 - mapowanie błędów domenowych,
-- brak przecieku wewnętrznych stack trace,
-- limit rozmiaru wejścia.
+- brak wewnętrznych stack trace,
+- walidacja rozmiaru wejścia,
+- typowane zlecanie jobs,
+- niepełny lub nieudany build nie daje statusu `ready`,
+- klient TypeScript generuje się bez ręcznych rozbieżności.
+
+Nie tworzymy testów endpointów matching/forecast dla mobile, ponieważ takie endpointy nie istnieją.
 
 ## Mobile tests
 
@@ -86,42 +123,75 @@ Uruchamiane na testowym PostgreSQL:
 
 - kolejność komórek,
 - disabled states,
-- modal accept/close,
-- loading/error/retry,
-- ambiguous message,
-- target hidden for ambiguous.
+- modal accept/close bez ponownego otwierania dla tego samego prefiksu,
+- stan inicjalizacji i błędu lokalnych danych,
+- komunikat duplicate,
+- Target ukryty dla duplicate,
+- postęp długiego skanu,
+- tabela na dole,
+- wirtualizacja i stabilne klucze wierszy.
 
-### E2E smoke
+### Device smoke
 
-Na późniejszym etapie jeden stabilny scenariusz na emulatorze lub urządzeniu. Nie budujemy rozbudowanej automatyzacji E2E przed ustabilizowaniem UI.
+M1 wymaga testu na:
+
+- Google Pixel 10 Pro XL,
+- Samsung Galaxy S21 Ultra.
+
+Scenariusz działa w trybie samolotowym i po ponownym uruchomieniu aplikacji. E2E automatyzujemy dopiero po ustabilizowaniu UI; manualny protokół urządzenia jest obowiązkowy wcześniej.
+
+Finalne APK M1 przechodzi również statyczną kontrolę manifestu potwierdzającą
+brak uprawnienia `INTERNET`.
+
+## Release pipeline tests
+
+- ta sama wersja wejścia tworzy ten sam logiczny snapshot,
+- manifest zawiera wszystkie wybrane wersje,
+- payouty są obliczone przed zapisem,
+- checksum snapshotu i APK jest zapisana,
+- błędna walidacja przerywa workflow,
+- anulowanie nie publikuje częściowego artefaktu,
+- wznowienie nie dubluje wyników,
+- poprzednie wydanie nie jest nadpisywane,
+- gotowe APK zawiera wskazany snapshot,
+- instalacja nowego APK nad starszą wersją aktywuje nowy snapshot,
+- aplikacja nie otwiera starej kopii bazy po zmianie release version/checksum,
+- signing key pozostaje poza repozytorium i jest używany konsekwentnie dla
+  aktualizacji testowych.
 
 ## Image pipeline tests
 
-- golden images z oczekiwanymi bounding boxes,
+- golden images z oczekiwanymi narożnikami/bounding boxes,
 - zdjęcia obrócone,
-- perspektywa,
-- słabe światło,
+- perspektywa i krzywizna ekranu,
+- moiré, refleksy, słabe światło i rozmycie,
 - brak jednego layoutu,
-- OCR z błędem,
+- OCR z błędem lub nieciągłą numeracją,
 - błędna klasyfikacja trafia do review,
-- wznowienie po przerwaniu,
-- idempotencja.
+- podział train/validation według zdjęcia źródłowego,
+- lokalne wagi bez pobierania w runtime,
+- wznowienie i idempotencja.
 
 ## Test data
 
 - stałe seedy,
-- jawne przypadki duplikatów,
+- jawne przypadki 5–10 duplikatów treści na grę,
 - mały fixture do unit tests,
-- średni dataset do integration,
-- reprezentatywny benchmark co najmniej 500 000 layoutów przed M4/M8.
+- M1: 3 × 1000 layoutów,
+- benchmark: co najmniej 500 000 layoutów w jednej grze,
+- test rozmiaru dla estymacji 12–15 gier,
+- golden przebiegi payout/forecast wyliczone niezależnie od kodu mobile.
 
-## Performance budgets — propozycja
+## Robocze budżety wydajności
 
-Do zatwierdzenia po pierwszym benchmarku:
+Do zatwierdzenia po benchmarku na słabszym z urządzeń testowych:
 
-- exact match p95 < 200 ms w środowisku lokalnym,
-- partial match p95 < 300 ms dla typowego prefiksu,
-- forecast 100 000 layoutów < 5 s lokalnie lub asynchroniczna prezentacja postępu,
-- import nie zużywa całej pamięci; przetwarzanie partiami.
+- exact match 500 000 layoutów: p95 poniżej 200 ms,
+- typowy prefix match: p95 poniżej 300 ms,
+- widoczny postęp pełnego skanu: do 500 ms,
+- pełny skan 499 999 gotowych payoutów: cel do 5 s, maksymalnie 10 s przed decyzją o zmianie adaptera,
+- płynne przewijanie wirtualizowanej tabeli bez renderowania wszystkich wierszy,
+- przetwarzanie snapshotu i importu partiami, bez ładowania całego datasetu do pamięci,
+- całe wydanie pozostaje w zaakceptowanej granicy kilku GB.
 
-Budżety są celami roboczymi, nie gwarancją przed wykonaniem pomiarów.
+Budżety są celami roboczymi, nie gwarancją. Wyniki z modelu telefonu, wersją Android, rozmiarem bazy i konfiguracją builda muszą zostać zapisane w Outcome zadania benchmarkowego.

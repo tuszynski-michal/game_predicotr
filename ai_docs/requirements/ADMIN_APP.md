@@ -1,14 +1,14 @@
 ---
 title: Admin application requirements
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Wymagania modułu administracyjnego
 
 ## Forma aplikacji
 
-Rekomendowana forma to aplikacja webowa uruchamiana na Windows pod adresem lokalnym. Pozwala wykorzystać React/Next.js i nie wymaga budowania osobnej aplikacji desktopowej.
+Panel jest lokalną aplikacją webową uruchamianą na Windows. Korzysta z lokalnego Admin API i PostgreSQL. Nie jest usługą, z którą łączy się aplikacja mobilna.
 
 ## Zakres funkcjonalny
 
@@ -17,70 +17,105 @@ Rekomendowana forma to aplikacja webowa uruchamiana na Windows pod adresem lokal
 Administrator może:
 
 - utworzyć grę,
-- ustawić nazwę i status,
-- ustawić liczbę rzędów i kolumn,
-- ustawić koszt spinu,
-- określić maksymalny limit prognozy,
+- ustawić kod, nazwę i status,
+- ustawić liczbę rzędów i kolumn za pomocą dwóch pól liczbowych,
+- ustawić koszt jednego spinu,
 - aktywować lub archiwizować grę.
 
-Zmiana wymiarów planszy po zaimportowaniu danych wymaga osobnej migracji danych i nie powinna być zwykłą edycją formularza.
+Liczba rzędów i kolumn musi być dodatnia. W M1 konfiguracja testowa ma 3 rzędy i 5 kolumn. Zmiana wymiarów po utworzeniu danych wymaga nowej wersji reguł i datasetu; nie jest zwykłą edycją opublikowanej wersji.
 
 ### Symbols
 
 Administrator może:
 
 - dodać symbol do gry,
-- nadać kod i nazwę,
-- dodać obraz referencyjny,
+- nadać stabilny kod i nazwę,
+- dodać lokalny obraz referencyjny,
 - oznaczyć symbol jako joker,
 - ustawić kolejność wyświetlania,
 - aktywować lub archiwizować symbol.
 
-Wypłata nie jest prostą właściwością symbolu. Jest definiowana przez `payout rules` zależne od długości i typu wzorca.
+Joker nie ma własnej wypłaty. Jeżeli w przyszłości gra będzie miała więcej niż
+jeden rodzaj symbolu specjalnego, jego semantyka wymaga osobnej reguły zamiast
+ukrytego traktowania wszystkich symboli specjalnych identycznie.
 
-### Win patterns
+### Paylines
 
-Administrator może tworzyć co najmniej dwa typy wzorców:
+Jedynym obsługiwanym typem wzorca jest `PAYLINE`.
 
-1. `PAYLINE` — konkretna ścieżka przez rzędy kolejnych kolumn.
-2. `CONSECUTIVE_COLUMNS_ANY_ROW` — symbol w kolejnych kolumnach, bez stałej pozycji rzędu.
+Administrator może:
 
-Dla `PAYLINE` edytor pokazuje planszę i pozwala wybrać jedną komórkę w każdej objętej kolumnie.
+- kliknąć `Dodaj wzór`,
+- zobaczyć w modalu pustą siatkę o wymiarach gry,
+- zaznaczyć kafelek, który zostaje podświetlony lub oznaczony,
+- wybrać najwyżej jedną komórkę w każdej kolumnie,
+- zapisać wzór dopiero po wybraniu dokładnie jednej komórki we wszystkich kolumnach,
+- zobaczyć istniejące wzorce w tabeli, po jednym wzorze w wierszu,
+- edytować, archiwizować lub usunąć nieopublikowany wzór.
+
+Walidacja:
+
+- `row_path` ma dokładnie tyle elementów, ile gra ma kolumn,
+- każda wartość wskazuje istniejący wiersz,
+- UI pokazuje wiersze od 1, a API normalizuje je do indeksów od 0,
+- identyczny `row_path` nie może zostać dodany dwa razy do tej samej wersji reguł,
+- nie można wybrać dwóch komórek w jednej kolumnie.
+
+Dokładny wygląd modala i tabeli zostanie ustalony przy projektowaniu UI, ale powyższy kontrakt zachowania jest obowiązkowy.
 
 ### Payout rules
 
 Administrator ustawia:
 
-- symbol,
-- typ lub konkretny wzorzec,
-- minimalną/liczoną długość: 2, 3, 4 lub 5,
+- zwykły symbol,
+- długość nieprzerwanego dopasowania, co najmniej 3,
 - wartość wygranej w kredytach,
 - status aktywności.
 
-System waliduje brak sprzecznych reguł dla tej samej kombinacji kluczy.
+W M1 używane są testowe wartości dla długości 3, 4 i 5. Docelowe wartości są definiowane w panelu dla każdej gry i symbolu. System blokuje dwa aktywne wpisy dla tej samej wersji reguł, symbolu i długości.
+
+Payout nie jest własnością payline. Te same wartości symbol/długość obowiązują na każdej aktywnej payline.
 
 ### Layout data
 
 Administrator może:
 
 - wygenerować dane testowe,
-- zaimportować dane z pliku przygotowanego przez worker,
-- sprawdzić zakres `sequence_number`,
+- zaimportować dane przygotowane przez worker,
+- sprawdzić liczbę rekordów i zakres `sequence_number`,
 - znaleźć luki i duplikaty numerów,
 - sprawdzić duplikaty sygnatur layoutu,
 - podejrzeć layout jako planszę,
-- usunąć import testowy przed publikacją.
+- odrzucić lub usunąć nieopublikowany import po jawnym potwierdzeniu,
+- utworzyć niezmienną wersję datasetu po przejściu walidacji.
 
-### Import jobs
+Warunki publikacji datasetu:
 
-Administrator widzi:
+- dokładnie jedna pozycja dla każdego numeru w ciągłym zakresie,
+- brak luk i duplikatów `sequence_number`,
+- każda komórka zawiera symbol należący do gry,
+- duplikaty treści layoutu są dozwolone i raportowane,
+- kolejność layoutów jest deterministyczna.
 
-- status zadania,
-- liczbę plików znalezionych, przetworzonych i błędnych,
-- liczbę rozpoznanych layoutów,
-- liczbę pozycji wymagających review,
+### Jobs
+
+Administrator widzi zadania typu:
+
+- import,
+- walidacja,
+- obliczanie payoutów,
+- generowanie snapshotu SQLite,
+- przygotowanie APK.
+
+Dla zadania widzi:
+
+- status,
+- etap i postęp,
+- liczbę elementów poprawnych, błędnych i wymagających review,
 - czas rozpoczęcia i zakończenia,
-- możliwość wznowienia przerwanego zadania.
+- wersję kodu/modelu,
+- log błędów,
+- możliwość wznowienia bez dublowania wyników.
 
 ### Manual review
 
@@ -90,32 +125,55 @@ Dla niepewnego elementu administrator otrzymuje:
 - podgląd wyciętej planszy i kafelka,
 - przewidywany symbol lub numer,
 - confidence score,
-- listę możliwych symboli,
+- listę alternatyw,
 - możliwość zatwierdzenia, poprawienia albo odrzucenia.
 
-Decyzja użytkownika powinna zostać zachowana jako oznaczony przykład, który można później wykorzystać do poprawy klasyfikatora.
+Decyzja użytkownika jest zachowywana jako oznaczony przykład możliwy do wykorzystania przy kolejnych wersjach klasyfikatora.
 
-### Publish dataset
+### Mobile releases
 
-Docelowo administrator publikuje wersjonowany zestaw danych. Publikacja:
+Panel zawiera sekcję lub przycisk przygotowania wersji Android.
 
-- waliduje kompletność,
-- blokuje modyfikację opublikowanej wersji,
-- zapisuje wersję i czas publikacji,
-- nie nadpisuje poprzedniej wersji bez śladu.
+Administrator:
 
-Mechanizm dystrybucji do mobile zależy od decyzji online/offline.
+1. wybiera wersję datasetu i reguł dla każdej dołączanej gry,
+2. uruchamia walidację kompletności,
+3. uruchamia obliczanie payoutu każdego layoutu,
+4. generuje niezmienny snapshot SQLite,
+5. uruchamia przygotowanie wersjonowanego APK,
+6. widzi status zadania, wersję, checksumy i ścieżki artefaktów,
+7. może pobrać lub otworzyć katalog gotowego APK do ręcznej instalacji.
 
-## Poza MVP admina
+Wydanie:
 
-Pierwsza iteracja modułu admina może ograniczyć się do CRUD gier, symboli, paylines i mock layouts. Import zdjęć jest osobnym milestone'em.
+- nie nadpisuje poprzedniego bez śladu,
+- zapisuje wersje datasetów, reguł i algorytmu,
+- zapisuje checksum snapshotu i APK,
+- nie jest oznaczane jako gotowe, jeżeli walidacja lub build zakończyły się błędem,
+- nie wysyła automatycznie APK do urządzeń ani sklepu.
+
+Konkretny mechanizm uruchomienia Android build jest szczegółem architektury i może zostać zmieniony bez zmiany zachowania panelu.
+
+## Pierwsza iteracja panelu
+
+Pierwsza iteracja może ograniczyć się do:
+
+- CRUD gier i symboli,
+- edytora paylines,
+- konfiguracji payoutów,
+- generowania i walidacji mock layoutów,
+- utworzenia wersji datasetu i reguł.
+
+Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych pionach funkcjonalnych, ale ich kontrakty są częścią docelowego panelu.
 
 ## Kryteria akceptacyjne pierwszej iteracji
 
-1. Administrator tworzy grę 3 × 5.
+1. Administrator tworzy grę 3 × 5 i ustawia koszt spinu.
 2. Dodaje symbole `S1`–`S12` i oznacza joker.
-3. Tworzy trzy poziome paylines.
-4. Ustawia wypłaty dla długości 3, 4 i 5.
-5. Generuje lub importuje 1000 layoutów.
-6. Widzi duplikaty sygnatur i błędy sekwencji.
-7. Dane są dostępne przez API dla aplikacji mobilnej.
+3. Tworzy trzy poziome paylines przez modal siatki.
+4. Nie może wybrać dwóch komórek w jednej kolumnie ani zapisać niepełnego wzorca.
+5. Nie może zapisać duplikatu `row_path`.
+6. Ustawia wypłaty dla długości 3, 4 i 5.
+7. Generuje lub importuje 1000 layoutów.
+8. Widzi luki, błędy numeracji i duplikaty sygnatur.
+9. Publikuje niezmienną wersję datasetu i reguł.

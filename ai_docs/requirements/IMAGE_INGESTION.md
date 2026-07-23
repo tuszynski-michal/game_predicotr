@@ -1,95 +1,142 @@
 ---
 title: Image ingestion requirements
 status: proposed
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 ---
 
 # Import i rozpoznawanie zdjęć
 
 ## Cel
 
-Przetworzyć duży katalog zdjęć wykonanych telefonem, wyodrębnić z każdego zdjęcia do 9 layoutów, odczytać ich numery oraz rozpoznać symbole w komórkach.
+Przetworzyć duży katalog zdjęć wykonanych telefonem, wyodrębnić z każdego zdjęcia do 9 layoutów, odczytać ich numery oraz rozpoznać symbole w komórkach. Zdjęcia i wycinki pozostają po stronie administracyjnej i nigdy nie trafiają do snapshotu mobilnego.
+
+## Materiał przeanalizowany 2026-07-24
+
+Przeanalizowano trzy zdjęcia JPEG 960 × 1280:
+
+- `5983122166590934317.jpg`,
+- `5983122166590934318.jpg`,
+- `5983122166590934319.jpg`.
+
+Widoczne cechy:
+
+- 9 mini-layoutów w układzie 3 × 3,
+- każdy mini-layout ma siatkę 3 × 5,
+- numery 1–27 są umieszczone pod layoutami,
+- czerwone ramki mogą pomóc w detekcji geometrii,
+- zdjęcia zawierają perspektywę, zakrzywienie ekranu, moiré, rozmycie, refleksy i zmiany koloru,
+- dłoń oraz elementy nawigacji występują głównie poza komórkami.
+
+Trzy próbki wystarczają do prototypu detekcji geometrii, ale nie do zatwierdzenia jakości OCR ani klasyfikatora.
 
 ## Ważne założenie
 
-Nie należy traktować tego jako pojedynczego endpointu HTTP. Jest to długotrwały, wznawialny pipeline uruchamiany przez osobny proces Python.
+Import nie jest pojedynczym endpointem HTTP. Jest długotrwałym, wznawialnym pipeline'em uruchamianym przez osobny lokalny proces Python. Worker nie korzysta z chmury i nie pobiera modeli podczas przetwarzania.
+
+## Zaakceptowany stos prototypu
+
+- Python,
+- Pillow do wejścia/wyjścia i metadanych,
+- `opencv-python-headless` oraz NumPy do geometrii, korekty perspektywy i wycinania,
+- PaddleOCR w ograniczonym trybie cyfr jako pierwsza implementacja OCR,
+- PyTorch i torchvision do treningu klasyfikatora symboli,
+- ONNX Runtime do lokalnej inferencji wersji produkcyjnej.
+
+Detekcja geometrii, OCR i klasyfikacja symboli mają osobne, wersjonowane interfejsy. Biblioteka lub model może zostać wymieniony po benchmarku bez zmiany tabel stagingowych, manual review i procesu publikacji.
+
+Na początku nie wprowadzamy:
+
+- jednego modelu rozpoznającego całe zdjęcie,
+- zależności od chmurowego OCR lub VLM,
+- YOLO bez dowodu, że geometria klasyczna jest niewystarczająca,
+- template matchingu jako jedynego finalnego klasyfikatora.
 
 ## Etapy pipeline'u
 
 ### 1. Discovery
 
 - skanowanie wskazanego folderu,
-- obsługa wybranych formatów obrazów,
-- zapis ścieżki, rozmiaru, czasu modyfikacji i checksum,
-- pomijanie plików już przetworzonych w tym samym imporcie.
+- obsługa jawnie zatwierdzonych formatów,
+- zapis ścieżki względnej, rozmiaru, czasu modyfikacji i checksum,
+- pomijanie plików już przetworzonych tą wersją pipeline'u.
 
 ### 2. Normalizacja
 
 - odczyt orientacji EXIF,
 - obrót,
-- korekta jasności i kontrastu tylko w kopii roboczej,
+- przygotowanie kopii roboczych w przestrzeniach kolorów potrzebnych algorytmom,
+- opcjonalna korekta jasności i kontrastu wyłącznie w kopii,
 - zachowanie oryginału bez modyfikacji.
 
-### 3. Detekcja obszaru
+### 3. Detekcja strony i layoutów
 
-- znalezienie obszaru strony/ekranu,
-- korekta perspektywy,
-- wykrycie oczekiwanej siatki 9 layoutów,
-- confidence score dla detekcji.
+- znalezienie obszaru ekranu,
+- wykrycie oczekiwanych czerwonych ramek lub innych stabilnych cech,
+- ustalenie siatki 3 × 3 mini-layoutów,
+- zapis confidence i diagnostycznego podglądu.
+
+Ze względu na krzywiznę wyświetlacza każdy mini-layout powinien być prostowany indywidualnie. Jedna globalna transformacja perspektywy może nie wystarczyć.
 
 ### 4. Wycięcie layoutów
 
-Dla każdego z 9 obszarów zapisz:
+Dla każdego obszaru zapisz:
 
 - indeks pozycji na zdjęciu,
-- bounding box,
+- bounding box lub narożniki,
+- transformację perspektywy,
 - ścieżkę do wycinka roboczego,
-- status detekcji.
+- status i confidence detekcji.
 
 ### 5. Odczyt sequence number
 
 - wytnij obszar numeru pod layoutem,
-- wykonaj OCR cyfr,
+- ogranicz OCR do cyfr,
 - zapisz surowy tekst, wartość znormalizowaną i confidence,
-- sprawdź monotoniczność numerów na zdjęciu oraz względem sąsiednich zdjęć.
+- wykorzystaj oczekiwaną ciągłość 9 numerów na zdjęciu jako walidację, nie jako ciche nadpisanie OCR,
+- raportuj luki, duplikaty i konflikt z sąsiednimi zdjęciami.
 
 ### 6. Podział na komórki
 
 - użyj wymiarów gry,
-- podziel layout na stabilną siatkę,
-- zapisz wycinek każdej komórki do cache roboczego lub katalogu datasetu.
+- podziel indywidualnie wyprostowany layout na siatkę,
+- zachowaj margines od ramki,
+- zapisz wycinek każdej komórki do cache roboczego lub datasetu treningowego.
 
 ### 7. Klasyfikacja symbolu
 
-Faza początkowa powinna być nadzorowana:
-
-1. administrator dostarcza 10–20 oznaczonych przykładów na symbol,
-2. system tworzy reprezentację referencyjną,
+1. administrator dostarcza oznaczone przykłady każdego symbolu,
+2. trening używa osobnych zdjęć źródłowych dla zbioru treningowego i walidacyjnego,
 3. klasyfikator zwraca `symbol_id`, confidence i kilka alternatyw,
-4. niski confidence trafia do manual review.
+4. inferencja produkcyjna używa wersjonowanego modelu ONNX,
+5. niski confidence trafia do manual review.
 
-Nie zakładamy, że system samodzielnie odkryje poprawną liczbę klas bez danych oznaczonych. Grupowanie podobnych kafelków może wspierać administratora, ale nie zastępuje zatwierdzenia klas.
+Docelowy punkt startowy do walidacji to około 100 wycinków na symbol z wielu zdjęć. Nie zakładamy samodzielnego odkrycia poprawnych klas bez zatwierdzonych etykiet.
 
 ### 8. Manual review
 
 Element trafia do review, jeżeli:
 
 - nie wykryto strony lub layoutu,
-- OCR numeru jest niepewny,
+- geometria ma niski confidence,
+- OCR numeru jest niepewny albo narusza ciągłość,
 - numer koliduje z istniejącym,
 - symbol ma confidence poniżej progu,
 - siatka jest uszkodzona,
 - layout ma nieprawidłową liczbę komórek.
 
+Administrator zatwierdza, poprawia albo odrzuca element. Korekta symbolu może zostać wyeksportowana jako oznaczony przykład.
+
 ### 9. Walidacja i commit
 
-Dane są najpierw zapisywane do tabel stagingowych. Publikacja do kanonicznej sekwencji wymaga:
+Dane są najpierw zapisywane do tabel stagingowych. Utworzenie wersji datasetu wymaga:
 
 - poprawnej liczby komórek,
-- poprawnych symboli należących do gry,
+- symboli należących do gry,
 - zaakceptowanych numerów,
-- raportu luk i konfliktów,
-- idempotentnego importu.
+- ciągłego `sequence_number` bez luk i duplikatów numerów,
+- raportu zduplikowanych sygnatur layoutu,
+- idempotentnego importu,
+- braku nierozwiązanych elementów blokujących.
 
 ## Statusy zadania
 
@@ -106,14 +153,15 @@ cancelled
 
 ## Wznawianie
 
-- postęp zapisywany co plik lub małą partię,
+- postęp jest zapisywany co plik lub małą partię,
 - błąd jednego zdjęcia nie przerywa całego importu,
 - ponowne uruchomienie nie tworzy duplikatów,
-- wersja pipeline'u i modelu klasyfikacji jest zapisywana z wynikiem.
+- wersja pipeline'u, OCR i klasyfikatora jest zapisywana z wynikiem,
+- początkowo wykonywane jest najwyżej jedno ciężkie zadanie naraz.
 
 ## Przechowywanie plików
 
-MVP lokalny:
+Lokalna struktura:
 
 ```text
 data/
@@ -121,26 +169,29 @@ data/
   working/
   crops/
   training/
+  models/
   exports/
 ```
 
-Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje wszystkich dużych zdjęć w kolumnach binarnych.
+Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje dużych zdjęć w głównych tabelach domenowych ani w mobilnym SQLite.
 
 ## Metryki jakości
 
 - skuteczność detekcji strony,
 - skuteczność detekcji 9 layoutów,
+- błąd geometrii komórek,
 - accuracy OCR numerów,
-- accuracy symbol classifier,
+- accuracy klasyfikatora per symbol i macierz pomyłek,
 - odsetek elementów manual review,
 - czas na zdjęcie,
-- liczba błędów trwałych.
+- liczba błędów trwałych,
+- odtwarzalność wyniku dla tej samej wersji modeli.
 
-## Dane potrzebne przed implementacją
+## Walidacja technologii przed wdrożeniem masowym
 
-- co najmniej 20 oryginalnych zdjęć dobrej i słabej jakości,
-- opis rozmieszczenia 9 layoutów,
-- przykładowe numery,
-- przykłady wszystkich symboli,
-- informacja o wariantach rozdzielczości i orientacji,
-- zasady mapowania zdjęć do gry.
+1. Zebrać 20–100 reprezentatywnych zdjęć.
+2. Zweryfikować geometrię i OCR na pełnym zbiorze.
+3. Zbudować oznaczony zbiór symboli i podzielić go według zdjęcia źródłowego.
+4. Ustalić mierzalne progi confidence oraz manual review.
+5. Porównać jakość i czas stosu prototypowego z alternatywą tylko wtedy, gdy pomiary pokażą problem.
+6. Zatwierdzić finalne modele i ich wersje w osobnej decyzji architektonicznej.

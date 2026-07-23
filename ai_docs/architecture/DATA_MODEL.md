@@ -1,143 +1,204 @@
 ---
 title: Data model
-status: proposed
-last_updated: 2026-07-23
+status: accepted
+last_updated: 2026-07-24
 ---
 
 # Model danych
 
-Poniższy model jest logiczny. Nazwy i typy mogą zostać doprecyzowane przy tworzeniu migracji.
+Model rozdziela kanoniczne dane administracyjne PostgreSQL od generowanego, niezmiennego SQLite dla mobile. Nazwy i dokładne typy zostaną utrwalone migracjami Alembic; poniższe reguły integralności są obowiązkowe.
 
-## games
+## PostgreSQL — dane kanoniczne
+
+### games
 
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | techniczny klucz |
-| code | varchar | stabilny kod |
+| code | varchar | stabilny kod, unique |
 | name | varchar | nazwa użytkowa |
-| rows | smallint | np. 3 |
-| columns | smallint | np. 5 |
-| spin_cost | integer | kredyty, bez float |
-| forecast_limit | integer | domyślnie 100000 |
 | status | enum | draft/active/archived |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
-Walidacja: `rows > 0`, `columns > 0`, `spin_cost >= 0`.
+Wersjonowane wymiary i koszt spinu znajdują się w `rules_versions`, aby historyczne wydanie było odtwarzalne.
 
-## symbols
+### symbols
 
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | |
 | game_id | UUID | FK games |
+| mobile_code | smallint | stabilny mały kod w ramach gry |
 | code | varchar | np. S1 |
 | name | varchar | |
-| image_path | varchar nullable | ścieżka względna/URL |
+| image_path | varchar nullable | ścieżka względna |
 | is_wildcard | boolean | |
 | display_order | integer | |
 | status | enum | active/archived |
 
-Unikalność: `(game_id, code)`.
+Unikalność:
 
-## dataset_versions
+- `(game_id, mobile_code)`,
+- `(game_id, code)`.
+
+Symbol użyty w opublikowanej wersji nie jest fizycznie usuwany. Archiwizacja nie zmienia jego historycznego kodu.
+
+### rules_versions
 
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | |
 | game_id | UUID | |
 | version | integer | rosnąca wersja |
-| status | enum | staging/published/archived |
-| source_import_job_id | UUID nullable | |
+| rows | smallint | |
+| columns | smallint | |
+| spin_cost | integer | kredyty, bez float |
+| status | enum | draft/published/archived |
 | created_at | timestamptz | |
 | published_at | timestamptz nullable | |
 
-Tylko jedna wersja może być aktywna dla mobile, zależnie od strategii publikacji.
+Walidacja:
 
-## layouts
+- `rows > 0`,
+- `columns > 0`,
+- `spin_cost >= 0`,
+- `(game_id, version)` unique,
+- opublikowany rekord jest niezmienny.
 
-| Pole | Typ | Uwagi |
-|---|---|---|
-| id | bigint/UUID | techniczny klucz |
-| game_id | UUID | denormalizowane dla indeksów |
-| dataset_version_id | UUID | |
-| sequence_number | bigint | domenowa kolejność |
-| signature | text | row-major, np. `1,2,3,...` |
-| cells | JSONB lub smallint[] | dokładna reprezentacja |
-| source_board_id | UUID nullable | pochodzenie z importu |
-| payout_cache | integer nullable | tylko po decyzji o precomputingu |
+Lista symboli należących do wersji może być zapisana w tabeli łączącej `rules_version_symbols`, jeżeli symbole mogą być aktywowane niezależnie między wersjami.
 
-Unikalność: `(dataset_version_id, sequence_number)`.
-
-Nie ustawiaj unikalności na `signature`, ponieważ duplikaty są dozwolone.
-
-### Indeksy początkowe
-
-- `(dataset_version_id, sequence_number)` — unique,
-- `(dataset_version_id, signature)` — exact duplicate lookup,
-- indeks wspierający prefix lookup sygnatury po benchmarku,
-- `(game_id, dataset_version_id)`.
-
-Reprezentacja `cells` zostanie ostatecznie wybrana przy prototypie. Najważniejsze kryteria to proste mapowanie w Pythonie i wydajne pobieranie zakresów.
-
-## win_patterns
+### paylines
 
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | |
-| game_id | UUID | |
-| code | varchar | |
+| rules_version_id | UUID | |
+| code | varchar | stabilny w wersji |
 | name | varchar | |
-| pattern_type | enum | PAYLINE / CONSECUTIVE_COLUMNS_ANY_ROW |
-| row_path | JSONB nullable | np. `[0,1,2,1,0]` |
-| start_column | smallint | domyślnie 0, do decyzji |
+| row_path | smallint[] | indeksy 0-based, po jednym na kolumnę |
+| display_order | integer | |
 | is_active | boolean | |
 
-Dla `PAYLINE` długość `row_path` nie może przekraczać liczby kolumn, a każdy indeks musi być mniejszy niż liczba rzędów.
+Nie ma pola `pattern_type`: jedynym typem jest `PAYLINE`.
 
-## payout_rules
+Walidacja:
+
+- długość `row_path` równa `columns`,
+- każdy indeks spełnia `0 <= row < rows`,
+- `(rules_version_id, row_path)` unique,
+- nie można zapisać dwóch komórek dla jednej kolumny, ponieważ pozycja tablicy reprezentuje kolumnę.
+
+### payout_rules
 
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | |
-| game_id | UUID | |
-| symbol_id | UUID | |
-| win_pattern_id | UUID nullable | null może oznaczać cały typ, do decyzji |
-| match_length | smallint | np. 3/4/5 |
+| rules_version_id | UUID | |
+| symbol_id | UUID | zwykły symbol tej samej gry |
+| match_length | smallint | co najmniej 3 |
 | payout_credits | integer | |
 | is_active | boolean | |
 
-Unikalność docelowa zależy od semantyki wzorców, ale system musi blokować dwa aktywne rekordy opisujące tę samą regułę.
+Unikalność: `(rules_version_id, symbol_id, match_length)`.
 
-## rules_versions
+Walidacja:
 
-Reguły używane do obliczeń powinny być wersjonowane lub snapshotowane przy publikacji. Minimalne pola:
+- `3 <= match_length <= columns`,
+- `payout_credits >= 0`,
+- joker nie ma payout rule.
+
+Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje na wszystkich aktywnych paylines.
+
+### dataset_versions
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| game_id | UUID | |
+| version | integer | rosnąca wersja |
+| rows | smallint | wymiary danych |
+| columns | smallint | |
+| layout_count | bigint | po walidacji |
+| status | enum | staging/published/archived |
+| source_job_id | UUID nullable | |
+| created_at | timestamptz | |
+| published_at | timestamptz nullable | |
+
+Unikalność: `(game_id, version)`.
+
+Wydanie może połączyć dataset i rules wyłącznie przy zgodnych wymiarach.
+
+### layouts
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | bigint | techniczny klucz |
+| dataset_version_id | UUID | |
+| sequence_number | bigint | domenowa kolejność |
+| signature | varchar lub bytea | stałoszeroka, row-major |
+| cells | smallint[] | dokładna zwarta reprezentacja |
+| source_board_id | UUID nullable | pochodzenie z importu |
+
+Unikalność: `(dataset_version_id, sequence_number)`.
+
+Nie ma unikalności na `signature`, ponieważ duplikaty treści są dozwolone.
+
+Integralność opublikowanej wersji:
+
+- liczba komórek równa `rows * columns`,
+- każda komórka zawiera stabilny kod symbolu danej gry,
+- numery tworzą dokładnie ciąg `1..layout_count`,
+- brak luk i duplikatów numeru.
+
+Indeksy:
+
+- unique `(dataset_version_id, sequence_number)`,
+- `(dataset_version_id, signature)` dla exact match i raportu duplikatów,
+- indeks dla prefix match wybrany po benchmarku reprezentacji.
+
+### layout_payouts
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| dataset_version_id | UUID | |
+| rules_version_id | UUID | |
+| sequence_number | bigint | |
+| algorithm_version | varchar | |
+| total_payout | integer | |
+| audit_path | varchar nullable | opcjonalny raport szczegółowy |
+| calculated_at | timestamptz | |
+
+Klucz logiczny:
 
 ```text
-id, game_id, version, status, created_at, published_at
+(dataset_version_id, rules_version_id, sequence_number, algorithm_version)
 ```
 
-`win_patterns` i `payout_rules` mogą wskazywać `rules_version_id`.
+Oddzielna tabela zapobiega uznaniu payoutu za aktualny po zmianie reguł.
 
-## import_jobs
+### jobs
 
-| Pole | Typ |
-|---|---|
-| id | UUID |
-| game_id | UUID |
-| source_path | varchar |
-| status | enum |
-| pipeline_version | varchar |
-| total_files | integer |
-| processed_files | integer |
-| failed_files | integer |
-| review_items | integer |
-| error_message | text nullable |
-| created_at | timestamptz |
-| started_at | timestamptz nullable |
-| finished_at | timestamptz nullable |
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| job_type | enum | import/validate/payout/snapshot/android_build |
+| game_id | UUID nullable | |
+| status | enum | |
+| input_payload | JSONB | wersjonowany kontrakt |
+| progress_current | bigint | |
+| progress_total | bigint nullable | |
+| error_code | varchar nullable | |
+| error_message | text nullable | |
+| worker_version | varchar | |
+| created_at | timestamptz | |
+| started_at | timestamptz nullable | |
+| finished_at | timestamptz nullable | |
+| cancel_requested_at | timestamptz nullable | |
 
-## source_images
+Szczegóły importu mogą być w tabeli `import_job_details`. Job jest wznawialny i idempotentny dla tego samego klucza wejścia.
+
+### source_images
 
 ```text
 id
@@ -154,26 +215,27 @@ processed_at
 
 Unikalność w ramach importu: `(import_job_id, checksum)`.
 
-## recognized_boards
+### recognized_boards
 
 ```text
 id
 source_image_id
-position_index       # 0..8
+position_index
 sequence_number_raw
 sequence_number
 sequence_confidence
-board_bbox
+board_geometry
 cells_prediction
 board_confidence
+pipeline_version
 status
 ```
 
-## review_items
+### review_items
 
 ```text
 id
-import_job_id
+job_id
 source_image_id
 recognized_board_id nullable
 cell_index nullable
@@ -183,22 +245,147 @@ alternatives
 confidence
 status
 resolved_value
-resolved_by
-resolved_at
+resolved_by nullable
+resolved_at nullable
 ```
 
-## Dlaczego nie osobna tabela dla każdej komórki layoutu
+### mobile_releases
 
-Dla milionów layoutów i 15 pól osobna tabela mogłaby utworzyć dziesiątki milionów wierszy bez wyraźnej potrzeby w MVP. Preferowana jest zwarta tablica plus sygnatura. Osobna tabela komórek może zostać dodana tylko wtedy, gdy wymagane będą zapytania analityczne po pozycji symbolu.
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| version | varchar | stabilna wersja użytkowa |
+| status | enum | draft/building/ready/failed/archived |
+| algorithm_version | varchar | |
+| snapshot_schema_version | integer | |
+| snapshot_path | varchar nullable | |
+| snapshot_checksum | varchar nullable | |
+| apk_path | varchar nullable | |
+| apk_checksum | varchar nullable | |
+| build_job_id | UUID nullable | |
+| created_at | timestamptz | |
+| ready_at | timestamptz nullable | |
 
-## Mock data
+### mobile_release_games
 
-Dla pierwszego milestone'u:
+```text
+mobile_release_id
+game_id
+dataset_version_id
+rules_version_id
+layout_count
+```
+
+Unikalność: `(mobile_release_id, game_id)`.
+
+Wydanie `ready` jest niezmienne. Nie można wskazać wersji stagingowej ani niekompletnego zestawu payoutów.
+
+## SQLite — snapshot mobilny
+
+Snapshot jest generowany, nie migrowany przez mobile jako baza robocza. Minimalny logiczny schemat:
+
+### metadata
+
+```text
+key TEXT PRIMARY KEY
+value TEXT NOT NULL
+```
+
+Obowiązkowe klucze:
+
+- `release_version`,
+- `snapshot_schema_version`,
+- `algorithm_version`,
+- `created_at`,
+- `content_checksum`.
+
+### Materializacja na Android
+
+Snapshot jest niezmiennym assetem wydania. Lokalna kopia używana przez
+`expo-sqlite` ma nazwę zawierającą `release_version` lub `content_checksum`.
+Przy uruchomieniu mobile:
+
+1. porównuje manifest APK z aktywną lokalną kopią,
+2. materializuje brakującą wersję bez nadpisywania aktywnego pliku w połowie
+   operacji,
+3. waliduje metadata i obsługiwaną wersję schematu,
+4. aktywuje nową kopię,
+5. dopiero potem może usunąć poprzednią nieaktywną wersję.
+
+Nie wolno stosować wyłącznie warunku „plik już istnieje”, ponieważ katalog
+danych Android pozostaje po aktualizacji APK.
+
+### games
+
+```text
+id INTEGER PRIMARY KEY
+code TEXT UNIQUE
+name TEXT
+rows INTEGER
+columns INTEGER
+spin_cost INTEGER
+layout_count INTEGER
+dataset_version INTEGER
+rules_version INTEGER
+```
+
+### symbols
+
+```text
+game_id INTEGER
+mobile_code INTEGER
+code TEXT
+name TEXT
+is_wildcard INTEGER
+display_order INTEGER
+image_asset_key TEXT nullable
+PRIMARY KEY (game_id, mobile_code)
+```
+
+### layouts
+
+```text
+game_id INTEGER
+sequence_number INTEGER
+signature TEXT_OR_BLOB
+payout INTEGER
+PRIMARY KEY (game_id, sequence_number)
+```
+
+Indeks `(game_id, signature)` obsługuje exact match i wykrycie duplikatu. Prefix match używa tej samej deterministycznej reprezentacji oraz indeksu zatwierdzonego benchmarkiem.
+
+Snapshot nie zawiera:
+
+- `cells` jako osobnej tabeli,
+- zdjęć i wycinków,
+- stagingu,
+- kolejek review,
+- pełnych reguł wypłat, jeżeli payout został poprawnie precomputed,
+- danych wymagających połączenia z PostgreSQL.
+
+## Reprezentacja sygnatury
+
+Każda komórka ma stałą szerokość kodu, dzięki czemu:
+
+- nie ma kolizji typu `[1, 23]` kontra `[12, 3]`,
+- prefiks wprowadzania odpowiada prefiksowi sygnatury,
+- serializacja jest deterministyczna.
+
+Pierwsza implementacja może użyć stałoszerokiego tekstu. Repozytorium traktuje sygnaturę jako wartość nieprzezroczystą, aby możliwa była zmiana na BLOB po pomiarach.
+
+## Dlaczego nie osobna tabela komórek
+
+Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć ponad 100 milionów wierszy bez potrzeby dla obecnych zapytań. Zwarta tablica plus sygnatura upraszczają import, wyszukiwanie i snapshot.
+
+## Mock data M1
 
 - 3 gry,
-- 1000 layoutów na grę,
-- 3 × 5,
+- po 1000 layoutów,
+- plansza 3 × 5,
 - 10–12 symboli,
 - deterministyczny generator z zapisanym seedem,
-- celowo wstawione co najmniej 3 duplikaty sygnatur na grę,
-- ciągłe `sequence_number` od 1 do 1000.
+- zamockowane paylines i payouty długości 3, 4 i 5,
+- celowo 5–10 przypadków zduplikowanych sygnatur na grę,
+- ciągłe `sequence_number` od 1 do 1000,
+- precomputed payout dla każdego layoutu,
+- wygenerowany SQLite dołączony do APK.

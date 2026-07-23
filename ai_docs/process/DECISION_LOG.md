@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 ---
 
 # Decision Log
@@ -10,63 +10,173 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
 ## D-001 — Monorepo
 
-- **Status:** proposed
+- **Status:** accepted
+- **Date:** 2026-07-24
 - **Decision:** jeden repository z `apps/mobile`, `apps/admin`, `services/api`, `services/worker`, `packages` i `ai_docs`.
 - **Reason:** prostsze kontrakty, jedna dokumentacja i łatwiejsza praca Codex.
 - **Consequences:** różne narzędzia JS/Python muszą mieć jasne komendy root-level.
 
 ## D-002 — Mobile technology
 
-- **Status:** proposed
+- **Status:** accepted
+- **Date:** 2026-07-24
 - **Decision:** React Native + Expo + TypeScript.
 - **Reason:** wykorzystanie doświadczenia React, szybki Android development, prosty routing.
 - **Alternatives:** natywny Kotlin, Flutter, PWA.
+- **Consequences:** aplikacja jest instalowana jako samodzielny APK z osadzonym
+  datasetem offline; TypeScript działa w trybie `strict`, a typecheck jest
+  obowiązkową kontrolą jakości.
 
 ## D-003 — Admin technology
 
-- **Status:** proposed
+- **Status:** accepted
+- **Date:** 2026-07-24
 - **Decision:** Next.js jako lokalna aplikacja webowa.
 - **Reason:** znajoma technologia i brak potrzeby utrzymywania aplikacji desktopowej.
 - **Alternatives:** Electron/Tauri, panel w FastAPI templates.
+- **Consequences:** panel działa lokalnie na Windows jako proces Node.js i
+  komunikuje się wyłącznie z lokalnym backendem administracyjnym; nie wymaga
+  chmury ani publicznego hostingu.
 
 ## D-004 — Backend
 
-- **Status:** proposed
-- **Decision:** FastAPI z logiką domenową oddzieloną od endpointów.
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** lokalny backend administracyjny w Pythonie i FastAPI, z logiką
+  domenową oddzieloną od endpointów.
 - **Reason:** Python dla obrazu, OpenAPI dla TypeScript, prosta testowalność.
+- **Consequences:** backend nasłuchuje lokalnie i obsługuje panel admina,
+  przygotowanie datasetów oraz sterowanie workerem; aplikacja mobilna nie łączy
+  się z API.
 
 ## D-005 — Canonical database
 
-- **Status:** proposed
-- **Decision:** PostgreSQL jako źródło prawdy; SQLite tylko jako ewentualny snapshot offline.
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** PostgreSQL jako kanoniczne źródło prawdy panelu
+  administracyjnego; SQLite jako niezmienny snapshot dołączany do wydania
+  aplikacji mobilnej.
 - **Reason:** skala, indeksy, równoległy admin/worker, staging i publikacja.
 - **Alternatives:** SQLite only, embedded database, document database.
+- **Consequences:** mobile nie łączy się z PostgreSQL ani API. Publikacja
+  zatwierdzonego datasetu generuje SQLite wraz z payoutami, po czym tworzony
+  jest nowy APK. PostgreSQL działa lokalnie na Windows przez Docker Compose.
 
 ## D-006 — Image jobs
 
-- **Status:** proposed
-- **Decision:** osobny Python worker/CLI i tabela import jobs; bez Celery/Redis w pierwszej wersji.
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** osobny lokalny Python worker/CLI i trwałe rekordy zadań w
+  PostgreSQL; bez Celery/Redis.
 - **Reason:** długie zadania nie mogą blokować requestów, ale na starcie nie potrzebujemy rozproszonej kolejki.
+- **Consequences:** import, walidacja, obliczanie payoutów, generowanie SQLite i
+  budowanie APK działają poza procesem FastAPI, zapisują postęp małymi partiami
+  oraz mogą zostać anulowane i wznowione. Początkowo wykonywane jest jedno
+  ciężkie zadanie naraz.
 
 ## D-007 — Layout representation
 
-- **Status:** proposed
-- **Decision:** zwarta tablica `cells` oraz deterministyczna `signature`; bez osobnego rekordu na każdą komórkę w MVP.
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** jeden rekord na layout, zwarta tablica `cells` oraz
+  deterministyczna sygnatura o jednoznacznej, stałej szerokości; bez osobnego
+  rekordu na każdą komórkę.
 - **Reason:** ograniczenie liczby wierszy przy milionach layoutów.
-- **Validation needed:** benchmark prefix matching i wygoda SQLAlchemy.
+- **Consequences:** symbole otrzymują małe stabilne kody w ramach gry, a
+  sygnatura zapisuje je w kolejności `row-major`. PostgreSQL może przechowywać
+  dodatkowo `cells` jako tablicę małych liczb; snapshot SQLite zawiera tylko
+  dane potrzebne mobile, w tym sygnaturę i precomputed payout.
+- **Validation needed:** benchmark exact i prefix matching na 500 000 layoutów
+  oraz pomiar rozmiaru. Pierwsza implementacja preferuje prostą sygnaturę
+  stałej szerokości; może zostać zamieniona na BLOB bez zmiany interfejsu
+  repozytorium, jeżeli pomiary to uzasadnią.
 
 ## D-008 — Duplicate layouts
 
-- **Status:** proposed
-- **Decision:** signature nie jest unikalna. Niejednoznaczność jest rozwiązywana przez confirmation chain następnych layoutów.
-- **Reason:** odpowiada opisowi domeny; nie wolno arbitralnie wybierać pierwszego wystąpienia.
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** sygnatura nie jest unikalna. Przy kilku pasujących numerach
+  mobile zwraca stan `duplicate`, nie wybiera pozycji i nie uruchamia forecastu.
+  Reset usuwa kontekst, a użytkownik wprowadza kolejny layout jako nowe,
+  niezależne wyszukiwanie.
+- **Reason:** duplikaty zawartości występują rzadko, podczas gdy
+  `sequence_number` pozostaje unikalny i ciągły. Procedura użytkownika nie
+  wymaga odtwarzania pierwotnej pozycji.
+- **Consequences:** nie implementujemy confirmation chain, tokenów
+  potwierdzających ani endpointu `confirm-next`. Panel admina pokazuje grupy
+  duplikatów i ich numery. Nie wolno arbitralnie wybierać pierwszego
+  wystąpienia.
 
 ## D-009 — Forecast presentation
 
-- **Status:** proposed
-- **Decision:** skrócona tabela pokazuje pierwszy dodatni wynik oraz każdy nowy dodatni high-water mark.
-- **Reason:** interpretacja wymagania „następny rekord, kiedy kredyty znów zaczną rosnąć”.
-- **Requires:** potwierdzenie Q-013.
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** forecast zaczyna się od layoutu następującego po `spin 0`,
+  analizuje `layout_count - 1` przyszłych layoutów i kończy na layoucie
+  bezpośrednio poprzedzającym punkt startowy. Tabela pokazuje dodatnie lokalne
+  szczyty `net_credits`, a nie pierwszy dodatni wynik ani globalne high-water
+  marks.
+- **Reason:** użytkownika interesuje najkorzystniejszy moment każdego
+  rosnącego odcinka wyniku, także gdy późniejszy lokalny szczyt jest niższy od
+  wcześniejszego.
+- **Consequences:** wszystkie payouty po drodze są kumulowane, każdy spin
+  zwiększa koszt, a wynik netto to `cumulative_payout - cumulative_cost`.
+  Podczas płaskiego szczytu wybierany jest pierwszy spin. Tabela jest
+  uporządkowana według spinu, umieszczona na dole głównego ekranu i
+  wirtualizowana. Koniec skończonego zakresu pełnego cyklu zamyka ostatni
+  rosnący odcinek, więc ostatni oceniony spin może być jego szczytem. Pojęcia
+  `first positive` i `high-water mark` są usuwane z kontraktu.
+
+## D-010 — Image ingestion prototype stack
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** prototyp image ingestion używa Pythona, Pillow,
+  `opencv-python-headless` i NumPy do geometrii oraz wycinania; PyTorch i
+  torchvision do treningu klasyfikatora symboli; ONNX Runtime do produkcyjnej
+  inferencji; PaddleOCR w ograniczonym trybie rozpoznawania cyfr jako pierwsza
+  implementacja OCR.
+- **Reason:** przykładowe zdjęcia mają stabilny układ 3 × 3 i plansze 3 × 5,
+  ale zawierają perspektywę, zakrzywienie ekranu, moiré, rozmycie i refleksy.
+  Pipeline hybrydowy jest prostszy do kontroli i audytu niż jeden duży model.
+- **Consequences:** detekcja geometrii, OCR i klasyfikacja symboli mają osobne
+  interfejsy oraz wersje. Konkretny model OCR lub klasyfikatora może zostać
+  wymieniony po benchmarku bez zmiany kontraktów panelu, bazy i etapów
+  pipeline'u. Wagi modeli są dostępne lokalnie; worker nie pobiera ich podczas
+  przetwarzania.
+- **Validation needed:** prototyp na 20–100 reprezentatywnych zdjęciach,
+  pomiary jakości per etap oraz zatwierdzone progi manual review. Decyzja nie
+  zatwierdza jeszcze finalnych modeli OCR/ML.
+
+## D-011 — M1 execution structure
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** M1 pozostaje jednym milestone'em produktowym, ale jest
+  realizowany jako sześć kolejnych podetapów M1.1–M1.6 z osobnymi zadaniami,
+  demonstracyjnym wynikiem i bramką jakości.
+- **Reason:** pełny M1 łączy niezależne ryzyka toolchainu, algorytmów,
+  generowania danych, SQLite, UI i Android release. Jeden duży task utrudniłby
+  testowanie, diagnozę i bezpieczne cofnięcie zmian.
+- **Consequences:** implementacja zaczyna się wyłącznie od M1.1. Następny
+  podetap nie rozpoczyna się przed przejściem bramki poprzedniego. Szczegóły
+  znajdują się w `delivery/MILESTONE_01_EXECUTION_PLAN.md`.
+
+## D-012 — Mobile snapshot activation
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** każde APK wskazuje dokładną release version i checksum
+  niezmiennego snapshotu. Mobile materializuje bazę pod wersjonowaną nazwą,
+  waliduje ją i aktywuje dokładnie tę wersję; nie może uznać starej lokalnej
+  kopii za aktualną po instalacji nowego APK.
+- **Reason:** Android zachowuje katalog danych przy aktualizacji aplikacji.
+  Strategia „skopiuj bazę tylko przy pierwszym uruchomieniu” pozostawiłaby stare
+  dane mimo instalacji nowej wersji.
+- **Consequences:** M1 testuje aktualizację z pierwszego APK do drugiego.
+  Nieaktywną kopię można usunąć po poprawnej aktywacji. Brak kompatybilnego
+  snapshotu daje `local_data_error`; aplikacja nie wykonuje obliczeń na danych
+  poprzedniej wersji.
 
 ## Szablon nowej decyzji
 

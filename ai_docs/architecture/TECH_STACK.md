@@ -1,111 +1,177 @@
 ---
-title: Proposed technology stack
-status: proposed
-last_updated: 2026-07-23
+title: Accepted technology stack
+status: accepted
+last_updated: 2026-07-24
 ---
 
-# Proponowany stos technologiczny
+# Stos technologiczny
 
 ## Kryteria wyboru
 
-- prosty dla React Developera,
-- czytelny dla agentów AI,
+- wygodny dla React Developera i czytelny dla agentów AI,
 - silne typowanie na granicach,
-- dobry ekosystem dla Android i przetwarzania obrazu,
-- minimalna liczba usług w pierwszej fazie,
-- możliwość obsługi milionów prostych rekordów,
-- wygodny development na Windows.
+- całkowicie offline runtime aplikacji Android,
+- możliwość dołączenia kilku milionów prostych rekordów,
+- dobry ekosystem dla lokalnego przetwarzania obrazu,
+- minimalna liczba procesów i usług,
+- rozwój, administracja i build na Windows,
+- wymienialne adaptery dla obszarów wymagających benchmarku.
 
 ## Mobile
 
-### React Native + Expo + TypeScript
+### React Native + Expo + TypeScript strict
+
+Zaakceptowany wybór:
+
+- React Native,
+- Expo development build i lokalny Android build,
+- Expo Router,
+- TypeScript z `strict: true`.
 
 Powody:
 
-- wykorzystuje znajomość React i TypeScript,
-- pozwala szybko uruchamiać aplikację na Android,
-- Expo Router zapewnia prostą strukturę tras opartą na plikach,
-- development build pozwala później dodawać biblioteki natywne bez przepisywania aplikacji.
+- wykorzystanie znajomości React i TypeScript,
+- szybki rozwój UI Android,
+- możliwość dodania natywnych bibliotek przez development build bez zmiany frameworka,
+- wspólne typy i narzędzia w monorepo.
 
-### Biblioteki startowe
+### Biblioteki i moduły startowe
 
-- Expo Router — routing,
-- TanStack Query — stan serwerowy i cache,
-- React `useReducer` — lokalny stan wprowadzania planszy,
-- wygenerowany klient OpenAPI — komunikacja z API,
-- wbudowane komponenty React Native i własne design tokens — bez ciężkiej biblioteki UI w MVP.
+- `expo-sqlite` — lokalny dostęp do dołączonego snapshotu,
+- Expo Router — struktura ekranów,
+- React `useReducer` lub mały jawny store — stan wprowadzania planszy,
+- wbudowane komponenty React Native i własne design tokens — UI bez ciężkiego frameworka,
+- wirtualizowana lista React Native; `@shopify/flash-list` może zostać użyty, jeżeli pomiar pokaże przewagę nad `FlatList`.
 
-Nie używamy MUI w mobile, ponieważ jest biblioteką webową, a nie biblioteką React Native.
+Główny ekran używa jednej pionowej listy wirtualizowanej. Header, Layout,
+Selection i podsumowanie Target są jej nagłówkiem, dzięki czemu długa tabela na
+dole nie jest zagnieżdżona w `ScrollView`.
+
+Mobile nie używa:
+
+- klienta OpenAPI do danych domenowych,
+- TanStack Query jako warstwy komunikacji z backendem,
+- połączeń HTTP do panelu,
+- zdalnego pobierania datasetu albo modeli,
+- uprawnienia `INTERNET` w finalnym APK.
+
+Logika matching i forecast korzysta z interfejsu repozytorium SQLite. Reprezentacja sygnatury może zmienić się z tekstu na BLOB po benchmarku bez zmiany komponentów UI i algorytmu.
+
+Adapter inicjalizacji SQLite identyfikuje lokalną kopię przez release
+version/checksum. Aktualizacja APK nie może ponownie otworzyć starego pliku tylko
+dlatego, że istnieje w katalogu danych aplikacji.
+
+### Wydajność
+
+M1 zaczyna od asynchronicznych zapytań SQLite oraz przetwarzania partiami. Przed skalą 500 000 rekordów na grę obowiązuje benchmark:
+
+- exact match,
+- prefix match,
+- pełny skan `N - 1` payoutów,
+- czas otwarcia bazy,
+- użycie pamięci,
+- płynność przewijania tabeli.
+
+Natywny moduł lub inny adapter obliczeń jest dopuszczalny dopiero, gdy pomiary pokażą, że Expo SQLite i TypeScript nie spełniają budżetu.
 
 ## Admin web
 
-### Next.js + TypeScript
+### Next.js + TypeScript strict
 
-- użytkownik zna technologię,
-- aplikacja działa na Windows w przeglądarce,
-- łatwe formularze, podglądy i narzędzia administracyjne,
-- wspólny workspace JS z mobile i kontraktami.
+- lokalna aplikacja webowa na Windows,
+- komunikacja wyłącznie z lokalnym Admin API,
+- formularze gier, symboli, paylines i payoutów,
+- podglądy layoutów, zadań i manual review,
+- panel przygotowania wersji Android.
 
-Startowo preferowane są proste komponenty i formularze. MUI może być użyte w adminie, jeżeli zostanie zaakceptowane jako standard UI.
+Biblioteka komponentów formularzy może zostać wybrana podczas pionu admina. Nie jest częścią kontraktu architektonicznego, dopóki nie powstanie prototyp edytora payline.
 
-## Backend
+## Backend administracyjny
 
 ### Python + FastAPI
 
-- pasuje do późniejszego przetwarzania obrazów,
-- generuje specyfikację OpenAPI,
-- ułatwia utrzymanie jednego kontraktu dla mobile i admina,
-- pozwala oddzielić logikę domenową od endpointów.
+- obsługa wyłącznie panelu i lokalnych procesów administracyjnych,
+- OpenAPI jako źródło typów klienta admin,
+- brak endpointów wymaganych przez mobile,
+- logika domenowa oddzielona od HTTP, ORM i UI.
 
-### Warstwy backendu
+Warstwy:
 
 ```text
-api        - routing, request/response
-domain     - algorytmy i reguły
-application- use cases i transakcje
-storage    - SQLAlchemy repositories
-schemas    - modele wejścia/wyjścia
+api          - routing i modele transportowe
+application  - use cases, transakcje i zlecanie jobs
+domain       - matching, payouts, forecasting, publication
+storage      - SQLAlchemy repositories
+schemas      - jawne kontrakty i serializacja
 ```
 
-### Narzędzia
+Narzędzia:
 
-- SQLAlchemy 2.x — ORM i zapytania,
-- Alembic — migracje,
-- Pydantic — walidacja kontraktów,
-- pytest — testy,
-- Ruff — lint i formatowanie,
-- mypy lub Pyright — kontrola typów po ustaleniu standardu.
+- SQLAlchemy 2.x,
+- Alembic — jedyny mechanizm zmian schematu PostgreSQL,
+- Pydantic,
+- pytest,
+- Ruff,
+- jeden jawnie wybrany checker typów Python podczas bootstrapu.
 
-## Database
+## Bazy danych
 
-### PostgreSQL jako kanoniczna baza
+### PostgreSQL — kanoniczne źródło prawdy
 
-PostgreSQL jest rekomendowany zamiast SQLite jako główna baza, ponieważ:
+PostgreSQL przechowuje:
 
-- liczba layoutów może wynosić od setek tysięcy do kilku milionów,
-- potrzebne są indeksy po grze, numerze sekwencji i sygnaturze,
-- admin i worker mogą działać równolegle,
-- wymagane są transakcje, staging i raporty integralności.
+- robocze i opublikowane konfiguracje,
+- wersje datasetów i reguł,
+- miliony layoutów,
+- staging, zadania i manual review,
+- metadane wydań.
 
-SQLite może zostać użyty później jako read-only snapshot dla trybu offline mobile, ale nie jako jedyne źródło prawdy bez osobnej decyzji.
+Jest uruchamiany lokalnie przez Docker Compose. Admin API i worker mogą korzystać z niego równolegle.
 
-## Image processing
+### SQLite — niezmienny snapshot mobile
 
-### Python + OpenCV
+SQLite jest generowany dla konkretnego wydania i zawiera tylko dane potrzebne mobile:
 
-OpenCV służy do:
+- konfigurację gier i symbole,
+- ciągłe numery sekwencji,
+- sygnatury,
+- gotowy payout każdego layoutu,
+- wersje i checksumy.
 
-- korekty perspektywy,
-- detekcji obszarów,
-- wycinania siatki,
-- normalizacji obrazu,
-- porównywania cech.
+Nie zawiera zdjęć, wycinków, stagingu ani danych treningowych. Nie jest kanoniczną bazą edytowaną przez panel.
 
-OCR i klasyfikator symboli zostaną wybrane po analizie próbek. Nie należy blokować wcześniejszych etapów wyborem finalnego modelu ML.
+## Worker i build
+
+Osobny lokalny Python worker/CLI wykonuje:
+
+- import zdjęć,
+- walidację datasetu,
+- precomputing payoutów,
+- generowanie SQLite,
+- przygotowanie artefaktów wydania,
+- wywołanie kontrolowanego skryptu Android build.
+
+Postęp jest zapisywany w PostgreSQL. Początkowo działa najwyżej jedno ciężkie zadanie naraz. Nie używamy Redis ani Celery.
+
+Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane zadanie, a worker uruchamia jeden wersjonowany workflow build. Preferowany jest lokalny Gradle/Expo Android build bez zależności od chmurowej usługi buildowej; dokładna komenda zostanie zatwierdzona po bootstrapie Android.
+
+## Image ingestion
+
+Zaakceptowany stos prototypu:
+
+- Python,
+- Pillow,
+- `opencv-python-headless`,
+- NumPy,
+- PaddleOCR ograniczony do cyfr,
+- PyTorch i torchvision do treningu,
+- ONNX Runtime do inferencji.
+
+Geometria, OCR i klasyfikator implementują osobne porty. Finalne modele zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych zdjęciach.
 
 ## Monorepo
 
-Proponowana struktura:
+Zaakceptowana struktura:
 
 ```text
 apps/
@@ -115,20 +181,20 @@ services/
   api/
   worker/
 packages/
-  api-client/
-  shared-types/
+  admin-api-client/
+  shared-ts/
+  config/
 infra/
   docker/
+scripts/
 ai_docs/
 ```
 
-- Yarn workspaces zarządza częścią TypeScript.
-- Python ma osobny `pyproject.toml` w `services/api` i `services/worker` lub wspólny workspace Python, jeśli narzędzie zostanie zaakceptowane.
-- PostgreSQL uruchamiany lokalnie przez Docker Compose.
+Root udostępnia czytelne komendy dla formatowania, lint, testów, typecheck, migracji, generowania klienta, snapshotu i Android build. Konkretny menedżer workspace JavaScript oraz układ Python zostaną zapisane w Decision Log podczas bootstrapu.
 
 ## Świadomie odłożone technologie
 
-Nie dodajemy w MVP:
+Bez wyników pomiarów nie dodajemy:
 
 - Redis,
 - Celery,
@@ -137,15 +203,17 @@ Nie dodajemy w MVP:
 - GraphQL,
 - Electron,
 - mikroserwisów,
-- chmury i object storage.
+- chmury i object storage,
+- zdalnej synchronizacji mobile,
+- osobnej tabeli dla każdej komórki layoutu,
+- ciężkiego detektora obiektów dla zdjęć.
 
-Worker może początkowo działać jako komenda CLI z tabelą `import_jobs`. Kolejka zostanie dodana dopiero, gdy będzie realna potrzeba zdalnego lub równoległego przetwarzania.
+## Wersjonowanie zależności
 
-## Wersjonowanie
+W momencie inicjalizacji:
 
-Nie wpisujemy w wymaganiach sztywnych numerów frameworków. W momencie inicjalizacji należy:
-
-1. wybrać aktualne stabilne i wzajemnie kompatybilne wersje,
-2. zapisać je w lockfile,
-3. odnotować decyzję w `DECISION_LOG.md`,
-4. nie wykonywać automatycznych major upgrade'ów w trakcie milestone'u.
+1. wybierz aktualne stabilne i wzajemnie kompatybilne wersje,
+2. zapisz je w lockfile,
+3. zapisz istotne decyzje w `DECISION_LOG.md`,
+4. nie wykonuj automatycznych major upgrade'ów w trakcie milestone'u,
+5. zapewnij odtwarzalny build na Windows.

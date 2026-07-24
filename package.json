@@ -1,0 +1,39 @@
+{
+  "name": "game-predictor",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.18.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.13 <25",
+    "npm": ">=11 <12"
+  },
+  "allowScripts": {
+    "unrs-resolver@1.12.2": true
+  },
+  "scripts": {
+    "android": "npm run android --workspace @game-predictor/mobile",
+    "android:build:debug": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android_debug.ps1",
+    "android:build:offline": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_android_debug.ps1 -Variant Release",
+    "android:toolchain:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_android_toolchain.ps1 -AcceptAndroidSdkLicenses",
+    "android:verify:offline": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_android_apk.ps1",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "npm run lint --workspaces --if-present && npm run python:lint && npm run powershell:check",
+    "test": "npm run test --workspaces --if-present && npm run python:test",
+    "typecheck": "npm run typecheck --workspaces --if-present && npm run python:typecheck",
+    "python:lint": ".venv\\Scripts\\python.exe -m ruff check services/worker scripts",
+    "python:test": ".venv\\Scripts\\python.exe -m pytest services/worker/tests",
+    "python:typecheck": ".venv\\Scripts\\python.exe -m mypy services/worker/src scripts",
+    "powershell:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check_powershell_syntax.ps1",
+    "snapshot:generate": ".venv\\Scripts\\python.exe scripts/generate_spike_snapshot.py",
+    "snapshot:validate": ".venv\\Scripts\\python.exe scripts/validate_spike_snapshot.py",
+    "quality": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run snapshot:validate"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

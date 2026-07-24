@@ -23,10 +23,11 @@ last_updated: 2026-07-24
 
 Zaakceptowany wybór:
 
-- React Native,
-- Expo development build i lokalny Android build,
+- React Native 0.86,
+- Expo SDK 57 i lokalny Android build,
+- React 19.2,
 - Expo Router,
-- TypeScript z `strict: true`.
+- TypeScript 6 z `strict: true`.
 
 Powody:
 
@@ -60,6 +61,10 @@ Logika matching i forecast korzysta z interfejsu repozytorium SQLite. Reprezenta
 Adapter inicjalizacji SQLite identyfikuje lokalną kopię przez release
 version/checksum. Aktualizacja APK nie może ponownie otworzyć starego pliku tylko
 dlatego, że istnieje w katalogu danych aplikacji.
+
+Baseline M1 jest przypięty w `package-lock.json`. Major upgrade Expo, React
+Native albo TypeScript wymaga osobnego zadania sprawdzającego wzajemną
+kompatybilność.
 
 ### Wydajność
 
@@ -110,9 +115,10 @@ Narzędzia:
 - SQLAlchemy 2.x,
 - Alembic — jedyny mechanizm zmian schematu PostgreSQL,
 - Pydantic,
-- pytest,
+- Python 3.12 i projektowe `.venv`,
+- pytest 8,
 - Ruff,
-- jeden jawnie wybrany checker typów Python podczas bootstrapu.
+- mypy strict jako checker typów.
 
 ## Bazy danych
 
@@ -153,7 +159,29 @@ Osobny lokalny Python worker/CLI wykonuje:
 
 Postęp jest zapisywany w PostgreSQL. Początkowo działa najwyżej jedno ciężkie zadanie naraz. Nie używamy Redis ani Celery.
 
-Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane zadanie, a worker uruchamia jeden wersjonowany workflow build. Preferowany jest lokalny Gradle/Expo Android build bez zależności od chmurowej usługi buildowej; dokładna komenda zostanie zatwierdzona po bootstrapie Android.
+Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane
+zadanie, a worker uruchamia jeden wersjonowany workflow build. Obowiązuje lokalny
+Gradle/Expo Android build bez zależności od chmurowej usługi buildowej.
+
+Bootstrap M1 potwierdził lokalny workflow Windows:
+
+- Microsoft OpenJDK 17,
+- Android SDK Platform i Build Tools 36,
+- czysty `expo prebuild`,
+- przypięty Gradle wrapper,
+- domyślny prywatny build urządzeniowy `arm64-v8a`.
+
+Komendy root:
+
+```powershell
+npm run android:toolchain:setup
+npm run android:build:debug
+npm run android:build:offline
+npm run android:verify:offline
+```
+
+Build debug wymaga Metro. Build offline zawiera bundle JavaScript i snapshot
+SQLite oraz używa testowego podpisu do czasu M1.6.
 
 ## Image ingestion
 
@@ -190,7 +218,12 @@ scripts/
 ai_docs/
 ```
 
-Root udostępnia czytelne komendy dla formatowania, lint, testów, typecheck, migracji, generowania klienta, snapshotu i Android build. Konkretny menedżer workspace JavaScript oraz układ Python zostaną zapisane w Decision Log podczas bootstrapu.
+Root udostępnia czytelne komendy dla formatowania, lint, testów, typecheck,
+migracji, generowania klienta, snapshotu i Android build.
+
+JavaScript workspace używa npm 11 i jednego `package-lock.json`. Python używa
+`pyproject.toml` oraz lokalnego `.venv`. Uzasadnienie i ograniczenia opisuje
+D-013.
 
 ## Świadomie odłożone technologie
 
@@ -210,10 +243,10 @@ Bez wyników pomiarów nie dodajemy:
 
 ## Wersjonowanie zależności
 
-W momencie inicjalizacji:
+Baseline M1 jest przypięty w lockfile. Dalsze zmiany muszą:
 
-1. wybierz aktualne stabilne i wzajemnie kompatybilne wersje,
-2. zapisz je w lockfile,
-3. zapisz istotne decyzje w `DECISION_LOG.md`,
-4. nie wykonuj automatycznych major upgrade'ów w trakcie milestone'u,
-5. zapewnij odtwarzalny build na Windows.
+1. zachować wzajemną kompatybilność wersji,
+2. aktualizować lockfile,
+3. zapisywać istotne decyzje w `DECISION_LOG.md`,
+4. nie wykonywać automatycznych major upgrade'ów w trakcie milestone'u,
+5. zachować odtwarzalny build na Windows.

@@ -1,0 +1,34 @@
+# JavaScript
+node_modules/
+.expo/
+dist/
+coverage/
+
+# Android generated project and build output
+apps/mobile/android/
+*.apk
+*.aab
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.py[cod]
+*.egg-info/
+
+# Local environment
+.env
+.env.*
+!.env.example
+.tooling/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

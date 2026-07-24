@@ -1,0 +1,21 @@
+# Mobile application
+
+Expo SDK 57 Android application for offline sequence analysis.
+
+The M1.1 screen opens `assets/snapshot/m1-spike.db` through `expo-sqlite`,
+validates its metadata against `manifest.json`, and displays a controlled
+`local_data_error` if the local contract is invalid.
+
+Run all commands from the repository root:
+
+```powershell
+npm run snapshot:generate
+npm run start --workspace @game-predictor/mobile
+npm run android:build:debug
+npm run android:build:offline
+npm run android:verify:offline
+```
+
+Use `android:build:offline` for the standalone, test-signed APK that includes
+the JavaScript bundle and SQLite snapshot. Verify its package and embedded
+snapshot with `android:verify:offline`. The debug build expects Metro.

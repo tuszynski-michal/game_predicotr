@@ -8,12 +8,12 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1 zaplanowany i podzielony — oczekiwanie na start M1.1`
+`M1.1 ukończone — gotowe do rozpoczęcia M1.2`
 
 ## Completed
 
 - właściciel odpowiedział na Q-001–Q-014 i doprecyzował Q-018,
-- zaakceptowano decyzje D-001–D-012,
+- zaakceptowano decyzje D-001–D-013,
 - ustalono całkowicie offline mobile od M1,
 - ustalono skalę do około 500 000 layoutów na grę i 12–15 gier,
 - ustalono ciągłą, cykliczną sekwencję i procedurę duplikatu bez confirmation chain,
@@ -27,12 +27,18 @@ last_updated: 2026-07-24
 - ustalono wersjonowaną aktywację snapshotu po aktualizacji APK,
 - finalne APK M1 nie deklaruje uprawnienia Android `INTERNET`,
 - usunięto artefakty instalacyjne pakietu dokumentacji, a materiały historyczne
-  przeniesiono do `ai_docs/archive/` i `ai_docs/tasks/completed/`.
+  przeniesiono do `ai_docs/archive/` i `ai_docs/tasks/completed/`,
+- ukończono `TASK-0002`: monorepo npm, TypeScript strict, Python 3.12 tooling,
+  minimalny snapshot SQLite, kontrolowany `local_data_error` i ekran
+  diagnostyczny,
+- zbudowano na Windows samodzielne, testowo podpisane APK `arm64-v8a` z bundlem
+  JavaScript i dokładnie zweryfikowanym snapshotem SQLite,
+- zaakceptowano D-013 opisującą toolchain, package manager, `applicationId`
+  oraz lokalny workflow Android.
 
 ## In progress
 
-Brak prac implementacyjnych. Plan wykonania M1 jest gotowy. Repozytorium
-oczekuje na polecenie rozpoczęcia M1.1.
+Brak aktywnego zadania implementacyjnego.
 
 ## Open but not blocking M1
 
@@ -61,19 +67,14 @@ Każdy podetap musi przejść własną bramkę przed rozpoczęciem następnego.
 
 ## Next recommended task
 
-Po wyraźnym poleceniu właściciela utworzyć wyłącznie zadanie:
+Po potwierdzeniu rozpoczęcia M1.2:
 
 ```text
-TASK-0002 — Monorepo and offline SQLite spike
+TASK-0003 — Contracts, signature codec and validation
 ```
-
-Zakres obejmuje tylko M1.1: strukturę monorepo, standardy jakości, minimalną
-aplikację Android i odczyt małego wersjonowanego SQLite bez sieci. Nie obejmuje
-jeszcze payout, pełnego generatora, planszy, matching ani Target.
 
 ## Do not start yet
 
-- żadnej implementacji ani inicjalizacji frameworków bez następnego polecenia,
 - panelu admina przed zdefiniowaniem osobnego zadania M2,
 - masowego przetwarzania zdjęć,
 - finalnego wyboru OCR/ML,
@@ -84,9 +85,14 @@ jeszcze payout, pełnego generatora, planszy, matching ani Target.
 ## Handoff notes
 
 Dokumentacja opisuje zaakceptowany model produktu i architektury. M1 nie ma
-pytania produktowego blokującego start. Decyzje o package managerze, Python
-toolingu, `applicationId` i dokładnej komendzie Android build zostaną podjęte w
-M1.1 na podstawie kompatybilnych stabilnych wersji i zapisane w Decision Log.
+pytania produktowego blokującego dalszą implementację. Toolchain M1.1 jest
+opisany w D-013 i `TECH_STACK.md`.
+
+Pakietowa część bramki G1 przeszła: APK zawiera standalone bundle oraz SQLite o
+checksumie zgodnej z manifestem. Żadne urządzenie nie było podłączone podczas
+TASK-0002, dlatego instalacja, aktualizacja APK, test całkowicie offline na
+Pixel 10 Pro XL i Galaxy S21 Ultra oraz usunięcie domyślnego uprawnienia Expo
+`INTERNET` pozostają jawnym zakresem M1.6.
 
 Benchmark 500 000 layoutów pozostaje bramką M3 przed uznaniem rozwiązania
 SQLite/TypeScript za wystarczające dla docelowej skali.

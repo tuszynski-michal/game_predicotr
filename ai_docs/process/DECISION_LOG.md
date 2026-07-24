@@ -178,6 +178,36 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   snapshotu daje `local_data_error`; aplikacja nie wykonuje obliczeń na danych
   poprzedniej wersji.
 
+## D-013 — M1 toolchain and local Android build
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** JavaScript workspace używa npm 11 i jednego
+  `package-lock.json`. Mobile używa Expo SDK 57, React Native 0.86, React 19.2
+  i TypeScript 6 w trybie strict. Python 3.12 używa lokalnego `.venv`,
+  `pyproject.toml`, Ruff, mypy strict i pytest. Android ma stabilny
+  `applicationId` `com.gamepredictor.mobile`.
+- **Android toolchain:** lokalny skrypt Windows przygotowuje zweryfikowany
+  Microsoft OpenJDK 17 oraz Android SDK Platform/Build Tools 36. Build wykonuje
+  czysty Expo prebuild i przypięty Gradle wrapper. Domyślnym ABI prywatnych
+  buildów urządzeniowych jest `arm64-v8a`.
+- **Build commands:** `npm run android:build:debug` tworzy APK deweloperskie
+  wymagające Metro. `npm run android:build:offline` tworzy samodzielne,
+  testowo podpisane APK z bundlem JavaScript i SQLite.
+  `npm run android:verify:offline` sprawdza package id, ABI, bundle i dokładną
+  checksumę SQLite wewnątrz paczki.
+- **Reason:** npm działa z natywnym mechanizmem Expo workspaces i eliminuje
+  problem długich ścieżek CMake, który wystąpił przy strukturze zależności pnpm
+  na Windows. Lokalny, wersjonowany workflow usuwa zależność od chmurowego
+  builda i globalnej konfiguracji JDK/Android SDK.
+- **Alternatives:** pnpm workspace, globalny Android Studio/JDK, EAS cloud
+  build.
+- **Consequences:** root commands zakładają Windows PowerShell i projektowe
+  `.venv`. `package-lock.json` jest jedynym lockfile JavaScript. Major upgrades
+  Expo/React Native/TypeScript wymagają osobnego zadania kompatybilności.
+  Podpis produkcyjny, instalacja na urządzeniach i wymuszenie braku uprawnienia
+  `INTERNET` pozostają bramką M1.6.
+
 ## Szablon nowej decyzji
 
 ```text

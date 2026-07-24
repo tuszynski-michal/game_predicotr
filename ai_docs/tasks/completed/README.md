@@ -15,3 +15,4 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 ## Zawartość
 
 - [TASK-0001 — Architecture clarification](0001-architecture-clarification.md)
+- [TASK-0002 — Monorepo and offline SQLite spike](0002-monorepo-offline-sqlite-spike.md)

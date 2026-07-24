@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "game-predictor-worker"
+version = "0.1.0"
+description = "Local snapshot tooling for Game Predictor"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "mypy==1.17.1",
+  "pytest==8.4.2",
+  "ruff==0.12.12",
+]
+
+[tool.setuptools]
+package-dir = {"" = "services/worker/src"}
+
+[tool.setuptools.packages.find]
+where = ["services/worker/src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+pythonpath = ["services/worker/src"]
+testpaths = ["services/worker/tests"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = "services/worker/src"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

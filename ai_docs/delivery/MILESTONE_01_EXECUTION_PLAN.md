@@ -15,10 +15,8 @@ wieloadministratorskiego, a Q-020 opcjonalnej analizy aplikacji referencyjnej.
 Nazwa sekcji `Result`/`Target` oraz zachowanie plansz szerszych niż 5 kolumn
 również nie wpływają na fixture M1.
 
-Przed kodowaniem pozostają decyzje techniczne toolchainu i Android build
-wymienione w M1.1. Są one odpowiedzialnością architekta/developera, nie wymagają
-odpowiedzi produktowej i muszą zostać zapisane w Decision Log na podstawie
-sprawdzonej kompatybilności.
+Decyzje techniczne toolchainu i Android build zostały rozstrzygnięte w M1.1 i
+zapisane jako D-013.
 
 ## Decyzja wykonawcza
 
@@ -69,6 +67,8 @@ flowchart LR
 
 ## M1.1 — Fundament monorepo i offline SQLite spike
 
+**Status:** ukończone 2026-07-24 (`TASK-0002`).
+
 ### Cel
 
 Najpierw usunąć największe ryzyko integracyjne: potwierdzić, że Android build
@@ -86,8 +86,12 @@ sieci.
 - materializacja snapshotu pod nazwą zawierającą wersję lub checksumę,
 - walidacja wersji schematu,
 - prosty ekran diagnostyczny z wersją release i liczbą rekordów,
-- Android development build na emulatorze lub jednym fizycznym urządzeniu,
-- test bez sieci.
+- Android development build i samodzielny testowy build offline na Windows,
+- statyczna weryfikacja, że standalone bundle i dokładny snapshot SQLite są
+  częścią APK.
+
+Instalacja, test bez sieci i aktualizacja APK na fizycznych urządzeniach należą
+do M1.6. M1.1 nie zastępuje tego odbioru.
 
 ### Decyzje techniczne zapisywane w tym podetapie
 
@@ -349,6 +353,6 @@ Scope.
 
 ## Następny krok
 
-Po poleceniu rozpoczęcia implementacji należy utworzyć tylko
-`TASK-0002 — Monorepo and offline SQLite spike`. Nie należy od razu tworzyć
-implementacji M1.2–M1.6.
+M1.1 i bramka pakietowa G1 są zakończone. Po poleceniu rozpoczęcia M1.2 należy
+utworzyć tylko `TASK-0003 — Contracts, signature codec and validation`. Nie
+należy równolegle rozpoczynać kolejnych zadań M1.2–M1.6.

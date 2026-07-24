@@ -10,6 +10,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { SnapshotDiagnostics } from '@/data/bundled-snapshot';
 import type { LocalGameConfig } from '@/data/local-layout-repository';
+import { TargetSummaryCard } from '@/features/target/target-summary-card';
+import {
+  useTargetForecast,
+  type TargetForecastRepository,
+} from '@/features/target/use-target-forecast';
 
 import { BoardGrid } from './board-grid';
 import {
@@ -36,7 +41,9 @@ import {
   type PrefixMatchingState,
 } from './use-prefix-matching';
 
-export type MatchingRepository = ExactMatchRepository & PrefixMatchRepository;
+export type MatchingRepository = ExactMatchRepository &
+  PrefixMatchRepository &
+  TargetForecastRepository;
 
 type Props = {
   diagnostics: SnapshotDiagnostics;
@@ -116,6 +123,17 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
     !boardFull,
   );
   const exactMatching = useExactMatching(repository, selectedGame, state.cells);
+  const uniqueSequenceNumber =
+    exactMatching.status === 'ready' &&
+    exactMatching.result?.status === 'unique'
+      ? exactMatching.result.candidate.sequenceNumber
+      : null;
+  const targetForecast = useTargetForecast(
+    repository,
+    selectedGame,
+    uniqueSequenceNumber,
+    diagnostics,
+  );
   const candidate =
     prefixMatching.status === 'ready' &&
     prefixMatching.candidateCount === 1 &&
@@ -196,6 +214,14 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
                 <PrefixStatus state={prefixMatching} />
               )}
             </View>
+            {uniqueSequenceNumber === null ? null : (
+              <View style={styles.section}>
+                <TargetSummaryCard
+                  onRetry={targetForecast.retry}
+                  state={targetForecast.state}
+                />
+              </View>
+            )}
           </>
         )}
 
@@ -206,8 +232,8 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
             schema {diagnostics.schemaVersion}
           </Text>
           <Text style={styles.statusNote}>
-            Dopasowanie prefiksowe i dokładne działa lokalnie. Obliczenie Target
-            zostanie podłączone w następnym zadaniu.
+            Matching i pełny cykl Target działają lokalnie. Szczegółowa tabela
+            wyników zostanie podłączona w następnym zadaniu.
           </Text>
         </View>
       </ScrollView>

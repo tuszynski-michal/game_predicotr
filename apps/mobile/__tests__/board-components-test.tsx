@@ -92,6 +92,12 @@ const pendingMatchingRepository: MatchingRepository = {
         // TASK-0009 component tests do not exercise matching.
       }),
   ),
+  readCyclicPayouts: jest.fn(
+    () =>
+      new Promise(() => {
+        // TASK-0009 component tests do not exercise Target.
+      }),
+  ),
 };
 
 function render(element: ReactElement): ReactTestRenderer {

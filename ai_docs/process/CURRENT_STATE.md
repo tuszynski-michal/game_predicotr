@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.4 ukończone — bramka G4 zaliczona`
+`M1.5 w toku — TASK-0012 ukończone`
 
 ## Completed
 
@@ -90,6 +90,12 @@ last_updated: 2026-07-24
 - ukończono podetap M1.4 i bramkę G4: kompletny matching działa lokalnie bez
   Target, komponenty nie znają SQLite, a stan jest przekazywany tekstem, nie
   tylko kolorem,
+- ukończono `TASK-0012`: exact unique uruchamia jeden cykliczny odczyt `N - 1`
+  i istniejący Target engine z metadanymi zweryfikowanego snapshotu,
+- UI pokazuje loading, Retry, kontrolowany błąd i podsumowanie pełnego cyklu;
+  duplicate, not found oraz niepełna plansza nie odczytują payoutów,
+- test integracyjny kształtu M1 potwierdza `999` ocenionych spinów dla `1000`
+  layoutów, brak spin 0 w strumieniu i koszt końcowy `9990`,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -97,7 +103,7 @@ last_updated: 2026-07-24
 
 ## In progress
 
-Brak aktywnego zadania. M1.5 nie został jeszcze rozpoczęty.
+Brak aktywnego zadania. M1.5 oczekuje na TASK-0013.
 
 ## Open but not blocking M1
 
@@ -152,8 +158,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po osobnym poleceniu właściciela można utworzyć
-`TASK-0012 — Full-cycle Target integration`. TASK-0013 i M1.6 pozostają poza
-zakresem do czasu ukończenia własnych poprzedników.
+`TASK-0013 — Virtualized result table and calculation state`. M1.6 pozostaje
+poza zakresem do zaliczenia bramki G5.
 
 ## Do not start yet
 

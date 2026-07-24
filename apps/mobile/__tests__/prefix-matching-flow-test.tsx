@@ -124,6 +124,7 @@ function withExact(repository: PrefixMatchRepository): MatchingRepository {
   return {
     ...repository,
     findExact: jest.fn().mockResolvedValue({ status: 'not_found' }),
+    readCyclicPayouts: jest.fn().mockResolvedValue([]),
   };
 }
 

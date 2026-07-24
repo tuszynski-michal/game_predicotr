@@ -61,7 +61,9 @@ export function MatchResultCard({ state }: Props) {
         <Text style={styles.sequenceNumber}>
           Układ: {result.candidate.sequenceNumber}
         </Text>
-        <Text style={styles.muted}>Target nie został jeszcze uruchomiony.</Text>
+        <Text style={styles.muted}>
+          Jednoznaczny układ uruchamia pełny cykl Target.
+        </Text>
       </View>
     );
   }

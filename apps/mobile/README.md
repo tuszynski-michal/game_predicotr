@@ -13,7 +13,9 @@ and Reset. Every non-empty board prefix is matched locally; one longer
 candidate can be accepted from an accessible modal or dismissed for the current
 prefix. A complete board is matched exactly and reports a unique sequence,
 duplicate diagnostics, not found, loading, or a controlled local data error.
-Target is added in the following M1.5 tasks.
+A unique sequence starts the local full-cycle Target calculation and displays
+its loading, retryable error, and final summary states. The virtualized peak
+table is added in the following M1.5 task.
 
 Run all commands from the repository root:
 

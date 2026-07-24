@@ -81,6 +81,21 @@ function matchingRepository(
       .fn()
       .mockResolvedValue({ candidate: null, candidateCount: 2 }),
     findExact,
+    readCyclicPayouts: jest.fn(
+      (selectedGame: LocalGameConfig, startSequenceNumber: number) =>
+        Promise.resolve(
+          Array.from(
+            { length: selectedGame.layoutCount - 1 },
+            (_, payoutIndex) => ({
+              payoutCredits: 0,
+              sequenceNumber:
+                ((startSequenceNumber + payoutIndex) %
+                  selectedGame.layoutCount) +
+                1,
+            }),
+          ),
+        ),
+    ),
   };
 }
 
@@ -164,9 +179,9 @@ describe('exact matching flow', () => {
     act(() => renderer.unmount());
   });
 
-  test('shows the deterministic sequence number for a unique match without starting Target', async () => {
+  test('shows the deterministic sequence number and starts Target for a unique match', async () => {
     const repository = matchingRepository(
-      jest.fn().mockResolvedValue(uniqueResult(256_700)),
+      jest.fn().mockResolvedValue(uniqueResult(7)),
     );
     const renderer = render(
       <GameWorkspaceScreen
@@ -182,8 +197,8 @@ describe('exact matching flow', () => {
     expect(visibleTestIdCount(renderer, 'exact-unique')).toBeGreaterThan(0);
     const output = JSON.stringify(renderer.toJSON());
     expect(output).toContain('Układ: ');
-    expect(output).toContain('256700');
-    expect(output).toContain('Target nie został jeszcze uruchomiony');
+    expect(output).toContain('7');
+    expect(repository.readCyclicPayouts).toHaveBeenCalledWith(game, 7);
 
     act(() => renderer.unmount());
   });
@@ -331,21 +346,21 @@ describe('exact matching flow', () => {
       second.resolve({
         candidate: {
           cells: [1, 1],
-          sequenceNumber: 22,
+          sequenceNumber: 2,
           signature: '0101',
         },
         status: 'unique',
       });
       await second.promise;
     });
-    expect(JSON.stringify(renderer.toJSON())).toContain('22');
+    expect(JSON.stringify(renderer.toJSON())).toContain('2');
 
     await act(async () => {
-      first.resolve(uniqueResult(11));
+      first.resolve(uniqueResult(3));
       await first.promise;
     });
-    expect(JSON.stringify(renderer.toJSON())).toContain('22');
-    expect(JSON.stringify(renderer.toJSON())).not.toContain('Układ: 11');
+    expect(JSON.stringify(renderer.toJSON())).toContain('2');
+    expect(JSON.stringify(renderer.toJSON())).not.toContain('Układ: 3');
 
     act(() => renderer.unmount());
   });

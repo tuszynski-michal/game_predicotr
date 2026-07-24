@@ -256,6 +256,8 @@ unique, duplicate, not found i błędu lokalnych danych, a pełna bramka
 
 ## M1.5 — Pełny Target i wirtualizowana tabela
 
+**Status:** w toku — TASK-0012 ukończone 2026-07-24; TASK-0013 oczekuje.
+
 ### Cel
 
 Połączyć jednoznaczny matching z pełnym obliczeniem i prezentacją wyników.
@@ -366,6 +368,6 @@ Scope.
 
 ## Następny krok
 
-M1.1–M1.4 są zakończone. Po osobnym poleceniu należy utworzyć tylko
-`TASK-0012 — Full-cycle Target integration`. Nie należy równolegle rozpoczynać
-TASK-0013 ani podetapu M1.6.
+M1.1–M1.4 oraz TASK-0012 są zakończone. Po osobnym poleceniu należy utworzyć
+tylko `TASK-0013 — Virtualized result table and calculation state`. Nie należy
+równolegle rozpoczynać podetapu M1.6.

@@ -4,7 +4,13 @@ param(
     [string]$Variant = 'Debug',
 
     [ValidatePattern('^[a-z0-9_,-]+$')]
-    [string]$Architectures = 'arm64-v8a'
+    [string]$Architectures = 'arm64-v8a',
+
+    [ValidatePattern('^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$')]
+    [string]$VersionName = '0.1.0',
+
+    [ValidateRange(1, 2100000000)]
+    [int]$VersionCode = 1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,16 +46,30 @@ if (-not $androidSdkRoot -or -not (Test-Path -LiteralPath (Join-Path $androidSdk
 $env:JAVA_HOME = $javaHome
 $env:ANDROID_HOME = $androidSdkRoot
 $env:ANDROID_SDK_ROOT = $androidSdkRoot
-$env:GRADLE_USER_HOME = Join-Path $localToolingRoot 'gradle-home'
+# Keep this path deliberately short. Native Android dependencies still contain
+# tools that hit the legacy Windows MAX_PATH limit when Gradle caches are nested
+# under the longer .tooling\gradle-home path.
+$env:GRADLE_USER_HOME = Join-Path $repositoryRoot '.g'
 $env:CI = '1'
 $env:NODE_ENV = 'development'
+$env:GAME_PREDICTOR_VERSION_NAME = $VersionName
+$env:GAME_PREDICTOR_VERSION_CODE = [string]$VersionCode
 $env:PATH = (Join-Path $javaHome 'bin') + ';' + (Join-Path $androidSdkRoot 'platform-tools') + ';' + $env:PATH
+
+$buildStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
 Push-Location $mobileRoot
 try {
     $expoCommand = Join-Path $repositoryRoot 'node_modules\.bin\expo.cmd'
     if (-not (Test-Path -LiteralPath $expoCommand)) {
         throw 'Expo CLI was not found. Run npm install from the repository root.'
+    }
+
+    if ($Variant -eq 'Release') {
+        & (Join-Path $PSScriptRoot 'ensure_android_release_signing.ps1')
+        if ($LASTEXITCODE -ne 0) {
+            throw "Release signing setup failed with exit code $LASTEXITCODE."
+        }
     }
 
     & $expoCommand prebuild --clean --platform android --no-install
@@ -81,6 +101,9 @@ if (-not (Test-Path -LiteralPath $apkPath)) {
 
 $apk = Get-Item -LiteralPath $apkPath
 $apkSha256 = (Get-FileHash -LiteralPath $apkPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$buildStopwatch.Stop()
 Write-Host "Built $variantName APK for ${Architectures}: $($apk.FullName)"
+Write-Host "Version: $VersionName ($VersionCode)"
 Write-Host "APK size: $($apk.Length) bytes"
 Write-Host "APK SHA-256: $apkSha256"
+Write-Host "Build elapsed: $([math]::Round($buildStopwatch.Elapsed.TotalSeconds, 2)) seconds"

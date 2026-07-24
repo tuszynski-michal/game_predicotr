@@ -13,6 +13,7 @@
     "android": {
       "package": "com.gamepredictor.mobile",
       "versionCode": 1,
+      "blockedPermissions": ["android.permission.INTERNET"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -28,6 +29,7 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
+      "./plugins/with-release-signing",
       [
         "expo-splash-screen",
         {

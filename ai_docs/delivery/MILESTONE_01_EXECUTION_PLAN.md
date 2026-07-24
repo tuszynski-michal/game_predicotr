@@ -335,6 +335,12 @@ aktywuje nowy dataset.
 - wynik jakości i ograniczenia są zapisane,
 - dokumentacja uruchomienia jest kompletna.
 
+**Status G6:** część lokalna zaliczona 2026-07-24. Prywatnie podpisane APK
+`0.1.0 (1)` przeszło verifier, nie deklaruje `INTERNET`, zawiera właściwy
+snapshot i ABI `arm64-v8a`; pełna brama pozostaje otwarta, ponieważ
+`adb devices -l` nie wykrył Pixel 10 Pro XL ani Galaxy S21 Ultra. Instalacja,
+scenariusze offline, pomiary oraz aktualizacja do innego snapshotu są pending.
+
 ## Mapa planowanych zadań
 
 Identyfikatory są rezerwacją planu. Każdy plik zadania powstaje dopiero przed

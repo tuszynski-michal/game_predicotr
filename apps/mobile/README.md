@@ -26,10 +26,18 @@ npm run snapshot:generate
 npm run snapshot:validate
 npm run start --workspace @game-predictor/mobile
 npm run android:build:debug
+npm run android:signing:setup
 npm run android:build:offline
 npm run android:verify:offline
+npm run android:device:accept
 ```
 
-Use `android:build:offline` for the standalone, test-signed APK that includes
-the JavaScript bundle and SQLite snapshot. Verify its package and embedded
-snapshot with `android:verify:offline`. The debug build expects Metro.
+Use `android:build:offline -- --VersionName 0.1.0 --VersionCode 1` for the
+standalone, privately signed APK that includes the JavaScript bundle and SQLite
+snapshot. Verify its package, certificate, missing `INTERNET` permission and
+embedded snapshot with `android:verify:offline`. The ignored signing material
+is created under `.tooling\android-signing`; back it up securely because the
+same key is required for an in-place update. The debug build expects Metro.
+
+Physical-device steps and controlled layouts are documented in
+`ai_docs\quality\M1_DEVICE_ACCEPTANCE.md`.

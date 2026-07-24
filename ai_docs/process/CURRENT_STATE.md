@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.5 ukończone — bramka G5 zaliczona`
+`M1.6 zablokowany na odbiorze urządzeń — TASK-0014`
 
 ## Completed
 
@@ -104,6 +104,15 @@ last_updated: 2026-07-24
   montowania 100 wierszy,
 - ukończono podetap M1.5 i bramkę G5; pełny przepływ od Layout do
   wirtualizowanej tabeli działa bez backendu,
+- zbudowano i zweryfikowano prywatnie podpisane APK M1 `0.1.0 (1)` dla
+  `arm64-v8a`; artefakt ma `42 140 070` bajtów i SHA-256
+  `1eb8da0ba87a19f42975e46a192af190cf5e51905b97126204c8495ffe2bc0a3`,
+- finalny manifest APK nie deklaruje `android.permission.INTERNET`, release nie
+  jest debuggable i używa certyfikatu `Game Predictor Private Release`,
+- dodano trwały ignorowany signing key, parametry wersji, release verifier,
+  skrypt odbioru urządzenia i manualny protokół testów Pixel/Samsung,
+- lokalna część TASK-0014 przeszła `npm run quality` (62 mobile, 22 shared,
+  52 Python), walidację snapshotu i niezależny audyt APK,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -111,7 +120,11 @@ last_updated: 2026-07-24
 
 ## In progress
 
-Brak aktywnego zadania. M1.6 nie został jeszcze rozpoczęty.
+- `TASK-0014 — Release APK and device acceptance`: lokalny release i statyczna
+  kontrola offline są ukończone.
+- Końcowa kontrola `adb devices -l` nie wykryła żadnego urządzenia. Instalacja,
+  testy offline, pomiary i aktualizacja snapshotu na Pixel 10 Pro XL oraz
+  Galaxy S21 Ultra blokują ukończenie TASK-0014 i bramki G6.
 
 ## Open but not blocking M1
 
@@ -165,8 +178,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po osobnym poleceniu właściciela można utworzyć
-`TASK-0014 — Release APK and device acceptance`.
+Najpierw należy ukończyć aktywne `TASK-0014` i bramkę G6. M2 nie powinno być
+rozpoczynane przed zapisaniem końcowego wyniku M1.
 
 ## Do not start yet
 
@@ -187,11 +200,11 @@ Kolejność, granice i bramki M2–M8 są zapisane w D-014 oraz osobnym planie
 wykonania każdego milestone’u, dzięki czemu przyszłe sesje czytają tylko
 właściwy etap i nie muszą odtwarzać podziału z historii rozmowy.
 
-Pakietowa część bramki G1 przeszła: APK zawiera standalone bundle oraz SQLite o
-checksumie zgodnej z manifestem. Żadne urządzenie nie było podłączone podczas
-TASK-0002, dlatego instalacja, aktualizacja APK, test całkowicie offline na
-Pixel 10 Pro XL i Galaxy S21 Ultra oraz usunięcie domyślnego uprawnienia Expo
-`INTERNET` pozostają jawnym zakresem M1.6.
+Pakietowa część M1.6 przeszła: prywatnie podpisane APK zawiera standalone bundle
+oraz SQLite o checksumie zgodnej z manifestem i nie deklaruje uprawnienia
+`INTERNET`. Żadne urządzenie nie było podłączone podczas TASK-0014, dlatego
+instalacja, aktualizacja APK i test całkowicie offline na Pixel 10 Pro XL oraz
+Galaxy S21 Ultra pozostają jedyną blokadą końcowej bramki G6.
 
 Benchmark M1 dla 1000 layoutów znajduje się w
 `ai_docs/quality/m1-repository-benchmark.json`. Benchmark 500 000 layoutów na

@@ -10,6 +10,8 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $resolvedApkPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $ApkPath))
 $manifestPath = Join-Path $repositoryRoot 'apps\mobile\assets\snapshot\manifest.json'
 $aaptPath = Join-Path $repositoryRoot '.tooling\android-sdk\build-tools\36.0.0\aapt.exe'
+$apksignerPath = Join-Path $repositoryRoot '.tooling\android-sdk\build-tools\36.0.0\apksigner.bat'
+$localJdkRoot = Join-Path $repositoryRoot '.tooling\jdk'
 
 if (-not (Test-Path -LiteralPath $resolvedApkPath)) {
     throw "APK not found at $resolvedApkPath."
@@ -17,6 +19,21 @@ if (-not (Test-Path -LiteralPath $resolvedApkPath)) {
 if (-not (Test-Path -LiteralPath $aaptPath)) {
     throw 'Android Asset Packaging Tool was not found. Run npm run android:toolchain:setup.'
 }
+if (-not (Test-Path -LiteralPath $apksignerPath)) {
+    throw 'Android APK signer was not found. Run npm run android:toolchain:setup.'
+}
+
+$javaHome = $env:JAVA_HOME
+if (-not $javaHome -and (Test-Path -LiteralPath $localJdkRoot)) {
+    $javaHome = Get-ChildItem -LiteralPath $localJdkRoot -Directory |
+        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'bin\java.exe') } |
+        Select-Object -First 1 -ExpandProperty FullName
+}
+if (-not $javaHome -or -not (Test-Path -LiteralPath (Join-Path $javaHome 'bin\java.exe'))) {
+    throw 'JDK 17 was not found. Run npm run android:toolchain:setup or configure JAVA_HOME.'
+}
+$env:JAVA_HOME = $javaHome
+$env:PATH = (Join-Path $javaHome 'bin') + ';' + $env:PATH
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 
@@ -92,12 +109,30 @@ if ($badgingText -notmatch "package: name='com\.gamepredictor\.mobile'") {
 if ($badgingText -notmatch "native-code: 'arm64-v8a'") {
     throw 'The APK does not contain the required arm64-v8a native code.'
 }
+if ($badgingText.Contains('application-debuggable')) {
+    throw 'The release APK is unexpectedly debuggable.'
+}
 
 $permissions = & $aaptPath dump permissions $resolvedApkPath
 if ($LASTEXITCODE -ne 0) {
     throw "aapt dump permissions failed with exit code $LASTEXITCODE."
 }
 $hasInternetPermission = ($permissions -join "`n").Contains('android.permission.INTERNET')
+if ($hasInternetPermission) {
+    throw 'The release APK declares android.permission.INTERNET.'
+}
+
+$signatureVerification = & $apksignerPath verify --verbose --print-certs $resolvedApkPath
+if ($LASTEXITCODE -ne 0) {
+    throw "apksigner verification failed with exit code $LASTEXITCODE."
+}
+$signatureText = $signatureVerification -join "`n"
+if ($signatureText.Contains('CN=Android Debug')) {
+    throw 'The release APK is signed with the Android Debug certificate.'
+}
+if (-not $signatureText.Contains('CN=Game Predictor Private Release')) {
+    throw 'The release APK does not use the expected private release certificate.'
+}
 
 $apk = Get-Item -LiteralPath $resolvedApkPath
 $apkSha256 = (Get-FileHash -LiteralPath $resolvedApkPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -106,4 +141,6 @@ Write-Host "APK size: $($apk.Length) bytes"
 Write-Host "APK SHA-256: $apkSha256"
 Write-Host "Bundled SQLite: $($matchingDatabaseEntry.FullName)"
 Write-Host "Bundled SQLite SHA-256: $($manifest.snapshotFileSha256)"
-Write-Host "Internet permission declared: $hasInternetPermission (removal is enforced in M1.6)"
+Write-Host "Internet permission declared: $hasInternetPermission"
+Write-Host ($badging | Where-Object { $_ -match "^package:" } | Select-Object -First 1)
+Write-Host ($signatureVerification | Where-Object { $_ -match 'certificate DN:' } | Select-Object -First 1)

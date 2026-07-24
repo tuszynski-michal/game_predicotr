@@ -40,23 +40,42 @@ npm run snapshot:generate
 npm run quality
 npm run android
 npm run android:build:debug
+npm run android:signing:setup
 npm run android:build:offline
 npm run android:verify:offline
+npm run android:device:accept
 ```
 
 The development APK is created at
 `apps\mobile\android\app\build\outputs\apk\debug\app-debug.apk`.
-It expects a local Metro server. The standalone, test-signed APK containing the
-JavaScript bundle and SQLite snapshot is created at
+It expects a local Metro server. The standalone, privately signed APK containing
+the JavaScript bundle and SQLite snapshot is created at
 `apps\mobile\android\app\build\outputs\apk\release\app-release.apk`.
 Both local commands target `arm64-v8a`, which covers the planned Pixel and
 Galaxy test devices.
 
 `android:verify:offline` checks the package identifier, architecture,
 standalone JavaScript bundle, controlled local-data error contract and exact
-SQLite checksum inside the APK. The spike still contains Expo's default
-`INTERNET` permission declaration; removing it and enforcing its absence is an
-explicit M1.6 release gate. No M1.1 application code performs network requests.
+SQLite checksum inside the APK. It also rejects a debug certificate, a
+debuggable release and any final manifest that declares
+`android.permission.INTERNET`.
+
+Create or validate the persistent private signing material with
+`android:signing:setup`. The ignored `.tooling\android-signing` directory
+contains the keystore and local secrets. Back it up securely outside the
+repository: losing this key prevents in-place updates of an already installed
+APK. Never commit or print its contents.
+
+Build explicit private versions with:
+
+```powershell
+npm run android:build:offline -- --VersionName 0.1.0 --VersionCode 1
+```
+
+The physical Pixel and Galaxy installation, offline and update procedure is
+defined in
+[`M1_DEVICE_ACCEPTANCE.md`](ai_docs/quality/M1_DEVICE_ACCEPTANCE.md). It must be
+performed with a connected device before the M1.6 gate can be closed.
 
 The mobile application never downloads its domain data. The snapshot generator
 places a versioned SQLite asset and manifest directly in the application source,

@@ -1,0 +1,37 @@
+{
+  "status": "local_pass_device_pending",
+  "verifiedAt": "2026-07-24",
+  "applicationId": "com.gamepredictor.mobile",
+  "versionName": "0.1.0",
+  "versionCode": 1,
+  "architectures": ["arm64-v8a"],
+  "apk": {
+    "sizeBytes": 42140070,
+    "sha256": "1eb8da0ba87a19f42975e46a192af190cf5e51905b97126204c8495ffe2bc0a3",
+    "debuggable": false,
+    "internetPermissionDeclared": false,
+    "certificateDn": "CN=Game Predictor Private Release, OU=Private Testing, O=Local, C=PL"
+  },
+  "snapshot": {
+    "releaseVersion": "m1-fixture.1",
+    "sha256": "142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd"
+  },
+  "quality": {
+    "mobileTestsPassed": 62,
+    "sharedTestsPassed": 22,
+    "pythonTestsPassed": 52,
+    "snapshotValidationPassed": true,
+    "fixtureValidationPassed": true,
+    "releaseVerifierPassed": true
+  },
+  "devices": {
+    "connectedDuringVerification": 0,
+    "pixel10ProXl": "pending",
+    "galaxyS21Ultra": "pending",
+    "snapshotUpdate": "pending"
+  },
+  "notes": [
+    "The first Windows release build required a short Gradle cache path because native tools encountered the legacy MAX_PATH limit.",
+    "The artifact completed after the command runner's 20-minute observation window; no exact clean-build duration is claimed."
+  ]
+}

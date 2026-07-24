@@ -210,6 +210,8 @@ Dowód benchmarku znajduje się w
 
 ## M1.4 — Wprowadzanie planszy i kompletny matching UI
 
+**Status:** ukończone 2026-07-24 (`TASK-0009`, `TASK-0010`, `TASK-0011`).
+
 ### Cel
 
 Dostarczyć pierwszy pełny przepływ użytkownika: od wyboru gry do wyniku
@@ -247,6 +249,10 @@ poprawny komunikat o duplikacie.
 - modal nie otwiera się w pętli dla odrzuconego prefiksu,
 - ważne informacje nie są przekazywane tylko kolorem,
 - komponenty nie znają formatu zapytań SQLite.
+
+**Wynik G4:** zaliczona 2026-07-24. Pełny przepływ matching ma testy stanów
+unique, duplicate, not found i błędu lokalnych danych, a pełna bramka
+`npm run quality` przechodzi.
 
 ## M1.5 — Pełny Target i wirtualizowana tabela
 
@@ -360,6 +366,6 @@ Scope.
 
 ## Następny krok
 
-M1.1–M1.3 oraz TASK-0009 są zakończone. Po osobnym poleceniu należy utworzyć
-tylko `TASK-0010 — Prefix matching and unique candidate modal`. Nie należy
-równolegle rozpoczynać kolejnych zadań podetapów M1.4–M1.6.
+M1.1–M1.4 są zakończone. Po osobnym poleceniu należy utworzyć tylko
+`TASK-0012 — Full-cycle Target integration`. Nie należy równolegle rozpoczynać
+TASK-0013 ani podetapu M1.6.

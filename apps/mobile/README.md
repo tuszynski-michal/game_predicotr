@@ -9,8 +9,11 @@ controlled `local_data_error` if the local contract is invalid.
 
 After validation, the main screen loads the real game and symbol catalog from
 SQLite. It provides a row-major board, game selection, symbol selection, Undo
-and Reset. Prefix/exact matching and Target are added in the following M1.4 and
-M1.5 tasks.
+and Reset. Every non-empty board prefix is matched locally; one longer
+candidate can be accepted from an accessible modal or dismissed for the current
+prefix. A complete board is matched exactly and reports a unique sequence,
+duplicate diagnostics, not found, loading, or a controlled local data error.
+Target is added in the following M1.5 tasks.
 
 Run all commands from the repository root:
 

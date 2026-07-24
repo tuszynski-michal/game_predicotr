@@ -10,7 +10,10 @@ import {
 import type { SnapshotDiagnostics } from '@/data/bundled-snapshot';
 import type { LocalGameConfig } from '@/data/local-layout-repository';
 import { BoardGrid } from '@/features/board/board-grid';
-import { GameWorkspaceScreen } from '@/features/board/game-workspace-screen';
+import {
+  GameWorkspaceScreen,
+  type MatchingRepository,
+} from '@/features/board/game-workspace-screen';
 import { GameHeader } from '@/features/board/game-header';
 import { SymbolSelection } from '@/features/board/symbol-selection';
 
@@ -74,6 +77,21 @@ const diagnostics: SnapshotDiagnostics = {
   rulesVersion: 1,
   schemaVersion: 2,
   snapshotFileSha256: 'a'.repeat(64),
+};
+
+const pendingMatchingRepository: MatchingRepository = {
+  findExact: jest.fn(
+    () =>
+      new Promise(() => {
+        // TASK-0009 component tests do not exercise matching.
+      }),
+  ),
+  findByPrefix: jest.fn(
+    () =>
+      new Promise(() => {
+        // TASK-0009 component tests do not exercise matching.
+      }),
+  ),
 };
 
 function render(element: ReactElement): ReactTestRenderer {
@@ -172,7 +190,11 @@ describe('board components', () => {
 
   test('connects symbol input, Undo, Reset and game change in one session', () => {
     const renderer = render(
-      <GameWorkspaceScreen diagnostics={diagnostics} games={games} />,
+      <GameWorkspaceScreen
+        diagnostics={diagnostics}
+        games={games}
+        repository={pendingMatchingRepository}
+      />,
     );
 
     expect(boardCells(renderer.root)).toHaveLength(2);

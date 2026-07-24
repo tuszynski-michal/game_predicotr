@@ -23,6 +23,9 @@ export function LocalSnapshotGate() {
     null,
   );
   const [games, setGames] = useState<readonly LocalGameConfig[] | null>(null);
+  const [repository, setRepository] = useState<LocalLayoutRepository | null>(
+    null,
+  );
   const [error, setError] = useState<LocalDataError | null>(null);
 
   const initialize = useCallback(async (database: SQLiteDatabase) => {
@@ -31,6 +34,7 @@ export function LocalSnapshotGate() {
       readSnapshotDiagnostics(database),
       repository.listGames(),
     ]);
+    setRepository(repository);
     setDiagnostics(verifiedDiagnostics);
     setGames(gameCatalog);
   }, []);
@@ -50,10 +54,14 @@ export function LocalSnapshotGate() {
       onError={handleError}
       onInit={initialize}
     >
-      {diagnostics === null || games === null ? (
+      {diagnostics === null || games === null || repository === null ? (
         <SnapshotDiagnosticScreen diagnostics={null} error={null} />
       ) : (
-        <GameWorkspaceScreen diagnostics={diagnostics} games={games} />
+        <GameWorkspaceScreen
+          diagnostics={diagnostics}
+          games={games}
+          repository={repository}
+        />
       )}
     </SQLiteProvider>
   );

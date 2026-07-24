@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.4 w toku — TASK-0009 ukończony, oczekiwanie na TASK-0010`
+`M1.4 ukończone — bramka G4 zaliczona`
 
 ## Completed
 
@@ -78,6 +78,18 @@ last_updated: 2026-07-24
   kroku historii,
 - główny ekran po walidacji snapshotu korzysta z prawdziwego katalogu trzech
   gier; kafelki i przyciski mają jawne stany oraz etykiety dostępności,
+- ukończono `TASK-0010`: prefix matching po każdej zmianie niepustej planszy,
+  dokładny licznik kandydatów, modal jednego pełnego layoutu i akceptacja jako
+  jeden krok Undo,
+- odrzucony prefiks nie otwiera modala w pętli, a wyniki starszych zapytań są
+  ignorowane po Append, Undo, Reset albo zmianie gry,
+- ukończono `TASK-0011`: exact matching wyłącznie dla pełnej planszy oraz jawne
+  stany unique, duplicate, not found, loading i błędu lokalnych danych,
+- pełna plansza wyłącza prefix lookup; duplikat nie wybiera arbitralnej pozycji,
+  a Undo, Reset i zmiana gry usuwają nieaktualny wynik,
+- ukończono podetap M1.4 i bramkę G4: kompletny matching działa lokalnie bez
+  Target, komponenty nie znają SQLite, a stan jest przekazywany tekstem, nie
+  tylko kolorem,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -85,7 +97,7 @@ last_updated: 2026-07-24
 
 ## In progress
 
-- brak aktywnego zadania; M1.4 oczekuje na integrację prefix matching.
+Brak aktywnego zadania. M1.5 nie został jeszcze rozpoczęty.
 
 ## Open but not blocking M1
 
@@ -139,8 +151,9 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po osobnym poleceniu właściciela można utworzyć i rozpocząć
-`TASK-0010 — Prefix matching and unique candidate modal`.
+Po osobnym poleceniu właściciela można utworzyć
+`TASK-0012 — Full-cycle Target integration`. TASK-0013 i M1.6 pozostają poza
+zakresem do czasu ukończenia własnych poprzedników.
 
 ## Do not start yet
 

@@ -256,7 +256,13 @@ describe('Target forecast integration', () => {
     expect(summaryValue(renderer, 'target-final-net')).toContain('0');
     expect(summaryValue(renderer, 'target-peak-count')).toContain('1');
     expect(JSON.stringify(renderer.toJSON())).toContain(
-      'Szczegółowa tabela szczytów zostanie dołączona',
+      'Szczegółowe dodatnie lokalne maksima znajdują się w tabeli poniżej',
+    );
+    expect(
+      visibleTestIdCount(renderer, 'target-results-header'),
+    ).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'target-peak-row-2')).toBeGreaterThan(
+      0,
     );
 
     act(() => renderer.unmount());
@@ -367,10 +373,14 @@ describe('Target forecast integration', () => {
 
     await completeBoard(renderer);
     expect(visibleTestIdCount(renderer, 'target-ready')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'target-peak-row-2')).toBeGreaterThan(
+      0,
+    );
 
     await press(renderer, 'reset-button');
 
     expect(visibleTestIdCount(renderer, 'target-ready')).toBe(0);
+    expect(visibleTestIdCount(renderer, 'target-peak-row-2')).toBe(0);
     expect(readCyclicPayouts).toHaveBeenCalledTimes(1);
     act(() => renderer.unmount());
   });

@@ -1,7 +1,8 @@
+import type { ForecastPeak } from '@game-predictor/shared-ts';
 import { useReducer } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   View,
@@ -10,6 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { SnapshotDiagnostics } from '@/data/bundled-snapshot';
 import type { LocalGameConfig } from '@/data/local-layout-repository';
+import {
+  TargetPeakRow,
+  targetPeakKey,
+} from '@/features/target/target-peak-row';
+import {
+  TargetResultsEmpty,
+  TargetResultsHeader,
+} from '@/features/target/target-results-header';
 import { TargetSummaryCard } from '@/features/target/target-summary-card';
 import {
   useTargetForecast,
@@ -44,6 +53,12 @@ import {
 export type MatchingRepository = ExactMatchRepository &
   PrefixMatchRepository &
   TargetForecastRepository;
+
+const EMPTY_TARGET_PEAKS: readonly ForecastPeak[] = Object.freeze([]);
+
+function ResultsListFooter() {
+  return <View style={styles.listFooter} />;
+}
 
 type Props = {
   diagnostics: SnapshotDiagnostics;
@@ -134,6 +149,12 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
     uniqueSequenceNumber,
     diagnostics,
   );
+  const targetPeaks =
+    targetForecast.state.status === 'ready' &&
+    targetForecast.state.result !== null
+      ? targetForecast.state.result.positiveLocalPeaks
+      : EMPTY_TARGET_PEAKS;
+  const targetReady = targetForecast.state.status === 'ready';
   const candidate =
     prefixMatching.status === 'ready' &&
     prefixMatching.candidateCount === 1 &&
@@ -157,86 +178,102 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
+      <FlatList
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <GameHeader
-          canUndo={canUndo(state)}
-          games={games}
-          onReset={() => dispatch({ type: 'reset' })}
-          onSelectGame={handleSelectGame}
-          onUndo={() => dispatch({ type: 'undo' })}
-          releaseVersion={diagnostics.releaseVersion}
-          selectedGameId={state.selectedGameId}
-        />
+        data={targetPeaks}
+        initialNumToRender={8}
+        keyExtractor={targetPeakKey}
+        ListEmptyComponent={targetReady ? TargetResultsEmpty : null}
+        ListFooterComponent={ResultsListFooter}
+        ListHeaderComponent={() => (
+          <View testID="workspace-list-header">
+            <GameHeader
+              canUndo={canUndo(state)}
+              games={games}
+              onReset={() => dispatch({ type: 'reset' })}
+              onSelectGame={handleSelectGame}
+              onUndo={() => dispatch({ type: 'undo' })}
+              releaseVersion={diagnostics.releaseVersion}
+              selectedGameId={state.selectedGameId}
+            />
 
-        {selectedGame === null ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Brak konfiguracji gry</Text>
-            <Text style={styles.emptyText}>
-              Snapshot nie zawiera gry możliwej do wybrania.
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.section}>
-              <View style={styles.sectionHeading}>
-                <Text accessibilityRole="header" style={styles.heading}>
-                  Layout
-                </Text>
-                <Text style={styles.progress}>
-                  {enteredCount}/{state.cells.length}
+            {selectedGame === null ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyTitle}>Brak konfiguracji gry</Text>
+                <Text style={styles.emptyText}>
+                  Snapshot nie zawiera gry możliwej do wybrania.
                 </Text>
               </View>
-              <BoardGrid
-                cells={state.cells}
-                columns={state.columns}
-                rows={state.rows}
-                symbols={selectedGame.symbols}
-              />
-            </View>
+            ) : (
+              <>
+                <View style={styles.section}>
+                  <View style={styles.sectionHeading}>
+                    <Text accessibilityRole="header" style={styles.heading}>
+                      Layout
+                    </Text>
+                    <Text style={styles.progress}>
+                      {enteredCount}/{state.cells.length}
+                    </Text>
+                  </View>
+                  <BoardGrid
+                    cells={state.cells}
+                    columns={state.columns}
+                    rows={state.rows}
+                    symbols={selectedGame.symbols}
+                  />
+                </View>
 
-            <View style={styles.section}>
-              <SymbolSelection
-                disabled={boardFull || prefixMatching.status === 'error'}
-                onSelectSymbol={(mobileCode) =>
-                  dispatch({ mobileCode, type: 'append_symbol' })
-                }
-                symbols={selectedGame.symbols}
-              />
-            </View>
+                <View style={styles.section}>
+                  <SymbolSelection
+                    disabled={boardFull || prefixMatching.status === 'error'}
+                    onSelectSymbol={(mobileCode) =>
+                      dispatch({ mobileCode, type: 'append_symbol' })
+                    }
+                    symbols={selectedGame.symbols}
+                  />
+                </View>
 
-            <View style={styles.section}>
-              {boardFull ? (
-                <MatchResultCard state={exactMatching} />
-              ) : (
-                <PrefixStatus state={prefixMatching} />
-              )}
-            </View>
-            {uniqueSequenceNumber === null ? null : (
-              <View style={styles.section}>
-                <TargetSummaryCard
-                  onRetry={targetForecast.retry}
-                  state={targetForecast.state}
-                />
-              </View>
+                <View style={styles.section}>
+                  {boardFull ? (
+                    <MatchResultCard state={exactMatching} />
+                  ) : (
+                    <PrefixStatus state={prefixMatching} />
+                  )}
+                </View>
+                {uniqueSequenceNumber === null ? null : (
+                  <View style={styles.section}>
+                    <TargetSummaryCard
+                      onRetry={targetForecast.retry}
+                      state={targetForecast.state}
+                    />
+                  </View>
+                )}
+              </>
             )}
-          </>
-        )}
 
-        <View style={styles.statusCard}>
-          <Text style={styles.statusTitle}>Dane lokalne gotowe</Text>
-          <Text style={styles.statusText}>
-            {diagnostics.gameCount} gry · {diagnostics.layoutCount} layoutów ·
-            schema {diagnostics.schemaVersion}
-          </Text>
-          <Text style={styles.statusNote}>
-            Matching i pełny cykl Target działają lokalnie. Szczegółowa tabela
-            wyników zostanie podłączona w następnym zadaniu.
-          </Text>
-        </View>
-      </ScrollView>
+            <View style={styles.statusCard}>
+              <Text style={styles.statusTitle}>Dane lokalne gotowe</Text>
+              <Text style={styles.statusText}>
+                {diagnostics.gameCount} gry · {diagnostics.layoutCount} layoutów
+                · schema {diagnostics.schemaVersion}
+              </Text>
+              <Text style={styles.statusNote}>
+                Matching, pełny cykl Target i tabela wyników działają lokalnie.
+              </Text>
+            </View>
+
+            {targetReady ? (
+              <TargetResultsHeader peakCount={targetPeaks.length} />
+            ) : null}
+          </View>
+        )}
+        maxToRenderPerBatch={8}
+        removeClippedSubviews
+        renderItem={({ item }) => <TargetPeakRow peak={item} />}
+        showsVerticalScrollIndicator={false}
+        testID="target-results-list"
+        windowSize={5}
+      />
       {selectedGame === null ? null : (
         <CandidateLayoutModal
           candidate={candidate}
@@ -290,6 +327,9 @@ const styles = StyleSheet.create({
     color: boardColors.text,
     fontSize: 20,
     fontWeight: '800',
+  },
+  listFooter: {
+    height: 36,
   },
   matchCard: {
     alignItems: 'center',

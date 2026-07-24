@@ -103,7 +103,7 @@ export function TargetSummaryCard({ onRetry, state }: Props) {
         />
       </View>
       <Text style={styles.muted}>
-        Szczegółowa tabela szczytów zostanie dołączona w następnym zadaniu.
+        Szczegółowe dodatnie lokalne maksima znajdują się w tabeli poniżej.
       </Text>
     </View>
   );

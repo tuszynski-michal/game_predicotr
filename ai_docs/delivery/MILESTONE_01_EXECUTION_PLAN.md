@@ -256,7 +256,7 @@ unique, duplicate, not found i błędu lokalnych danych, a pełna bramka
 
 ## M1.5 — Pełny Target i wirtualizowana tabela
 
-**Status:** w toku — TASK-0012 ukończone 2026-07-24; TASK-0013 oczekuje.
+**Status:** ukończone 2026-07-24 (`TASK-0012`, `TASK-0013`).
 
 ### Cel
 
@@ -294,6 +294,10 @@ szczyty dla 999 spinów.
 - plateau wskazuje pierwszy spin,
 - długa lista nie renderuje wszystkich wierszy naraz,
 - duplicate nigdy nie uruchamia Target.
+
+**Wynik G5:** zaliczona 2026-07-24. Test UI odtwarza golden pełnego cyklu dla
+999 spinów, w tym późniejszy niższy szczyt i pierwszy spin plateau. `FlatList`
+nie montuje wszystkich 100 kontrolnych wierszy jednocześnie.
 
 ## M1.6 — Release APK i odbiór na urządzeniach
 
@@ -368,6 +372,5 @@ Scope.
 
 ## Następny krok
 
-M1.1–M1.4 oraz TASK-0012 są zakończone. Po osobnym poleceniu należy utworzyć
-tylko `TASK-0013 — Virtualized result table and calculation state`. Nie należy
-równolegle rozpoczynać podetapu M1.6.
+M1.1–M1.5 są zakończone. Po osobnym poleceniu należy utworzyć tylko
+`TASK-0014 — Release APK and device acceptance`.

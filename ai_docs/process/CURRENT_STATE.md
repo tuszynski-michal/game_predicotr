@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.5 w toku — TASK-0012 ukończone`
+`M1.5 ukończone — bramka G5 zaliczona`
 
 ## Completed
 
@@ -96,6 +96,14 @@ last_updated: 2026-07-24
   duplicate, not found oraz niepełna plansza nie odczytują payoutów,
 - test integracyjny kształtu M1 potwierdza `999` ocenionych spinów dla `1000`
   layoutów, brak spin 0 w strumieniu i koszt końcowy `9990`,
+- ukończono `TASK-0013`: główny ekran jest jednym `FlatList`, a kompletne
+  wiersze dodatnich lokalnych maksimów znajdują się pod podsumowaniem Target,
+- golden UI pokazuje dla 999 spinów szczyty `190` i późniejszy niższy `180`,
+  zachowuje pierwszy spin plateau oraz nie tworzy wiersza dla zera,
+- test długiej listy potwierdza okno renderowania zamiast jednoczesnego
+  montowania 100 wierszy,
+- ukończono podetap M1.5 i bramkę G5; pełny przepływ od Layout do
+  wirtualizowanej tabeli działa bez backendu,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -103,7 +111,7 @@ last_updated: 2026-07-24
 
 ## In progress
 
-Brak aktywnego zadania. M1.5 oczekuje na TASK-0013.
+Brak aktywnego zadania. M1.6 nie został jeszcze rozpoczęty.
 
 ## Open but not blocking M1
 
@@ -158,8 +166,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po osobnym poleceniu właściciela można utworzyć
-`TASK-0013 — Virtualized result table and calculation state`. M1.6 pozostaje
-poza zakresem do zaliczenia bramki G5.
+`TASK-0014 — Release APK and device acceptance`.
 
 ## Do not start yet
 

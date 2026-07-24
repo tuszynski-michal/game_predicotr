@@ -122,6 +122,9 @@ SQLite oraz jego wersję.
 
 ## M1.2 — Kontrakty domenowe i golden algorithms
 
+**Status:** w toku — TASK-0003 ukończone 2026-07-24; TASK-0004 i TASK-0005
+nie rozpoczęte.
+
 ### Cel
 
 Udowodnić poprawność reguł bez zależności od React Native, SQLite i UI.
@@ -353,6 +356,6 @@ Scope.
 
 ## Następny krok
 
-M1.1 i bramka pakietowa G1 są zakończone. Po poleceniu rozpoczęcia M1.2 należy
-utworzyć tylko `TASK-0003 — Contracts, signature codec and validation`. Nie
-należy równolegle rozpoczynać kolejnych zadań M1.2–M1.6.
+M1.1 oraz `TASK-0003` są zakończone. Po poleceniu kontynuacji M1.2 należy
+utworzyć tylko `TASK-0004 — Payout engine and golden tests`. Nie należy
+równolegle rozpoczynać TASK-0005 ani kolejnych podetapów M1.3–M1.6.

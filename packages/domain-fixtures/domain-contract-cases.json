@@ -1,0 +1,344 @@
+{
+  "signatureCodec": {
+    "cellWidth": 3,
+    "fullCases": [
+      {
+        "name": "row-major board",
+        "cells": [1, 23, 12, 3, 7, 9],
+        "expected": "001023012003007009"
+      },
+      {
+        "name": "variable-width collision left",
+        "cells": [1, 23],
+        "expected": "001023"
+      },
+      {
+        "name": "variable-width collision right",
+        "cells": [12, 3],
+        "expected": "012003"
+      }
+    ],
+    "prefixCases": [
+      {
+        "name": "empty prefix",
+        "cells": [null, null, null, null, null],
+        "expected": ""
+      },
+      {
+        "name": "two populated row-major cells",
+        "cells": [1, 23, null, null, null],
+        "expected": "001023"
+      }
+    ],
+    "invalidEncodeCases": [
+      {
+        "name": "zero code",
+        "cells": [0],
+        "cellWidth": 3,
+        "errorCode": "invalid_symbol_code"
+      },
+      {
+        "name": "code exceeds width",
+        "cells": [1000],
+        "cellWidth": 3,
+        "errorCode": "symbol_code_out_of_range"
+      },
+      {
+        "name": "code exceeds smallint",
+        "cells": [32768],
+        "cellWidth": 5,
+        "errorCode": "invalid_symbol_code"
+      },
+      {
+        "name": "cell width exceeds smallint codec",
+        "cells": [1],
+        "cellWidth": 6,
+        "errorCode": "invalid_cell_width"
+      },
+      {
+        "name": "non-prefix cells",
+        "cells": [1, null, 2],
+        "cellWidth": 3,
+        "prefix": true,
+        "errorCode": "non_prefix_board"
+      }
+    ],
+    "invalidDecodeCases": [
+      {
+        "name": "incomplete cell",
+        "signature": "00102",
+        "cellWidth": 3,
+        "errorCode": "invalid_signature"
+      },
+      {
+        "name": "non-decimal value",
+        "signature": "001A02",
+        "cellWidth": 3,
+        "errorCode": "invalid_signature"
+      },
+      {
+        "name": "zero symbol",
+        "signature": "000",
+        "cellWidth": 3,
+        "errorCode": "invalid_signature"
+      },
+      {
+        "name": "unexpected cell count",
+        "signature": "001002",
+        "cellWidth": 3,
+        "expectedCellCount": 3,
+        "errorCode": "invalid_signature"
+      }
+    ]
+  },
+  "validation": {
+    "game": {
+      "id": "game-m1",
+      "code": "GAME_M1",
+      "name": "M1 Fixture Game",
+      "rows": 3,
+      "columns": 5,
+      "spinCost": 10,
+      "signatureCellWidth": 3,
+      "symbols": [
+        {
+          "mobileCode": 1,
+          "code": "S1",
+          "name": "Symbol 1",
+          "isWildcard": false,
+          "displayOrder": 0
+        },
+        {
+          "mobileCode": 2,
+          "code": "S2",
+          "name": "Symbol 2",
+          "isWildcard": false,
+          "displayOrder": 1
+        },
+        {
+          "mobileCode": 9,
+          "code": "JOKER",
+          "name": "Joker",
+          "isWildcard": true,
+          "displayOrder": 2
+        }
+      ]
+    },
+    "invalidGamePatches": [
+      {
+        "name": "zero rows",
+        "patch": {
+          "rows": 0
+        },
+        "errorCode": "invalid_dimensions"
+      },
+      {
+        "name": "negative spin cost",
+        "patch": {
+          "spinCost": -1
+        },
+        "errorCode": "invalid_spin_cost"
+      },
+      {
+        "name": "unsupported signature width",
+        "patch": {
+          "signatureCellWidth": 6
+        },
+        "errorCode": "invalid_cell_width"
+      }
+    ],
+    "fullBoard": [1, 2, 1, 2, 9, 2, 1, 2, 1, 2, 9, 1, 2, 1, 2],
+    "validPrefix": [
+      1,
+      2,
+      9,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "validPaylines": [
+      {
+        "id": "middle",
+        "rowPath": [1, 1, 1, 1, 1]
+      },
+      {
+        "id": "v-shape",
+        "rowPath": [0, 1, 2, 1, 0]
+      }
+    ],
+    "validPayoutRules": [
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 3,
+        "payoutCredits": 20
+      },
+      {
+        "symbolMobileCode": 1,
+        "matchLength": 5,
+        "payoutCredits": 100
+      },
+      {
+        "symbolMobileCode": 2,
+        "matchLength": 3,
+        "payoutCredits": 15
+      }
+    ],
+    "invalidPaylines": [
+      {
+        "name": "wrong row path length",
+        "paylines": [
+          {
+            "id": "short",
+            "rowPath": [0, 1, 2, 1]
+          }
+        ],
+        "errorCode": "invalid_row_path_length"
+      },
+      {
+        "name": "row outside board",
+        "paylines": [
+          {
+            "id": "outside",
+            "rowPath": [0, 1, 3, 1, 0]
+          }
+        ],
+        "errorCode": "invalid_row_index"
+      },
+      {
+        "name": "duplicate row path",
+        "paylines": [
+          {
+            "id": "first",
+            "rowPath": [1, 1, 1, 1, 1]
+          },
+          {
+            "id": "second",
+            "rowPath": [1, 1, 1, 1, 1]
+          }
+        ],
+        "errorCode": "duplicate_payline"
+      }
+    ],
+    "invalidPayoutRules": [
+      {
+        "name": "match too short",
+        "rules": [
+          {
+            "symbolMobileCode": 1,
+            "matchLength": 2,
+            "payoutCredits": 10
+          }
+        ],
+        "errorCode": "invalid_match_length"
+      },
+      {
+        "name": "negative payout",
+        "rules": [
+          {
+            "symbolMobileCode": 1,
+            "matchLength": 3,
+            "payoutCredits": -1
+          }
+        ],
+        "errorCode": "invalid_payout"
+      },
+      {
+        "name": "wildcard payout",
+        "rules": [
+          {
+            "symbolMobileCode": 9,
+            "matchLength": 3,
+            "payoutCredits": 10
+          }
+        ],
+        "errorCode": "wildcard_payout_rule"
+      },
+      {
+        "name": "duplicate symbol and length",
+        "rules": [
+          {
+            "symbolMobileCode": 1,
+            "matchLength": 3,
+            "payoutCredits": 10
+          },
+          {
+            "symbolMobileCode": 1,
+            "matchLength": 3,
+            "payoutCredits": 20
+          }
+        ],
+        "errorCode": "duplicate_payout_rule"
+      }
+    ],
+    "invalidPrefixes": [
+      {
+        "name": "populated after null",
+        "cells": [
+          1,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "errorCode": "non_prefix_board"
+      },
+      {
+        "name": "foreign symbol",
+        "cells": [
+          77,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "errorCode": "invalid_board_symbol"
+      },
+      {
+        "name": "wrong board length",
+        "cells": [1, 2],
+        "errorCode": "invalid_board_length"
+      }
+    ],
+    "invalidFullBoards": [
+      {
+        "name": "foreign symbol",
+        "cells": [77, 2, 1, 2, 9, 2, 1, 2, 1, 2, 9, 1, 2, 1, 2],
+        "errorCode": "invalid_board_symbol"
+      },
+      {
+        "name": "wrong board length",
+        "cells": [1, 2],
+        "errorCode": "invalid_board_length"
+      }
+    ]
+  }
+}

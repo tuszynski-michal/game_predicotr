@@ -1,4 +1,6 @@
 # Shared packages
 
-Shared TypeScript domain contracts will be introduced in M1.2. This directory is
-created in M1.1 so the monorepo boundaries are explicit from the beginning.
+- `shared-ts/` — framework-independent TypeScript contracts, signature codec
+  and validation used by mobile-side domain code.
+- `domain-fixtures/` — language-neutral golden JSON cases executed by both
+  TypeScript and Python tests.

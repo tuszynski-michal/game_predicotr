@@ -229,6 +229,26 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   aplikacji referencyjnej poza obserwacją przez Q-020. Rezerwacja identyfikatora
   nie oznacza utworzenia ani rozpoczęcia zadania.
 
+## D-015 — Fixed-width signature codec v1
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** codec v1 zapisuje każdą komórkę jako dodatni dziesiętny
+  `mobile_code` dopełniony zerami z lewej do `signature_cell_width`. Szerokość
+  1–5 jest konfiguracją całego datasetu, trafia do snapshotu i nie jest
+  wyprowadzana z pojedynczego layoutu. Kody symboli należą do zakresu
+  `1..32767`, zgodnego z dodatnią częścią typu `smallint`.
+- **Reason:** reprezentacja rozróżnia m.in. `[1, 23]` od `[12, 3]`, zachowuje
+  zgodność prefiksu wprowadzania z prefiksem sygnatury oraz daje identyczny
+  wynik w Pythonie i TypeScript. Jawna szerokość zapobiega zmianie kodowania
+  zależnie od danych pojedynczego rekordu.
+- **Alternatives:** kodowanie zmiennoszerokie z separatorem, globalna szerokość
+  zaszyta w kodzie, BLOB od pierwszej wersji.
+- **Consequences:** `dataset_versions` i mobilne `games` przechowują
+  `signature_cell_width`; build odrzuca kody niemieszczące się w niej.
+  Repozytoria traktują sygnaturę jako nieprzezroczystą, więc po benchmarku
+  można zmienić fizyczną reprezentację na BLOB bez zmiany logiki domenowej.
+
 ## Szablon nowej decyzji
 
 ```text

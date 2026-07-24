@@ -42,6 +42,9 @@ Unikalność:
 - `(game_id, mobile_code)`,
 - `(game_id, code)`.
 
+Walidacja: `1 <= mobile_code <= 32767`. Wartość `0` jest zarezerwowana i nie
+jest kodem symbolu.
+
 Symbol użyty w opublikowanej wersji nie jest fizycznie usuwany. Archiwizacja nie zmienia jego historycznego kodu.
 
 ### rules_versions
@@ -119,6 +122,7 @@ Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje
 | version | integer | rosnąca wersja |
 | rows | smallint | wymiary danych |
 | columns | smallint | |
+| signature_cell_width | smallint | 1–5, zapisana konfiguracja codeca |
 | layout_count | bigint | po walidacji |
 | status | enum | staging/published/archived |
 | source_job_id | UUID nullable | |
@@ -148,6 +152,7 @@ Integralność opublikowanej wersji:
 
 - liczba komórek równa `rows * columns`,
 - każda komórka zawiera stabilny kod symbolu danej gry,
+- każdy kod symbolu mieści się w `signature_cell_width`,
 - numery tworzą dokładnie ciąg `1..layout_count`,
 - brak luk i duplikatów numeru.
 
@@ -324,6 +329,7 @@ name TEXT
 rows INTEGER
 columns INTEGER
 spin_cost INTEGER
+signature_cell_width INTEGER
 layout_count INTEGER
 dataset_version INTEGER
 rules_version INTEGER
@@ -371,7 +377,14 @@ Każda komórka ma stałą szerokość kodu, dzięki czemu:
 - prefiks wprowadzania odpowiada prefiksowi sygnatury,
 - serializacja jest deterministyczna.
 
-Pierwsza implementacja może użyć stałoszerokiego tekstu. Repozytorium traktuje sygnaturę jako wartość nieprzezroczystą, aby możliwa była zmiana na BLOB po pomiarach.
+Codec v1 używa dodatnich kodów dziesiętnych dopełnionych zerami z lewej.
+`signature_cell_width` ma zakres 1–5, jest zapisana przy wersji datasetu i w
+rekordzie gry snapshotu oraz pozostaje stała dla całego datasetu. Nie wolno
+wyprowadzać jej z pojedynczego layoutu. Zakres kodów odpowiada dodatniej części
+typu `smallint`: `1..32767`.
+
+Repozytorium traktuje wynikową sygnaturę jako wartość nieprzezroczystą, aby
+możliwa była zmiana tekstu na BLOB po pomiarach.
 
 ## Dlaczego nie osobna tabela komórek
 

@@ -24,7 +24,9 @@ mobile_release_version
 - niepuste symbole należą do gry,
 - po pierwszym `null` nie może wystąpić niepusty symbol, ponieważ wprowadzanie jest prefiksowe,
 - gra i snapshot są aktywne oraz zgodne wersją,
-- sygnatura używa tej samej stałej szerokości kodów co etap generowania wydania.
+- sygnatura używa tej samej zapisanej `signature_cell_width` co etap
+  generowania datasetu i wydania; szerokości nie wyprowadza się z aktualnie
+  wprowadzonego layoutu.
 
 ### Częściowy layout
 

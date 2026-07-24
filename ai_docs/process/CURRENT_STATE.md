@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.1 ukończone — gotowe do rozpoczęcia M1.2`
+`M1.2 w toku — kontrakty ukończone, gotowe do payout engine`
 
 ## Completed
 
@@ -35,6 +35,11 @@ last_updated: 2026-07-24
   JavaScript i dokładnie zweryfikowanym snapshotem SQLite,
 - zaakceptowano D-013 opisującą toolchain, package manager, `applicationId`
   oraz lokalny workflow Android,
+- ukończono `TASK-0003`: zgodne kontrakty domenowe TypeScript/Python,
+  stałoszeroki codec sygnatury, walidację planszy/paylines/payout rules i
+  współdzielone fixture,
+- zaakceptowano D-015 definiującą tekstowy codec v1, jawne
+  `signature_cell_width` i zakres dodatnich kodów `smallint`,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -96,10 +101,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po potwierdzeniu rozpoczęcia M1.2:
+Po poleceniu kontynuacji M1.2 można utworzyć:
 
 ```text
-TASK-0003 — Contracts, signature codec and validation
+TASK-0004 — Payout engine and golden tests
 ```
 
 ## Do not start yet

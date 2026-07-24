@@ -65,16 +65,30 @@ Dokładny wygląd modala i tabeli zostanie ustalony przy projektowaniu UI, ale p
 
 ### Payout rules
 
-Administrator ustawia:
+Administrator konfiguruje dla każdego zwykłego symbolu w wersji reguł:
 
-- zwykły symbol,
-- długość nieprzerwanego dopasowania, co najmniej 3,
-- wartość wygranej w kredytach,
-- status aktywności.
+- minimalną liczbę kolejnych symboli potrzebną do wygranej,
+- wartość wygranej w kredytach osobno dla każdej długości od minimum do liczby
+  kolumn,
+- status aktywności reguł.
 
-W M1 używane są testowe wartości dla długości 3, 4 i 5. Docelowe wartości są definiowane w panelu dla każdej gry i symbolu. System blokuje dwa aktywne wpisy dla tej samej wersji reguł, symbolu i długości.
+Domyślne `minimum_match_length` wynosi 3. Administrator może ustawić wartość od
+2 do liczby kolumn; dzięki temu wybrane symbole mogą wygrywać już w pierwszej i
+drugiej kolumnie. Dla pozostałych symboli może pozostać domyślne minimum 3.
+
+Po wybraniu minimum panel pokazuje pola kredytów dla każdej wymaganej długości.
+Przykład dla planszy 5-kolumnowej:
+
+- minimum 2 wymaga payoutów dla długości 2, 3, 4 i 5,
+- minimum 3 wymaga payoutów dla długości 3, 4 i 5.
+
+Nie można opublikować wersji z brakującą wartością, aktywną regułą poniżej
+minimum albo dwoma aktywnymi wpisami dla tej samej wersji reguł, symbolu i
+długości. Wartości jednego symbolu muszą rosnąć wraz z długością.
 
 Payout nie jest własnością payline. Te same wartości symbol/długość obowiązują na każdej aktywnej payline.
+Każda wygrana musi zaczynać się w pierwszej kolumnie payline; panel nie
+konfiguruje kolumny startowej.
 
 ### Layout data
 
@@ -173,7 +187,8 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 3. Tworzy trzy poziome paylines przez modal siatki.
 4. Nie może wybrać dwóch komórek w jednej kolumnie ani zapisać niepełnego wzorca.
 5. Nie może zapisać duplikatu `row_path`.
-6. Ustawia wypłaty dla długości 3, 4 i 5.
+6. Pozostawia dla większości symboli domyślne minimum 3, dla co najmniej jednego
+   symbolu ustawia minimum 2 i uzupełnia wszystkie wymagane wartości kredytów.
 7. Generuje lub importuje 1000 layoutów.
 8. Widzi luki, błędy numeracji i duplikaty sygnatur.
 9. Publikuje niezmienną wersję datasetu i reguł.

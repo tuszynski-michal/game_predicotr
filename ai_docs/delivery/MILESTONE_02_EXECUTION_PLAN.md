@@ -25,7 +25,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M2.
 - `architecture/API_CONTRACT.md`
 - `architecture/TECH_STACK.md`
 - `quality/TEST_STRATEGY.md`
-- D-003–D-007 i D-014 w `process/DECISION_LOG.md`
+- D-003–D-007, D-014 i D-019 w `process/DECISION_LOG.md`
 
 ## Warunki wejścia
 
@@ -44,8 +44,7 @@ zamyka M8.
 - wszystkie zmiany PostgreSQL używają migracji Alembic,
 - OpenAPI jest źródłem klienta TypeScript panelu,
 - mobile nie otrzymuje połączenia z API ani PostgreSQL,
-- publikacja gry szerszej niż 5 kolumn pozostaje zablokowana do czasu
-  rozstrzygnięcia semantyki kilku rozłącznych zwycięskich ciągów.
+- payout ocenia wyłącznie prefiks payline od pierwszej kolumny zgodnie z D-019.
 
 ## M2.1 — Lokalna platforma administracyjna i kontrakt
 
@@ -109,14 +108,15 @@ zamyka M8.
 - walidacja zgodności symboli z wersją,
 - modal edytora payline oparty na siatce gry,
 - tabela istniejących paylines,
-- payout rules dla symbolu i długości,
+- wersjonowane `minimum_match_length` każdego zwykłego symbolu, domyślnie 3,
+- payout rules dla każdej długości od minimum symbolu do liczby kolumn,
 - publikacja niezmiennej wersji reguł.
 
 ### Zadania
 
 - `TASK-0021 — Rules versions domain and API`
 - `TASK-0022 — Payline grid editor and duplicate validation`
-- `TASK-0023 — Payout rules API and administration UI`
+- `TASK-0023 — Per-symbol minimum and payout rules API/UI`
 - `TASK-0024 — Immutable rules publication workflow`
 
 ### Bramka G2.3
@@ -125,10 +125,13 @@ zamyka M8.
 - UI pokazuje wiersze 1-based, a API zapisuje 0-based,
 - nie można zapisać niepełnej ani zduplikowanej payline,
 - joker nie może otrzymać payout rule,
+- zwykły symbol ma próg w zakresie `2..columns`, a joker nie ma progu,
+- panel domyślnie ustawia próg 3 i pozwala wybranym symbolom ustawić próg 2,
 - duplikat `(rules_version, symbol, match_length)` jest blokowany,
+- publikacja wymaga kompletu ściśle rosnących payoutów od progu do końca
+  payline,
 - opublikowana wersja jest niezmienna,
-- publikacja gry szerszej niż 5 kolumn pozostaje zablokowana do czasu
-  rozstrzygnięcia brakującej semantyki.
+- ciąg zaczynający się po pierwszej kolumnie nie jest wygraną.
 
 ## M2.4 — Mock datasety, walidacja i publikacja
 

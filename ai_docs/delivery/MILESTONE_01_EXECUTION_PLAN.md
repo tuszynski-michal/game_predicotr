@@ -122,8 +122,9 @@ SQLite oraz jego wersję.
 
 ## M1.2 — Kontrakty domenowe i golden algorithms
 
-**Status:** ukończone 2026-07-24 — TASK-0003, TASK-0004 i TASK-0005; bramka
-G2 przeszła.
+**Status:** pierwotna implementacja ukończona 2026-07-24 — TASK-0003,
+TASK-0004 i TASK-0005. Po D-019 payout wymaga korekty i ponownej walidacji
+bramki G2; Target zachowuje semantykę, ale jego golden values trzeba przeliczyć.
 
 ### Cel
 
@@ -135,7 +136,8 @@ Udowodnić poprawność reguł bez zależności od React Native, SQLite i UI.
 - typy gry, symbolu, payline, payoutu i forecastu,
 - walidacja wymiarów oraz `row_path`,
 - czysty payout engine po stronie build-time,
-- joker, longest match, przecinające się paylines i sumowanie,
+- ciąg od pierwszej kolumny, minimum długości per symbol, joker, longest match,
+  przecinające się paylines i sumowanie,
 - czysty Target engine po stronie TypeScript,
 - pełny cykl `N - 1`,
 - koszt każdego spinu i kumulacja wszystkich payoutów,
@@ -204,8 +206,10 @@ unikalny layout, duplikat i pełny uporządkowany strumień payoutów.
 - nie wykonuje się jednego otwarcia bazy na każdy spin,
 - rozmiar i czasy operacji są zapisane.
 
-**Status:** ukończone 2026-07-24 (`TASK-0006`, `TASK-0007`, `TASK-0008`).
-Dowód benchmarku znajduje się w
+**Status:** technicznie ukończone 2026-07-24 (`TASK-0006`, `TASK-0007`,
+`TASK-0008`). Po D-019 generator, precomputed payout, checksumy i snapshot
+muszą zostać zregenerowane oraz ponownie zweryfikowane; benchmark adaptera
+pozostaje dowodem technicznym w
 `ai_docs/quality/m1-repository-benchmark.json`.
 
 ## M1.4 — Wprowadzanie planszy i kompletny matching UI
@@ -295,9 +299,10 @@ szczyty dla 999 spinów.
 - długa lista nie renderuje wszystkich wierszy naraz,
 - duplicate nigdy nie uruchamia Target.
 
-**Wynik G5:** zaliczona 2026-07-24. Test UI odtwarza golden pełnego cyklu dla
-999 spinów, w tym późniejszy niższy szczyt i pierwszy spin plateau. `FlatList`
-nie montuje wszystkich 100 kontrolnych wierszy jednocześnie.
+**Wynik G5:** pierwotnie zaliczona 2026-07-24 dla payout-v1. Zachowanie Target,
+plateau i wirtualizacji pozostaje obowiązujące, ale konkretne golden payouty,
+sumy i szczyty muszą zostać przeliczone po D-019 i ponownie przejść test
+integracyjny.
 
 ## M1.6 — Release APK i odbiór na urządzeniach
 
@@ -335,11 +340,12 @@ aktywuje nowy dataset.
 - wynik jakości i ograniczenia są zapisane,
 - dokumentacja uruchomienia jest kompletna.
 
-**Status G6:** część lokalna zaliczona 2026-07-24. Prywatnie podpisane APK
-`0.1.0 (1)` przeszło verifier, nie deklaruje `INTERNET`, zawiera właściwy
-snapshot i ABI `arm64-v8a`; pełna brama pozostaje otwarta, ponieważ
-`adb devices -l` nie wykrył Pixel 10 Pro XL ani Galaxy S21 Ultra. Instalacja,
-scenariusze offline, pomiary oraz aktualizacja do innego snapshotu są pending.
+**Status G6:** techniczna część pipeline’u lokalnego zaliczona 2026-07-24, ale
+APK `0.1.0 (1)` zostało produktowo zastąpione przez D-019, ponieważ zawiera
+payout-v1. Po wdrożeniu payout-v2 trzeba wygenerować i zweryfikować nowy
+snapshot/APK. Pełna brama pozostaje również otwarta, ponieważ `adb devices -l`
+nie wykrył Pixel 10 Pro XL ani Galaxy S21 Ultra; instalacja, scenariusze
+offline, pomiary i aktualizacja do innego snapshotu są pending.
 
 ## Mapa planowanych zadań
 
@@ -373,10 +379,10 @@ Scope.
   lub aktualizacji aplikacji,
 - mobile nie przechowuje danych użytkownika wymagających migracji,
 - finalna etykieta `Result`/`Target` może zostać zmieniona bez zmiany domeny,
-- M1 obsługuje tylko plansze 3 × 5, więc pytanie o dwa rozłączne ciągi na
-  szerszej payline nie blokuje realizacji.
+- M1 obsługuje plansze 3 × 5; `payout-v2` ocenia wyłącznie prefiks od pierwszej
+  kolumny, więc rozłączne ciągi nie występują w modelu domenowym.
 
 ## Następny krok
 
-M1.1–M1.5 są zakończone. Po osobnym poleceniu należy utworzyć tylko
-`TASK-0014 — Release APK and device acceptance`.
+Przed dalszym odbiorem TASK-0014 należy utworzyć osobne zadanie korekty
+`payout-v2`, przeliczyć fixture/snapshot/golden Target i zbudować nowy APK.

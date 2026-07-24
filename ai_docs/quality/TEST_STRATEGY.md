@@ -31,10 +31,13 @@ Największe ryzyko znajduje się w logice domenowej, integralności kolejności,
 ### Payouts
 
 - pozioma payline i V,
-- ciąg rozpoczynający się w kolumnie 1, 2 i 3,
-- długość 2 nie wygrywa,
-- długości 3/4/5,
-- długość 5 nie sumuje wypłat 3 i 4,
+- ciąg rozpoczynający się w pierwszej kolumnie,
+- zgodne symbole rozpoczynające się w kolumnie 2 lub później nie wygrywają,
+- długość 2 wygrywa dla symbolu z `minimum_match_length = 2`,
+- długość 2 nie wygrywa dla symbolu z domyślnym minimum 3,
+- różne symbole w tej samej wersji mogą mieć minimum 2 i 3,
+- długości 2/3/4/5 zgodnie z progiem symbolu,
+- najdłuższa długość nie sumuje wypłat za krótsze długości,
 - luka przerywa dopasowanie,
 - joker na początku, w środku i na końcu,
 - ciąg samych jokerów nie wygrywa,
@@ -44,8 +47,11 @@ Największe ryzyko znajduje się w logice domenowej, integralności kolejności,
 - wspólna komórka liczona na obu liniach,
 - identyczna payline odrzucona,
 - brakująca reguła w macierzy precomputingu odrzucona,
+- aktywna reguła poniżej minimum symbolu odrzucona,
+- brak albo nieprawidłowe `minimum_match_length` odrzucone,
 - payout, który nie rośnie wraz z długością, odrzucony,
-- plansza szersza niż 5 kolumn odrzucona do czasu decyzji domenowej,
+- plansza szersza niż 5 kolumn nadal ocenia wyłącznie prefiks od pierwszej
+  kolumny,
 - audyt zawiera komórki i interpretacje.
 
 ### Forecast

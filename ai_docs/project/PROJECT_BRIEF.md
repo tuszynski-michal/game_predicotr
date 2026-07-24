@@ -108,7 +108,8 @@ Pierwsza wersja ma:
 1. Trzeba zmierzyć rozmiar i czas lokalnego wyszukiwania oraz pełnego skanu dla 500 000 layoutów na grę.
 2. Jakość zdjęć obejmuje perspektywę, krzywiznę ekranu, moiré, odbicia, rozmycie i zasłonięcia; stos technologiczny rozpoznawania pozostaje wymienny do czasu benchmarku.
 3. Generowanie wersjonowanego snapshotu i APK musi być deterministyczne, audytowalne oraz możliwe do ponowienia.
-4. Semantyka kilku rozłącznych zwycięskich ciągów na jednej payline dla plansz szerszych niż 5 kolumn wymaga decyzji przed obsługą takiej gry.
+4. Zmiana wersjonowanego minimum długości symbolu lub wartości kredytów wymaga
+   ponownego precomputingu wszystkich payoutów i nowego wydania mobilnego.
 5. Ostateczna liczba i jakość oznaczonych zdjęć może ograniczyć automatyzację importu.
 
 ## Kryterium sukcesu fazy architektonicznej

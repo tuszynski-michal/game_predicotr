@@ -68,7 +68,8 @@ M2 jest realizowany przez:
 - CRUD gier i symboli,
 - wersje reguł,
 - modal edytora paylines z walidacją duplikatów,
-- payout rules,
+- wersjonowane minimum wygranej per symbol, domyślnie 3,
+- payout rules dla każdej długości od minimum symbolu,
 - generator/import mock layoutów,
 - walidacja ciągłości sekwencji,
 - publikacja wersji reguł i datasetu.

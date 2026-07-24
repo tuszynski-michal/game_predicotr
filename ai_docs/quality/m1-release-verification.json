@@ -1,5 +1,6 @@
 {
-  "status": "local_pass_device_pending",
+  "status": "technical_local_pass_product_superseded",
+  "productAcceptance": "superseded_by_D-019",
   "verifiedAt": "2026-07-24",
   "applicationId": "com.gamepredictor.mobile",
   "versionName": "0.1.0",
@@ -31,6 +32,7 @@
     "snapshotUpdate": "pending"
   },
   "notes": [
+    "This APK contains payout-v1 data and is not a product-acceptance candidate after D-019.",
     "The first Windows release build required a short Gradle cache path because native tools encountered the legacy MAX_PATH limit.",
     "The artifact completed after the command runner's 20-minute observation window; no exact clean-build duration is claimed."
   ]

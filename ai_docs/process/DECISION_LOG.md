@@ -251,7 +251,7 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 
 ## D-016 — Payout v1 boundary and structured audit
 
-- **Status:** accepted
+- **Status:** superseded
 - **Date:** 2026-07-24
 - **Decision:** payout engine v1 obsługuje konfiguracje do 5 kolumn i odrzuca
   szersze plansze stabilnym błędem do czasu zdefiniowania wielu rozłącznych
@@ -264,6 +264,8 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Consequences:** publikacja gry szerszej niż 5 kolumn wymaga wcześniejszej
   decyzji i nowej wersji algorytmu. Python i TypeScript utrzymują zgodny
   kontrakt `JokerInterpretation`; payout nadal jest liczony tylko build-time.
+- **Superseded by:** D-019. Strukturalny audit pozostaje obowiązujący, lecz
+  semantyka ciągu i granica pięciu kolumn zostały zastąpione.
 
 ## D-017 — Target engine stream boundary
 
@@ -300,6 +302,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   jawnym wejściem wydania, więc fixture M1 zachowuje deterministyczność bajtową.
   Snapshot nie przechowuje `cells`, paylines ani pełnych payout rules, ponieważ
   runtime potrzebuje konfiguracji gry, symboli, sygnatur i precomputed payoutu.
+
+## D-019 — Left-anchored payout and per-symbol minimum
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** `payout-v2` ocenia wyłącznie ciągły prefiks payline zaczynający
+  się w pierwszej kolumnie. Każdy zwykły symbol w wersji reguł ma
+  `minimum_match_length`, domyślnie 3 i konfigurowalne w zakresie
+  `2..columns`. Dla każdej długości od minimum do liczby kolumn administrator
+  definiuje osobny, ściśle rosnący payout; naliczana jest tylko najdłuższa
+  pasująca długość.
+- **Context:** wcześniejsza odpowiedź dopuszczała start w dowolnej kolumnie i
+  stałe minimum 3. Właściciel sprostował, że wygrana musi obejmować pierwszą
+  kolumnę, a wybrane symbole mogą wygrywać już od dwóch pierwszych kolumn.
+- **Reason:** model odpowiada rzeczywistym zasadom gry, pozwala różnicować próg
+  według symbolu i usuwa niejednoznaczność rozłącznych ciągów na szerszej
+  planszy.
+- **Alternatives:** start w dowolnej kolumnie, globalne minimum 3, wyprowadzanie
+  minimum wyłącznie z najkrótszej istniejącej payout rule.
+- **Consequences:** `rules_version_symbols` przechowuje wersjonowany próg,
+  macierz payoutów jest kompletna od progu symbolu, a algorytm nie potrzebuje
+  granicy pięciu kolumn z D-016. Istniejący payout-v1, fixture M1, golden
+  payout/Target i zbudowane APK wymagają przeliczenia oraz ponownej walidacji
+  przed zamknięciem G2–G6.
+- **Supersedes:** część D-016 dotyczącą semantyki payout-v1 i granicy pięciu
+  kolumn; strukturalny audit z D-016 pozostaje obowiązujący.
 
 ## Szablon nowej decyzji
 

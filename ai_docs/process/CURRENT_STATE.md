@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.6 zablokowany na odbiorze urządzeń — TASK-0014`
+`M1 wymaga korekty payout-v2 przed odbiorem urządzeń — D-019`
 
 ## Completed
 
@@ -18,6 +18,9 @@ last_updated: 2026-07-24
 - ustalono skalę do około 500 000 layoutów na grę i 12–15 gier,
 - ustalono ciągłą, cykliczną sekwencję i procedurę duplikatu bez confirmation chain,
 - ustalono wyłącznie wzorce `PAYLINE`, joker, sumowanie i longest match,
+- D-019 zastąpiła wcześniejszy start w dowolnej kolumnie: zwycięski ciąg jest
+  prefiksem od pierwszej kolumny, a każdy zwykły symbol ma wersjonowane minimum
+  długości, domyślnie 3 i konfigurowalne od 2 do liczby kolumn,
 - ustalono spin 0, koszt każdego kolejnego spinu i kumulację wszystkich payoutów,
 - Target obejmuje `layout_count - 1` spinów i pokazuje dodatnie lokalne maksima,
 - zaakceptowano precomputing payoutów, SQLite w APK i lokalny proces wydania,
@@ -42,14 +45,15 @@ last_updated: 2026-07-24
   `signature_cell_width` i zakres dodatnich kodów `smallint`,
 - ukończono `TASK-0004`: czysty build-time payout engine, joker, longest
   match, sumowanie paylines, strukturalny audit i golden cases,
-- zaakceptowano D-016 definiującą granicę pięciu kolumn payout v1 oraz
-  strukturalną interpretację jokera,
+- D-016 pierwotnie definiowała granicę pięciu kolumn payout-v1 i strukturalną
+  interpretację jokera; semantykę payout-v1 zastąpiła D-019, a strukturalny
+  audyt pozostał obowiązujący,
 - ukończono `TASK-0005`: pełny cykl Target `N - 1`, kumulację payoutów i
   kosztów, dodatnie lokalne maksima, plateau i golden cases,
 - zaakceptowano D-017 definiującą granicę uporządkowanego strumienia Target i
   jednoprzebiegowe wykrywanie szczytów,
-- ukończono podetap M1.2 i bramkę G2: kontrakty oraz oba czyste algorytmy mają
-  niezależne golden fixtures bez zależności od UI i baz danych,
+- pierwotnie ukończono podetap M1.2 i bramkę G2 dla payout-v1; po D-019 payout
+  i zależne golden fixtures wymagają korekty oraz ponownej walidacji,
 - ukończono `TASK-0006`: deterministyczne fixture `m1-fixture-v1` dla 3 gier po
   1000 layoutów, osobne seedy, precomputed payout, 6 par duplikatów na grę,
   unikalne prefiksy i ręcznie policzone golden pełnego Target,
@@ -70,9 +74,9 @@ last_updated: 2026-07-24
 - benchmark fixture 1000 layoutów zapisał p95 `0.1627 ms` dla exact,
   `0.1655 ms` dla prefix i `3.1932 ms` dla pełnego cyklu; baza ma `274432`
   bajty i część repozytoryjna otworzyła ją raz,
-- ukończono podetap M1.3 i bramkę G3: deterministyczny generator, finalny
-  snapshot, manifest, checksumy, repozytorium i dowody wydajności skali M1 są
-  spójne,
+- pierwotnie ukończono podetap M1.3 i bramkę G3; adapter oraz benchmark
+  pozostają technicznie aktualne, ale generator, payouty, snapshot, manifest i
+  checksumy trzeba odtworzyć po D-019,
 - ukończono `TASK-0009`: czysty reducer planszy, row-major Layout, wybór gry,
   Selection symboli, Undo, Reset i przygotowanie auto-uzupełnienia jako jednego
   kroku historii,
@@ -102,8 +106,8 @@ last_updated: 2026-07-24
   zachowuje pierwszy spin plateau oraz nie tworzy wiersza dla zera,
 - test długiej listy potwierdza okno renderowania zamiast jednoczesnego
   montowania 100 wierszy,
-- ukończono podetap M1.5 i bramkę G5; pełny przepływ od Layout do
-  wirtualizowanej tabeli działa bez backendu,
+- pierwotnie ukończono podetap M1.5 i bramkę G5; przepływ oraz wirtualizacja
+  pozostają, ale golden Target wymaga przeliczenia na payout-v2,
 - zbudowano i zweryfikowano prywatnie podpisane APK M1 `0.1.0 (1)` dla
   `arm64-v8a`; artefakt ma `42 140 070` bajtów i SHA-256
   `1eb8da0ba87a19f42975e46a192af190cf5e51905b97126204c8495ffe2bc0a3`,
@@ -120,11 +124,17 @@ last_updated: 2026-07-24
 
 ## In progress
 
-- `TASK-0014 — Release APK and device acceptance`: lokalny release i statyczna
-  kontrola offline są ukończone.
+- Dokumentacja `payout-v2` i konfiguracji panelu jest przyjęta w D-019.
+- Istniejący kod payout-v1, fixture, snapshot, golden Target i APK nadal
+  odzwierciedlają superseded regułę startu w dowolnej kolumnie oraz stałe
+  minimum 3. Przed odbiorem urządzeń wymagają osobnego zadania implementacyjnego,
+  regeneracji i ponownej walidacji bramek M1.
+- `TASK-0014 — Release APK and device acceptance`: lokalny pipeline release
+  jest gotowy, ale obecny artefakt nie jest kandydatem do końcowego odbioru po
+  zmianie reguły payout.
 - Końcowa kontrola `adb devices -l` nie wykryła żadnego urządzenia. Instalacja,
   testy offline, pomiary i aktualizacja snapshotu na Pixel 10 Pro XL oraz
-  Galaxy S21 Ultra blokują ukończenie TASK-0014 i bramki G6.
+  Galaxy S21 Ultra pozostają otwarte po przygotowaniu poprawionego APK.
 
 ## Open but not blocking M1
 
@@ -132,8 +142,7 @@ last_updated: 2026-07-24
 - Q-019: jeden czy wielu administratorów,
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
 - finalne modele OCR/ML po benchmarku,
-- ostateczna nazwa sekcji `Result` albo `Target`,
-- semantyka kilku rozłącznych zwycięskich ciągów na jednej payline dla plansz szerszych niż 5 kolumn.
+- ostateczna nazwa sekcji `Result` albo `Target`.
 
 Żaden z tych punktów nie zmienia zakresu planszy 3 × 5 ani mock danych M1.
 
@@ -178,8 +187,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Najpierw należy ukończyć aktywne `TASK-0014` i bramkę G6. M2 nie powinno być
-rozpoczynane przed zapisaniem końcowego wyniku M1.
+Najpierw należy utworzyć osobne zadanie korekty payout-v2, zaktualizować
+kontrakty, oba silniki domenowe/fixture, snapshot i golden Target, a następnie
+ponownie zbudować APK. Dopiero poprawiony artefakt może przejść aktywne
+`TASK-0014` i bramkę G6; M2 nie powinno być rozpoczynane wcześniej.
 
 ## Do not start yet
 
@@ -200,11 +211,12 @@ Kolejność, granice i bramki M2–M8 są zapisane w D-014 oraz osobnym planie
 wykonania każdego milestone’u, dzięki czemu przyszłe sesje czytają tylko
 właściwy etap i nie muszą odtwarzać podziału z historii rozmowy.
 
-Pakietowa część M1.6 przeszła: prywatnie podpisane APK zawiera standalone bundle
-oraz SQLite o checksumie zgodnej z manifestem i nie deklaruje uprawnienia
-`INTERNET`. Żadne urządzenie nie było podłączone podczas TASK-0014, dlatego
-instalacja, aktualizacja APK i test całkowicie offline na Pixel 10 Pro XL oraz
-Galaxy S21 Ultra pozostają jedyną blokadą końcowej bramki G6.
+Techniczna część pipeline’u M1.6 przeszła: prywatnie podpisane APK zawiera
+standalone bundle oraz SQLite o checksumie zgodnej z manifestem i nie deklaruje
+uprawnienia `INTERNET`. Po D-019 zawarty snapshot ma jednak historyczne payouty
+v1, więc nie jest kandydatem do odbioru produktowego. Najpierw trzeba wdrożyć
+payout-v2 i przeliczyć dane, a następnie wykonać instalację, aktualizację APK i
+test całkowicie offline na Pixel 10 Pro XL oraz Galaxy S21 Ultra.
 
 Benchmark M1 dla 1000 layoutów znajduje się w
 `ai_docs/quality/m1-repository-benchmark.json`. Benchmark 500 000 layoutów na

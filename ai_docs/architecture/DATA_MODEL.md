@@ -69,7 +69,25 @@ Walidacja:
 - `(game_id, version)` unique,
 - opublikowany rekord jest niezmienny.
 
-Lista symboli należących do wersji może być zapisana w tabeli łączącej `rules_version_symbols`, jeżeli symbole mogą być aktywowane niezależnie między wersjami.
+### rules_version_symbols
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| rules_version_id | UUID | FK rules_versions |
+| symbol_id | UUID | symbol tej samej gry |
+| minimum_match_length | smallint nullable | null wyłącznie dla jokera |
+| is_active | boolean | |
+
+Unikalność: `(rules_version_id, symbol_id)`.
+
+Walidacja:
+
+- zwykły symbol ma `2 <= minimum_match_length <= columns`,
+- domyślna wartość nowego zwykłego symbolu wynosi 3 dla wersji mającej co
+  najmniej 3 kolumny,
+- joker ma `minimum_match_length = null` i nie otrzymuje payout rules,
+- konfiguracja należy do wersji reguł, a nie globalnego rekordu `symbols`,
+  dzięki czemu historyczne wydania pozostają odtwarzalne.
 
 ### paylines
 
@@ -99,7 +117,7 @@ Walidacja:
 | id | UUID | |
 | rules_version_id | UUID | |
 | symbol_id | UUID | zwykły symbol tej samej gry |
-| match_length | smallint | co najmniej 3 |
+| match_length | smallint | od progu symbolu do liczby kolumn |
 | payout_credits | integer | |
 | is_active | boolean | |
 
@@ -107,12 +125,13 @@ Unikalność: `(rules_version_id, symbol_id, match_length)`.
 
 Walidacja:
 
-- `3 <= match_length <= columns`,
+- `minimum_match_length <= match_length <= columns`,
 - `payout_credits >= 0`,
 - joker nie ma payout rule.
 
 Przed precomputingiem i publikacją pełna wersja reguł musi zawierać każdą parę
-`(zwykły symbol, match_length 3..columns)`, a payout danego symbolu musi rosnąć
+`(zwykły symbol, match_length minimum_match_length..columns)`, nie może
+zawierać aktywnej reguły poniżej progu, a payout danego symbolu musi rosnąć
 ściśle wraz z długością. CRUD draftu może być chwilowo niekompletny; niepełna
 wersja nie może zostać użyta do wydania.
 
@@ -422,7 +441,8 @@ Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć p
 - plansza 3 × 5,
 - 10–12 symboli,
 - deterministyczny generator z zapisanym seedem,
-- zamockowane paylines i payouty długości 3, 4 i 5,
+- zamockowane paylines, wersjonowane minimum każdego symbolu oraz payouty dla
+  wszystkich długości od minimum do 5,
 - celowo 5–10 przypadków zduplikowanych sygnatur na grę,
 - ciągłe `sequence_number` od 1 do 1000,
 - precomputed payout dla każdego layoutu,

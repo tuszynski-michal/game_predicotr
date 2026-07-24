@@ -17,6 +17,12 @@ checksumy, certyfikat i aktualny status urządzeń zapisano w
 `m1-release-verification.json`. Ten wynik nie zastępuje poniższych testów
 fizycznych.
 
+> **Protokół wstrzymany:** artefakt i poniższe golden payout/Target powstały
+> dla payout-v1. Po D-019 najpierw trzeba wdrożyć ciąg od pierwszej kolumny,
+> minimum długości per symbol, przeliczyć fixture oraz wpisać nowe golden
+> values. Do tego czasu nie należy oznaczać żadnego testu urządzenia jako
+> zaliczonego.
+
 ## Przygotowanie
 
 1. Włącz debugowanie USB i podłącz dokładnie jeden telefon.
@@ -54,7 +60,7 @@ S5, S6, S4, S9, S5,
 S4, S4, S10, S6, S9
 ```
 
-Oczekiwane:
+Historyczne oczekiwane wartości payout-v1, do przeliczenia dla payout-v2:
 
 - exact unique: `Układ: 99`,
 - ocenione spiny: `999`,
@@ -128,15 +134,15 @@ Po aktualizacji ekran musi pokazać nową wersję snapshotu. Samo podniesienie
 
 | Kontrola | Pixel 10 Pro XL | Galaxy S21 Ultra |
 |---|---|---|
-| Identyfikacja modelu i wersji Android | pending | pending |
-| Instalacja APK 0.1.0 (1) | pending | pending |
-| Start bez Metro | pending | pending |
-| Tryb samolotowy | pending | pending |
-| Unique 99 i golden Target | pending | pending |
-| Duplicate 101/995 | pending | pending |
-| Not found i Undo | pending | pending |
-| Reset i zmiana gry | pending | pending |
-| Płynność tabeli | pending | pending |
-| Aktualizacja snapshotu do versionCode 2 | pending | pending |
+| Identyfikacja modelu i wersji Android | blocked by payout-v2 | blocked by payout-v2 |
+| Instalacja poprawionego APK | blocked by payout-v2 | blocked by payout-v2 |
+| Start bez Metro | blocked by payout-v2 | blocked by payout-v2 |
+| Tryb samolotowy | blocked by payout-v2 | blocked by payout-v2 |
+| Unique 99 i przeliczony golden Target | blocked by payout-v2 | blocked by payout-v2 |
+| Duplicate 101/995 | blocked by payout-v2 | blocked by payout-v2 |
+| Not found i Undo | blocked by payout-v2 | blocked by payout-v2 |
+| Reset i zmiana gry | blocked by payout-v2 | blocked by payout-v2 |
+| Płynność tabeli | blocked by payout-v2 | blocked by payout-v2 |
+| Aktualizacja poprawionego snapshotu | blocked by payout-v2 | blocked by payout-v2 |
 
 Uwagi, czasy i wynik końcowy należy uzupełnić dopiero po wykonaniu testu.

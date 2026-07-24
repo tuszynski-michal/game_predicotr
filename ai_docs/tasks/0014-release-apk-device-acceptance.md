@@ -115,6 +115,10 @@ adb devices -l
 ## Risks / open questions
 
 - Na początku zadania `adb devices -l` nie zwraca żadnego urządzenia.
+- D-019 zastąpiła semantykę payout po zbudowaniu artefaktu `0.1.0 (1)`.
+  Snapshot w tym APK zawiera payout-v1 i nie może być użyty do końcowego
+  odbioru; wymagane są korekta engine’u, regeneracja fixture/snapshotu i nowy
+  build.
 - Do testu aktualizacji potrzebny jest drugi APK z wyższym `versionCode` i
   celowo zmienioną wersją snapshotu. Nie należy modyfikować kanonicznego
   snapshotu bez kontrolowanego backupu i walidacji.
@@ -154,6 +158,8 @@ Weryfikacja:
 
 ### Blokada
 
-Nie można jeszcze wykonać instalacji, testów offline, pomiarów urządzeniowych
-ani aktualizacji snapshotu na Pixel 10 Pro XL i Galaxy S21 Ultra. TASK-0014,
-M1.6 i bramka G6 pozostają otwarte do fizycznego podłączenia urządzeń.
+Artefakt potwierdza poprawność techniczną pipeline’u release, lecz został
+zbudowany z superseded payout-v1. Nie można wykonać wiążącego odbioru przed
+wdrożeniem D-019 i przygotowaniem nowego snapshotu/APK. Po tej korekcie nadal
+pozostają instalacja, testy offline, pomiary urządzeniowe i aktualizacja na
+Pixel 10 Pro XL oraz Galaxy S21 Ultra. TASK-0014, M1.6 i G6 pozostają otwarte.

@@ -43,6 +43,7 @@ Format błędu:
 /games
 /games/{gameId}/symbols
 /games/{gameId}/rules-versions
+/rules-versions/{rulesVersionId}/symbols/{symbolId}
 /rules-versions/{rulesVersionId}/paylines
 /rules-versions/{rulesVersionId}/payout-rules
 /games/{gameId}/dataset-versions
@@ -90,6 +91,19 @@ Przykład błędu:
 
 ## Payout rule
 
+### PATCH `/api/v1/admin/rules-versions/{rulesVersionId}/symbols/{symbolId}`
+
+```json
+{
+  "minimumMatchLength": 2
+}
+```
+
+API ustawia wersjonowany próg zwykłego symbolu. Domyślna wartość wynosi 3, a
+dozwolony zakres to `2..columns`. Joker nie przyjmuje tego pola. Zmiana progu w
+opublikowanej wersji jest zabroniona; w drafcie zmienia zestaw wymaganych
+payout rules.
+
 ### POST `/api/v1/admin/rules-versions/{rulesVersionId}/payout-rules`
 
 ```json
@@ -103,9 +117,13 @@ Przykład błędu:
 API blokuje:
 
 - regułę jokera,
-- długość poniżej 3 lub większą niż liczba kolumn,
+- długość poniżej `minimumMatchLength` symbolu lub większą niż liczba kolumn,
 - ujemną wypłatę,
 - duplikat `(rulesVersionId, symbolId, matchLength)`.
+
+Publikacja wymaga dokładnie jednej wartości kredytów dla każdej długości od
+`minimumMatchLength` do liczby kolumn i ściśle rosnących wartości dla danego
+symbolu.
 
 ## Dataset validation
 

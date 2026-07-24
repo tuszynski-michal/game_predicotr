@@ -60,11 +60,19 @@ Zdefiniowana ścieżka wybierająca dokładnie jedno pole w każdej kolumnie, np
 
 ## Winning run
 
-Nieprzerwany odcinek co najmniej 3 kolejnych kolumn na jednej payline, dopasowany do tego samego zwykłego symbolu bez luk. Może rozpoczynać się w dowolnej kolumnie. Dla tego samego ciągu wypłacana jest wyłącznie wartość najdłuższego dopasowania.
+Nieprzerwany prefiks jednej payline, który zawsze zaczyna się w pierwszej
+kolumnie i jest dopasowany do tego samego zwykłego symbolu bez luk. Musi
+osiągnąć wersjonowane `minimum_match_length` danego symbolu. Zgodne komórki po
+pierwszej luce ani ciągi zaczynające się w późniejszej kolumnie nie wygrywają.
+Dla jednej pary payline/symbol wypłacana jest wyłącznie wartość najdłuższego
+dopasowania.
 
 ## Payout rule
 
-Reguła przypisująca liczbę kredytów do zwykłego symbolu i długości zwycięskiego ciągu. W M1 używa wartości testowych; docelowo jest definiowana w panelu administracyjnym.
+Reguła przypisująca liczbę kredytów do zwykłego symbolu i długości
+zwycięskiego ciągu. Każdy zwykły symbol ma w wersji reguł własne
+`minimum_match_length`, domyślnie 3 i konfigurowalne od 2 do liczby kolumn.
+Panel wymaga payoutu dla każdej długości od tego minimum do końca payline.
 
 ## Layout payout
 

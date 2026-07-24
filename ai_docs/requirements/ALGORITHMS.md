@@ -85,6 +85,9 @@ matches[]:
 
 `start_column` oraz indeksy w `matched_cells` i `joker_cells` są 0-based.
 Komórki używają indeksu `row-major`: `row * columns + column`.
+W `payout-v2` zwycięski ciąg zawsze zaczyna się w pierwszej kolumnie, dlatego
+`start_column` ma zawsze wartość `0`; pole pozostaje w audycie dla jawności
+kontraktu i zgodności raportów historycznych.
 `interpretation` jest listą struktur
 `(cell_index, as_symbol_mobile_code)`, dzięki czemu nie wymaga parsowania
 tekstu.
@@ -111,28 +114,37 @@ UI administracyjne pokazuje numery wierszy od 1, ale granica API normalizuje je 
 
 Dla każdej pary `(payline, zwykły symbol)`:
 
-1. odczytaj po jednej komórce z kolejnych kolumn,
+1. odczytaj po jednej komórce z kolejnych kolumn, zaczynając zawsze od
+   pierwszej kolumny,
 2. traktuj komórkę jako zgodną, gdy zawiera oceniany symbol albo joker,
-3. znajdź nieprzerwane ciągi zgodnych komórek,
-4. odrzuć ciąg krótszy niż 3 albo złożony wyłącznie z jokerów,
-5. wybierz długość z najwyższą zdefiniowaną wypłatą dla tego ciągu,
-6. zapisz użyte komórki i interpretację jokerów.
+3. zakończ dopasowanie na pierwszej niezgodnej komórce; zgodne komórki po tej
+   pozycji nie należą już do zwycięskiego ciągu,
+4. odczytaj `minimum_match_length` skonfigurowane dla symbolu w aktywnej wersji
+   reguł,
+5. odrzuć prefiks krótszy niż `minimum_match_length` albo złożony wyłącznie z
+   jokerów,
+6. wybierz najdłuższą zdefiniowaną długość nieprzekraczającą długości
+   dopasowanego prefiksu,
+7. zapisz użyte komórki i interpretację jokerów.
 
 Ciąg:
 
-- może rozpoczynać się w dowolnej kolumnie,
+- musi rozpoczynać się w pierwszej kolumnie payline,
 - nie może przeskakiwać nad niezgodną kolumną,
-- dla tego samego symbolu, payline i ciągłego wystąpienia nalicza wyłącznie najdłuższą pasującą długość.
+- dla tego samego symbolu i payline nalicza wyłącznie najdłuższą pasującą
+  długość.
 
-Przykład dla `row_path = [2,3,1,1,2]` w numeracji UI:
+Przykłady dla symbolu `S2`:
 
-- kolumny `[x,3,1,1,x]` tworzą ciąg długości 3,
-- `[2,x,1,1,x]` nie tworzy ciągu, ponieważ występuje luka.
+- `[S2, S2, S2, S7, S2]` daje ciąg długości 3; ostatnie `S2` nie jest liczone,
+- `[S7, S2, S2, S2, S2]` nie daje wygranej dla `S2`, ponieważ pierwsza
+  kolumna nie pasuje,
+- `[S2, joker, S7, S2, S2]` daje długość 2, ale wygrywa tylko wtedy, gdy
+  `minimum_match_length` symbolu `S2` wynosi 2.
 
-M1 ma 5 kolumn, więc na jednej payline nie wystąpią dwa rozłączne ciągi długości co najmniej 3. Zasady dla szerszej planszy z kilkoma takimi ciągami wymagają osobnej decyzji przed publikacją tej gry.
-
-Algorytm `payout-v1` jawnie odrzuca konfigurację szerszą niż 5 kolumn, zamiast
-przyjmować ukrytą semantykę dla kilku rozłącznych ciągów.
+`payout-v2` nie szuka rozłącznych ciągów i nie ocenia ponownie payline od
+drugiej ani kolejnej kolumny. Dzięki temu reguła pozostaje jednoznaczna również
+dla plansz szerszych niż 5 kolumn.
 
 ### Joker
 
@@ -150,14 +162,20 @@ przyjmować ukrytą semantykę dla kilku rozłącznych ciągów.
 - ten sam symbol na dwóch różnych paylines jest liczony dwa razy,
 - komórka może uczestniczyć w wielu wzorcach i nie jest „zużywana”,
 - wspólne komórki i jokery nie blokują innych wypłat,
-- dla jednej pary i tego samego ciągu nie sumuje się wartości za długości 3, 4 i 5; wybierana jest wartość najdłuższego dopasowania.
+- dla jednej pary nie sumuje się wartości za krótsze długości; wybierana jest
+  wartość najdłuższego dopasowania.
 
 ### Precomputing
 
 Konfiguracja gotowa do precomputingu:
 
+- zawiera dokładnie jedną wersjonowaną konfigurację każdego zwykłego symbolu z
+  `2 <= minimum_match_length <= columns`,
+- nowa konfiguracja zwykłego symbolu otrzymuje domyślnie
+  `minimum_match_length = 3` dla gry mającej co najmniej 3 kolumny,
 - zawiera dokładnie jedną regułę dla każdej pary
-  `(zwykły symbol, długość 3..columns)`,
+  `(zwykły symbol, długość minimum_match_length..columns)`,
+- nie zawiera aktywnej reguły dla długości mniejszej niż próg symbolu,
 - nie zawiera reguły jokera,
 - ma nieujemne wypłaty,
 - dla danego symbolu payout rośnie ściśle wraz z długością.
@@ -169,7 +187,8 @@ Podczas przygotowania wydania:
 3. zapisz gotowy `total_payout` w mobilnym snapshotcie,
 4. zachowaj możliwość odtworzenia audytu w danych administracyjnych lub raporcie builda.
 
-Zmiana layoutów, paylines, symboli, kosztu albo wypłat wymaga ponownego obliczenia i nowego wydania.
+Zmiana layoutów, paylines, symboli, `minimum_match_length`, kosztu albo wypłat
+wymaga ponownego obliczenia i nowego wydania.
 
 ## C. Target forecast
 

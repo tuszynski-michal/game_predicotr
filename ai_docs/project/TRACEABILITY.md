@@ -23,7 +23,9 @@ last_updated: 2026-07-24
 | Edytor i zakaz duplikatu payline | `requirements/ADMIN_APP.md` | M2 |
 | Joker | `requirements/ALGORITHMS.md` | M1 |
 | Sumowanie wszystkich prawidłowych linii | `requirements/ALGORITHMS.md` | M1 |
-| Payout symbol + długość | `requirements/ALGORITHMS.md`, `requirements/ADMIN_APP.md` | M1–M2 |
+| Payout od pierwszej kolumny | `requirements/ALGORITHMS.md`, D-019 | M1–M2 |
+| Minimum długości per symbol, domyślnie 3 | `requirements/ADMIN_APP.md`, `architecture/DATA_MODEL.md`, D-019 | M1–M2 |
+| Kredyty symbol + długość od minimum | `requirements/ALGORITHMS.md`, `requirements/ADMIN_APP.md` | M1–M2 |
 | Spin 0 bez kosztu/payoutu | `requirements/ALGORITHMS.md` | M1 |
 | Koszt każdego ocenianego spinu | `requirements/ALGORITHMS.md` | M1 |
 | Kumulacja wszystkich payoutów po drodze | `requirements/ALGORITHMS.md` | M1 |

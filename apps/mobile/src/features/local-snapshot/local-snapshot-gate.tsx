@@ -10,6 +10,11 @@ import {
   type LocalDataError,
   type SnapshotDiagnostics,
 } from '@/data/bundled-snapshot';
+import {
+  LocalLayoutRepository,
+  type LocalGameConfig,
+} from '@/data/local-layout-repository';
+import { GameWorkspaceScreen } from '@/features/board/game-workspace-screen';
 
 import { SnapshotDiagnosticScreen } from './snapshot-diagnostic-screen';
 
@@ -17,11 +22,17 @@ export function LocalSnapshotGate() {
   const [diagnostics, setDiagnostics] = useState<SnapshotDiagnostics | null>(
     null,
   );
+  const [games, setGames] = useState<readonly LocalGameConfig[] | null>(null);
   const [error, setError] = useState<LocalDataError | null>(null);
 
   const initialize = useCallback(async (database: SQLiteDatabase) => {
-    const verifiedDiagnostics = await readSnapshotDiagnostics(database);
+    const repository = new LocalLayoutRepository(database);
+    const [verifiedDiagnostics, gameCatalog] = await Promise.all([
+      readSnapshotDiagnostics(database),
+      repository.listGames(),
+    ]);
     setDiagnostics(verifiedDiagnostics);
+    setGames(gameCatalog);
   }, []);
 
   const handleError = useCallback((providerError: Error) => {
@@ -39,7 +50,11 @@ export function LocalSnapshotGate() {
       onError={handleError}
       onInit={initialize}
     >
-      <SnapshotDiagnosticScreen diagnostics={diagnostics} error={null} />
+      {diagnostics === null || games === null ? (
+        <SnapshotDiagnosticScreen diagnostics={null} error={null} />
+      ) : (
+        <GameWorkspaceScreen diagnostics={diagnostics} games={games} />
+      )}
     </SQLiteProvider>
   );
 }

@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.3 ukończony — oczekiwanie na rozpoczęcie M1.4`
+`M1.4 w toku — TASK-0009 ukończony, oczekiwanie na TASK-0010`
 
 ## Completed
 
@@ -73,6 +73,11 @@ last_updated: 2026-07-24
 - ukończono podetap M1.3 i bramkę G3: deterministyczny generator, finalny
   snapshot, manifest, checksumy, repozytorium i dowody wydajności skali M1 są
   spójne,
+- ukończono `TASK-0009`: czysty reducer planszy, row-major Layout, wybór gry,
+  Selection symboli, Undo, Reset i przygotowanie auto-uzupełnienia jako jednego
+  kroku historii,
+- główny ekran po walidacji snapshotu korzysta z prawdziwego katalogu trzech
+  gier; kafelki i przyciski mają jawne stany oraz etykiety dostępności,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -80,7 +85,7 @@ last_updated: 2026-07-24
 
 ## In progress
 
-- brak aktywnego zadania; następny podetap wymaga osobnego polecenia właściciela.
+- brak aktywnego zadania; M1.4 oczekuje na integrację prefix matching.
 
 ## Open but not blocking M1
 
@@ -135,7 +140,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po osobnym poleceniu właściciela można utworzyć i rozpocząć
-`TASK-0009 — Board reducer and basic components`.
+`TASK-0010 — Prefix matching and unique candidate modal`.
 
 ## Do not start yet
 

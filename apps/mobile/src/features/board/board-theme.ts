@@ -1,0 +1,15 @@
+export const boardColors = {
+  accent: '#f59e0b',
+  accentPressed: '#d97706',
+  background: '#071427',
+  border: '#2a405d',
+  card: '#10243d',
+  cellEmpty: '#34465d',
+  cellFilled: '#f8fafc',
+  disabled: '#53657a',
+  joker: '#7c3aed',
+  muted: '#9fb0c5',
+  primary: '#38bdf8',
+  text: '#f8fafc',
+  textDark: '#0f172a',
+} as const;

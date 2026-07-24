@@ -7,6 +7,11 @@ The application opens the final M1 fixture at
 version 2 and its metadata/counts against `manifest.json`, and displays a
 controlled `local_data_error` if the local contract is invalid.
 
+After validation, the main screen loads the real game and symbol catalog from
+SQLite. It provides a row-major board, game selection, symbol selection, Undo
+and Reset. Prefix/exact matching and Target are added in the following M1.4 and
+M1.5 tasks.
+
 Run all commands from the repository root:
 
 ```powershell

@@ -360,6 +360,6 @@ Scope.
 
 ## Następny krok
 
-M1.1–M1.3 są zakończone. Po osobnym poleceniu należy utworzyć tylko
-`TASK-0009 — Board reducer and basic components`. Nie należy równolegle
-rozpoczynać kolejnych zadań podetapów M1.4–M1.6.
+M1.1–M1.3 oraz TASK-0009 są zakończone. Po osobnym poleceniu należy utworzyć
+tylko `TASK-0010 — Prefix matching and unique candidate modal`. Nie należy
+równolegle rozpoczynać kolejnych zadań podetapów M1.4–M1.6.

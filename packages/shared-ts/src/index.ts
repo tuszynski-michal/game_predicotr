@@ -1,5 +1,6 @@
 export type {
   ForecastPeak,
+  ForecastInput,
   ForecastResult,
   GameConfig,
   JokerInterpretation,
@@ -18,6 +19,7 @@ export {
   encodeSignature,
   encodeSignaturePrefix,
 } from './signature.js';
+export { calculateTargetForecast } from './forecast.js';
 export {
   validateBoardDimensions,
   validateBoardPrefix,

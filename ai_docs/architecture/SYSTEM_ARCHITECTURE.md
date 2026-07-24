@@ -119,10 +119,16 @@ sequenceDiagram
 
     Mobile->>SQLite: strumień N-1 payoutów po spinie 0
     SQLite-->>Mobile: sequence number + payout, w kolejności cyklicznej
+    Mobile->>Mobile: zweryfikuj ciągłość i brak spinu 0
     Mobile->>Mobile: kumuluj payout i koszt
     Mobile->>Mobile: znajdź dodatnie lokalne maksima
     Mobile->>Mobile: pokaż podsumowanie i wirtualizowaną tabelę
 ```
+
+Port forecastu przyjmuje uporządkowany strumień `N - 1` par
+`(sequence_number, payout)` wraz z metadanymi wydania. Adapter SQLite odpowiada
+za cykliczny odczyt partiami, a czysty engine ponownie weryfikuje oczekiwany
+numer każdej pozycji i wykonuje jeden przebieg.
 
 Payout reguł nie jest liczony w runtime mobile. Został obliczony przy przygotowaniu wydania.
 

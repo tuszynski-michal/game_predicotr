@@ -265,6 +265,23 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   decyzji i nowej wersji algorytmu. Python i TypeScript utrzymują zgodny
   kontrakt `JokerInterpretation`; payout nadal jest liczony tylko build-time.
 
+## D-017 — Target engine stream boundary
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** czysty Target engine otrzymuje metadane wydania oraz dokładnie
+  `N - 1` uporządkowanych par `(sequence_number, payout)`. Adapter danych
+  odpowiada za cykliczny odczyt, a engine niezależnie weryfikuje długość,
+  następstwo i zawinięcie. Szczyty są wykrywane w jednym przebiegu bez
+  materializacji pełnej tablicy `net`.
+- **Reason:** logika matematyczna pozostaje testowalna bez SQLite, a uszkodzony
+  lub nieciągły strumień nie daje częściowego wyniku. Jeden przebieg ogranicza
+  pamięć roboczą przed benchmarkiem 500 000 layoutów.
+- **Consequences:** repozytorium M1.3 musi zwracać kolejność zaczynającą się od
+  następcy spinu 0 i kończącą na jego poprzedniku. Integracja M1.5 przekazuje
+  dane do engine’u bez ponownego implementowania kumulacji ani lokalnych
+  maksimów.
+
 ## Szablon nowej decyzji
 
 ```text

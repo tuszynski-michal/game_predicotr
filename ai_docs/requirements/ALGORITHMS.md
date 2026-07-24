@@ -173,6 +173,26 @@ Zmiana layoutów, paylines, symboli, kosztu albo wypłat wymaga ponownego oblicz
 
 ## C. Target forecast
 
+### Wejście
+
+```text
+mobile_release_version
+snapshot_checksum
+dataset_version
+rules_version
+algorithm_version
+start_sequence_number
+layout_count
+spin_cost
+sequence_payouts[]:
+  sequence_number
+  payout_credits
+```
+
+`sequence_payouts` zawiera dokładnie `layout_count - 1` rekordów już
+uporządkowanych cyklicznie przez adapter danych. Czysty engine weryfikuje każdy
+oczekiwany numer sekwencji; nie ufa długości ani kolejności wejścia.
+
 ### Warunki startu
 
 - pełny layout ma dokładnie jeden `sequence_number`,
@@ -256,9 +276,14 @@ Późniejszy lokalny szczyt 18 jest pokazywany nawet wtedy, gdy wcześniej wyst�
 start_sequence_number
 evaluated_spin_count = layout_count - 1
 spin_cost
+mobile_release_version
+snapshot_checksum
 dataset_version
 rules_version
 algorithm_version
+final_cumulative_payout
+final_cumulative_cost
+final_net_credits
 positive_local_peaks[]:
   spin_number
   sequence_number
@@ -275,6 +300,8 @@ Wiersze są uporządkowane rosnąco według `spin_number`.
 - mobile skanuje lokalnie gotowe payouty, bez oceny reguł dla każdego spinu,
 - nie wykonuje osobnego otwarcia ani przygotowania zapytania SQL na każdy layout,
 - przetwarza dane strumieniowo lub partiami i nie ładuje całych rekordów domenowych do UI,
+- czysty engine wykrywa szczyty w jednym przebiegu i nie materializuje tablicy
+  wszystkich wartości `net`,
 - długie obliczenie można przenieść poza główny wątek JS po pomiarach,
 - tabela używa wirtualizacji,
 - wynik jest deterministyczny dla tej samej wersji wydania.

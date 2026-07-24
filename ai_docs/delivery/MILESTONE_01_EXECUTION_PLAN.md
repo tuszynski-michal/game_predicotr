@@ -122,8 +122,8 @@ SQLite oraz jego wersję.
 
 ## M1.2 — Kontrakty domenowe i golden algorithms
 
-**Status:** w toku — TASK-0003 i TASK-0004 ukończone 2026-07-24; TASK-0005
-nie rozpoczęte.
+**Status:** ukończone 2026-07-24 — TASK-0003, TASK-0004 i TASK-0005; bramka
+G2 przeszła.
 
 ### Cel
 
@@ -356,6 +356,6 @@ Scope.
 
 ## Następny krok
 
-M1.1, TASK-0003 i TASK-0004 są zakończone. Po poleceniu kontynuacji M1.2
-należy utworzyć tylko `TASK-0005 — Target engine and golden tests`. Nie należy
-równolegle rozpoczynać kolejnych podetapów M1.3–M1.6.
+M1.1 i M1.2 są zakończone. Po poleceniu rozpoczęcia M1.3 należy utworzyć tylko
+`TASK-0006 — Deterministic fixture generator and sequence validator`. Nie
+należy równolegle rozpoczynać TASK-0007 ani kolejnych podetapów M1.4–M1.6.

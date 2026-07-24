@@ -289,8 +289,12 @@ type ForecastResult = {
   startSequenceNumber: number;
   evaluatedSpinCount: number;
   spinCost: number;
+  finalCumulativePayout: number;
+  finalCumulativeCost: number;
+  finalNetCredits: number;
   positiveLocalPeaks: readonly PositiveLocalPeak[];
   mobileReleaseVersion: string;
+  snapshotChecksum: string;
   datasetVersion: number;
   rulesVersion: number;
   algorithmVersion: string;

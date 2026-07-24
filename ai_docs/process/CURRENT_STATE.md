@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.2 w toku — payout engine ukończony, gotowe do Target engine`
+`M1.2 ukończone — gotowe do rozpoczęcia M1.3`
 
 ## Completed
 
@@ -44,6 +44,12 @@ last_updated: 2026-07-24
   match, sumowanie paylines, strukturalny audit i golden cases,
 - zaakceptowano D-016 definiującą granicę pięciu kolumn payout v1 oraz
   strukturalną interpretację jokera,
+- ukończono `TASK-0005`: pełny cykl Target `N - 1`, kumulację payoutów i
+  kosztów, dodatnie lokalne maksima, plateau i golden cases,
+- zaakceptowano D-017 definiującą granicę uporządkowanego strumienia Target i
+  jednoprzebiegowe wykrywanie szczytów,
+- ukończono podetap M1.2 i bramkę G2: kontrakty oraz oba czyste algorytmy mają
+  niezależne golden fixtures bez zależności od UI i baz danych,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -105,10 +111,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po poleceniu kontynuacji M1.2 można utworzyć:
+Po poleceniu rozpoczęcia M1.3 można utworzyć:
 
 ```text
-TASK-0005 — Target engine and golden tests
+TASK-0006 — Deterministic fixture generator and sequence validator
 ```
 
 ## Do not start yet

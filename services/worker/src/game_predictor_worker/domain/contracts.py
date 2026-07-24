@@ -70,19 +70,39 @@ class SequencePayout:
 
 
 @dataclass(frozen=True)
+class ForecastInput:
+    mobile_release_version: str
+    snapshot_checksum: str
+    dataset_version: int
+    rules_version: int
+    algorithm_version: str
+    start_sequence_number: int
+    layout_count: int
+    spin_cost: int
+    sequence_payouts: tuple[SequencePayout, ...]
+
+
+@dataclass(frozen=True)
 class ForecastPeak:
     spin_number: int
     sequence_number: int
     spin_payout: int
     cumulative_payout: int
     cumulative_cost: int
-    net: int
+    net_credits: int
 
 
 @dataclass(frozen=True)
 class ForecastResult:
-    evaluated_spins: int
+    mobile_release_version: str
+    snapshot_checksum: str
+    dataset_version: int
+    rules_version: int
+    algorithm_version: str
+    start_sequence_number: int
+    evaluated_spin_count: int
+    spin_cost: int
     final_cumulative_payout: int
     final_cumulative_cost: int
-    final_net: int
+    final_net_credits: int
     positive_local_peaks: tuple[ForecastPeak, ...]

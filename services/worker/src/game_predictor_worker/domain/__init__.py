@@ -1,6 +1,7 @@
 """Framework-independent Game Predictor domain contracts."""
 
 from game_predictor_worker.domain.contracts import (
+    ForecastInput,
     ForecastPeak,
     ForecastResult,
     GameConfig,
@@ -35,6 +36,7 @@ from game_predictor_worker.domain.validation import (
 __all__ = [
     "DomainErrorCode",
     "DomainValidationError",
+    "ForecastInput",
     "ForecastPeak",
     "ForecastResult",
     "GameConfig",

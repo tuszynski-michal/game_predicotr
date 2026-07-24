@@ -1,0 +1,406 @@
+{
+  "metadata": {
+    "mobileReleaseVersion": "m1-target-golden.1",
+    "snapshotChecksum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "datasetVersion": 1,
+    "rulesVersion": 1,
+    "algorithmVersion": "target-v1",
+    "spinCost": 10
+  },
+  "cases": [
+    {
+      "id": "single-layout-has-only-spin-zero",
+      "description": "A one-layout dataset evaluates no paid spins.",
+      "manualCalculation": [
+        "layout_count - 1 = 0",
+        "spin 0 has no payout and no cost",
+        "final payout = cost = net = 0"
+      ],
+      "input": {
+        "startSequenceNumber": 1,
+        "layoutCount": 1,
+        "sequencePayouts": []
+      },
+      "expected": {
+        "evaluatedSpinCount": 0,
+        "finalCumulativePayout": 0,
+        "finalCumulativeCost": 0,
+        "finalNetCredits": 0,
+        "positiveLocalPeaks": []
+      }
+    },
+    {
+      "id": "full-cycle-wraps-and-filters-negative-peak",
+      "description": "Start 4 in a five-layout dataset visits 5,1,2,3 and never revisits 4.",
+      "manualCalculation": [
+        "sequences = [5,1,2,3]",
+        "payouts = [0,5,20,0], cumulative payouts = [0,5,25,25]",
+        "costs = [10,20,30,40], net = [-10,-15,-5,-15]",
+        "local peak -5 is not positive, so the table is empty"
+      ],
+      "input": {
+        "startSequenceNumber": 4,
+        "layoutCount": 5,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 5,
+            "payoutCredits": 0
+          },
+          {
+            "sequenceNumber": 1,
+            "payoutCredits": 5
+          },
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 20
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 0
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 4,
+        "finalCumulativePayout": 25,
+        "finalCumulativeCost": 40,
+        "finalNetCredits": -15,
+        "positiveLocalPeaks": []
+      }
+    },
+    {
+      "id": "one-positive-local-peak",
+      "description": "A rising pair followed by a decline produces one peak.",
+      "manualCalculation": [
+        "net = [10,20,10,0,-10]",
+        "spin 2 is the only local peak: payout 20, cumulative 40, cost 20, net 20"
+      ],
+      "input": {
+        "startSequenceNumber": 2,
+        "layoutCount": 6,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 20
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 20
+          },
+          {
+            "sequenceNumber": 5,
+            "payoutCredits": 0
+          },
+          {
+            "sequenceNumber": 6,
+            "payoutCredits": 0
+          },
+          {
+            "sequenceNumber": 1,
+            "payoutCredits": 0
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 5,
+        "finalCumulativePayout": 40,
+        "finalCumulativeCost": 50,
+        "finalNetCredits": -10,
+        "positiveLocalPeaks": [
+          {
+            "spinNumber": 2,
+            "sequenceNumber": 4,
+            "spinPayout": 20,
+            "cumulativePayout": 40,
+            "cumulativeCost": 20,
+            "netCredits": 20
+          }
+        ]
+      }
+    },
+    {
+      "id": "later-lower-peak-is-retained",
+      "description": "A later local peak is returned even though it is lower than the first.",
+      "manualCalculation": [
+        "payouts = [15,30,0,13,0]",
+        "net = [5,25,15,18,8]",
+        "peaks are spin 2 net 25 and spin 4 net 18"
+      ],
+      "input": {
+        "startSequenceNumber": 1,
+        "layoutCount": 6,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 15
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 30
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 0
+          },
+          {
+            "sequenceNumber": 5,
+            "payoutCredits": 13
+          },
+          {
+            "sequenceNumber": 6,
+            "payoutCredits": 0
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 5,
+        "finalCumulativePayout": 58,
+        "finalCumulativeCost": 50,
+        "finalNetCredits": 8,
+        "positiveLocalPeaks": [
+          {
+            "spinNumber": 2,
+            "sequenceNumber": 3,
+            "spinPayout": 30,
+            "cumulativePayout": 45,
+            "cumulativeCost": 20,
+            "netCredits": 25
+          },
+          {
+            "spinNumber": 4,
+            "sequenceNumber": 5,
+            "spinPayout": 13,
+            "cumulativePayout": 58,
+            "cumulativeCost": 40,
+            "netCredits": 18
+          }
+        ]
+      }
+    },
+    {
+      "id": "plateau-uses-first-spin",
+      "description": "Three equal maximum values form one peak at the first plateau spin.",
+      "manualCalculation": [
+        "wrapped sequences = [6,1,2,3,4]",
+        "net = [10,25,25,25,20]",
+        "the plateau peak is spin 2, sequence 1"
+      ],
+      "input": {
+        "startSequenceNumber": 5,
+        "layoutCount": 6,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 6,
+            "payoutCredits": 20
+          },
+          {
+            "sequenceNumber": 1,
+            "payoutCredits": 25
+          },
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 10
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 10
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 5
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 5,
+        "finalCumulativePayout": 70,
+        "finalCumulativeCost": 50,
+        "finalNetCredits": 20,
+        "positiveLocalPeaks": [
+          {
+            "spinNumber": 2,
+            "sequenceNumber": 1,
+            "spinPayout": 25,
+            "cumulativePayout": 45,
+            "cumulativeCost": 20,
+            "netCredits": 25
+          }
+        ]
+      }
+    },
+    {
+      "id": "rising-end-of-cycle-is-a-peak",
+      "description": "A positive rising segment ending at the cycle boundary is retained.",
+      "manualCalculation": [
+        "net = [-5,0,5,10]",
+        "the cycle ends while rising, so spin 4 net 10 is a peak",
+        "the intermediate zero is not positive"
+      ],
+      "input": {
+        "startSequenceNumber": 1,
+        "layoutCount": 5,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 5
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 15
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 15
+          },
+          {
+            "sequenceNumber": 5,
+            "payoutCredits": 15
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 4,
+        "finalCumulativePayout": 50,
+        "finalCumulativeCost": 40,
+        "finalNetCredits": 10,
+        "positiveLocalPeaks": [
+          {
+            "spinNumber": 4,
+            "sequenceNumber": 5,
+            "spinPayout": 15,
+            "cumulativePayout": 50,
+            "cumulativeCost": 40,
+            "netCredits": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "zero-is-not-positive",
+      "description": "A local maximum equal to zero is excluded.",
+      "manualCalculation": [
+        "net = [0,-5,0]",
+        "the boundary maximum is 0 and therefore is not included"
+      ],
+      "input": {
+        "startSequenceNumber": 1,
+        "layoutCount": 4,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 10
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 5
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 15
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 3,
+        "finalCumulativePayout": 30,
+        "finalCumulativeCost": 30,
+        "finalNetCredits": 0,
+        "positiveLocalPeaks": []
+      }
+    },
+    {
+      "id": "intermediate-payouts-are-retained",
+      "description": "Small earlier wins remain in cumulative payout and make the final peak positive.",
+      "manualCalculation": [
+        "payouts = [5,5,25] and all are retained",
+        "cumulative payouts = [5,10,35], costs = [10,20,30]",
+        "net = [-5,-10,5], so boundary spin 3 is a positive peak"
+      ],
+      "input": {
+        "startSequenceNumber": 1,
+        "layoutCount": 4,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 5
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 5
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 25
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 3,
+        "finalCumulativePayout": 35,
+        "finalCumulativeCost": 30,
+        "finalNetCredits": 5,
+        "positiveLocalPeaks": [
+          {
+            "spinNumber": 3,
+            "sequenceNumber": 4,
+            "spinPayout": 25,
+            "cumulativePayout": 35,
+            "cumulativeCost": 30,
+            "netCredits": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": "growing-segment-keeps-only-final-peak",
+      "description": "Every positive value in a rising segment is not emitted as a separate row.",
+      "manualCalculation": [
+        "payouts = [15,15,15,20,5]",
+        "net = [5,10,15,25,20]",
+        "only spin 4 with net 25 is a local peak"
+      ],
+      "input": {
+        "startSequenceNumber": 1,
+        "layoutCount": 6,
+        "sequencePayouts": [
+          {
+            "sequenceNumber": 2,
+            "payoutCredits": 15
+          },
+          {
+            "sequenceNumber": 3,
+            "payoutCredits": 15
+          },
+          {
+            "sequenceNumber": 4,
+            "payoutCredits": 15
+          },
+          {
+            "sequenceNumber": 5,
+            "payoutCredits": 20
+          },
+          {
+            "sequenceNumber": 6,
+            "payoutCredits": 5
+          }
+        ]
+      },
+      "expected": {
+        "evaluatedSpinCount": 5,
+        "finalCumulativePayout": 70,
+        "finalCumulativeCost": 50,
+        "finalNetCredits": 20,
+        "positiveLocalPeaks": [
+          {
+            "spinNumber": 4,
+            "sequenceNumber": 5,
+            "spinPayout": 20,
+            "cumulativePayout": 65,
+            "cumulativeCost": 40,
+            "netCredits": 25
+          }
+        ]
+      }
+    }
+  ]
+}

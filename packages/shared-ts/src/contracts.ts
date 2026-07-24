@@ -54,19 +54,38 @@ export interface SequencePayout {
   readonly payoutCredits: number;
 }
 
+export interface ForecastInput {
+  readonly mobileReleaseVersion: string;
+  readonly snapshotChecksum: string;
+  readonly datasetVersion: number;
+  readonly rulesVersion: number;
+  readonly algorithmVersion: string;
+  readonly startSequenceNumber: number;
+  readonly layoutCount: number;
+  readonly spinCost: number;
+  readonly sequencePayouts: readonly SequencePayout[];
+}
+
 export interface ForecastPeak {
   readonly spinNumber: number;
   readonly sequenceNumber: number;
   readonly spinPayout: number;
   readonly cumulativePayout: number;
   readonly cumulativeCost: number;
-  readonly net: number;
+  readonly netCredits: number;
 }
 
 export interface ForecastResult {
-  readonly evaluatedSpins: number;
+  readonly mobileReleaseVersion: string;
+  readonly snapshotChecksum: string;
+  readonly datasetVersion: number;
+  readonly rulesVersion: number;
+  readonly algorithmVersion: string;
+  readonly startSequenceNumber: number;
+  readonly evaluatedSpinCount: number;
+  readonly spinCost: number;
   readonly finalCumulativePayout: number;
   readonly finalCumulativeCost: number;
-  readonly finalNet: number;
+  readonly finalNetCredits: number;
   readonly positiveLocalPeaks: readonly ForecastPeak[];
 }

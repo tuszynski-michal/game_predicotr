@@ -43,6 +43,9 @@ Największe ryzyko znajduje się w logice domenowej, integralności kolejności,
 - kilka symboli i kilka linii,
 - wspólna komórka liczona na obu liniach,
 - identyczna payline odrzucona,
+- brakująca reguła w macierzy precomputingu odrzucona,
+- payout, który nie rośnie wraz z długością, odrzucony,
+- plansza szersza niż 5 kolumn odrzucona do czasu decyzji domenowej,
 - audyt zawiera komórki i interpretacje.
 
 ### Forecast

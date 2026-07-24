@@ -40,6 +40,12 @@ class PayoutRuleDefinition:
 
 
 @dataclass(frozen=True)
+class JokerInterpretation:
+    cell_index: int
+    as_symbol_mobile_code: int
+
+
+@dataclass(frozen=True)
 class PayoutMatch:
     symbol_mobile_code: int
     payline_id: str
@@ -48,7 +54,7 @@ class PayoutMatch:
     matched_cells: tuple[int, ...]
     joker_cells: tuple[int, ...]
     payout_credits: int
-    interpretation: str
+    interpretation: tuple[JokerInterpretation, ...]
 
 
 @dataclass(frozen=True)

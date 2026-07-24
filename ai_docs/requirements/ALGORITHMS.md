@@ -83,6 +83,12 @@ matches[]:
   interpretation
 ```
 
+`start_column` oraz indeksy w `matched_cells` i `joker_cells` są 0-based.
+Komórki używają indeksu `row-major`: `row * columns + column`.
+`interpretation` jest listą struktur
+`(cell_index, as_symbol_mobile_code)`, dzięki czemu nie wymaga parsowania
+tekstu.
+
 ### Payline
 
 `row_path` ma dokładnie jeden indeks wiersza dla każdej kolumny:
@@ -125,6 +131,9 @@ Przykład dla `row_path = [2,3,1,1,2]` w numeracji UI:
 
 M1 ma 5 kolumn, więc na jednej payline nie wystąpią dwa rozłączne ciągi długości co najmniej 3. Zasady dla szerszej planszy z kilkoma takimi ciągami wymagają osobnej decyzji przed publikacją tej gry.
 
+Algorytm `payout-v1` jawnie odrzuca konfigurację szerszą niż 5 kolumn, zamiast
+przyjmować ukrytą semantykę dla kilku rozłącznych ciągów.
+
 ### Joker
 
 - zastępuje dowolny zwykły symbol,
@@ -144,6 +153,14 @@ M1 ma 5 kolumn, więc na jednej payline nie wystąpią dwa rozłączne ciągi d�
 - dla jednej pary i tego samego ciągu nie sumuje się wartości za długości 3, 4 i 5; wybierana jest wartość najdłuższego dopasowania.
 
 ### Precomputing
+
+Konfiguracja gotowa do precomputingu:
+
+- zawiera dokładnie jedną regułę dla każdej pary
+  `(zwykły symbol, długość 3..columns)`,
+- nie zawiera reguły jokera,
+- ma nieujemne wypłaty,
+- dla danego symbolu payout rośnie ściśle wraz z długością.
 
 Podczas przygotowania wydania:
 

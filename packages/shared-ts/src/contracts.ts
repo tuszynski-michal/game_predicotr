@@ -28,6 +28,11 @@ export interface PayoutRuleDefinition {
   readonly payoutCredits: number;
 }
 
+export interface JokerInterpretation {
+  readonly cellIndex: number;
+  readonly asSymbolMobileCode: number;
+}
+
 export interface PayoutMatch {
   readonly symbolMobileCode: number;
   readonly paylineId: string;
@@ -36,7 +41,7 @@ export interface PayoutMatch {
   readonly matchedCells: readonly number[];
   readonly jokerCells: readonly number[];
   readonly payoutCredits: number;
-  readonly interpretation: string;
+  readonly interpretation: readonly JokerInterpretation[];
 }
 
 export interface PayoutEvaluation {

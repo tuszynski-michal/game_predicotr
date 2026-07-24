@@ -10,6 +10,7 @@ class DomainErrorCode(StrEnum):
     DUPLICATE_PAYOUT_RULE = "duplicate_payout_rule"
     DUPLICATE_SYMBOL_CODE = "duplicate_symbol_code"
     DUPLICATE_SYMBOL_MOBILE_CODE = "duplicate_symbol_mobile_code"
+    INCOMPLETE_PAYOUT_RULES = "incomplete_payout_rules"
     INVALID_BOARD_LENGTH = "invalid_board_length"
     INVALID_BOARD_SYMBOL = "invalid_board_symbol"
     INVALID_CELL_WIDTH = "invalid_cell_width"
@@ -25,7 +26,9 @@ class DomainErrorCode(StrEnum):
     INVALID_SYMBOL = "invalid_symbol"
     INVALID_SYMBOL_CODE = "invalid_symbol_code"
     NON_PREFIX_BOARD = "non_prefix_board"
+    NON_INCREASING_PAYOUT = "non_increasing_payout"
     SYMBOL_CODE_OUT_OF_RANGE = "symbol_code_out_of_range"
+    UNSUPPORTED_PAYOUT_BOARD_WIDTH = "unsupported_payout_board_width"
     WILDCARD_PAYOUT_RULE = "wildcard_payout_rule"
 
 

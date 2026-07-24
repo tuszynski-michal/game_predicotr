@@ -249,6 +249,22 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   Repozytoria traktują sygnaturę jako nieprzezroczystą, więc po benchmarku
   można zmienić fizyczną reprezentację na BLOB bez zmiany logiki domenowej.
 
+## D-016 — Payout v1 boundary and structured audit
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** payout engine v1 obsługuje konfiguracje do 5 kolumn i odrzuca
+  szersze plansze stabilnym błędem do czasu zdefiniowania wielu rozłącznych
+  ciągów. Audit używa indeksów 0-based `row-major`, a interpretacja każdego
+  jokera jest strukturą `(cell_index, as_symbol_mobile_code)`.
+- **Reason:** M1 ma planszę 3 × 5 i jednoznaczną semantykę jednego ciągu.
+  Ciche uogólnienie na szersze plansze rozstrzygnęłoby otwarte pytanie
+  produktowe. Strukturalny audit jest jednoznaczny i nie wymaga parsowania
+  tekstu w raportach ani przyszłym API.
+- **Consequences:** publikacja gry szerszej niż 5 kolumn wymaga wcześniejszej
+  decyzji i nowej wersji algorytmu. Python i TypeScript utrzymują zgodny
+  kontrakt `JokerInterpretation`; payout nadal jest liczony tylko build-time.
+
 ## Szablon nowej decyzji
 
 ```text

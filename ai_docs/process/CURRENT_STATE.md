@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.2 w toku — kontrakty ukończone, gotowe do payout engine`
+`M1.2 w toku — payout engine ukończony, gotowe do Target engine`
 
 ## Completed
 
@@ -40,6 +40,10 @@ last_updated: 2026-07-24
   współdzielone fixture,
 - zaakceptowano D-015 definiującą tekstowy codec v1, jawne
   `signature_cell_width` i zakres dodatnich kodów `smallint`,
+- ukończono `TASK-0004`: czysty build-time payout engine, joker, longest
+  match, sumowanie paylines, strukturalny audit i golden cases,
+- zaakceptowano D-016 definiującą granicę pięciu kolumn payout v1 oraz
+  strukturalną interpretację jokera,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -104,7 +108,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 Po poleceniu kontynuacji M1.2 można utworzyć:
 
 ```text
-TASK-0004 — Payout engine and golden tests
+TASK-0005 — Target engine and golden tests
 ```
 
 ## Do not start yet

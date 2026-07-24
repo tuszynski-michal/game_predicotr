@@ -3,6 +3,7 @@ export type DomainErrorCode =
   | 'duplicate_payout_rule'
   | 'duplicate_symbol_code'
   | 'duplicate_symbol_mobile_code'
+  | 'incomplete_payout_rules'
   | 'invalid_board_length'
   | 'invalid_board_symbol'
   | 'invalid_cell_width'
@@ -18,7 +19,9 @@ export type DomainErrorCode =
   | 'invalid_symbol'
   | 'invalid_symbol_code'
   | 'non_prefix_board'
+  | 'non_increasing_payout'
   | 'symbol_code_out_of_range'
+  | 'unsupported_payout_board_width'
   | 'wildcard_payout_rule';
 
 export class DomainValidationError extends Error {

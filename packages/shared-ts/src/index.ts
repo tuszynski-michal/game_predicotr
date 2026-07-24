@@ -2,6 +2,7 @@ export type {
   ForecastPeak,
   ForecastResult,
   GameConfig,
+  JokerInterpretation,
   PaylineDefinition,
   PayoutEvaluation,
   PayoutMatch,

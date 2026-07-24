@@ -231,3 +231,48 @@ def validate_payout_rules(
                 "Payout rule symbol and match length must be unique.",
             )
         keys.add(key)
+
+
+def validate_payout_configuration(
+    rules: Sequence[PayoutRuleDefinition],
+    game: GameConfig,
+) -> None:
+    """Validate a complete rules matrix ready for payout precomputing."""
+
+    validate_payout_rules(rules, game)
+    rules_by_symbol: dict[int, dict[int, int]] = {}
+    for rule in rules:
+        rules_by_symbol.setdefault(rule.symbol_mobile_code, {})[
+            rule.match_length
+        ] = rule.payout_credits
+
+    expected_lengths = tuple(range(3, game.columns + 1))
+    for symbol in game.symbols:
+        if symbol.is_wildcard:
+            continue
+
+        symbol_rules = rules_by_symbol.get(symbol.mobile_code, {})
+        missing_lengths = [
+            length for length in expected_lengths if length not in symbol_rules
+        ]
+        if missing_lengths:
+            raise DomainValidationError(
+                DomainErrorCode.INCOMPLETE_PAYOUT_RULES,
+                (
+                    f"Symbol {symbol.mobile_code} is missing payout rules "
+                    f"for lengths {missing_lengths}."
+                ),
+            )
+
+        previous_payout: int | None = None
+        for length in expected_lengths:
+            payout = symbol_rules[length]
+            if previous_payout is not None and payout <= previous_payout:
+                raise DomainValidationError(
+                    DomainErrorCode.NON_INCREASING_PAYOUT,
+                    (
+                        f"Payout for symbol {symbol.mobile_code} must increase "
+                        f"with match length; length {length} has value {payout}."
+                    ),
+                )
+            previous_payout = payout

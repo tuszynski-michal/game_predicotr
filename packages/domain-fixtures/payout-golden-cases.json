@@ -1,0 +1,473 @@
+{
+  "algorithmVersion": "payout-v1",
+  "indexing": {
+    "columns": "0-based",
+    "cells": "0-based row-major: row * columns + column"
+  },
+  "game": {
+    "id": "payout-golden-game",
+    "code": "PAYOUT_GOLDEN",
+    "name": "Payout Golden Game",
+    "rows": 3,
+    "columns": 5,
+    "spinCost": 10,
+    "signatureCellWidth": 1,
+    "symbols": [
+      {
+        "mobileCode": 1,
+        "code": "A",
+        "name": "Symbol A",
+        "isWildcard": false,
+        "displayOrder": 0
+      },
+      {
+        "mobileCode": 2,
+        "code": "B",
+        "name": "Symbol B",
+        "isWildcard": false,
+        "displayOrder": 1
+      },
+      {
+        "mobileCode": 3,
+        "code": "C",
+        "name": "Symbol C",
+        "isWildcard": false,
+        "displayOrder": 2
+      },
+      {
+        "mobileCode": 9,
+        "code": "JOKER",
+        "name": "Joker",
+        "isWildcard": true,
+        "displayOrder": 3
+      }
+    ]
+  },
+  "paylines": [
+    {
+      "id": "top",
+      "rowPath": [0, 0, 0, 0, 0]
+    },
+    {
+      "id": "middle",
+      "rowPath": [1, 1, 1, 1, 1]
+    },
+    {
+      "id": "bottom",
+      "rowPath": [2, 2, 2, 2, 2]
+    },
+    {
+      "id": "v",
+      "rowPath": [0, 1, 2, 1, 0]
+    }
+  ],
+  "payoutRules": [
+    {
+      "symbolMobileCode": 1,
+      "matchLength": 3,
+      "payoutCredits": 10
+    },
+    {
+      "symbolMobileCode": 1,
+      "matchLength": 4,
+      "payoutCredits": 25
+    },
+    {
+      "symbolMobileCode": 1,
+      "matchLength": 5,
+      "payoutCredits": 50
+    },
+    {
+      "symbolMobileCode": 2,
+      "matchLength": 3,
+      "payoutCredits": 20
+    },
+    {
+      "symbolMobileCode": 2,
+      "matchLength": 4,
+      "payoutCredits": 45
+    },
+    {
+      "symbolMobileCode": 2,
+      "matchLength": 5,
+      "payoutCredits": 80
+    },
+    {
+      "symbolMobileCode": 3,
+      "matchLength": 3,
+      "payoutCredits": 30
+    },
+    {
+      "symbolMobileCode": 3,
+      "matchLength": 4,
+      "payoutCredits": 65
+    },
+    {
+      "symbolMobileCode": 3,
+      "matchLength": 5,
+      "payoutCredits": 110
+    }
+  ],
+  "cases": [
+    {
+      "id": "length-two-does-not-win",
+      "description": "Two adjacent A cells are below the minimum match length.",
+      "manualCalculation": [
+        "middle: A has length 2, B and C have no length-3 run",
+        "total = 0"
+      ],
+      "paylineIds": ["middle"],
+      "rows": [
+        [2, 3, 2, 3, 2],
+        [1, 1, 2, 3, 2],
+        [3, 2, 3, 2, 3]
+      ],
+      "expected": {
+        "totalPayout": 0,
+        "matches": []
+      }
+    },
+    {
+      "id": "starts-in-columns-zero-one-two",
+      "description": "Independent length-3 wins begin in columns 0, 1 and 2.",
+      "manualCalculation": [
+        "top: A columns 0..2 = 10",
+        "middle: B columns 1..3 = 20",
+        "bottom: C columns 2..4 = 30",
+        "total = 10 + 20 + 30 = 60"
+      ],
+      "paylineIds": ["top", "middle", "bottom"],
+      "rows": [
+        [1, 1, 1, 2, 3],
+        [1, 2, 2, 2, 3],
+        [1, 2, 3, 3, 3]
+      ],
+      "expected": {
+        "totalPayout": 60,
+        "matches": [
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "top",
+            "startColumn": 0,
+            "matchedLength": 3,
+            "matchedCells": [0, 1, 2],
+            "jokerCells": [],
+            "payoutCredits": 10,
+            "interpretation": []
+          },
+          {
+            "symbolMobileCode": 2,
+            "paylineId": "middle",
+            "startColumn": 1,
+            "matchedLength": 3,
+            "matchedCells": [6, 7, 8],
+            "jokerCells": [],
+            "payoutCredits": 20,
+            "interpretation": []
+          },
+          {
+            "symbolMobileCode": 3,
+            "paylineId": "bottom",
+            "startColumn": 2,
+            "matchedLength": 3,
+            "matchedCells": [12, 13, 14],
+            "jokerCells": [],
+            "payoutCredits": 30,
+            "interpretation": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "length-four-and-five-use-only-longest-rule",
+      "description": "Length 4 and 5 wins do not add shorter payout rules.",
+      "manualCalculation": [
+        "top: A length 4 = 25, not 10 + 25",
+        "middle: B length 5 = 80, not 20 + 45 + 80",
+        "total = 25 + 80 = 105"
+      ],
+      "paylineIds": ["top", "middle"],
+      "rows": [
+        [1, 1, 1, 1, 2],
+        [2, 2, 2, 2, 2],
+        [3, 1, 2, 3, 1]
+      ],
+      "expected": {
+        "totalPayout": 105,
+        "matches": [
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "top",
+            "startColumn": 0,
+            "matchedLength": 4,
+            "matchedCells": [0, 1, 2, 3],
+            "jokerCells": [],
+            "payoutCredits": 25,
+            "interpretation": []
+          },
+          {
+            "symbolMobileCode": 2,
+            "paylineId": "middle",
+            "startColumn": 0,
+            "matchedLength": 5,
+            "matchedCells": [5, 6, 7, 8, 9],
+            "jokerCells": [],
+            "payoutCredits": 80,
+            "interpretation": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "gap-breaks-a-match",
+      "description": "A different symbol splits two A pairs.",
+      "manualCalculation": [
+        "middle: A runs have lengths 2 and 2 because B is a gap",
+        "total = 0"
+      ],
+      "paylineIds": ["middle"],
+      "rows": [
+        [2, 3, 2, 3, 2],
+        [1, 1, 2, 1, 1],
+        [3, 2, 3, 2, 3]
+      ],
+      "expected": {
+        "totalPayout": 0,
+        "matches": []
+      }
+    },
+    {
+      "id": "joker-at-start-middle-and-end",
+      "description": "A joker completes three A wins in different positions.",
+      "manualCalculation": [
+        "top: J,A,A as A = 10",
+        "middle: A,J,A as A = 10",
+        "bottom: A,A,J as A = 10",
+        "total = 30"
+      ],
+      "paylineIds": ["top", "middle", "bottom"],
+      "rows": [
+        [9, 1, 1, 2, 3],
+        [2, 1, 9, 1, 3],
+        [2, 3, 1, 1, 9]
+      ],
+      "expected": {
+        "totalPayout": 30,
+        "matches": [
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "top",
+            "startColumn": 0,
+            "matchedLength": 3,
+            "matchedCells": [0, 1, 2],
+            "jokerCells": [0],
+            "payoutCredits": 10,
+            "interpretation": [
+              {
+                "cellIndex": 0,
+                "asSymbolMobileCode": 1
+              }
+            ]
+          },
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "middle",
+            "startColumn": 1,
+            "matchedLength": 3,
+            "matchedCells": [6, 7, 8],
+            "jokerCells": [7],
+            "payoutCredits": 10,
+            "interpretation": [
+              {
+                "cellIndex": 7,
+                "asSymbolMobileCode": 1
+              }
+            ]
+          },
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "bottom",
+            "startColumn": 2,
+            "matchedLength": 3,
+            "matchedCells": [12, 13, 14],
+            "jokerCells": [14],
+            "payoutCredits": 10,
+            "interpretation": [
+              {
+                "cellIndex": 14,
+                "asSymbolMobileCode": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "all-joker-line-does-not-win",
+      "description": "A line containing only jokers has no ordinary symbol interpretation.",
+      "manualCalculation": [
+        "middle: all five cells are jokers and the line contains no A, B or C",
+        "total = 0"
+      ],
+      "paylineIds": ["middle"],
+      "rows": [
+        [1, 2, 3, 1, 2],
+        [9, 9, 9, 9, 9],
+        [3, 1, 2, 3, 1]
+      ],
+      "expected": {
+        "totalPayout": 0,
+        "matches": []
+      }
+    },
+    {
+      "id": "shared-jokers-support-two-symbols",
+      "description": "The same joker cells participate in A and B wins on one payline.",
+      "manualCalculation": [
+        "middle columns 0..2: A,J,J as A = 10",
+        "middle columns 1..3: J,J,B as B = 20",
+        "shared jokers are not consumed",
+        "total = 10 + 20 = 30"
+      ],
+      "paylineIds": ["middle"],
+      "rows": [
+        [2, 3, 1, 2, 3],
+        [1, 9, 9, 2, 3],
+        [3, 1, 2, 3, 1]
+      ],
+      "expected": {
+        "totalPayout": 30,
+        "matches": [
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "middle",
+            "startColumn": 0,
+            "matchedLength": 3,
+            "matchedCells": [5, 6, 7],
+            "jokerCells": [6, 7],
+            "payoutCredits": 10,
+            "interpretation": [
+              {
+                "cellIndex": 6,
+                "asSymbolMobileCode": 1
+              },
+              {
+                "cellIndex": 7,
+                "asSymbolMobileCode": 1
+              }
+            ]
+          },
+          {
+            "symbolMobileCode": 2,
+            "paylineId": "middle",
+            "startColumn": 1,
+            "matchedLength": 3,
+            "matchedCells": [6, 7, 8],
+            "jokerCells": [6, 7],
+            "payoutCredits": 20,
+            "interpretation": [
+              {
+                "cellIndex": 6,
+                "asSymbolMobileCode": 2
+              },
+              {
+                "cellIndex": 7,
+                "asSymbolMobileCode": 2
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "shared-joker-on-bottom-and-v-paylines",
+      "description": "One joker is B on the bottom line and A on the V line.",
+      "manualCalculation": [
+        "bottom: B,B,J,B,B as B length 5 = 80",
+        "V cells [0,6,12,8,4]: A,A,J,A,A as A length 5 = 50",
+        "cell 12 is counted independently on both paylines",
+        "total = 80 + 50 = 130"
+      ],
+      "paylineIds": ["bottom", "v"],
+      "rows": [
+        [1, 2, 3, 2, 1],
+        [2, 1, 3, 1, 2],
+        [2, 2, 9, 2, 2]
+      ],
+      "expected": {
+        "totalPayout": 130,
+        "matches": [
+          {
+            "symbolMobileCode": 2,
+            "paylineId": "bottom",
+            "startColumn": 0,
+            "matchedLength": 5,
+            "matchedCells": [10, 11, 12, 13, 14],
+            "jokerCells": [12],
+            "payoutCredits": 80,
+            "interpretation": [
+              {
+                "cellIndex": 12,
+                "asSymbolMobileCode": 2
+              }
+            ]
+          },
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "v",
+            "startColumn": 0,
+            "matchedLength": 5,
+            "matchedCells": [0, 6, 12, 8, 4],
+            "jokerCells": [12],
+            "payoutCredits": 50,
+            "interpretation": [
+              {
+                "cellIndex": 12,
+                "asSymbolMobileCode": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "leading-jokers-use-length-five",
+      "description": "A five-cell compatible run with real A cells uses the length-5 rule.",
+      "manualCalculation": [
+        "middle: J,J,A,A,A interpreted as A has length 5",
+        "only payout 50 is used; values 10 and 25 are not added",
+        "total = 50"
+      ],
+      "paylineIds": ["middle"],
+      "rows": [
+        [2, 3, 1, 2, 3],
+        [9, 9, 1, 1, 1],
+        [3, 1, 2, 3, 1]
+      ],
+      "expected": {
+        "totalPayout": 50,
+        "matches": [
+          {
+            "symbolMobileCode": 1,
+            "paylineId": "middle",
+            "startColumn": 0,
+            "matchedLength": 5,
+            "matchedCells": [5, 6, 7, 8, 9],
+            "jokerCells": [5, 6],
+            "payoutCredits": 50,
+            "interpretation": [
+              {
+                "cellIndex": 5,
+                "asSymbolMobileCode": 1
+              },
+              {
+                "cellIndex": 6,
+                "asSymbolMobileCode": 1
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

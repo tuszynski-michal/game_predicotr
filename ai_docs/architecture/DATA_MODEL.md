@@ -111,6 +111,11 @@ Walidacja:
 - `payout_credits >= 0`,
 - joker nie ma payout rule.
 
+Przed precomputingiem i publikacją pełna wersja reguł musi zawierać każdą parę
+`(zwykły symbol, match_length 3..columns)`, a payout danego symbolu musi rosnąć
+ściśle wraz z długością. CRUD draftu może być chwilowo niekompletny; niepełna
+wersja nie może zostać użyta do wydania.
+
 Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje na wszystkich aktywnych paylines.
 
 ### dataset_versions

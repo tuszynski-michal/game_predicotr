@@ -208,6 +208,27 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   Podpis produkcyjny, instalacja na urządzeniach i wymuszenie braku uprawnienia
   `INTERNET` pozostają bramką M1.6.
 
+## D-014 — Execution structure for M2–M8
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** milestone’y M2–M8 są realizowane przez kolejne, osobno
+  odbierane podetapy z własnym wynikiem i bramką jakości, a każdy milestone ma
+  osobny execution plan. Zakres rezerwuje `TASK-0015–TASK-0089`, ale plik
+  zadania powstaje dopiero bezpośrednio przed rozpoczęciem danego zakresu.
+- **Reason:** M2–M8 łączą migracje, API, panel, długie jobs, publikację,
+  benchmarki, obraz, ML, manual review, urządzenia i operacje. Pozostawienie ich
+  jako pojedynczych bloków roadmapy przeniosłoby zbyt wiele decyzji do
+  przyszłego kontekstu i zachęcałoby do dużych, trudnych do zweryfikowania
+  zadań.
+- **Consequences:** każdy milestone M2–M8 ma osobny plan od
+  `delivery/MILESTONE_02_EXECUTION_PLAN.md` do
+  `delivery/MILESTONE_08_EXECUTION_PLAN.md`. Milestone rozpoczyna się po bramce
+  poprzedniego i poleceniu właściciela. M5 pozostaje zablokowany przez
+  Q-015–Q-017, finalne zabezpieczenie panelu w M8 przez Q-019, a analiza
+  aplikacji referencyjnej poza obserwacją przez Q-020. Rezerwacja identyfikatora
+  nie oznacza utworzenia ani rozpoczęcia zadania.
+
 ## Szablon nowej decyzji
 
 ```text

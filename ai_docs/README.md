@@ -52,6 +52,13 @@ implementacyjnym.
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)
 - [Milestone 01 execution plan](delivery/MILESTONE_01_EXECUTION_PLAN.md)
+- [Milestone 02 execution plan](delivery/MILESTONE_02_EXECUTION_PLAN.md)
+- [Milestone 03 execution plan](delivery/MILESTONE_03_EXECUTION_PLAN.md)
+- [Milestone 04 execution plan](delivery/MILESTONE_04_EXECUTION_PLAN.md)
+- [Milestone 05 execution plan](delivery/MILESTONE_05_EXECUTION_PLAN.md)
+- [Milestone 06 execution plan](delivery/MILESTONE_06_EXECUTION_PLAN.md)
+- [Milestone 07 execution plan](delivery/MILESTONE_07_EXECUTION_PLAN.md)
+- [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 
 ### Proces i jakość
 

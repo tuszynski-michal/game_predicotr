@@ -13,7 +13,7 @@ last_updated: 2026-07-24
 ## Completed
 
 - właściciel odpowiedział na Q-001–Q-014 i doprecyzował Q-018,
-- zaakceptowano decyzje D-001–D-013,
+- zaakceptowano decyzje D-001–D-014,
 - ustalono całkowicie offline mobile od M1,
 - ustalono skalę do około 500 000 layoutów na grę i 12–15 gier,
 - ustalono ciągłą, cykliczną sekwencję i procedurę duplikatu bez confirmation chain,
@@ -34,7 +34,11 @@ last_updated: 2026-07-24
 - zbudowano na Windows samodzielne, testowo podpisane APK `arm64-v8a` z bundlem
   JavaScript i dokładnie zweryfikowanym snapshotem SQLite,
 - zaakceptowano D-013 opisującą toolchain, package manager, `applicationId`
-  oraz lokalny workflow Android.
+  oraz lokalny workflow Android,
+- rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
+  zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
+  nie utworzono ani nie
+  rozpoczęto przyszłych plików zadań.
 
 ## In progress
 
@@ -65,6 +69,31 @@ Obowiązuje
 
 Każdy podetap musi przejść własną bramkę przed rozpoczęciem następnego.
 
+## M2–M8 execution structure
+
+Obowiązują osobne plany:
+
+- `delivery/MILESTONE_02_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_03_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_04_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_05_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_06_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_08_EXECUTION_PLAN.md`.
+
+Plan zachowuje kolejność roadmapy:
+
+1. M2 — konfiguracja administracyjna,
+2. M3 — wersjonowany pipeline wydań mobile,
+3. M4 — ręczny import danych,
+4. M5 — prototyp image ingestion,
+5. M6 — klasyfikator symboli i manual review,
+6. M7 — masowy wznawialny import zdjęć,
+7. M8 — prywatna dystrybucja i hardening.
+
+Rezerwacja numeru zadania nie tworzy aktywnego tasku. Następny plik powstaje
+zawsze bezpośrednio przed rozpoczęciem danego zakresu.
+
 ## Next recommended task
 
 Po potwierdzeniu rozpoczęcia M1.2:
@@ -87,6 +116,10 @@ TASK-0003 — Contracts, signature codec and validation
 Dokumentacja opisuje zaakceptowany model produktu i architektury. M1 nie ma
 pytania produktowego blokującego dalszą implementację. Toolchain M1.1 jest
 opisany w D-013 i `TECH_STACK.md`.
+
+Kolejność, granice i bramki M2–M8 są zapisane w D-014 oraz osobnym planie
+wykonania każdego milestone’u, dzięki czemu przyszłe sesje czytają tylko
+właściwy etap i nie muszą odtwarzać podziału z historii rozmowy.
 
 Pakietowa część bramki G1 przeszła: APK zawiera standalone bundle oraz SQLite o
 checksumie zgodnej z manifestem. Żadne urządzenie nie było podłączone podczas

@@ -43,6 +43,20 @@ last_updated: 2026-07-24
 | Skala 500 000 layoutów na grę | `project/PROJECT_BRIEF.md`, `quality/TEST_STRATEGY.md` | M3, M7 |
 | Analiza aplikacji referencyjnej | `reverse_engineering/REFERENCE_APP_ANALYSIS.md`, Q-020 | opcjonalne |
 
+## Plany wykonawcze
+
+- M1: `delivery/MILESTONE_01_EXECUTION_PLAN.md`,
+- M2: `delivery/MILESTONE_02_EXECUTION_PLAN.md`,
+- M3: `delivery/MILESTONE_03_EXECUTION_PLAN.md`,
+- M4: `delivery/MILESTONE_04_EXECUTION_PLAN.md`,
+- M5: `delivery/MILESTONE_05_EXECUTION_PLAN.md`,
+- M6: `delivery/MILESTONE_06_EXECUTION_PLAN.md`,
+- M7: `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
+- M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`.
+
+Plany wykonawcze mapują wymagania na kolejność podetapów, zadania i bramki, ale
+nie zastępują dokumentów źródła prawdy wskazanych w tabeli.
+
 ## Reguła utrzymania
 
 Przy dodaniu nowego wymagania:

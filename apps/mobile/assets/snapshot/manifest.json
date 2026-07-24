@@ -1,9 +1,246 @@
 {
-  "algorithmVersion": "m1-spike.1",
-  "logicalContentSha256": "1403853078a4836b572fcd627f752e28bb741923722fd598ada841ce203f8e22",
-  "recordCount": 3,
-  "releaseVersion": "m1-spike.1",
-  "schemaVersion": 1,
-  "snapshotFile": "m1-spike.db",
-  "snapshotFileSha256": "5d198fea586954abe005864c7a8c5a9a71af5bd8c0a30167c544981a62d9cb77"
+  "algorithmVersion": "payout-v1",
+  "createdAt": "2026-07-24T00:00:00Z",
+  "datasetVersion": 1,
+  "fixtureFingerprint": "f349dcbeec49f4627d330ad4a63d1f1f09480ec1d60443b462debd6a1df69f88",
+  "fixtureVersion": "m1-fixture-v1",
+  "gameCount": 3,
+  "games": [
+    {
+      "code": "game-1",
+      "datasetVersion": 1,
+      "duplicateFixtures": [
+        {
+          "sequenceNumbers": [
+            101,
+            995
+          ],
+          "signature": "030905030405050302050808020508"
+        },
+        {
+          "sequenceNumbers": [
+            102,
+            996
+          ],
+          "signature": "050602020404060301040310040402"
+        },
+        {
+          "sequenceNumbers": [
+            103,
+            997
+          ],
+          "signature": "040105070901050506030903020704"
+        },
+        {
+          "sequenceNumbers": [
+            104,
+            998
+          ],
+          "signature": "051005010501080404080603030801"
+        },
+        {
+          "sequenceNumbers": [
+            105,
+            999
+          ],
+          "signature": "020807060610020109050109010406"
+        },
+        {
+          "sequenceNumbers": [
+            106,
+            1000
+          ],
+          "signature": "050708070806020904010501090809"
+        }
+      ],
+      "id": 1,
+      "layoutCount": 1000,
+      "rulesVersion": 1,
+      "seed": 71401,
+      "symbolCount": 10,
+      "uniquePrefixFixture": {
+        "cellCount": 3,
+        "sequenceNumber": 2,
+        "signaturePrefix": "020508"
+      }
+    },
+    {
+      "code": "game-2",
+      "datasetVersion": 1,
+      "duplicateFixtures": [
+        {
+          "sequenceNumbers": [
+            101,
+            995
+          ],
+          "signature": "060205110110030504040210080311"
+        },
+        {
+          "sequenceNumbers": [
+            102,
+            996
+          ],
+          "signature": "051206090601110707090504020112"
+        },
+        {
+          "sequenceNumbers": [
+            103,
+            997
+          ],
+          "signature": "110501100309111205100907030208"
+        },
+        {
+          "sequenceNumbers": [
+            104,
+            998
+          ],
+          "signature": "050503030501100704071210070204"
+        },
+        {
+          "sequenceNumbers": [
+            105,
+            999
+          ],
+          "signature": "090710030908051004031201020905"
+        },
+        {
+          "sequenceNumbers": [
+            106,
+            1000
+          ],
+          "signature": "041104060609100201050504050307"
+        }
+      ],
+      "id": 2,
+      "layoutCount": 1000,
+      "rulesVersion": 1,
+      "seed": 71402,
+      "symbolCount": 12,
+      "uniquePrefixFixture": {
+        "cellCount": 2,
+        "sequenceNumber": 23,
+        "signaturePrefix": "0909"
+      }
+    },
+    {
+      "code": "game-3",
+      "datasetVersion": 1,
+      "duplicateFixtures": [
+        {
+          "sequenceNumbers": [
+            101,
+            995
+          ],
+          "signature": "040903030703110207030210100703"
+        },
+        {
+          "sequenceNumbers": [
+            102,
+            996
+          ],
+          "signature": "090406040307040805060709080804"
+        },
+        {
+          "sequenceNumbers": [
+            103,
+            997
+          ],
+          "signature": "050606020311020106020609100110"
+        },
+        {
+          "sequenceNumbers": [
+            104,
+            998
+          ],
+          "signature": "020203090306050805020306020801"
+        },
+        {
+          "sequenceNumbers": [
+            105,
+            999
+          ],
+          "signature": "020903090606020402100506080609"
+        },
+        {
+          "sequenceNumbers": [
+            106,
+            1000
+          ],
+          "signature": "050210050604040204060503060301"
+        }
+      ],
+      "id": 3,
+      "layoutCount": 1000,
+      "rulesVersion": 1,
+      "seed": 71403,
+      "symbolCount": 11,
+      "uniquePrefixFixture": {
+        "cellCount": 2,
+        "sequenceNumber": 420,
+        "signaturePrefix": "1004"
+      }
+    }
+  ],
+  "layoutCount": 3000,
+  "logicalContentSha256": "129d928383c89da0a1a65a57ebcd1eccbf5e2e94bd36036b6125119fd93517d2",
+  "releaseVersion": "m1-fixture.1",
+  "rulesVersion": 1,
+  "schemaVersion": 2,
+  "snapshotFile": "m1-snapshot.db",
+  "snapshotFileSha256": "142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd",
+  "targetGoldenCases": [
+    {
+      "code": "multiple-peaks-later-lower-and-plateau",
+      "expectedFinalCumulativeCost": 9990,
+      "expectedFinalCumulativePayout": 310,
+      "expectedFinalNetCredits": -9680,
+      "expectedPositiveLocalPeaks": [
+        {
+          "cumulativeCost": 10,
+          "cumulativePayout": 200,
+          "netCredits": 190,
+          "sequenceNumber": 100,
+          "spinNumber": 1,
+          "spinPayout": 200
+        },
+        {
+          "cumulativeCost": 120,
+          "cumulativePayout": 300,
+          "netCredits": 180,
+          "sequenceNumber": 111,
+          "spinNumber": 12,
+          "spinPayout": 100
+        }
+      ],
+      "gameCode": "game-1",
+      "startSequenceNumber": 99
+    },
+    {
+      "code": "single-positive-peak",
+      "expectedFinalCumulativeCost": 9990,
+      "expectedFinalCumulativePayout": 100,
+      "expectedFinalNetCredits": -9890,
+      "expectedPositiveLocalPeaks": [
+        {
+          "cumulativeCost": 10,
+          "cumulativePayout": 100,
+          "netCredits": 90,
+          "sequenceNumber": 200,
+          "spinNumber": 1,
+          "spinPayout": 100
+        }
+      ],
+      "gameCode": "game-2",
+      "startSequenceNumber": 199
+    },
+    {
+      "code": "no-positive-peak",
+      "expectedFinalCumulativeCost": 9990,
+      "expectedFinalCumulativePayout": 0,
+      "expectedFinalNetCredits": -9990,
+      "expectedPositiveLocalPeaks": [],
+      "gameCode": "game-2",
+      "startSequenceNumber": 200
+    }
+  ]
 }

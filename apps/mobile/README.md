@@ -2,14 +2,16 @@
 
 Expo SDK 57 Android application for offline sequence analysis.
 
-The M1.1 screen opens `assets/snapshot/m1-spike.db` through `expo-sqlite`,
-validates its metadata against `manifest.json`, and displays a controlled
-`local_data_error` if the local contract is invalid.
+The application opens the final M1 fixture at
+`assets/snapshot/m1-snapshot.db` through `expo-sqlite`, validates schema
+version 2 and its metadata/counts against `manifest.json`, and displays a
+controlled `local_data_error` if the local contract is invalid.
 
 Run all commands from the repository root:
 
 ```powershell
 npm run snapshot:generate
+npm run snapshot:validate
 npm run start --workspace @game-predictor/mobile
 npm run android:build:debug
 npm run android:build:offline

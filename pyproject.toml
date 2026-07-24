@@ -23,7 +23,7 @@ package-dir = {"" = "services/worker/src"}
 where = ["services/worker/src"]
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra -p no:cacheprovider"
 pythonpath = ["services/worker/src"]
 testpaths = ["services/worker/tests"]
 

@@ -204,6 +204,25 @@ Moduły `domain/` nie importują FastAPI, React, Expo ani ORM. Porty oddzielają
 - OCR i klasyfikację od konkretnych bibliotek,
 - przygotowanie wydania od konkretnej komendy Android build.
 
+### Kontrakt lokalnego repozytorium M1
+
+`LocalLayoutRepository` otrzymuje już otwartą instancję SQLite od warstwy
+aplikacyjnej. Nie kopiuje assetu, nie aktywuje wydania i nie otwiera bazy przy
+każdym spinie.
+
+- katalog gier mapuje identyfikator techniczny SQLite osobno od kodu domenowego,
+- exact match zwraca `not_found`, `unique` albo `duplicate` i nigdy nie wybiera
+  pierwszego duplikatu,
+- prefix match zwraca dokładny licznik kandydatów, ale pełny rekord tylko dla
+  jednego kandydata,
+- prefix tekstowej sygnatury v1 jest zakresem
+  `[prefix, prefix + ":")`,
+- strumień Target jest jednym uporządkowanym zapytaniem `UNION ALL` i zawiera
+  dokładnie `layout_count - 1` payoutów,
+- adapter waliduje rekordy oraz kolejność i mapuje awarię na
+  `local_data_error`,
+- adapter nie importuje React ani komponentów UI.
+
 ## Model wdrożenia
 
 ### Mobile
@@ -238,3 +257,9 @@ Moduły `domain/` nie importują FastAPI, React, Expo ani ORM. Porty oddzielają
   wydania,
 - worker buduje tylko wskazane, zatwierdzone wersje,
 - wynik Target wskazuje wersję wydania.
+
+Walidacja finalnego snapshotu M1 ma dwie niezależne warstwy: SHA-256 pliku
+sprawdzane względem manifestu oraz logiczną checksumę odtworzoną z
+uporządkowanych rekordów SQLite. Przed aktywacją mobile porównuje schema
+version, wersje wydania, fixture, datasetu, reguł i algorytmu oraz liczbę gier i
+layoutów. Brak którejkolwiek zgodności daje `local_data_error`.

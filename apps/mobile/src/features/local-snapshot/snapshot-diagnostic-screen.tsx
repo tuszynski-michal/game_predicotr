@@ -80,10 +80,17 @@ export function SnapshotDiagnosticScreen({ diagnostics, error }: Props) {
             value={String(diagnostics.schemaVersion)}
           />
           <DetailRow label="Algorytm" value={diagnostics.algorithmVersion} />
+          <DetailRow label="Fixture" value={diagnostics.fixtureVersion} />
           <DetailRow
-            label="Rekordy testowe"
-            value={String(diagnostics.recordCount)}
+            label="Wersja datasetu"
+            value={String(diagnostics.datasetVersion)}
           />
+          <DetailRow
+            label="Wersja reguł"
+            value={String(diagnostics.rulesVersion)}
+          />
+          <DetailRow label="Gry" value={String(diagnostics.gameCount)} />
+          <DetailRow label="Layouty" value={String(diagnostics.layoutCount)} />
           <DetailRow label="Lokalna baza" value={diagnostics.databaseName} />
           <DetailRow
             label="SHA-256 pliku"

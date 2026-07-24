@@ -294,6 +294,10 @@ Wydanie `ready` jest niezmienne. Nie można wskazać wersji stagingowej ani niek
 
 Snapshot jest generowany, nie migrowany przez mobile jako baza robocza. Minimalny logiczny schemat:
 
+Finalny kontrakt M1 ma `snapshot_schema_version = 2`,
+`PRAGMA user_version = 2` i `PRAGMA application_id = 0x47505244`. Schema `1`
+była wyłącznie diagnostycznym spike’em M1.1 i nie jest kompatybilna.
+
 ### metadata
 
 ```text
@@ -308,6 +312,13 @@ Obowiązkowe klucze:
 - `algorithm_version`,
 - `created_at`,
 - `content_checksum`.
+
+Snapshot M1 zapisuje dodatkowo `fixture_version`, `fixture_fingerprint`,
+`dataset_version`, `rules_version`, `game_count` i `layout_count`. Zewnętrzny
+manifest powtarza te wartości, opisuje kontrolowane duplikaty, unikalne prefiksy
+i golden Target oraz zawiera SHA-256 całego pliku. `content_checksum` jest
+SHA-256 kanonicznej logicznej treści tabel i wersji, natomiast
+`fixture_fingerprint` identyfikuje pełne wejście build-time.
 
 ### Materializacja na Android
 
@@ -363,7 +374,16 @@ payout INTEGER
 PRIMARY KEY (game_id, sequence_number)
 ```
 
-Indeks `(game_id, signature)` obsługuje exact match i wykrycie duplikatu. Prefix match używa tej samej deterministycznej reprezentacji oraz indeksu zatwierdzonego benchmarkiem.
+Indeks `(game_id, signature)` obsługuje exact match, wykrycie duplikatu i
+zakresowy prefix match `[prefix, prefix + ":")`. Plan zapytania i benchmark
+fixture M1 potwierdzają covering index dla 1000 layoutów. Zatwierdzenie tej
+reprezentacji dla 500 000 rekordów pozostaje osobną bramką M3 na Androidzie.
+
+Constraints chronią dodatnie wymiary i wersje, zakres kodów symboli, wartości
+boolean jokera, nieujemny payout, klucze obce oraz unikalność
+`(game_id, sequence_number)`. Ciągłość `1..layout_count`, poprawność symboli
+zakodowanych w sygnaturze i zgodność grup duplikatów są dodatkowo sprawdzane
+przez walidator artefaktu.
 
 Snapshot nie zawiera:
 
@@ -407,3 +427,19 @@ Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć p
 - ciągłe `sequence_number` od 1 do 1000,
 - precomputed payout dla każdego layoutu,
 - wygenerowany SQLite dołączony do APK.
+
+Logiczne fixture `m1-fixture-v1` powstaje przed zapisem SQLite. Używa osobnych
+seedów `71401`, `71402`, `71403`, tworzy dokładnie sześć par duplikatów na grę
+i odrzuca podczas generowania wszystkie przypadkowe dodatkowe duplikaty.
+Kontrolowane niezerowe payouty to:
+
+- `game-1`: sekwencje `100 = 200`, `111 = 100`, `112 = 10`,
+- `game-2`: sekwencja `200 = 100`,
+- `game-3`: brak niezerowego payoutu.
+
+Pozostałe layouty mają payout `0`. Dzięki temu golden pełnego cyklu obejmuje
+kilka szczytów z późniejszym niższym szczytem i plateau (`game-1`, spin 0 =
+`99`), pojedynczy szczyt (`game-2`, spin 0 = `199`) oraz brak dodatniego wyniku
+(`game-2`, spin 0 = `200`). Fingerprint logicznego fixture chroni
+deterministyczność wejścia, ale nie zastępuje checksumy pliku SQLite z
+manifestu.

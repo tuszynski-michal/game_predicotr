@@ -8,7 +8,7 @@ last_updated: 2026-07-24
 
 ## Phase
 
-`M1.2 ukończone — gotowe do rozpoczęcia M1.3`
+`M1.3 ukończony — oczekiwanie na rozpoczęcie M1.4`
 
 ## Completed
 
@@ -50,6 +50,29 @@ last_updated: 2026-07-24
   jednoprzebiegowe wykrywanie szczytów,
 - ukończono podetap M1.2 i bramkę G2: kontrakty oraz oba czyste algorytmy mają
   niezależne golden fixtures bez zależności od UI i baz danych,
+- ukończono `TASK-0006`: deterministyczne fixture `m1-fixture-v1` dla 3 gier po
+  1000 layoutów, osobne seedy, precomputed payout, 6 par duplikatów na grę,
+  unikalne prefiksy i ręcznie policzone golden pełnego Target,
+- dodano walidator kolejności, komórek, sygnatur, payoutów, duplikatów,
+  prefiksów i golden totals; logiczny fingerprint fixture to
+  `f349dcbeec49f4627d330ad4a63d1f1f09480ec1d60443b462debd6a1df69f88`,
+- ukończono `TASK-0007`: finalny SQLite schema version `2`, manifest, logiczna
+  checksum, SHA-256 pliku, constraints i indeks sygnatur,
+- zastąpiono diagnostyczny `m1-spike.db` przez deterministyczny
+  `m1-snapshot.db` zawierający 3 gry, 33 symbole i 3000 layoutów,
+- zaakceptowano D-018 definiującą finalny kontrakt SQLite M1; plik ma `274432`
+  bajty i SHA-256
+  `142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd`,
+- ukończono `TASK-0008`: mobilny adapter jednego otwartego SQLite dla katalogu
+  gier, exact/prefix matching i pełnego cyklicznego strumienia `N - 1`,
+- testy na finalnym snapshotcie potwierdzają unique, duplicate, not found,
+  puste i wieloznaczne prefiksy, zawinięcie cyklu oraz użycie indeksów,
+- benchmark fixture 1000 layoutów zapisał p95 `0.1627 ms` dla exact,
+  `0.1655 ms` dla prefix i `3.1932 ms` dla pełnego cyklu; baza ma `274432`
+  bajty i część repozytoryjna otworzyła ją raz,
+- ukończono podetap M1.3 i bramkę G3: deterministyczny generator, finalny
+  snapshot, manifest, checksumy, repozytorium i dowody wydajności skali M1 są
+  spójne,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -57,7 +80,7 @@ last_updated: 2026-07-24
 
 ## In progress
 
-Brak aktywnego zadania implementacyjnego.
+- brak aktywnego zadania; następny podetap wymaga osobnego polecenia właściciela.
 
 ## Open but not blocking M1
 
@@ -111,11 +134,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po poleceniu rozpoczęcia M1.3 można utworzyć:
-
-```text
-TASK-0006 — Deterministic fixture generator and sequence validator
-```
+Po osobnym poleceniu właściciela można utworzyć i rozpocząć
+`TASK-0009 — Board reducer and basic components`.
 
 ## Do not start yet
 
@@ -142,5 +162,7 @@ TASK-0002, dlatego instalacja, aktualizacja APK, test całkowicie offline na
 Pixel 10 Pro XL i Galaxy S21 Ultra oraz usunięcie domyślnego uprawnienia Expo
 `INTERNET` pozostają jawnym zakresem M1.6.
 
-Benchmark 500 000 layoutów pozostaje bramką M3 przed uznaniem rozwiązania
-SQLite/TypeScript za wystarczające dla docelowej skali.
+Benchmark M1 dla 1000 layoutów znajduje się w
+`ai_docs/quality/m1-repository-benchmark.json`. Benchmark 500 000 layoutów na
+Androidzie pozostaje bramką M3 przed uznaniem rozwiązania SQLite/TypeScript za
+wystarczające dla docelowej skali.

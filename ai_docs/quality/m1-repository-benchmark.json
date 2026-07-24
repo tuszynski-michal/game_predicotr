@@ -1,0 +1,60 @@
+{
+  "capturedAt": "2026-07-24T12:07:35.855663+00:00",
+  "database": {
+    "file": "apps\\mobile\\assets\\snapshot\\m1-snapshot.db",
+    "layoutCountInGame": 1000,
+    "repositoryOpenCount": 1,
+    "sizeBytes": 274432,
+    "snapshotFileSha256": "142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd"
+  },
+  "environment": {
+    "machine": "AMD64",
+    "operatingSystem": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13",
+    "sqlite": "3.50.4"
+  },
+  "measurements": {
+    "cyclicNMinusOne": {
+      "iterations": 100,
+      "maxMs": 6.0241,
+      "p50Ms": 2.1887,
+      "p95Ms": 3.1932
+    },
+    "exactUnique": {
+      "iterations": 1000,
+      "maxMs": 1.8738,
+      "p50Ms": 0.087,
+      "p95Ms": 0.1627
+    },
+    "prefixUnique": {
+      "iterations": 1000,
+      "maxMs": 3.3086,
+      "p50Ms": 0.0888,
+      "p95Ms": 0.1655
+    }
+  },
+  "plans": {
+    "cyclic": [
+      "MERGE (UNION ALL)",
+      "LEFT",
+      "SEARCH layouts USING PRIMARY KEY (game_id=? AND sequence_number>?)",
+      "USE TEMP B-TREE FOR ORDER BY",
+      "RIGHT",
+      "SEARCH layouts USING PRIMARY KEY (game_id=? AND sequence_number<?)",
+      "USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "exact": [
+      "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature=?)"
+    ],
+    "prefix": [
+      "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature>? AND signature<?)"
+    ]
+  },
+  "scope": "Development-machine evidence for the 1,000-layout M1 fixture; not the M3 500,000-layout Android device benchmark.",
+  "workingBudgetsMs": {
+    "cyclicP95": 5000,
+    "exactP95": 200,
+    "prefixP95": 300
+  },
+  "workingBudgetsPassed": true
+}

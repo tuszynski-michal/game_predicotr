@@ -204,6 +204,10 @@ unikalny layout, duplikat i pełny uporządkowany strumień payoutów.
 - nie wykonuje się jednego otwarcia bazy na każdy spin,
 - rozmiar i czasy operacji są zapisane.
 
+**Status:** ukończone 2026-07-24 (`TASK-0006`, `TASK-0007`, `TASK-0008`).
+Dowód benchmarku znajduje się w
+`ai_docs/quality/m1-repository-benchmark.json`.
+
 ## M1.4 — Wprowadzanie planszy i kompletny matching UI
 
 ### Cel
@@ -356,6 +360,6 @@ Scope.
 
 ## Następny krok
 
-M1.1 i M1.2 są zakończone. Po poleceniu rozpoczęcia M1.3 należy utworzyć tylko
-`TASK-0006 — Deterministic fixture generator and sequence validator`. Nie
-należy równolegle rozpoczynać TASK-0007 ani kolejnych podetapów M1.4–M1.6.
+M1.1–M1.3 są zakończone. Po osobnym poleceniu należy utworzyć tylko
+`TASK-0009 — Board reducer and basic components`. Nie należy równolegle
+rozpoczynać kolejnych zadań podetapów M1.4–M1.6.

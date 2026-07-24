@@ -282,6 +282,25 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   dane do engine’u bez ponownego implementowania kumulacji ani lokalnych
   maksimów.
 
+## D-018 — Final M1 SQLite snapshot contract
+
+- **Status:** accepted
+- **Date:** 2026-07-24
+- **Decision:** finalny snapshot M1 używa schema version `2`, tabel
+  `metadata`, `games`, `symbols`, `layouts`, indeksu
+  `(game_id, signature)`, `PRAGMA application_id = 0x47505244` oraz
+  `PRAGMA user_version = 2`. Zewnętrzny manifest zawiera wersje, liczniki,
+  fixture fingerprint, logiczną checksumę treści i SHA-256 pliku.
+- **Reason:** schema spike’u M1.1 zawierała wyłącznie rekordy diagnostyczne i
+  nie jest zgodna z finalnym modelem danych. Zachowanie numeru `1` pozwoliłoby
+  aplikacji zaakceptować bazę o niewłaściwych tabelach. Oddzielna checksum
+  logiczna wykrywa zmianę rekordów nawet po ponownym policzeniu SHA-256 pliku.
+- **Consequences:** mobile akceptuje wyłącznie schema version `2` i asset
+  `m1-snapshot.db`; stary `m1-spike.db` zostaje usunięty. `created_at` jest
+  jawnym wejściem wydania, więc fixture M1 zachowuje deterministyczność bajtową.
+  Snapshot nie przechowuje `cells`, paylines ani pełnych payout rules, ponieważ
+  runtime potrzebuje konfiguracji gry, symboli, sygnatur i precomputed payoutu.
+
 ## Szablon nowej decyzji
 
 ```text

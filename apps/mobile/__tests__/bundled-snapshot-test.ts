@@ -6,26 +6,41 @@ import {
 } from '@/data/bundled-snapshot';
 
 const manifest: SnapshotManifest = {
-  algorithmVersion: 'm1-spike.1',
+  algorithmVersion: 'payout-v1',
+  createdAt: '2026-07-24T00:00:00Z',
+  datasetVersion: 1,
+  fixtureFingerprint: 'c'.repeat(64),
+  fixtureVersion: 'm1-fixture-v1',
+  gameCount: 3,
+  games: [],
+  layoutCount: 3_000,
   logicalContentSha256: 'b'.repeat(64),
-  recordCount: 3,
-  releaseVersion: 'm1-spike.1',
-  schemaVersion: 1,
-  snapshotFile: 'm1-spike.db',
+  releaseVersion: 'm1-fixture.1',
+  rulesVersion: 1,
+  schemaVersion: 2,
+  snapshotFile: 'm1-snapshot.db',
   snapshotFileSha256: 'a'.repeat(64),
+  targetGoldenCases: [],
 };
 
 const metadata = {
   algorithm_version: manifest.algorithmVersion,
-  logical_content_sha256: manifest.logicalContentSha256,
+  content_checksum: manifest.logicalContentSha256,
+  created_at: manifest.createdAt,
+  dataset_version: String(manifest.datasetVersion),
+  fixture_fingerprint: manifest.fixtureFingerprint,
+  fixture_version: manifest.fixtureVersion,
+  game_count: String(manifest.gameCount),
+  layout_count: String(manifest.layoutCount),
   release_version: manifest.releaseVersion,
-  schema_version: String(manifest.schemaVersion),
+  rules_version: String(manifest.rulesVersion),
+  snapshot_schema_version: String(manifest.schemaVersion),
 };
 
 describe('bundled snapshot contract', () => {
   test('derives a stable local database name from the snapshot checksum', () => {
     expect(buildLocalDatabaseName(manifest)).toBe(
-      'snapshot-v1-aaaaaaaaaaaaaaaa.db',
+      'snapshot-v2-aaaaaaaaaaaaaaaa.db',
     );
   });
 
@@ -40,21 +55,29 @@ describe('bundled snapshot contract', () => {
     );
   });
 
-  test('accepts metadata matching the manifest', () => {
-    expect(() => validateSnapshotMetadata(metadata, manifest, 3)).not.toThrow();
+  test('accepts metadata and counts matching the final manifest', () => {
+    expect(() =>
+      validateSnapshotMetadata(metadata, manifest, 3, 3_000),
+    ).not.toThrow();
   });
 
   test('rejects an unsupported schema with local_data_error', () => {
-    const unsupportedManifest = { ...manifest, schemaVersion: 2 };
+    const unsupportedManifest = { ...manifest, schemaVersion: 1 };
 
     expect(() =>
-      validateSnapshotMetadata(metadata, unsupportedManifest, 3),
+      validateSnapshotMetadata(metadata, unsupportedManifest, 3, 3_000),
     ).toThrow(LocalDataError);
 
     try {
-      validateSnapshotMetadata(metadata, unsupportedManifest, 3);
+      validateSnapshotMetadata(metadata, unsupportedManifest, 3, 3_000);
     } catch (error: unknown) {
       expect(error).toMatchObject({ code: 'local_data_error' });
     }
+  });
+
+  test('rejects layout count mismatch with local_data_error', () => {
+    expect(() =>
+      validateSnapshotMetadata(metadata, manifest, 3, 2_999),
+    ).toThrow(LocalDataError);
   });
 });

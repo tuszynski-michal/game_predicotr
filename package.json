@@ -22,16 +22,18 @@
     "android:verify:offline": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_android_apk.ps1",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "fixture:validate": ".venv\\Scripts\\python.exe scripts/validate_m1_fixture.py",
     "lint": "npm run lint --workspaces --if-present && npm run python:lint && npm run powershell:check",
     "test": "npm run test --workspaces --if-present && npm run python:test",
     "typecheck": "npm run typecheck --workspaces --if-present && npm run python:typecheck",
     "python:lint": ".venv\\Scripts\\python.exe -m ruff check services/worker scripts",
-    "python:test": ".venv\\Scripts\\python.exe -m pytest services/worker/tests",
+    "python:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_python_tests.ps1",
     "python:typecheck": ".venv\\Scripts\\python.exe -m mypy services/worker/src scripts",
     "powershell:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check_powershell_syntax.ps1",
-    "snapshot:generate": ".venv\\Scripts\\python.exe scripts/generate_spike_snapshot.py",
-    "snapshot:validate": ".venv\\Scripts\\python.exe scripts/validate_spike_snapshot.py",
-    "quality": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run snapshot:validate"
+    "repository:benchmark": ".venv\\Scripts\\python.exe scripts/benchmark_m1_repository.py",
+    "snapshot:generate": ".venv\\Scripts\\python.exe scripts/generate_m1_snapshot.py",
+    "snapshot:validate": ".venv\\Scripts\\python.exe scripts/validate_m1_snapshot.py",
+    "quality": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run snapshot:validate && npm run fixture:validate"
   },
   "devDependencies": {
     "prettier": "^3.6.2"

@@ -12,6 +12,7 @@ from game_predictor_worker.domain import (
     GameConfig,
     PaylineDefinition,
     PayoutRuleDefinition,
+    PayoutSymbolDefinition,
     SymbolDefinition,
     decode_signature,
     encode_signature,
@@ -21,6 +22,7 @@ from game_predictor_worker.domain import (
     validate_game_config,
     validate_paylines,
     validate_payout_rules,
+    validate_payout_symbols,
 )
 
 FIXTURE_PATH = (
@@ -78,10 +80,9 @@ def test_signature_prefix_golden_cases_are_deterministic() -> None:
     codec = _load_fixture()["signatureCodec"]
 
     for case in codec["prefixCases"]:
-        assert (
-            encode_signature_prefix(case["cells"], codec["cellWidth"])
-            == case["expected"]
-        ), case["name"]
+        assert encode_signature_prefix(case["cells"], codec["cellWidth"]) == case["expected"], case[
+            "name"
+        ]
 
 
 def test_signature_codec_reports_stable_validation_codes() -> None:
@@ -91,16 +92,12 @@ def test_signature_codec_reports_stable_validation_codes() -> None:
         if case.get("prefix") is True:
             _assert_domain_error(
                 case["errorCode"],
-                lambda case=case: encode_signature_prefix(
-                    case["cells"], case["cellWidth"]
-                ),
+                lambda case=case: encode_signature_prefix(case["cells"], case["cellWidth"]),
             )
         else:
             _assert_domain_error(
                 case["errorCode"],
-                lambda case=case: encode_signature(
-                    case["cells"], case["cellWidth"]
-                ),
+                lambda case=case: encode_signature(case["cells"], case["cellWidth"]),
             )
 
     for case in codec["invalidDecodeCases"]:
@@ -129,12 +126,20 @@ def test_valid_shared_domain_configuration_passes_validation() -> None:
         )
         for value in validation["validPayoutRules"]
     )
+    payout_symbols = tuple(
+        PayoutSymbolDefinition(
+            symbol_mobile_code=value["symbolMobileCode"],
+            minimum_match_length=value["minimumMatchLength"],
+        )
+        for value in validation["validPayoutSymbols"]
+    )
 
     validate_game_config(game)
     validate_full_board(validation["fullBoard"], game)
     validate_board_prefix(validation["validPrefix"], game)
     validate_paylines(paylines, game)
-    validate_payout_rules(rules, game)
+    validate_payout_symbols(payout_symbols, game)
+    validate_payout_rules(rules, payout_symbols, game)
 
 
 def test_invalid_game_configuration_reports_shared_error_codes() -> None:
@@ -148,8 +153,7 @@ def test_invalid_game_configuration_reports_shared_error_codes() -> None:
 
     for case in validation["invalidGamePatches"]:
         python_patch = {
-            field_mapping[field_name]: value
-            for field_name, value in case["patch"].items()
+            field_mapping[field_name]: value for field_name, value in case["patch"].items()
         }
         invalid_game = replace(game, **python_patch)
         _assert_domain_error(
@@ -198,6 +202,13 @@ def test_invalid_paylines_report_shared_error_codes() -> None:
 def test_invalid_payout_rules_report_shared_error_codes() -> None:
     validation = _load_fixture()["validation"]
     game = _game_from_fixture(validation["game"])
+    payout_symbols = tuple(
+        PayoutSymbolDefinition(
+            symbol_mobile_code=value["symbolMobileCode"],
+            minimum_match_length=value["minimumMatchLength"],
+        )
+        for value in validation["validPayoutSymbols"]
+    )
 
     for case in validation["invalidPayoutRules"]:
         rules = tuple(
@@ -210,5 +221,26 @@ def test_invalid_payout_rules_report_shared_error_codes() -> None:
         )
         _assert_domain_error(
             case["errorCode"],
-            lambda rules=rules: validate_payout_rules(rules, game),
+            lambda rules=rules: validate_payout_rules(rules, payout_symbols, game),
+        )
+
+
+def test_invalid_payout_symbol_configuration_reports_shared_error_codes() -> None:
+    validation = _load_fixture()["validation"]
+    game = _game_from_fixture(validation["game"])
+
+    for case in validation["invalidPayoutSymbols"]:
+        payout_symbols = tuple(
+            PayoutSymbolDefinition(
+                symbol_mobile_code=value["symbolMobileCode"],
+                minimum_match_length=value["minimumMatchLength"],
+            )
+            for value in case["payoutSymbols"]
+        )
+        _assert_domain_error(
+            case["errorCode"],
+            lambda payout_symbols=payout_symbols: validate_payout_symbols(
+                payout_symbols,
+                game,
+            ),
         )

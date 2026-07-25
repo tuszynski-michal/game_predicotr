@@ -1,6 +1,6 @@
 ---
 title: TASK-0011 Exact matching and result states
-status: completed
+status: done
 last_updated: 2026-07-24
 ---
 

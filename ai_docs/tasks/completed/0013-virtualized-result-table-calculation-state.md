@@ -1,6 +1,6 @@
 ---
 title: TASK-0013 Virtualized result table and calculation state
-status: completed
+status: done
 last_updated: 2026-07-24
 ---
 

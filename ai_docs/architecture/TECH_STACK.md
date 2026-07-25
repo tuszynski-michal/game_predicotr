@@ -181,7 +181,9 @@ npm run android:verify:offline
 ```
 
 Build debug wymaga Metro. Build offline zawiera bundle JavaScript i snapshot
-SQLite oraz używa testowego podpisu do czasu M1.6.
+SQLite. Pipeline M1.6 obsługuje trwały prywatny klucz release poza Git,
+wersjonowanie APK oraz statyczną blokadę uprawnienia `INTERNET`; odbiór nowego
+APK z payout-v2 na urządzeniach pozostaje otwarty w TASK-0014.
 
 ## Image ingestion
 

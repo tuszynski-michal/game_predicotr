@@ -22,7 +22,7 @@ from game_predictor_worker.fixtures import (
     validate_m1_fixture,
 )
 
-RELEASE_VERSION: Final = "m1-fixture.1"
+RELEASE_VERSION: Final = "m1-fixture.2"
 SCHEMA_VERSION: Final = 2
 CREATED_AT: Final = "2026-07-24T00:00:00Z"
 SNAPSHOT_FILE: Final = "m1-snapshot.db"

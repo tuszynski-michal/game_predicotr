@@ -12,6 +12,7 @@ import {
   validateGameConfig,
   validatePaylines,
   validatePayoutRules,
+  validatePayoutSymbols,
 } from '../dist/index.js';
 
 const fixturePath = new URL(
@@ -85,7 +86,12 @@ test('valid shared game, board, paylines and payout rules pass validation', () =
   validateFullBoard(validation.fullBoard, validation.game);
   validateBoardPrefix(validation.validPrefix, validation.game);
   validatePaylines(validation.validPaylines, validation.game);
-  validatePayoutRules(validation.validPayoutRules, validation.game);
+  validatePayoutSymbols(validation.validPayoutSymbols, validation.game);
+  validatePayoutRules(
+    validation.validPayoutRules,
+    validation.validPayoutSymbols,
+    validation.game,
+  );
 });
 
 test('invalid game configuration reports shared error codes', () => {
@@ -124,10 +130,21 @@ test('invalid paylines report shared error codes', () => {
 
 test('invalid payout rules report shared error codes', () => {
   const game = fixture.validation.game;
+  const payoutSymbols = fixture.validation.validPayoutSymbols;
 
   for (const testCase of fixture.validation.invalidPayoutRules) {
     assertDomainError(testCase.errorCode, () =>
-      validatePayoutRules(testCase.rules, game),
+      validatePayoutRules(testCase.rules, payoutSymbols, game),
+    );
+  }
+});
+
+test('invalid payout symbol configuration reports shared error codes', () => {
+  const game = fixture.validation.game;
+
+  for (const testCase of fixture.validation.invalidPayoutSymbols) {
+    assertDomainError(testCase.errorCode, () =>
+      validatePayoutSymbols(testCase.payoutSymbols, game),
     );
   }
 });

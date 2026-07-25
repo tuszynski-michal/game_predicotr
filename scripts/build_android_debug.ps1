@@ -46,10 +46,23 @@ if (-not $androidSdkRoot -or -not (Test-Path -LiteralPath (Join-Path $androidSdk
 $env:JAVA_HOME = $javaHome
 $env:ANDROID_HOME = $androidSdkRoot
 $env:ANDROID_SDK_ROOT = $androidSdkRoot
-# Keep this path deliberately short. Native Android dependencies still contain
-# tools that hit the legacy Windows MAX_PATH limit when Gradle caches are nested
-# under the longer .tooling\gradle-home path.
-$env:GRADLE_USER_HOME = Join-Path $repositoryRoot '.g'
+# Native Android dependencies still contain tools that hit the legacy Windows
+# MAX_PATH limit. A physically short cache can be supplied for release builds
+# while keeping the repository and node_modules on one canonical filesystem root.
+$configuredGradleUserHome = $env:GAME_PREDICTOR_GRADLE_USER_HOME
+if ($configuredGradleUserHome) {
+    if ([System.IO.Path]::IsPathRooted($configuredGradleUserHome)) {
+        $env:GRADLE_USER_HOME = [System.IO.Path]::GetFullPath($configuredGradleUserHome)
+    }
+    else {
+        $env:GRADLE_USER_HOME = [System.IO.Path]::GetFullPath(
+            (Join-Path $repositoryRoot $configuredGradleUserHome)
+        )
+    }
+}
+else {
+    $env:GRADLE_USER_HOME = Join-Path $repositoryRoot '.g'
+}
 $env:CI = '1'
 $env:NODE_ENV = 'development'
 $env:GAME_PREDICTOR_VERSION_NAME = $VersionName

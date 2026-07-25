@@ -51,6 +51,7 @@ def _validate_game_contract(game_fixture: GeneratedGameFixture) -> None:
         validate_paylines(game_fixture.paylines, game_fixture.game)
         validate_payout_configuration(
             game_fixture.payout_rules,
+            game_fixture.payout_symbols,
             game_fixture.game,
         )
     except DomainValidationError as error:
@@ -101,6 +102,7 @@ def _validate_layouts(game_fixture: GeneratedGameFixture) -> None:
                 game_fixture.game,
                 layout.cells,
                 game_fixture.paylines,
+                game_fixture.payout_symbols,
                 game_fixture.payout_rules,
             ).total_payout
         except DomainValidationError as error:
@@ -289,6 +291,13 @@ def _game_payload(game_fixture: GeneratedGameFixture) -> Mapping[str, Any]:
                 "payout_credits": rule.payout_credits,
             }
             for rule in game_fixture.payout_rules
+        ],
+        "payout_symbols": [
+            {
+                "symbol_mobile_code": payout_symbol.symbol_mobile_code,
+                "minimum_match_length": payout_symbol.minimum_match_length,
+            }
+            for payout_symbol in game_fixture.payout_symbols
         ],
         "layouts": [
             {

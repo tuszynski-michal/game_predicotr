@@ -10,6 +10,7 @@ from game_predictor_worker.domain import (
     GameConfig,
     PaylineDefinition,
     PayoutRuleDefinition,
+    PayoutSymbolDefinition,
     SymbolDefinition,
     encode_signature,
     evaluate_payout,
@@ -23,10 +24,10 @@ from game_predictor_worker.fixtures.contracts import (
     UniquePrefixFixture,
 )
 
-M1_FIXTURE_VERSION = "m1-fixture-v1"
-M1_DATASET_VERSION = 1
-M1_RULES_VERSION = 1
-M1_ALGORITHM_VERSION = "payout-v1"
+M1_FIXTURE_VERSION = "m1-fixture-v2"
+M1_DATASET_VERSION = 2
+M1_RULES_VERSION = 2
+M1_ALGORITHM_VERSION = "payout-v2"
 M1_LAYOUT_COUNT = 1_000
 M1_DUPLICATE_GROUP_COUNT = 6
 
@@ -75,22 +76,44 @@ def _game_config(game_number: int, symbol_count: int) -> GameConfig:
     )
 
 
-def _payout_rules(game: GameConfig) -> tuple[PayoutRuleDefinition, ...]:
+def _payout_symbols(game: GameConfig) -> tuple[PayoutSymbolDefinition, ...]:
+    ordinary_symbols = tuple(symbol for symbol in game.symbols if not symbol.is_wildcard)
+    return tuple(
+        PayoutSymbolDefinition(
+            symbol_mobile_code=symbol.mobile_code,
+            minimum_match_length=2 if index < 2 else 3,
+        )
+        for index, symbol in enumerate(ordinary_symbols)
+    )
+
+
+def _payout_rules(
+    game: GameConfig,
+    payout_symbols: tuple[PayoutSymbolDefinition, ...],
+) -> tuple[PayoutRuleDefinition, ...]:
     rules: list[PayoutRuleDefinition] = []
     ordinary_symbols = tuple(symbol for symbol in game.symbols if not symbol.is_wildcard)
     plateau_symbol_code = ordinary_symbols[-1].mobile_code
-    for symbol in game.symbols:
-        if symbol.is_wildcard:
-            continue
+    for payout_symbol in payout_symbols:
         base_payout = (
-            10 if symbol.mobile_code == plateau_symbol_code else 50 + symbol.mobile_code * 50
+            10
+            if payout_symbol.symbol_mobile_code == plateau_symbol_code
+            else 50 + payout_symbol.symbol_mobile_code * 50
         )
-        for match_length, multiplier in ((3, 1), (4, 3), (5, 9)):
+        for match_length in range(
+            payout_symbol.minimum_match_length,
+            game.columns + 1,
+        ):
+            payout_credits = (
+                max(1, base_payout // 3)
+                if match_length == 2
+                else base_payout * 3 ** (match_length - 3)
+            )
             rules.append(
                 PayoutRuleDefinition(
-                    symbol_mobile_code=symbol.mobile_code,
+                    symbol_mobile_code=payout_symbol.symbol_mobile_code,
                     match_length=match_length,
-                    payout_credits=base_payout * multiplier,
+                    payout_credits=payout_credits,
                 )
             )
     return tuple(rules)
@@ -109,6 +132,7 @@ def _unique_cells_with_payout(
     *,
     random_source: random.Random,
     game: GameConfig,
+    payout_symbols: tuple[PayoutSymbolDefinition, ...],
     payout_rules: tuple[PayoutRuleDefinition, ...],
     desired_payout: int,
     used_signatures: set[str],
@@ -150,6 +174,7 @@ def _unique_cells_with_payout(
             game,
             cells,
             _PAYLINES,
+            payout_symbols,
             payout_rules,
         ).total_payout
         if actual_payout == desired_payout:
@@ -247,7 +272,8 @@ def _generate_game_fixture(
     controlled_payouts: dict[int, int],
 ) -> GeneratedGameFixture:
     game = _game_config(game_number, symbol_count)
-    payout_rules = _payout_rules(game)
+    payout_symbols = _payout_symbols(game)
+    payout_rules = _payout_rules(game, payout_symbols)
     random_source = random.Random(seed)
     unique_layout_count = M1_LAYOUT_COUNT - M1_DUPLICATE_GROUP_COUNT
     used_signatures: set[str] = set()
@@ -255,6 +281,7 @@ def _generate_game_fixture(
         _unique_cells_with_payout(
             random_source=random_source,
             game=game,
+            payout_symbols=payout_symbols,
             payout_rules=payout_rules,
             desired_payout=controlled_payouts.get(sequence_number, 0),
             used_signatures=used_signatures,
@@ -274,6 +301,7 @@ def _generate_game_fixture(
                 game,
                 cells,
                 _PAYLINES,
+                payout_symbols,
                 payout_rules,
             ).total_payout,
         )
@@ -297,6 +325,7 @@ def _generate_game_fixture(
         seed=seed,
         game=game,
         paylines=_PAYLINES,
+        payout_symbols=payout_symbols,
         payout_rules=payout_rules,
         layouts=layouts,
         duplicate_fixtures=duplicate_fixtures,

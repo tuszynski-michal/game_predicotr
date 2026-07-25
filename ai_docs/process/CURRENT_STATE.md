@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-24
+last_updated: 2026-07-25
 ---
 
 # Current State
 
 ## Phase
 
-`M1 wymaga korekty payout-v2 przed odbiorem urządzeń — D-019`
+`M1.6 — poprawiony APK i odbiór urządzeń, TASK-0014`
 
 ## Completed
 
@@ -28,7 +28,8 @@ last_updated: 2026-07-24
 - zsynchronizowano wymagania, architekturę, model danych, kontrakty, roadmapę i testy,
 - podzielono M1 na sześć podetapów z osobnymi bramkami jakości,
 - ustalono wersjonowaną aktywację snapshotu po aktualizacji APK,
-- finalne APK M1 nie deklaruje uprawnienia Android `INTERNET`,
+- zweryfikowany APK M1 `0.1.2 (3)` z payout-v2 nie deklaruje uprawnienia
+  Android `INTERNET` i jest gotowym kandydatem do odbioru na urządzeniach,
 - usunięto artefakty instalacyjne pakietu dokumentacji, a materiały historyczne
   przeniesiono do `ai_docs/archive/` i `ai_docs/tasks/completed/`,
 - ukończono `TASK-0002`: monorepo npm, TypeScript strict, Python 3.12 tooling,
@@ -52,21 +53,20 @@ last_updated: 2026-07-24
   kosztów, dodatnie lokalne maksima, plateau i golden cases,
 - zaakceptowano D-017 definiującą granicę uporządkowanego strumienia Target i
   jednoprzebiegowe wykrywanie szczytów,
-- pierwotnie ukończono podetap M1.2 i bramkę G2 dla payout-v1; po D-019 payout
-  i zależne golden fixtures wymagają korekty oraz ponownej walidacji,
-- ukończono `TASK-0006`: deterministyczne fixture `m1-fixture-v1` dla 3 gier po
+- pierwotnie ukończono podetap M1.2 i bramkę G2 dla payout-v1; korektę D-019 i
+  ponowną walidację wykonano w TASK-0090,
+- pierwotnie ukończono `TASK-0006`: deterministyczne fixture dla 3 gier po
   1000 layoutów, osobne seedy, precomputed payout, 6 par duplikatów na grę,
-  unikalne prefiksy i ręcznie policzone golden pełnego Target,
+  unikalne prefiksy i ręcznie policzone golden pełnego Target; aktualną wersję
+  opisuje późniejszy wpis TASK-0090,
 - dodano walidator kolejności, komórek, sygnatur, payoutów, duplikatów,
-  prefiksów i golden totals; logiczny fingerprint fixture to
-  `f349dcbeec49f4627d330ad4a63d1f1f09480ec1d60443b462debd6a1df69f88`,
+  prefiksów i golden totals,
 - ukończono `TASK-0007`: finalny SQLite schema version `2`, manifest, logiczna
   checksum, SHA-256 pliku, constraints i indeks sygnatur,
 - zastąpiono diagnostyczny `m1-spike.db` przez deterministyczny
   `m1-snapshot.db` zawierający 3 gry, 33 symbole i 3000 layoutów,
-- zaakceptowano D-018 definiującą finalny kontrakt SQLite M1; plik ma `274432`
-  bajty i SHA-256
-  `142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd`,
+- zaakceptowano D-018 definiującą finalny kontrakt SQLite M1; aktualną checksumę
+  artefaktu opisuje późniejszy wpis TASK-0090,
 - ukończono `TASK-0008`: mobilny adapter jednego otwartego SQLite dla katalogu
   gier, exact/prefix matching i pełnego cyklicznego strumienia `N - 1`,
 - testy na finalnym snapshotcie potwierdzają unique, duplicate, not found,
@@ -75,8 +75,8 @@ last_updated: 2026-07-24
   `0.1655 ms` dla prefix i `3.1932 ms` dla pełnego cyklu; baza ma `274432`
   bajty i część repozytoryjna otworzyła ją raz,
 - pierwotnie ukończono podetap M1.3 i bramkę G3; adapter oraz benchmark
-  pozostają technicznie aktualne, ale generator, payouty, snapshot, manifest i
-  checksumy trzeba odtworzyć po D-019,
+  pozostają technicznie aktualne, a generator, payouty, snapshot, manifest i
+  checksumy odtworzono po D-019 w TASK-0090,
 - ukończono `TASK-0009`: czysty reducer planszy, row-major Layout, wybór gry,
   Selection symboli, Undo, Reset i przygotowanie auto-uzupełnienia jako jednego
   kroku historii,
@@ -107,7 +107,7 @@ last_updated: 2026-07-24
 - test długiej listy potwierdza okno renderowania zamiast jednoczesnego
   montowania 100 wierszy,
 - pierwotnie ukończono podetap M1.5 i bramkę G5; przepływ oraz wirtualizacja
-  pozostają, ale golden Target wymaga przeliczenia na payout-v2,
+  pozostają, a golden Target przeliczono dla payout-v2 w TASK-0090,
 - zbudowano i zweryfikowano prywatnie podpisane APK M1 `0.1.0 (1)` dla
   `arm64-v8a`; artefakt ma `42 140 070` bajtów i SHA-256
   `1eb8da0ba87a19f42975e46a192af190cf5e51905b97126204c8495ffe2bc0a3`,
@@ -115,8 +115,44 @@ last_updated: 2026-07-24
   jest debuggable i używa certyfikatu `Game Predictor Private Release`,
 - dodano trwały ignorowany signing key, parametry wersji, release verifier,
   skrypt odbioru urządzenia i manualny protokół testów Pixel/Samsung,
-- lokalna część TASK-0014 przeszła `npm run quality` (62 mobile, 22 shared,
-  52 Python), walidację snapshotu i niezależny audyt APK,
+- lokalna część TASK-0014 dla aktualnego artefaktu przeszła pełną bramkę
+  jakości (63 mobile, 23 shared, 53 Python), walidację snapshotu i niezależny
+  audyt APK,
+- ukończono `TASK-0090`: kontrakty TypeScript/Python modelują wersjonowane
+  minimum długości per zwykły symbol, a payout engine liczy wyłącznie ciągły
+  prefiks zaczynający się w pierwszej kolumnie,
+- golden payout-v2 pokrywają minima 2 i 3, późny start, lukę, longest match,
+  jokera, ciąg samych jokerów, współdzielone komórki oraz planszę szerszą niż
+  pięć kolumn,
+- wygenerowano spójne `m1-fixture-v2`, dataset/rules version `2`,
+  `algorithm_version = payout-v2` i mobilny snapshot `m1-fixture.2`; fingerprint
+  fixture to `2b8345577ec949f102ae21992cef197e5c5756e184d43815a5dd527d25eb2b79`,
+  a SHA-256 SQLite to
+  `4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`,
+- przeliczone golden Target zachowują kontrolowane wyniki: game-1 od sequence
+  99 ma payout `310`, koszt `9990`, net `-9680` i szczyty `190`, `180`,
+- zbudowano i statycznie zweryfikowano prywatnie podpisane APK `0.1.2 (3)` dla
+  `arm64-v8a` z `m1-fixture.2` i `payout-v2`; artefakt ma `42 143 594` bajty,
+  SHA-256
+  `906d2969fccbc629d849d5368673ca7ed897949d52b9b60bcb712a08457af0f0`
+  oraz bazę SQLite o SHA-256
+  `4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`,
+- pierwszy odbiór Samsunga wykrył zatrzymany loader po poprawnej inicjalizacji
+  SQLite; stan i weryfikację przeniesiono do komponentu potomnego
+  `SQLiteProvider`, a test regresji potwierdza przejście do workspace,
+- Samsung `SM-G998B` z Androidem 15 zaktualizował aplikację in-place z
+  `0.1.1 (2)` do `0.1.2 (3)`; instalacja trwała `28,39 s`, a start procesu
+  `0,74 s`,
+- Pixel 10 Pro XL z Androidem 16 zainstalował `0.1.2 (3)` przy włączonym trybie
+  samolotowym i wyłączonym Wi-Fi; instalacja trwała `15,78 s`, a start procesu
+  `1,1 s`,
+- właściciel przeszedł offline na Samsungu i Pixelu scenariusze unique 99 z
+  golden Target, duplicate 101/995, not found z Undo, Reset, zmianę gry oraz
+  przewijanie tabeli; wszystkie zakończyły się poprawnie,
+- ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
+  zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
+  fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
+  M2 bez zmiany warunku wejścia G6,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -124,17 +160,13 @@ last_updated: 2026-07-24
 
 ## In progress
 
-- Dokumentacja `payout-v2` i konfiguracji panelu jest przyjęta w D-019.
-- Istniejący kod payout-v1, fixture, snapshot, golden Target i APK nadal
-  odzwierciedlają superseded regułę startu w dowolnej kolumnie oraz stałe
-  minimum 3. Przed odbiorem urządzeń wymagają osobnego zadania implementacyjnego,
-  regeneracji i ponownej walidacji bramek M1.
-- `TASK-0014 — Release APK and device acceptance`: lokalny pipeline release
-  jest gotowy, ale obecny artefakt nie jest kandydatem do końcowego odbioru po
-  zmianie reguły payout.
-- Końcowa kontrola `adb devices -l` nie wykryła żadnego urządzenia. Instalacja,
-  testy offline, pomiary i aktualizacja snapshotu na Pixel 10 Pro XL oraz
-  Galaxy S21 Ultra pozostają otwarte po przygotowaniu poprawionego APK.
+- Dokumentacja i implementacja `payout-v2` są zsynchronizowane z D-019.
+- `TASK-0014 — Release APK and device acceptance`: lokalny pipeline release i
+  aktualny APK `0.1.2 (3)` z `m1-fixture.2` są statycznie zweryfikowane.
+- Instalacja, start i scenariusze manualne offline przeszły na Samsungu i Pixelu.
+- Ścisłe potwierdzenie `Airplane mode` na Samsungu oraz liczbowe czasy matching,
+  Target i przewijania nie zostały zapisane.
+- Aktualizacja do kontrolowanie zmienionego snapshotu pozostaje otwarta.
 
 ## Open but not blocking M1
 
@@ -187,14 +219,13 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Najpierw należy utworzyć osobne zadanie korekty payout-v2, zaktualizować
-kontrakty, oba silniki domenowe/fixture, snapshot i golden Target, a następnie
-ponownie zbudować APK. Dopiero poprawiony artefakt może przejść aktywne
-`TASK-0014` i bramkę G6; M2 nie powinno być rozpoczynane wcześniej.
+Kontynuować `TASK-0014`: przeprowadzić aktualizację do kontrolowanie zmienionego
+snapshotu oraz uzupełnić brakujące potwierdzenie/pomiary protokołu. Po
+zamknięciu G6 można utworzyć `TASK-0015` i rozpocząć M2.1.
 
 ## Do not start yet
 
-- panelu admina przed zdefiniowaniem osobnego zadania M2,
+- panelu admina przed zamknięciem G6 i utworzeniem `TASK-0015`,
 - masowego przetwarzania zdjęć,
 - finalnego wyboru OCR/ML,
 - Celery/Redis, mikroserwisów i chmury,
@@ -211,12 +242,13 @@ Kolejność, granice i bramki M2–M8 są zapisane w D-014 oraz osobnym planie
 wykonania każdego milestone’u, dzięki czemu przyszłe sesje czytają tylko
 właściwy etap i nie muszą odtwarzać podziału z historii rozmowy.
 
-Techniczna część pipeline’u M1.6 przeszła: prywatnie podpisane APK zawiera
-standalone bundle oraz SQLite o checksumie zgodnej z manifestem i nie deklaruje
-uprawnienia `INTERNET`. Po D-019 zawarty snapshot ma jednak historyczne payouty
-v1, więc nie jest kandydatem do odbioru produktowego. Najpierw trzeba wdrożyć
-payout-v2 i przeliczyć dane, a następnie wykonać instalację, aktualizację APK i
-test całkowicie offline na Pixel 10 Pro XL oraz Galaxy S21 Ultra.
+Techniczna część pipeline’u M1.6 przeszła: prywatnie podpisany APK `0.1.2 (3)`
+z payout-v2 zawiera standalone bundle oraz SQLite `m1-fixture.2` o checksumie
+zgodnej z manifestem i nie deklaruje uprawnienia `INTERNET`. Aktualizacja
+in-place na Galaxy S21 Ultra oraz instalacja w ścisłym trybie offline na Pixel
+10 Pro XL przeszły. Pełne scenariusze domenowe zostały następnie zaliczone
+offline na obu urządzeniach. Następny krok to kontrolowana aktualizacja do
+zmienionego snapshotu i domknięcie protokołu G6.
 
 Benchmark M1 dla 1000 layoutów znajduje się w
 `ai_docs/quality/m1-repository-benchmark.json`. Benchmark 500 000 layoutów na

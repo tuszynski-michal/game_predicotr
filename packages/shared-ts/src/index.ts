@@ -8,6 +8,7 @@ export type {
   PayoutEvaluation,
   PayoutMatch,
   PayoutRuleDefinition,
+  PayoutSymbolDefinition,
   SequencePayout,
   SymbolDefinition,
 } from './contracts.js';
@@ -26,6 +27,8 @@ export {
   validateFullBoard,
   validateGameConfig,
   validatePaylines,
+  validatePayoutConfiguration,
   validatePayoutRules,
+  validatePayoutSymbols,
   validateRowPath,
 } from './validation.js';

@@ -1,6 +1,6 @@
 ---
 title: TASK-0010 Prefix matching and unique candidate modal
-status: completed
+status: done
 last_updated: 2026-07-24
 ---
 

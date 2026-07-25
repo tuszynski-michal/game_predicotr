@@ -228,9 +228,9 @@ Response:
   "id": "uuid",
   "version": "m1.0.1",
   "status": "ready",
-  "algorithmVersion": "1",
+  "algorithmVersion": "payout-v2",
   "snapshot": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "relativePath": "releases/m1.0.1/data.sqlite",
     "checksum": "sha256:..."
   },

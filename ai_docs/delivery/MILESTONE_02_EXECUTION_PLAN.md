@@ -52,21 +52,28 @@ zamyka M8.
 
 - lokalny PostgreSQL w Docker Compose,
 - fundament FastAPI z podziałem `api/application/domain/storage/schemas`,
-- początkowe migracje Alembic,
+- konfiguracja Alembic i pusta migracja baseline bez tabel domenowych,
 - fundament Next.js z TypeScript strict,
 - OpenAPI jako źródło klienta panelu,
 - jawne komendy Windows dla uruchomienia, testów i migracji.
 
 ### Zadania
 
-- `TASK-0015 — Admin API foundation and local configuration`
-- `TASK-0016 — PostgreSQL Compose and initial Alembic schema`
+- `TASK-0015 — Admin platform foundations and local configuration`
+- `TASK-0016 — PostgreSQL Compose and Alembic baseline`
 - `TASK-0017 — OpenAPI contract and generated admin client`
+
+`TASK-0015` tworzy oba szkielety aplikacyjne: `services/api` dla FastAPI oraz
+`apps/admin` dla Next.js. Nie dodaje jeszcze CRUD domenowego. `TASK-0016`
+odpowiada za PostgreSQL, konfigurację Alembic i odwracalny baseline bez tabel
+domenowych. Tabele powstają dopiero z odpowiadającym im pionem przez kolejne
+migracje. `TASK-0017` zamyka kontrakt OpenAPI oraz generowanie klienta panelu.
 
 ### Bramka G2.1
 
 - jedna udokumentowana sekwencja uruchamia PostgreSQL, API i panel lokalnie,
-- migracja tworzy schemat od pustej bazy i ma sprawdzoną ścieżkę cofnięcia,
+- `alembic upgrade head` inicjalizuje historię migracji od pustej bazy, a
+  baseline ma sprawdzoną ścieżkę cofnięcia,
 - health check API działa,
 - OpenAPI generuje klienta TypeScript bez ręcznie skopiowanych typów,
 - mobile nie otrzymuje zależności od API ani PostgreSQL,
@@ -78,7 +85,7 @@ zamyka M8.
 
 - domena, repozytoria i CRUD gier,
 - stabilne kody gry i symbolu,
-- wymiary, koszt spinu i status,
+- nazwa oraz status gry,
 - CRUD symboli, kolejność, joker i lokalny obraz referencyjny,
 - archiwizacja zamiast usuwania historycznie użytego symbolu,
 - ekrany listy, formularza i stanów błędu w panelu.
@@ -86,18 +93,22 @@ zamyka M8.
 ### Zadania
 
 - `TASK-0018 — Games and symbols domain, repository and API`
-- `TASK-0019 — Admin shell and games configuration UI`
+- `TASK-0019 — Admin shell and games identity UI`
 - `TASK-0020 — Symbols UI, reference assets and archival rules`
 
 ### Bramka G2.2
 
-- administrator tworzy grę 3 × 5 z kosztem spinu,
+- administrator tworzy grę ze stabilnym kodem, nazwą i statusem,
 - dodaje `S1`–`S12`, ustawia kolejność i oznacza właściwy symbol jako joker
-  zgodnie z regułami wersji,
+  w obrębie gry,
 - duplikaty stabilnych kodów są blokowane w domenie i bazie,
 - symbol użyty w wersjonowanych danych nie jest fizycznie usuwany,
 - błędy API mają stabilny kod i czytelny stan UI,
 - testy repozytorium używają testowego PostgreSQL.
+
+Na końcu M2.2 gra ma tożsamość i katalog symboli, ale nie jest jeszcze gotowa do
+layoutów. Wymiary oraz koszt spinu są własnością pierwszej wersji reguł i
+powstają w M2.3.
 
 ## M2.3 — Wersje reguł, paylines i payout rules
 
@@ -105,6 +116,7 @@ zamyka M8.
 
 - draft/published/archived dla `rules_version`,
 - wersjonowane wymiary i koszt spinu,
+- pola wymiarów i kosztu spinu w UI draftu wersji reguł,
 - walidacja zgodności symboli z wersją,
 - modal edytora payline oparty na siatce gry,
 - tabela istniejących paylines,
@@ -114,13 +126,14 @@ zamyka M8.
 
 ### Zadania
 
-- `TASK-0021 — Rules versions domain and API`
+- `TASK-0021 — Rules versions domain, API and dimensions UI`
 - `TASK-0022 — Payline grid editor and duplicate validation`
 - `TASK-0023 — Per-symbol minimum and payout rules API/UI`
 - `TASK-0024 — Immutable rules publication workflow`
 
 ### Bramka G2.3
 
+- administrator tworzy dla gry draft wersji reguł 3 × 5 i ustawia koszt spinu,
 - `row_path` ma dokładnie jedną istniejącą komórkę w każdej kolumnie,
 - UI pokazuje wiersze 1-based, a API zapisuje 0-based,
 - nie można zapisać niepełnej ani zduplikowanej payline,

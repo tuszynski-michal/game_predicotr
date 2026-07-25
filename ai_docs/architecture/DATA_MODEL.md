@@ -448,9 +448,10 @@ Przy około 7,5 miliona layoutów i 15 polach osobna tabela mogłaby utworzyć p
 - precomputed payout dla każdego layoutu,
 - wygenerowany SQLite dołączony do APK.
 
-Logiczne fixture `m1-fixture-v1` powstaje przed zapisem SQLite. Używa osobnych
-seedów `71401`, `71402`, `71403`, tworzy dokładnie sześć par duplikatów na grę
-i odrzuca podczas generowania wszystkie przypadkowe dodatkowe duplikaty.
+Aktualne logiczne fixture `m1-fixture-v2` powstaje przed zapisem SQLite. Używa
+`algorithm_version = payout-v2`, dataset/rules version `2`, osobnych seedów
+`71401`, `71402`, `71403`, tworzy dokładnie sześć par duplikatów na grę i
+odrzuca podczas generowania wszystkie przypadkowe dodatkowe duplikaty.
 Kontrolowane niezerowe payouty to:
 
 - `game-1`: sekwencje `100 = 200`, `111 = 100`, `112 = 10`,
@@ -462,4 +463,5 @@ kilka szczytów z późniejszym niższym szczytem i plateau (`game-1`, spin 0 =
 `99`), pojedynczy szczyt (`game-2`, spin 0 = `199`) oraz brak dodatniego wyniku
 (`game-2`, spin 0 = `200`). Fingerprint logicznego fixture chroni
 deterministyczność wejścia, ale nie zastępuje checksumy pliku SQLite z
-manifestu.
+manifestu. Aktualny fingerprint wynosi
+`2b8345577ec949f102ae21992cef197e5c5756e184d43815a5dd527d25eb2b79`.

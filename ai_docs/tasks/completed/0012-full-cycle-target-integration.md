@@ -1,6 +1,6 @@
 ---
 title: TASK-0012 Full-cycle Target integration
-status: completed
+status: done
 last_updated: 2026-07-24
 ---
 

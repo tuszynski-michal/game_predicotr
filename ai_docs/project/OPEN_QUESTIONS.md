@@ -53,5 +53,7 @@ Czy istnieje zgoda właściciela aplikacji Windows na analizę jej zachowania, p
 - Techniczne decyzje toolchain/build podejmowane w M1.1 nie wymagają odpowiedzi
   produktowej, ale muszą zostać zapisane w Decision Log.
 - Prace nad automatycznym importem zdjęć wymagają odpowiedzi na Q-015–Q-017.
-- Produkcyjna autoryzacja panelu wymaga odpowiedzi na Q-019.
+- M2 może używać lokalnego panelu jednego właściciela bez finalnej warstwy
+  autoryzacji; produkcyjna autoryzacja i model wielu administratorów w M8
+  wymagają odpowiedzi na Q-019.
 - Analiza aplikacji referencyjnej poza obserwacją wymaga odpowiedzi na Q-020.

@@ -8,6 +8,7 @@ from game_predictor_worker.domain.contracts import (
     GameConfig,
     PaylineDefinition,
     PayoutRuleDefinition,
+    PayoutSymbolDefinition,
     SymbolDefinition,
 )
 from game_predictor_worker.domain.errors import DomainErrorCode, DomainValidationError
@@ -28,12 +29,7 @@ def _require_non_negative_integer(value: int, code: DomainErrorCode, label: str)
 
 
 def validate_board_dimensions(rows: int, columns: int) -> None:
-    if (
-        isinstance(rows, bool)
-        or isinstance(columns, bool)
-        or rows < 1
-        or columns < 1
-    ):
+    if isinstance(rows, bool) or isinstance(columns, bool) or rows < 1 or columns < 1:
         raise DomainValidationError(
             DomainErrorCode.INVALID_DIMENSIONS,
             "Board dimensions must be positive integers.",
@@ -161,8 +157,7 @@ def validate_row_path(
             f"Payline contains {len(row_path)} rows; expected {columns}.",
         )
     if any(
-        isinstance(row_index, bool) or row_index < 0 or row_index >= rows
-        for row_index in row_path
+        isinstance(row_index, bool) or row_index < 0 or row_index >= rows for row_index in row_path
     ):
         raise DomainValidationError(
             DomainErrorCode.INVALID_ROW_INDEX,
@@ -190,12 +185,51 @@ def validate_paylines(
         ids.add(payline.id)
 
 
-def validate_payout_rules(
-    rules: Sequence[PayoutRuleDefinition],
+def validate_payout_symbols(
+    payout_symbols: Sequence[PayoutSymbolDefinition],
     game: GameConfig,
 ) -> None:
     validate_game_config(game)
     symbols_by_code = {symbol.mobile_code: symbol for symbol in game.symbols}
+    configured_symbols: set[int] = set()
+
+    for payout_symbol in payout_symbols:
+        symbol = symbols_by_code.get(payout_symbol.symbol_mobile_code)
+        if symbol is None:
+            raise DomainValidationError(
+                DomainErrorCode.INVALID_BOARD_SYMBOL,
+                (f"Payout symbol {payout_symbol.symbol_mobile_code} does not belong to the game."),
+            )
+        if symbol.is_wildcard:
+            raise DomainValidationError(
+                DomainErrorCode.WILDCARD_PAYOUT_SYMBOL,
+                "Wildcard symbols cannot define payout configuration.",
+            )
+        if (
+            isinstance(payout_symbol.minimum_match_length, bool)
+            or payout_symbol.minimum_match_length < 2
+            or payout_symbol.minimum_match_length > game.columns
+        ):
+            raise DomainValidationError(
+                DomainErrorCode.INVALID_MINIMUM_MATCH_LENGTH,
+                (f"Minimum match length must be between 2 and {game.columns}."),
+            )
+        if payout_symbol.symbol_mobile_code in configured_symbols:
+            raise DomainValidationError(
+                DomainErrorCode.DUPLICATE_PAYOUT_SYMBOL,
+                (f"Duplicate payout configuration for symbol {payout_symbol.symbol_mobile_code}."),
+            )
+        configured_symbols.add(payout_symbol.symbol_mobile_code)
+
+
+def validate_payout_rules(
+    rules: Sequence[PayoutRuleDefinition],
+    payout_symbols: Sequence[PayoutSymbolDefinition],
+    game: GameConfig,
+) -> None:
+    validate_payout_symbols(payout_symbols, game)
+    symbols_by_code = {symbol.mobile_code: symbol for symbol in game.symbols}
+    payout_symbols_by_code = {symbol.symbol_mobile_code: symbol for symbol in payout_symbols}
     keys: set[tuple[int, int]] = set()
 
     for rule in rules:
@@ -210,14 +244,24 @@ def validate_payout_rules(
                 DomainErrorCode.WILDCARD_PAYOUT_RULE,
                 "Wildcard symbols cannot define payout rules.",
             )
+        payout_symbol = payout_symbols_by_code.get(rule.symbol_mobile_code)
+        if payout_symbol is None:
+            raise DomainValidationError(
+                DomainErrorCode.INCOMPLETE_PAYOUT_SYMBOLS,
+                f"Symbol {rule.symbol_mobile_code} has no payout configuration.",
+            )
         if (
             isinstance(rule.match_length, bool)
-            or rule.match_length < 3
+            or rule.match_length < payout_symbol.minimum_match_length
             or rule.match_length > game.columns
         ):
             raise DomainValidationError(
                 DomainErrorCode.INVALID_MATCH_LENGTH,
-                f"Match length must be between 3 and {game.columns}.",
+                (
+                    f"Match length for symbol {rule.symbol_mobile_code} must be "
+                    f"between {payout_symbol.minimum_match_length} "
+                    f"and {game.columns}."
+                ),
             )
         _require_non_negative_integer(
             rule.payout_credits,
@@ -235,31 +279,42 @@ def validate_payout_rules(
 
 def validate_payout_configuration(
     rules: Sequence[PayoutRuleDefinition],
+    payout_symbols: Sequence[PayoutSymbolDefinition],
     game: GameConfig,
 ) -> None:
     """Validate a complete rules matrix ready for payout precomputing."""
 
-    validate_payout_rules(rules, game)
+    validate_payout_rules(rules, payout_symbols, game)
+    payout_symbols_by_code = {
+        payout_symbol.symbol_mobile_code: payout_symbol for payout_symbol in payout_symbols
+    }
+    ordinary_symbols = tuple(symbol for symbol in game.symbols if not symbol.is_wildcard)
+    missing_symbols = [
+        symbol.mobile_code
+        for symbol in ordinary_symbols
+        if symbol.mobile_code not in payout_symbols_by_code
+    ]
+    if missing_symbols or len(payout_symbols) != len(ordinary_symbols):
+        raise DomainValidationError(
+            DomainErrorCode.INCOMPLETE_PAYOUT_SYMBOLS,
+            f"Missing payout configuration for symbols {missing_symbols}.",
+        )
+
     rules_by_symbol: dict[int, dict[int, int]] = {}
     for rule in rules:
-        rules_by_symbol.setdefault(rule.symbol_mobile_code, {})[
-            rule.match_length
-        ] = rule.payout_credits
+        rules_by_symbol.setdefault(rule.symbol_mobile_code, {})[rule.match_length] = (
+            rule.payout_credits
+        )
 
-    expected_lengths = tuple(range(3, game.columns + 1))
-    for symbol in game.symbols:
-        if symbol.is_wildcard:
-            continue
-
-        symbol_rules = rules_by_symbol.get(symbol.mobile_code, {})
-        missing_lengths = [
-            length for length in expected_lengths if length not in symbol_rules
-        ]
+    for payout_symbol in payout_symbols:
+        expected_lengths = tuple(range(payout_symbol.minimum_match_length, game.columns + 1))
+        symbol_rules = rules_by_symbol.get(payout_symbol.symbol_mobile_code, {})
+        missing_lengths = [length for length in expected_lengths if length not in symbol_rules]
         if missing_lengths:
             raise DomainValidationError(
                 DomainErrorCode.INCOMPLETE_PAYOUT_RULES,
                 (
-                    f"Symbol {symbol.mobile_code} is missing payout rules "
+                    f"Symbol {payout_symbol.symbol_mobile_code} is missing payout rules "
                     f"for lengths {missing_lengths}."
                 ),
             )
@@ -271,7 +326,8 @@ def validate_payout_configuration(
                 raise DomainValidationError(
                     DomainErrorCode.NON_INCREASING_PAYOUT,
                     (
-                        f"Payout for symbol {symbol.mobile_code} must increase "
+                        f"Payout for symbol {payout_symbol.symbol_mobile_code} "
+                        "must increase "
                         f"with match length; length {length} has value {payout}."
                     ),
                 )

@@ -2,6 +2,7 @@ import type {
   GameConfig,
   PaylineDefinition,
   PayoutRuleDefinition,
+  PayoutSymbolDefinition,
   SymbolDefinition,
 } from './contracts.js';
 import { DomainValidationError } from './errors.js';
@@ -230,13 +231,61 @@ export function validatePaylines(
   }
 }
 
-export function validatePayoutRules(
-  rules: readonly PayoutRuleDefinition[],
+export function validatePayoutSymbols(
+  payoutSymbols: readonly PayoutSymbolDefinition[],
   game: GameConfig,
 ): void {
   validateGameConfig(game);
   const symbolsByCode = new Map(
     game.symbols.map((symbol) => [symbol.mobileCode, symbol]),
+  );
+  const configuredSymbols = new Set<number>();
+
+  for (const payoutSymbol of payoutSymbols) {
+    const symbol = symbolsByCode.get(payoutSymbol.symbolMobileCode);
+    if (symbol === undefined) {
+      throw new DomainValidationError(
+        'invalid_board_symbol',
+        `Payout symbol ${payoutSymbol.symbolMobileCode} does not belong to the game.`,
+      );
+    }
+    if (symbol.isWildcard) {
+      throw new DomainValidationError(
+        'wildcard_payout_symbol',
+        'Wildcard symbols cannot define payout configuration.',
+      );
+    }
+    if (
+      !Number.isSafeInteger(payoutSymbol.minimumMatchLength) ||
+      payoutSymbol.minimumMatchLength < 2 ||
+      payoutSymbol.minimumMatchLength > game.columns
+    ) {
+      throw new DomainValidationError(
+        'invalid_minimum_match_length',
+        `Minimum match length must be between 2 and ${game.columns}.`,
+      );
+    }
+    if (configuredSymbols.has(payoutSymbol.symbolMobileCode)) {
+      throw new DomainValidationError(
+        'duplicate_payout_symbol',
+        `Duplicate payout configuration for symbol ${payoutSymbol.symbolMobileCode}.`,
+      );
+    }
+    configuredSymbols.add(payoutSymbol.symbolMobileCode);
+  }
+}
+
+export function validatePayoutRules(
+  rules: readonly PayoutRuleDefinition[],
+  payoutSymbols: readonly PayoutSymbolDefinition[],
+  game: GameConfig,
+): void {
+  validatePayoutSymbols(payoutSymbols, game);
+  const symbolsByCode = new Map(
+    game.symbols.map((symbol) => [symbol.mobileCode, symbol]),
+  );
+  const payoutSymbolsByCode = new Map(
+    payoutSymbols.map((symbol) => [symbol.symbolMobileCode, symbol]),
   );
   const keys = new Set<string>();
 
@@ -254,14 +303,21 @@ export function validatePayoutRules(
         'Wildcard symbols cannot define payout rules.',
       );
     }
+    const payoutSymbol = payoutSymbolsByCode.get(rule.symbolMobileCode);
+    if (payoutSymbol === undefined) {
+      throw new DomainValidationError(
+        'incomplete_payout_symbols',
+        `Symbol ${rule.symbolMobileCode} has no payout configuration.`,
+      );
+    }
     if (
       !Number.isSafeInteger(rule.matchLength) ||
-      rule.matchLength < 3 ||
+      rule.matchLength < payoutSymbol.minimumMatchLength ||
       rule.matchLength > game.columns
     ) {
       throw new DomainValidationError(
         'invalid_match_length',
-        `Match length must be between 3 and ${game.columns}.`,
+        `Match length for symbol ${rule.symbolMobileCode} must be between ${payoutSymbol.minimumMatchLength} and ${game.columns}.`,
       );
     }
     requireNonNegativeInteger(
@@ -277,5 +333,68 @@ export function validatePayoutRules(
       );
     }
     keys.add(key);
+  }
+}
+
+export function validatePayoutConfiguration(
+  rules: readonly PayoutRuleDefinition[],
+  payoutSymbols: readonly PayoutSymbolDefinition[],
+  game: GameConfig,
+): void {
+  validatePayoutRules(rules, payoutSymbols, game);
+  const payoutSymbolsByCode = new Map(
+    payoutSymbols.map((symbol) => [symbol.symbolMobileCode, symbol]),
+  );
+  const ordinarySymbols = game.symbols.filter((symbol) => !symbol.isWildcard);
+
+  const missingSymbols = ordinarySymbols
+    .filter((symbol) => !payoutSymbolsByCode.has(symbol.mobileCode))
+    .map((symbol) => symbol.mobileCode);
+  if (
+    missingSymbols.length > 0 ||
+    payoutSymbols.length !== ordinarySymbols.length
+  ) {
+    throw new DomainValidationError(
+      'incomplete_payout_symbols',
+      `Missing payout configuration for symbols ${missingSymbols.join(', ')}.`,
+    );
+  }
+
+  const rulesBySymbol = new Map<number, Map<number, number>>();
+  for (const rule of rules) {
+    let symbolRules = rulesBySymbol.get(rule.symbolMobileCode);
+    if (symbolRules === undefined) {
+      symbolRules = new Map<number, number>();
+      rulesBySymbol.set(rule.symbolMobileCode, symbolRules);
+    }
+    symbolRules.set(rule.matchLength, rule.payoutCredits);
+  }
+
+  for (const payoutSymbol of payoutSymbols) {
+    const symbolRules =
+      rulesBySymbol.get(payoutSymbol.symbolMobileCode) ??
+      new Map<number, number>();
+    let previousPayout: number | undefined;
+
+    for (
+      let length = payoutSymbol.minimumMatchLength;
+      length <= game.columns;
+      length += 1
+    ) {
+      const payout = symbolRules.get(length);
+      if (payout === undefined) {
+        throw new DomainValidationError(
+          'incomplete_payout_rules',
+          `Symbol ${payoutSymbol.symbolMobileCode} is missing payout rule for length ${length}.`,
+        );
+      }
+      if (previousPayout !== undefined && payout <= previousPayout) {
+        throw new DomainValidationError(
+          'non_increasing_payout',
+          `Payout for symbol ${payoutSymbol.symbolMobileCode} must increase with match length.`,
+        );
+      }
+      previousPayout = payout;
+    }
   }
 }

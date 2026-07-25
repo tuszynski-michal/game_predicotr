@@ -1,7 +1,7 @@
 ---
 title: M1 Android device acceptance protocol
 status: active
-last_updated: 2026-07-24
+last_updated: 2026-07-25
 ---
 
 # M1 Android device acceptance
@@ -12,16 +12,17 @@ Protokół potwierdza działanie prywatnego APK bez Metro i bez sieci na Google
 Pixel 10 Pro XL oraz Samsung Galaxy S21 Ultra. Wyniku nie należy oznaczać jako
 zaliczony bez fizycznego wykonania kroków.
 
-Lokalny artefakt `0.1.0 (1)` przeszedł audyt pakietu 2026-07-24. Jego rozmiar,
-checksumy, certyfikat i aktualny status urządzeń zapisano w
-`m1-release-verification.json`. Ten wynik nie zastępuje poniższych testów
-fizycznych.
+Lokalny artefakt `0.1.2 (3)` z payout-v2 i `m1-fixture.2` przeszedł audyt
+pakietu 2026-07-25. Jego rozmiar, checksumy, certyfikat i aktualny status
+urządzeń zapisano w `m1-release-verification.json`. Jest gotowym kandydatem do
+poniższych testów fizycznych, ale statyczny wynik nie zastępuje testów na
+telefonach. Nazwany plik do instalacji znajduje się w
+`.tooling/releases/sequence-target-analyzer-0.1.2-m1-fixture.2.apk`.
 
-> **Protokół wstrzymany:** artefakt i poniższe golden payout/Target powstały
-> dla payout-v1. Po D-019 najpierw trzeba wdrożyć ciąg od pierwszej kolumny,
-> minimum długości per symbol, przeliczyć fixture oraz wpisać nowe golden
-> values. Do tego czasu nie należy oznaczać żadnego testu urządzenia jako
-> zaliczonego.
+Pierwszy odbiór Samsunga wykrył zatrzymany loader po ukończonej inicjalizacji
+SQLite. Poprawkę zabezpieczono testem regresji, a `0.1.2 (3)` zainstalowano
+in-place na `SM-G998B` z Androidem 15. Właściciel wykonał następnie pełne
+scenariusze manualne offline na poprawionej wersji na Samsungu i Pixelu.
 
 ## Przygotowanie
 
@@ -32,9 +33,13 @@ fizycznych.
 
 ```powershell
 npm run quality
-npm run android:build:offline -- --VersionName 0.1.0 --VersionCode 1
+$env:GAME_PREDICTOR_GRADLE_USER_HOME = 'C:\gp-gradle'
+npm run android:build:offline -- --VersionName 0.1.2 --VersionCode 3
 npm run android:verify:offline
 ```
+
+Fizycznie krótki cache Gradle jest wymagany w bieżącej lokalizacji repozytorium,
+ponieważ CMake/Ninja na Windows nadal podlega limitowi `MAX_PATH`.
 
 5. Zainstaluj, uruchom i zapisz automatyczne pomiary:
 
@@ -55,12 +60,12 @@ dołu.
 ### Unique i golden Target — sequence 99
 
 ```text
-S3, S2, S8, S7, S1,
-S5, S6, S4, S9, S5,
-S4, S4, S10, S6, S9
+S5, S8, S5, S6, S2,
+S2, S4, S4, S6, S3,
+S1, S4, S3, S10, S4
 ```
 
-Historyczne oczekiwane wartości payout-v1, do przeliczenia dla payout-v2:
+Oczekiwane wartości payout-v2:
 
 - exact unique: `Układ: 99`,
 - ocenione spiny: `999`,
@@ -71,15 +76,18 @@ Historyczne oczekiwane wartości payout-v1, do przeliczenia dla payout-v2:
 - wiersz spin `12`, layout `111`, wynik netto `180`,
 - brak osobnego wiersza dla plateau spin `13`.
 
-Jeżeli unikalny prefiks otworzy modal, zaakceptuj uzupełnienie i potwierdź, że
-Undo cofa je jako jeden krok.
+### Unikalny prefiks — sequence 111
+
+Wprowadź `S1, S1`. Snapshot powinien wskazać jednego kandydata i otworzyć modal
+z pełnym layoutem `111`. Zaakceptuj uzupełnienie i potwierdź, że Undo cofa je
+jako jeden krok.
 
 ### Duplicate — sequence 101 i 995
 
 ```text
-S3, S9, S5, S3, S4,
-S5, S5, S3, S2, S5,
-S8, S8, S2, S5, S8
+S8, S4, S1, S1, S1,
+S5, S6, S3, S8, S4,
+S6, S2, S6, S10, S8
 ```
 
 Oczekiwane:
@@ -114,13 +122,14 @@ Oczekiwane:
 
 Aktualizacja wymaga:
 
-1. kontrolowanego drugiego snapshotu z inną `releaseVersion` i checksumą,
+1. kontrolowanego kolejnego snapshotu z inną `releaseVersion` i checksumą,
 2. APK podpisanego tym samym lokalnym keystore,
 3. wyższego `versionCode`,
 4. instalacji z `Stage Update` bez odinstalowania aplikacji:
 
 ```powershell
-npm run android:build:offline -- --VersionName 0.1.1 --VersionCode 2
+$env:GAME_PREDICTOR_GRADLE_USER_HOME = 'C:\gp-gradle'
+npm run android:build:offline -- --VersionName 0.1.3 --VersionCode 4
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_android_device_acceptance.ps1 `
   -ExpectedModelPattern "Pixel 10 Pro XL" `
   -Stage Update `
@@ -134,15 +143,17 @@ Po aktualizacji ekran musi pokazać nową wersję snapshotu. Samo podniesienie
 
 | Kontrola | Pixel 10 Pro XL | Galaxy S21 Ultra |
 |---|---|---|
-| Identyfikacja modelu i wersji Android | blocked by payout-v2 | blocked by payout-v2 |
-| Instalacja poprawionego APK | blocked by payout-v2 | blocked by payout-v2 |
-| Start bez Metro | blocked by payout-v2 | blocked by payout-v2 |
-| Tryb samolotowy | blocked by payout-v2 | blocked by payout-v2 |
-| Unique 99 i przeliczony golden Target | blocked by payout-v2 | blocked by payout-v2 |
-| Duplicate 101/995 | blocked by payout-v2 | blocked by payout-v2 |
-| Not found i Undo | blocked by payout-v2 | blocked by payout-v2 |
-| Reset i zmiana gry | blocked by payout-v2 | blocked by payout-v2 |
-| Płynność tabeli | blocked by payout-v2 | blocked by payout-v2 |
-| Aktualizacja poprawionego snapshotu | blocked by payout-v2 | blocked by payout-v2 |
+| Identyfikacja modelu i wersji Android | passed: Pixel 10 Pro XL, Android 16 | passed: SM-G998B, Android 15 |
+| Instalacja poprawionego APK | passed: initial 0.1.2 | passed: update 0.1.1 → 0.1.2 |
+| Start bez Metro | passed: 1,1 s | passed: 0,74 s |
+| Tryb samolotowy | passed | exception: Wi-Fi off, no SIM; strict check pending |
+| Unique 99 i przeliczony golden Target | passed offline | passed offline |
+| Duplicate 101/995 | passed offline | passed offline |
+| Not found i Undo | passed offline | passed offline |
+| Reset i zmiana gry | passed offline | passed offline |
+| Płynność tabeli | passed offline; czas niezmierzony | passed offline; czas niezmierzony |
+| Aktualizacja poprawionego snapshotu | pending | partial: signing/version passed; changed snapshot pending |
 
-Uwagi, czasy i wynik końcowy należy uzupełnić dopiero po wykonaniu testu.
+Wynik scenariuszy manualnych został potwierdzony przez właściciela 2026-07-25.
+Nie podano liczbowych czasów matching, Target ani przewijania; nie należy ich
+estymować. Test aktualizacji do zmienionego snapshotu pozostaje otwarty.

@@ -18,6 +18,10 @@ def test_generator_creates_complete_valid_m1_fixture() -> None:
 
     report = validate_m1_fixture(fixture)
 
+    assert fixture.fixture_version == "m1-fixture-v2"
+    assert fixture.dataset_version == 2
+    assert fixture.rules_version == 2
+    assert fixture.algorithm_version == "payout-v2"
     assert report.game_count == 3
     assert report.layout_count == 3_000
     assert [game.game.code for game in fixture.games] == [
@@ -34,6 +38,14 @@ def test_generator_creates_complete_valid_m1_fixture() -> None:
     assert all(game.layout_count == 1_000 for game in report.games)
     assert all(game.duplicate_group_count == 6 for game in report.games)
     assert all(1 <= game.unique_prefix_cell_count < 15 for game in report.games)
+    assert all(
+        [symbol.minimum_match_length for symbol in game.payout_symbols[:2]] == [2, 2]
+        for game in fixture.games
+    )
+    assert all(
+        all(symbol.minimum_match_length == 3 for symbol in game.payout_symbols[2:])
+        for game in fixture.games
+    )
 
 
 def test_generator_is_deterministic_and_does_not_use_global_random_state() -> None:
@@ -46,7 +58,7 @@ def test_generator_is_deterministic_and_does_not_use_global_random_state() -> No
     assert fixture_fingerprint(first) == fixture_fingerprint(second)
     assert (
         fixture_fingerprint(first)
-        == "f349dcbeec49f4627d330ad4a63d1f1f09480ec1d60443b462debd6a1df69f88"
+        == "2b8345577ec949f102ae21992cef197e5c5756e184d43815a5dd527d25eb2b79"
     )
 
 

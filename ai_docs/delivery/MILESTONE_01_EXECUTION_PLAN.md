@@ -1,7 +1,7 @@
 ---
 title: Milestone 01 execution plan
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-25
 ---
 
 # Plan wykonania Milestone 01
@@ -122,9 +122,9 @@ SQLite oraz jego wersję.
 
 ## M1.2 — Kontrakty domenowe i golden algorithms
 
-**Status:** pierwotna implementacja ukończona 2026-07-24 — TASK-0003,
-TASK-0004 i TASK-0005. Po D-019 payout wymaga korekty i ponownej walidacji
-bramki G2; Target zachowuje semantykę, ale jego golden values trzeba przeliczyć.
+**Status:** ukończone i ponownie zweryfikowane 2026-07-24 — TASK-0003,
+TASK-0004, TASK-0005 i korekta TASK-0090. Payout-v2 oraz golden payout/Target
+są zgodne z D-019; bramka G2 jest ponownie zaliczona.
 
 ### Cel
 
@@ -206,10 +206,10 @@ unikalny layout, duplikat i pełny uporządkowany strumień payoutów.
 - nie wykonuje się jednego otwarcia bazy na każdy spin,
 - rozmiar i czasy operacji są zapisane.
 
-**Status:** technicznie ukończone 2026-07-24 (`TASK-0006`, `TASK-0007`,
-`TASK-0008`). Po D-019 generator, precomputed payout, checksumy i snapshot
-muszą zostać zregenerowane oraz ponownie zweryfikowane; benchmark adaptera
-pozostaje dowodem technicznym w
+**Status:** ukończone i ponownie zweryfikowane 2026-07-24 (`TASK-0006`,
+`TASK-0007`, `TASK-0008`, `TASK-0090`). Generator tworzy `m1-fixture-v2`,
+precomputed payout-v2 i snapshot `m1-fixture.2`; checksumy oraz golden Target
+są spójne. Benchmark adaptera pozostaje dowodem technicznym w
 `ai_docs/quality/m1-repository-benchmark.json`.
 
 ## M1.4 — Wprowadzanie planszy i kompletny matching UI
@@ -299,10 +299,8 @@ szczyty dla 999 spinów.
 - długa lista nie renderuje wszystkich wierszy naraz,
 - duplicate nigdy nie uruchamia Target.
 
-**Wynik G5:** pierwotnie zaliczona 2026-07-24 dla payout-v1. Zachowanie Target,
-plateau i wirtualizacji pozostaje obowiązujące, ale konkretne golden payouty,
-sumy i szczyty muszą zostać przeliczone po D-019 i ponownie przejść test
-integracyjny.
+**Wynik G5:** ponownie zaliczona 2026-07-24 po TASK-0090. Golden payout-v2,
+sumy, szczyty, plateau, pełny cykl i wirtualizacja przeszły testy integracyjne.
 
 ## M1.6 — Release APK i odbiór na urządzeniach
 
@@ -340,12 +338,15 @@ aktywuje nowy dataset.
 - wynik jakości i ograniczenia są zapisane,
 - dokumentacja uruchomienia jest kompletna.
 
-**Status G6:** techniczna część pipeline’u lokalnego zaliczona 2026-07-24, ale
-APK `0.1.0 (1)` zostało produktowo zastąpione przez D-019, ponieważ zawiera
-payout-v1. Po wdrożeniu payout-v2 trzeba wygenerować i zweryfikować nowy
-snapshot/APK. Pełna brama pozostaje również otwarta, ponieważ `adb devices -l`
-nie wykrył Pixel 10 Pro XL ani Galaxy S21 Ultra; instalacja, scenariusze
-offline, pomiary i aktualizacja do innego snapshotu są pending.
+**Status G6:** techniczna część pipeline’u lokalnego zaliczona 2026-07-25.
+Prywatnie podpisany APK `0.1.2 (3)` z payout-v2 i `m1-fixture.2` przeszedł pełną
+bramkę jakości oraz statyczny audyt pakietu. Aktualizacja in-place na Galaxy S21
+Ultra przeszła, a wykryty zatrzymany loader został naprawiony i zabezpieczony
+testem. Automatyczna instalacja i start na Pixel 10 Pro XL w ścisłym
+`Airplane mode` również przeszły. Właściciel zaliczył pełne scenariusze manualne
+offline na obu urządzeniach. Pełna brama pozostaje otwarta: ścisły
+`Airplane mode` na Samsungu, brakujące pomiary liczbowe i aktualizacja do innego
+snapshotu są pending.
 
 ## Mapa planowanych zadań
 
@@ -367,6 +368,7 @@ rozpoczęciem danego zakresu.
 | TASK-0012 | M1.5 | Integracja pełnego Target |
 | TASK-0013 | M1.5 | Wirtualizowana tabela i zarządzanie stanem obliczenia |
 | TASK-0014 | M1.6 | Release APK, aktualizacja i odbiór na urządzeniach |
+| TASK-0090 | M1.2–M1.5 | Korekta payout-v2, fixture, snapshot i golden Target |
 
 Jeżeli w trakcie zadania zostanie odkryta niezależna zmiana schematu,
 architektury lub zachowania, zadanie należy rozdzielić zamiast rozszerzać jego
@@ -384,5 +386,6 @@ Scope.
 
 ## Następny krok
 
-Przed dalszym odbiorem TASK-0014 należy utworzyć osobne zadanie korekty
-`payout-v2`, przeliczyć fixture/snapshot/golden Target i zbudować nowy APK.
+Kontynuować TASK-0014: wykonać aktualizację do innego snapshotu i domknąć
+brakujące potwierdzenie/pomiary protokołu. Dopiero zamknięta bramka G6 pozwala
+rozpocząć M2.

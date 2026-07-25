@@ -66,7 +66,7 @@ const games: readonly LocalGameConfig[] = [
 ];
 
 const diagnostics: SnapshotDiagnostics = {
-  algorithmVersion: 'payout-v1',
+  algorithmVersion: 'payout-v2',
   databaseName: 'snapshot.db',
   datasetVersion: 1,
   fixtureVersion: 'fixture-v1',

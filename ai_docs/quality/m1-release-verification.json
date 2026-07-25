@@ -1,39 +1,46 @@
 {
-  "status": "technical_local_pass_product_superseded",
-  "productAcceptance": "superseded_by_D-019",
-  "verifiedAt": "2026-07-24",
+  "status": "technical_local_pass_device_acceptance_pending",
+  "productAcceptance": "pending_physical_devices",
+  "verifiedAt": "2026-07-25",
   "applicationId": "com.gamepredictor.mobile",
-  "versionName": "0.1.0",
-  "versionCode": 1,
+  "versionName": "0.1.2",
+  "versionCode": 3,
   "architectures": ["arm64-v8a"],
   "apk": {
-    "sizeBytes": 42140070,
-    "sha256": "1eb8da0ba87a19f42975e46a192af190cf5e51905b97126204c8495ffe2bc0a3",
+    "path": ".tooling/releases/sequence-target-analyzer-0.1.2-m1-fixture.2.apk",
+    "sizeBytes": 42143594,
+    "sha256": "906d2969fccbc629d849d5368673ca7ed897949d52b9b60bcb712a08457af0f0",
     "debuggable": false,
     "internetPermissionDeclared": false,
     "certificateDn": "CN=Game Predictor Private Release, OU=Private Testing, O=Local, C=PL"
   },
   "snapshot": {
-    "releaseVersion": "m1-fixture.1",
-    "sha256": "142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd"
+    "releaseVersion": "m1-fixture.2",
+    "algorithmVersion": "payout-v2",
+    "sha256": "4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a"
   },
   "quality": {
-    "mobileTestsPassed": 62,
-    "sharedTestsPassed": 22,
-    "pythonTestsPassed": 52,
+    "mobileTestsPassed": 63,
+    "sharedTestsPassed": 23,
+    "pythonTestsPassed": 53,
     "snapshotValidationPassed": true,
     "fixtureValidationPassed": true,
     "releaseVerifierPassed": true
   },
   "devices": {
-    "connectedDuringVerification": 0,
-    "pixel10ProXl": "pending",
-    "galaxyS21Ultra": "pending",
-    "snapshotUpdate": "pending"
+    "connectedDuringVerification": 1,
+    "pixel10ProXl": "automated_initial_pass_manual_scenarios_pending",
+    "galaxyS21Ultra": "automated_update_pass_manual_scenarios_pending",
+    "snapshotUpdate": "same_snapshot_update_pass_changed_snapshot_pending"
   },
   "notes": [
-    "This APK contains payout-v1 data and is not a product-acceptance candidate after D-019.",
-    "The first Windows release build required a short Gradle cache path because native tools encountered the legacy MAX_PATH limit.",
-    "The artifact completed after the command runner's 20-minute observation window; no exact clean-build duration is claimed."
+    "This APK fixes the persistent offline-verification loader caused by state updates hidden behind SQLiteProvider's memoized children.",
+    "The APK contains the payout-v2 snapshot required after D-019 and is the current physical-device acceptance candidate.",
+    "The successful Windows release build used the physically short Gradle cache C:\\gp-gradle because native tools encountered the legacy MAX_PATH limit.",
+    "The release verifier passed for the generated APK and the named copy in .tooling/releases.",
+    "Samsung SM-G998B updated in place from 0.1.1 (2) to 0.1.2 (3); install took 28.39 seconds and process start took 0.74 seconds.",
+    "Google Pixel 10 Pro XL on Android 16 installed 0.1.2 (3) in airplane mode; install took 15.78 seconds and process start took 1.1 seconds.",
+    "Wi-Fi was disabled and the owner confirmed no SIM; airplane mode was not enforced, so the strict airplane-mode protocol remains pending.",
+    "This update retains m1-fixture.2, so it proves signing and versionCode update mechanics but not activation of a changed snapshot."
   ]
 }

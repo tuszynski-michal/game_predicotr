@@ -1,93 +1,93 @@
 {
-  "algorithmVersion": "payout-v1",
+  "algorithmVersion": "payout-v2",
   "createdAt": "2026-07-24T00:00:00Z",
-  "datasetVersion": 1,
-  "fixtureFingerprint": "f349dcbeec49f4627d330ad4a63d1f1f09480ec1d60443b462debd6a1df69f88",
-  "fixtureVersion": "m1-fixture-v1",
+  "datasetVersion": 2,
+  "fixtureFingerprint": "2b8345577ec949f102ae21992cef197e5c5756e184d43815a5dd527d25eb2b79",
+  "fixtureVersion": "m1-fixture-v2",
   "gameCount": 3,
   "games": [
     {
       "code": "game-1",
-      "datasetVersion": 1,
+      "datasetVersion": 2,
       "duplicateFixtures": [
         {
           "sequenceNumbers": [
             101,
             995
           ],
-          "signature": "030905030405050302050808020508"
+          "signature": "080401010105060308040602061008"
         },
         {
           "sequenceNumbers": [
             102,
             996
           ],
-          "signature": "050602020404060301040310040402"
+          "signature": "010502060110030902061007070704"
         },
         {
           "sequenceNumbers": [
             103,
             997
           ],
-          "signature": "040105070901050506030903020704"
+          "signature": "051005010501080404080603030801"
         },
         {
           "sequenceNumbers": [
             104,
             998
           ],
-          "signature": "051005010501080404080603030801"
+          "signature": "050708070806020904010501090809"
         },
         {
           "sequenceNumbers": [
             105,
             999
           ],
-          "signature": "020807060610020109050109010406"
+          "signature": "050305070209030902060505040605"
         },
         {
           "sequenceNumbers": [
             106,
             1000
           ],
-          "signature": "050708070806020904010501090809"
+          "signature": "080710051003060508040707041007"
         }
       ],
       "id": 1,
       "layoutCount": 1000,
-      "rulesVersion": 1,
+      "rulesVersion": 2,
       "seed": 71401,
       "symbolCount": 10,
       "uniquePrefixFixture": {
-        "cellCount": 3,
-        "sequenceNumber": 2,
-        "signaturePrefix": "020508"
+        "cellCount": 2,
+        "sequenceNumber": 111,
+        "signaturePrefix": "0101"
       }
     },
     {
       "code": "game-2",
-      "datasetVersion": 1,
+      "datasetVersion": 2,
       "duplicateFixtures": [
         {
           "sequenceNumbers": [
             101,
             995
           ],
-          "signature": "060205110110030504040210080311"
+          "signature": "051206090601110707090504020112"
         },
         {
           "sequenceNumbers": [
             102,
             996
           ],
-          "signature": "051206090601110707090504020112"
+          "signature": "110501100309111205100907030208"
         },
         {
           "sequenceNumbers": [
             103,
             997
           ],
-          "signature": "110501100309111205100907030208"
+          "signature": "060404041102120110040212081111"
         },
         {
           "sequenceNumbers": [
@@ -113,81 +113,81 @@
       ],
       "id": 2,
       "layoutCount": 1000,
-      "rulesVersion": 1,
+      "rulesVersion": 2,
       "seed": 71402,
       "symbolCount": 12,
       "uniquePrefixFixture": {
         "cellCount": 2,
-        "sequenceNumber": 23,
+        "sequenceNumber": 21,
         "signaturePrefix": "0909"
       }
     },
     {
       "code": "game-3",
-      "datasetVersion": 1,
+      "datasetVersion": 2,
       "duplicateFixtures": [
         {
           "sequenceNumbers": [
             101,
             995
           ],
-          "signature": "040903030703110207030210100703"
+          "signature": "030506101101050308020509010707"
         },
         {
           "sequenceNumbers": [
             102,
             996
           ],
-          "signature": "090406040307040805060709080804"
+          "signature": "060908111108030110100311080804"
         },
         {
           "sequenceNumbers": [
             103,
             997
           ],
-          "signature": "050606020311020106020609100110"
+          "signature": "050307020206080801050708100310"
         },
         {
           "sequenceNumbers": [
             104,
             998
           ],
-          "signature": "020203090306050805020306020801"
+          "signature": "070702071104080901090605110801"
         },
         {
           "sequenceNumbers": [
             105,
             999
           ],
-          "signature": "020903090606020402100506080609"
+          "signature": "050807040910080205020509090101"
         },
         {
           "sequenceNumbers": [
             106,
             1000
           ],
-          "signature": "050210050604040204060503060301"
+          "signature": "061010060308070103040911050209"
         }
       ],
       "id": 3,
       "layoutCount": 1000,
-      "rulesVersion": 1,
+      "rulesVersion": 2,
       "seed": 71403,
       "symbolCount": 11,
       "uniquePrefixFixture": {
         "cellCount": 2,
-        "sequenceNumber": 420,
-        "signaturePrefix": "1004"
+        "sequenceNumber": 938,
+        "signaturePrefix": "0611"
       }
     }
   ],
   "layoutCount": 3000,
-  "logicalContentSha256": "129d928383c89da0a1a65a57ebcd1eccbf5e2e94bd36036b6125119fd93517d2",
-  "releaseVersion": "m1-fixture.1",
-  "rulesVersion": 1,
+  "logicalContentSha256": "dff9544cc678873ac6b6d87cbddf64a5ce4ea8ee56972fd104762d1dfca837e8",
+  "releaseVersion": "m1-fixture.2",
+  "rulesVersion": 2,
   "schemaVersion": 2,
   "snapshotFile": "m1-snapshot.db",
-  "snapshotFileSha256": "142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd",
+  "snapshotFileSha256": "4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a",
   "targetGoldenCases": [
     {
       "code": "multiple-peaks-later-lower-and-plateau",

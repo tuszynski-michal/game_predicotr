@@ -69,8 +69,12 @@ APK. Never commit or print its contents.
 Build explicit private versions with:
 
 ```powershell
-npm run android:build:offline -- --VersionName 0.1.0 --VersionCode 1
+$env:GAME_PREDICTOR_GRADLE_USER_HOME = 'C:\gp-gradle'
+npm run android:build:offline -- --VersionName 0.1.2 --VersionCode 3
 ```
+
+The short Gradle cache avoids the legacy Windows `MAX_PATH` limit in native
+React Native dependencies when the repository itself has a longer path.
 
 The physical Pixel and Galaxy installation, offline and update procedure is
 defined in

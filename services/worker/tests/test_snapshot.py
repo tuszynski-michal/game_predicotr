@@ -49,7 +49,7 @@ def test_generate_and_validate_complete_snapshot(tmp_path: Path) -> None:
     assert generated["gameCount"] == 3
     assert generated["layoutCount"] == 3_000
     assert generated["fixtureFingerprint"] == (
-        "f349dcbeec49f4627d330ad4a63d1f1f09480ec1d60443b462debd6a1df69f88"
+        "2b8345577ec949f102ae21992cef197e5c5756e184d43815a5dd527d25eb2b79"
     )
     assert len(generated["snapshotFileSha256"]) == 64
     assert len(generated["logicalContentSha256"]) == 64

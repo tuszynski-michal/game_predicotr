@@ -9,6 +9,7 @@ from game_predictor_worker.domain import (
     GameConfig,
     PaylineDefinition,
     PayoutRuleDefinition,
+    PayoutSymbolDefinition,
 )
 
 
@@ -48,6 +49,7 @@ class GeneratedGameFixture:
     seed: int
     game: GameConfig
     paylines: tuple[PaylineDefinition, ...]
+    payout_symbols: tuple[PayoutSymbolDefinition, ...]
     payout_rules: tuple[PayoutRuleDefinition, ...]
     layouts: tuple[GeneratedLayout, ...]
     duplicate_fixtures: tuple[DuplicateFixture, ...]

@@ -13,15 +13,13 @@ from game_predictor_worker.domain import (
     PaylineDefinition,
     PayoutEvaluation,
     PayoutRuleDefinition,
+    PayoutSymbolDefinition,
     SymbolDefinition,
 )
 from game_predictor_worker.domain.payout import evaluate_payout
 
 FIXTURE_PATH = (
-    Path(__file__).parents[3]
-    / "packages"
-    / "domain-fixtures"
-    / "payout-golden-cases.json"
+    Path(__file__).parents[3] / "packages" / "domain-fixtures" / "payout-golden-cases.json"
 )
 
 
@@ -55,8 +53,7 @@ def _paylines_from_fixture(
     values: Sequence[Mapping[str, Any]],
 ) -> tuple[PaylineDefinition, ...]:
     return tuple(
-        PaylineDefinition(id=value["id"], row_path=tuple(value["rowPath"]))
-        for value in values
+        PaylineDefinition(id=value["id"], row_path=tuple(value["rowPath"])) for value in values
     )
 
 
@@ -68,6 +65,18 @@ def _rules_from_fixture(
             symbol_mobile_code=value["symbolMobileCode"],
             match_length=value["matchLength"],
             payout_credits=value["payoutCredits"],
+        )
+        for value in values
+    )
+
+
+def _payout_symbols_from_fixture(
+    values: Sequence[Mapping[str, Any]],
+) -> tuple[PayoutSymbolDefinition, ...]:
+    return tuple(
+        PayoutSymbolDefinition(
+            symbol_mobile_code=value["symbolMobileCode"],
+            minimum_match_length=value["minimumMatchLength"],
         )
         for value in values
     )
@@ -113,14 +122,14 @@ def test_payout_golden_cases(case: Mapping[str, Any]) -> None:
     fixture = _load_fixture()
     game = _game_from_fixture(fixture["game"])
     paylines_by_id = {
-        payline.id: payline
-        for payline in _paylines_from_fixture(fixture["paylines"])
+        payline.id: payline for payline in _paylines_from_fixture(fixture["paylines"])
     }
     paylines = tuple(paylines_by_id[payline_id] for payline_id in case["paylineIds"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
     rules = _rules_from_fixture(fixture["payoutRules"])
     cells = tuple(cell for row in case["rows"] for cell in row)
 
-    result = evaluate_payout(game, cells, paylines, rules)
+    result = evaluate_payout(game, cells, paylines, payout_symbols, rules)
 
     assert case["manualCalculation"], "Golden case must document manual calculation."
     assert _serialize_result(result) == case["expected"]
@@ -131,33 +140,42 @@ def test_payout_evaluation_is_deterministic_and_does_not_mutate_inputs() -> None
     case = fixture["cases"][-1]
     game = _game_from_fixture(fixture["game"])
     paylines = _paylines_from_fixture(fixture["paylines"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
     rules = _rules_from_fixture(fixture["payoutRules"])
     cells = tuple(cell for row in case["rows"] for cell in row)
-    original_inputs = (game, cells, paylines, rules)
+    original_inputs = (game, cells, paylines, payout_symbols, rules)
 
-    first = evaluate_payout(game, cells, paylines, rules)
-    second = evaluate_payout(game, cells, paylines, rules)
+    first = evaluate_payout(game, cells, paylines, payout_symbols, rules)
+    second = evaluate_payout(game, cells, paylines, payout_symbols, rules)
 
     assert first == second
-    assert (game, cells, paylines, rules) == original_inputs
+    assert (game, cells, paylines, payout_symbols, rules) == original_inputs
 
 
 def test_precomputing_rejects_duplicate_payout_rule() -> None:
     fixture = _load_fixture()
     game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
     rules = _rules_from_fixture(fixture["payoutRules"])
     cells = tuple(cell for row in fixture["cases"][0]["rows"] for cell in row)
     paylines = _paylines_from_fixture(fixture["paylines"][:1])
 
     _assert_domain_error(
         "duplicate_payout_rule",
-        lambda: evaluate_payout(game, cells, paylines, (*rules, rules[0])),
+        lambda: evaluate_payout(
+            game,
+            cells,
+            paylines,
+            payout_symbols,
+            (*rules, rules[0]),
+        ),
     )
 
 
 def test_precomputing_rejects_duplicate_payline_path() -> None:
     fixture = _load_fixture()
     game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
     rules = _rules_from_fixture(fixture["payoutRules"])
     cells = tuple(cell for row in fixture["cases"][0]["rows"] for cell in row)
     payline = _paylines_from_fixture(fixture["paylines"][:1])[0]
@@ -169,6 +187,7 @@ def test_precomputing_rejects_duplicate_payline_path() -> None:
             game,
             cells,
             (payline, duplicate_path),
+            payout_symbols,
             rules,
         ),
     )
@@ -177,19 +196,21 @@ def test_precomputing_rejects_duplicate_payline_path() -> None:
 def test_precomputing_rejects_incomplete_payout_matrix() -> None:
     fixture = _load_fixture()
     game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
     rules = _rules_from_fixture(fixture["payoutRules"])[:-1]
     cells = tuple(cell for row in fixture["cases"][0]["rows"] for cell in row)
     paylines = _paylines_from_fixture(fixture["paylines"][:1])
 
     _assert_domain_error(
         "incomplete_payout_rules",
-        lambda: evaluate_payout(game, cells, paylines, rules),
+        lambda: evaluate_payout(game, cells, paylines, payout_symbols, rules),
     )
 
 
 def test_precomputing_rejects_non_increasing_payout() -> None:
     fixture = _load_fixture()
     game = _game_from_fixture(fixture["game"])
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
     rules = list(_rules_from_fixture(fixture["payoutRules"]))
     rules[1] = replace(rules[1], payout_credits=rules[0].payout_credits)
     cells = tuple(cell for row in fixture["cases"][0]["rows"] for cell in row)
@@ -197,18 +218,43 @@ def test_precomputing_rejects_non_increasing_payout() -> None:
 
     _assert_domain_error(
         "non_increasing_payout",
-        lambda: evaluate_payout(game, cells, paylines, tuple(rules)),
+        lambda: evaluate_payout(
+            game,
+            cells,
+            paylines,
+            payout_symbols,
+            tuple(rules),
+        ),
     )
 
 
-def test_precomputing_rejects_board_wider_than_m1() -> None:
+def test_precomputing_supports_board_wider_than_m1() -> None:
     fixture = _load_fixture()
     game = replace(_game_from_fixture(fixture["game"]), columns=6)
     cells = (1,) * (game.rows * game.columns)
     payline = PaylineDefinition(id="wide", row_path=(0, 0, 0, 0, 0, 0))
-    rules = _rules_from_fixture(fixture["payoutRules"])
-
-    _assert_domain_error(
-        "unsupported_payout_board_width",
-        lambda: evaluate_payout(game, cells, (payline,), rules),
+    payout_symbols = _payout_symbols_from_fixture(fixture["payoutSymbols"])
+    rules = (
+        *_rules_from_fixture(fixture["payoutRules"]),
+        PayoutRuleDefinition(
+            symbol_mobile_code=1,
+            match_length=6,
+            payout_credits=100,
+        ),
+        PayoutRuleDefinition(
+            symbol_mobile_code=2,
+            match_length=6,
+            payout_credits=160,
+        ),
+        PayoutRuleDefinition(
+            symbol_mobile_code=3,
+            match_length=6,
+            payout_credits=220,
+        ),
     )
+
+    result = evaluate_payout(game, cells, (payline,), payout_symbols, rules)
+
+    assert result.total_payout == 100
+    assert result.matches[0].start_column == 0
+    assert result.matches[0].matched_length == 6

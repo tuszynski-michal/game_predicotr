@@ -175,6 +175,16 @@
         "rowPath": [0, 1, 2, 1, 0]
       }
     ],
+    "validPayoutSymbols": [
+      {
+        "symbolMobileCode": 1,
+        "minimumMatchLength": 2
+      },
+      {
+        "symbolMobileCode": 2,
+        "minimumMatchLength": 3
+      }
+    ],
     "validPayoutRules": [
       {
         "symbolMobileCode": 1,
@@ -233,7 +243,7 @@
         "name": "match too short",
         "rules": [
           {
-            "symbolMobileCode": 1,
+            "symbolMobileCode": 2,
             "matchLength": 2,
             "payoutCredits": 10
           }
@@ -277,6 +287,42 @@
           }
         ],
         "errorCode": "duplicate_payout_rule"
+      }
+    ],
+    "invalidPayoutSymbols": [
+      {
+        "name": "minimum below two",
+        "payoutSymbols": [
+          {
+            "symbolMobileCode": 1,
+            "minimumMatchLength": 1
+          }
+        ],
+        "errorCode": "invalid_minimum_match_length"
+      },
+      {
+        "name": "wildcard configuration",
+        "payoutSymbols": [
+          {
+            "symbolMobileCode": 9,
+            "minimumMatchLength": 3
+          }
+        ],
+        "errorCode": "wildcard_payout_symbol"
+      },
+      {
+        "name": "duplicate symbol configuration",
+        "payoutSymbols": [
+          {
+            "symbolMobileCode": 1,
+            "minimumMatchLength": 2
+          },
+          {
+            "symbolMobileCode": 1,
+            "minimumMatchLength": 3
+          }
+        ],
+        "errorCode": "duplicate_payout_symbol"
       }
     ],
     "invalidPrefixes": [

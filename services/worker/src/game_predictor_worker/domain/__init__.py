@@ -10,11 +10,12 @@ from game_predictor_worker.domain.contracts import (
     PayoutEvaluation,
     PayoutMatch,
     PayoutRuleDefinition,
+    PayoutSymbolDefinition,
     SequencePayout,
     SymbolDefinition,
 )
 from game_predictor_worker.domain.errors import DomainErrorCode, DomainValidationError
-from game_predictor_worker.domain.payout import MAX_PAYOUT_COLUMNS, evaluate_payout
+from game_predictor_worker.domain.payout import evaluate_payout
 from game_predictor_worker.domain.signature import (
     MAX_SIGNATURE_CELL_WIDTH,
     MAX_SYMBOL_MOBILE_CODE,
@@ -30,6 +31,7 @@ from game_predictor_worker.domain.validation import (
     validate_paylines,
     validate_payout_configuration,
     validate_payout_rules,
+    validate_payout_symbols,
     validate_row_path,
 )
 
@@ -41,13 +43,13 @@ __all__ = [
     "ForecastResult",
     "GameConfig",
     "JokerInterpretation",
-    "MAX_PAYOUT_COLUMNS",
     "MAX_SIGNATURE_CELL_WIDTH",
     "MAX_SYMBOL_MOBILE_CODE",
     "PaylineDefinition",
     "PayoutEvaluation",
     "PayoutMatch",
     "PayoutRuleDefinition",
+    "PayoutSymbolDefinition",
     "SequencePayout",
     "SymbolDefinition",
     "decode_signature",
@@ -61,5 +63,6 @@ __all__ = [
     "validate_paylines",
     "validate_payout_configuration",
     "validate_payout_rules",
+    "validate_payout_symbols",
     "validate_row_path",
 ]

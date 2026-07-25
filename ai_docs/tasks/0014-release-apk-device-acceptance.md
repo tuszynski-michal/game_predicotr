@@ -1,7 +1,7 @@
 ---
 title: TASK-0014 Release APK and device acceptance
 status: blocked
-last_updated: 2026-07-24
+last_updated: 2026-07-25
 ---
 
 # TASK-0014 — Release APK and device acceptance
@@ -15,10 +15,13 @@ Galaxy S21 Ultra.
 
 ## Context
 
-M1.1–M1.5 są ukończone. Istniejący build offline używa testowego debug key i
-tylko raportuje uprawnienie `INTERNET`. M1.6 musi usunąć to uprawnienie,
-utrwalić prywatny klucz poza repozytorium, zapisać pomiary artefaktu i wykonać
-manualny odbiór na dwóch urządzeniach.
+M1.1–M1.5 oraz korekta payout-v2 są ukończone. Prywatnie podpisany release
+`0.1.2 (3)` z `m1-fixture.2` przeszedł lokalną bramkę jakości i statyczny audyt
+APK bez uprawnienia `INTERNET`. Na Samsungu naprawiono wykryty podczas odbioru
+zatrzymany loader oraz potwierdzono aktualizację in-place z `0.1.1 (2)`.
+Scenariusze manualne na obu urządzeniach zostały wykonane offline. M1.6 musi
+jeszcze potwierdzić aktualizację do innego snapshotu i domknąć brakujące
+pomiary/protokół.
 
 ## Relevant docs
 
@@ -29,7 +32,9 @@ manualny odbiór na dwóch urządzeniach.
 - `ai_docs/requirements/MOBILE_APP.md`
 - `ai_docs/architecture/TECH_STACK.md`
 - `ai_docs/quality/TEST_STRATEGY.md`
+- `ai_docs/quality/M1_DEVICE_ACCEPTANCE.md`
 - `ai_docs/process/DEFINITION_OF_DONE.md`
+- `ai_docs/tasks/completed/0090-payout-v2-left-prefix-and-snapshot.md`
 - `ai_docs/tasks/completed/0002-monorepo-offline-sqlite-spike.md`
 - `ai_docs/tasks/completed/0013-virtualized-result-table-calculation-state.md`
 
@@ -71,11 +76,11 @@ manualny odbiór na dwóch urządzeniach.
 - [x] Certyfikat APK nie jest certyfikatem Android Debug.
 - [x] SHA-256 i rozmiar APK są zapisane.
 - [x] `npm run quality`, snapshot i release verifier przechodzą.
-- [ ] Instrukcja instalacji i aktualizacji działa w Windows PowerShell.
-- [ ] Pixel 10 Pro XL instaluje APK i uruchamia je bez Metro.
-- [ ] Pixel przechodzi unique, duplicate, not found i Target w trybie offline.
-- [ ] Galaxy S21 Ultra instaluje to samo APK i przechodzi scenariusz offline.
-- [ ] Aktualizacja do wyższego `versionCode` zachowuje podpis i instaluje się
+- [x] Instrukcja instalacji i aktualizacji działa w Windows PowerShell.
+- [x] Pixel 10 Pro XL instaluje APK i uruchamia je bez Metro.
+- [x] Pixel przechodzi unique, duplicate, not found i Target w trybie offline.
+- [x] Galaxy S21 Ultra instaluje to samo APK i przechodzi scenariusz offline.
+- [x] Aktualizacja do wyższego `versionCode` zachowuje podpis i instaluje się
   bez odinstalowania.
 - [ ] APK aktualizacyjne zawiera inny snapshot i aplikacja pokazuje nową wersję.
 - [ ] Pomiary uruchomienia, matching, Target i przewijania są zapisane.
@@ -107,7 +112,8 @@ manualny odbiór na dwóch urządzeniach.
 
 ```powershell
 npm run quality
-npm run android:build:offline
+$env:GAME_PREDICTOR_GRADLE_USER_HOME = 'C:\gp-gradle'
+npm run android:build:offline -- --VersionName 0.1.2 --VersionCode 3
 npm run android:verify:offline
 adb devices -l
 ```
@@ -115,10 +121,9 @@ adb devices -l
 ## Risks / open questions
 
 - Na początku zadania `adb devices -l` nie zwraca żadnego urządzenia.
-- D-019 zastąpiła semantykę payout po zbudowaniu artefaktu `0.1.0 (1)`.
-  Snapshot w tym APK zawiera payout-v1 i nie może być użyty do końcowego
-  odbioru; wymagane są korekta engine’u, regeneracja fixture/snapshotu i nowy
-  build.
+- Historyczny APK `0.1.0 (1)` zawiera payout-v1 i nie może być użyty do
+  końcowego odbioru. Aktualnym kandydatem jest `0.1.2 (3)` z payout-v2 oraz
+  snapshotem `m1-fixture.2`.
 - Do testu aktualizacji potrzebny jest drugi APK z wyższym `versionCode` i
   celowo zmienioną wersją snapshotu. Nie należy modyfikować kanonicznego
   snapshotu bez kontrolowanego backupu i walidacji.
@@ -132,34 +137,55 @@ adb devices -l
 - dodano wersjonowaną konfigurację Expo i blokadę uprawnienia `INTERNET`,
 - release jest podpisywany trwałym prywatnym kluczem generowanym w ignorowanym
   `.tooling/android-signing`,
-- build używa krótkiego `.g` jako `GRADLE_USER_HOME`, aby nie przekraczać
-  historycznego limitu ścieżek narzędzi C++ na Windows,
+- skrypt builda pozwala wskazać fizycznie krótki cache Gradle przez
+  `GAME_PREDICTOR_GRADLE_USER_HOME`; na Windows użyto `C:\gp-gradle`, aby
+  ominąć limit `MAX_PATH` narzędzi C++,
 - verifier kontroluje standalone bundle, checksumę snapshotu, `applicationId`,
   wersję, `arm64-v8a`, brak debuggable/`INTERNET` oraz certyfikat release,
 - dodano skrypt instalacji i pomiaru urządzenia oraz manualny protokół unique,
   duplicate, not found, Target, przewijania i aktualizacji.
+- test na Samsungu wykrył, że memoizowany `SQLiteProvider` zachowywał pierwszy
+  element `children` z loaderem mimo ukończonej weryfikacji; inicjalizację
+  przeniesiono do stabilnego komponentu potomnego i dodano test regresji,
+- Samsung `SM-G998B` z Androidem 15 zaktualizował aplikację in-place z
+  `0.1.1 (2)` do `0.1.2 (3)` bez odinstalowania.
+- Pixel 10 Pro XL z Androidem 16 zainstalował `0.1.2 (3)` w wymaganym trybie
+  samolotowym; instalacja trwała `15,78 s`, a start procesu `1,1 s`.
+- właściciel wykonał offline na obu urządzeniach pełny protokół manualny:
+  unique 99 z golden Target, duplicate 101/995, not found z Undo, Reset,
+  zmianę gry oraz sprawdzenie przewijania tabeli; wszystkie scenariusze
+  zakończyły się poprawnie.
 
-Zweryfikowany artefakt `0.1.0 (1)`:
+Aktualny zweryfikowany artefakt `0.1.2 (3)`:
 
-- rozmiar: `42 140 070` bajtów,
+- ścieżka:
+  `.tooling/releases/sequence-target-analyzer-0.1.2-m1-fixture.2.apk`,
+- rozmiar: `42 143 594` bajty,
 - SHA-256:
-  `1eb8da0ba87a19f42975e46a192af190cf5e51905b97126204c8495ffe2bc0a3`,
-- snapshot: `m1-fixture.1`, SHA-256
-  `142e0ad84313adf553c9ca81c17e69867307be3a78c79db617aad80fc9511ddd`,
+  `906d2969fccbc629d849d5368673ca7ed897949d52b9b60bcb712a08457af0f0`,
+- snapshot: `m1-fixture.2`, algorytm `payout-v2`, SHA-256 SQLite
+  `4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`,
+- ABI: wyłącznie `arm64-v8a`,
 - certyfikat:
   `CN=Game Predictor Private Release, OU=Private Testing, O=Local, C=PL`,
-- `android.permission.INTERNET`: nieobecne.
+- `android.permission.INTERNET`: nieobecne,
+- release nie jest debuggable.
 
-Weryfikacja:
+Weryfikacja 2026-07-25:
 
-- `npm run quality`: zaliczone; 62 testy mobile, 22 shared i 52 Python,
+- pełna bramka jakości: zaliczona; 63 testy mobile, 23 shared i 53 Python,
+- walidacja `m1-fixture.2` i snapshotu: zaliczona,
 - `npm run android:verify:offline`: zaliczone,
-- `adb devices -l`: zero podłączonych urządzeń.
+- aktualizacja Samsung: `28,39 s`, start procesu: `0,74 s`,
+- Wi-Fi było wyłączone, a właściciel potwierdził brak karty SIM; ścisłe
+  potwierdzenie z `Airplane mode` pozostaje otwarte.
+
+Historyczny artefakt `0.1.0 (1)` z payout-v1 pozostaje wyłącznie punktem
+odniesienia do testu aktualizacji i nie jest kandydatem do odbioru produktu.
 
 ### Blokada
 
-Artefakt potwierdza poprawność techniczną pipeline’u release, lecz został
-zbudowany z superseded payout-v1. Nie można wykonać wiążącego odbioru przed
-wdrożeniem D-019 i przygotowaniem nowego snapshotu/APK. Po tej korekcie nadal
-pozostają instalacja, testy offline, pomiary urządzeniowe i aktualizacja na
-Pixel 10 Pro XL oraz Galaxy S21 Ultra. TASK-0014, M1.6 i G6 pozostają otwarte.
+Aktualny APK jest zainstalowany i przeszedł scenariusze manualne offline na
+Samsungu i Pixelu. Nadal pozostają: ścisłe potwierdzenie `Airplane mode` na
+Samsungu, zapis brakujących pomiarów liczbowych oraz aktualizacja do
+kontrolowanie zmienionego snapshotu. TASK-0014, M1.6 i G6 pozostają otwarte.

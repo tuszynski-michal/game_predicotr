@@ -22,6 +22,11 @@ export interface PaylineDefinition {
   readonly rowPath: readonly number[];
 }
 
+export interface PayoutSymbolDefinition {
+  readonly symbolMobileCode: number;
+  readonly minimumMatchLength: number;
+}
+
 export interface PayoutRuleDefinition {
   readonly symbolMobileCode: number;
   readonly matchLength: number;

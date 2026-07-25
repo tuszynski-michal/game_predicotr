@@ -6,17 +6,17 @@ import {
 } from '@/data/bundled-snapshot';
 
 const manifest: SnapshotManifest = {
-  algorithmVersion: 'payout-v1',
+  algorithmVersion: 'payout-v2',
   createdAt: '2026-07-24T00:00:00Z',
-  datasetVersion: 1,
+  datasetVersion: 2,
   fixtureFingerprint: 'c'.repeat(64),
-  fixtureVersion: 'm1-fixture-v1',
+  fixtureVersion: 'm1-fixture-v2',
   gameCount: 3,
   games: [],
   layoutCount: 3_000,
   logicalContentSha256: 'b'.repeat(64),
-  releaseVersion: 'm1-fixture.1',
-  rulesVersion: 1,
+  releaseVersion: 'm1-fixture.2',
+  rulesVersion: 2,
   schemaVersion: 2,
   snapshotFile: 'm1-snapshot.db',
   snapshotFileSha256: 'a'.repeat(64),

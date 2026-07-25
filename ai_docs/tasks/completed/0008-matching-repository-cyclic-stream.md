@@ -1,6 +1,6 @@
 ---
 title: TASK-0008 Matching repository and cyclic payout stream
-status: completed
+status: done
 last_updated: 2026-07-24
 ---
 

@@ -33,6 +33,12 @@ class PaylineDefinition:
 
 
 @dataclass(frozen=True)
+class PayoutSymbolDefinition:
+    symbol_mobile_code: int
+    minimum_match_length: int
+
+
+@dataclass(frozen=True)
 class PayoutRuleDefinition:
     symbol_mobile_code: int
     match_length: int

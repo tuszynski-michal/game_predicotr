@@ -1,7 +1,7 @@
 ---
 title: TASK-0014 Release APK and device acceptance
-status: blocked
-last_updated: 2026-07-25
+status: done
+last_updated: 2026-07-26
 ---
 
 # TASK-0014 — Release APK and device acceptance
@@ -19,9 +19,9 @@ M1.1–M1.5 oraz korekta payout-v2 są ukończone. Prywatnie podpisany release
 `0.1.2 (3)` z `m1-fixture.2` przeszedł lokalną bramkę jakości i statyczny audyt
 APK bez uprawnienia `INTERNET`. Na Samsungu naprawiono wykryty podczas odbioru
 zatrzymany loader oraz potwierdzono aktualizację in-place z `0.1.1 (2)`.
-Scenariusze manualne na obu urządzeniach zostały wykonane offline. M1.6 musi
-jeszcze potwierdzić aktualizację do innego snapshotu i domknąć brakujące
-pomiary/protokół.
+Scenariusze manualne na obu urządzeniach zostały wykonane offline. Właściciel
+zaakceptował wynik M1 i zgodnie z D-020 przeniósł próbę aktywacji celowo
+zmienionego snapshotu oraz dokładne pomiary urządzeniowe do M3.
 
 ## Relevant docs
 
@@ -82,9 +82,12 @@ pomiary/protokół.
 - [x] Galaxy S21 Ultra instaluje to samo APK i przechodzi scenariusz offline.
 - [x] Aktualizacja do wyższego `versionCode` zachowuje podpis i instaluje się
   bez odinstalowania.
-- [ ] APK aktualizacyjne zawiera inny snapshot i aplikacja pokazuje nową wersję.
-- [ ] Pomiary uruchomienia, matching, Target i przewijania są zapisane.
-- [ ] Bramka G6 i końcowy protokół M1 są kompletne.
+- [ ] APK aktualizacyjne zawiera inny snapshot i aplikacja pokazuje nową wersję
+  — odroczone do M3.4 zgodnie z D-020.
+- [ ] Dokładne pomiary matching, Target i przewijania są zapisane — odroczone
+  do M3.5 zgodnie z D-020; czasy instalacji i startu M1 są zapisane.
+- [x] Bramka G6 i końcowy protokół M1 zostały zaakceptowane przez właściciela z
+  jawnymi odroczeniami D-020.
 
 ## Technical notes
 
@@ -183,9 +186,15 @@ Weryfikacja 2026-07-25:
 Historyczny artefakt `0.1.0 (1)` z payout-v1 pozostaje wyłącznie punktem
 odniesienia do testu aktualizacji i nie jest kandydatem do odbioru produktu.
 
-### Blokada
+### Odbiór końcowy
 
-Aktualny APK jest zainstalowany i przeszedł scenariusze manualne offline na
-Samsungu i Pixelu. Nadal pozostają: ścisłe potwierdzenie `Airplane mode` na
-Samsungu, zapis brakujących pomiarów liczbowych oraz aktualizacja do
-kontrolowanie zmienionego snapshotu. TASK-0014, M1.6 i G6 pozostają otwarte.
+Właściciel potwierdził, że aktualny APK działa zgodnie z planem i nie ujawnił
+błędów podczas scenariuszy manualnych offline na Samsungu i Pixelu. Aktualizacja
+in-place została zainstalowana bez odinstalowania aplikacji. Dla Samsunga
+wyłączone Wi-Fi i brak karty SIM zostały zaakceptowane jako wystarczający dowód
+offline M1 mimo braku osobnego odczytu ustawienia `Airplane mode`.
+
+G6 i M1 zostały zaakceptowane 2026-07-26. Próba aktualizacji z celowo zmienionym
+snapshotem oraz dokładne pomiary matching, Target i przewijania nie są
+oznaczone jako wykonane; zgodnie z D-020 należą do odbioru rzeczywistego
+pipeline’u wydań w M3.4–M3.5.

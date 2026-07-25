@@ -78,8 +78,9 @@ React Native dependencies when the repository itself has a longer path.
 
 The physical Pixel and Galaxy installation, offline and update procedure is
 defined in
-[`M1_DEVICE_ACCEPTANCE.md`](ai_docs/quality/M1_DEVICE_ACCEPTANCE.md). It must be
-performed with a connected device before the M1.6 gate can be closed.
+[`M1_DEVICE_ACCEPTANCE.md`](ai_docs/quality/M1_DEVICE_ACCEPTANCE.md). M1.6 was
+accepted on 2026-07-26; the changed-snapshot update check and detailed device
+measurements are explicitly deferred to M3 under D-020.
 
 The mobile application never downloads its domain data. The snapshot generator
 places a versioned SQLite asset and manifest directly in the application source,

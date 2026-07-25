@@ -1,7 +1,7 @@
 ---
 title: Accepted technology stack
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Stos technologiczny
@@ -182,8 +182,9 @@ npm run android:verify:offline
 
 Build debug wymaga Metro. Build offline zawiera bundle JavaScript i snapshot
 SQLite. Pipeline M1.6 obsługuje trwały prywatny klucz release poza Git,
-wersjonowanie APK oraz statyczną blokadę uprawnienia `INTERNET`; odbiór nowego
-APK z payout-v2 na urządzeniach pozostaje otwarty w TASK-0014.
+wersjonowanie APK oraz statyczną blokadę uprawnienia `INTERNET`. APK z payout-v2
+został odebrany na obu urządzeniach w TASK-0014; test celowo zmienionego
+snapshotu i dokładne pomiary należą do M3 zgodnie z D-020.
 
 ## Image ingestion
 

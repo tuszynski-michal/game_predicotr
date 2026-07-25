@@ -1,7 +1,7 @@
 ---
 title: Milestone 03 execution plan
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Plan wykonania Milestone 03 — Versioned mobile release pipeline
@@ -126,7 +126,11 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 - workflow payout → snapshot → verify → Android build → verify,
 - status `ready` dopiero po pełnym sukcesie,
 - checksum SQLite i APK,
-- panel tworzenia wydania oraz otwarcia katalogu artefaktów.
+- panel tworzenia wydania oraz otwarcia katalogu artefaktów,
+- fizyczny test aktualizacji bez odinstalowania do APK z celowo zmienioną
+  `releaseVersion` i checksumą snapshotu,
+- potwierdzenie w aplikacji, że aktywowano nowy snapshot zamiast lokalnej kopii
+  poprzedniego wydania.
 
 ### Zadania
 
@@ -142,7 +146,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 - nieudany etap nie daje statusu `ready`,
 - gotowe APK zawiera dokładnie snapshot z manifestu release,
 - poprzednie wydanie i jego checksumy pozostają dostępne,
-- API zwraca lokalne ścieżki, ale nie instaluje APK na urządzeniu.
+- API zwraca lokalne ścieżki, ale nie instaluje APK na urządzeniu,
+- ręczny sideload na urządzeniu aktualizuje istniejącą aplikację, a ekran
+  potwierdza wersję celowo zmienionego snapshotu zgodnie z D-012 i D-020.
 
 ## M3.5 — Benchmark 500 000 layoutów
 
@@ -154,6 +160,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 - exact match, prefix match, otwarcie bazy i skan `N - 1`,
 - pamięć workera i mobile,
 - zapis modelu urządzenia, Androida i konfiguracji builda,
+- dokładne czasy matching, pełnego Target i przewijania tabeli na urządzeniach,
 - decyzja o reprezentacji sygnatury i adapterze.
 
 ### Zadania

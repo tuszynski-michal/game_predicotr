@@ -1,7 +1,7 @@
 ---
 title: Milestone 02 execution plan
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Plan wykonania Milestone 02 — Admin configuration
@@ -32,6 +32,10 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M2.
 - M1 przechodzi końcową bramkę G6.
 - Kontrakty domenowe M1 są stabilne i mają golden tests.
 - PostgreSQL, FastAPI i Next.js nie zostały wcześniej dodane poza zadaniem M2.
+
+Warunki wejścia są spełnione od 2026-07-26. G6 zostało zaakceptowane przez
+właściciela z jawnym przeniesieniem pomiarów urządzeniowych i próby zmienionego
+snapshotu do M3 zgodnie z D-020.
 
 M2 nie wymaga odpowiedzi na Q-019, jeżeli panel pozostaje lokalnym narzędziem
 jednego właściciela bez finalnej warstwy autoryzacji. Decyzję bezpieczeństwa

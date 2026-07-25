@@ -1,7 +1,7 @@
 ---
 title: Milestone 01 - offline mocked mobile vertical slice
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Milestone 01 — działający offline pion mobilny na mock data
@@ -19,6 +19,13 @@ M1.1–M1.6, zależności i bramki jakości znajdują się w
 Ten dokument jest właścicielem zakresu produktu i końcowych kryteriów akceptacji
 M1. Execution Plan jest właścicielem kolejności prac i granic poszczególnych
 zadań.
+
+## Wynik
+
+M1 zostało zaakceptowane przez właściciela 2026-07-26 po testach APK offline na
+Pixel 10 Pro XL i Galaxy S21 Ultra. Jawne odroczenia dotyczące testu celowo
+zmienionego snapshotu oraz dokładnych pomiarów urządzeniowych opisuje D-020;
+zostaną wykonane w M3 na pipeline’ie danych utworzonych po M2.
 
 ## Zakres
 

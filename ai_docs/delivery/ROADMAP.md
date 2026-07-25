@@ -1,7 +1,7 @@
 ---
 title: Delivery roadmap
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Roadmap
@@ -31,6 +31,11 @@ Szczegóły: [MILESTONE_01_MOCKED_MOBILE.md](MILESTONE_01_MOCKED_MOBILE.md)
 
 Plan wykonania:
 [MILESTONE_01_EXECUTION_PLAN.md](MILESTONE_01_EXECUTION_PLAN.md)
+
+### Status
+
+Ukończony i zaakceptowany przez właściciela 2026-07-26. Test zmiany snapshotu
+oraz dokładne pomiary urządzeniowe przeniesiono do M3 zgodnie z D-020.
 
 M1 jest jednym milestone'em produktowym, ale jest realizowany przez sześć
 kolejnych, osobno odbieranych podetapów:

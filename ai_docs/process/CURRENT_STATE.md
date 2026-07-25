@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-25
+last_updated: 2026-07-26
 ---
 
 # Current State
 
 ## Phase
 
-`M1.6 — poprawiony APK i odbiór urządzeń, TASK-0014`
+`M2 ready — M1 accepted, next TASK-0015`
 
 ## Completed
 
@@ -149,6 +149,11 @@ last_updated: 2026-07-25
 - właściciel przeszedł offline na Samsungu i Pixelu scenariusze unique 99 z
   golden Target, duplicate 101/995, not found z Undo, Reset, zmianę gry oraz
   przewijanie tabeli; wszystkie zakończyły się poprawnie,
+- właściciel zaakceptował M1 i G6 2026-07-26; zgodnie z D-020 test aktywacji
+  celowo zmienionego snapshotu i dokładne pomiary urządzeniowe przeniesiono do
+  M3.4–M3.5,
+- ukończono `TASK-0014`: samodzielny APK, audyt offline, podpis, aktualizacja
+  in-place i scenariusze na Pixel 10 Pro XL oraz Galaxy S21 Ultra,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -160,15 +165,10 @@ last_updated: 2026-07-25
 
 ## In progress
 
-- Dokumentacja i implementacja `payout-v2` są zsynchronizowane z D-019.
-- `TASK-0014 — Release APK and device acceptance`: lokalny pipeline release i
-  aktualny APK `0.1.2 (3)` z `m1-fixture.2` są statycznie zweryfikowane.
-- Instalacja, start i scenariusze manualne offline przeszły na Samsungu i Pixelu.
-- Ścisłe potwierdzenie `Airplane mode` na Samsungu oraz liczbowe czasy matching,
-  Target i przewijania nie zostały zapisane.
-- Aktualizacja do kontrolowanie zmienionego snapshotu pozostaje otwarta.
+- Brak aktywnego zadania implementacyjnego.
+- M2 ma spełnione warunki wejścia; następny plik zadania to `TASK-0015`.
 
-## Open but not blocking M1
+## Open but not blocking M2
 
 - Q-015–Q-017: reprezentatywny zbiór zdjęć, stabilność ekranu i etykiety treningowe,
 - Q-019: jeden czy wielu administratorów,
@@ -219,13 +219,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Kontynuować `TASK-0014`: przeprowadzić aktualizację do kontrolowanie zmienionego
-snapshotu oraz uzupełnić brakujące potwierdzenie/pomiary protokołu. Po
-zamknięciu G6 można utworzyć `TASK-0015` i rozpocząć M2.1.
+Utworzyć `TASK-0015 — Admin platform foundations and local configuration` i
+rozpocząć M2.1.
 
 ## Do not start yet
 
-- panelu admina przed zamknięciem G6 i utworzeniem `TASK-0015`,
 - masowego przetwarzania zdjęć,
 - finalnego wyboru OCR/ML,
 - Celery/Redis, mikroserwisów i chmury,
@@ -247,8 +245,9 @@ z payout-v2 zawiera standalone bundle oraz SQLite `m1-fixture.2` o checksumie
 zgodnej z manifestem i nie deklaruje uprawnienia `INTERNET`. Aktualizacja
 in-place na Galaxy S21 Ultra oraz instalacja w ścisłym trybie offline na Pixel
 10 Pro XL przeszły. Pełne scenariusze domenowe zostały następnie zaliczone
-offline na obu urządzeniach. Następny krok to kontrolowana aktualizacja do
-zmienionego snapshotu i domknięcie protokołu G6.
+offline na obu urządzeniach. Właściciel zaakceptował M1; kontrolowana
+aktualizacja do zmienionego snapshotu i dokładne pomiary są jawnym zakresem
+M3.4–M3.5 zgodnie z D-020.
 
 Benchmark M1 dla 1000 layoutów znajduje się w
 `ai_docs/quality/m1-repository-benchmark.json`. Benchmark 500 000 layoutów na

@@ -1,7 +1,7 @@
 ---
 title: Milestone 01 execution plan
 status: accepted
-last_updated: 2026-07-25
+last_updated: 2026-07-26
 ---
 
 # Plan wykonania Milestone 01
@@ -338,15 +338,17 @@ aktywuje nowy dataset.
 - wynik jakości i ograniczenia są zapisane,
 - dokumentacja uruchomienia jest kompletna.
 
-**Status G6:** techniczna część pipeline’u lokalnego zaliczona 2026-07-25.
+**Status G6:** zaakceptowana 2026-07-26.
 Prywatnie podpisany APK `0.1.2 (3)` z payout-v2 i `m1-fixture.2` przeszedł pełną
 bramkę jakości oraz statyczny audyt pakietu. Aktualizacja in-place na Galaxy S21
 Ultra przeszła, a wykryty zatrzymany loader został naprawiony i zabezpieczony
 testem. Automatyczna instalacja i start na Pixel 10 Pro XL w ścisłym
 `Airplane mode` również przeszły. Właściciel zaliczył pełne scenariusze manualne
-offline na obu urządzeniach. Pełna brama pozostaje otwarta: ścisły
-`Airplane mode` na Samsungu, brakujące pomiary liczbowe i aktualizacja do innego
-snapshotu są pending.
+offline na obu urządzeniach i zaakceptował brak wykrytych błędów jako wynik M1.
+Wi-Fi off bez karty SIM na Samsungu został zaakceptowany jako dowód offline.
+Zgodnie z D-020 test celowo zmienionego snapshotu oraz dokładne pomiary
+matching/Target/przewijania przeniesiono do M3.4–M3.5 i nie są oznaczone jako
+wykonane w M1.
 
 ## Mapa planowanych zadań
 
@@ -386,6 +388,4 @@ Scope.
 
 ## Następny krok
 
-Kontynuować TASK-0014: wykonać aktualizację do innego snapshotu i domknąć
-brakujące potwierdzenie/pomiary protokołu. Dopiero zamknięta bramka G6 pozwala
-rozpocząć M2.
+M1 i TASK-0014 są zakończone. Utworzyć `TASK-0015` i rozpocząć M2.1.

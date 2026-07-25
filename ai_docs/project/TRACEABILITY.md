@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Mapa śledzenia wymagań
@@ -11,7 +11,7 @@ last_updated: 2026-07-24
 | Android całkowicie offline | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md` | M1 |
 | Brak uprawnienia `INTERNET` w finalnym APK | `requirements/MOBILE_APP.md` | M1.6 |
 | Prywatny APK na 3–5 urządzeń | `requirements/MOBILE_APP.md` | M1, M8 |
-| Nowy APK aktywuje właściwy snapshot | `requirements/MOBILE_APP.md`, D-012 | M1.1, M1.6 |
+| Nowy APK aktywuje właściwy snapshot | `requirements/MOBILE_APP.md`, D-012, D-020 | M1.1, M3.4 |
 | Header: game, undo, reset | `requirements/MOBILE_APP.md` | M1 |
 | Plansza 3 × 5 i row-major | `requirements/MOBILE_APP.md` | M1 |
 | Selection 10–12 symboli | `requirements/MOBILE_APP.md` | M1 |

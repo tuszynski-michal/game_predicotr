@@ -1,7 +1,7 @@
 ---
 title: M1 Android device acceptance protocol
 status: active
-last_updated: 2026-07-25
+last_updated: 2026-07-26
 ---
 
 # M1 Android device acceptance
@@ -146,14 +146,22 @@ Po aktualizacji ekran musi pokazać nową wersję snapshotu. Samo podniesienie
 | Identyfikacja modelu i wersji Android | passed: Pixel 10 Pro XL, Android 16 | passed: SM-G998B, Android 15 |
 | Instalacja poprawionego APK | passed: initial 0.1.2 | passed: update 0.1.1 → 0.1.2 |
 | Start bez Metro | passed: 1,1 s | passed: 0,74 s |
-| Tryb samolotowy | passed | exception: Wi-Fi off, no SIM; strict check pending |
+| Tryb samolotowy | passed | owner accepted offline proof: Wi-Fi off, no SIM |
 | Unique 99 i przeliczony golden Target | passed offline | passed offline |
 | Duplicate 101/995 | passed offline | passed offline |
 | Not found i Undo | passed offline | passed offline |
 | Reset i zmiana gry | passed offline | passed offline |
 | Płynność tabeli | passed offline; czas niezmierzony | passed offline; czas niezmierzony |
-| Aktualizacja poprawionego snapshotu | pending | partial: signing/version passed; changed snapshot pending |
+| Aktualizacja poprawionego snapshotu | deferred to M3.4 | update in-place passed; changed snapshot deferred to M3.4 |
 
 Wynik scenariuszy manualnych został potwierdzony przez właściciela 2026-07-25.
 Nie podano liczbowych czasów matching, Target ani przewijania; nie należy ich
-estymować. Test aktualizacji do zmienionego snapshotu pozostaje otwarty.
+estymować.
+
+## Wynik końcowy
+
+Właściciel zaakceptował G6 i M1 2026-07-26, ponieważ aplikacja działała zgodnie
+z planem offline na obu urządzeniach, a aktualizacja in-place została poprawnie
+zainstalowana. Zgodnie z D-020 celowo zmieniony snapshot oraz dokładne pomiary
+urządzeniowe zostaną zweryfikowane po M2 w M3, na rzeczywistym pipeline’ie
+wersjonowanych wydań. Te dwa punkty pozostają jawnie niewykonane w M1.

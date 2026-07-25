@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Decision Log
@@ -328,6 +328,27 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   przed zamknięciem G2–G6.
 - **Supersedes:** część D-016 dotyczącą semantyki payout-v1 i granicy pięciu
   kolumn; strukturalny audit z D-016 pozostaje obowiązujący.
+
+## D-020 — M1 acceptance and deferred release revalidation
+
+- **Status:** accepted
+- **Date:** 2026-07-26
+- **Decision:** M1 i bramka G6 zostają zaakceptowane na podstawie statycznie
+  zweryfikowanego APK, instalacji/aktualizacji in-place oraz zakończonych
+  scenariuszy manualnych offline na Pixel 10 Pro XL i Galaxy S21 Ultra. Test
+  aktywacji celowo zmienionego snapshotu oraz dokładne pomiary matching, Target
+  i przewijania zostają przeniesione do M3.4–M3.5.
+- **Context:** właściciel potwierdził, że aplikacja działa zgodnie z planem i nie
+  widzi błędów. Dokładniejsze testy mają większą wartość po M2, gdy panel tworzy
+  rzeczywiste wersjonowane dane, a M3 buduje z nich snapshot i APK.
+- **Reason:** nie blokować M2 testem na kolejnym tymczasowym fixture, zachowując
+  jednocześnie jawny obowiązek weryfikacji mechanizmu D-012 na właściwym
+  pipeline’ie wydania.
+- **Consequences:** niewykonane punkty nie mogą być raportowane jako zaliczone w
+  M1. G3.4 wymaga fizycznej aktualizacji do zmienionego snapshotu, a G3 wymaga
+  pełnych pomiarów urządzeniowych. Dowodem offline Samsunga w M1 pozostają
+  wyłączone Wi-Fi, brak karty SIM i zaliczone scenariusze zaakceptowane przez
+  właściciela.
 
 ## Szablon nowej decyzji
 

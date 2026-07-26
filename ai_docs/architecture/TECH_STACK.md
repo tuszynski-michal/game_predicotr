@@ -83,6 +83,11 @@ Natywny moduł lub inny adapter obliczeń jest dopuszczalny dopiero, gdy pomiary
 
 ### Next.js + TypeScript strict
 
+- Next.js `16.2.11` z App Router,
+- React i React DOM `19.2.3`,
+- TypeScript `6.0.3` z `strict: true`,
+- `@hey-api/openapi-ts 0.99.0` dla generowanego klienta Fetch zgodnego z
+  OpenAPI backendu,
 - lokalna aplikacja webowa na Windows,
 - komunikacja wyłącznie z lokalnym Admin API,
 - formularze gier, symboli, paylines i payoutów,
@@ -91,14 +96,27 @@ Natywny moduł lub inny adapter obliczeń jest dopuszczalny dopiero, gdy pomiary
 
 Biblioteka komponentów formularzy może zostać wybrana podczas pionu admina. Nie jest częścią kontraktu architektonicznego, dopóki nie powstanie prototyp edytora payline.
 
+Wygenerowany klient znajduje się w osobnym workspace
+`@game-predictor/admin-api-client`. Generator ma przypiętą wersję i jawne
+wsparcie TypeScript 6; zapisany OpenAPI oraz wygenerowany kod są sprawdzane pod
+kątem driftu w root quality gate.
+
 ## Backend administracyjny
 
 ### Python + FastAPI
 
+- FastAPI `0.139.2`,
+- Uvicorn `0.51.0`,
+- HTTPX2 `2.7.0` wyłącznie jako transport TestClient,
 - obsługa wyłącznie panelu i lokalnych procesów administracyjnych,
 - OpenAPI jako źródło typów klienta admin,
 - brak endpointów wymaganych przez mobile,
 - logika domenowa oddzielona od HTTP, ORM i UI.
+
+Fundament M2 domyślnie nasłuchuje wyłącznie na `127.0.0.1:8000`, a panel działa
+na `127.0.0.1:3000`. Konfiguracja hosta API, origin panelu i publicznego adresu
+API panelu odrzuca adresy inne niż loopback. Ekspozycja w LAN lub Internecie nie
+jest zmianą konfiguracyjną i wymaga osobnej decyzji bezpieczeństwa.
 
 Warstwy:
 
@@ -112,8 +130,9 @@ schemas      - jawne kontrakty i serializacja
 
 Narzędzia:
 
-- SQLAlchemy 2.x,
-- Alembic — jedyny mechanizm zmian schematu PostgreSQL,
+- SQLAlchemy `2.0.51`,
+- Alembic `1.18.5` — jedyny mechanizm zmian schematu PostgreSQL,
+- Psycopg `3.3.4` z lokalnym pakietem binary,
 - Pydantic,
 - Python 3.12 i projektowe `.venv`,
 - pytest 8,
@@ -122,7 +141,7 @@ Narzędzia:
 
 ## Bazy danych
 
-### PostgreSQL — kanoniczne źródło prawdy
+### PostgreSQL 18.4 — kanoniczne źródło prawdy
 
 PostgreSQL przechowuje:
 
@@ -132,7 +151,14 @@ PostgreSQL przechowuje:
 - staging, zadania i manual review,
 - metadane wydań.
 
-Jest uruchamiany lokalnie przez Docker Compose. Admin API i worker mogą korzystać z niego równolegle.
+Jest uruchamiany lokalnie z przypiętego obrazu
+`postgres:18.4-alpine3.24` przez Docker Compose. Port hosta jest wiązany tylko z
+`127.0.0.1`, a trwały volume PostgreSQL 18 jest montowany w
+`/var/lib/postgresql`. Admin API i worker mogą korzystać z niego równolegle.
+
+Pierwsza migracja `0001_empty_baseline` celowo nie tworzy tabel domenowych.
+Ustanawia wyłącznie historię Alembic, aby każda późniejsza tabela powstała razem
+z odpowiadającym jej pionem funkcjonalnym i testem rollbacku.
 
 ### SQLite — niezmienny snapshot mobile
 

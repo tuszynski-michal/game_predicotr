@@ -28,5 +28,8 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0012 — Full-cycle Target integration](0012-full-cycle-target-integration.md)
 - [TASK-0013 — Virtualized result table](0013-virtualized-result-table-calculation-state.md)
 - [TASK-0014 — Release APK and device acceptance](0014-release-apk-device-acceptance.md)
+- [TASK-0015 — Admin platform foundations and local configuration](0015-admin-platform-foundations-local-configuration.md)
+- [TASK-0016 — PostgreSQL Compose and Alembic baseline](0016-postgresql-compose-alembic-baseline.md)
+- [TASK-0017 — OpenAPI contract and generated admin client](0017-openapi-contract-generated-admin-client.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

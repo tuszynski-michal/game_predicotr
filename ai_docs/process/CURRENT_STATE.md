@@ -8,7 +8,7 @@ last_updated: 2026-07-26
 
 ## Phase
 
-`M2 ready — M1 accepted, next TASK-0015`
+`M2.1 ukończone — bramka G2.1 zaliczona`
 
 ## Completed
 
@@ -154,6 +154,32 @@ last_updated: 2026-07-26
   M3.4–M3.5,
 - ukończono `TASK-0014`: samodzielny APK, audyt offline, podpis, aktualizacja
   in-place i scenariusze na Pixel 10 Pro XL oraz Galaxy S21 Ultra,
+- ukończono `TASK-0015`: lokalny Next.js `apps/admin`, FastAPI `services/api`,
+  walidowaną konfigurację loopback, endpoint `/api/v1/health`, testy i komendy
+  Windows; panel produkcyjny odpowiada HTTP 200, a API `ok / 0.1.0`,
+- zaakceptowano D-021 definiującą przypięty baseline M2 i zakaz przypadkowego
+  wystawienia panelu/API poza loopback,
+- zaimplementowano techniczną część `TASK-0016`: PostgreSQL
+  `18.4-alpine3.24`, loopback Compose, trwały volume, SQLAlchemy/Psycopg,
+  walidowany URL oraz pusty baseline Alembic `0001_empty_baseline`,
+- statyczne testy TASK-0016 potwierdzają jeden head, SQL upgrade/downgrade,
+  brak tabel domenowych i izolację bazy `game_predictor_baseline_test`; pełne
+  `npm run quality` przechodzi z 71 testami Python i jednym jawnym skipem
+  wymagającym Docker Desktop,
+- zaakceptowano D-022 definiującą lokalny PostgreSQL i cykl migracji,
+- ukończono `TASK-0016`: Docker Desktop/WSL uruchamia przypięty PostgreSQL
+  18.4, kontener osiąga stan `Healthy`, a izolowany fizyczny test
+  `upgrade → downgrade → upgrade` przechodzi bez dotykania bazy
+  deweloperskiej ani usuwania trwałego volume,
+- ukończono `TASK-0017`: FastAPI jest kanonicznym źródłem OpenAPI 3.1,
+  deterministyczny artefakt generuje typowany klient Fetch dla panelu, a
+  kontrola driftu kontraktu i kodu jest częścią `npm run quality`,
+- zaakceptowano D-023 definiującą `@hey-api/openapi-ts 0.99.0`, brak ręcznie
+  utrzymywanych typów odpowiedzi oraz wyłączenie aplikacji mobilnej z klienta
+  Admin API,
+- zaliczono bramkę G2.1: lokalne fundamenty Next.js, FastAPI, PostgreSQL,
+  Alembic i generowanego kontraktu przeszły pełną bramkę jakości oraz
+  produkcyjny build panelu,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -165,8 +191,7 @@ last_updated: 2026-07-26
 
 ## In progress
 
-- Brak aktywnego zadania implementacyjnego.
-- M2 ma spełnione warunki wejścia; następny plik zadania to `TASK-0015`.
+- Brak aktywnego zadania; M2.2 oczekuje na polecenie właściciela.
 
 ## Open but not blocking M2
 
@@ -219,8 +244,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Utworzyć `TASK-0015 — Admin platform foundations and local configuration` i
-rozpocząć M2.1.
+Po poleceniu właściciela rozpocząć TASK-0018 — domenę, repozytoria i API gier
+oraz symboli.
 
 ## Do not start yet
 

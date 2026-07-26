@@ -350,6 +350,68 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   wyłączone Wi-Fi, brak karty SIM i zaliczone scenariusze zaakceptowane przez
   właściciela.
 
+## D-021 — M2 local platform baseline and loopback boundary
+
+- **Status:** accepted
+- **Date:** 2026-07-26
+- **Decision:** fundament M2 używa Next.js `16.2.11`, React `19.2.3` i
+  TypeScript `6.0.3` dla `apps/admin` oraz FastAPI `0.139.2`, Uvicorn `0.51.0`
+  i Python 3.12 dla `services/api`. Panel i API domyślnie wiążą się z
+  `127.0.0.1`; konfiguracja odrzuca hosty i originy inne niż loopback.
+- **Context:** D-003 i D-004 wybrały Next.js oraz FastAPI, ale przed M2 nie
+  istniał uruchamialny baseline ani egzekwowana granica sieciowa lokalnego
+  narzędzia.
+- **Reason:** przypięte, wzajemnie zgodne wersje dają odtwarzalny fundament na
+  Windows, a walidacja loopback zapobiega przypadkowemu wystawieniu
+  niechronionego panelu administracyjnego w LAN lub Internecie.
+- **Consequences:** major upgrade fundamentu wymaga osobnego zadania
+  kompatybilności. Publiczny albo sieciowy dostęp nie może zostać włączony samą
+  zmianą `.env`; wymaga decyzji bezpieczeństwa. PostgreSQL, Alembic, CRUD i
+  klient OpenAPI pozostają zakresem TASK-0016–TASK-0017.
+
+## D-022 — Local PostgreSQL and migration lifecycle
+
+- **Status:** accepted
+- **Date:** 2026-07-26
+- **Decision:** kanoniczna baza M2 używa lokalnego PostgreSQL `18.4` z obrazu
+  `postgres:18.4-alpine3.24`, SQLAlchemy `2.0.51`, Psycopg `3.3.4` i Alembic
+  `1.18.5`. Port Compose jest wiązany wyłącznie z loopback, dane są trwałe w
+  nazwanym volume, a pierwsza migracja `0001_empty_baseline` nie zawiera tabel
+  domenowych.
+- **Context:** TASK-0015 przygotował API i panel, lecz brakowało kanonicznej bazy
+  i kontrolowanego punktu początkowego dla kolejnych pionów M2.
+- **Reason:** przypięte wersje i pusty baseline dają odtwarzalny punkt startowy,
+  nie utrwalając przedwcześnie szczegółów tabel przed implementacją ich reguł
+  integralności.
+- **Alternatives:** PostgreSQL instalowany globalnie, SQLite jako baza panelu,
+  automatyczne `create_all`, baseline tworzący cały docelowy model.
+- **Consequences:** każda zmiana schematu wymaga odwracalnej migracji Alembic.
+  Test migracji zarządza wyłącznie bazą `game_predictor_baseline_test`; baza
+  deweloperska i nazwany volume nie są automatycznie usuwane. Docker Desktop z
+  kontenerami Linux jest lokalnym wymaganiem uruchomieniowym panelu od M2.
+
+## D-023 — Generated Admin API client and drift gate
+
+- **Status:** accepted
+- **Date:** 2026-07-26
+- **Decision:** FastAPI OpenAPI 3.1 jest jedynym źródłem typów HTTP panelu.
+  Deterministyczny JSON oraz klient Fetch są generowane w prywatnym workspace
+  `@game-predictor/admin-api-client` przez przypięty
+  `@hey-api/openapi-ts 0.99.0`. Root quality gate odrzuca drift backendu,
+  artefaktu OpenAPI i wygenerowanego klienta.
+- **Context:** przed CRUD M2 panel potrzebuje typowanego kontraktu, który nie
+  może rozchodzić się z modelami FastAPI.
+- **Reason:** generowanie z działającej aplikacji nie wymaga serwera HTTP ani
+  kopiowania modeli, a osobny workspace uniemożliwia przypadkowe dołączenie
+  klienta administracyjnego do mobile.
+- **Alternatives:** ręczne interfejsy TypeScript, generowanie z działającego
+  localhost, `openapi-typescript 7.13.0` z wymuszeniem niezgodnego peer
+  dependency TypeScript 5.x.
+- **Consequences:** każda operacja API ma stabilny `operationId`; zmiana
+  response/error schema wymaga `npm run openapi:generate`. Wygenerowany katalog
+  nie jest edytowany ręcznie. Generator pozostaje przypięty, ponieważ seria
+  `0.x` może zawierać breaking changes.
+
 ## Szablon nowej decyzji
 
 ```text

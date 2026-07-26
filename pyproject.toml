@@ -3,34 +3,38 @@ requires = ["setuptools==80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "game-predictor-worker"
+name = "game-predictor-local-services"
 version = "0.1.0"
-description = "Local snapshot tooling for Game Predictor"
+description = "Local administrative API and snapshot tooling for Game Predictor"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+  "alembic==1.18.5",
+  "fastapi==0.139.2",
+  "psycopg[binary]==3.3.4",
+  "SQLAlchemy==2.0.51",
+  "uvicorn==0.51.0",
+]
 
 [project.optional-dependencies]
 dev = [
+  "httpx2==2.7.0",
   "mypy==1.17.1",
   "pytest==8.4.2",
   "ruff==0.12.12",
 ]
 
-[tool.setuptools]
-package-dir = {"" = "services/worker/src"}
-
 [tool.setuptools.packages.find]
-where = ["services/worker/src"]
+where = ["services/api/src", "services/worker/src"]
 
 [tool.pytest.ini_options]
 addopts = "-ra -p no:cacheprovider"
-pythonpath = ["services/worker/src"]
-testpaths = ["services/worker/tests"]
+pythonpath = ["services/api/src", "services/worker/src"]
+testpaths = ["services/api/tests", "services/worker/tests"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-mypy_path = "services/worker/src"
+mypy_path = "services/api/src;services/worker/src"
 
 [tool.ruff]
 line-length = 100

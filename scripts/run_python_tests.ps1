@@ -14,7 +14,7 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
 }
 
 try {
-    & $pythonPath -m pytest services/worker/tests "--basetemp=$pytestTempPath"
+    & $pythonPath -m pytest services/api/tests services/worker/tests "--basetemp=$pytestTempPath"
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

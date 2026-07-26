@@ -64,8 +64,11 @@ zamyka M8.
 ### Zadania
 
 - `TASK-0015 — Admin platform foundations and local configuration`
+  — ukończone 2026-07-26
 - `TASK-0016 — PostgreSQL Compose and Alembic baseline`
+  — ukończone 2026-07-26
 - `TASK-0017 — OpenAPI contract and generated admin client`
+  — ukończone 2026-07-26
 
 `TASK-0015` tworzy oba szkielety aplikacyjne: `services/api` dla FastAPI oraz
 `apps/admin` dla Next.js. Nie dodaje jeszcze CRUD domenowego. `TASK-0016`
@@ -82,6 +85,10 @@ migracje. `TASK-0017` zamyka kontrakt OpenAPI oraz generowanie klienta panelu.
 - OpenAPI generuje klienta TypeScript bez ręcznie skopiowanych typów,
 - mobile nie otrzymuje zależności od API ani PostgreSQL,
 - format, lint, typecheck i testy obu ekosystemów przechodzą.
+
+Bramka G2.1 została zaliczona 2026-07-26. Fizyczny PostgreSQL przeszedł
+odwracalny cykl migracji, kontrakt OpenAPI i klient nie wykazują driftu, pełne
+`npm run quality` przechodzi, a produkcyjny build panelu został zweryfikowany.
 
 ## M2.2 — Gry i symbole
 

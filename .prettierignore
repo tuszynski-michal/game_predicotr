@@ -6,4 +6,5 @@ apps/mobile/assets/
 coverage/
 node_modules/
 package-lock.json
+packages/admin-api-client/openapi/openapi.json
 *.db

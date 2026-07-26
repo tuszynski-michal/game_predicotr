@@ -332,3 +332,23 @@ Nie występują pola `limit`, `firstPositive`, `highWaterMarks` ani `stopReason`
 - Mobile nie współdzieli ręcznie skopiowanych typów odpowiedzi Admin API.
 - Zmiana schematu PostgreSQL odbywa się tylko przez migrację Alembic.
 - Zmiana schematu snapshotu zwiększa `snapshot_schema_version` i wymaga testu kompatybilności mobile.
+
+## Generowany klient panelu
+
+Backend FastAPI jest jedynym źródłem kontraktu HTTP. Deterministyczny eksport
+OpenAPI 3.1 znajduje się w
+`packages/admin-api-client/openapi/openapi.json`, a klient Fetch i typy
+TypeScript są generowane do `packages/admin-api-client/src/generated/`.
+
+Każda operacja ma stabilny `operationId`. Panel importuje prywatny workspace
+`@game-predictor/admin-api-client` i nie deklaruje ręcznie typów odpowiedzi.
+Kontrola jakości porównuje jednocześnie aktualny OpenAPI backendu, zapisany JSON
+i ponownie wygenerowany kod:
+
+```powershell
+npm run openapi:generate
+npm run openapi:check
+```
+
+Generowanie nie wymaga uruchomionego API ani połączenia sieciowego. Klient
+pozostaje wyłącznie zależnością panelu; mobile nie importuje tego workspace.

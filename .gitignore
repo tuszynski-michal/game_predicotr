@@ -1,6 +1,7 @@
 # JavaScript
 node_modules/
 .expo/
+.next/
 dist/
 coverage/
 

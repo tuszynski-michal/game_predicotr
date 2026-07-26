@@ -13,7 +13,7 @@ export {
   type Options,
   updateGame,
   updateSymbol,
-} from './sdk.gen.js';
+} from './sdk.gen';
 export type {
   ArchiveGameData,
   ArchiveGameError,
@@ -77,4 +77,4 @@ export type {
   UpdateSymbolErrors,
   UpdateSymbolResponse,
   UpdateSymbolResponses,
-} from './types.gen.js';
+} from './types.gen';

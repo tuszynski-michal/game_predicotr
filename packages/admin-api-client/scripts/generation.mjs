@@ -22,9 +22,6 @@ export async function generateAdminApiClient(outputPath) {
   await createClient({
     input: schemaPath,
     output: {
-      module: {
-        extension: '.js',
-      },
       path: outputPath,
       tsConfigPath,
     },

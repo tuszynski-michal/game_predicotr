@@ -1,0 +1,54 @@
+import type { ReactNode } from 'react';
+
+interface AdminShellProps {
+  readonly apiBaseUrl: string;
+  readonly children: ReactNode;
+}
+
+export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
+  return (
+    <main className="adminShell">
+      <aside className="sidebar" aria-label="Nawigacja panelu">
+        <div className="brand">
+          <span className="brandMark" aria-hidden="true">
+            GP
+          </span>
+          <div>
+            <strong>Game Predictor</strong>
+            <span>Local Admin</span>
+          </div>
+        </div>
+
+        <nav aria-label="Sekcje konfiguracji">
+          <a
+            aria-current="page"
+            className="navItem navItemActive"
+            href="#games"
+          >
+            <span aria-hidden="true">01</span>
+            Gry
+          </a>
+          <span aria-disabled="true" className="navItem navItemDisabled">
+            <span aria-hidden="true">02</span>
+            Symbole
+          </span>
+          <span aria-disabled="true" className="navItem navItemDisabled">
+            <span aria-hidden="true">03</span>
+            Reguły i wypłaty
+          </span>
+          <span aria-disabled="true" className="navItem navItemDisabled">
+            <span aria-hidden="true">04</span>
+            Datasety
+          </span>
+        </nav>
+
+        <div className="sidebarFooter">
+          <p className="localOnly">Działa wyłącznie lokalnie</p>
+          <code title={apiBaseUrl}>{apiBaseUrl}</code>
+        </div>
+      </aside>
+
+      <section className="content">{children}</section>
+    </main>
+  );
+}

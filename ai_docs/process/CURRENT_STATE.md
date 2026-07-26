@@ -8,7 +8,7 @@ last_updated: 2026-07-26
 
 ## Phase
 
-`M2.2 — backend gier i symboli ukończony`
+`M2.2 — Admin shell and games identity UI, TASK-0019`
 
 ## Completed
 
@@ -198,7 +198,7 @@ last_updated: 2026-07-26
 
 ## In progress
 
-- Brak aktywnego zadania; frontend M2.2 oczekuje na polecenie właściciela.
+- `TASK-0019 — Admin shell and games identity UI`.
 
 ## Open but not blocking M2
 
@@ -251,8 +251,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po poleceniu właściciela rozpocząć TASK-0019 — Admin shell and games identity
-UI.
+Ukończyć TASK-0019, a po jego bramce i poleceniu właściciela rozpocząć
+TASK-0020.
 
 ## Do not start yet
 

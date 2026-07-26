@@ -8,7 +8,7 @@ last_updated: 2026-07-26
 
 ## Phase
 
-`M2.1 ukończone — bramka G2.1 zaliczona`
+`M2.2 — backend gier i symboli ukończony`
 
 ## Completed
 
@@ -180,6 +180,13 @@ last_updated: 2026-07-26
 - zaliczono bramkę G2.1: lokalne fundamenty Next.js, FastAPI, PostgreSQL,
   Alembic i generowanego kontraktu przeszły pełną bramkę jakości oraz
   produkcyjny build panelu,
+- ukończono `TASK-0018`: domena, repozytorium i Admin API udostępniają CRUD gier
+  i symboli, a migracja `0002_games_symbols` chroni stabilne kody, zakres
+  `mobile_code`, relację symbol–gra i unikalność w PostgreSQL,
+- wygenerowany klient panelu zawiera typowane operacje gier i symboli, a fizyczne
+  testy PostgreSQL zaliczyły migracje, repozytorium i konflikty constraints,
+- zaakceptowano D-024: stabilne kody są nieedytowalne, a publiczne `DELETE`
+  zawsze oznacza archiwizację bez fizycznego usuwania,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -191,7 +198,7 @@ last_updated: 2026-07-26
 
 ## In progress
 
-- Brak aktywnego zadania; M2.2 oczekuje na polecenie właściciela.
+- Brak aktywnego zadania; frontend M2.2 oczekuje na polecenie właściciela.
 
 ## Open but not blocking M2
 
@@ -244,8 +251,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po poleceniu właściciela rozpocząć TASK-0018 — domenę, repozytoria i API gier
-oraz symboli.
+Po poleceniu właściciela rozpocząć TASK-0019 — Admin shell and games identity
+UI.
 
 ## Do not start yet
 

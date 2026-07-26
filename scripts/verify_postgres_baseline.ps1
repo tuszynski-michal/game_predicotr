@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $composePath = Join-Path $repositoryRoot 'infra\docker\compose.yaml'
 $pythonPath = Join-Path $repositoryRoot '.venv\Scripts\python.exe'
-$integrationTestPath = Join-Path $repositoryRoot 'services\api\tests\integration\test_postgres_baseline.py'
+$integrationTestPath = Join-Path $repositoryRoot 'services\api\tests\integration'
 $dockerDesktopUserPath = Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe'
 $dockerDesktopPath = 'C:\Program Files\Docker\Docker\resources\bin\docker.exe'
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue

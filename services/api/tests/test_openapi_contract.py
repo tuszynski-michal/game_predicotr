@@ -32,3 +32,44 @@ def test_health_openapi_contract_is_stable_and_complete() -> None:
         "const": "ok",
         "title": "Status",
     }
+
+
+def test_catalog_openapi_exposes_stable_operations_and_error_schema() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+
+    expected_operations = {
+        ("/api/v1/admin/games", "get"): "listGames",
+        ("/api/v1/admin/games", "post"): "createGame",
+        ("/api/v1/admin/games/{game_id}", "get"): "getGame",
+        ("/api/v1/admin/games/{game_id}", "patch"): "updateGame",
+        ("/api/v1/admin/games/{game_id}", "delete"): "archiveGame",
+        ("/api/v1/admin/games/{game_id}/symbols", "get"): "listSymbols",
+        ("/api/v1/admin/games/{game_id}/symbols", "post"): "createSymbol",
+        (
+            "/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            "get",
+        ): "getSymbol",
+        (
+            "/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            "patch",
+        ): "updateSymbol",
+        (
+            "/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            "delete",
+        ): "archiveSymbol",
+    }
+
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["catalog"]
+
+    error_schema = schema["components"]["schemas"]["ErrorResponse"]
+    assert error_schema["additionalProperties"] is False
+    assert error_schema["required"] == ["code", "message", "details"]
+    assert (
+        schema["paths"]["/api/v1/admin/games"]["post"]["responses"]["409"][
+            "content"
+        ]["application/json"]["schema"]
+        == {"$ref": "#/components/schemas/ErrorResponse"}
+    )

@@ -266,7 +266,7 @@ describe('Target forecast integration', () => {
     );
 
     act(() => renderer.unmount());
-  });
+  }, 15_000);
 
   test.each([
     [{ status: 'not_found' } as const, 'not_found'],

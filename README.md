@@ -63,8 +63,8 @@ npm run android:device:accept
 ## Local administration foundation
 
 TASK-0015 provides a local-only FastAPI service and Next.js panel. TASK-0016
-adds PostgreSQL 18, SQLAlchemy and an empty Alembic baseline. Domain tables and
-CRUD are intentionally introduced by later M2 tasks.
+adds PostgreSQL 18, SQLAlchemy and an empty Alembic baseline. TASK-0018 adds the
+first canonical domain tables and API operations for games and symbols.
 
 Start Docker Desktop first. The defaults work without environment variables.
 From the repository root, initialize PostgreSQL and its migration history:
@@ -87,8 +87,8 @@ npm run db:baseline:verify
 ```
 
 This command starts PostgreSQL if needed and recreates only the dedicated
-`game_predictor_baseline_test` database. It never drops the development database
-`game_predictor`.
+`game_predictor_baseline_test` and `game_predictor_catalog_test` databases. It
+never drops the development database `game_predictor`.
 
 To run the full local platform, open two PowerShell terminals after migrating.
 
@@ -107,6 +107,9 @@ npm run admin:dev
 The panel is available at `http://127.0.0.1:3000`. The health endpoint is
 `http://127.0.0.1:8000/api/v1/health`, and generated FastAPI documentation is
 available locally at `http://127.0.0.1:8000/docs`.
+
+Game and symbol operations use the `/api/v1/admin/games` resource. `DELETE`
+archives a record and never physically removes it.
 
 Configuration names and safe loopback defaults are documented in
 `.env.example`. Override them in the relevant PowerShell process when needed:

@@ -31,5 +31,6 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0015 — Admin platform foundations and local configuration](0015-admin-platform-foundations-local-configuration.md)
 - [TASK-0016 — PostgreSQL Compose and Alembic baseline](0016-postgresql-compose-alembic-baseline.md)
 - [TASK-0017 — OpenAPI contract and generated admin client](0017-openapi-contract-generated-admin-client.md)
+- [TASK-0018 — Games and symbols domain, repository and API](0018-games-symbols-domain-repository-api.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

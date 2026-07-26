@@ -1,14 +1,50 @@
 """FastAPI application factory for the local Admin API."""
 
-from fastapi import FastAPI
+from collections.abc import Callable, Iterator
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.config import ApiSettings, get_settings
+from game_predictor_api.domain.catalog import (
+    CatalogConflictError,
+    CatalogError,
+    CatalogNotFoundError,
+)
+from game_predictor_api.storage.catalog_repository import (
+    SqlAlchemyCatalogRepository,
+)
+from game_predictor_api.storage.database import (
+    create_database_engine,
+    create_session_factory,
+)
 
 
-def create_app(settings: ApiSettings | None = None) -> FastAPI:
+def create_app(
+    settings: ApiSettings | None = None,
+    *,
+    catalog_service_dependency: Callable[..., object] | None = None,
+) -> FastAPI:
     resolved_settings = settings or get_settings()
+    database_engine = create_database_engine(resolved_settings)
+    session_factory = create_session_factory(database_engine)
+
+    def default_catalog_service_dependency() -> Iterator[CatalogService]:
+        with session_factory() as session:
+            try:
+                yield CatalogService(SqlAlchemyCatalogRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_catalog_dependency = (
+        catalog_service_dependency or default_catalog_service_dependency
+    )
     api_host = (
         f"[{resolved_settings.host}]"
         if resolved_settings.host == "::1"
@@ -28,10 +64,55 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=[resolved_settings.admin_origin],
         allow_credentials=False,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Accept", "Content-Type"],
     )
-    application.include_router(create_api_router(resolved_settings))
+    application.state.database_engine = database_engine
+    application.include_router(
+        create_api_router(resolved_settings, resolved_catalog_dependency)
+    )
+
+    @application.exception_handler(CatalogError)
+    async def handle_catalog_error(
+        _request: Request,
+        error: CatalogError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, CatalogNotFoundError):
+            status_code = 404
+        elif isinstance(error, CatalogConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(RequestValidationError)
+    async def handle_request_validation_error(
+        _request: Request,
+        error: RequestValidationError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "code": "VALIDATION_ERROR",
+                "message": "Request data is invalid.",
+                "details": {
+                    "errors": [
+                        {
+                            "location": [str(part) for part in item["loc"]],
+                            "message": item["msg"],
+                            "type": item["type"],
+                        }
+                        for item in error.errors()
+                    ]
+                },
+            },
+        )
     return application
 
 

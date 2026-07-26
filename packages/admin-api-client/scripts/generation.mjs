@@ -1,4 +1,6 @@
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { execFile } from 'node:child_process';
 
 import { createClient } from '@hey-api/openapi-ts';
 
@@ -11,6 +13,10 @@ export const generatedDirectory = fileURLToPath(
 const tsConfigPath = fileURLToPath(
   new URL('../tsconfig.json', import.meta.url),
 );
+const prettierPath = fileURLToPath(
+  new URL('../../../node_modules/prettier/bin/prettier.cjs', import.meta.url),
+);
+const execFileAsync = promisify(execFile);
 
 export async function generateAdminApiClient(outputPath) {
   await createClient({
@@ -20,8 +26,8 @@ export async function generateAdminApiClient(outputPath) {
         extension: '.js',
       },
       path: outputPath,
-      postProcess: ['prettier'],
       tsConfigPath,
     },
   });
+  await execFileAsync(process.execPath, [prettierPath, '--write', outputPath]);
 }

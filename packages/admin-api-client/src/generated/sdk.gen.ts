@@ -8,7 +8,39 @@ import type {
   RequestResult,
   TDataShape,
 } from './client/index.js';
-import type { GetHealthData, GetHealthResponses } from './types.gen.js';
+import type {
+  ArchiveGameData,
+  ArchiveGameErrors,
+  ArchiveGameResponses,
+  ArchiveSymbolData,
+  ArchiveSymbolErrors,
+  ArchiveSymbolResponses,
+  CreateGameData,
+  CreateGameErrors,
+  CreateGameResponses,
+  CreateSymbolData,
+  CreateSymbolErrors,
+  CreateSymbolResponses,
+  GetGameData,
+  GetGameErrors,
+  GetGameResponses,
+  GetHealthData,
+  GetHealthResponses,
+  GetSymbolData,
+  GetSymbolErrors,
+  GetSymbolResponses,
+  ListGamesData,
+  ListGamesResponses,
+  ListSymbolsData,
+  ListSymbolsErrors,
+  ListSymbolsResponses,
+  UpdateGameData,
+  UpdateGameErrors,
+  UpdateGameResponses,
+  UpdateSymbolData,
+  UpdateSymbolErrors,
+  UpdateSymbolResponses,
+} from './types.gen.js';
 
 export type Options<
   TData extends TDataShape = TDataShape,
@@ -27,6 +59,151 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List games
+ */
+export const listGames = <ThrowOnError extends boolean = false>(
+  options?: Options<ListGamesData, ThrowOnError>,
+): RequestResult<ListGamesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<ListGamesResponses, unknown, ThrowOnError>({
+    url: '/api/v1/admin/games',
+    ...options,
+  });
+
+/**
+ * Create game
+ */
+export const createGame = <ThrowOnError extends boolean = false>(
+  options: Options<CreateGameData, ThrowOnError>,
+): RequestResult<CreateGameResponses, CreateGameErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CreateGameResponses,
+    CreateGameErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Archive game
+ */
+export const archiveGame = <ThrowOnError extends boolean = false>(
+  options: Options<ArchiveGameData, ThrowOnError>,
+): RequestResult<ArchiveGameResponses, ArchiveGameErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    ArchiveGameResponses,
+    ArchiveGameErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}', ...options });
+
+/**
+ * Get game
+ */
+export const getGame = <ThrowOnError extends boolean = false>(
+  options: Options<GetGameData, ThrowOnError>,
+): RequestResult<GetGameResponses, GetGameErrors, ThrowOnError> =>
+  (options.client ?? client).get<GetGameResponses, GetGameErrors, ThrowOnError>(
+    { url: '/api/v1/admin/games/{game_id}', ...options },
+  );
+
+/**
+ * Update game
+ */
+export const updateGame = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateGameData, ThrowOnError>,
+): RequestResult<UpdateGameResponses, UpdateGameErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    UpdateGameResponses,
+    UpdateGameErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List game symbols
+ */
+export const listSymbols = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolsData, ThrowOnError>,
+): RequestResult<ListSymbolsResponses, ListSymbolsErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    ListSymbolsResponses,
+    ListSymbolsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbols', ...options });
+
+/**
+ * Create game symbol
+ */
+export const createSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<CreateSymbolData, ThrowOnError>,
+): RequestResult<CreateSymbolResponses, CreateSymbolErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CreateSymbolResponses,
+    CreateSymbolErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Archive game symbol
+ */
+export const archiveSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<ArchiveSymbolData, ThrowOnError>,
+): RequestResult<ArchiveSymbolResponses, ArchiveSymbolErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    ArchiveSymbolResponses,
+    ArchiveSymbolErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}', ...options });
+
+/**
+ * Get game symbol
+ */
+export const getSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolData, ThrowOnError>,
+): RequestResult<GetSymbolResponses, GetSymbolErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetSymbolResponses,
+    GetSymbolErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}', ...options });
+
+/**
+ * Update game symbol
+ */
+export const updateSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateSymbolData, ThrowOnError>,
+): RequestResult<UpdateSymbolResponses, UpdateSymbolErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    UpdateSymbolResponses,
+    UpdateSymbolErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
 
 /**
  * Get API health

@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Model danych
@@ -45,7 +45,9 @@ Unikalność:
 Walidacja: `1 <= mobile_code <= 32767`. Wartość `0` jest zarezerwowana i nie
 jest kodem symbolu.
 
-Symbol użyty w opublikowanej wersji nie jest fizycznie usuwany. Archiwizacja nie zmienia jego historycznego kodu.
+Symbol nie jest fizycznie usuwany przez publiczne Admin API. `DELETE` oznacza
+archiwizację i nie zmienia historycznego kodu. Po dodaniu wersji reguł i
+datasetów ich klucze obce dodatkowo chronią użyte symbole.
 
 ### rules_versions
 

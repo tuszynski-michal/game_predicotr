@@ -159,6 +159,8 @@ Jest uruchamiany lokalnie z przypiętego obrazu
 Pierwsza migracja `0001_empty_baseline` celowo nie tworzy tabel domenowych.
 Ustanawia wyłącznie historię Alembic, aby każda późniejsza tabela powstała razem
 z odpowiadającym jej pionem funkcjonalnym i testem rollbacku.
+Migracja `0002_games_symbols` tworzy pierwszy pion kanoniczny wraz z enumami,
+constraints unikalności, zakresem `mobile_code` i relacją symbolu do gry.
 
 ### SQLite — niezmienny snapshot mobile
 

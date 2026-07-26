@@ -412,6 +412,25 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   nie jest edytowany ręcznie. Generator pozostaje przypięty, ponieważ seria
   `0.x` może zawierać breaking changes.
 
+## D-024 — Stable catalog identity and archive-only API deletion
+
+- **Status:** accepted
+- **Date:** 2026-07-26
+- **Decision:** `games.code`, a także para `symbols.code` i
+  `symbols.mobile_code` w obrębie gry, są stabilną tożsamością domenową i nie są
+  edytowalne po utworzeniu. Publiczne operacje `DELETE` gier i symboli mają
+  semantykę idempotentnej archiwizacji, bez fizycznego usuwania rekordu.
+- **Context:** pierwszy pion CRUD M2 musi zachować identyfikatory, które później
+  znajdą się w wersjonowanych regułach, datasetach i snapshotach mobile.
+- **Reason:** zmiana lub ponowne użycie kodu po publikacji uniemożliwiałoby
+  jednoznaczne odtworzenie historycznego wydania. Archiwizacja zapewnia jeden
+  kontrakt przed i po dodaniu zależności wersjonowanych.
+- **Alternatives:** edytowalne kody, fizyczne kasowanie rekordów nieużytych,
+  osobne endpointy kasowania i archiwizacji.
+- **Consequences:** korekta błędnego stabilnego kodu wymaga utworzenia nowego
+  rekordu i archiwizacji poprzedniego. Przyszłe klucze obce chronią historię,
+  ale publiczne API nie zmieni semantyki usuwania.
+
 ## Szablon nowej decyzji
 
 ```text

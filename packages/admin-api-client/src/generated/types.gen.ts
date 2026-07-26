@@ -5,6 +5,84 @@ export type ClientOptions = {
 };
 
 /**
+ * ErrorResponse
+ */
+export type ErrorResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Details
+   */
+  details: {
+    [key: string]: unknown;
+  };
+  /**
+   * Message
+   */
+  message: string;
+};
+
+/**
+ * GameCreate
+ */
+export type GameCreate = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Name
+   */
+  name: string;
+  status?: GameStatus;
+};
+
+/**
+ * GameResponse
+ */
+export type GameResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Name
+   */
+  name: string;
+  status: GameStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * GameStatus
+ */
+export type GameStatus = 'draft' | 'active' | 'archived';
+
+/**
+ * GameUpdate
+ */
+export type GameUpdate = {
+  /**
+   * Name
+   */
+  name?: string | null;
+  status?: GameStatus | null;
+};
+
+/**
  * HealthResponse
  */
 export type HealthResponse = {
@@ -17,6 +95,478 @@ export type HealthResponse = {
    */
   version: string;
 };
+
+/**
+ * SymbolCreate
+ */
+export type SymbolCreate = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Displayorder
+   */
+  displayOrder: number;
+  /**
+   * Imagepath
+   */
+  imagePath?: string | null;
+  /**
+   * Iswildcard
+   */
+  isWildcard?: boolean;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+  status?: SymbolStatus;
+};
+
+/**
+ * SymbolResponse
+ */
+export type SymbolResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Displayorder
+   */
+  displayOrder: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Imagepath
+   */
+  imagePath: string | null;
+  /**
+   * Iswildcard
+   */
+  isWildcard: boolean;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+  status: SymbolStatus;
+};
+
+/**
+ * SymbolStatus
+ */
+export type SymbolStatus = 'active' | 'archived';
+
+/**
+ * SymbolUpdate
+ */
+export type SymbolUpdate = {
+  /**
+   * Displayorder
+   */
+  displayOrder?: number | null;
+  /**
+   * Imagepath
+   */
+  imagePath?: string | null;
+  /**
+   * Iswildcard
+   */
+  isWildcard?: boolean | null;
+  /**
+   * Name
+   */
+  name?: string | null;
+  status?: SymbolStatus | null;
+};
+
+export type ListGamesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/games';
+};
+
+export type ListGamesResponses = {
+  /**
+   * Response Listgames
+   *
+   * Successful Response
+   */
+  200: Array<GameResponse>;
+};
+
+export type ListGamesResponse = ListGamesResponses[keyof ListGamesResponses];
+
+export type CreateGameData = {
+  body: GameCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/games';
+};
+
+export type CreateGameErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateGameError = CreateGameErrors[keyof CreateGameErrors];
+
+export type CreateGameResponses = {
+  /**
+   * Successful Response
+   */
+  201: GameResponse;
+};
+
+export type CreateGameResponse = CreateGameResponses[keyof CreateGameResponses];
+
+export type ArchiveGameData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}';
+};
+
+export type ArchiveGameErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ArchiveGameError = ArchiveGameErrors[keyof ArchiveGameErrors];
+
+export type ArchiveGameResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ArchiveGameResponse =
+  ArchiveGameResponses[keyof ArchiveGameResponses];
+
+export type GetGameData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}';
+};
+
+export type GetGameErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetGameError = GetGameErrors[keyof GetGameErrors];
+
+export type GetGameResponses = {
+  /**
+   * Successful Response
+   */
+  200: GameResponse;
+};
+
+export type GetGameResponse = GetGameResponses[keyof GetGameResponses];
+
+export type UpdateGameData = {
+  body: GameUpdate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}';
+};
+
+export type UpdateGameErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UpdateGameError = UpdateGameErrors[keyof UpdateGameErrors];
+
+export type UpdateGameResponses = {
+  /**
+   * Successful Response
+   */
+  200: GameResponse;
+};
+
+export type UpdateGameResponse = UpdateGameResponses[keyof UpdateGameResponses];
+
+export type ListSymbolsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols';
+};
+
+export type ListSymbolsErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolsError = ListSymbolsErrors[keyof ListSymbolsErrors];
+
+export type ListSymbolsResponses = {
+  /**
+   * Response Listsymbols
+   *
+   * Successful Response
+   */
+  200: Array<SymbolResponse>;
+};
+
+export type ListSymbolsResponse =
+  ListSymbolsResponses[keyof ListSymbolsResponses];
+
+export type CreateSymbolData = {
+  body: SymbolCreate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols';
+};
+
+export type CreateSymbolErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateSymbolError = CreateSymbolErrors[keyof CreateSymbolErrors];
+
+export type CreateSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  201: SymbolResponse;
+};
+
+export type CreateSymbolResponse =
+  CreateSymbolResponses[keyof CreateSymbolResponses];
+
+export type ArchiveSymbolData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}';
+};
+
+export type ArchiveSymbolErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ArchiveSymbolError = ArchiveSymbolErrors[keyof ArchiveSymbolErrors];
+
+export type ArchiveSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ArchiveSymbolResponse =
+  ArchiveSymbolResponses[keyof ArchiveSymbolResponses];
+
+export type GetSymbolData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}';
+};
+
+export type GetSymbolErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolError = GetSymbolErrors[keyof GetSymbolErrors];
+
+export type GetSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type GetSymbolResponse = GetSymbolResponses[keyof GetSymbolResponses];
+
+export type UpdateSymbolData = {
+  body: SymbolUpdate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}';
+};
+
+export type UpdateSymbolErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Stable code conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UpdateSymbolError = UpdateSymbolErrors[keyof UpdateSymbolErrors];
+
+export type UpdateSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type UpdateSymbolResponse =
+  UpdateSymbolResponses[keyof UpdateSymbolResponses];
 
 export type GetHealthData = {
   body?: never;

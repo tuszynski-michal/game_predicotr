@@ -104,6 +104,7 @@ odwracalny cykl migracji, kontrakt OpenAPI i klient nie wykazują driftu, pełne
 ### Zadania
 
 - `TASK-0018 — Games and symbols domain, repository and API`
+  — ukończone 2026-07-26
 - `TASK-0019 — Admin shell and games identity UI`
 - `TASK-0020 — Symbols UI, reference assets and archival rules`
 

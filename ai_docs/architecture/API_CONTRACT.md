@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-26
 ---
 
 # Kontrakty API i danych mobilnych
@@ -55,6 +55,53 @@ Format błędu:
 ```
 
 Pełne schematy CRUD powstają razem z pionem funkcjonalnym i są generowane do OpenAPI. Poniżej zapisano kontrakty o znaczeniu architektonicznym.
+
+## Games i symbols
+
+Operacje gier:
+
+```text
+GET    /api/v1/admin/games
+POST   /api/v1/admin/games
+GET    /api/v1/admin/games/{gameId}
+PATCH  /api/v1/admin/games/{gameId}
+DELETE /api/v1/admin/games/{gameId}
+```
+
+Tworzenie gry przyjmuje stabilny `code`, `name` i opcjonalny `status`
+`draft | active | archived`. Aktualizacja nie przyjmuje kodu, ponieważ kod jest
+tożsamością domenową. `DELETE` jest idempotentną archiwizacją i zwraca `204`;
+rekord pozostaje w bazie.
+
+Operacje symboli:
+
+```text
+GET    /api/v1/admin/games/{gameId}/symbols
+POST   /api/v1/admin/games/{gameId}/symbols
+GET    /api/v1/admin/games/{gameId}/symbols/{symbolId}
+PATCH  /api/v1/admin/games/{gameId}/symbols/{symbolId}
+DELETE /api/v1/admin/games/{gameId}/symbols/{symbolId}
+```
+
+Tworzenie symbolu przyjmuje `mobileCode`, stabilny `code`, `name`, opcjonalny
+`imagePath`, `isWildcard`, `displayOrder` oraz `status`. `mobileCode` i `code`
+nie są edytowalne. `imagePath` jest względną ścieżką metadanych, nie zawartością
+binarną. Lista jest deterministycznie uporządkowana po `displayOrder`,
+`mobileCode` i technicznym UUID. `DELETE` ustawia `status = archived`.
+
+Stabilne konflikty i brak zasobu:
+
+```text
+GAME_NOT_FOUND
+SYMBOL_NOT_FOUND
+GAME_CODE_ALREADY_EXISTS
+SYMBOL_CODE_ALREADY_EXISTS
+SYMBOL_MOBILE_CODE_ALREADY_EXISTS
+VALIDATION_ERROR
+```
+
+Konflikty unikalności zwracają `409`, brak zasobu `404`, a walidacja `422`.
+Każda odpowiedź błędu ma wspólny kontrakt `code`, `message`, `details`.
 
 ## Payline
 

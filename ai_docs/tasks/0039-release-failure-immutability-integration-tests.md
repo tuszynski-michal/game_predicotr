@@ -1,6 +1,6 @@
 ---
 title: Release failure and immutability integration tests
-status: in_progress
+status: blocked
 last_updated: 2026-07-27
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Status
 
-`in_progress`
+`blocked`
 
 ## Goal
 
@@ -120,4 +120,14 @@ npm run android:verify:offline -- --ApkPath <candidate>
 
 ## Outcome
 
-Do uzupełnienia po implementacji i fizycznym odbiorze.
+Automatyczna część została zaimplementowana: macierz awarii/retry, utrata lease,
+anulowanie, niezmienność artefaktów oraz pełny przebieg dwóch wydań na
+izolowanym PostgreSQL przechodzą. Generator rzeczywistego kandydata i rozszerzony
+protokół aktualizacji urządzenia są gotowe.
+
+Fizyczny build pozostaje zablokowany. Krótki cache Gradle `C:\gpg` usuwa limit
+ścieżek CMake, ale proces builda potrzebuje prawa `Modify` do dwóch bazowych
+plików `apps/mobile/assets/snapshot/`, aby kontrolowanie podmienić je i
+przywrócić. Próba rekursywnego poszerzenia ACL została odrzucona; żadnych
+uprawnień nie zmieniono. Dokończenie wymaga osobnej, wyraźnej zgody właściciela
+na minimalną zmianę ACL dokładnie tych dwóch plików.

@@ -93,7 +93,13 @@ try {
     Push-Location (Join-Path $mobileRoot 'android')
     try {
         $gradleTask = "assemble$Variant"
-        & .\gradlew.bat --no-daemon $gradleTask "-PreactNativeArchitectures=$Architectures"
+        & .\gradlew.bat `
+            --no-daemon `
+            --no-watch-fs `
+            --max-workers=1 `
+            '-Dkotlin.compiler.execution.strategy=in-process' `
+            $gradleTask `
+            "-PreactNativeArchitectures=$Architectures"
         if ($LASTEXITCODE -ne 0) {
             throw "Gradle $Variant build failed with exit code $LASTEXITCODE."
         }

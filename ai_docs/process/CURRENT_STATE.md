@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.4 in progress; TASK-0039 active`
+`M3.5 blocked; TASK-0039, TASK-0041 and TASK-0042 require physical evidence`
 
 ## Completed
 
@@ -460,6 +460,13 @@ last_updated: 2026-07-27
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
   M2 bez zmiany warunku wejścia G6,
+- ukończono `TASK-0040`: generator `m35-benchmark-v1` utworzył dokładnie
+  500 000 ciągłych layoutów jednej gry 3 × 5, sześć kontrolowanych grup
+  duplikatów, pełne payouty `payout-v2` i produkcyjny snapshot SQLite,
+- niezależny walidator odtworzył partiami po 1000 każdą sygnaturę i payout;
+  snapshot ma `41025536` bajtów, logiczny SHA-256
+  `1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89`,
+  a liniowa estymacja dla 15 gier wynosi `586.875 MiB`,
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
@@ -467,9 +474,24 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- `TASK-0039 — Release failure and immutability integration tests`: macierz
-  awarii i retry, fizyczny PostgreSQL, rzeczywisty zmieniony APK oraz odbiór
-  aktualizacji istniejącej instalacji.
+- brak; automatyczna część TASK-0042 jest gotowa, lecz nie może zamknąć G3 bez
+  fizycznych dowodów TASK-0039 i TASK-0041.
+
+## Blocked
+
+- `TASK-0039 — Release failure and immutability integration tests`: automatyczna
+  macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe; rzeczywisty
+  APK oraz odbiór aktualizacji wymagają wyraźnej zgody na minimalne prawo
+  `Modify` dla dwóch plików bazowego snapshotu. ACL nie zostało zmienione.
+- `TASK-0041 — SQLite, mobile and worker performance benchmark`: wyniki
+  Windows/SQLite i workera są zapisane, a harness Android jest gotowy. APK i
+  pomiary offline na Pixelu oraz Samsungu blokuje dostęp procesu build do
+  artefaktu właściciela `CodexSandboxOffline`; ADB nie widzi telefonu.
+- `TASK-0042 — Benchmark decision and release pipeline acceptance`: raport
+  `m35-acceptance-report.json` przechodzi dataset, SQLite, worker i kontrolę
+  zależności, ale ma status `blocked`, pięć grup brakujących dowodów oraz
+  decyzję `pending_device_evidence`. Nie ma podstaw do zmiany adaptera ani do
+  zaliczenia G3.
 
 ## Open but not blocking next milestones
 
@@ -522,8 +544,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Ukończyć automatyczną i fizyczną część `TASK-0039`, a następnie zaliczyć G3.4.
-Nie rozpoczynać M3.5 bez kolejnego polecenia właściciela.
+Udostępnić buildowi benchmarkowy snapshot bez rozszerzania ACL bez zgody,
+dokończyć fizyczny workflow TASK-0039 i zebrać pomiary TASK-0041 na Pixelu
+oraz Samsungu. Następnie ponowić ocenę TASK-0042 z `--require-pass`; G3
+pozostaje niezaliczona.
 
 ## Do not start yet
 

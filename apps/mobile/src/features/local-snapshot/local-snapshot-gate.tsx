@@ -14,9 +14,13 @@ import {
   LocalLayoutRepository,
   type LocalGameConfig,
 } from '@/data/local-layout-repository';
+import { M35BenchmarkScreen } from '@/benchmarks/m35-benchmark-screen';
+import { M35_BENCHMARK_RELEASE_VERSION } from '@/benchmarks/m35-performance';
 import { GameWorkspaceScreen } from '@/features/board/game-workspace-screen';
 
 import { SnapshotDiagnosticScreen } from './snapshot-diagnostic-screen';
+
+const APPLICATION_STARTED_AT = performance.now();
 
 export function LocalSnapshotGate() {
   const [error, setError] = useState<LocalDataError | null>(null);
@@ -49,6 +53,9 @@ function LocalSnapshotContent() {
   const [repository, setRepository] = useState<LocalLayoutRepository | null>(
     null,
   );
+  const [databaseInitializationMs, setDatabaseInitializationMs] = useState<
+    number | null
+  >(null);
   const [error, setError] = useState<LocalDataError | null>(null);
 
   useEffect(() => {
@@ -66,6 +73,9 @@ function LocalSnapshotContent() {
           setRepository(repository);
           setDiagnostics(verifiedDiagnostics);
           setGames(gameCatalog);
+          setDatabaseInitializationMs(
+            performance.now() - APPLICATION_STARTED_AT,
+          );
         }
       } catch (initializationError: unknown) {
         if (active) {
@@ -85,9 +95,30 @@ function LocalSnapshotContent() {
     return <SnapshotDiagnosticScreen error={error} diagnostics={null} />;
   }
 
-  return diagnostics === null || games === null || repository === null ? (
-    <SnapshotDiagnosticScreen diagnostics={null} error={null} />
-  ) : (
+  if (
+    diagnostics === null ||
+    games === null ||
+    repository === null ||
+    databaseInitializationMs === null
+  ) {
+    return <SnapshotDiagnosticScreen diagnostics={null} error={null} />;
+  }
+  const benchmarkGame = games[0];
+  if (
+    diagnostics.releaseVersion === M35_BENCHMARK_RELEASE_VERSION &&
+    benchmarkGame !== undefined
+  ) {
+    return (
+      <M35BenchmarkScreen
+        database={database}
+        databaseInitializationMs={databaseInitializationMs}
+        diagnostics={diagnostics}
+        game={benchmarkGame}
+        repository={repository}
+      />
+    );
+  }
+  return (
     <GameWorkspaceScreen
       diagnostics={diagnostics}
       games={games}

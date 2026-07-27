@@ -25,6 +25,8 @@ __pycache__/
 !.env.example
 .tooling/
 .g/
+.g39/
+.tmp/
 
 # Editors and operating systems
 .idea/

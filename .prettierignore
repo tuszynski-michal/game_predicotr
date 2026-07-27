@@ -1,5 +1,7 @@
 .expo/
 .venv/
+.g39/
+.tmp/
 ai_docs/
 apps/mobile/android/
 apps/mobile/assets/

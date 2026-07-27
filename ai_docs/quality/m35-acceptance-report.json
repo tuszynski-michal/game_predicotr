@@ -1,0 +1,79 @@
+{
+  "architectureDecision": {
+    "mobileAdapter": "pending_device_evidence",
+    "signatureRepresentation": "pending"
+  },
+  "capturedAt": "2026-07-27T18:12:24.823789+00:00",
+  "checks": [
+    {
+      "evidence": [],
+      "id": "dataset_500k",
+      "status": "passed",
+      "summary": "Dataset ma 500 000 layout\u00f3w, oczekiwane checksumy i estymacj\u0119 poni\u017cej 5 GiB."
+    },
+    {
+      "evidence": [],
+      "id": "desktop_sqlite_baseline",
+      "status": "passed",
+      "summary": "Baseline SQLite przechodzi exact, prefix i cykl N-1 z w\u0142a\u015bciwym datasetem."
+    },
+    {
+      "evidence": [],
+      "id": "bounded_worker",
+      "status": "passed",
+      "summary": "Worker przetwarza dane partiami do 1000 i raportuje czas, throughput oraz RSS."
+    },
+    {
+      "evidence": [],
+      "id": "android_pixel_10_pro_xl",
+      "status": "missing",
+      "summary": "Brak raportu offline dla pixel_10_pro_xl."
+    },
+    {
+      "evidence": [],
+      "id": "android_galaxy_s21_ultra",
+      "status": "missing",
+      "summary": "Brak raportu offline dla galaxy_s21_ultra."
+    },
+    {
+      "evidence": [],
+      "id": "architecture_dependency_guard",
+      "status": "passed",
+      "summary": "Brak bezpo\u015brednich zale\u017cno\u015bci Redis/Celery i alternatywnego adaptera SQLite."
+    },
+    {
+      "evidence": [],
+      "id": "release_panel_to_ready_apk",
+      "status": "missing",
+      "summary": "Brak m35-release-workflow-acceptance.json z TASK-0039."
+    },
+    {
+      "evidence": [],
+      "id": "release_reproducibility_immutability",
+      "status": "missing",
+      "summary": "Brak fizycznego dowodu odtwarzalno\u015bci i niezmienno\u015bci wydania."
+    },
+    {
+      "evidence": [],
+      "id": "release_sizes_and_device_update",
+      "status": "missing",
+      "summary": "Brak rozmiar\u00f3w PostgreSQL/SQLite/APK i odbioru aktualizacji in-place."
+    }
+  ],
+  "inputs": {
+    "datasetReport": "ai_docs/quality/m35-benchmark-dataset-report.json",
+    "deviceDirectory": "ai_docs/quality/device-benchmarks",
+    "releaseEvidence": "ai_docs/quality/m35-release-workflow-acceptance.json",
+    "repositoryReport": "ai_docs/quality/m35-repository-benchmark.json",
+    "workerReport": "ai_docs/quality/m35-worker-benchmark.json"
+  },
+  "missingEvidence": [
+    "android_pixel_10_pro_xl",
+    "android_galaxy_s21_ultra",
+    "release_panel_to_ready_apk",
+    "release_reproducibility_immutability",
+    "release_sizes_and_device_update"
+  ],
+  "schemaVersion": 1,
+  "status": "blocked"
+}

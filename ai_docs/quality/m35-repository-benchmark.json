@@ -1,0 +1,161 @@
+{
+  "budgetResults": {
+    "cyclic": true,
+    "exact": true,
+    "prefix": true
+  },
+  "budgets": {
+    "cyclicP95Ms": 5000,
+    "exactP95Ms": 200,
+    "prefixP95Ms": 300
+  },
+  "capturedAt": "2026-07-27T17:53:06.701897+00:00",
+  "dataset": {
+    "databasePath": "artifacts/m35-benchmark/snapshots/m35-benchmark.1/1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89/snapshot.db",
+    "layoutCount": 500000,
+    "logicalContentSha256": "1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89",
+    "snapshotFileSha256": "04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27",
+    "snapshotSizeBytes": 41025536
+  },
+  "environment": {
+    "machine": "AMD64",
+    "operatingSystem": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13",
+    "sqlite": "3.50.4"
+  },
+  "measurements": {
+    "cyclicNMinusOne": {
+      "memory": {
+        "baselineRssBytes": 87470080,
+        "peakRssBytes": 269299712,
+        "peakRssDeltaBytes": 181829632,
+        "peakTracedPythonBytes": 56279348
+      },
+      "payoutSumLastIteration": 73674708,
+      "rowCount": 499999,
+      "timing": {
+        "firstMs": 1273.9367,
+        "iterations": 10,
+        "maxMs": 1305.1372,
+        "minMs": 1238.7418,
+        "p50Ms": 1269.5029,
+        "p95Ms": 1305.1372
+      }
+    },
+    "exactDuplicate": {
+      "firstMs": 0.0024,
+      "iterations": 1000,
+      "maxMs": 0.0151,
+      "minMs": 0.0021,
+      "p50Ms": 0.0022,
+      "p95Ms": 0.0024
+    },
+    "exactNotFound": {
+      "firstMs": 0.0022,
+      "iterations": 1000,
+      "maxMs": 0.0161,
+      "minMs": 0.0019,
+      "p50Ms": 0.002,
+      "p95Ms": 0.003
+    },
+    "exactUnique": {
+      "firstMs": 0.0031,
+      "iterations": 1000,
+      "maxMs": 0.0327,
+      "minMs": 0.002,
+      "p50Ms": 0.0022,
+      "p95Ms": 0.0024
+    },
+    "openAndReadMetadata": {
+      "firstMs": 0.1733,
+      "iterations": 50,
+      "maxMs": 0.3074,
+      "minMs": 0.1403,
+      "p50Ms": 0.1515,
+      "p95Ms": 0.2783
+    },
+    "prefixByCellCount": {
+      "1": {
+        "candidateCount": 45455,
+        "timing": {
+          "firstMs": 2.2184,
+          "iterations": 500,
+          "maxMs": 4.0205,
+          "minMs": 1.1503,
+          "p50Ms": 1.3165,
+          "p95Ms": 2.7336
+        }
+      },
+      "3": {
+        "candidateCount": 376,
+        "timing": {
+          "firstMs": 0.0273,
+          "iterations": 500,
+          "maxMs": 0.3064,
+          "minMs": 0.014,
+          "p50Ms": 0.0257,
+          "p95Ms": 0.0339
+        }
+      },
+      "5": {
+        "candidateCount": 4,
+        "timing": {
+          "firstMs": 0.0028,
+          "iterations": 500,
+          "maxMs": 0.0135,
+          "minMs": 0.0024,
+          "p50Ms": 0.0026,
+          "p95Ms": 0.0028
+        }
+      },
+      "6": {
+        "candidateCount": 1,
+        "timing": {
+          "firstMs": 0.0025,
+          "iterations": 500,
+          "maxMs": 0.0117,
+          "minMs": 0.0023,
+          "p50Ms": 0.0025,
+          "p95Ms": 0.0036
+        }
+      }
+    }
+  },
+  "plans": {
+    "cyclic": [
+      "MERGE (UNION ALL)",
+      "LEFT",
+      "SEARCH layouts USING PRIMARY KEY (game_id=? AND sequence_number>?)",
+      "USE TEMP B-TREE FOR ORDER BY",
+      "RIGHT",
+      "SEARCH layouts USING PRIMARY KEY (game_id=? AND sequence_number<?)",
+      "USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "exact": [
+      "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature=?)"
+    ],
+    "prefixByCellCount": {
+      "1": [
+        "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature>? AND signature<?)"
+      ],
+      "3": [
+        "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature>? AND signature<?)"
+      ],
+      "5": [
+        "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature>? AND signature<?)"
+      ],
+      "6": [
+        "SEARCH layouts USING COVERING INDEX idx_layouts_game_signature (game_id=? AND signature>? AND signature<?)"
+      ]
+    }
+  },
+  "references": {
+    "cycleStartSequenceNumber": 71427,
+    "duplicateSequenceNumbers": [
+      71427,
+      499995
+    ],
+    "uniqueSequenceNumber": 1
+  },
+  "scope": "Warm-cache Windows/Python SQLite baseline. Android Expo SQLite, Hermes Target and UI measurements are reported separately."
+}

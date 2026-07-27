@@ -1,0 +1,39 @@
+{
+  "capturedAt": "2026-07-27T17:52:37.245954+00:00",
+  "dataset": {
+    "algorithmVersion": "payout-v2",
+    "batchSize": 1000,
+    "layoutCount": 500000,
+    "logicalContentSha256": "1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89",
+    "seed": 350027,
+    "snapshotFileSha256": "04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27",
+    "snapshotSizeBytes": 41025536
+  },
+  "environment": {
+    "machine": "AMD64",
+    "operatingSystem": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "generation": {
+    "elapsedSeconds": 511.2962,
+    "maximumGeneratedBatchSize": 1000,
+    "memory": {
+      "baselineRssBytes": 82681856,
+      "peakRssBytes": 180977664,
+      "peakRssDeltaBytes": 98295808,
+      "peakTracedPythonBytes": 55262109
+    },
+    "throughputLayoutsPerSecond": 977.91
+  },
+  "scope": "Synthetic bounded source evaluates payout-v2 on demand and writes the production SQLite snapshot. PostgreSQL transport and JSONL audit I/O are not included in this baseline.",
+  "validation": {
+    "elapsedSeconds": 45.0271,
+    "memory": {
+      "baselineRssBytes": 142712832,
+      "peakRssBytes": 153264128,
+      "peakRssDeltaBytes": 10551296,
+      "peakTracedPythonBytes": 5287192
+    },
+    "throughputLayoutsPerSecond": 11104.41
+  }
+}

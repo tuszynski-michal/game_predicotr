@@ -1,0 +1,37 @@
+{
+  "algorithmVersion": "payout-v2",
+  "batchSize": 1000,
+  "duplicateGroupCount": 6,
+  "environment": {
+    "operatingSystem": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13",
+    "sqlite": "3.50.4"
+  },
+  "estimatedSnapshotSize": {
+    "fifteenGamesBytes": 615383040,
+    "fifteenGamesMiB": 586.875,
+    "method": "Linear multiplication of the measured one-game snapshot; excludes APK runtime and image assets.",
+    "twelveGamesBytes": 492306432,
+    "twelveGamesMiB": 469.5
+  },
+  "generatorVersion": "m35-benchmark-v1",
+  "layoutCount": 500000,
+  "logicalContentSha256": "1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89",
+  "maximumPayout": 12100,
+  "maximumSequenceNumber": 500000,
+  "minimumSequenceNumber": 1,
+  "nonzeroPayoutCount": 172088,
+  "releaseVersion": "m35-benchmark.1",
+  "seed": 350027,
+  "signatureLength": 30,
+  "snapshotFileSha256": "04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27",
+  "snapshotSizeBytes": 41025536,
+  "snapshotSizeMiB": 39.125,
+  "totalPayout": 73674708,
+  "uniqueSignatureCount": 499994,
+  "validation": {
+    "everyLayoutRecomputed": true,
+    "maximumValidationBatchSize": 1000,
+    "productionSnapshotValidatorPassed": true
+  }
+}

@@ -521,6 +521,170 @@ export type JobType =
   'import' | 'validate' | 'payout' | 'snapshot' | 'android_build';
 
 /**
+ * MobileReleaseApkResponse
+ */
+export type MobileReleaseApkResponse = {
+  /**
+   * Checksum
+   */
+  checksum: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+};
+
+/**
+ * MobileReleaseBuildResponse
+ */
+export type MobileReleaseBuildResponse = {
+  /**
+   * Jobid
+   */
+  jobId: string;
+  status: JobStatus;
+};
+
+/**
+ * MobileReleaseCreate
+ */
+export type MobileReleaseCreate = {
+  /**
+   * Games
+   */
+  games: Array<MobileReleaseGameCreate>;
+  /**
+   * Version
+   */
+  version: string;
+};
+
+/**
+ * MobileReleaseGameCreate
+ */
+export type MobileReleaseGameCreate = {
+  /**
+   * Datasetversionid
+   */
+  datasetVersionId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+};
+
+/**
+ * MobileReleaseGameResponse
+ */
+export type MobileReleaseGameResponse = {
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Datasetversion
+   */
+  datasetVersion: number;
+  /**
+   * Datasetversionid
+   */
+  datasetVersionId: string;
+  /**
+   * Gamecode
+   */
+  gameCode: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Layoutcount
+   */
+  layoutCount: number;
+  /**
+   * Rows
+   */
+  rows: number;
+  /**
+   * Rulesversion
+   */
+  rulesVersion: number;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+};
+
+/**
+ * MobileReleaseResponse
+ */
+export type MobileReleaseResponse = {
+  /**
+   * Algorithmversion
+   */
+  algorithmVersion: string;
+  apk: MobileReleaseApkResponse | null;
+  /**
+   * Buildjobid
+   */
+  buildJobId: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Games
+   */
+  games: Array<MobileReleaseGameResponse>;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Readyat
+   */
+  readyAt: string | null;
+  snapshot: MobileReleaseSnapshotResponse | null;
+  /**
+   * Snapshotschemaversion
+   */
+  snapshotSchemaVersion: number;
+  status: MobileReleaseStatus;
+  /**
+   * Version
+   */
+  version: string;
+};
+
+/**
+ * MobileReleaseSnapshotResponse
+ */
+export type MobileReleaseSnapshotResponse = {
+  /**
+   * Checksum
+   */
+  checksum: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: number;
+};
+
+/**
+ * MobileReleaseStatus
+ */
+export type MobileReleaseStatus =
+  'draft' | 'building' | 'ready' | 'failed' | 'archived';
+
+/**
  * MockDatasetCreate
  */
 export type MockDatasetCreate = {
@@ -1992,6 +2156,198 @@ export type RetryJobResponses = {
 };
 
 export type RetryJobResponse = RetryJobResponses[keyof RetryJobResponses];
+
+export type ListMobileReleasesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/mobile-releases';
+};
+
+export type ListMobileReleasesErrors = {
+  /**
+   * Release source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Release state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListMobileReleasesError =
+  ListMobileReleasesErrors[keyof ListMobileReleasesErrors];
+
+export type ListMobileReleasesResponses = {
+  /**
+   * Response Listmobilereleases
+   *
+   * Successful Response
+   */
+  200: Array<MobileReleaseResponse>;
+};
+
+export type ListMobileReleasesResponse =
+  ListMobileReleasesResponses[keyof ListMobileReleasesResponses];
+
+export type CreateMobileReleaseData = {
+  body: MobileReleaseCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/mobile-releases';
+};
+
+export type CreateMobileReleaseErrors = {
+  /**
+   * Release source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Release state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateMobileReleaseError =
+  CreateMobileReleaseErrors[keyof CreateMobileReleaseErrors];
+
+export type CreateMobileReleaseResponses = {
+  /**
+   * Successful Response
+   */
+  201: MobileReleaseResponse;
+};
+
+export type CreateMobileReleaseResponse =
+  CreateMobileReleaseResponses[keyof CreateMobileReleaseResponses];
+
+export type GetMobileReleaseData = {
+  body?: never;
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}';
+};
+
+export type GetMobileReleaseErrors = {
+  /**
+   * Release source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Release state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetMobileReleaseError =
+  GetMobileReleaseErrors[keyof GetMobileReleaseErrors];
+
+export type GetMobileReleaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: MobileReleaseResponse;
+};
+
+export type GetMobileReleaseResponse =
+  GetMobileReleaseResponses[keyof GetMobileReleaseResponses];
+
+export type DownloadMobileReleaseApkData = {
+  body?: never;
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}/apk';
+};
+
+export type DownloadMobileReleaseApkErrors = {
+  /**
+   * Release source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Release state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DownloadMobileReleaseApkError =
+  DownloadMobileReleaseApkErrors[keyof DownloadMobileReleaseApkErrors];
+
+export type DownloadMobileReleaseApkResponses = {
+  /**
+   * Verified immutable Android package
+   */
+  200: Blob | File;
+};
+
+export type DownloadMobileReleaseApkResponse =
+  DownloadMobileReleaseApkResponses[keyof DownloadMobileReleaseApkResponses];
+
+export type BuildMobileReleaseData = {
+  body?: never;
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}/build';
+};
+
+export type BuildMobileReleaseErrors = {
+  /**
+   * Release source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Release state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type BuildMobileReleaseError =
+  BuildMobileReleaseErrors[keyof BuildMobileReleaseErrors];
+
+export type BuildMobileReleaseResponses = {
+  /**
+   * Successful Response
+   */
+  201: MobileReleaseBuildResponse;
+};
+
+export type BuildMobileReleaseResponse =
+  BuildMobileReleaseResponses[keyof BuildMobileReleaseResponses];
 
 export type ArchiveRulesVersionData = {
   body?: never;

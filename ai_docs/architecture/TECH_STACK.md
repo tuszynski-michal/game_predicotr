@@ -181,6 +181,9 @@ JSONB payload, unikalny hash wejścia, postęp, liczniki wyników i timestamp
 Migracja `0008_job_leases` dodaje wersjonowany checkpoint, licznik prób,
 singletonowy slot wykonawczy oraz pola owner/token/expiry/heartbeat. Constraint
 bazy wymaga pełnego kompletu lease wyłącznie dla statusu `processing`.
+Migracja `0010_mobile_releases` dodaje niezmienną tożsamość wydania, globalnie
+unikalną wersję, lifecycle, przyszłe pola artefaktów i dokładny zestaw
+dataset/rules wybrany dla każdej gry.
 
 ### SQLite — niezmienny snapshot mobile
 
@@ -227,20 +230,38 @@ npm run worker:once
 npm run worker:poll
 ```
 
-Worker `worker-v2` rejestruje handler `payout-v2`. Domyślnie zapisuje
-strukturalne audyty w `artifacts/`; alternatywny katalog można wskazać:
+Worker `worker-v2` rejestruje handler `payout-v2` oraz nadrzędny handler
+`android_build`. Ten drugi wykonuje rewalidację, payouty, snapshot i kontrolowany
+Android build w jednym jobie, z zagnieżdżonym checkpointem payoutu per gra.
+Domyślnie zapisuje audyty i niezmienne artefakty w `artifacts/`; alternatywny
+katalog można wskazać:
 
 ```powershell
 .venv\Scripts\python.exe -m game_predictor_worker --artifact-root D:\game-predictor-artifacts
 ```
 
-Rejestr pozostałych handlerów jest rozwijany razem z ich pionami
-funkcjonalnymi. Brak handlera kończy przejęty job kodem
+Admin API musi rozwiązywać pobierane APK względem tego samego katalogu. Dla
+niestandardowej lokalizacji należy uruchomić je z:
+
+```powershell
+$env:GAME_PREDICTOR_ARTIFACT_ROOT = 'D:\game-predictor-artifacts'
+npm run api:dev
+```
+
+API nie przyjmuje ścieżki artefaktu od panelu; identyfikator release prowadzi do
+niezmiennej ścieżki zapisanej po weryfikacji workera.
+
+Brak handlera kończy przejęty job kodem
 `JOB_HANDLER_NOT_REGISTERED`; nie pozostawia zajętego slotu.
 
 Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane
 zadanie, a worker uruchamia jeden wersjonowany workflow build. Obowiązuje lokalny
 Gradle/Expo Android build bez zależności od chmurowej usługi buildowej.
+Adapter zawsze uruchamia wariant Release dla `arm64-v8a`, przypięte skrypty
+PowerShell oraz istniejący audyt podpisu, uprawnień i zawartości APK. Gotowy APK
+jest publikowany jako
+`android-releases/<releaseVersion>/app-release-<apkSha256>.apk`, bez
+nadpisywania historycznej zawartości.
 
 Bootstrap M1 potwierdził lokalny workflow Windows:
 

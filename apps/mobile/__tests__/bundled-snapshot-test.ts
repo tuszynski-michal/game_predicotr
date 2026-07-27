@@ -61,6 +61,59 @@ describe('bundled snapshot contract', () => {
     ).not.toThrow();
   });
 
+  test('accepts the production M3 manifest without fixture-only metadata', () => {
+    const productionManifest: SnapshotManifest = {
+      algorithmVersion: 'payout-v2',
+      createdAt: '2026-07-27T00:00:00Z',
+      gameCount: 1,
+      games: [
+        {
+          columns: 5,
+          datasetVersion: 7,
+          datasetVersionId: '00000000-0000-0000-0000-000000000001',
+          gameCode: 'game-1',
+          gameId: '00000000-0000-0000-0000-000000000002',
+          layoutCount: 500_000,
+          mobileGameId: 1,
+          rows: 3,
+          rulesVersion: 4,
+          rulesVersionId: '00000000-0000-0000-0000-000000000003',
+          signatureCellWidth: 2,
+          symbolCount: 10,
+        },
+      ],
+      layoutCount: 500_000,
+      logicalContentSha256: 'd'.repeat(64),
+      manifestVersion: 1,
+      releaseVersion: 'release-1',
+      snapshotFile: 'snapshot.db',
+      snapshotFileSha256: 'e'.repeat(64),
+      snapshotSchemaVersion: 2,
+      symbolCount: 10,
+    };
+    const productionMetadata = {
+      algorithm_version: productionManifest.algorithmVersion,
+      content_checksum: productionManifest.logicalContentSha256,
+      created_at: productionManifest.createdAt,
+      game_count: '1',
+      layout_count: '500000',
+      release_version: productionManifest.releaseVersion,
+      snapshot_schema_version: '2',
+    };
+
+    expect(() =>
+      validateSnapshotMetadata(
+        productionMetadata,
+        productionManifest,
+        1,
+        500_000,
+      ),
+    ).not.toThrow();
+    expect(buildLocalDatabaseName(productionManifest)).toBe(
+      'snapshot-v2-eeeeeeeeeeeeeeee.db',
+    );
+  });
+
   test('rejects an unsupported schema with local_data_error', () => {
     const unsupportedManifest = { ...manifest, schemaVersion: 1 };
 

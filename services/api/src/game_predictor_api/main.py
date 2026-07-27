@@ -11,6 +11,9 @@ from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.mobile_releases import (
+    MobileReleaseService,
+)
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
@@ -28,6 +31,11 @@ from game_predictor_api.domain.jobs import (
     JobError,
     JobNotFoundError,
 )
+from game_predictor_api.domain.mobile_releases import (
+    MobileReleaseConflictError,
+    MobileReleaseError,
+    MobileReleaseNotFoundError,
+)
 from game_predictor_api.domain.rules import (
     RulesConflictError,
     RulesError,
@@ -44,6 +52,9 @@ from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.mobile_release_repository import (
+    SqlAlchemyMobileReleaseRepository,
+)
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 
 
@@ -54,6 +65,7 @@ def create_app(
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
+    mobile_release_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -90,9 +102,7 @@ def create_app(
                 session.rollback()
                 raise
 
-    resolved_dataset_dependency = (
-        dataset_service_dependency or default_dataset_service_dependency
-    )
+    resolved_dataset_dependency = dataset_service_dependency or default_dataset_service_dependency
 
     def default_job_service_dependency() -> Iterator[JobService]:
         with session_factory() as session:
@@ -103,8 +113,19 @@ def create_app(
                 session.rollback()
                 raise
 
-    resolved_job_dependency = (
-        job_service_dependency or default_job_service_dependency
+    resolved_job_dependency = job_service_dependency or default_job_service_dependency
+
+    def default_mobile_release_service_dependency() -> Iterator[MobileReleaseService]:
+        with session_factory() as session:
+            try:
+                yield MobileReleaseService(SqlAlchemyMobileReleaseRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_mobile_release_dependency = (
+        mobile_release_service_dependency or default_mobile_release_service_dependency
     )
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
@@ -134,6 +155,7 @@ def create_app(
             resolved_rules_dependency,
             resolved_dataset_dependency,
             resolved_job_dependency,
+            resolved_mobile_release_dependency,
         )
     )
 
@@ -203,6 +225,25 @@ def create_app(
         if isinstance(error, JobNotFoundError):
             status_code = 404
         elif isinstance(error, JobConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(MobileReleaseError)
+    async def handle_mobile_release_error(
+        _request: Request,
+        error: MobileReleaseError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, MobileReleaseNotFoundError):
+            status_code = 404
+        elif isinstance(error, MobileReleaseConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

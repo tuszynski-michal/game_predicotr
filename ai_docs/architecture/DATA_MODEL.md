@@ -379,6 +379,11 @@ resolved_at nullable
 | created_at | timestamptz | |
 | ready_at | timestamptz nullable | |
 
+`version` jest globalnie unikalnym segmentem ścieżki o długości 1–100:
+rozpoczyna się literą ASCII albo cyfrą, a dalej dopuszcza litery, cyfry, kropkę,
+podkreślenie i łącznik. Nowy rekord zawsze ma `draft`; backend zapisuje aktualne
+`algorithm_version = payout-v2` i `snapshot_schema_version = 2`.
+
 ### mobile_release_games
 
 ```text
@@ -391,7 +396,22 @@ layout_count
 
 Unikalność: `(mobile_release_id, game_id)`.
 
-Wydanie `ready` jest niezmienne. Nie można wskazać wersji stagingowej ani niekompletnego zestawu payoutów.
+Wydanie zawiera od 1 do 15 gier i po utworzeniu nie pozwala zmieniać wyborów.
+Źródła są blokowane podczas atomowego utworzenia rodzica i rekordów potomnych.
+Dataset oraz rules muszą być opublikowane, należeć do tej samej aktywnej gry,
+mieć zgodne wymiary, a dataset musi zawierać co najmniej jeden layout.
+`layout_count` jest kopiowany do rekordu wyboru, aby zachować wejście wydania.
+
+Start builda blokuje release i źródła, ponownie sprawdza ich stan, atomowo tworzy
+dokładnie jeden job `android_build`, zapisuje `build_job_id` i ustawia
+`building`. Job jest właścicielem całego workflow, nie tylko Gradle.
+
+`snapshot_path` i `apk_path` są bezpiecznymi ścieżkami POSIX względnymi wobec
+lokalnego katalogu artefaktów. Każda ścieżka występuje wyłącznie z pełnym
+małym-hex SHA-256. Snapshot może zostać zapisany podczas `building` i użyty po
+retry, lecz `apk_path`, `apk_checksum` i `ready_at` są zapisywane dopiero po
+pełnej weryfikacji APK. Wydanie `ready` jest niezmienne. Błąd albo anulowanie
+ustawia `failed` i nie tworzy nowego joba; jawny retry wznawia `build_job_id`.
 
 ## SQLite — snapshot mobilny
 

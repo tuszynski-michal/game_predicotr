@@ -98,6 +98,8 @@ def test_catalog_repository_uses_real_constraints(
             "jobs",
             "layouts",
             "layout_payouts",
+            "mobile_release_games",
+            "mobile_releases",
             "paylines",
             "payout_rules",
             "rules_versions",

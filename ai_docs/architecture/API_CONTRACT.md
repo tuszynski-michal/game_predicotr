@@ -651,20 +651,54 @@ Response:
 
 ```json
 {
-  "releaseId": "uuid",
-  "status": "draft"
+  "id": "uuid",
+  "version": "m1.0.1",
+  "status": "draft",
+  "algorithmVersion": "payout-v2",
+  "snapshotSchemaVersion": 2,
+  "snapshot": null,
+  "apk": null,
+  "buildJobId": null,
+  "createdAt": "2026-07-27T12:00:00Z",
+  "readyAt": null,
+  "games": [
+    {
+      "gameId": "uuid",
+      "gameCode": "game-1",
+      "datasetVersionId": "uuid",
+      "datasetVersion": 1,
+      "rulesVersionId": "uuid",
+      "rulesVersion": 1,
+      "rows": 3,
+      "columns": 5,
+      "layoutCount": 500000
+    }
+  ]
 }
 ```
+
+Backend ustala `algorithmVersion = payout-v2` i `snapshotSchemaVersion = 2`;
+klient nie może podać dowolnego algorytmu ani schematu. Wersja jest globalnie
+unikalnym, bezpiecznym segmentem ścieżki. Request zawiera od 1 do 15 unikalnych
+gier. Dataset i reguły muszą być opublikowane, należeć do wskazanej aktywnej
+gry i mieć zgodne wymiary.
+
+### GET `/api/v1/admin/mobile-releases`
+
+Zwraca wszystkie historyczne wydania od najnowszego. Każdy element ma ten sam
+kształt co odpowiedź POST i endpoint szczegółów. Gry są uporządkowane po
+stabilnym `gameCode`.
 
 ### POST `/api/v1/admin/mobile-releases/{releaseId}/build`
 
 Uruchamia jeden workflow:
 
-1. walidacja wersji,
+1. atomowa rewalidacja niezmiennego wyboru i przejście `draft → building`,
 2. precomputing brakujących payoutów,
-3. generowanie i weryfikacja SQLite,
-4. lokalny Android build,
-5. zapis checksum.
+3. generowanie i niezależna weryfikacja SQLite,
+4. kontrolowany lokalny Android Release build dla `arm64-v8a`,
+5. weryfikacja offline APK i dokładnego SQLite,
+6. zapis względnych ścieżek, checksum i przejście do `ready`.
 
 Response:
 
@@ -675,6 +709,11 @@ Response:
 }
 ```
 
+Response `201` oznacza wyłącznie utworzenie joba. Request nie wykonuje payoutów,
+SQLite ani Gradle. Drugi start tego samego release zwraca
+`409 MOBILE_RELEASE_BUILD_ALREADY_STARTED`; retry wykonuje się przez
+`POST /admin/jobs/{jobId}/retry` na tym samym jobie.
+
 ### GET `/api/v1/admin/mobile-releases/{releaseId}`
 
 ```json
@@ -683,20 +722,29 @@ Response:
   "version": "m1.0.1",
   "status": "ready",
   "algorithmVersion": "payout-v2",
+  "snapshotSchemaVersion": 2,
   "snapshot": {
     "schemaVersion": 2,
-    "relativePath": "releases/m1.0.1/data.sqlite",
-    "checksum": "sha256:..."
+    "relativePath": "snapshots/m1.0.1/<logical-sha256>/snapshot.db",
+    "checksum": "pełny-mały-hex-sha256"
   },
   "apk": {
-    "relativePath": "releases/m1.0.1/app-m1.0.1.apk",
-    "checksum": "sha256:..."
+    "relativePath": "android-releases/m1.0.1/app-release-<apk-sha256>.apk",
+    "checksum": "pełny-mały-hex-sha256"
   },
+  "buildJobId": "uuid",
+  "createdAt": "2026-07-27T12:00:00Z",
+  "readyAt": "2026-07-27T12:30:00Z",
   "games": [
     {
+      "gameId": "uuid",
       "gameCode": "game-1",
+      "datasetVersionId": "uuid",
       "datasetVersion": 1,
+      "rulesVersionId": "uuid",
       "rulesVersion": 1,
+      "rows": 3,
+      "columns": 5,
       "layoutCount": 500000
     }
   ]
@@ -704,6 +752,42 @@ Response:
 ```
 
 API zwraca ścieżkę do lokalnego artefaktu, ale nie instaluje APK na telefonie.
+`ready` powstaje dopiero po ostatnim bezpiecznym checkpointcie, gdy job nadal
+jest aktywny i nie ma żądania anulowania. Błąd albo anulowanie ustawia release
+na `failed`; zweryfikowany snapshot może pozostać przypięty do bezpiecznego
+wznowienia, ale częściowy APK nie jest publikowany w rekordzie release.
+
+### GET `/api/v1/admin/mobile-releases/{releaseId}/apk`
+
+Zwraca `application/vnd.android.package-archive` wyłącznie dla release
+`ready`. Klient przekazuje tylko identyfikator wydania. API rozwiązuje zapisaną
+ścieżkę względem własnego `GAME_PREDICTOR_ARTIFACT_ROOT`, odrzuca wyjście poza
+katalog, brak pliku, symlink i rozszerzenie inne niż `.apk`, a przed odpowiedzią
+ponownie porównuje SHA-256 z niezmiennym rekordem release.
+
+Endpoint nie przyjmuje ścieżki, nazwy pliku ani komendy. `draft`, `building`,
+`failed` i `archived` nie udostępniają pliku; zmieniony albo brakujący artefakt
+zwraca stabilny konflikt zamiast danych.
+
+Stabilne błędy utworzenia wydania:
+
+```text
+INVALID_RELEASE_VERSION
+INVALID_RELEASE_GAME_COUNT
+DUPLICATE_RELEASE_GAME
+MOBILE_RELEASE_VERSION_ALREADY_EXISTS
+MOBILE_RELEASE_NOT_FOUND
+RELEASE_SOURCE_NOT_FOUND
+RELEASE_SOURCE_GAME_MISMATCH
+RELEASE_GAME_NOT_ACTIVE
+RELEASE_DATASET_NOT_PUBLISHED
+RELEASE_RULES_NOT_PUBLISHED
+RELEASE_SOURCE_DIMENSIONS_MISMATCH
+RELEASE_DATASET_EMPTY
+MOBILE_RELEASE_APK_NOT_READY
+MOBILE_RELEASE_APK_UNAVAILABLE
+MOBILE_RELEASE_APK_CHECKSUM_MISMATCH
+```
 
 ## Kontrakt snapshotu mobilnego
 

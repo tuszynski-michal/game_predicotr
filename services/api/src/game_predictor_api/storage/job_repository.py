@@ -15,7 +15,12 @@ from game_predictor_api.domain.jobs import (
     JobStatus,
     JobType,
 )
-from game_predictor_api.storage.models import GameModel, JobModel
+from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
+from game_predictor_api.storage.models import (
+    GameModel,
+    JobModel,
+    MobileReleaseModel,
+)
 
 
 class SqlAlchemyJobRepository(JobRepository):
@@ -23,43 +28,10 @@ class SqlAlchemyJobRepository(JobRepository):
         self._session = session
 
     def game_exists(self, game_id: UUID) -> bool:
-        return (
-            self._session.scalar(
-                select(GameModel.id).where(GameModel.id == game_id)
-            )
-            is not None
-        )
+        return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
 
     def add_job(self, job: Job) -> Job:
-        record = JobModel(
-            id=job.id,
-            job_type=job.job_type,
-            game_id=job.game_id,
-            status=job.status,
-            input_payload=job.input_payload,
-            input_key=job.input_key,
-            stage=job.stage,
-            progress_current=job.progress_current,
-            progress_total=job.progress_total,
-            success_count=job.success_count,
-            failure_count=job.failure_count,
-            review_count=job.review_count,
-            error_code=job.error_code,
-            error_message=job.error_message,
-            worker_version=job.worker_version,
-            checkpoint_payload=job.checkpoint_payload,
-            attempt_count=job.attempt_count,
-            execution_slot=job.execution_slot,
-            lease_owner=job.lease_owner,
-            lease_token=job.lease_token,
-            lease_expires_at=job.lease_expires_at,
-            heartbeat_at=job.heartbeat_at,
-            created_at=job.created_at,
-            updated_at=job.updated_at,
-            started_at=job.started_at,
-            finished_at=job.finished_at,
-            cancel_requested_at=job.cancel_requested_at,
-        )
+        record = job_record_from_domain(job)
         self._session.add(record)
         self._flush_or_raise_conflict()
         return job_from_record(record)
@@ -70,16 +42,12 @@ class SqlAlchemyJobRepository(JobRepository):
 
     def get_job_for_update(self, job_id: UUID) -> Job | None:
         record = self._session.scalar(
-            select(JobModel)
-            .where(JobModel.id == job_id)
-            .with_for_update()
+            select(JobModel).where(JobModel.id == job_id).with_for_update()
         )
         return None if record is None else job_from_record(record)
 
     def get_job_by_input_key(self, input_key: str) -> Job | None:
-        record = self._session.scalar(
-            select(JobModel).where(JobModel.input_key == input_key)
-        )
+        record = self._session.scalar(select(JobModel).where(JobModel.input_key == input_key))
         return None if record is None else job_from_record(record)
 
     def list_jobs(
@@ -111,6 +79,13 @@ class SqlAlchemyJobRepository(JobRepository):
                 details={"jobId": str(job.id)},
             )
         apply_job_to_record(record, job)
+        if job.job_type is JobType.ANDROID_BUILD and job.status is JobStatus.CANCELLED:
+            release = self._session.scalar(
+                select(MobileReleaseModel).where(MobileReleaseModel.build_job_id == job.id)
+            )
+            if release is not None and release.status is not MobileReleaseStatus.READY:
+                release.status = MobileReleaseStatus.FAILED
+                release.ready_at = None
         self._flush_or_raise_conflict()
         return job_from_record(record)
 
@@ -119,11 +94,7 @@ class SqlAlchemyJobRepository(JobRepository):
             self._session.flush()
         except IntegrityError as error:
             diagnostic = getattr(error.orig, "diag", None)
-            constraint_name = (
-                diagnostic.constraint_name
-                if diagnostic is not None
-                else None
-            )
+            constraint_name = diagnostic.constraint_name if diagnostic is not None else None
             if constraint_name == "uq_jobs_input_key":
                 raise JobConflictError(
                     "JOB_INPUT_ALREADY_EXISTS",
@@ -159,6 +130,38 @@ def apply_job_to_record(record: JobModel, job: Job) -> None:
     record.cancel_requested_at = job.cancel_requested_at
 
 
+def job_record_from_domain(job: Job) -> JobModel:
+    return JobModel(
+        id=job.id,
+        job_type=job.job_type,
+        game_id=job.game_id,
+        status=job.status,
+        input_payload=job.input_payload,
+        input_key=job.input_key,
+        stage=job.stage,
+        progress_current=job.progress_current,
+        progress_total=job.progress_total,
+        success_count=job.success_count,
+        failure_count=job.failure_count,
+        review_count=job.review_count,
+        error_code=job.error_code,
+        error_message=job.error_message,
+        worker_version=job.worker_version,
+        checkpoint_payload=job.checkpoint_payload,
+        attempt_count=job.attempt_count,
+        execution_slot=job.execution_slot,
+        lease_owner=job.lease_owner,
+        lease_token=job.lease_token,
+        lease_expires_at=job.lease_expires_at,
+        heartbeat_at=job.heartbeat_at,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        cancel_requested_at=job.cancel_requested_at,
+    )
+
+
 def job_from_record(record: JobModel) -> Job:
     return Job(
         id=record.id,
@@ -177,9 +180,7 @@ def job_from_record(record: JobModel) -> Job:
         error_message=record.error_message,
         worker_version=record.worker_version,
         checkpoint_payload=(
-            None
-            if record.checkpoint_payload is None
-            else dict(record.checkpoint_payload)
+            None if record.checkpoint_payload is None else dict(record.checkpoint_payload)
         ),
         attempt_count=record.attempt_count,
         execution_slot=record.execution_slot,

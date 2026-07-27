@@ -118,11 +118,11 @@ G3.2 zaliczona 2026-07-27.
 - wszystkie wersje oraz liczby rekordów są zapisane,
 - snapshot nie zawiera stagingu, zdjęć ani tabel administracyjnych,
 - dokładna/prefiksowa semantyka odpowiada kontraktom M1,
+- uszkodzenie, luka lub brak payoutu są wykrywane przed buildem,
+- artefakt poprzedniej wersji nie jest nadpisywany,
 - pełny walidator read-only odtwarza logiczny checksum przed publikacją.
 
 G3.3 zaliczona 2026-07-27.
-- uszkodzenie, luka lub brak payoutu są wykrywane przed buildem,
-- artefakt poprzedniej wersji nie jest nadpisywany.
 
 ## M3.4 — Orkiestracja wydania i panel Android
 
@@ -141,9 +141,9 @@ G3.3 zaliczona 2026-07-27.
 
 ### Zadania
 
-- `TASK-0036 — Mobile release domain and API`
-- `TASK-0037 — Release workflow orchestration`
-- `TASK-0038 — Android release panel and artifact UI`
+- `TASK-0036 — Mobile release domain and API` — done 2026-07-27
+- `TASK-0037 — Release workflow orchestration` — done 2026-07-27
+- `TASK-0038 — Android release panel and artifact UI` — done 2026-07-27
 - `TASK-0039 — Release failure and immutability integration tests`
 
 ### Bramka G3.4

@@ -27,6 +27,9 @@ import type {
   ArchiveSymbolData,
   ArchiveSymbolErrors,
   ArchiveSymbolResponses,
+  BuildMobileReleaseData,
+  BuildMobileReleaseErrors,
+  BuildMobileReleaseResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
@@ -36,6 +39,9 @@ import type {
   CreateJobData,
   CreateJobErrors,
   CreateJobResponses,
+  CreateMobileReleaseData,
+  CreateMobileReleaseErrors,
+  CreateMobileReleaseResponses,
   CreatePaylineData,
   CreatePaylineErrors,
   CreatePaylineResponses,
@@ -48,6 +54,9 @@ import type {
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  DownloadMobileReleaseApkData,
+  DownloadMobileReleaseApkErrors,
+  DownloadMobileReleaseApkResponses,
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
@@ -65,6 +74,9 @@ import type {
   GetJobData,
   GetJobErrors,
   GetJobResponses,
+  GetMobileReleaseData,
+  GetMobileReleaseErrors,
+  GetMobileReleaseResponses,
   GetPaylineData,
   GetPaylineErrors,
   GetPaylineResponses,
@@ -91,6 +103,9 @@ import type {
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
+  ListMobileReleasesData,
+  ListMobileReleasesErrors,
+  ListMobileReleasesResponses,
   ListPaylinesData,
   ListPaylinesErrors,
   ListPaylinesResponses,
@@ -532,6 +547,99 @@ export const retryJob = <ThrowOnError extends boolean = false>(
     RetryJobErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/jobs/{job_id}/retry', ...options });
+
+/**
+ * List immutable mobile releases
+ */
+export const listMobileReleases = <ThrowOnError extends boolean = false>(
+  options?: Options<ListMobileReleasesData, ThrowOnError>,
+): RequestResult<
+  ListMobileReleasesResponses,
+  ListMobileReleasesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListMobileReleasesResponses,
+    ListMobileReleasesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/mobile-releases', ...options });
+
+/**
+ * Create an immutable draft mobile release
+ */
+export const createMobileRelease = <ThrowOnError extends boolean = false>(
+  options: Options<CreateMobileReleaseData, ThrowOnError>,
+): RequestResult<
+  CreateMobileReleaseResponses,
+  CreateMobileReleaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateMobileReleaseResponses,
+    CreateMobileReleaseErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/mobile-releases',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get an immutable mobile release
+ */
+export const getMobileRelease = <ThrowOnError extends boolean = false>(
+  options: Options<GetMobileReleaseData, ThrowOnError>,
+): RequestResult<
+  GetMobileReleaseResponses,
+  GetMobileReleaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetMobileReleaseResponses,
+    GetMobileReleaseErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/mobile-releases/{mobile_release_id}', ...options });
+
+/**
+ * Download the verified APK of a ready mobile release
+ */
+export const downloadMobileReleaseApk = <ThrowOnError extends boolean = false>(
+  options: Options<DownloadMobileReleaseApkData, ThrowOnError>,
+): RequestResult<
+  DownloadMobileReleaseApkResponses,
+  DownloadMobileReleaseApkErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    DownloadMobileReleaseApkResponses,
+    DownloadMobileReleaseApkErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/mobile-releases/{mobile_release_id}/apk',
+    ...options,
+  });
+
+/**
+ * Start the one controlled release build workflow
+ */
+export const buildMobileRelease = <ThrowOnError extends boolean = false>(
+  options: Options<BuildMobileReleaseData, ThrowOnError>,
+): RequestResult<
+  BuildMobileReleaseResponses,
+  BuildMobileReleaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    BuildMobileReleaseResponses,
+    BuildMobileReleaseErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/mobile-releases/{mobile_release_id}/build',
+    ...options,
+  });
 
 /**
  * Archive a published rules version

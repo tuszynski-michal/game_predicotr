@@ -539,3 +539,90 @@ test('generated client sends bounded mock dataset staging requests', async () =>
     ],
   );
 });
+
+test('generated client sends immutable mobile release requests', async () => {
+  const requests = [];
+  const releaseId = '11111111-1111-4111-8111-111111111111';
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const datasetVersionId = '33333333-3333-4333-8333-333333333333';
+  const rulesVersionId = '44444444-4444-4444-8444-444444444444';
+  const responseBody = {
+    algorithmVersion: 'payout-v2',
+    apk: null,
+    buildJobId: null,
+    createdAt: '2026-07-27T12:00:00Z',
+    games: [
+      {
+        columns: 5,
+        datasetVersion: 1,
+        datasetVersionId,
+        gameCode: 'game-1',
+        gameId,
+        layoutCount: 1000,
+        rows: 3,
+        rulesVersion: 1,
+        rulesVersionId,
+      },
+    ],
+    id: releaseId,
+    readyAt: null,
+    snapshot: null,
+    snapshotSchemaVersion: 2,
+    status: 'draft',
+    version: 'm3.4.1',
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/apk')) {
+      return new Response(new Blob(['verified-apk']), {
+        headers: {
+          'content-type': 'application/vnd.android.package-archive',
+        },
+        status: 200,
+      });
+    }
+    return Response.json(
+      url.pathname.endsWith('/build')
+        ? { jobId: '00000000-0000-0000-0000-000000000104', status: 'created' }
+        : request.method === 'GET' &&
+            url.pathname === '/api/v1/admin/mobile-releases'
+          ? [responseBody]
+          : responseBody,
+      { status: request.method === 'POST' ? 201 : 200 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const created = await client.createMobileRelease({
+    games: [{ datasetVersionId, gameId, rulesVersionId }],
+    version: 'm3.4.1',
+  });
+  const listed = await client.listMobileReleases();
+  const loaded = await client.getMobileRelease(releaseId);
+  const downloaded = await client.downloadMobileReleaseApk(releaseId);
+  const build = await client.buildMobileRelease(releaseId);
+
+  assert.equal(created.data?.algorithmVersion, 'payout-v2');
+  assert.equal(listed.data?.[0]?.id, releaseId);
+  assert.equal(loaded.data?.games[0]?.layoutCount, 1000);
+  assert.equal(downloaded.data instanceof Blob, true);
+  assert.equal(build.data?.status, 'created');
+  assert.deepEqual(await requests[0].clone().json(), {
+    games: [{ datasetVersionId, gameId, rulesVersionId }],
+    version: 'm3.4.1',
+  });
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      '/api/v1/admin/mobile-releases',
+      '/api/v1/admin/mobile-releases',
+      `/api/v1/admin/mobile-releases/${releaseId}`,
+      `/api/v1/admin/mobile-releases/${releaseId}/apk`,
+      `/api/v1/admin/mobile-releases/${releaseId}/build`,
+    ],
+  );
+});

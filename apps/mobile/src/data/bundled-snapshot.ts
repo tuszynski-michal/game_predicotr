@@ -9,7 +9,7 @@ export {
   LocalDataError,
 } from './local-data-error';
 
-type SnapshotManifestGame = {
+type FixtureSnapshotManifestGame = {
   code: string;
   datasetVersion: number;
   duplicateFixtures: readonly {
@@ -28,34 +28,62 @@ type SnapshotManifestGame = {
   };
 };
 
-export type SnapshotManifest = {
+type ProductionSnapshotManifestGame = {
+  columns: number;
+  datasetVersion: number;
+  datasetVersionId: string;
+  gameCode: string;
+  gameId: string;
+  layoutCount: number;
+  mobileGameId: number;
+  rows: number;
+  rulesVersion: number;
+  rulesVersionId: string;
+  signatureCellWidth: number;
+  symbolCount: number;
+};
+
+type SnapshotManifestCommon = {
   algorithmVersion: string;
   createdAt: string;
-  datasetVersion: number;
-  fixtureFingerprint: string;
-  fixtureVersion: string;
   gameCount: number;
-  games: readonly SnapshotManifestGame[];
   layoutCount: number;
   logicalContentSha256: string;
   releaseVersion: string;
-  rulesVersion: number;
-  schemaVersion: number;
   snapshotFile: string;
   snapshotFileSha256: string;
+};
+
+type FixtureSnapshotManifest = SnapshotManifestCommon & {
+  datasetVersion: number;
+  fixtureFingerprint: string;
+  fixtureVersion: string;
+  games: readonly FixtureSnapshotManifestGame[];
+  rulesVersion: number;
+  schemaVersion: number;
   targetGoldenCases: readonly unknown[];
 };
+
+type ProductionSnapshotManifest = SnapshotManifestCommon & {
+  games: readonly ProductionSnapshotManifestGame[];
+  manifestVersion: number;
+  snapshotSchemaVersion: number;
+  symbolCount: number;
+};
+
+export type SnapshotManifest =
+  FixtureSnapshotManifest | ProductionSnapshotManifest;
 
 export type SnapshotDiagnostics = {
   algorithmVersion: string;
   databaseName: string;
-  datasetVersion: number;
-  fixtureVersion: string;
+  datasetVersion: number | null;
+  fixtureVersion: string | null;
   gameCount: number;
   layoutCount: number;
   logicalContentSha256: string;
   releaseVersion: string;
-  rulesVersion: number;
+  rulesVersion: number | null;
   schemaVersion: number;
   snapshotFileSha256: string;
 };
@@ -86,7 +114,7 @@ export function buildLocalDatabaseName(manifest: SnapshotManifest): string {
     );
   }
 
-  return `snapshot-v${manifest.schemaVersion}-${manifest.snapshotFileSha256.slice(0, 16)}.db`;
+  return `snapshot-v${schemaVersion(manifest)}-${manifest.snapshotFileSha256.slice(0, 16)}.db`;
 }
 
 export function validateSnapshotMetadata(
@@ -95,9 +123,15 @@ export function validateSnapshotMetadata(
   actualGameCount: number,
   actualLayoutCount: number,
 ): void {
-  if (manifest.schemaVersion !== EXPECTED_SCHEMA_VERSION) {
+  if ('manifestVersion' in manifest && manifest.manifestVersion !== 1) {
     throw new LocalDataError(
-      `Unsupported manifest schema version: ${manifest.schemaVersion}.`,
+      `Unsupported snapshot manifest version: ${manifest.manifestVersion}.`,
+    );
+  }
+  const manifestSchemaVersion = schemaVersion(manifest);
+  if (manifestSchemaVersion !== EXPECTED_SCHEMA_VERSION) {
+    throw new LocalDataError(
+      `Unsupported manifest schema version: ${manifestSchemaVersion}.`,
     );
   }
 
@@ -105,14 +139,18 @@ export function validateSnapshotMetadata(
     algorithm_version: manifest.algorithmVersion,
     content_checksum: manifest.logicalContentSha256,
     created_at: manifest.createdAt,
-    dataset_version: String(manifest.datasetVersion),
-    fixture_fingerprint: manifest.fixtureFingerprint,
-    fixture_version: manifest.fixtureVersion,
     game_count: String(manifest.gameCount),
     layout_count: String(manifest.layoutCount),
     release_version: manifest.releaseVersion,
-    rules_version: String(manifest.rulesVersion),
-    snapshot_schema_version: String(manifest.schemaVersion),
+    snapshot_schema_version: String(manifestSchemaVersion),
+    ...('fixtureVersion' in manifest
+      ? {
+          dataset_version: String(manifest.datasetVersion),
+          fixture_fingerprint: manifest.fixtureFingerprint,
+          fixture_version: manifest.fixtureVersion,
+          rules_version: String(manifest.rulesVersion),
+        }
+      : {}),
   };
 
   for (const [key, expectedValue] of Object.entries(expectedMetadata)) {
@@ -168,14 +206,23 @@ export async function readSnapshotDiagnostics(
     return {
       algorithmVersion: snapshotManifest.algorithmVersion,
       databaseName: buildLocalDatabaseName(snapshotManifest),
-      datasetVersion: snapshotManifest.datasetVersion,
-      fixtureVersion: snapshotManifest.fixtureVersion,
+      datasetVersion:
+        'datasetVersion' in snapshotManifest
+          ? snapshotManifest.datasetVersion
+          : null,
+      fixtureVersion:
+        'fixtureVersion' in snapshotManifest
+          ? snapshotManifest.fixtureVersion
+          : null,
       gameCount: countRow.game_count,
       layoutCount: countRow.layout_count,
       logicalContentSha256: snapshotManifest.logicalContentSha256,
       releaseVersion: snapshotManifest.releaseVersion,
-      rulesVersion: snapshotManifest.rulesVersion,
-      schemaVersion: snapshotManifest.schemaVersion,
+      rulesVersion:
+        'rulesVersion' in snapshotManifest
+          ? snapshotManifest.rulesVersion
+          : null,
+      schemaVersion: schemaVersion(snapshotManifest),
       snapshotFileSha256: snapshotManifest.snapshotFileSha256,
     };
   } catch (error: unknown) {
@@ -187,4 +234,10 @@ export async function readSnapshotDiagnostics(
       error instanceof Error ? error.message : 'Unknown SQLite error.';
     throw new LocalDataError(`Could not validate bundled snapshot: ${detail}`);
   }
+}
+
+function schemaVersion(manifest: SnapshotManifest): number {
+  return 'schemaVersion' in manifest
+    ? manifest.schemaVersion
+    : manifest.snapshotSchemaVersion;
 }

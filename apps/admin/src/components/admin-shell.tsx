@@ -44,6 +44,10 @@ export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
             <span aria-hidden="true">05</span>
             Jobs
           </a>
+          <a className="navItem navItemAvailable" href="#releases">
+            <span aria-hidden="true">06</span>
+            Wydania Android
+          </a>
         </nav>
 
         <div className="sidebarFooter">

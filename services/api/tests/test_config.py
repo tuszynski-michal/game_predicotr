@@ -11,6 +11,8 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.database_url == (
         "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
     )
+    assert settings.artifact_root.is_absolute()
+    assert settings.artifact_root.name == "artifacts"
 
 
 @pytest.mark.parametrize(
@@ -51,6 +53,10 @@ def test_defaults_are_loopback_only() -> None:
         (
             {"GAME_PREDICTOR_DATABASE_URL": ("postgresql+psycopg://user:password@localhost/game")},
             "GAME_PREDICTOR_DATABASE_URL",
+        ),
+        (
+            {"GAME_PREDICTOR_ARTIFACT_ROOT": "  "},
+            "GAME_PREDICTOR_ARTIFACT_ROOT",
         ),
     ],
 )

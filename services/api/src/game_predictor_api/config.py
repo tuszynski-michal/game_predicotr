@@ -4,6 +4,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlsplit
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -24,6 +25,7 @@ class ApiSettings:
     port: int
     admin_origin: str
     database_url: str = field(default=_DEFAULT_DATABASE_URL, repr=False)
+    artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -46,11 +48,16 @@ class ApiSettings:
         database_url = _parse_local_database_url(
             source.get("GAME_PREDICTOR_DATABASE_URL", _DEFAULT_DATABASE_URL)
         )
+        artifact_root_value = source.get("GAME_PREDICTOR_ARTIFACT_ROOT", "artifacts").strip()
+        if not artifact_root_value:
+            raise ConfigurationError("GAME_PREDICTOR_ARTIFACT_ROOT cannot be empty.")
+        artifact_root = Path(artifact_root_value).resolve()
         return cls(
             host=host,
             port=port,
             admin_origin=admin_origin,
             database_url=database_url,
+            artifact_root=artifact_root,
         )
 
 

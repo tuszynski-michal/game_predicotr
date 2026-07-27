@@ -27,6 +27,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.metadata import Base
 
@@ -37,6 +38,7 @@ def _enum_values(
         | type[GameStatus]
         | type[JobStatus]
         | type[JobType]
+        | type[MobileReleaseStatus]
         | type[SymbolStatus]
         | type[RulesVersionStatus]
     ),
@@ -602,3 +604,124 @@ class LayoutPayoutModel(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class MobileReleaseModel(Base):
+    __tablename__ = "mobile_releases"
+    __table_args__ = (
+        CheckConstraint(
+            "version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$'",
+            name="ck_mobile_releases_version_safe",
+        ),
+        CheckConstraint(
+            "length(btrim(algorithm_version)) > 0",
+            name="ck_mobile_releases_algorithm_not_blank",
+        ),
+        CheckConstraint(
+            "snapshot_schema_version > 0",
+            name="ck_mobile_releases_schema_positive",
+        ),
+        CheckConstraint(
+            "snapshot_checksum IS NULL OR snapshot_checksum ~ '^[0-9a-f]{64}$'",
+            name="ck_mobile_releases_snapshot_checksum",
+        ),
+        CheckConstraint(
+            "apk_checksum IS NULL OR apk_checksum ~ '^[0-9a-f]{64}$'",
+            name="ck_mobile_releases_apk_checksum",
+        ),
+        CheckConstraint(
+            "(snapshot_path IS NULL) = (snapshot_checksum IS NULL)",
+            name="ck_mobile_releases_snapshot_complete",
+        ),
+        CheckConstraint(
+            "(apk_path IS NULL) = (apk_checksum IS NULL)",
+            name="ck_mobile_releases_apk_complete",
+        ),
+        UniqueConstraint(
+            "version",
+            name="uq_mobile_releases_version",
+        ),
+        UniqueConstraint(
+            "build_job_id",
+            name="uq_mobile_releases_build_job_id",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[MobileReleaseStatus] = mapped_column(
+        Enum(
+            MobileReleaseStatus,
+            name="mobile_release_status",
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=MobileReleaseStatus.DRAFT,
+    )
+    algorithm_version: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+    snapshot_schema_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+    )
+    snapshot_path: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+    snapshot_checksum: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    apk_path: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+    apk_checksum: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    build_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    ready_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class MobileReleaseGameModel(Base):
+    __tablename__ = "mobile_release_games"
+    __table_args__ = (
+        CheckConstraint(
+            "layout_count > 0",
+            name="ck_mobile_release_games_layout_count_positive",
+        ),
+        Index("ix_mobile_release_games_game_id", "game_id"),
+    )
+
+    mobile_release_id: Mapped[UUID] = mapped_column(
+        ForeignKey("mobile_releases.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    dataset_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("dataset_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    rules_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("rules_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    layout_count: Mapped[int] = mapped_column(BigInteger, nullable=False)

@@ -154,6 +154,12 @@ Od M2, na testowym PostgreSQL:
 - idempotentny import,
 - staging nie trafia do wydania,
 - transakcja publikacji,
+- unikalna i bezpieczna wersja mobile release,
+- od 1 do 15 unikalnych wyborów gry w jednym atomowym zapisie,
+- blokada staging/archived datasetu lub rules, obcej gry, niezgodnych wymiarów
+  i pustego datasetu,
+- deterministyczna kolejność gier po stabilnym kodzie oraz wydań od najnowszego,
+- brak częściowego `mobile_release` po błędzie dowolnego wyboru,
 - zmiany schematu wyłącznie przez Alembic.
 
 ## Admin API tests
@@ -168,6 +174,9 @@ Od M2, na testowym PostgreSQL:
   i odroczone anulowanie zależnie od stanu,
 - retry tego samego joba oraz publiczna obserwowalność liczby prób, heartbeat i
   terminu lease bez ujawniania tokenu ani checkpointu,
+- typowane create/list/detail mobile release bez możliwości podania algorytmu
+  lub wersji schema przez klienta,
+- atomowy endpoint build tworzący jeden job i odrzucający drugi start,
 - niepełny lub nieudany build nie daje statusu `ready`,
 - klient TypeScript generuje się bez ręcznych rozbieżności.
 
@@ -189,6 +198,15 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
 - test przeglądarkowy sprawdza render aktywnego, failed i review joba,
   dwustopniowe anulowanie, retry, brak błędów konsoli oraz brak poziomego
   overflow przy szerokości 390 px.
+- panel release filtruje aktywne gry i zgodne opublikowane źródła, waliduje
+  1–15 wyborów, nie udostępnia pola komendy, tworzy draft, uruchamia build i
+  wznawia dokładnie ten sam job,
+- polling nie dubluje żądań jednego release, a zmiana wybranego wpisu nie może
+  pokazać joba poprzedniego wydania,
+- historia pokazuje status tekstem, dokładne UUID/numery wersji, ścieżki i
+  checksumy; produkcyjny build sprawdza cały kontrakt komponentu,
+- pobranie APK przechodzi przez wygenerowany klient; test API odrzuca release
+  niegotowy i zmianę SHA-256 oraz zwraca zweryfikowane bajty gotowego pliku.
 
 ## Mobile tests
 
@@ -234,9 +252,11 @@ brak uprawnienia `INTERNET`.
 - checksum snapshotu i APK jest zapisana,
 - błędna walidacja przerywa workflow,
 - anulowanie nie publikuje częściowego artefaktu,
-- wznowienie nie dubluje wyników,
+- zagnieżdżony checkpoint payoutu wznawia ten sam job bez child-jobów,
+- wznowienie nie dubluje wyników i ponownie waliduje istniejący artefakt,
 - poprzednie wydanie nie jest nadpisywane,
 - gotowe APK zawiera wskazany snapshot,
+- aplikacja mobilna akceptuje produkcyjny manifest schema v1 bez pól fixture,
 - instalacja nowego APK nad starszą wersją aktywuje nowy snapshot,
 - aplikacja nie otwiera starej kopii bazy po zmianie release version/checksum,
 - signing key pozostaje poza repozytorium i jest używany konsekwentnie dla

@@ -8,7 +8,12 @@ param(
     [ValidateSet('Initial', 'Update')]
     [string]$Stage = 'Initial',
 
-    [switch]$RequireAirplaneMode
+    [switch]$RequireAirplaneMode,
+
+    [string]$ExpectedReleaseVersion,
+
+    [ValidatePattern('^[a-f0-9]{64}$')]
+    [string]$ExpectedSnapshotSha256
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +24,39 @@ $resolvedApkPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $Apk
 $adbPath = Join-Path $repositoryRoot '.tooling\android-sdk\platform-tools\adb.exe'
 $reportRoot = Join-Path $repositoryRoot '.tooling\device-acceptance'
 $packageName = 'com.gamepredictor.mobile'
+
+function Get-PackageInfo {
+    param(
+        [Parameter(Mandatory)]
+        [string]$DeviceSerial
+    )
+
+    $dump = & $adbPath -s $DeviceSerial shell dumpsys package $packageName
+    $text = $dump -join "`n"
+    $versionCodeMatch = [regex]::Match($text, 'versionCode=(\d+)')
+    $versionNameMatch = [regex]::Match($text, 'versionName=([^\s]+)')
+    if (-not $versionCodeMatch.Success -or -not $versionNameMatch.Success) {
+        return $null
+    }
+    $firstInstallTimeMatch = [regex]::Match($text, 'firstInstallTime=([^\r\n]+)')
+    $lastUpdateTimeMatch = [regex]::Match($text, 'lastUpdateTime=([^\r\n]+)')
+    return [pscustomobject]@{
+        versionCode = [int]$versionCodeMatch.Groups[1].Value
+        versionName = $versionNameMatch.Groups[1].Value
+        firstInstallTime = if ($firstInstallTimeMatch.Success) {
+            $firstInstallTimeMatch.Groups[1].Value.Trim()
+        }
+        else {
+            $null
+        }
+        lastUpdateTime = if ($lastUpdateTimeMatch.Success) {
+            $lastUpdateTimeMatch.Groups[1].Value.Trim()
+        }
+        else {
+            $null
+        }
+    }
+}
 
 if (-not (Test-Path -LiteralPath $resolvedApkPath)) {
     throw "APK not found at $resolvedApkPath."
@@ -50,6 +88,11 @@ if ($RequireAirplaneMode) {
     }
 }
 
+$previousPackage = Get-PackageInfo -DeviceSerial $serial
+if ($Stage -eq 'Update' -and $null -eq $previousPackage) {
+    throw 'Update acceptance requires an existing installation. Do not uninstall the app.'
+}
+
 $installStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $installOutput = & $adbPath -s $serial install -r $resolvedApkPath
 $installStopwatch.Stop()
@@ -57,12 +100,26 @@ if ($LASTEXITCODE -ne 0 -or -not (($installOutput -join "`n").Contains('Success'
     throw "ADB install failed: $($installOutput -join "`n")"
 }
 
-$packageDump = & $adbPath -s $serial shell dumpsys package $packageName
-$packageText = $packageDump -join "`n"
-$versionCodeMatch = [regex]::Match($packageText, 'versionCode=(\d+)')
-$versionNameMatch = [regex]::Match($packageText, 'versionName=([^\s]+)')
-if (-not $versionCodeMatch.Success -or -not $versionNameMatch.Success) {
+$installedPackage = Get-PackageInfo -DeviceSerial $serial
+if ($null -eq $installedPackage) {
     throw 'Installed package did not expose versionCode/versionName.'
+}
+if (
+    $Stage -eq 'Update' -and
+    $installedPackage.versionCode -le $previousPackage.versionCode
+) {
+    throw (
+        "Update requires a higher versionCode; previous was " +
+        "$($previousPackage.versionCode), installed is $($installedPackage.versionCode)."
+    )
+}
+$updateWithoutUninstall = (
+    $Stage -eq 'Update' -and
+    $null -ne $previousPackage.firstInstallTime -and
+    $previousPackage.firstInstallTime -eq $installedPackage.firstInstallTime
+)
+if ($Stage -eq 'Update' -and -not $updateWithoutUninstall) {
+    throw 'The firstInstallTime changed, so an in-place update was not proven.'
 }
 
 & $adbPath -s $serial shell am force-stop $packageName | Out-Null
@@ -94,8 +151,35 @@ $report = [ordered]@{
     androidVersion = $androidVersion
     sdkVersion = $sdkVersion
     packageName = $packageName
-    versionName = $versionNameMatch.Groups[1].Value
-    versionCode = [int]$versionCodeMatch.Groups[1].Value
+    previousVersionName = if ($null -eq $previousPackage) {
+        $null
+    }
+    else {
+        $previousPackage.versionName
+    }
+    previousVersionCode = if ($null -eq $previousPackage) {
+        $null
+    }
+    else {
+        $previousPackage.versionCode
+    }
+    versionName = $installedPackage.versionName
+    versionCode = $installedPackage.versionCode
+    firstInstallTime = $installedPackage.firstInstallTime
+    lastUpdateTime = $installedPackage.lastUpdateTime
+    updateWithoutUninstall = $updateWithoutUninstall
+    expectedReleaseVersion = if ($ExpectedReleaseVersion) {
+        $ExpectedReleaseVersion
+    }
+    else {
+        $null
+    }
+    expectedSnapshotSha256 = if ($ExpectedSnapshotSha256) {
+        $ExpectedSnapshotSha256
+    }
+    else {
+        $null
+    }
     apkSha256 = (Get-FileHash -LiteralPath $resolvedApkPath -Algorithm SHA256).Hash.ToLowerInvariant()
     apkSizeBytes = (Get-Item -LiteralPath $resolvedApkPath).Length
     installElapsedSeconds = [math]::Round($installStopwatch.Elapsed.TotalSeconds, 2)
@@ -108,7 +192,16 @@ $report | ConvertTo-Json | Set-Content -LiteralPath $reportPath -Encoding utf8
 
 Write-Host "Installed and launched $packageName on $manufacturer $model."
 Write-Host "Version: $($report.versionName) ($($report.versionCode))"
+if ($Stage -eq 'Update') {
+    Write-Host (
+        "Updated in place from $($report.previousVersionName) " +
+        "($($report.previousVersionCode)); firstInstallTime was preserved."
+    )
+}
 Write-Host "Install elapsed: $($report.installElapsedSeconds) seconds"
 Write-Host "Process start elapsed: $($report.processStartElapsedSeconds) seconds"
 Write-Host "Device report: $reportPath"
-Write-Host 'Complete the manual unique/duplicate/not-found/Target checklist in ai_docs\quality\M1_DEVICE_ACCEPTANCE.md.'
+Write-Host (
+    'Confirm the displayed releaseVersion and snapshot SHA-256, then complete ' +
+    'the manual checklist in ai_docs\quality\M1_DEVICE_ACCEPTANCE.md.'
+)

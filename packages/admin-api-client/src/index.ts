@@ -6,9 +6,12 @@ import {
   archivePayoutRule as archiveGeneratedPayoutRule,
   archiveRulesVersion as archiveGeneratedRulesVersion,
   archiveSymbol as archiveGeneratedSymbol,
+  buildMobileRelease as buildGeneratedMobileRelease,
   cancelJob as cancelGeneratedJob,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
+  createMobileRelease as createGeneratedMobileRelease,
+  downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
   createRulesVersion as createGeneratedRulesVersion,
@@ -19,6 +22,7 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getJob as getGeneratedJob,
+  getMobileRelease as getGeneratedMobileRelease,
   getPayline as getGeneratedPayline,
   getPayoutRule as getGeneratedPayoutRule,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
@@ -26,6 +30,7 @@ import {
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listJobs as listGeneratedJobs,
+  listMobileReleases as listGeneratedMobileReleases,
   listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
   listPaylines as listGeneratedPaylines,
@@ -48,6 +53,7 @@ import type {
   JobStatus,
   JobType,
   MockDatasetCreate,
+  MobileReleaseCreate,
   GameCreate,
   GameUpdate,
   PaylineCreate,
@@ -86,6 +92,14 @@ export type {
   JobStatus,
   JobType,
   MockDatasetCreate,
+  MobileReleaseApkResponse,
+  MobileReleaseBuildResponse,
+  MobileReleaseCreate,
+  MobileReleaseGameCreate,
+  MobileReleaseGameResponse,
+  MobileReleaseResponse,
+  MobileReleaseSnapshotResponse,
+  MobileReleaseStatus,
   PaylineCreate,
   PaylineResponse,
   PaylineUpdate,
@@ -153,6 +167,24 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       cancelGeneratedJob({ client, path: { job_id: jobId } }),
     retryJob: (jobId: string) =>
       retryGeneratedJob({ client, path: { job_id: jobId } }),
+    listMobileReleases: () => listGeneratedMobileReleases({ client }),
+    createMobileRelease: (body: MobileReleaseCreate) =>
+      createGeneratedMobileRelease({ body, client }),
+    getMobileRelease: (mobileReleaseId: string) =>
+      getGeneratedMobileRelease({
+        client,
+        path: { mobile_release_id: mobileReleaseId },
+      }),
+    downloadMobileReleaseApk: (mobileReleaseId: string) =>
+      downloadGeneratedMobileReleaseApk({
+        client,
+        path: { mobile_release_id: mobileReleaseId },
+      }),
+    buildMobileRelease: (mobileReleaseId: string) =>
+      buildGeneratedMobileRelease({
+        client,
+        path: { mobile_release_id: mobileReleaseId },
+      }),
     listGames: () => listGeneratedGames({ client }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>

@@ -224,7 +224,9 @@ Administrator:
 4. generuje niezmienny snapshot SQLite,
 5. uruchamia przygotowanie wersjonowanego APK,
 6. widzi status zadania, wersję, checksumy i ścieżki artefaktów,
-7. może pobrać lub otworzyć katalog gotowego APK do ręcznej instalacji.
+7. może pobrać gotowy APK i skopiować względną ścieżkę jego katalogu do ręcznej
+   instalacji. Otwarcie katalogu odbywa się ręcznie po stronie Windows; panel
+   przeglądarkowy nie wykonuje dowolnej komendy systemowej.
 
 Wydanie:
 

@@ -20,7 +20,18 @@ from game_predictor_worker.jobs.runtime import LocalJobWorker
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
 from game_predictor_worker.payouts.handler import PayoutBatchHandler
+from game_predictor_worker.payouts.readiness import PayoutReadinessService
 from game_predictor_worker.payouts.store import SqlAlchemyPayoutStore
+from game_predictor_worker.releases import (
+    PowerShellAndroidReleaseBuilder,
+    ReleaseWorkflowHandler,
+    SqlAlchemyReleaseWorkflowStore,
+)
+from game_predictor_worker.snapshots import (
+    ProductionSnapshotArtifactPublisher,
+    ProductionSnapshotGenerator,
+    SqlAlchemyProductionSnapshotStore,
+)
 
 WORKER_VERSION = "worker-v2"
 
@@ -65,13 +76,33 @@ def main(arguments: Sequence[str] | None = None) -> int:
     engine = create_database_engine(settings)
     session_factory = create_session_factory(engine)
     store = SqlAlchemyWorkerJobStore(session_factory)
+    artifact_root = options.artifact_root.resolve()
+    payout_store = SqlAlchemyPayoutStore(session_factory)
     payout_handler = PayoutBatchHandler(
-        SqlAlchemyPayoutStore(session_factory),
-        JsonlPayoutAuditWriter(options.artifact_root),
+        payout_store,
+        JsonlPayoutAuditWriter(artifact_root),
+    )
+    snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
+    release_handler = ReleaseWorkflowHandler(
+        SqlAlchemyReleaseWorkflowStore(session_factory),
+        payout_handler,
+        PayoutReadinessService(payout_store),
+        ProductionSnapshotArtifactPublisher(
+            ProductionSnapshotGenerator(snapshot_store),
+            artifact_root,
+        ),
+        PowerShellAndroidReleaseBuilder(
+            Path.cwd(),
+            artifact_root,
+        ),
+        artifact_root,
     )
     worker = LocalJobWorker(
         store,
-        {JobType.PAYOUT: payout_handler},
+        {
+            JobType.PAYOUT: payout_handler,
+            JobType.ANDROID_BUILD: release_handler,
+        },
         worker_id=options.worker_id,
         worker_version=WORKER_VERSION,
         lease_duration=timedelta(seconds=options.lease_seconds),

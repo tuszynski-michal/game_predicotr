@@ -747,6 +747,75 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   roboczym, ale nie jest artefaktem wydania. Podłączenie do `mobile_release`,
   snapshot joba i Android build pozostaje zakresem M3.4.
 
+## D-038 — Immutable server-versioned mobile release selection
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** nowy `mobile_release` jest globalnie unikalnym, niezmiennym
+  draftem zawierającym 1–15 dokładnych wyborów dataset/rules. Backend zapisuje
+  jedyny obsługiwany `payout-v2` i SQLite schema `2`; klient nie przekazuje tych
+  wartości. Wszystkie opublikowane źródła są blokowane i zapisywane z rodzicem
+  w jednej transakcji, a gry są kanonicznie porządkowane po stabilnym kodzie.
+- **Context:** publiczne payloady snapshot/android jobs wskazują
+  `mobileReleaseId`, ale przed M3.4 nie istniał rekord ustalający odtwarzalne
+  wejście wielu gier. Dopuszczenie dowolnego algorytmu z panelu tworzyłoby
+  konfigurację, której worker nie potrafi wykonać.
+- **Reason:** oddzielenie utworzenia niezmiennego draftu od uruchomienia builda
+  umożliwia przejrzenie wejścia, bezpieczny retry i późniejszy audyt. Serwerowe
+  wersje techniczne ograniczają kontrakt do faktycznie wspieranej ścieżki.
+- **Alternatives:** mutowalny draft, algorytm podawany przez UI, jeden release
+  per gra, utworzenie release dopiero wewnątrz joba.
+- **Consequences:** korekta wersji albo wyboru wymaga nowego release. TASK-0037
+  może utworzyć dokładnie jeden workflow dla utrwalonego wejścia i ponownie
+  sprawdzić pełną kompletność payoutów przed snapshotem.
+
+## D-039 — One resumable job owns the complete release workflow
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** dokładnie jeden job `android_build` jest właścicielem pełnego
+  workflow release: rewalidacji, brakujących payoutów, snapshotu, obu
+  weryfikacji i kontrolowanego builda APK. Nie tworzy child-jobów. Checkpoint
+  schema v1 przechowuje etap, ukończone gry oraz aktywny cursor payoutu. Retry
+  wznawia ten sam job i może użyć istniejącego artefaktu tylko po pełnej
+  walidacji.
+- **Context:** lokalny worker celowo ma jeden slot wykonawczy. Nadrzędny job
+  oczekujący na payout albo snapshot child-job zablokowałby jedyny slot lub
+  wymagał osobnego scheduler'a. Release ma już niezmienne wejście i jedno pole
+  `build_job_id`.
+- **Reason:** jeden owner upraszcza atomowy start, anulowanie, diagnostykę i
+  odtwarzalność. Zagnieżdżony checkpoint zachowuje bounded-memory payout oraz
+  pozwala kontynuować po wygaśnięciu lease bez duplikowania release i
+  nadpisywania artefaktów.
+- **Alternatives:** osobne zależne joby payout/snapshot/build, synchroniczny
+  request HTTP, drugi worker lub kolejka Celery, uruchamianie Gradle bez
+  trwałego joba.
+- **Consequences:** `android_build` jest typem workflow, nie nazwą wyłącznie
+  ostatniego procesu Gradle. Release przechodzi do `ready` dopiero po końcowym
+  checkpointcie i zapisie obu zweryfikowanych artefaktów; błąd lub anulowanie
+  daje `failed`, a retry nie tworzy nowego joba.
+
+## D-040 — Controlled APK download by immutable release identity
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** panel pobiera gotowy APK przez typowany endpoint przyjmujący
+  wyłącznie `mobileReleaseId`. Admin API rozwiązuje utrwaloną ścieżkę względem
+  skonfigurowanego katalogu artefaktów, wymaga statusu `ready`, zwykłego pliku
+  `.apk` i zgodnego SHA-256. Panel może skopiować ścieżkę względną, ale nie
+  przekazuje ścieżki wejściowej ani komendy systemowej.
+- **Context:** przeglądarka nie może niezawodnie otworzyć lokalnego katalogu
+  Windows ze strony HTTP, a endpoint przyjmujący dowolną ścieżkę lub polecenie
+  przekroczyłby granicę bezpieczeństwa lokalnego panelu.
+- **Reason:** identyfikator niezmiennego release wiąże pobierany plik z audytem
+  TASK-0037 i pozwala sprawdzić integralność bez zaufania do klienta. Ręczne
+  otwarcie skopiowanej ścieżki zachowuje prosty workflow bez desktop bridge.
+- **Alternatives:** `file://` z panelu, dowolny path w query, uruchamianie
+  Explorera przez API, automatyczna instalacja na telefonie.
+- **Consequences:** Admin API i worker muszą wskazywać ten sam
+  `artifact_root`. Pobranie czyta i hashuje APK przed odpowiedzią; koszt jest
+  akceptowalny dla ręcznej, prywatnej dystrybucji i nie dotyczy mobile runtime.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -16,6 +16,7 @@ DATASETS_REVISION = "0006_dataset_staging"
 JOBS_REVISION = "0007_jobs"
 JOB_LEASES_REVISION = "0008_job_leases"
 LAYOUT_PAYOUTS_REVISION = "0009_layout_payouts"
+MOBILE_RELEASES_REVISION = "0010_mobile_releases"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -27,7 +28,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_layout_payouts_migration_is_the_only_head_and_follows_job_leases() -> None:
+def test_mobile_releases_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -38,8 +39,9 @@ def test_layout_payouts_migration_is_the_only_head_and_follows_job_leases() -> N
     jobs = script.get_revision(JOBS_REVISION)
     job_leases = script.get_revision(JOB_LEASES_REVISION)
     layout_payouts = script.get_revision(LAYOUT_PAYOUTS_REVISION)
+    mobile_releases = script.get_revision(MOBILE_RELEASES_REVISION)
 
-    assert script.get_heads() == [LAYOUT_PAYOUTS_REVISION]
+    assert script.get_heads() == [MOBILE_RELEASES_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -58,6 +60,8 @@ def test_layout_payouts_migration_is_the_only_head_and_follows_job_leases() -> N
     assert job_leases.down_revision == JOBS_REVISION
     assert layout_payouts is not None
     assert layout_payouts.down_revision == JOB_LEASES_REVISION
+    assert mobile_releases is not None
+    assert mobile_releases.down_revision == LAYOUT_PAYOUTS_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -307,3 +311,36 @@ def test_layout_payouts_migration_generates_versioned_results_and_audit() -> Non
 
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table layout_payouts" in downgrade_sql
+
+
+def test_mobile_releases_migration_generates_immutable_selections() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{MOBILE_RELEASES_REVISION}:{LAYOUT_PAYOUTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table mobile_releases" in upgrade_sql
+    assert "create table mobile_release_games" in upgrade_sql
+    assert "create type mobile_release_status" in upgrade_sql
+    assert "uq_mobile_releases_version" in upgrade_sql
+    assert "ck_mobile_releases_version_safe" in upgrade_sql
+    assert "ck_mobile_releases_snapshot_complete" in upgrade_sql
+    assert "ck_mobile_releases_apk_complete" in upgrade_sql
+    assert "ck_mobile_release_games_layout_count_positive" in upgrade_sql
+    assert "fk_mobile_release_games_dataset" in upgrade_sql
+    assert "fk_mobile_release_games_rules" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table mobile_release_games" in downgrade_sql
+    assert "drop table mobile_releases" in downgrade_sql
+    assert "drop type mobile_release_status" in downgrade_sql

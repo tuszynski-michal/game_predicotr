@@ -154,9 +154,9 @@ SHA-256 kanonicznych rekordów. Dopiero kompletny plik z finalnym
 `content_checksum` staje się widoczny pod ścieżką docelową; generator odrzuca
 istniejący cel.
 
-TASK-0034 nie rejestruje jeszcze snapshot joba, ponieważ jego publiczny payload
-wskazuje przyszły `mobile_release`. Manifest, niezależny walidator i niezmienny
-katalog artefaktu należą do TASK-0035, a podłączenie job/release do M3.4.
+Generator snapshotu nie jest osobnym child-jobem release. Handler
+`android_build` z TASK-0037 wywołuje go jako jeden z resumowalnych etapów
+nadrzędnego workflow.
 
 Publisher TASK-0035 buduje SQLite i kanoniczny manifest w prywatnym katalogu
 stagingowym. Niezależny walidator otwiera bazę read-only, potwierdza fizyczny
@@ -223,17 +223,42 @@ sequenceDiagram
 
     Admin->>Web: wybiera wersje i tworzy wydanie
     Web->>API: POST /admin/mobile-releases
-    API->>PG: zapisz release job
+    API->>PG: zablokuj źródła i zapisz niezmienny draft release
+    Admin->>Web: uruchamia build
+    Web->>API: POST /admin/mobile-releases/{id}/build
+    API->>PG: zapisz typowany release job
     Worker->>PG: pobierz zadanie
     Worker->>PG: waliduj dataset i rules
-    Worker->>PG: oblicz payouty
+    Worker->>PG: dopełnij payouty partiami i checkpointuj per gra
     Worker->>FS: wygeneruj i zweryfikuj SQLite
-    Worker->>FS: zbuduj APK
-    Worker->>PG: zapisz wersje, checksumy i wynik
+    Worker->>FS: podmień kontrolowane assety, zbuduj i zweryfikuj Release APK
+    Worker->>PG: zapisz względne ścieżki, checksumy i ready
     API-->>Web: status oraz ścieżki artefaktów
 ```
 
 Publikacja jest niezmienna. Zmiana danych tworzy nowe wydanie i nie modyfikuje już zainstalowanego APK.
+
+Dokładnie jeden job `android_build` posiada cały przebieg. Checkpoint schema v1
+zapisuje ukończone gry i aktywny checkpoint payoutu, dlatego po wygaśnięciu
+lease albo retry nie powstają child-joby i nie są nadpisywane gotowe artefakty.
+Kontrolowany adapter przyjmuje wyłącznie utrwalony release, stały wariant
+`Release` i architekturę `arm64-v8a`; klient nie przekazuje komendy. Na czas
+builda produkcyjny manifest schema v1 i `snapshot.db` zastępują stały asset
+Metro, a pliki bazowe są bezwarunkowo odtwarzane. Weryfikacja potwierdza podpis,
+brak `INTERNET`, standalone bundle oraz SQLite o dokładnym checksumie release.
+
+Panel wybiera wyłącznie aktywne gry oraz opublikowane, zgodne wymiarami pary
+dataset/reguły. Po utworzeniu draftu nie edytuje jego składu. Podczas builda
+odświeża szczegół release i dokładnie jeden przypięty job, a retry wznawia ten
+sam rekord. Gotowy APK jest pobierany przez kontrolowany endpoint po ponownej
+weryfikacji SHA-256 względem wspólnego katalogu artefaktów; przeglądarka nie
+przekazuje ścieżki ani komendy systemowej.
+
+Utworzenie release i uruchomienie builda są osobnymi operacjami. TASK-0036
+utrwala globalnie unikalną wersję oraz 1–15 dokładnych wyborów dataset/rules.
+Serwer ustala obsługiwany algorytm i schema, blokuje źródła, wymaga statusu
+`published`, wspólnej aktywnej gry oraz zgodnych wymiarów i zapisuje wszystkie
+rekordy w jednej transakcji. Dopiero TASK-0037 tworzy job i zmienia lifecycle.
 
 ## Przepływ importu zdjęć
 

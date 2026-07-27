@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.3 complete; awaiting M3.4`
+`M3.4 in progress; TASK-0039 active`
 
 ## Completed
 
@@ -421,6 +421,41 @@ last_updated: 2026-07-27
   standardowych testów Python, 63 mobile, 51 panelu, 23 wspólnej domeny i 8
   klienta API oraz 6 fizycznych testów PostgreSQL; zaliczono G3.3 i zamknięto
   M3.3,
+- ukończono `TASK-0036`: migracja `0010_mobile_releases`, domena, repozytorium
+  i Admin API zapisują niezmienny draft wydania z 1–15 dokładnymi wyborami
+  dataset/rules oraz serwerowym `payout-v2` i SQLite schema `2`,
+- źródła są blokowane i atomowo zapisywane; muszą być opublikowane, należeć do
+  tej samej aktywnej gry, mieć zgodne wymiary i dodatnią liczbę layoutów, a
+  wersja release jest globalnie unikalnym bezpiecznym segmentem ścieżki,
+- OpenAPI i publiczny klient TypeScript udostępniają create/list/detail z
+  kanoniczną kolejnością gier i pełnymi UUID oraz numerami wersji,
+- zaakceptowano D-038; TASK-0036 przeszedł pełną bramkę jakości: 212
+  standardowych testów Python, 63 mobile, 51 panelu, 23 wspólnej domeny i 9
+  klienta API oraz 7 fizycznych testów PostgreSQL,
+- ukończono `TASK-0037`: endpoint build atomowo tworzy jeden nadrzędny job
+  `android_build`, rewaliduje dokładne źródła i przechodzi z `draft` do
+  `building`,
+- worker `worker-v2` wykonuje w jednym resumowalnym przebiegu payouty per gra,
+  produkcyjny snapshot, pełną weryfikację SQLite, kontrolowany Release build
+  `arm64-v8a` i audyt offline APK; checkpoint schema v1 nie tworzy child-jobów,
+- release zapisuje względne, niezmienne ścieżki i SHA-256, a `ready` wymaga
+  aktywnego nieanulowanego joba oraz obu zweryfikowanych artefaktów; błąd albo
+  anulowanie daje `failed`,
+- aplikacja mobilna obsługuje produkcyjny manifest M3 schema v1 bez pól fixture,
+  zachowując przejściową zgodność z fixture M1; OpenAPI i publiczny klient
+  udostępniają build release,
+- zaakceptowano D-039; TASK-0037 przeszedł pełną bramkę jakości: 219
+  standardowych testów Python, 64 mobile, 51 panelu, 23 wspólnej domeny i 9
+  klienta API oraz 7 fizycznych testów PostgreSQL,
+- ukończono `TASK-0038`: panel tworzy niezmienny draft z 1–15 aktywnymi grami i
+  zgodnymi opublikowanymi datasetami/regułami, uruchamia kontrolowany build oraz
+  monitoruje dokładnie jeden przypięty job z retry,
+- historia pokazuje pełny skład, statusy, ścieżki i SHA-256, a gotowy APK jest
+  pobierany przez wygenerowany klient i kontrolowany endpoint rewalidujący plik
+  względem wspólnego `artifact_root`; panel nie przyjmuje ścieżki ani komendy,
+- zaakceptowano D-040; TASK-0038 przeszedł pełną bramkę jakości: 221
+  standardowych testów Python, 64 mobile, 57 panelu, 23 wspólnej domeny i 9
+  klienta API, produkcyjny build Next.js oraz 7 fizycznych testów PostgreSQL,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -432,7 +467,9 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M3.3 jest zamknięty.
+- `TASK-0039 — Release failure and immutability integration tests`: macierz
+  awarii i retry, fizyczny PostgreSQL, rzeczywisty zmieniony APK oraz odbiór
+  aktualizacji istniejącej instalacji.
 
 ## Open but not blocking next milestones
 
@@ -485,8 +522,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0036 — Mobile release domain and API`. Nie rozpoczynać go automatycznie.
+Ukończyć automatyczną i fizyczną część `TASK-0039`, a następnie zaliczyć G3.4.
+Nie rozpoczynać M3.5 bez kolejnego polecenia właściciela.
 
 ## Do not start yet
 

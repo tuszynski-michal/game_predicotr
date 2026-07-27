@@ -909,6 +909,285 @@
         "title": "JobType",
         "type": "string"
       },
+      "MobileReleaseApkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "title": "Checksum",
+            "type": "string"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relativePath",
+          "checksum"
+        ],
+        "title": "MobileReleaseApkResponse",
+        "type": "object"
+      },
+      "MobileReleaseBuildResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ],
+        "title": "MobileReleaseBuildResponse",
+        "type": "object"
+      },
+      "MobileReleaseCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/MobileReleaseGameCreate"
+            },
+            "maxItems": 15,
+            "minItems": 1,
+            "title": "Games",
+            "type": "array"
+          },
+          "version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "games"
+        ],
+        "title": "MobileReleaseCreate",
+        "type": "object"
+      },
+      "MobileReleaseGameCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "datasetVersionId": {
+            "format": "uuid",
+            "title": "Datasetversionid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "datasetVersionId",
+          "rulesVersionId"
+        ],
+        "title": "MobileReleaseGameCreate",
+        "type": "object"
+      },
+      "MobileReleaseGameResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "datasetVersion": {
+            "title": "Datasetversion",
+            "type": "integer"
+          },
+          "datasetVersionId": {
+            "format": "uuid",
+            "title": "Datasetversionid",
+            "type": "string"
+          },
+          "gameCode": {
+            "title": "Gamecode",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "layoutCount": {
+            "title": "Layoutcount",
+            "type": "integer"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "rulesVersion": {
+            "title": "Rulesversion",
+            "type": "integer"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "gameCode",
+          "datasetVersionId",
+          "datasetVersion",
+          "rulesVersionId",
+          "rulesVersion",
+          "rows",
+          "columns",
+          "layoutCount"
+        ],
+        "title": "MobileReleaseGameResponse",
+        "type": "object"
+      },
+      "MobileReleaseResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithmVersion": {
+            "title": "Algorithmversion",
+            "type": "string"
+          },
+          "apk": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MobileReleaseApkResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buildJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buildjobid"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "games": {
+            "items": {
+              "$ref": "#/components/schemas/MobileReleaseGameResponse"
+            },
+            "title": "Games",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "readyAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Readyat"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MobileReleaseSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snapshotSchemaVersion": {
+            "title": "Snapshotschemaversion",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MobileReleaseStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "algorithmVersion",
+          "snapshotSchemaVersion",
+          "snapshot",
+          "apk",
+          "buildJobId",
+          "createdAt",
+          "readyAt",
+          "games"
+        ],
+        "title": "MobileReleaseResponse",
+        "type": "object"
+      },
+      "MobileReleaseSnapshotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum": {
+            "title": "Checksum",
+            "type": "string"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "relativePath",
+          "checksum"
+        ],
+        "title": "MobileReleaseSnapshotResponse",
+        "type": "object"
+      },
+      "MobileReleaseStatus": {
+        "enum": [
+          "draft",
+          "building",
+          "ready",
+          "failed",
+          "archived"
+        ],
+        "title": "MobileReleaseStatus",
+        "type": "string"
+      },
       "MockDatasetCreate": {
         "additionalProperties": false,
         "properties": {
@@ -3440,6 +3719,310 @@
         "summary": "Requeue the same failed or review-paused job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/mobile-releases": {
+      "get": {
+        "operationId": "listMobileReleases",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MobileReleaseResponse"
+                  },
+                  "title": "Response Listmobilereleases",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List immutable mobile releases",
+        "tags": [
+          "mobile-releases"
+        ]
+      },
+      "post": {
+        "operationId": "createMobileRelease",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MobileReleaseCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileReleaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create an immutable draft mobile release",
+        "tags": [
+          "mobile-releases"
+        ]
+      }
+    },
+    "/api/v1/admin/mobile-releases/{mobile_release_id}": {
+      "get": {
+        "operationId": "getMobileRelease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mobile_release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mobile Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileReleaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get an immutable mobile release",
+        "tags": [
+          "mobile-releases"
+        ]
+      }
+    },
+    "/api/v1/admin/mobile-releases/{mobile_release_id}/apk": {
+      "get": {
+        "operationId": "downloadMobileReleaseApk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mobile_release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mobile Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.android.package-archive": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Verified immutable Android package"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Download the verified APK of a ready mobile release",
+        "tags": [
+          "mobile-releases"
+        ]
+      }
+    },
+    "/api/v1/admin/mobile-releases/{mobile_release_id}/build": {
+      "post": {
+        "operationId": "buildMobileRelease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mobile_release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mobile Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MobileReleaseBuildResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Release state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Start the one controlled release build workflow",
+        "tags": [
+          "mobile-releases"
         ]
       }
     },

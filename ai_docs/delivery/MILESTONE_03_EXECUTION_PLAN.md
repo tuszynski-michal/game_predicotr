@@ -83,7 +83,7 @@ G3.1 zaliczona 2026-07-27.
 
 ### Zadania
 
-- `TASK-0032 — Batch payout precomputation and audit`
+- `TASK-0032 — Batch payout precomputation and audit` — done 2026-07-27
 - `TASK-0033 — Payout completeness, restart and version safety`
 
 ### Bramka G3.2

@@ -221,8 +221,7 @@ class RulesVersionSymbolModel(Base):
     __tablename__ = "rules_version_symbols"
     __table_args__ = (
         CheckConstraint(
-            "minimum_match_length IS NULL OR "
-            "minimum_match_length BETWEEN 2 AND 32767",
+            "minimum_match_length IS NULL OR minimum_match_length BETWEEN 2 AND 32767",
             name="ck_rules_version_symbols_minimum_range",
         ),
     )
@@ -550,3 +549,56 @@ class LayoutModel(Base):
         nullable=False,
     )
     source_board_id: Mapped[UUID | None] = mapped_column(nullable=True)
+
+
+class LayoutPayoutModel(Base):
+    __tablename__ = "layout_payouts"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_layout_payouts_sequence_positive",
+        ),
+        CheckConstraint(
+            "length(btrim(algorithm_version)) > 0",
+            name="ck_layout_payouts_algorithm_not_blank",
+        ),
+        CheckConstraint(
+            "total_payout >= 0",
+            name="ck_layout_payouts_total_nonnegative",
+        ),
+        CheckConstraint(
+            "audit_path IS NULL OR length(btrim(audit_path)) > 0",
+            name="ck_layout_payouts_audit_path_not_blank",
+        ),
+        ForeignKeyConstraint(
+            ["dataset_version_id", "sequence_number"],
+            ["layouts.dataset_version_id", "layouts.sequence_number"],
+            name="fk_layout_payouts_layout",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_layout_payouts_rules_version_id",
+            "rules_version_id",
+        ),
+    )
+
+    dataset_version_id: Mapped[UUID] = mapped_column(primary_key=True)
+    rules_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("rules_versions.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    sequence_number: Mapped[int] = mapped_column(
+        BigInteger,
+        primary_key=True,
+    )
+    algorithm_version: Mapped[str] = mapped_column(
+        String(100),
+        primary_key=True,
+    )
+    total_payout: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    audit_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    calculated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

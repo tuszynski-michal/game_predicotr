@@ -232,7 +232,7 @@ Administracyjny podgląd używa keyset pagination:
 | rules_version_id | UUID | |
 | sequence_number | bigint | |
 | algorithm_version | varchar | |
-| total_payout | integer | |
+| total_payout | bigint | suma wielu nieujemnych wypłat |
 | audit_path | varchar nullable | opcjonalny raport szczegółowy |
 | calculated_at | timestamptz | |
 
@@ -243,6 +243,18 @@ Klucz logiczny:
 ```
 
 Oddzielna tabela zapobiega uznaniu payoutu za aktualny po zmianie reguł.
+
+Wyniki są zapisywane przez worker partiami po kluczu logicznym. FK do
+`(dataset_version_id, sequence_number)` gwarantuje, że payout wskazuje
+istniejący layout, `total_payout` jest nieujemny, a `algorithm_version` nie może
+być pusty. Idempotentny upsert pozwala bezpiecznie powtórzyć partię po awarii
+między zapisem wyników a checkpointem.
+
+`audit_path` jest względną ścieżką do deterministycznego pliku JSONL partii.
+Nagłówek identyfikuje dataset, rules, algorytm i zakres, a każdy kolejny rekord
+zawiera `sequenceNumber`, `totalPayout`, matches, komórki, jokery i
+interpretacje. Wiele rekordów `layout_payouts` jednej partii świadomie wskazuje
+ten sam plik; właściwy wpis identyfikuje `sequence_number`.
 
 ### jobs
 

@@ -15,6 +15,7 @@ PAYOUTS_REVISION = "0005_symbol_payouts"
 DATASETS_REVISION = "0006_dataset_staging"
 JOBS_REVISION = "0007_jobs"
 JOB_LEASES_REVISION = "0008_job_leases"
+LAYOUT_PAYOUTS_REVISION = "0009_layout_payouts"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -26,7 +27,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_job_leases_migration_is_the_only_head_and_follows_jobs() -> None:
+def test_layout_payouts_migration_is_the_only_head_and_follows_job_leases() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -36,8 +37,9 @@ def test_job_leases_migration_is_the_only_head_and_follows_jobs() -> None:
     datasets = script.get_revision(DATASETS_REVISION)
     jobs = script.get_revision(JOBS_REVISION)
     job_leases = script.get_revision(JOB_LEASES_REVISION)
+    layout_payouts = script.get_revision(LAYOUT_PAYOUTS_REVISION)
 
-    assert script.get_heads() == [JOB_LEASES_REVISION]
+    assert script.get_heads() == [LAYOUT_PAYOUTS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -54,6 +56,8 @@ def test_job_leases_migration_is_the_only_head_and_follows_jobs() -> None:
     assert jobs.down_revision == DATASETS_REVISION
     assert job_leases is not None
     assert job_leases.down_revision == JOBS_REVISION
+    assert layout_payouts is not None
+    assert layout_payouts.down_revision == JOB_LEASES_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -277,3 +281,29 @@ def test_job_leases_migration_generates_fencing_and_checkpoint_schema() -> None:
     assert "drop column checkpoint_payload" in downgrade_sql
     assert "drop column lease_token" in downgrade_sql
     assert "drop constraint uq_jobs_execution_slot" in downgrade_sql
+
+
+def test_layout_payouts_migration_generates_versioned_results_and_audit() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{LAYOUT_PAYOUTS_REVISION}:{JOB_LEASES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table layout_payouts" in upgrade_sql
+    assert "pk_layout_payouts" in upgrade_sql
+    assert "fk_layout_payouts_layout" in upgrade_sql
+    assert "ck_layout_payouts_total_nonnegative" in upgrade_sql
+    assert "audit_path varchar(1000)" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table layout_payouts" in downgrade_sql

@@ -29,6 +29,19 @@ class JobExecutionResult(StrEnum):
     LEASE_LOST = "lease_lost"
 
 
+class JobHandlerError(RuntimeError):
+    """Stable, operator-safe workflow failure."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        normalized_code = code.strip()
+        normalized_message = message.strip()
+        if not normalized_code or not normalized_message:
+            raise ValueError("A job handler error requires code and message.")
+        self.code = normalized_code
+        self.message = normalized_message
+
+
 class WorkerJobStore(Protocol):
     def claim_next(
         self,
@@ -253,11 +266,19 @@ class LocalJobWorker:
         if claimed.lease_token is None:
             return JobExecutionResult.LEASE_LOST
         try:
+            code, message = (
+                (error.code, error.message)
+                if isinstance(error, JobHandlerError)
+                else (
+                    "JOB_EXECUTION_FAILED",
+                    f"Handler failed with {type(error).__name__}.",
+                )
+            )
             failed = self._store.fail(
                 claimed.id,
                 lease_token=claimed.lease_token,
-                error_code="JOB_EXECUTION_FAILED",
-                error_message=f"Handler failed with {type(error).__name__}.",
+                error_code=code,
+                error_message=message,
                 failed_at=self._clock(),
             )
         except JobConflictError as lease_error:

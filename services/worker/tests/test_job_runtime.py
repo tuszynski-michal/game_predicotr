@@ -20,6 +20,7 @@ from game_predictor_worker.jobs.runtime import (
     JobExecutionContext,
     JobExecutionResult,
     JobHandler,
+    JobHandlerError,
     LocalJobWorker,
 )
 
@@ -328,6 +329,26 @@ def test_handler_failure_and_missing_registration_release_slot() -> None:
         missing_store.jobs[missing_job.id].error_code
         == "JOB_HANDLER_NOT_REGISTERED"
     )
+
+
+def test_worker_preserves_operator_safe_handler_error() -> None:
+    clock = MutableClock()
+    job = _job(clock)
+    store = MemoryWorkerJobStore([job])
+
+    def fail_safely(_context: JobExecutionContext, _job: Job) -> None:
+        raise JobHandlerError(
+            "PAYOUT_SOURCE_NOT_FOUND",
+            "The payout source does not exist.",
+        )
+
+    assert (
+        _worker(store, clock, fail_safely).run_once()
+        is JobExecutionResult.FAILED
+    )
+    failed = store.jobs[job.id]
+    assert failed.error_code == "PAYOUT_SOURCE_NOT_FOUND"
+    assert failed.error_message == "The payout source does not exist."
 
 
 def test_expired_worker_is_fenced_and_same_job_is_resumed() -> None:

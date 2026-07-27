@@ -107,7 +107,26 @@ osierocony rekord: wraca on do `created` z zachowanym checkpointem albo do
 - pliki robocze i wycinki,
 - dane treningowe i modele,
 - eksporty,
+- strukturalne audyty payoutów JSONL,
 - wygenerowane snapshoty i APK.
+
+### Batch payout precomputation
+
+Handler `payout-v2` odczytuje wyłącznie opublikowany dataset i opublikowane
+reguły tej samej gry o zgodnych wymiarach. Źródło jest mapowane do czystych
+kontraktów engine, a layouty są pobierane rosnąco po `sequence_number` w
+partiach po 1000, bez ładowania pełnego datasetu do pamięci.
+
+Dla każdej partii worker:
+
+1. sprawdza ciągłość sekwencji i ocenia layouty czystym engine,
+2. atomowo podmienia deterministyczny plik audytu JSONL,
+3. wykonuje idempotentny upsert `layout_payouts`,
+4. dopiero potem zapisuje checkpoint z ostatnim numerem i licznikami.
+
+Awaria przed checkpointem może więc powtórzyć ostatnią partię, ale nie tworzy
+drugiego wyniku ani innej ścieżki audytu. Katalog artefaktów jest lokalny i
+konfigurowalny argumentem CLI; mobile nigdy go nie odczytuje.
 
 ## Przepływ dopasowania offline
 

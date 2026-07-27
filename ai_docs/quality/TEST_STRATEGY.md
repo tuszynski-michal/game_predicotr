@@ -107,6 +107,12 @@ Od M2, na testowym PostgreSQL:
   liczników,
 - anulowanie przy bezpiecznym checkpointcie oraz zwolnienie slotu po błędzie,
 - konkurencyjny claim dwóch procesów na fizycznym PostgreSQL,
+- złożony klucz payoutu, FK do layoutu i nieujemny wynik,
+- bounded keyset batch layoutów oraz idempotentny upsert bez duplikatów,
+- wznowienie payout joba od ostatniego checkpointu bez pominięcia sekwencji,
+- deterministyczny JSONL z pełną interpretacją match/joker dla każdej partii,
+- odrzucenie stagingu, nieopublikowanych reguł, niezgodnych wymiarów i
+  nieobsługiwanej wersji algorytmu,
 - deterministyczny mock 1000 layoutów dla tego samego seedu i konfiguracji,
 - atomowy zapis stagingowej wersji wraz ze wszystkimi layoutami,
 - walidacja długości `row_path`,

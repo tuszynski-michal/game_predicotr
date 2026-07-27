@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
+from game_predictor_api.domain.jobs import JobType
 from game_predictor_worker import cli
 from game_predictor_worker.jobs.runtime import JobExecutionResult
 
@@ -20,6 +21,7 @@ class FakeWorker:
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.run_forever_calls: list[float] = []
+        self.handlers = args[1]
         self.__class__.instances.append(self)
 
     def run_once(self) -> JobExecutionResult:
@@ -69,6 +71,7 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
 
     assert capsys.readouterr().out.strip() == "no_job"
     assert len(FakeWorker.instances) == 1
+    assert JobType.PAYOUT in FakeWorker.instances[0].handlers
     assert engine.disposed is True
 
 

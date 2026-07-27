@@ -7,8 +7,10 @@ import os
 import socket
 from collections.abc import Sequence
 from datetime import timedelta
+from pathlib import Path
 
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.jobs import JobType
 from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
@@ -16,8 +18,11 @@ from game_predictor_api.storage.database import (
 
 from game_predictor_worker.jobs.runtime import LocalJobWorker
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
+from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
+from game_predictor_worker.payouts.handler import PayoutBatchHandler
+from game_predictor_worker.payouts.store import SqlAlchemyPayoutStore
 
-WORKER_VERSION = "worker-v1"
+WORKER_VERSION = "worker-v2"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -44,6 +49,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
         default=f"{socket.gethostname()}-{os.getpid()}",
         help="Diagnostic owner stored with the lease.",
     )
+    parser.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=Path("artifacts"),
+        help="Local root for deterministic worker artifacts.",
+    )
     options = parser.parse_args(arguments)
     if not 5 <= options.lease_seconds <= 3600:
         parser.error("--lease-seconds must be between 5 and 3600.")
@@ -52,10 +63,15 @@ def main(arguments: Sequence[str] | None = None) -> int:
 
     settings = ApiSettings.from_environment()
     engine = create_database_engine(settings)
-    store = SqlAlchemyWorkerJobStore(create_session_factory(engine))
+    session_factory = create_session_factory(engine)
+    store = SqlAlchemyWorkerJobStore(session_factory)
+    payout_handler = PayoutBatchHandler(
+        SqlAlchemyPayoutStore(session_factory),
+        JsonlPayoutAuditWriter(options.artifact_root),
+    )
     worker = LocalJobWorker(
         store,
-        {},
+        {JobType.PAYOUT: payout_handler},
         worker_id=options.worker_id,
         worker_version=WORKER_VERSION,
         lease_duration=timedelta(seconds=options.lease_seconds),

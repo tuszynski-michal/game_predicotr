@@ -650,6 +650,31 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   workflow odpowiada za idempotentny zapis własnych wyników; brak handlera jest
   stabilnym błędem, a ekran statusu pozostaje zakresem TASK-0031.
 
+## D-034 — Idempotent payout batches with external JSONL audit
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** `payout-v2` odczytuje layouty keysetowo w partiach po 1000.
+  Każda partia najpierw tworzy atomowo podmieniany, deterministyczny JSONL,
+  następnie wykonuje upsert `layout_payouts`, a na końcu zapisuje checkpoint.
+  Wszystkie wyniki partii wskazują wspólny względny `audit_path`; rekord audytu
+  identyfikuje `sequenceNumber`. Klucz wyniku obejmuje dataset, rules,
+  sequence i algorithm.
+- **Context:** docelowy dataset ma około 500 000 layoutów, pełny audyt nie
+  powinien rozdymać głównych tabel ani wymagać załadowania całości do pamięci.
+  Worker może zostać zamknięty między dowolnymi krótkimi transakcjami.
+- **Reason:** JSONL jest strumieniowy i zachowuje strukturalne matches, komórki,
+  jokery oraz interpretacje. Deterministyczna nazwa i upsert sprawiają, że
+  powtórzenie ostatniej partii po awarii jest bezpieczne, zaś checkpoint nigdy
+  nie wyprzedza trwałego wyniku.
+- **Alternatives:** JSONB audytu w każdym rekordzie PostgreSQL, jeden plik na
+  layout, jeden ogromny plik całego joba, checkpoint przed zapisem wyników,
+  kasowanie wszystkich payoutów przy retry.
+- **Consequences:** lokalny katalog artefaktów musi być zachowany razem z
+  administracyjną bazą, jeżeli wymagany jest historyczny audyt. Osierocony plik
+  po awarii przed upsertem jest bezpieczny i zostanie deterministycznie
+  zastąpiony przy retry. Rozmiar partii i audytów podlega pomiarowi M3.5.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -97,6 +97,7 @@ def test_catalog_repository_uses_real_constraints(
             "games",
             "jobs",
             "layouts",
+            "layout_payouts",
             "paylines",
             "payout_rules",
             "rules_versions",

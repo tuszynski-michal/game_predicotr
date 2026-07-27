@@ -227,7 +227,14 @@ npm run worker:once
 npm run worker:poll
 ```
 
-Rejestr konkretnych handlerów jest rozwijany razem z ich pionami
+Worker `worker-v2` rejestruje handler `payout-v2`. Domyślnie zapisuje
+strukturalne audyty w `artifacts/`; alternatywny katalog można wskazać:
+
+```powershell
+.venv\Scripts\python.exe -m game_predictor_worker --artifact-root D:\game-predictor-artifacts
+```
+
+Rejestr pozostałych handlerów jest rozwijany razem z ich pionami
 funkcjonalnymi. Brak handlera kończy przejęty job kodem
 `JOB_HANDLER_NOT_REGISTERED`; nie pozostawia zajętego slotu.
 

@@ -129,9 +129,13 @@ npm run worker:once
 npm run worker:poll
 ```
 
-The TASK-0030 runtime intentionally has no import, payout, snapshot or build
-handler yet. Claiming such a job before its handler is delivered ends it with
-the stable `JOB_HANDLER_NOT_REGISTERED` error and releases the execution slot.
+The worker has a registered `payout-v2` handler. It reads published datasets
+in batches, stores versioned results in PostgreSQL and writes structural JSONL
+audits under `artifacts/`. Use
+`python -m game_predictor_worker --artifact-root <path>` when the default local
+artifact directory is not appropriate. Import, validation, snapshot and build
+handlers remain unregistered; claiming one of those jobs ends it with the
+stable `JOB_HANDLER_NOT_REGISTERED` error and releases the execution slot.
 
 The panel is available at `http://127.0.0.1:3000`. The health endpoint is
 `http://127.0.0.1:8000/api/v1/health`, and generated FastAPI documentation is

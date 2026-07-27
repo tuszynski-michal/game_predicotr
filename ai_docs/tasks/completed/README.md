@@ -45,5 +45,6 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0029 — Job state machine and Admin API](0029-job-state-machine-admin-api.md)
 - [TASK-0030 — Local worker execution, lease and resume](0030-local-worker-lease-resume.md)
 - [TASK-0031 — Jobs progress and error UI](0031-jobs-progress-error-ui.md)
+- [TASK-0032 — Batch payout precomputation and audit](0032-batch-payout-precomputation-audit.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

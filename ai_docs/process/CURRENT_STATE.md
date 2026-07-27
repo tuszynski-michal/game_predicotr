@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.1 complete; awaiting M3.2`
+`M3.2 in progress; awaiting TASK-0033`
 
 ## Completed
 
@@ -369,6 +369,21 @@ last_updated: 2026-07-27
 - TASK-0031 przeszedł pełną bramkę jakości: 150 testów Python, 63 mobile, 51
   panelu, 23 wspólnej domeny i 8 klienta API oraz produkcyjny build Next.js;
   zaliczono bramkę G3.1 i zamknięto M3.1,
+- ukończono `TASK-0032`: migracja `0009_layout_payouts` dodaje wersjonowane
+  wyniki z kluczem dataset/rules/sequence/algorithm, FK do layoutu i reguł,
+  nieujemnym payoutem `bigint`, ścieżką audytu oraz czasem obliczenia,
+- worker `worker-v2` rejestruje handler `payout-v2`, który wymaga opublikowanego
+  datasetu i reguł tej samej gry oraz wymiarów, mapuje aktywną konfigurację do
+  czystego engine i czyta layouty keysetowo w partiach po 1000,
+- deterministyczny JSONL partii jest atomowo podmieniany przed idempotentnym
+  upsertem PostgreSQL, a checkpoint powstaje dopiero po trwałym zapisie;
+  wznowienie nie tworzy duplikatów i zachowuje matches, komórki, jokery oraz
+  strukturalne interpretacje,
+- zaakceptowano D-034 definiującą kolejność audit → upsert → checkpoint oraz
+  wspólną ścieżkę JSONL dla wyników jednej partii,
+- TASK-0032 przeszedł pełną bramkę jakości: 162 testy Python, 63 mobile, 51
+  panelu, 23 wspólnej domeny i 8 klienta API; dodatkowo pełne 5 fizycznych
+  testów PostgreSQL przeszło,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -380,7 +395,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M3.1 jest zamknięty.
+- brak aktywnego zadania; M3.2 oczekuje na TASK-0033.
 
 ## Open but not blocking next milestones
 
@@ -434,8 +449,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0032 — Batch payout precomputation and audit`. Nie tworzyć ani nie
-rozpoczynać pliku zadania przed tym poleceniem.
+`TASK-0033 — Payout completeness, restart and version safety`. Nie tworzyć ani
+nie rozpoczynać pliku zadania przed tym poleceniem.
 
 ## Do not start yet
 

@@ -139,6 +139,37 @@ Osobny strumieniowy weryfikator JSONL porównuje nagłówek i każdy rekord z
 oczekiwanym wynikiem partii. Potwierdza kolejność, payout, sumę matches,
 komórki, jokery i ich interpretacje bez ładowania całego pliku do pamięci.
 
+### Production SQLite generation
+
+Generator schema v2 przyjmuje jawne wybory
+`(dataset_version_id, rules_version_id, algorithm_version)` oraz deterministyczne
+metadata wydania. Każdy wybór przechodzi bramkę kompletności M3.2. Źródła są
+porządkowane po stabilnym kodzie gry, a mobilne identyfikatory techniczne są
+przydzielane dopiero po tym sortowaniu.
+
+Katalog gier i symboli jest mały i powstaje przed zapisem. Layouty z dokładnie
+wybraną wersją payoutu są odczytywane z PostgreSQL keysetowo i zapisywane do
+tymczasowego SQLite partiami po 1000. W tym samym przebiegu powstaje logiczny
+SHA-256 kanonicznych rekordów. Dopiero kompletny plik z finalnym
+`content_checksum` staje się widoczny pod ścieżką docelową; generator odrzuca
+istniejący cel.
+
+TASK-0034 nie rejestruje jeszcze snapshot joba, ponieważ jego publiczny payload
+wskazuje przyszły `mobile_release`. Manifest, niezależny walidator i niezmienny
+katalog artefaktu należą do TASK-0035, a podłączenie job/release do M3.4.
+
+Publisher TASK-0035 buduje SQLite i kanoniczny manifest w prywatnym katalogu
+stagingowym. Niezależny walidator otwiera bazę read-only, potwierdza fizyczny
+SHA-256, schema/application id, dokładny zestaw tabel i indeks signature,
+metadata, FK oraz `quick_check`. Następnie odczytuje layouty po 1000, kontroluje
+ciągłość, symbole, codec sygnatury i payout oraz rekonstruuje logiczny SHA-256.
+
+Dopiero zweryfikowany staging jest atomowo przenoszony do
+`snapshots/<releaseVersion>/<logicalContentSha256>/`. Katalog końcowy zawiera
+wyłącznie `snapshot.db` i `manifest.json`. Retry nie zmienia istniejących
+plików; pełna walidacja identycznego manifestu pozwala użyć ich ponownie, a
+każda rozbieżność kończy się stabilną kolizją.
+
 ## Przepływ dopasowania offline
 
 ```mermaid

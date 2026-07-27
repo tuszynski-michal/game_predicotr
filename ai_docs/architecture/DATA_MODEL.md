@@ -423,6 +423,13 @@ i golden Target oraz zawiera SHA-256 całego pliku. `content_checksum` jest
 SHA-256 kanonicznej logicznej treści tabel i wersji, natomiast
 `fixture_fingerprint` identyfikuje pełne wejście build-time.
 
+Produkcyjny generator M3 nie zapisuje pól fixture ani golden cases. Zachowuje
+globalne `release_version`, `snapshot_schema_version`, `algorithm_version`,
+`created_at`, `content_checksum`, `game_count` i `layout_count`, natomiast
+`dataset_version` i `rules_version` są zapisane osobno w rekordzie każdej gry.
+Logiczny checksum obejmuje znormalizowane metadata bez samej wartości checksumy
+oraz rosnąco uporządkowane rekordy games, symbols i layouts.
+
 ### Materializacja na Android
 
 Snapshot jest niezmiennym assetem wydania. Lokalna kopia używana przez
@@ -496,6 +503,42 @@ Snapshot nie zawiera:
 - kolejek review,
 - pełnych reguł wypłat, jeżeli payout został poprawnie precomputed,
 - danych wymagających połączenia z PostgreSQL.
+
+Generator produkcyjny przydziela mobilne `games.id` deterministycznie po
+stabilnym `games.code`, a symbole porządkuje po `mobile_code`. Każda kombinacja
+dataset/rules/algorithm przechodzi bramkę gotowości payoutów przed utworzeniem
+pliku. Layouty są odczytywane keysetowo i zapisywane partiami po 1000, z jawną
+kontrolą ciągłości. Kompletny plik tymczasowy jest publikowany atomowo, a
+istniejący cel nie może zostać nadpisany.
+
+## Produkcyjny manifest i katalog artefaktu
+
+Manifest M3 ma `manifestVersion = 1` i zawiera:
+
+- release, czas, wersję schema SQLite i algorytmu,
+- nazwę pliku `snapshot.db`,
+- logiczny SHA-256 oraz SHA-256 całego pliku,
+- dokładne liczniki gier, symboli i layoutów,
+- dla każdej gry: mobilny id, stabilny kod, kanoniczne UUID oraz numery wersji
+  dataset/rules, wymiary, szerokość sygnatury i liczniki.
+
+Nie zawiera pól fixture, golden cases ani ścieżek absolutnych. Jest zapisywany
+jako kanoniczny UTF-8 JSON z sortowanymi kluczami i końcowym newline.
+
+Niezmienny katalog ma dokładną postać:
+
+```text
+<artifact-root>/
+  snapshots/
+    <releaseVersion>/
+      <logicalContentSha256>/
+        manifest.json
+        snapshot.db
+```
+
+Istniejący katalog nie jest nadpisywany. Identyczny retry może zwrócić go
+wyłącznie po pełnej walidacji i porównaniu manifestu; uszkodzona albo odmienna
+zawartość pod tą samą ścieżką jest kolizją.
 
 ## Reprezentacja sygnatury
 

@@ -47,5 +47,7 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0031 — Jobs progress and error UI](0031-jobs-progress-error-ui.md)
 - [TASK-0032 — Batch payout precomputation and audit](0032-batch-payout-precomputation-audit.md)
 - [TASK-0033 — Payout completeness, restart and version safety](0033-payout-completeness-restart-version-safety.md)
+- [TASK-0034 — Production SQLite snapshot generator](0034-production-sqlite-snapshot-generator.md)
+- [TASK-0035 — Snapshot validator, manifest and artifact layout](0035-snapshot-validator-manifest-artifact-layout.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

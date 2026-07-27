@@ -85,7 +85,27 @@ Największe ryzyko znajduje się w logice domenowej, integralności kolejności,
 - cykliczny odczyt zwraca właściwą kolejność,
 - każdy layout ma nieujemny payout,
 - uszkodzona lub niezgodna baza daje `local_data_error`,
-- generator snapshotu jest deterministyczny dla tych samych wejść.
+- generator snapshotu jest deterministyczny dla tych samych wejść,
+- kolejność wyborów gier nie zmienia logicznej treści ani bajtów,
+- produkcyjny snapshot nie zawiera pól fixture ani tabel administracyjnych,
+- dataset/rules version są zachowane osobno dla każdej gry,
+- layouty są pobierane keysetowo w bounded partiach i kontrolowane pod kątem
+  ciągłości,
+- dokładna bramka payoutów działa przed utworzeniem pliku,
+- historyczny payout innego algorytmu nie trafia do snapshotu,
+- błąd w połowie strumienia nie publikuje częściowego pliku,
+- istniejący cel nie jest nadpisywany,
+- fizyczny PostgreSQL zasila SQLite dokładnymi wersjami, symbolami, sygnaturami
+  i payoutami,
+- manifest schema v1 jest ścisły, kanoniczny i nie zawiera fixture/golden,
+- katalog końcowy ma ścieżkę release/checksum i dokładnie dwa dozwolone pliki,
+- idempotentny retry waliduje i ponownie wykorzystuje artefakt bez zmiany
+  bajtów lub czasu modyfikacji,
+- uszkodzony istniejący katalog powoduje kolizję zamiast nadpisania,
+- niezależny read-only walidator odtwarza logiczny checksum strumieniowo,
+- kontrolowane uszkodzenia manifestu, ścieżki, pliku, schema, indeksu, metadata,
+  licznika, sekwencji, FK, symbolu, sygnatury i payoutu są wykrywane,
+- błąd stagingu nie publikuje katalogu końcowego.
 
 ## PostgreSQL repository/integration tests
 

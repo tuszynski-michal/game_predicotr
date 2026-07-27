@@ -109,8 +109,8 @@ G3.2 zaliczona 2026-07-27.
 
 ### Zadania
 
-- `TASK-0034 — Production SQLite snapshot generator`
-- `TASK-0035 — Snapshot validator, manifest and artifact layout`
+- `TASK-0034 — Production SQLite snapshot generator` — done 2026-07-27
+- `TASK-0035 — Snapshot validator, manifest and artifact layout` — done 2026-07-27
 
 ### Bramka G3.3
 
@@ -118,6 +118,9 @@ G3.2 zaliczona 2026-07-27.
 - wszystkie wersje oraz liczby rekordów są zapisane,
 - snapshot nie zawiera stagingu, zdjęć ani tabel administracyjnych,
 - dokładna/prefiksowa semantyka odpowiada kontraktom M1,
+- pełny walidator read-only odtwarza logiczny checksum przed publikacją.
+
+G3.3 zaliczona 2026-07-27.
 - uszkodzenie, luka lub brak payoutu są wykrywane przed buildem,
 - artefakt poprzedniej wersji nie jest nadpisywany.
 

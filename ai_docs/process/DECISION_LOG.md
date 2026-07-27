@@ -698,6 +698,55 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   snapshotu. Brak ścieżki audytu blokuje gotowość, a koszt sprawdzenia zawartości
   wszystkich plików audytu zostanie zmierzony w M3.5.
 
+## D-036 — Deterministic streaming production snapshot
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** produkcyjny generator zachowuje SQLite schema version 2 i
+  przyjmuje jawny zestaw wyborów dataset/rules/algorithm. Każdy wybór przechodzi
+  D-035. Gry są porządkowane po stabilnym kodzie, symbole po `mobile_code`, a
+  layouty są czytane keysetowo i zapisywane partiami po 1000. Logiczny SHA-256
+  powstaje w tym samym przebiegu. Kompletny plik jest publikowany bez możliwości
+  nadpisania istniejącego celu.
+- **Context:** fixture-only generator M1 materializuje wszystkie rekordy w
+  pamięci i zawiera metadata testowe. Docelowy snapshot ma obsługiwać wiele gier
+  i około 500 000 layoutów na grę, ale `mobile_releases` oraz manifest powstają
+  dopiero w następnych zadaniach.
+- **Reason:** jawne wersje i stabilne sortowanie odcinają wynik od UUID oraz
+  kolejności requestu. Bounded batch ogranicza pamięć, a publikacja dopiero po
+  pełnym zapisie nie pozostawia częściowego artefaktu.
+- **Alternatives:** ponowne użycie fixture generatora M1, ładowanie wszystkich
+  layoutów do pamięci, użycie technicznych UUID jako mobilnych identyfikatorów,
+  nadpisywanie wspólnego pliku, rejestracja joba przed powstaniem release.
+- **Consequences:** wszystkie gry schema v2 używają jednego globalnego
+  `algorithm_version`; wersje dataset/rules pozostają per gra. Generator nie
+  zapisuje pól fixture. Manifest, niezależna walidacja i katalog artefaktu są
+  zakresem TASK-0035, a integracja job/release zakresem M3.4.
+
+## D-037 — Content-addressed validated snapshot artifact
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** manifest schema v1 jest kanonicznym JSON zawierającym globalne
+  metadata, oba SHA-256, dokładne liczniki oraz kanoniczne UUID i numery
+  dataset/rules per gra. Zweryfikowany artefakt jest publikowany pod
+  `snapshots/<releaseVersion>/<logicalContentSha256>/` i zawiera wyłącznie
+  `snapshot.db` oraz `manifest.json`. Identyczny retry może użyć istniejącego
+  katalogu dopiero po pełnej walidacji; nigdy go nie nadpisuje.
+- **Context:** generator TASK-0034 tworzy poprawny plik, lecz Android build
+  potrzebuje samodzielnego, wersjonowanego kontraktu i dowodu, że artefakt nie
+  został uszkodzony po zapisie. Poprzednie wydania muszą pozostać dostępne.
+- **Reason:** content-addressed ścieżka łączy D-012 z niezmiennością, a osobny
+  read-only przebieg nie ufa generatorowi, metadata ani manifestowi. Odtworzenie
+  logicznego checksumu wykrywa poprawnie opakowaną zmianę rekordów.
+- **Alternatives:** jeden nadpisywany `snapshot.db`, manifest tylko z checksumą
+  pliku, walidacja wyłącznie `quick_check`, publikacja pliku przed manifestem,
+  akceptacja istniejącego katalogu bez porównania.
+- **Consequences:** pełna walidacja czyta każdy layout i jej koszt podlega
+  benchmarkowi M3.5. Pusty `.staging` może pozostać technicznym katalogiem
+  roboczym, ale nie jest artefaktem wydania. Podłączenie do `mobile_release`,
+  snapshot joba i Android build pozostaje zakresem M3.4.
+
 ## Szablon nowej decyzji
 
 ```text

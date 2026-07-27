@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.2 complete; awaiting M3.3`
+`M3.3 complete; awaiting M3.4`
 
 ## Completed
 
@@ -396,6 +396,31 @@ last_updated: 2026-07-27
 - TASK-0033 przeszedł pełną bramkę jakości: 170 standardowych testów Python, 63
   mobile, 51 panelu, 23 wspólnej domeny i 8 klienta API oraz 5 fizycznych testów
   PostgreSQL; zaliczono G3.2 i zamknięto M3.2,
+- ukończono `TASK-0034`: produkcyjny generator SQLite schema v2 przyjmuje jawne
+  wybory dataset/rules/algorithm, wymaga gotowości M3.2 i zapisuje wyłącznie
+  metadata, games, symbols oraz layouts,
+- gry i mobilne identyfikatory są deterministyczne po stabilnym kodzie, symbole
+  po `mobile_code`, a layouty z dokładnym payoutem są pobierane keysetowo i
+  zapisywane bounded partiami bez pełnej materializacji,
+- logiczny SHA-256 powstaje podczas zapisu; kompletny plik jest publikowany bez
+  nadpisywania celu, a testy potwierdzają identyczne bajty niezależnie od
+  kolejności wyborów i odrzucenie częściowego strumienia,
+- zaakceptowano D-036; TASK-0034 przeszedł pełną bramkę jakości: 179
+  standardowych testów Python, 63 mobile, 51 panelu, 23 wspólnej domeny i 8
+  klienta API oraz 6 fizycznych testów PostgreSQL,
+- ukończono `TASK-0035`: manifest produkcyjny schema v1 zapisuje globalne
+  wersje, checksumy i liczniki oraz kanoniczne identyfikatory dataset/rules
+  każdej gry bez pól fixture,
+- katalog z dokładnie `snapshot.db` i `manifest.json` jest budowany w stagingu,
+  walidowany read-only i atomowo publikowany pod niezmienną ścieżką
+  `snapshots/<releaseVersion>/<logicalContentSha256>/`,
+- walidator sprawdza manifest, schema, metadata, FK, indeks, ciągłość sekwencji,
+  symbole, sygnatury i payouty oraz strumieniowo rekonstruuje logiczny checksum;
+  retry używa istniejącego artefaktu wyłącznie po ponownej pełnej walidacji,
+- zaakceptowano D-037; TASK-0035 przeszedł pełną bramkę jakości: 195
+  standardowych testów Python, 63 mobile, 51 panelu, 23 wspólnej domeny i 8
+  klienta API oraz 6 fizycznych testów PostgreSQL; zaliczono G3.3 i zamknięto
+  M3.3,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -407,7 +432,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- Brak aktywnego zadania. M3.2 jest zamknięte.
+- brak aktywnego zadania; M3.3 jest zamknięty.
 
 ## Open but not blocking next milestones
 
@@ -461,8 +486,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0034 — Production SQLite snapshot generator`. Nie rozpoczynać go
-automatycznie po zamknięciu TASK-0033.
+`TASK-0036 — Mobile release domain and API`. Nie rozpoczynać go automatycznie.
 
 ## Do not start yet
 

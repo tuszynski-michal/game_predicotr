@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -30,6 +31,8 @@ class AndroidReleaseBuilder(Protocol):
     def build(
         self,
         spec: AndroidReleaseBuildSpec,
+        *,
+        heartbeat: Callable[[], None] | None = None,
     ) -> AndroidReleaseArtifact: ...
 
 

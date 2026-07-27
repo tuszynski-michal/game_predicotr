@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import zipfile
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -125,6 +126,10 @@ class FakeContext:
         self.checkpoints: list[dict[str, object]] = []
         self.fail_stage: str | None = None
         self.fail_with_lease_loss = False
+        self.heartbeats = 0
+
+    def heartbeat(self) -> None:
+        self.heartbeats += 1
 
     def checkpoint(self, **values: object) -> None:
         if values["stage"] == self.fail_stage:
@@ -203,7 +208,13 @@ class FakeAndroidBuilder:
         self.calls = 0
         self.fail = False
 
-    def build(self, _spec: AndroidReleaseBuildSpec) -> AndroidReleaseArtifact:
+    def build(
+        self,
+        _spec: AndroidReleaseBuildSpec,
+        *,
+        heartbeat: object = None,
+    ) -> AndroidReleaseArtifact:
+        del heartbeat
         self.calls += 1
         if self.fail:
             raise AndroidReleaseError(
@@ -511,6 +522,8 @@ def test_controlled_android_builder_restores_assets_and_publishes_immutable_apk(
     baseline_manifest = b'{"fixture":true}\n'
     (mobile_assets / "m1-snapshot.db").write_bytes(baseline_database)
     (mobile_assets / "manifest.json").write_bytes(baseline_manifest)
+    baseline_database_inode = (mobile_assets / "m1-snapshot.db").stat().st_ino
+    baseline_manifest_inode = (mobile_assets / "manifest.json").stat().st_ino
     (repository / "scripts").mkdir()
 
     snapshot_directory = artifact_root / "snapshots" / "release-1" / ("c" * 64)
@@ -586,6 +599,8 @@ def test_controlled_android_builder_restores_assets_and_publishes_immutable_apk(
     assert artifact.snapshot_sha256 == snapshot_checksum
     assert (mobile_assets / "m1-snapshot.db").read_bytes() == baseline_database
     assert (mobile_assets / "manifest.json").read_bytes() == baseline_manifest
+    assert (mobile_assets / "m1-snapshot.db").stat().st_ino == baseline_database_inode
+    assert (mobile_assets / "manifest.json").stat().st_ino == baseline_manifest_inode
 
     artifact.apk_path.write_bytes(b"corrupt-existing-apk")
     corrupt_bytes = artifact.apk_path.read_bytes()
@@ -597,3 +612,24 @@ def test_controlled_android_builder_restores_assets_and_publishes_immutable_apk(
     assert artifact.apk_path.read_bytes() == corrupt_bytes
     assert (mobile_assets / "m1-snapshot.db").read_bytes() == baseline_database
     assert (mobile_assets / "manifest.json").read_bytes() == baseline_manifest
+    assert (mobile_assets / "m1-snapshot.db").stat().st_ino == baseline_database_inode
+    assert (mobile_assets / "manifest.json").stat().st_ino == baseline_manifest_inode
+
+
+def test_controlled_command_renews_lease_while_subprocess_is_running(
+    tmp_path: Path,
+) -> None:
+    heartbeats = 0
+
+    def heartbeat() -> None:
+        nonlocal heartbeats
+        heartbeats += 1
+
+    android_module._run_command(
+        [sys.executable, "-c", "import time; time.sleep(0.15)"],
+        tmp_path,
+        heartbeat=heartbeat,
+        heartbeat_interval_seconds=0.02,
+    )
+
+    assert heartbeats >= 1

@@ -21,6 +21,33 @@ $mobileRoot = Join-Path $repositoryRoot 'apps\mobile'
 $localToolingRoot = Join-Path $repositoryRoot '.tooling'
 $localJdkRoot = Join-Path $localToolingRoot 'jdk'
 $localAndroidSdkRoot = Join-Path $localToolingRoot 'android-sdk'
+$localNodeRoot = Join-Path $localToolingRoot 'node'
+
+$nodeExecutable = Get-Command 'node.exe' -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty Source
+if (-not $nodeExecutable) {
+    $nodeCandidates = @()
+    if ($env:GAME_PREDICTOR_NODE_HOME) {
+        $nodeCandidates += Join-Path $env:GAME_PREDICTOR_NODE_HOME 'node.exe'
+    }
+    $nodeCandidates += Join-Path $localNodeRoot 'node.exe'
+    if ($env:USERPROFILE) {
+        $nodeCandidates += Join-Path `
+            $env:USERPROFILE `
+            '.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
+    }
+    if ($env:ProgramFiles) {
+        $nodeCandidates += Join-Path $env:ProgramFiles 'nodejs\node.exe'
+    }
+
+    $nodeExecutable = $nodeCandidates |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        Select-Object -First 1
+}
+if (-not $nodeExecutable) {
+    throw 'Node.js was not found. Install Node.js 22 LTS, configure GAME_PREDICTOR_NODE_HOME, or place node.exe in .tooling\node.'
+}
+$nodeDirectory = Split-Path -Parent $nodeExecutable
 
 $javaHome = $env:JAVA_HOME
 if (-not $javaHome -and (Test-Path -LiteralPath $localJdkRoot)) {
@@ -61,13 +88,19 @@ if ($configuredGradleUserHome) {
     }
 }
 else {
-    $env:GRADLE_USER_HOME = Join-Path $repositoryRoot '.g'
+    $shortGradleRoot = Join-Path $env:SystemDrive 'gpg'
+    if (Test-Path -LiteralPath $shortGradleRoot -PathType Container) {
+        $env:GRADLE_USER_HOME = $shortGradleRoot
+    }
+    else {
+        $env:GRADLE_USER_HOME = Join-Path $repositoryRoot '.g'
+    }
 }
 $env:CI = '1'
 $env:NODE_ENV = 'development'
 $env:GAME_PREDICTOR_VERSION_NAME = $VersionName
 $env:GAME_PREDICTOR_VERSION_CODE = [string]$VersionCode
-$env:PATH = (Join-Path $javaHome 'bin') + ';' + (Join-Path $androidSdkRoot 'platform-tools') + ';' + $env:PATH
+$env:PATH = $nodeDirectory + ';' + (Join-Path $javaHome 'bin') + ';' + (Join-Path $androidSdkRoot 'platform-tools') + ';' + $env:PATH
 
 $buildStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 

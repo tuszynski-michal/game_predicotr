@@ -38,11 +38,13 @@ class PowerShellAndroidReleaseBuilder:
     ) -> None:
         self._repository_root = repository_root.resolve()
         self._artifact_root = artifact_root.resolve()
-        self._command_runner = command_runner or _run_command
+        self._command_runner = command_runner
 
     def build(
         self,
         spec: AndroidReleaseBuildSpec,
+        *,
+        heartbeat: Callable[[], None] | None = None,
     ) -> AndroidReleaseArtifact:
         snapshot = validate_snapshot_artifact(spec.snapshot.directory)
         if snapshot != spec.snapshot:
@@ -87,6 +89,7 @@ class PowerShellAndroidReleaseBuilder:
                 source_apk = self._build_and_verify(
                     spec,
                     snapshot_sha256=snapshot.manifest.snapshot_file_sha256,
+                    heartbeat=heartbeat,
                 )
                 apk_sha256 = _file_sha256(source_apk)
                 final_apk = (
@@ -107,14 +110,18 @@ class PowerShellAndroidReleaseBuilder:
                     snapshot_sha256=snapshot.manifest.snapshot_file_sha256,
                 )
             finally:
-                os.replace(database_backup, database_target)
-                os.replace(manifest_backup, manifest_target)
+                # Restore the bytes in place. Replacing the destination file would
+                # also replace its Windows owner and ACL with those of the temporary
+                # backup, making the next non-elevated build unable to read it.
+                shutil.copyfile(database_backup, database_target)
+                shutil.copyfile(manifest_backup, manifest_target)
 
     def _build_and_verify(
         self,
         spec: AndroidReleaseBuildSpec,
         *,
         snapshot_sha256: str,
+        heartbeat: Callable[[], None] | None,
     ) -> Path:
         version_name = _android_version_name(spec.release_version)
         build_script = self._repository_root / "scripts" / "build_android_debug.ps1"
@@ -132,7 +139,7 @@ class PowerShellAndroidReleaseBuilder:
             / "app-release.apk"
         )
         try:
-            self._command_runner(
+            self._run(
                 [
                     "powershell",
                     "-NoProfile",
@@ -150,6 +157,7 @@ class PowerShellAndroidReleaseBuilder:
                     str(spec.version_code),
                 ],
                 self._repository_root,
+                heartbeat=heartbeat,
             )
             if not source_apk.is_file():
                 raise AndroidReleaseError(
@@ -161,7 +169,7 @@ class PowerShellAndroidReleaseBuilder:
                 release_version=spec.release_version,
                 snapshot_sha256=snapshot_sha256,
             )
-            self._command_runner(
+            self._run(
                 [
                     "powershell",
                     "-NoProfile",
@@ -173,6 +181,7 @@ class PowerShellAndroidReleaseBuilder:
                     str(source_apk.relative_to(self._repository_root)),
                 ],
                 self._repository_root,
+                heartbeat=heartbeat,
             )
         except AndroidReleaseError:
             raise
@@ -183,14 +192,51 @@ class PowerShellAndroidReleaseBuilder:
             ) from error
         return source_apk
 
+    def _run(
+        self,
+        command: Sequence[str],
+        cwd: Path,
+        *,
+        heartbeat: Callable[[], None] | None,
+    ) -> None:
+        if self._command_runner is not None:
+            self._command_runner(command, cwd)
+            return
+        _run_command(command, cwd, heartbeat=heartbeat)
 
-def _run_command(command: Sequence[str], cwd: Path) -> None:
-    subprocess.run(
+
+def _run_command(
+    command: Sequence[str],
+    cwd: Path,
+    *,
+    heartbeat: Callable[[], None] | None = None,
+    heartbeat_interval_seconds: float = 15.0,
+) -> None:
+    if heartbeat_interval_seconds <= 0:
+        raise ValueError("heartbeat_interval_seconds must be positive.")
+    process = subprocess.Popen(
         list(command),
         cwd=cwd,
-        check=True,
         stdin=subprocess.DEVNULL,
     )
+    try:
+        while True:
+            try:
+                return_code = process.wait(timeout=heartbeat_interval_seconds)
+                break
+            except subprocess.TimeoutExpired:
+                if heartbeat is not None:
+                    heartbeat()
+    except BaseException:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        raise
+    if return_code != 0:
+        raise subprocess.CalledProcessError(return_code, list(command))
 
 
 def _android_version_name(release_version: str) -> str:

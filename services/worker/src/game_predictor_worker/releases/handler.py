@@ -162,7 +162,8 @@ class ReleaseWorkflowHandler:
                     release_version=release.version,
                     version_code=_android_version_code(release),
                     snapshot=snapshot,
-                )
+                ),
+                heartbeat=context.heartbeat,
             )
             if apk.snapshot_sha256 != release.snapshot_checksum:
                 raise JobHandlerError(

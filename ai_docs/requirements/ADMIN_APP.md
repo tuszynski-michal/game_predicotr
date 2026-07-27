@@ -131,7 +131,8 @@ usuwa rekordu.
 
 Administrator może:
 
-- wygenerować dane testowe,
+- wygenerować deterministyczny staging 1000 layoutów z podanym seedem i
+  opublikowaną wersją reguł,
 - zaimportować dane przygotowane przez worker,
 - sprawdzić liczbę rekordów i zakres `sequence_number`,
 - znaleźć luki i duplikaty numerów,
@@ -139,6 +140,11 @@ Administrator może:
 - podejrzeć layout jako planszę,
 - odrzucić lub usunąć nieopublikowany import po jawnym potwierdzeniu,
 - utworzyć niezmienną wersję datasetu po przejściu walidacji.
+
+Mock generator używa wymiarów oraz aktywnych symboli wskazanej opublikowanej
+wersji reguł. Panel pokazuje seed, wersję generatora, liczbę layoutów i status
+stagingu. Powtórzenie z tym samym seedem tworzy nowy numer wersji datasetu, ale
+identyczny logiczny ciąg layoutów.
 
 Warunki publikacji datasetu:
 

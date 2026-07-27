@@ -524,6 +524,28 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   `published_at`. Dataset i release jawnie wskazują wersję, więc poprzednia
   opublikowana wersja nie musi być automatycznie wycofywana.
 
+## D-029 — Bounded deterministic mock generation into staging
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** administracyjny generator mocka tworzy synchronicznie dokładnie
+  1000 layoutów na podstawie opublikowanej wersji reguł. Jej aktywne
+  konfiguracje symboli definiują alfabet, a wymiary definiują rozmiar planszy.
+  Seed, wersja generatora i szerokość codeca są zapisane w `dataset_versions`.
+  Cała stagingowa wersja wraz z layoutami powstaje w jednej transakcji.
+- **Context:** demonstracja M2 potrzebuje szybkiego, powtarzalnego datasetu, ale
+  docelowa skala 500 000 rekordów nie może ustanawiać długiego requestu HTTP.
+- **Reason:** stały limit zachowuje prosty pion panel–API dla M2, a zapisane
+  parametry pozwalają odtworzyć logiczne dane i nie mieszają technicznego UUID z
+  kolejnością domenową.
+- **Alternatives:** generator 500 000 rekordów w requestcie, tworzenie joba bez
+  działającego workera, losowanie bez zapisanego seedu, kopiowanie fixture M1
+  bez powiązania z aktualnym katalogiem.
+- **Consequences:** powtórzenie tych samych wejść tworzy nowy numer wersji i
+  inne identyfikatory techniczne, ale identyczny uporządkowany zestaw
+  `sequence_number/cells/signature`. Raporty i publikacja pozostają w
+  TASK-0026–TASK-0027; większe datasety wykonuje worker.
+
 ## Szablon nowej decyzji
 
 ```text

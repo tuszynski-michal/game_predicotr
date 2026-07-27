@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M2.3 completed; ready to start M2.4`
+`M2.4 in progress; ready for TASK-0026`
 
 ## Completed
 
@@ -266,6 +266,22 @@ last_updated: 2026-07-27
   wspólną walidację preflight/publish, blokadę rekordu i jawne przejście
   `published → archived`,
 - zaliczono bramkę G2.3; M2.3 jest zamknięty, a kolejnym zakresem jest M2.4,
+- ukończono `TASK-0025`: migracja `0006_dataset_staging`, domena, repozytorium
+  i Admin API tworzą atomowo stagingową wersję z dokładnie 1000 layoutów,
+- generator używa wymiarów i aktywnych symboli opublikowanej wersji reguł,
+  zapisuje seed, wersję generatora oraz szerokość codeca i dla tych samych
+  wejść odtwarza identyczne `sequence_number/cells/signature`,
+- sześć ostatnich rekordów kontrolowanie powtarza treść wcześniejszych układów
+  bez naruszania unikalności numerów sekwencji; ich raportowanie pozostaje
+  zakresem TASK-0026,
+- panel pozwala wybrać grę, opublikowaną wersję reguł i seed oraz pokazuje
+  historię wersji stagingowych z pełnymi stanami interfejsu,
+- TASK-0025 przeszedł pełną bramkę jakości: 121 testów Python, 63 mobile, 40
+  panelu, 23 wspólnej domeny i 7 klienta API, produkcyjny build Next.js oraz 2
+  fizyczne testy PostgreSQL obejmujące atomowy zapis 2000 layoutów i cykl
+  migracji,
+- zaakceptowano D-029 definiującą synchroniczny wyjątek dla ograniczonego mocka
+  1000 rekordów; generacja docelowej skali pozostaje operacją workera,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -277,7 +293,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- Brak aktywnego zadania. Oczekuje `TASK-0025` po poleceniu właściciela.
+- brak aktywnego zadania; M2.4 oczekuje na polecenie rozpoczęcia TASK-0026.
 
 ## Open but not blocking M2
 
@@ -330,8 +346,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po poleceniu właściciela utworzyć i rozpocząć
-`TASK-0025 — Mock dataset generation and staging`.
+Po poleceniu właściciela rozpocząć
+`TASK-0026 — Sequence and duplicate validation reports`.
 
 ## Do not start yet
 

@@ -10,6 +10,8 @@ import {
   createPayoutRule as createGeneratedPayoutRule,
   createRulesVersion as createGeneratedRulesVersion,
   createSymbol as createGeneratedSymbol,
+  generateMockDataset as generateGeneratedMockDataset,
+  getDatasetVersion as getGeneratedDatasetVersion,
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getPayline as getGeneratedPayline,
@@ -18,6 +20,7 @@ import {
   getRulesVersion as getGeneratedRulesVersion,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
+  listDatasetVersions as listGeneratedDatasetVersions,
   listPaylines as listGeneratedPaylines,
   listPayoutRules as listGeneratedPayoutRules,
   listRulesVersions as listGeneratedRulesVersions,
@@ -32,6 +35,7 @@ import {
   updateSymbol as updateGeneratedSymbol,
 } from './generated/sdk.gen';
 import type {
+  MockDatasetCreate,
   GameCreate,
   GameUpdate,
   PaylineCreate,
@@ -46,12 +50,14 @@ import type {
 } from './generated/types.gen';
 
 export type {
+  DatasetVersionResponse,
   ErrorResponse,
   GameCreate,
   GameResponse,
   GameStatus,
   GameUpdate,
   HealthResponse,
+  MockDatasetCreate,
   PaylineCreate,
   PaylineResponse,
   PaylineUpdate,
@@ -126,6 +132,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       archiveGeneratedRulesVersion({
         client,
         path: { rules_version_id: rulesVersionId },
+      }),
+    listDatasetVersions: (gameId: string) =>
+      listGeneratedDatasetVersions({
+        client,
+        path: { game_id: gameId },
+      }),
+    generateMockDataset: (gameId: string, body: MockDatasetCreate) =>
+      generateGeneratedMockDataset({
+        body,
+        client,
+        path: { game_id: gameId },
+      }),
+    getDatasetVersion: (datasetVersionId: string) =>
+      getGeneratedDatasetVersion({
+        client,
+        path: { dataset_version_id: datasetVersionId },
       }),
     listPaylines: (rulesVersionId: string) =>
       listGeneratedPaylines({

@@ -199,6 +199,11 @@ Osobny lokalny Python worker/CLI wykonuje:
 - przygotowanie artefaktów wydania,
 - wywołanie kontrolowanego skryptu Android build.
 
+Administracyjny mock M2 o stałym limicie 1000 layoutów może powstać
+synchronicznie w FastAPI. Wszystkie większe datasety pozostają operacją
+worker/CLI; nie wolno rozszerzać tego wyjątku przez samo zwiększenie limitu
+requestu.
+
 Postęp jest zapisywany w PostgreSQL. Początkowo działa najwyżej jedno ciężkie zadanie naraz. Nie używamy Redis ani Celery.
 
 Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane

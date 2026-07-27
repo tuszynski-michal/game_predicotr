@@ -9,12 +9,18 @@ from fastapi.responses import JSONResponse
 
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     CatalogError,
     CatalogNotFoundError,
+)
+from game_predictor_api.domain.datasets import (
+    DatasetConflictError,
+    DatasetError,
+    DatasetNotFoundError,
 )
 from game_predictor_api.domain.rules import (
     RulesConflictError,
@@ -28,6 +34,9 @@ from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
 )
+from game_predictor_api.storage.dataset_repository import (
+    SqlAlchemyDatasetRepository,
+)
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 
 
@@ -36,6 +45,7 @@ def create_app(
     *,
     catalog_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
+    dataset_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -62,6 +72,19 @@ def create_app(
                 raise
 
     resolved_rules_dependency = rules_service_dependency or default_rules_service_dependency
+
+    def default_dataset_service_dependency() -> Iterator[DatasetService]:
+        with session_factory() as session:
+            try:
+                yield DatasetService(SqlAlchemyDatasetRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_dataset_dependency = (
+        dataset_service_dependency or default_dataset_service_dependency
+    )
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
@@ -88,6 +111,7 @@ def create_app(
             resolved_settings,
             resolved_catalog_dependency,
             resolved_rules_dependency,
+            resolved_dataset_dependency,
         )
     )
 
@@ -119,6 +143,25 @@ def create_app(
         if isinstance(error, RulesNotFoundError):
             status_code = 404
         elif isinstance(error, RulesConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(DatasetError)
+    async def handle_dataset_error(
+        _request: Request,
+        error: DatasetError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, DatasetNotFoundError):
+            status_code = 404
+        elif isinstance(error, DatasetConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

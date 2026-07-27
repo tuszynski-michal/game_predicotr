@@ -6,7 +6,9 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.metadata import Base
 from game_predictor_api.storage.models import (
+    DatasetVersionModel,
     GameModel,
+    LayoutModel,
     PaylineModel,
     PayoutRuleModel,
     RulesVersionModel,
@@ -16,7 +18,9 @@ from game_predictor_api.storage.models import (
 
 __all__ = [
     "Base",
+    "DatasetVersionModel",
     "GameModel",
+    "LayoutModel",
     "PaylineModel",
     "PayoutRuleModel",
     "RulesVersionModel",

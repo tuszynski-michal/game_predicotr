@@ -1,6 +1,107 @@
 {
   "components": {
     "schemas": {
+      "DatasetVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "generationSeed": {
+            "title": "Generationseed",
+            "type": "integer"
+          },
+          "generatorVersion": {
+            "title": "Generatorversion",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "layoutCount": {
+            "title": "Layoutcount",
+            "type": "integer"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "signatureCellWidth": {
+            "title": "Signaturecellwidth",
+            "type": "integer"
+          },
+          "sourceJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcejobid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DatasetVersionStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "version",
+          "rows",
+          "columns",
+          "signatureCellWidth",
+          "layoutCount",
+          "status",
+          "generationSeed",
+          "generatorVersion",
+          "sourceJobId",
+          "createdAt",
+          "publishedAt"
+        ],
+        "title": "DatasetVersionResponse",
+        "type": "object"
+      },
+      "DatasetVersionStatus": {
+        "enum": [
+          "staging",
+          "published",
+          "archived"
+        ],
+        "title": "DatasetVersionStatus",
+        "type": "string"
+      },
       "ErrorResponse": {
         "additionalProperties": false,
         "properties": {
@@ -151,6 +252,28 @@
           "version"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "MockDatasetCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rulesVersionId",
+          "seed"
+        ],
+        "title": "MockDatasetCreate",
         "type": "object"
       },
       "PaylineCreate": {
@@ -880,6 +1003,69 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/dataset-versions/{dataset_version_id}": {
+      "get": {
+        "operationId": "getDatasetVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get a dataset version",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
     "/api/v1/admin/games": {
       "get": {
         "operationId": "listGames",
@@ -1149,6 +1335,146 @@
         "summary": "Update game",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/dataset-versions": {
+      "get": {
+        "operationId": "listDatasetVersions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DatasetVersionResponse"
+                  },
+                  "title": "Response Listdatasetversions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List game dataset versions",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/dataset-versions/mock": {
+      "post": {
+        "operationId": "generateMockDataset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MockDatasetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Generate a deterministic 1000-layout staging dataset",
+        "tags": [
+          "datasets"
         ]
       }
     },

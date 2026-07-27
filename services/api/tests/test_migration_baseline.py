@@ -12,6 +12,7 @@ CATALOG_REVISION = "0002_games_symbols"
 RULES_REVISION = "0003_rules_versions"
 PAYLINES_REVISION = "0004_paylines"
 PAYOUTS_REVISION = "0005_symbol_payouts"
+DATASETS_REVISION = "0006_dataset_staging"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -23,15 +24,16 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_payouts_migration_is_the_only_head_and_follows_paylines() -> None:
+def test_datasets_migration_is_the_only_head_and_follows_payouts() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
     rules = script.get_revision(RULES_REVISION)
     paylines = script.get_revision(PAYLINES_REVISION)
     payouts = script.get_revision(PAYOUTS_REVISION)
+    datasets = script.get_revision(DATASETS_REVISION)
 
-    assert script.get_heads() == [PAYOUTS_REVISION]
+    assert script.get_heads() == [DATASETS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -42,6 +44,8 @@ def test_payouts_migration_is_the_only_head_and_follows_paylines() -> None:
     assert paylines.down_revision == RULES_REVISION
     assert payouts is not None
     assert payouts.down_revision == PAYLINES_REVISION
+    assert datasets is not None
+    assert datasets.down_revision == PAYOUTS_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -177,3 +181,33 @@ def test_symbol_payout_migration_generates_constraints_and_downgrade() -> None:
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table payout_rules" in downgrade_sql
     assert "drop table rules_version_symbols" in downgrade_sql
+
+
+def test_dataset_staging_migration_generates_constraints_and_downgrade() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{DATASETS_REVISION}:{PAYOUTS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table dataset_versions" in upgrade_sql
+    assert "create table layouts" in upgrade_sql
+    assert "smallint[]" in upgrade_sql
+    assert "uq_dataset_versions_game_version" in upgrade_sql
+    assert "uq_layouts_dataset_sequence" in upgrade_sql
+    assert "ix_layouts_dataset_signature" in upgrade_sql
+    assert "ck_layouts_cells_mobile_code_range" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table layouts" in downgrade_sql
+    assert "drop table dataset_versions" in downgrade_sql
+    assert "drop type dataset_version_status" in downgrade_sql

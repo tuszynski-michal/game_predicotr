@@ -36,10 +36,10 @@ export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
             <span aria-hidden="true">03</span>
             Wersje reguł
           </a>
-          <span aria-disabled="true" className="navItem navItemDisabled">
+          <a className="navItem navItemAvailable" href="#datasets">
             <span aria-hidden="true">04</span>
             Datasety
-          </span>
+          </a>
         </nav>
 
         <div className="sidebarFooter">

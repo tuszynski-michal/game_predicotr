@@ -39,6 +39,12 @@ import type {
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  GenerateMockDatasetData,
+  GenerateMockDatasetErrors,
+  GenerateMockDatasetResponses,
+  GetDatasetVersionData,
+  GetDatasetVersionErrors,
+  GetDatasetVersionResponses,
   GetGameData,
   GetGameErrors,
   GetGameResponses,
@@ -59,6 +65,9 @@ import type {
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolResponses,
+  ListDatasetVersionsData,
+  ListDatasetVersionsErrors,
+  ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
   ListPaylinesData,
@@ -116,6 +125,22 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Get a dataset version
+ */
+export const getDatasetVersion = <ThrowOnError extends boolean = false>(
+  options: Options<GetDatasetVersionData, ThrowOnError>,
+): RequestResult<
+  GetDatasetVersionResponses,
+  GetDatasetVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetDatasetVersionResponses,
+    GetDatasetVersionErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/dataset-versions/{dataset_version_id}', ...options });
 
 /**
  * List games
@@ -181,6 +206,45 @@ export const updateGame = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List game dataset versions
+ */
+export const listDatasetVersions = <ThrowOnError extends boolean = false>(
+  options: Options<ListDatasetVersionsData, ThrowOnError>,
+): RequestResult<
+  ListDatasetVersionsResponses,
+  ListDatasetVersionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListDatasetVersionsResponses,
+    ListDatasetVersionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/dataset-versions', ...options });
+
+/**
+ * Generate a deterministic 1000-layout staging dataset
+ */
+export const generateMockDataset = <ThrowOnError extends boolean = false>(
+  options: Options<GenerateMockDatasetData, ThrowOnError>,
+): RequestResult<
+  GenerateMockDatasetResponses,
+  GenerateMockDatasetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    GenerateMockDatasetResponses,
+    GenerateMockDatasetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/dataset-versions/mock',
     ...options,
     headers: {
       'Content-Type': 'application/json',

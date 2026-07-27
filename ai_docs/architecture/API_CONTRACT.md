@@ -335,6 +335,67 @@ symbolu.
 
 ## Dataset validation
 
+### Dataset staging
+
+```text
+GET  /api/v1/admin/games/{gameId}/dataset-versions
+POST /api/v1/admin/games/{gameId}/dataset-versions/mock
+GET  /api/v1/admin/dataset-versions/{datasetVersionId}
+```
+
+POST tworzy ograniczony mock administracyjny:
+
+```json
+{
+  "rulesVersionId": "uuid",
+  "seed": 71401
+}
+```
+
+Wskazana wersja reguł musi być opublikowana, należeć do gry i zawierać co
+najmniej dwa aktywne symbole. Jej wymiary oraz aktywne konfiguracje symboli
+definiują planszę i alfabet generatora. Odpowiedź `201` zawiera staging:
+
+```json
+{
+  "id": "uuid",
+  "gameId": "uuid",
+  "version": 1,
+  "rows": 3,
+  "columns": 5,
+  "signatureCellWidth": 2,
+  "layoutCount": 1000,
+  "status": "staging",
+  "generationSeed": 71401,
+  "generatorVersion": "mock-v1",
+  "sourceJobId": null,
+  "createdAt": "2026-07-27T12:00:00Z",
+  "publishedAt": null
+}
+```
+
+Numer wersji przydziela serwer pod blokadą rekordu gry. Wersja i dokładnie 1000
+layoutów zapisują się w jednej transakcji. Sześć ostatnich layoutów powtarza
+kontrolowane treści wcześniejszych rekordów, ale każdy `sequenceNumber` w
+zakresie `1..1000` pozostaje unikalny. Stabilne błędy:
+
+```text
+GAME_NOT_FOUND
+RULES_VERSION_NOT_FOUND
+RULES_VERSION_NOT_PUBLISHED
+INSUFFICIENT_ACTIVE_SYMBOLS
+INSUFFICIENT_LAYOUT_VARIANTS
+INVALID_DATASET_DIMENSIONS
+INVALID_GENERATION_SEED
+DATASET_VERSION_NOT_FOUND
+DATASET_STAGING_CONFLICT
+```
+
+Endpoint jest celowo ograniczony do mocka 1000 rekordów. Docelowa generacja
+setek tysięcy layoutów nie odbywa się w requestcie HTTP. Generator mocka
+akceptuje planszę o rozmiarze od 1 do 100 komórek; większy układ zwraca
+`INVALID_DATASET_DIMENSIONS`.
+
 ### POST `/api/v1/admin/dataset-versions/{datasetVersionId}/validation-jobs`
 
 ```json

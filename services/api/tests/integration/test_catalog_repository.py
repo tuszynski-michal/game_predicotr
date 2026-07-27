@@ -6,6 +6,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import (
@@ -20,8 +21,12 @@ from game_predictor_api.domain.rules import (
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
+from game_predictor_api.storage.dataset_repository import (
+    SqlAlchemyDatasetRepository,
+)
+from game_predictor_api.storage.models import LayoutModel
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
 
@@ -76,7 +81,9 @@ def test_catalog_repository_uses_real_constraints(
     try:
         assert set(inspect(engine).get_table_names()) == {
             "alembic_version",
+            "dataset_versions",
             "games",
+            "layouts",
             "paylines",
             "payout_rules",
             "rules_versions",
@@ -283,6 +290,51 @@ def test_catalog_repository_uses_real_constraints(
                 )
             assert immutable_error.value.code == "RULES_VERSION_IMMUTABLE"
             session.rollback()
+
+            dataset_service = DatasetService(
+                SqlAlchemyDatasetRepository(session)
+            )
+            first_dataset = dataset_service.generate_mock_dataset(
+                game.id,
+                rules_version_id=first_rules.id,
+                seed=71401,
+            )
+            second_dataset = dataset_service.generate_mock_dataset(
+                game.id,
+                rules_version_id=first_rules.id,
+                seed=71401,
+            )
+            assert first_dataset.version == 1
+            assert second_dataset.version == 2
+            assert first_dataset.layout_count == 1000
+            first_layouts = list(
+                session.scalars(
+                    select(LayoutModel)
+                    .where(
+                        LayoutModel.dataset_version_id == first_dataset.id
+                    )
+                    .order_by(LayoutModel.sequence_number)
+                )
+            )
+            second_layouts = list(
+                session.scalars(
+                    select(LayoutModel)
+                    .where(
+                        LayoutModel.dataset_version_id == second_dataset.id
+                    )
+                    .order_by(LayoutModel.sequence_number)
+                )
+            )
+            assert [item.sequence_number for item in first_layouts] == list(
+                range(1, 1001)
+            )
+            assert [
+                (item.signature, item.cells) for item in first_layouts
+            ] == [
+                (item.signature, item.cells) for item in second_layouts
+            ]
+            assert len({item.signature for item in first_layouts}) == 994
+            session.commit()
 
             archived = rules_service.archive_rules_version(first_rules.id)
             assert archived.status is RulesVersionStatus.ARCHIVED

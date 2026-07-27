@@ -5,6 +5,66 @@ export type ClientOptions = {
 };
 
 /**
+ * DatasetVersionResponse
+ */
+export type DatasetVersionResponse = {
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Generationseed
+   */
+  generationSeed: number;
+  /**
+   * Generatorversion
+   */
+  generatorVersion: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Layoutcount
+   */
+  layoutCount: number;
+  /**
+   * Publishedat
+   */
+  publishedAt: string | null;
+  /**
+   * Rows
+   */
+  rows: number;
+  /**
+   * Signaturecellwidth
+   */
+  signatureCellWidth: number;
+  /**
+   * Sourcejobid
+   */
+  sourceJobId: string | null;
+  status: DatasetVersionStatus;
+  /**
+   * Version
+   */
+  version: number;
+};
+
+/**
+ * DatasetVersionStatus
+ */
+export type DatasetVersionStatus = 'staging' | 'published' | 'archived';
+
+/**
  * ErrorResponse
  */
 export type ErrorResponse = {
@@ -94,6 +154,20 @@ export type HealthResponse = {
    * Version
    */
   version: string;
+};
+
+/**
+ * MockDatasetCreate
+ */
+export type MockDatasetCreate = {
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Seed
+   */
+  seed: number;
 };
 
 /**
@@ -496,6 +570,46 @@ export type SymbolUpdate = {
   status?: SymbolStatus | null;
 };
 
+export type GetDatasetVersionData = {
+  body?: never;
+  path: {
+    /**
+     * Dataset Version Id
+     */
+    dataset_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/dataset-versions/{dataset_version_id}';
+};
+
+export type GetDatasetVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetDatasetVersionError =
+  GetDatasetVersionErrors[keyof GetDatasetVersionErrors];
+
+export type GetDatasetVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: DatasetVersionResponse;
+};
+
+export type GetDatasetVersionResponse =
+  GetDatasetVersionResponses[keyof GetDatasetVersionResponses];
+
 export type ListGamesData = {
   body?: never;
   path?: never;
@@ -661,6 +775,88 @@ export type UpdateGameResponses = {
 };
 
 export type UpdateGameResponse = UpdateGameResponses[keyof UpdateGameResponses];
+
+export type ListDatasetVersionsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/dataset-versions';
+};
+
+export type ListDatasetVersionsErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListDatasetVersionsError =
+  ListDatasetVersionsErrors[keyof ListDatasetVersionsErrors];
+
+export type ListDatasetVersionsResponses = {
+  /**
+   * Response Listdatasetversions
+   *
+   * Successful Response
+   */
+  200: Array<DatasetVersionResponse>;
+};
+
+export type ListDatasetVersionsResponse =
+  ListDatasetVersionsResponses[keyof ListDatasetVersionsResponses];
+
+export type GenerateMockDatasetData = {
+  body: MockDatasetCreate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/dataset-versions/mock';
+};
+
+export type GenerateMockDatasetErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GenerateMockDatasetError =
+  GenerateMockDatasetErrors[keyof GenerateMockDatasetErrors];
+
+export type GenerateMockDatasetResponses = {
+  /**
+   * Successful Response
+   */
+  201: DatasetVersionResponse;
+};
+
+export type GenerateMockDatasetResponse =
+  GenerateMockDatasetResponses[keyof GenerateMockDatasetResponses];
 
 export type ListRulesVersionsData = {
   body?: never;

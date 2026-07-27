@@ -417,7 +417,8 @@ a:focus-visible {
   font-weight: 700;
 }
 
-.rulesForm input {
+.rulesForm input,
+.rulesForm select {
   width: 100%;
   min-height: 46px;
   padding: 0 13px;

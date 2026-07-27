@@ -168,3 +168,30 @@ def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
         "matchLength",
         "payoutCredits",
     ]
+
+
+def test_datasets_openapi_exposes_bounded_mock_staging_operations() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    expected_operations = {
+        (
+            "/api/v1/admin/games/{game_id}/dataset-versions",
+            "get",
+        ): "listDatasetVersions",
+        (
+            "/api/v1/admin/games/{game_id}/dataset-versions/mock",
+            "post",
+        ): "generateMockDataset",
+        (
+            "/api/v1/admin/dataset-versions/{dataset_version_id}",
+            "get",
+        ): "getDatasetVersion",
+    }
+
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["datasets"]
+
+    create_schema = schema["components"]["schemas"]["MockDatasetCreate"]
+    assert create_schema["required"] == ["rulesVersionId", "seed"]
+    assert create_schema["properties"]["seed"]["minimum"] == 0

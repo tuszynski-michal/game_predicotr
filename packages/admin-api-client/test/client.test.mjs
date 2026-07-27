@@ -318,3 +318,62 @@ test('generated client sends rules publication workflow requests', async () => {
     ],
   );
 });
+
+test('generated client sends bounded mock dataset staging requests', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const rulesVersionId = '33333333-3333-4333-8333-333333333333';
+  const datasetVersionId = '66666666-6666-4666-8666-666666666666';
+  const responseBody = {
+    columns: 5,
+    createdAt: '2026-07-27T10:00:00Z',
+    gameId,
+    generationSeed: 71401,
+    generatorVersion: 'mock-v1',
+    id: datasetVersionId,
+    layoutCount: 1000,
+    publishedAt: null,
+    rows: 3,
+    signatureCellWidth: 2,
+    sourceJobId: null,
+    status: 'staging',
+    version: 1,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json(
+      request.method === 'GET' &&
+        new URL(request.url).pathname.endsWith('/dataset-versions')
+        ? [responseBody]
+        : responseBody,
+      { status: request.method === 'POST' ? 201 : 200 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const created = await client.generateMockDataset(gameId, {
+    rulesVersionId,
+    seed: 71401,
+  });
+  const listed = await client.listDatasetVersions(gameId);
+  const loaded = await client.getDatasetVersion(datasetVersionId);
+
+  assert.equal(created.data?.layoutCount, 1000);
+  assert.equal(listed.data?.length, 1);
+  assert.equal(loaded.data?.id, datasetVersionId);
+  assert.deepEqual(await requests[0].clone().json(), {
+    rulesVersionId,
+    seed: 71401,
+  });
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      `/api/v1/admin/games/${gameId}/dataset-versions/mock`,
+      `/api/v1/admin/games/${gameId}/dataset-versions`,
+      `/api/v1/admin/dataset-versions/${datasetVersionId}`,
+    ],
+  );
+});

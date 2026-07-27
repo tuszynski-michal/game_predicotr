@@ -62,6 +62,9 @@ Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. 
 - generowanie OpenAPI dla klienta admin.
 
 Admin API nie wykonuje długiego importu, pełnego precomputingu ani Android build wewnątrz requestu.
+Wyjątkiem jest jawnie ograniczony mock M2: dokładnie 1000 małych layoutów
+tworzonych synchronicznie i atomowo. Limit nie może zostać zwiększony do skali
+produkcyjnej; większe generowanie przechodzi przez worker/job.
 
 ### Worker / CLI
 

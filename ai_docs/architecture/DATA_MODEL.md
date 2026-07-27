@@ -170,6 +170,8 @@ Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje
 | signature_cell_width | smallint | 1–5, zapisana konfiguracja codeca |
 | layout_count | bigint | po walidacji |
 | status | enum | staging/published/archived |
+| generation_seed | bigint | 0–2147483647 dla mock generatora |
+| generator_version | varchar | `mock-v1` dla TASK-0025 |
 | source_job_id | UUID nullable | |
 | created_at | timestamptz | |
 | published_at | timestamptz nullable | |
@@ -177,6 +179,9 @@ Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje
 Unikalność: `(game_id, version)`.
 
 Wydanie może połączyć dataset i rules wyłącznie przy zgodnych wymiarach.
+Generator mocka zapisuje seed i wersję algorytmu, dzięki czemu powtórzenie tych
+samych wejść daje identyczny uporządkowany zestaw logiczny mimo nowych UUID i
+numeru wersji.
 
 ### layouts
 

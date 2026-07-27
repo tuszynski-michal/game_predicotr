@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.1 in progress; TASK-0030 complete`
+`M3.1 complete; awaiting M3.2`
 
 ## Completed
 
@@ -355,6 +355,20 @@ last_updated: 2026-07-27
 - TASK-0030 przeszedł pełną bramkę jakości: 150 standardowych testów Python,
   63 mobile, 44 panelu, 23 wspólnej domeny i 8 klienta API, produkcyjny build
   Next.js oraz 4 fizyczne testy PostgreSQL,
+- ukończono `TASK-0031`: panel ma sekcję Jobs z listą 50 najnowszych zadań,
+  filtrami statusu i typu, osobnym stage, postępem określonym i nieokreślonym,
+  licznikami, attempt, lease, heartbeat, wersją workera, czasami oraz stabilnym
+  kodem i bezpiecznym komunikatem błędu,
+- ręczne odświeżenie i polling co 2 sekundy nie nakładają requestów; polling
+  działa wyłącznie dla `created/processing`, cancel wymaga dwuetapowego
+  potwierdzenia i pokazuje oczekiwanie na safe point, a retry aktualizuje ten sam
+  rekord bez podwójnego submit,
+- test przeglądarkowy objął aktywny job, błąd, review, nieznany total, cancel,
+  retry i widok 390 px; wykryty poziomy overflow usunięto przez bezpieczną
+  minimalną szerokość kolumny siatki,
+- TASK-0031 przeszedł pełną bramkę jakości: 150 testów Python, 63 mobile, 51
+  panelu, 23 wspólnej domeny i 8 klienta API oraz produkcyjny build Next.js;
+  zaliczono bramkę G3.1 i zamknięto M3.1,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -366,7 +380,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; oczekuje `TASK-0031`.
+- brak aktywnego zadania; M3.1 jest zamknięty.
 
 ## Open but not blocking next milestones
 
@@ -420,7 +434,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0031 — Jobs progress and error UI`. Nie rozpoczynać go automatycznie.
+`TASK-0032 — Batch payout precomputation and audit`. Nie tworzyć ani nie
+rozpoczynać pliku zadania przed tym poleceniem.
 
 ## Do not start yet
 

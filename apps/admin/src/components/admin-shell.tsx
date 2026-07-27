@@ -40,6 +40,10 @@ export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
             <span aria-hidden="true">04</span>
             Datasety
           </a>
+          <a className="navItem navItemAvailable" href="#jobs">
+            <span aria-hidden="true">05</span>
+            Jobs
+          </a>
         </nav>
 
         <div className="sidebarFooter">

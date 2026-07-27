@@ -57,7 +57,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 
 - `TASK-0029 — Job state machine and Admin API` — done 2026-07-27
 - `TASK-0030 — Local worker execution, lease and resume` — done 2026-07-27
-- `TASK-0031 — Jobs progress and error UI`
+- `TASK-0031 — Jobs progress and error UI` — done 2026-07-27
 
 ### Bramka G3.1
 
@@ -68,6 +68,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 - anulowanie zatrzymuje się w bezpiecznym punkcie,
 - ponowienie nie dubluje wyników,
 - panel pokazuje etap, postęp, błąd i czasy.
+
+G3.1 zaliczona 2026-07-27.
 
 ## M3.2 — Precomputing payoutów i audyt
 

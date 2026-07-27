@@ -123,6 +123,7 @@ def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
         success_count=18,
         failure_count=1,
         review_count=1,
+        updated_at=datetime(2026, 7, 27, 12, 1, 10, tzinfo=UTC),
     )
     waiting = wait_for_review(
         progressed,
@@ -153,6 +154,7 @@ def test_invalid_transition_and_progress_regression_are_rejected() -> None:
         success_count=5,
         failure_count=0,
         review_count=0,
+        updated_at=datetime(2026, 7, 27, 12, 1, 10, tzinfo=UTC),
     )
     with pytest.raises(JobError) as progress_error:
         update_job_progress(
@@ -164,6 +166,7 @@ def test_invalid_transition_and_progress_regression_are_rejected() -> None:
             success_count=4,
             failure_count=0,
             review_count=0,
+            updated_at=datetime(2026, 7, 27, 12, 1, 20, tzinfo=UTC),
         )
     assert progress_error.value.code == "JOB_PROGRESS_REGRESSION"
 

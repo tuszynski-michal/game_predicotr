@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { GameCatalog } from '@/features/games/game-catalog';
 import { DatasetCatalog } from '@/features/datasets/dataset-catalog';
+import { JobMonitor } from '@/features/jobs/job-monitor';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
 
@@ -26,6 +27,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         gamesRevision={gamesRevision}
       />
       <DatasetCatalog apiBaseUrl={apiBaseUrl} gamesRevision={gamesRevision} />
+      <JobMonitor apiBaseUrl={apiBaseUrl} />
     </>
   );
 }

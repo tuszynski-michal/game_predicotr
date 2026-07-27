@@ -191,6 +191,14 @@ Wspólne statusy to `created`, `processing`, `waiting_for_review`, `completed`,
 przed startem kończy job od razu, a anulowanie podczas pracy staje się żądaniem
 obsługiwanym przez worker w bezpiecznym punkcie.
 
+Pierwszy ekran operatorski pokazuje 50 najnowszych rekordów i pozwala filtrować
+je po statusie oraz typie. Dla `created` i `processing` odświeża listę co 2
+sekundy bez nakładania requestów; poza aktywną pracą pozostawia ręczny przycisk
+odświeżenia. Nieznany `progress.total` nie ukrywa bieżącego licznika. Cancel
+wymaga potwierdzenia, a processing z `cancelRequestedAt` pokazuje tekstowo
+oczekiwanie na bezpieczny checkpoint. Retry jest dostępne dla `failed` i
+`waiting_for_review` i aktualizuje ten sam rekord na liście.
+
 ### Manual review
 
 Dla niepewnego elementu administrator otrzymuje:

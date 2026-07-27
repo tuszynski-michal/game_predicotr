@@ -145,6 +145,18 @@ prawdziwy PostgreSQL: od pustych list, przez grę 3 × 5, 12 symboli, trzy
 paylines i komplet payoutów, do opublikowanych reguł oraz mock datasetu 1000
 layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
 
+## Admin web tests
+
+- czyste funkcje mapują każdy status i typ joba na tekst,
+- lifecycle jawnie określa polling, cancel i retry,
+- znany i nieznany total zachowują bieżący postęp oraz liczniki,
+- akcje używają wyłącznie generowanego klienta i zachowują stabilne błędy,
+- mutacja zastępuje ten sam rekord bez zmiany kolejności listy,
+- produkcyjny build sprawdza integrację komponentu z kontraktem TypeScript,
+- test przeglądarkowy sprawdza render aktywnego, failed i review joba,
+  dwustopniowe anulowanie, retry, brak błędów konsoli oraz brak poziomego
+  overflow przy szerokości 390 px.
+
 ## Mobile tests
 
 ### Reducer/unit

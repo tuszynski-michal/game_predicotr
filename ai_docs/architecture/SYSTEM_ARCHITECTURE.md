@@ -250,6 +250,11 @@ każdym spinie.
 - sygnatura layoutu nie jest unikalna,
 - wszystkie symbole layoutu należą do gry,
 - opublikowane wersje danych, reguł i wydań są niezmienne,
+- raport gotowości i publikacja reguł używają tego samego deterministycznego
+  walidatora; publikacja oraz każda mutacja draftu blokują rekord
+  `rules_versions`, aby nie dopuścić do wyścigu,
+- niegotowa wersja reguł pozostaje draftem bez `published_at`, a jawna
+  archiwizacja opublikowanej wersji zachowuje czas publikacji,
 - staging nie trafia do mobile,
 - snapshot zawiera manifest wersji i checksumę,
 - aplikacja odmawia obliczeń przy niezgodnym lub uszkodzonym schemacie,

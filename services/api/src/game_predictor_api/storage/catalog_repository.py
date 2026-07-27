@@ -17,7 +17,11 @@ from game_predictor_api.domain.catalog import (
     Symbol,
     SymbolStatus,
 )
-from game_predictor_api.storage.models import GameModel, SymbolModel
+from game_predictor_api.storage.models import (
+    GameModel,
+    RulesVersionSymbolModel,
+    SymbolModel,
+)
 
 _CONFLICTS = {
     "uq_games_code": (
@@ -124,6 +128,16 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.status = symbol.status
         self._flush_or_raise_conflict()
         return _to_symbol(record)
+
+    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
+        return (
+            self._session.scalar(
+                select(RulesVersionSymbolModel.symbol_id)
+                .where(RulesVersionSymbolModel.symbol_id == symbol_id)
+                .limit(1)
+            )
+            is not None
+        )
 
     def _flush_or_raise_conflict(self) -> None:
         try:

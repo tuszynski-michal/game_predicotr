@@ -8,7 +8,9 @@ from game_predictor_api.storage.metadata import Base
 from game_predictor_api.storage.models import (
     GameModel,
     PaylineModel,
+    PayoutRuleModel,
     RulesVersionModel,
+    RulesVersionSymbolModel,
     SymbolModel,
 )
 
@@ -16,7 +18,9 @@ __all__ = [
     "Base",
     "GameModel",
     "PaylineModel",
+    "PayoutRuleModel",
     "RulesVersionModel",
+    "RulesVersionSymbolModel",
     "SymbolModel",
     "create_database_engine",
     "create_session_factory",

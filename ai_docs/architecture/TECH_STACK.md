@@ -172,6 +172,9 @@ reguł oraz serwerowo numerowaną relację do gry.
 Migracja `0004_paylines` dodaje wzorce należące do wersji reguł, tablicowy
 `row_path`, stabilny kod, archiwizację oraz constraints unikalności kodu i
 ścieżki.
+Migracja `0005_symbol_payouts` dodaje wersjonowaną konfigurację symboli i payout
+rules z kluczem złożonym konfiguracji, złożonym FK payoutu oraz zarezerwowaną
+unikalnością symbol/długość.
 
 ### SQLite — niezmienny snapshot mobile
 

@@ -179,6 +179,110 @@ export type PaylineUpdate = {
 };
 
 /**
+ * PayoutRuleCreate
+ */
+export type PayoutRuleCreate = {
+  /**
+   * Isactive
+   */
+  isActive?: boolean;
+  /**
+   * Matchlength
+   */
+  matchLength: number;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Symbolid
+   */
+  symbolId: string;
+};
+
+/**
+ * PayoutRuleResponse
+ */
+export type PayoutRuleResponse = {
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Isactive
+   */
+  isActive: boolean;
+  /**
+   * Matchlength
+   */
+  matchLength: number;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Symbolid
+   */
+  symbolId: string;
+};
+
+/**
+ * PayoutRuleUpdate
+ */
+export type PayoutRuleUpdate = {
+  /**
+   * Isactive
+   */
+  isActive?: boolean | null;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits?: number | null;
+};
+
+/**
+ * RulesPublicationIssueResponse
+ */
+export type RulesPublicationIssueResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Details
+   */
+  details: {
+    [key: string]: unknown;
+  };
+  /**
+   * Message
+   */
+  message: string;
+};
+
+/**
+ * RulesPublicationReadinessResponse
+ */
+export type RulesPublicationReadinessResponse = {
+  /**
+   * Issues
+   */
+  issues: Array<RulesPublicationIssueResponse>;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+};
+
+/**
  * RulesVersionCreate
  */
 export type RulesVersionCreate = {
@@ -239,6 +343,42 @@ export type RulesVersionResponse = {
  * RulesVersionStatus
  */
 export type RulesVersionStatus = 'draft' | 'published' | 'archived';
+
+/**
+ * RulesVersionSymbolResponse
+ */
+export type RulesVersionSymbolResponse = {
+  /**
+   * Isactive
+   */
+  isActive: boolean;
+  /**
+   * Minimummatchlength
+   */
+  minimumMatchLength: number | null;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Symbolid
+   */
+  symbolId: string;
+};
+
+/**
+ * RulesVersionSymbolUpdate
+ */
+export type RulesVersionSymbolUpdate = {
+  /**
+   * Isactive
+   */
+  isActive?: boolean;
+  /**
+   * Minimummatchlength
+   */
+  minimumMatchLength: number | null;
+};
 
 /**
  * RulesVersionUpdate
@@ -812,6 +952,46 @@ export type UpdateSymbolResponses = {
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
 
+export type ArchiveRulesVersionData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}';
+};
+
+export type ArchiveRulesVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ArchiveRulesVersionError =
+  ArchiveRulesVersionErrors[keyof ArchiveRulesVersionErrors];
+
+export type ArchiveRulesVersionResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ArchiveRulesVersionResponse =
+  ArchiveRulesVersionResponses[keyof ArchiveRulesVersionResponses];
+
 export type GetRulesVersionData = {
   body?: never;
   path: {
@@ -1100,6 +1280,385 @@ export type UpdatePaylineResponses = {
 
 export type UpdatePaylineResponse =
   UpdatePaylineResponses[keyof UpdatePaylineResponses];
+
+export type ListPayoutRulesData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules';
+};
+
+export type ListPayoutRulesErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListPayoutRulesError =
+  ListPayoutRulesErrors[keyof ListPayoutRulesErrors];
+
+export type ListPayoutRulesResponses = {
+  /**
+   * Response Listpayoutrules
+   *
+   * Successful Response
+   */
+  200: Array<PayoutRuleResponse>;
+};
+
+export type ListPayoutRulesResponse =
+  ListPayoutRulesResponses[keyof ListPayoutRulesResponses];
+
+export type CreatePayoutRuleData = {
+  body: PayoutRuleCreate;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules';
+};
+
+export type CreatePayoutRuleErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreatePayoutRuleError =
+  CreatePayoutRuleErrors[keyof CreatePayoutRuleErrors];
+
+export type CreatePayoutRuleResponses = {
+  /**
+   * Successful Response
+   */
+  201: PayoutRuleResponse;
+};
+
+export type CreatePayoutRuleResponse =
+  CreatePayoutRuleResponses[keyof CreatePayoutRuleResponses];
+
+export type ArchivePayoutRuleData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payout Rule Id
+     */
+    payout_rule_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}';
+};
+
+export type ArchivePayoutRuleErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ArchivePayoutRuleError =
+  ArchivePayoutRuleErrors[keyof ArchivePayoutRuleErrors];
+
+export type ArchivePayoutRuleResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ArchivePayoutRuleResponse =
+  ArchivePayoutRuleResponses[keyof ArchivePayoutRuleResponses];
+
+export type GetPayoutRuleData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payout Rule Id
+     */
+    payout_rule_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}';
+};
+
+export type GetPayoutRuleErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPayoutRuleError = GetPayoutRuleErrors[keyof GetPayoutRuleErrors];
+
+export type GetPayoutRuleResponses = {
+  /**
+   * Successful Response
+   */
+  200: PayoutRuleResponse;
+};
+
+export type GetPayoutRuleResponse =
+  GetPayoutRuleResponses[keyof GetPayoutRuleResponses];
+
+export type UpdatePayoutRuleData = {
+  body: PayoutRuleUpdate;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payout Rule Id
+     */
+    payout_rule_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}';
+};
+
+export type UpdatePayoutRuleErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UpdatePayoutRuleError =
+  UpdatePayoutRuleErrors[keyof UpdatePayoutRuleErrors];
+
+export type UpdatePayoutRuleResponses = {
+  /**
+   * Successful Response
+   */
+  200: PayoutRuleResponse;
+};
+
+export type UpdatePayoutRuleResponse =
+  UpdatePayoutRuleResponses[keyof UpdatePayoutRuleResponses];
+
+export type GetRulesPublicationReadinessData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/publication-readiness';
+};
+
+export type GetRulesPublicationReadinessErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetRulesPublicationReadinessError =
+  GetRulesPublicationReadinessErrors[keyof GetRulesPublicationReadinessErrors];
+
+export type GetRulesPublicationReadinessResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesPublicationReadinessResponse;
+};
+
+export type GetRulesPublicationReadinessResponse =
+  GetRulesPublicationReadinessResponses[keyof GetRulesPublicationReadinessResponses];
+
+export type PublishRulesVersionData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/publish';
+};
+
+export type PublishRulesVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PublishRulesVersionError =
+  PublishRulesVersionErrors[keyof PublishRulesVersionErrors];
+
+export type PublishRulesVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesVersionResponse;
+};
+
+export type PublishRulesVersionResponse =
+  PublishRulesVersionResponses[keyof PublishRulesVersionResponses];
+
+export type ListRulesVersionSymbolsData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/symbols';
+};
+
+export type ListRulesVersionSymbolsErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListRulesVersionSymbolsError =
+  ListRulesVersionSymbolsErrors[keyof ListRulesVersionSymbolsErrors];
+
+export type ListRulesVersionSymbolsResponses = {
+  /**
+   * Response Listrulesversionsymbols
+   *
+   * Successful Response
+   */
+  200: Array<RulesVersionSymbolResponse>;
+};
+
+export type ListRulesVersionSymbolsResponse =
+  ListRulesVersionSymbolsResponses[keyof ListRulesVersionSymbolsResponses];
+
+export type UpdateRulesVersionSymbolData = {
+  body: RulesVersionSymbolUpdate;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}';
+};
+
+export type UpdateRulesVersionSymbolErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UpdateRulesVersionSymbolError =
+  UpdateRulesVersionSymbolErrors[keyof UpdateRulesVersionSymbolErrors];
+
+export type UpdateRulesVersionSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesVersionSymbolResponse;
+};
+
+export type UpdateRulesVersionSymbolResponse =
+  UpdateRulesVersionSymbolResponses[keyof UpdateRulesVersionSymbolResponses];
 
 export type GetHealthData = {
   body?: never;

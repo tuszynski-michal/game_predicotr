@@ -8,6 +8,7 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.catalog import (
+    CatalogConflictError,
     CatalogNotFoundError,
     Game,
     GameStatus,
@@ -48,6 +49,8 @@ class CatalogRepository(Protocol):
     ) -> Symbol: ...
 
     def save_symbol(self, symbol: Symbol) -> Symbol: ...
+
+    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool: ...
 
 
 class CatalogService:
@@ -146,6 +149,17 @@ class CatalogService:
         status: SymbolStatus | None = None,
     ) -> Symbol:
         symbol = self.get_symbol(game_id, symbol_id)
+        if (
+            is_wildcard is not None
+            and is_wildcard != symbol.is_wildcard
+            and self._repository.symbol_is_used_in_rules(symbol_id)
+        ):
+            raise CatalogConflictError(
+                "SYMBOL_RULES_IDENTITY_IN_USE",
+                "Wildcard identity cannot change after the symbol is used "
+                "in a rules version.",
+                details={"symbolId": str(symbol_id)},
+            )
         updated = replace(
             symbol,
             name=symbol.name if name is None else validate_name(name),

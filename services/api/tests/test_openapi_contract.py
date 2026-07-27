@@ -111,6 +111,34 @@ def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
             "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}",
             "delete",
         ): "archivePayline",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/symbols",
+            "get",
+        ): "listRulesVersionSymbols",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}",
+            "patch",
+        ): "updateRulesVersionSymbol",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            "get",
+        ): "listPayoutRules",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            "post",
+        ): "createPayoutRule",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
+            "get",
+        ): "getPayoutRule",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
+            "patch",
+        ): "updatePayoutRule",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
+            "delete",
+        ): "archivePayoutRule",
     }
 
     for (path, method), operation_id in expected_operations.items():
@@ -131,3 +159,12 @@ def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
         "displayOrder",
     ]
     assert payline_create["properties"]["rowPath"]["items"]["type"] == "integer"
+
+    symbol_update = schema["components"]["schemas"]["RulesVersionSymbolUpdate"]
+    assert symbol_update["required"] == ["minimumMatchLength"]
+    payout_create = schema["components"]["schemas"]["PayoutRuleCreate"]
+    assert payout_create["required"] == [
+        "symbolId",
+        "matchLength",
+        "payoutCredits",
+    ]

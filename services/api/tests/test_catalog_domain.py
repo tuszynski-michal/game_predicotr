@@ -50,6 +50,9 @@ class EmptyCatalogRepository(CatalogRepository):
     def save_symbol(self, symbol: Symbol) -> Symbol:
         return symbol
 
+    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
+        return False
+
 
 @pytest.mark.parametrize("code", ["", "has space", ".hidden", "a" * 65])
 def test_game_stable_code_validation_is_domain_owned(code: str) -> None:

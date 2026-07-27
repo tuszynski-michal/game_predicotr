@@ -16,10 +16,13 @@ import {
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { PaylineManagerModal } from '@/features/rules/payline-manager-modal';
+import { PayoutRulesManagerModal } from '@/features/rules/payout-rules-manager-modal';
 import {
+  archiveRulesVersion,
   saveRulesVersion,
   type RulesVersionsClient,
 } from '@/features/rules/rules-version-actions';
+import { RulesPublicationModal } from '@/features/rules/rules-publication-modal';
 import {
   DEFAULT_RULES_VERSION_DRAFT,
   RULES_VERSION_STATUS_LABELS,
@@ -68,6 +71,14 @@ export function RulesVersionCatalog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [managedRulesVersion, setManagedRulesVersion] =
     useState<RulesVersionResponse | null>(null);
+  const [managedPayoutRulesVersion, setManagedPayoutRulesVersion] =
+    useState<RulesVersionResponse | null>(null);
+  const [publicationRulesVersion, setPublicationRulesVersion] =
+    useState<RulesVersionResponse | null>(null);
+  const [archiveCandidateId, setArchiveCandidateId] = useState<string | null>(
+    null,
+  );
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const gamesRequestId = useRef(0);
   const rulesRequestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -163,6 +174,9 @@ export function RulesVersionCatalog({
     setFormError('');
     setFeedback('');
     setManagedRulesVersion(null);
+    setManagedPayoutRulesVersion(null);
+    setPublicationRulesVersion(null);
+    setArchiveCandidateId(null);
   }
 
   function openCreate() {
@@ -223,6 +237,33 @@ export function RulesVersionCatalog({
     );
   }
 
+  function onPublished(rulesVersion: RulesVersionResponse) {
+    setRulesVersions((current) => upsertRulesVersion(current, rulesVersion));
+    setPublicationRulesVersion(null);
+    setFeedback(
+      `Opublikowano wersję ${rulesVersion.version}. Jest teraz tylko do odczytu.`,
+    );
+  }
+
+  async function confirmArchive(rulesVersion: RulesVersionResponse) {
+    if (mutationInProgress.current) return;
+    mutationInProgress.current = true;
+    setArchivingId(rulesVersion.id);
+    setError('');
+    const result = await archiveRulesVersion(api, rulesVersion);
+    mutationInProgress.current = false;
+    setArchivingId(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setRulesVersions((current) =>
+      upsertRulesVersion(current, result.rulesVersion),
+    );
+    setArchiveCandidateId(null);
+    setFeedback(`Zarchiwizowano wersję ${rulesVersion.version}.`);
+  }
+
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
 
   return (
@@ -247,6 +288,11 @@ export function RulesVersionCatalog({
       </header>
 
       {feedback ? <p className="feedbackBanner">{feedback}</p> : null}
+      {error && gamesState === 'ready' && rulesState === 'ready' ? (
+        <p className="feedbackBanner feedbackBannerError" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       {gamesState === 'loading' ? (
         <StatePanel title="Wczytywanie gier" text="Pobieram katalog gier…" />
@@ -426,13 +472,61 @@ export function RulesVersionCatalog({
                     >
                       Wzorce
                     </button>
+                    <button
+                      className="secondaryButton"
+                      onClick={() => setManagedPayoutRulesVersion(rulesVersion)}
+                      type="button"
+                    >
+                      Payouty
+                    </button>
                     {rulesVersion.status === 'draft' ? (
+                      <>
+                        <button
+                          className="primaryButton"
+                          onClick={() =>
+                            setPublicationRulesVersion(rulesVersion)
+                          }
+                          type="button"
+                        >
+                          Publikuj
+                        </button>
+                        <button
+                          className="textButton"
+                          onClick={() => openEdit(rulesVersion)}
+                          type="button"
+                        >
+                          Edytuj draft
+                        </button>
+                      </>
+                    ) : rulesVersion.status === 'published' &&
+                      archiveCandidateId === rulesVersion.id ? (
+                      <>
+                        <button
+                          className="textButton"
+                          disabled={archivingId === rulesVersion.id}
+                          onClick={() => setArchiveCandidateId(null)}
+                          type="button"
+                        >
+                          Anuluj
+                        </button>
+                        <button
+                          className="dangerButton"
+                          disabled={archivingId === rulesVersion.id}
+                          onClick={() => void confirmArchive(rulesVersion)}
+                          type="button"
+                        >
+                          {archivingId === rulesVersion.id
+                            ? 'Archiwizowanie…'
+                            : 'Potwierdź archiwizację'}
+                        </button>
+                      </>
+                    ) : rulesVersion.status === 'published' ? (
                       <button
                         className="textButton"
-                        onClick={() => openEdit(rulesVersion)}
+                        onClick={() => setArchiveCandidateId(rulesVersion.id)}
                         type="button"
                       >
-                        Edytuj draft
+                        Archiwizuj
                       </button>
                     ) : (
                       <span className="immutableLabel">Tylko do odczytu</span>
@@ -449,6 +543,21 @@ export function RulesVersionCatalog({
           api={api}
           onClose={() => setManagedRulesVersion(null)}
           rulesVersion={managedRulesVersion}
+        />
+      ) : null}
+      {managedPayoutRulesVersion ? (
+        <PayoutRulesManagerModal
+          api={api}
+          onClose={() => setManagedPayoutRulesVersion(null)}
+          rulesVersion={managedPayoutRulesVersion}
+        />
+      ) : null}
+      {publicationRulesVersion ? (
+        <RulesPublicationModal
+          api={api}
+          onClose={() => setPublicationRulesVersion(null)}
+          onPublished={onPublished}
+          rulesVersion={publicationRulesVersion}
         />
       ) : null}
     </section>

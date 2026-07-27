@@ -11,6 +11,7 @@ BASELINE_REVISION = "0001_empty_baseline"
 CATALOG_REVISION = "0002_games_symbols"
 RULES_REVISION = "0003_rules_versions"
 PAYLINES_REVISION = "0004_paylines"
+PAYOUTS_REVISION = "0005_symbol_payouts"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -22,14 +23,15 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_paylines_migration_is_the_only_head_and_follows_rules() -> None:
+def test_payouts_migration_is_the_only_head_and_follows_paylines() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
     rules = script.get_revision(RULES_REVISION)
     paylines = script.get_revision(PAYLINES_REVISION)
+    payouts = script.get_revision(PAYOUTS_REVISION)
 
-    assert script.get_heads() == [PAYLINES_REVISION]
+    assert script.get_heads() == [PAYOUTS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -38,6 +40,8 @@ def test_paylines_migration_is_the_only_head_and_follows_rules() -> None:
     assert rules.down_revision == CATALOG_REVISION
     assert paylines is not None
     assert paylines.down_revision == RULES_REVISION
+    assert payouts is not None
+    assert payouts.down_revision == PAYLINES_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -148,3 +152,28 @@ def test_paylines_migration_generates_array_constraints_and_downgrade() -> None:
 
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table paylines" in downgrade_sql
+
+
+def test_symbol_payout_migration_generates_constraints_and_downgrade() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(create_alembic_config(output_buffer=upgrade_output), "head", sql=True)
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{PAYOUTS_REVISION}:{PAYLINES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table rules_version_symbols" in upgrade_sql
+    assert "create table payout_rules" in upgrade_sql
+    assert "ck_rules_version_symbols_minimum_range" in upgrade_sql
+    assert "ck_payout_rules_match_length_range" in upgrade_sql
+    assert "ck_payout_rules_credits_nonnegative" in upgrade_sql
+    assert "uq_payout_rules_version_symbol_length" in upgrade_sql
+    assert "fk_payout_rules_rules_version_symbol" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table payout_rules" in downgrade_sql
+    assert "drop table rules_version_symbols" in downgrade_sql

@@ -203,3 +203,118 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     rowPath: [0, 1, 2, 1, 0],
   });
 });
+
+test('generated client sends symbol minimum and payout rule requests', async () => {
+  const requests = [];
+  const rulesVersionId = '33333333-3333-4333-8333-333333333333';
+  const symbolId = '22222222-2222-4222-8222-222222222222';
+  const payoutRuleId = '55555555-5555-4555-8555-555555555555';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const url = new URL(request.url);
+    if (request.method === 'DELETE') return new Response(null, { status: 204 });
+    if (url.pathname.endsWith(`/symbols/${symbolId}`)) {
+      return Response.json({
+        isActive: true,
+        minimumMatchLength: 2,
+        rulesVersionId,
+        symbolId,
+      });
+    }
+    return Response.json(
+      {
+        id: payoutRuleId,
+        isActive: true,
+        matchLength: 2,
+        payoutCredits: 10,
+        rulesVersionId,
+        symbolId,
+      },
+      { status: request.method === 'POST' ? 201 : 200 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.updateRulesVersionSymbol(rulesVersionId, symbolId, {
+    minimumMatchLength: 2,
+  });
+  const created = await client.createPayoutRule(rulesVersionId, {
+    matchLength: 2,
+    payoutCredits: 10,
+    symbolId,
+  });
+  await client.updatePayoutRule(rulesVersionId, payoutRuleId, {
+    payoutCredits: 20,
+  });
+  await client.archivePayoutRule(rulesVersionId, payoutRuleId);
+
+  assert.equal(created.data?.id, payoutRuleId);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/symbols/${symbolId}`,
+  );
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/payout-rules`,
+  );
+  assert.deepEqual(await requests[0].clone().json(), {
+    minimumMatchLength: 2,
+  });
+  assert.equal(requests[3].method, 'DELETE');
+});
+
+test('generated client sends rules publication workflow requests', async () => {
+  const requests = [];
+  const rulesVersionId = '33333333-3333-4333-8333-333333333333';
+  const rulesVersion = {
+    columns: 5,
+    createdAt: '2026-07-27T10:00:00Z',
+    gameId: '11111111-1111-4111-8111-111111111111',
+    id: rulesVersionId,
+    publishedAt: '2026-07-27T11:00:00Z',
+    rows: 3,
+    spinCost: 10,
+    status: 'published',
+    version: 1,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const url = new URL(request.url);
+    if (request.method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname.endsWith('/publication-readiness')) {
+      return Response.json({
+        issues: [],
+        ready: true,
+        rulesVersionId,
+      });
+    }
+    return Response.json(rulesVersion);
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const readiness = await client.getRulesPublicationReadiness(rulesVersionId);
+  const published = await client.publishRulesVersion(rulesVersionId);
+  await client.archiveRulesVersion(rulesVersionId);
+
+  assert.equal(readiness.data?.ready, true);
+  assert.equal(published.data?.status, 'published');
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/rules-versions/${rulesVersionId}/publication-readiness`,
+      ],
+      ['POST', `/api/v1/admin/rules-versions/${rulesVersionId}/publish`],
+      ['DELETE', `/api/v1/admin/rules-versions/${rulesVersionId}`],
+    ],
+  );
+});

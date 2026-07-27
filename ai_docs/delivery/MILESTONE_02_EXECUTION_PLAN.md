@@ -150,9 +150,13 @@ rekordów.
 - `TASK-0022 — Payline grid editor and duplicate validation`
   — ukończone 2026-07-27
 - `TASK-0023 — Per-symbol minimum and payout rules API/UI`
+  — ukończone 2026-07-27
 - `TASK-0024 — Immutable rules publication workflow`
+  — ukończone 2026-07-27
 
 ### Bramka G2.3
+
+Status: `passed` (2026-07-27).
 
 - administrator tworzy dla gry draft wersji reguł 3 × 5 i ustawia koszt spinu,
 - `row_path` ma dokładnie jedną istniejącą komórkę w każdej kolumnie,

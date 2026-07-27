@@ -771,6 +771,68 @@ a:focus-visible {
   font-size: 12px;
 }
 
+.publicationDialogCard {
+  max-width: 760px;
+}
+
+.publicationSummary {
+  display: grid;
+  gap: 22px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.32);
+}
+
+.publicationSummary h3 {
+  margin: 5px 0 8px;
+}
+
+.publicationSummary p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.publicationSummaryReady {
+  border-color: rgba(112, 225, 180, 0.28);
+}
+
+.publicationIssueList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.publicationIssueList li {
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 128, 128, 0.22);
+  border-radius: 11px;
+  background: rgba(95, 26, 34, 0.16);
+}
+
+.publicationIssueList strong {
+  font-size: 13px;
+}
+
+.publicationIssueList code {
+  color: #9baec4;
+  font-size: 10px;
+}
+
+.publicationConfirmation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #d9e4f1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .paylineEditorForm {
   display: grid;
   gap: 22px;
@@ -893,6 +955,114 @@ a:focus-visible {
 
 .selectedPath code {
   color: var(--accent);
+}
+
+.payoutManagerPanel {
+  width: min(900px, 100%);
+}
+
+.payoutSymbolList {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.payoutSymbolRow {
+  display: flex;
+  min-height: 112px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.payoutSymbolRow:last-child {
+  border-bottom: 0;
+}
+
+.payoutSymbolRow > div {
+  min-width: 0;
+}
+
+.payoutSymbolRow > div > p {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.payoutEditor {
+  display: grid;
+  gap: 22px;
+}
+
+.payoutEditor > label:not(.checkboxLabel) {
+  display: grid;
+  max-width: 360px;
+  gap: 8px;
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.payoutEditor select,
+.payoutFields input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(5, 12, 22, 0.62);
+  color: var(--text);
+}
+
+.payoutFields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.payoutFields label {
+  display: grid;
+  gap: 8px;
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checkboxLabel input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.wildcardNotice {
+  display: grid;
+  gap: 7px;
+  padding: 18px;
+  border: 1px solid rgba(242, 198, 109, 0.28);
+  border-radius: 13px;
+  background: rgba(242, 198, 109, 0.08);
+}
+
+.wildcardNotice strong {
+  color: var(--warning);
+}
+
+.wildcardNotice span,
+.fieldHint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .gameRow {
@@ -1247,6 +1417,7 @@ a:focus-visible {
   .gameRow,
   .symbolRow,
   .rulesRow,
+  .payoutSymbolRow,
   .archiveConfirmation {
     align-items: stretch;
     flex-direction: column;

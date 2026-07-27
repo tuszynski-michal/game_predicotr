@@ -2,23 +2,33 @@ import { createClient as createGeneratedClient } from './generated/client';
 import {
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
+  archivePayoutRule as archiveGeneratedPayoutRule,
+  archiveRulesVersion as archiveGeneratedRulesVersion,
   archiveSymbol as archiveGeneratedSymbol,
   createGame as createGeneratedGame,
   createPayline as createGeneratedPayline,
+  createPayoutRule as createGeneratedPayoutRule,
   createRulesVersion as createGeneratedRulesVersion,
   createSymbol as createGeneratedSymbol,
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getPayline as getGeneratedPayline,
+  getPayoutRule as getGeneratedPayoutRule,
+  getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listPaylines as listGeneratedPaylines,
+  listPayoutRules as listGeneratedPayoutRules,
   listRulesVersions as listGeneratedRulesVersions,
+  listRulesVersionSymbols as listGeneratedRulesVersionSymbols,
   listSymbols as listGeneratedSymbols,
+  publishRulesVersion as publishGeneratedRulesVersion,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
+  updatePayoutRule as updateGeneratedPayoutRule,
   updateRulesVersion as updateGeneratedRulesVersion,
+  updateRulesVersionSymbol as updateGeneratedRulesVersionSymbol,
   updateSymbol as updateGeneratedSymbol,
 } from './generated/sdk.gen';
 import type {
@@ -26,7 +36,10 @@ import type {
   GameUpdate,
   PaylineCreate,
   PaylineUpdate,
+  PayoutRuleCreate,
+  PayoutRuleUpdate,
   RulesVersionCreate,
+  RulesVersionSymbolUpdate,
   RulesVersionUpdate,
   SymbolCreate,
   SymbolUpdate,
@@ -42,9 +55,16 @@ export type {
   PaylineCreate,
   PaylineResponse,
   PaylineUpdate,
+  PayoutRuleCreate,
+  PayoutRuleResponse,
+  PayoutRuleUpdate,
+  RulesPublicationIssueResponse,
+  RulesPublicationReadinessResponse,
   RulesVersionCreate,
   RulesVersionResponse,
   RulesVersionStatus,
+  RulesVersionSymbolResponse,
+  RulesVersionSymbolUpdate,
   RulesVersionUpdate,
   SymbolCreate,
   SymbolResponse,
@@ -92,6 +112,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { rules_version_id: rulesVersionId },
       }),
+    getRulesPublicationReadiness: (rulesVersionId: string) =>
+      getGeneratedRulesPublicationReadiness({
+        client,
+        path: { rules_version_id: rulesVersionId },
+      }),
+    publishRulesVersion: (rulesVersionId: string) =>
+      publishGeneratedRulesVersion({
+        client,
+        path: { rules_version_id: rulesVersionId },
+      }),
+    archiveRulesVersion: (rulesVersionId: string) =>
+      archiveGeneratedRulesVersion({
+        client,
+        path: { rules_version_id: rulesVersionId },
+      }),
     listPaylines: (rulesVersionId: string) =>
       listGeneratedPaylines({
         client,
@@ -129,6 +164,64 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: {
           payline_id: paylineId,
+          rules_version_id: rulesVersionId,
+        },
+      }),
+    listRulesVersionSymbols: (rulesVersionId: string) =>
+      listGeneratedRulesVersionSymbols({
+        client,
+        path: { rules_version_id: rulesVersionId },
+      }),
+    updateRulesVersionSymbol: (
+      rulesVersionId: string,
+      symbolId: string,
+      body: RulesVersionSymbolUpdate,
+    ) =>
+      updateGeneratedRulesVersionSymbol({
+        body,
+        client,
+        path: {
+          rules_version_id: rulesVersionId,
+          symbol_id: symbolId,
+        },
+      }),
+    listPayoutRules: (rulesVersionId: string) =>
+      listGeneratedPayoutRules({
+        client,
+        path: { rules_version_id: rulesVersionId },
+      }),
+    createPayoutRule: (rulesVersionId: string, body: PayoutRuleCreate) =>
+      createGeneratedPayoutRule({
+        body,
+        client,
+        path: { rules_version_id: rulesVersionId },
+      }),
+    getPayoutRule: (rulesVersionId: string, payoutRuleId: string) =>
+      getGeneratedPayoutRule({
+        client,
+        path: {
+          payout_rule_id: payoutRuleId,
+          rules_version_id: rulesVersionId,
+        },
+      }),
+    updatePayoutRule: (
+      rulesVersionId: string,
+      payoutRuleId: string,
+      body: PayoutRuleUpdate,
+    ) =>
+      updateGeneratedPayoutRule({
+        body,
+        client,
+        path: {
+          payout_rule_id: payoutRuleId,
+          rules_version_id: rulesVersionId,
+        },
+      }),
+    archivePayoutRule: (rulesVersionId: string, payoutRuleId: string) =>
+      archiveGeneratedPayoutRule({
+        client,
+        path: {
+          payout_rule_id: payoutRuleId,
           rules_version_id: rulesVersionId,
         },
       }),

@@ -7,7 +7,14 @@ from uuid import UUID, uuid4
 from fastapi.testclient import TestClient
 from game_predictor_api.application.rules import RulesRepository, RulesService
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.rules import Payline, RulesVersion, RulesVersionStatus
+from game_predictor_api.domain.rules import (
+    Payline,
+    PayoutRule,
+    RulesSymbolDefinition,
+    RulesVersion,
+    RulesVersionStatus,
+    RulesVersionSymbol,
+)
 from game_predictor_api.main import create_app
 
 
@@ -16,6 +23,9 @@ class MemoryRulesRepository(RulesRepository):
         self.game_id = game_id
         self.items: dict[UUID, RulesVersion] = {}
         self.paylines: dict[UUID, Payline] = {}
+        self.symbols: dict[UUID, RulesSymbolDefinition] = {}
+        self.rules_symbols: dict[tuple[UUID, UUID], RulesVersionSymbol] = {}
+        self.payout_rules: dict[UUID, PayoutRule] = {}
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -28,6 +38,12 @@ class MemoryRulesRepository(RulesRepository):
         )
 
     def get_rules_version(self, rules_version_id: UUID) -> RulesVersion | None:
+        return self.items.get(rules_version_id)
+
+    def get_rules_version_for_update(
+        self,
+        rules_version_id: UUID,
+    ) -> RulesVersion | None:
         return self.items.get(rules_version_id)
 
     def add_next_rules_version(
@@ -138,6 +154,138 @@ class MemoryRulesRepository(RulesRepository):
     def save_payline(self, payline: Payline) -> Payline:
         self.paylines[payline.id] = payline
         return payline
+
+    def payout_configuration_fits_columns(
+        self,
+        rules_version_id: UUID,
+        *,
+        columns: int,
+    ) -> bool:
+        return all(
+            item.minimum_match_length is None
+            or item.minimum_match_length <= columns
+            for item in self.rules_symbols.values()
+            if item.rules_version_id == rules_version_id
+        ) and all(
+            item.match_length <= columns
+            for item in self.payout_rules.values()
+            if item.rules_version_id == rules_version_id
+        )
+
+    def get_rules_symbol_definition(
+        self,
+        symbol_id: UUID,
+    ) -> RulesSymbolDefinition | None:
+        return self.symbols.get(symbol_id)
+
+    def list_rules_version_symbols(
+        self,
+        rules_version_id: UUID,
+    ) -> list[RulesVersionSymbol]:
+        return [
+            item
+            for item in self.rules_symbols.values()
+            if item.rules_version_id == rules_version_id
+        ]
+
+    def get_rules_version_symbol(
+        self,
+        rules_version_id: UUID,
+        symbol_id: UUID,
+    ) -> RulesVersionSymbol | None:
+        return self.rules_symbols.get((rules_version_id, symbol_id))
+
+    def save_rules_version_symbol(
+        self,
+        rules_version_symbol: RulesVersionSymbol,
+    ) -> RulesVersionSymbol:
+        self.rules_symbols[
+            (
+                rules_version_symbol.rules_version_id,
+                rules_version_symbol.symbol_id,
+            )
+        ] = rules_version_symbol
+        return rules_version_symbol
+
+    def archive_payout_rules_below(
+        self,
+        rules_version_id: UUID,
+        symbol_id: UUID,
+        minimum_match_length: int,
+    ) -> None:
+        for payout_rule_id, item in tuple(self.payout_rules.items()):
+            if (
+                item.rules_version_id == rules_version_id
+                and item.symbol_id == symbol_id
+                and item.match_length < minimum_match_length
+            ):
+                self.payout_rules[payout_rule_id] = replace(
+                    item,
+                    is_active=False,
+                )
+
+    def list_payout_rules(self, rules_version_id: UUID) -> list[PayoutRule]:
+        return sorted(
+            (
+                item
+                for item in self.payout_rules.values()
+                if item.rules_version_id == rules_version_id
+            ),
+            key=lambda item: (item.symbol_id, item.match_length, item.id),
+        )
+
+    def get_payout_rule(
+        self,
+        rules_version_id: UUID,
+        payout_rule_id: UUID,
+    ) -> PayoutRule | None:
+        item = self.payout_rules.get(payout_rule_id)
+        return (
+            item
+            if item is not None and item.rules_version_id == rules_version_id
+            else None
+        )
+
+    def find_payout_rule(
+        self,
+        rules_version_id: UUID,
+        symbol_id: UUID,
+        match_length: int,
+    ) -> PayoutRule | None:
+        return next(
+            (
+                item
+                for item in self.payout_rules.values()
+                if item.rules_version_id == rules_version_id
+                and item.symbol_id == symbol_id
+                and item.match_length == match_length
+            ),
+            None,
+        )
+
+    def add_payout_rule(
+        self,
+        *,
+        rules_version_id: UUID,
+        symbol_id: UUID,
+        match_length: int,
+        payout_credits: int,
+        is_active: bool,
+    ) -> PayoutRule:
+        item = PayoutRule(
+            id=uuid4(),
+            rules_version_id=rules_version_id,
+            symbol_id=symbol_id,
+            match_length=match_length,
+            payout_credits=payout_credits,
+            is_active=is_active,
+        )
+        self.payout_rules[item.id] = item
+        return item
+
+    def save_payout_rule(self, payout_rule: PayoutRule) -> PayoutRule:
+        self.payout_rules[payout_rule.id] = payout_rule
+        return payout_rule
 
 
 def _client(repository: MemoryRulesRepository) -> TestClient:
@@ -348,3 +496,267 @@ def test_payline_api_reports_duplicate_invalid_and_immutable_errors() -> None:
         )
         assert immutable.status_code == 409
         assert immutable.json()["code"] == "RULES_VERSION_IMMUTABLE"
+
+
+def test_symbol_configuration_and_payout_crud_contract() -> None:
+    game_id = uuid4()
+    repository = MemoryRulesRepository(game_id)
+    symbol_id = uuid4()
+    repository.symbols[symbol_id] = RulesSymbolDefinition(
+        id=symbol_id,
+        game_id=game_id,
+        is_wildcard=False,
+    )
+
+    with _client(repository) as client:
+        rules_version_id = client.post(
+            f"/api/v1/admin/games/{game_id}/rules-versions",
+            json={"rows": 3, "columns": 5, "spinCost": 10},
+        ).json()["id"]
+        configured = client.patch(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}",
+            json={"minimumMatchLength": 2, "isActive": True},
+        )
+        assert configured.status_code == 200
+        assert configured.json() == {
+            "rulesVersionId": rules_version_id,
+            "symbolId": str(symbol_id),
+            "minimumMatchLength": 2,
+            "isActive": True,
+        }
+
+        created = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            json={
+                "symbolId": str(symbol_id),
+                "matchLength": 2,
+                "payoutCredits": 10,
+            },
+        )
+        assert created.status_code == 201
+        payout_rule_id = created.json()["id"]
+        updated = client.patch(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
+            json={"payoutCredits": 25},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["payoutCredits"] == 25
+
+        configured_list = client.get(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/symbols"
+        )
+        assert [item["symbolId"] for item in configured_list.json()] == [
+            str(symbol_id)
+        ]
+        payout_list = client.get(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules"
+        )
+        assert [item["id"] for item in payout_list.json()] == [payout_rule_id]
+        assert (
+            client.get(
+                f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}"
+            ).status_code
+            == 200
+        )
+        assert (
+            client.delete(
+                f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}"
+            ).status_code
+            == 204
+        )
+        assert repository.payout_rules[UUID(payout_rule_id)].is_active is False
+        reactivated = client.patch(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
+            json={"isActive": True},
+        )
+        assert reactivated.json()["isActive"] is True
+
+
+def test_payout_api_rejects_duplicate_wildcard_invalid_and_immutable() -> None:
+    game_id = uuid4()
+    repository = MemoryRulesRepository(game_id)
+    symbol_id = uuid4()
+    wildcard_id = uuid4()
+    repository.symbols[symbol_id] = RulesSymbolDefinition(
+        id=symbol_id,
+        game_id=game_id,
+        is_wildcard=False,
+    )
+    repository.symbols[wildcard_id] = RulesSymbolDefinition(
+        id=wildcard_id,
+        game_id=game_id,
+        is_wildcard=True,
+    )
+
+    with _client(repository) as client:
+        rules_version_id = client.post(
+            f"/api/v1/admin/games/{game_id}/rules-versions",
+            json={"rows": 3, "columns": 5, "spinCost": 10},
+        ).json()["id"]
+        client.patch(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}",
+            json={"minimumMatchLength": 3},
+        )
+        client.patch(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/symbols/{wildcard_id}",
+            json={"minimumMatchLength": None},
+        )
+        first = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            json={
+                "symbolId": str(symbol_id),
+                "matchLength": 3,
+                "payoutCredits": 10,
+            },
+        ).json()
+
+        duplicate = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            json={
+                "symbolId": str(symbol_id),
+                "matchLength": 3,
+                "payoutCredits": 20,
+            },
+        )
+        assert duplicate.status_code == 409
+        assert duplicate.json()["code"] == "PAYOUT_RULE_ALREADY_EXISTS"
+        assert duplicate.json()["details"]["existingPayoutRuleId"] == first["id"]
+
+        invalid = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            json={
+                "symbolId": str(symbol_id),
+                "matchLength": 2,
+                "payoutCredits": 10,
+            },
+        )
+        assert invalid.status_code == 422
+        assert invalid.json()["code"] == "INVALID_PAYOUT_MATCH_LENGTH"
+
+        wildcard = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+            json={
+                "symbolId": str(wildcard_id),
+                "matchLength": 3,
+                "payoutCredits": 10,
+            },
+        )
+        assert wildcard.status_code == 409
+        assert wildcard.json()["code"] == "WILDCARD_PAYOUT_NOT_ALLOWED"
+
+        rules_id = UUID(rules_version_id)
+        repository.items[rules_id] = replace(
+            repository.items[rules_id],
+            status=RulesVersionStatus.PUBLISHED,
+            published_at=datetime.now(UTC),
+        )
+        immutable = client.patch(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{first['id']}",
+            json={"payoutCredits": 30},
+        )
+        assert immutable.status_code == 409
+        assert immutable.json()["code"] == "RULES_VERSION_IMMUTABLE"
+
+
+def test_publication_readiness_publish_and_archive_contract() -> None:
+    game_id = uuid4()
+    repository = MemoryRulesRepository(game_id)
+    symbol_id = uuid4()
+    repository.symbols[symbol_id] = RulesSymbolDefinition(
+        id=symbol_id,
+        game_id=game_id,
+        is_wildcard=False,
+    )
+
+    with _client(repository) as client:
+        rules_version_id = client.post(
+            f"/api/v1/admin/games/{game_id}/rules-versions",
+            json={"rows": 3, "columns": 3, "spinCost": 10},
+        ).json()["id"]
+        blocked = client.get(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/publication-readiness"
+        )
+        assert blocked.status_code == 200
+        assert blocked.json()["ready"] is False
+        assert [issue["code"] for issue in blocked.json()["issues"]] == [
+            "NO_ACTIVE_PAYLINES",
+            "NO_ACTIVE_RULE_SYMBOLS",
+            "NO_ACTIVE_ORDINARY_SYMBOLS",
+        ]
+        failed_publish = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/publish"
+        )
+        assert failed_publish.status_code == 409
+        assert failed_publish.json()["code"] == "RULES_VERSION_NOT_READY"
+
+        assert (
+            client.post(
+                f"/api/v1/admin/rules-versions/{rules_version_id}/paylines",
+                json={
+                    "code": "middle",
+                    "name": "Middle",
+                    "rowPath": [1, 1, 1],
+                    "displayOrder": 0,
+                },
+            ).status_code
+            == 201
+        )
+        assert (
+            client.patch(
+                f"/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}",
+                json={"minimumMatchLength": 2, "isActive": True},
+            ).status_code
+            == 200
+        )
+        for match_length, credits in ((2, 20), (3, 50)):
+            assert (
+                client.post(
+                    f"/api/v1/admin/rules-versions/{rules_version_id}/payout-rules",
+                    json={
+                        "symbolId": str(symbol_id),
+                        "matchLength": match_length,
+                        "payoutCredits": credits,
+                    },
+                ).status_code
+                == 201
+            )
+
+        ready = client.get(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/publication-readiness"
+        )
+        assert ready.json() == {
+            "rulesVersionId": rules_version_id,
+            "ready": True,
+            "issues": [],
+        }
+        published = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/publish"
+        )
+        assert published.status_code == 200
+        assert published.json()["status"] == "published"
+        published_at = published.json()["publishedAt"]
+        assert published_at is not None
+
+        second_publish = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/publish"
+        )
+        assert second_publish.status_code == 409
+        assert second_publish.json()["code"] == "RULES_VERSION_IMMUTABLE"
+
+        archived = client.delete(
+            f"/api/v1/admin/rules-versions/{rules_version_id}"
+        )
+        assert archived.status_code == 204
+        stored = repository.items[UUID(rules_version_id)]
+        assert stored.status is RulesVersionStatus.ARCHIVED
+        assert stored.published_at is not None
+        archived_response = client.get(
+            f"/api/v1/admin/rules-versions/{rules_version_id}"
+        )
+        assert archived_response.json()["publishedAt"] == published_at
+        assert (
+            client.delete(
+                f"/api/v1/admin/rules-versions/{rules_version_id}"
+            ).status_code
+            == 204
+        )

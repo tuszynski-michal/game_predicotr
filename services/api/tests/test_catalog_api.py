@@ -20,6 +20,7 @@ class MemoryCatalogRepository(CatalogRepository):
     def __init__(self) -> None:
         self.games: dict[UUID, Game] = {}
         self.symbols: dict[UUID, Symbol] = {}
+        self.rules_symbol_ids: set[UUID] = set()
 
     def list_games(self) -> list[Game]:
         return list(self.games.values())
@@ -100,6 +101,9 @@ class MemoryCatalogRepository(CatalogRepository):
         self.symbols[symbol.id] = symbol
         return symbol
 
+    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
+        return symbol_id in self.rules_symbol_ids
+
 
 def _client(repository: MemoryCatalogRepository) -> TestClient:
     service = CatalogService(repository)
@@ -140,6 +144,14 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
         symbol_id = symbol["id"]
         assert symbol["gameId"] == game_id
         assert symbol["mobileCode"] == 12
+
+        repository.rules_symbol_ids.add(UUID(symbol_id))
+        identity_change = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
+            json={"isWildcard": False},
+        )
+        assert identity_change.status_code == 409
+        assert identity_change.json()["code"] == "SYMBOL_RULES_IDENTITY_IN_USE"
 
         updated = client.patch(
             f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",

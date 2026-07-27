@@ -499,6 +499,31 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   kompletny i ściśle rosnący zestaw jednego symbolu przed zapisem; walidacja
   kompletności całej wersji i publikacja pozostają w TASK-0024.
 
+## D-028 — Atomic rules publication and active version membership
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** aktywne `rules_version_symbols` definiują skład symboli wersji.
+  Gotowa wersja ma co najmniej jedną aktywną payline i jeden aktywny zwykły
+  symbol, a każdy zwykły symbol ma pełną, ściśle rosnącą macierz payoutów.
+  Read-only raport gotowości i publikacja używają tej samej czystej walidacji.
+  Publikacja blokuje rekord `rules_versions`, ponownie waliduje i atomowo ustawia
+  `published` oraz serwerowy `published_at`. Wiele historycznych wersji tej samej
+  gry może pozostać opublikowanych. Osobna archiwizacja jest idempotentnym
+  przejściem `published → archived` i zachowuje timestamp publikacji.
+- **Context:** preflight panelu poprawia UX, ale nie może być jedyną ochroną
+  przed zmianą danych pomiędzy sprawdzeniem i zapisem statusu.
+- **Reason:** jedna deterministyczna walidacja usuwa drift między UI i
+  publikacją, a blokada i transakcja zapewniają niezmienność bez kolejki,
+  rozproszonego locka ani nowej infrastruktury.
+- **Alternatives:** walidacja wyłącznie w UI, publikacja bez preflightu,
+  automatyczna archiwizacja poprzedniej wersji, tylko jedna opublikowana wersja
+  gry, osobna tabela zdarzeń publikacji.
+- **Consequences:** nieaktywne konfiguracje pozostają historyczne, ale nie mogą
+  mieć aktywnych payoutów. Nieudana walidacja nie zmienia statusu ani
+  `published_at`. Dataset i release jawnie wskazują wersję, więc poprzednia
+  opublikowana wersja nie musi być automatycznie wycofywana.
+
 ## Szablon nowej decyzji
 
 ```text

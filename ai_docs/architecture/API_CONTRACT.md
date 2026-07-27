@@ -112,6 +112,9 @@ GET   /api/v1/admin/games/{gameId}/rules-versions
 POST  /api/v1/admin/games/{gameId}/rules-versions
 GET   /api/v1/admin/rules-versions/{rulesVersionId}
 PATCH /api/v1/admin/rules-versions/{rulesVersionId}
+DELETE /api/v1/admin/rules-versions/{rulesVersionId}
+GET   /api/v1/admin/rules-versions/{rulesVersionId}/publication-readiness
+POST  /api/v1/admin/rules-versions/{rulesVersionId}/publish
 ```
 
 Tworzenie przyjmuje dodatnie `rows`, dodatnie `columns` i nieujemny całkowity
@@ -134,8 +137,43 @@ numerze wersji. Odpowiedź zawiera:
 ```
 
 `PATCH` przyjmuje co najmniej jedno z pól `rows`, `columns`, `spinCost` i
-działa wyłącznie dla statusu `draft`. TASK-0021 nie udostępnia zmiany statusu;
-publikację i archiwizację definiuje TASK-0024.
+działa wyłącznie dla statusu `draft`.
+
+GET `publication-readiness` jest operacją read-only i zwraca pełny,
+deterministycznie uporządkowany raport:
+
+```json
+{
+  "rulesVersionId": "uuid",
+  "ready": false,
+  "issues": [
+    {
+      "code": "INCOMPLETE_PAYOUT_RULES",
+      "message": "An ordinary symbol needs a payout for every supported length.",
+      "details": {
+        "symbolId": "uuid",
+        "missingMatchLengths": [4, 5]
+      }
+    }
+  ]
+}
+```
+
+Gotowość wymaga co najmniej jednej aktywnej payline, jednej aktywnej
+konfiguracji zwykłego symbolu oraz kompletnej, ściśle rosnącej macierzy
+aktywnych payoutów od `minimumMatchLength` do `columns`. Aktywny payout jokera,
+nieaktywnego symbolu albo długości poza zakresem blokuje publikację.
+
+POST `publish` blokuje rekord wersji, ponownie wykonuje tę samą walidację i w
+jednej transakcji ustawia `status = published` oraz serwerowy `publishedAt`.
+Niepowodzenie zwraca `RULES_VERSION_NOT_READY` wraz z listą `issues` i nie
+zmienia stanu. Ponowne wywołanie dla wersji innej niż draft zwraca
+`RULES_VERSION_IMMUTABLE`.
+
+DELETE jest idempotentną archiwizacją `published → archived`, zachowuje
+`publishedAt` i zwraca `204`. Draft nie może zostać zarchiwizowany tą operacją.
+Publikacja nie archiwizuje automatycznie wcześniejszej opublikowanej wersji tej
+samej gry.
 
 Stabilne błędy:
 
@@ -143,6 +181,8 @@ Stabilne błędy:
 GAME_NOT_FOUND
 RULES_VERSION_NOT_FOUND
 RULES_VERSION_IMMUTABLE
+RULES_VERSION_NOT_READY
+RULES_VERSION_NOT_PUBLISHED
 VALIDATION_ERROR
 ```
 
@@ -216,6 +256,12 @@ VALIDATION_ERROR
 
 ## Payout rule
 
+### GET `/api/v1/admin/rules-versions/{rulesVersionId}/symbols`
+
+Zwraca utrwalone konfiguracje symboli wersji w kanonicznej kolejności symboli.
+Brakujący zwykły symbol jest prezentowany przez panel z domyślnym minimum 3,
+ale staje się częścią wersjonowanej konfiguracji dopiero po zapisie.
+
 ### PATCH `/api/v1/admin/rules-versions/{rulesVersionId}/symbols/{symbolId}`
 
 ```json
@@ -228,6 +274,15 @@ API ustawia wersjonowany próg zwykłego symbolu. Domyślna wartość wynosi 3, 
 dozwolony zakres to `2..columns`. Joker nie przyjmuje tego pola. Zmiana progu w
 opublikowanej wersji jest zabroniona; w drafcie zmienia zestaw wymaganych
 payout rules.
+
+Payload zawiera również opcjonalne `isActive` z wartością domyślną `true`.
+Pierwszy PATCH wykonuje upsert. Joker wymaga `minimumMatchLength = null`.
+Podniesienie progu archiwizuje istniejące payout rules poniżej nowego minimum.
+
+### GET `/api/v1/admin/rules-versions/{rulesVersionId}/payout-rules`
+
+Zwraca aktywne i zarchiwizowane rekordy deterministycznie według symbolu i
+długości.
 
 ### POST `/api/v1/admin/rules-versions/{rulesVersionId}/payout-rules`
 
@@ -245,6 +300,34 @@ API blokuje:
 - długość poniżej `minimumMatchLength` symbolu lub większą niż liczba kolumn,
 - ujemną wypłatę,
 - duplikat `(rulesVersionId, symbolId, matchLength)`.
+
+Operacje pojedynczego rekordu:
+
+```text
+GET    /api/v1/admin/rules-versions/{rulesVersionId}/payout-rules/{payoutRuleId}
+PATCH  /api/v1/admin/rules-versions/{rulesVersionId}/payout-rules/{payoutRuleId}
+DELETE /api/v1/admin/rules-versions/{rulesVersionId}/payout-rules/{payoutRuleId}
+```
+
+PATCH zmienia `payoutCredits` lub `isActive`. DELETE jest idempotentną
+archiwizacją; rekord pozostaje zarezerwowany, a PATCH może go reaktywować.
+Mutacje wersji innej niż draft zwracają `RULES_VERSION_IMMUTABLE`.
+
+Stabilne błędy tego pionu:
+
+```text
+SYMBOL_NOT_FOUND
+SYMBOL_NOT_IN_RULES_GAME
+SYMBOL_RULES_IDENTITY_IN_USE
+RULES_SYMBOL_NOT_CONFIGURED
+WILDCARD_MINIMUM_NOT_ALLOWED
+WILDCARD_PAYOUT_NOT_ALLOWED
+INVALID_MINIMUM_MATCH_LENGTH
+INVALID_PAYOUT_MATCH_LENGTH
+INVALID_PAYOUT_CREDITS
+PAYOUT_RULE_NOT_FOUND
+PAYOUT_RULE_ALREADY_EXISTS
+```
 
 Publikacja wymaga dokładnie jednej wartości kredytów dla każdej długości od
 `minimumMatchLength` do liczby kolumn i ściśle rosnących wartości dla danego

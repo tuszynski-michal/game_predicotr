@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -92,6 +93,20 @@ class PayoutRule:
     match_length: int
     payout_credits: int
     is_active: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RulesPublicationIssue:
+    code: str
+    message: str
+    details: dict[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class RulesPublicationReadiness:
+    rules_version_id: UUID
+    ready: bool
+    issues: tuple[RulesPublicationIssue, ...]
 
 
 def validate_dimensions(rows: int, columns: int) -> tuple[int, int]:
@@ -243,3 +258,216 @@ def validate_payout_credits(payout_credits: int) -> int:
             details={"field": "payoutCredits"},
         )
     return payout_credits
+
+
+def assess_rules_publication(
+    rules_version: RulesVersion,
+    *,
+    paylines: Sequence[Payline],
+    symbol_configurations: Sequence[RulesVersionSymbol],
+    payout_rules: Sequence[PayoutRule],
+    symbols: Mapping[UUID, RulesSymbolDefinition],
+) -> RulesPublicationReadiness:
+    """Return every deterministic blocker without changing domain state."""
+
+    issues: list[RulesPublicationIssue] = []
+
+    def add_issue(code: str, message: str, **details: object) -> None:
+        issues.append(RulesPublicationIssue(code, message, details))
+
+    if rules_version.status is not RulesVersionStatus.DRAFT:
+        add_issue(
+            "RULES_VERSION_NOT_DRAFT",
+            "Only a draft rules version can be published.",
+            rulesVersionId=str(rules_version.id),
+            status=rules_version.status.value,
+        )
+
+    active_paylines = sorted(
+        (payline for payline in paylines if payline.is_active),
+        key=lambda payline: (payline.display_order, payline.code, str(payline.id)),
+    )
+    if not active_paylines:
+        add_issue(
+            "NO_ACTIVE_PAYLINES",
+            "At least one active payline is required.",
+        )
+    for payline in active_paylines:
+        if len(payline.row_path) != rules_version.columns:
+            add_issue(
+                "INVALID_ACTIVE_PAYLINE",
+                "An active payline must contain one row for every column.",
+                paylineId=str(payline.id),
+            )
+        elif any(not 0 <= row < rules_version.rows for row in payline.row_path):
+            add_issue(
+                "INVALID_ACTIVE_PAYLINE",
+                "An active payline contains a row outside the rules grid.",
+                paylineId=str(payline.id),
+            )
+
+    active_configurations = sorted(
+        (
+            configuration
+            for configuration in symbol_configurations
+            if configuration.is_active
+        ),
+        key=lambda configuration: str(configuration.symbol_id),
+    )
+    if not active_configurations:
+        add_issue(
+            "NO_ACTIVE_RULE_SYMBOLS",
+            "At least one active symbol configuration is required.",
+        )
+
+    configurations_by_symbol = {
+        configuration.symbol_id: configuration
+        for configuration in symbol_configurations
+    }
+    active_ordinary: list[RulesVersionSymbol] = []
+    for configuration in active_configurations:
+        symbol = symbols.get(configuration.symbol_id)
+        if symbol is None or symbol.game_id != rules_version.game_id:
+            add_issue(
+                "INVALID_RULE_SYMBOL",
+                "An active symbol does not belong to the rules version game.",
+                symbolId=str(configuration.symbol_id),
+            )
+            continue
+        if symbol.is_wildcard:
+            if configuration.minimum_match_length is not None:
+                add_issue(
+                    "WILDCARD_MINIMUM_NOT_ALLOWED",
+                    "A wildcard symbol cannot have minimumMatchLength.",
+                    symbolId=str(configuration.symbol_id),
+                )
+            continue
+        if (
+            configuration.minimum_match_length is None
+            or not 2
+            <= configuration.minimum_match_length
+            <= rules_version.columns
+        ):
+            add_issue(
+                "INVALID_MINIMUM_MATCH_LENGTH",
+                "An active ordinary symbol needs a valid minimumMatchLength.",
+                symbolId=str(configuration.symbol_id),
+                columns=rules_version.columns,
+            )
+            continue
+        active_ordinary.append(configuration)
+
+    if not active_ordinary:
+        add_issue(
+            "NO_ACTIVE_ORDINARY_SYMBOLS",
+            "At least one active ordinary symbol is required.",
+        )
+
+    active_payouts = sorted(
+        (rule for rule in payout_rules if rule.is_active),
+        key=lambda rule: (
+            str(rule.symbol_id),
+            rule.match_length,
+            str(rule.id),
+        ),
+    )
+    payouts_by_symbol: dict[UUID, list[PayoutRule]] = defaultdict(list)
+    for rule in active_payouts:
+        payouts_by_symbol[rule.symbol_id].append(rule)
+        payout_configuration = configurations_by_symbol.get(rule.symbol_id)
+        symbol = symbols.get(rule.symbol_id)
+        if payout_configuration is None or not payout_configuration.is_active:
+            add_issue(
+                "PAYOUT_FOR_INACTIVE_SYMBOL",
+                "An active payout belongs to an inactive or unconfigured symbol.",
+                payoutRuleId=str(rule.id),
+                symbolId=str(rule.symbol_id),
+            )
+            continue
+        if symbol is None or symbol.game_id != rules_version.game_id:
+            add_issue(
+                "INVALID_RULE_SYMBOL",
+                "An active payout belongs to a symbol outside the rules game.",
+                payoutRuleId=str(rule.id),
+                symbolId=str(rule.symbol_id),
+            )
+            continue
+        if symbol.is_wildcard:
+            add_issue(
+                "WILDCARD_PAYOUT_NOT_ALLOWED",
+                "A wildcard symbol cannot have active payout rules.",
+                payoutRuleId=str(rule.id),
+                symbolId=str(rule.symbol_id),
+            )
+            continue
+        minimum = payout_configuration.minimum_match_length
+        if (
+            minimum is None
+            or not minimum <= rule.match_length <= rules_version.columns
+        ):
+            add_issue(
+                "INVALID_PAYOUT_MATCH_LENGTH",
+                "An active payout length is outside the configured range.",
+                payoutRuleId=str(rule.id),
+                symbolId=str(rule.symbol_id),
+                matchLength=rule.match_length,
+            )
+        if not 0 <= rule.payout_credits <= MAX_SPIN_COST:
+            add_issue(
+                "INVALID_PAYOUT_CREDITS",
+                "An active payout value is outside the supported range.",
+                payoutRuleId=str(rule.id),
+                symbolId=str(rule.symbol_id),
+            )
+
+    for configuration in active_ordinary:
+        minimum = configuration.minimum_match_length
+        if minimum is None:
+            continue
+        rules = payouts_by_symbol.get(configuration.symbol_id, [])
+        by_length: dict[int, list[PayoutRule]] = defaultdict(list)
+        for rule in rules:
+            by_length[rule.match_length].append(rule)
+        duplicate_lengths = sorted(
+            length for length, matches in by_length.items() if len(matches) > 1
+        )
+        if duplicate_lengths:
+            add_issue(
+                "DUPLICATE_ACTIVE_PAYOUT_RULE",
+                "An ordinary symbol has duplicate active payout lengths.",
+                symbolId=str(configuration.symbol_id),
+                matchLengths=duplicate_lengths,
+            )
+        expected_lengths = range(minimum, rules_version.columns + 1)
+        missing_lengths = [
+            length for length in expected_lengths if length not in by_length
+        ]
+        if missing_lengths:
+            add_issue(
+                "INCOMPLETE_PAYOUT_RULES",
+                "An ordinary symbol needs a payout for every supported length.",
+                symbolId=str(configuration.symbol_id),
+                missingMatchLengths=missing_lengths,
+            )
+        ordered = [
+            by_length[length][0]
+            for length in expected_lengths
+            if len(by_length[length]) == 1
+        ]
+        for previous, current in zip(ordered, ordered[1:], strict=False):
+            if current.match_length != previous.match_length + 1:
+                continue
+            if current.payout_credits <= previous.payout_credits:
+                add_issue(
+                    "NON_INCREASING_PAYOUT",
+                    "Payout credits must increase with every longer match.",
+                    symbolId=str(configuration.symbol_id),
+                    previousMatchLength=previous.match_length,
+                    matchLength=current.match_length,
+                )
+
+    return RulesPublicationReadiness(
+        rules_version_id=rules_version.id,
+        ready=not issues,
+        issues=tuple(issues),
+    )

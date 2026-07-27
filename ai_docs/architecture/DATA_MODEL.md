@@ -91,6 +91,13 @@ Walidacja:
 - konfiguracja należy do wersji reguł, a nie globalnego rekordu `symbols`,
   dzięki czemu historyczne wydania pozostają odtwarzalne.
 
+Pierwsza aktualizacja wykonuje upsert konfiguracji. Zwykły symbol bez
+utrwalonego rekordu jest prezentowany przez panel z domyślnym minimum 3, ale
+nie należy do wersji do czasu zapisu. Aktywne rekordy `rules_version_symbols`
+definiują skład publikowanej wersji; publikacja wymaga co najmniej jednego
+aktywnego zwykłego symbolu. Po utworzeniu rekordu nie można zmienić katalogowej
+roli zwykły/joker tego symbolu.
+
 ### paylines
 
 | Pole | Typ | Uwagi |
@@ -137,8 +144,14 @@ Walidacja:
 - `payout_credits >= 0`,
 - joker nie ma payout rule.
 
+Publiczne usunięcie payout rule ustawia `is_active = false`; rekord i klucz
+wersja/symbol/długość pozostają zarezerwowane. PATCH może zmienić kredyty i
+ponownie aktywować rekord. Podniesienie `minimum_match_length` automatycznie
+archiwizuje reguły poniżej nowego progu. Zmniejszenie liczby kolumn nie może
+pozostawić konfiguracji ani payout rule poza zakresem.
+
 Przed precomputingiem i publikacją pełna wersja reguł musi zawierać każdą parę
-`(zwykły symbol, match_length minimum_match_length..columns)`, nie może
+`(aktywny zwykły symbol, match_length minimum_match_length..columns)`, nie może
 zawierać aktywnej reguły poniżej progu, a payout danego symbolu musi rosnąć
 ściśle wraz z długością. CRUD draftu może być chwilowo niekompletny; niepełna
 wersja nie może zostać użyta do wydania.

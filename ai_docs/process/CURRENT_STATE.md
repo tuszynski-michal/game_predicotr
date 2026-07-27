@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M2.3 in progress; TASK-0023`
+`M2.3 completed; ready to start M2.4`
 
 ## Completed
 
@@ -222,7 +222,7 @@ last_updated: 2026-07-27
 - TASK-0021 przeszedł pełną bramkę jakości, produkcyjny build Next.js i 2
   fizyczne testy PostgreSQL obejmujące rollback migracji oraz repozytorium,
 - zaakceptowano D-025 definiującą serwerową numerację i mutację wyłącznie draftu;
-  paylines, konfiguracja symboli i publikacja pozostają w TASK-0022–TASK-0024,
+  kolejne TASK-0022–TASK-0024 domknęły paylines, konfigurację symboli i publikację,
 - ukończono `TASK-0022`: migracja `0004_paylines`, domena, repozytorium i Admin
   API obsługują listowanie, tworzenie, edycję, archiwizację i ponowną aktywację
   wzorców draftu wersji reguł,
@@ -237,6 +237,35 @@ last_updated: 2026-07-27
   fizyczne testy PostgreSQL,
 - zaakceptowano D-026 definiującą stabilny kod payline, archiwizację bez
   zwalniania `row_path` oraz bezpieczne zmiany wymiarów draftu,
+- ukończono `TASK-0023`: migracja `0005_symbol_payouts`, domena, repozytorium i
+  Admin API obsługują wersjonowane minima symboli oraz CRUD payout rules,
+- zwykły symbol ma próg `2..columns`, joker próg `null` i nie może otrzymać
+  payoutu; podniesienie minimum archiwizuje reguły poniżej progu, a rola
+  zwykły/joker staje się niezmienna po użyciu w wersji reguł,
+- panel udostępnia osobny modal „Payouty”, domyślne minimum 3, dynamiczne pola
+  wszystkich wymaganych długości oraz walidację kompletnego, ściśle rosnącego
+  zestawu przed zapisem,
+- TASK-0023 przeszedł pełną bramkę jakości: 108 testów Python, 63 mobile, 34
+  panelu, 23 wspólnej domeny i 5 klienta API, produkcyjny build Next.js oraz 2
+  fizyczne testy PostgreSQL,
+- zaakceptowano D-027 definiującą upsert konfiguracji symbolu, archiwizację
+  payoutów bez zwalniania tożsamości i przejściową niekompletność draftu,
+- ukończono `TASK-0024`: jeden deterministyczny walidator zasila raport
+  gotowości i atomową publikację wersji reguł, a każda mutacja draftu oraz
+  publikacja blokują rekord `rules_versions`,
+- publikacja wymaga aktywnej payline, aktywnego zwykłego symbolu oraz kompletnej,
+  ściśle rosnącej macierzy payoutów; niegotowy draft nie zmienia statusu ani
+  `published_at`,
+- panel pokazuje wszystkie blokady w modalu, wymaga jawnego potwierdzenia,
+  blokuje podwójny submit oraz pozwala idempotentnie archiwizować opublikowaną
+  wersję bez utraty czasu publikacji,
+- TASK-0024 przeszedł pełną bramkę jakości: 113 testów Python, 63 mobile, 36
+  panelu, 23 wspólnej domeny i 6 klienta API, produkcyjny build Next.js oraz 2
+  fizyczne testy PostgreSQL,
+- zaakceptowano D-028 definiującą aktywne konfiguracje symboli jako skład wersji,
+  wspólną walidację preflight/publish, blokadę rekordu i jawne przejście
+  `published → archived`,
+- zaliczono bramkę G2.3; M2.3 jest zamknięty, a kolejnym zakresem jest M2.4,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -248,8 +277,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- `TASK-0023 — Per-symbol minimum and payout rules API/UI`: wersjonowana
-  konfiguracja symboli, payout rules, typowany Admin API i panel draftu.
+- Brak aktywnego zadania. Oczekuje `TASK-0025` po poleceniu właściciela.
 
 ## Open but not blocking M2
 
@@ -302,8 +330,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Ukończyć `TASK-0023`, a następnie po poleceniu właściciela rozpocząć
-`TASK-0024 — Immutable rules publication workflow`.
+Po poleceniu właściciela utworzyć i rozpocząć
+`TASK-0025 — Mock dataset generation and staging`.
 
 ## Do not start yet
 

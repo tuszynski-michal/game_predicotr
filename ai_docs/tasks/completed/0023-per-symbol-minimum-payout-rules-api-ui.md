@@ -1,6 +1,6 @@
 ---
 title: TASK-0023 Per-symbol minimum and payout rules API/UI
-status: in_progress
+status: done
 last_updated: 2026-07-27
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -59,16 +59,16 @@ edytowalne dane algorytmu payout-v2 przed osobnym workflow publikacji.
 
 ## Acceptance criteria
 
-- [ ] zwykły symbol przyjmuje próg `2..columns`, domyślnie 3,
-- [ ] joker ma próg `null` i nie może otrzymać payout rule,
-- [ ] payout rule ma długość `minimum_match_length..columns` i nieujemne kredyty,
-- [ ] duplikat wersja/symbol/długość jest blokowany także po archiwizacji,
-- [ ] panel pokazuje dokładnie pola długości od wybranego minimum do liczby kolumn,
-- [ ] panel waliduje komplet oraz ściśle rosnące wartości przed zapisem,
-- [ ] zmiana minimum archiwizuje zapisane payouty poniżej nowego progu,
-- [ ] mutacje wersji innej niż draft zwracają stabilny konflikt,
-- [ ] zmiana wymiarów nie może unieważnić zapisanej konfiguracji,
-- [ ] OpenAPI, generowany klient, testy i produkcyjny build panelu przechodzą.
+- [x] zwykły symbol przyjmuje próg `2..columns`, domyślnie 3,
+- [x] joker ma próg `null` i nie może otrzymać payout rule,
+- [x] payout rule ma długość `minimum_match_length..columns` i nieujemne kredyty,
+- [x] duplikat wersja/symbol/długość jest blokowany także po archiwizacji,
+- [x] panel pokazuje dokładnie pola długości od wybranego minimum do liczby kolumn,
+- [x] panel waliduje komplet oraz ściśle rosnące wartości przed zapisem,
+- [x] zmiana minimum archiwizuje zapisane payouty poniżej nowego progu,
+- [x] mutacje wersji innej niż draft zwracają stabilny konflikt,
+- [x] zmiana wymiarów nie może unieważnić zapisanej konfiguracji,
+- [x] OpenAPI, generowany klient, testy i produkcyjny build panelu przechodzą.
 
 ## Technical notes
 
@@ -110,23 +110,39 @@ npm run db:baseline:verify
 
 ## Outcome
 
-Do uzupełnienia po implementacji.
+Zadanie ukończono 2026-07-27. Powstał pełny pion konfiguracji payout-v2 od
+constraints PostgreSQL do dynamicznego formularza jednego symbolu.
 
 ### Changed
 
-- ...
+- dodano migrację `0005_symbol_payouts`, modele, domenę, repozytorium i siedem
+  operacji Admin API dla konfiguracji symboli i payout rules,
+- dodano walidację minimum, długości, kredytów, jokera, zgodności gry,
+  niezmienności draftu oraz wymiarów,
+- zablokowano zmianę roli zwykły/joker po użyciu symbolu w wersji reguł,
+- wygenerowano klient TypeScript i dodano modal „Payouty” z dynamicznymi polami,
+- dodano bezpieczne ponowienie zapisu po częściowym błędzie transportu,
+- dodano testy domeny, API, migracji, fizycznego PostgreSQL, klienta i panelu.
 
 ### Verification results
 
-- ...
+- `npm run quality`: sukces; 108 testów Python (`2` jawnie pominięte w zwykłym
+  przebiegu), 63 mobile, 34 admin, 23 shared i 5 klienta API,
+- `npm run admin:build`: sukces; produkcyjny build Next.js,
+- `npm run db:baseline:verify`: sukces; 2 fizyczne testy PostgreSQL oraz
+  `upgrade → rollback → upgrade` do head `0005_symbol_payouts`.
 
 ### Not completed
 
-- ...
+- transakcyjna walidacja kompletności całej wersji i publikacja pozostają
+  celowo w TASK-0024,
+- precomputing, dataset i APK pozostają poza tym zadaniem.
 
 ### Documentation updates
 
-- ...
+- zaktualizowano `ADMIN_APP.md`, `API_CONTRACT.md`, `DATA_MODEL.md`,
+  `TECH_STACK.md`, plan M2 oraz `CURRENT_STATE.md`,
+- przyjęto D-027 opisującą cykl życia draftu konfiguracji payoutów.
 
 ### Recommended next task
 

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { saveRulesVersion } from '../src/features/rules/rules-version-actions.ts';
+import {
+  archiveRulesVersion,
+  loadPublicationReadiness,
+  publishRulesVersion,
+  saveRulesVersion,
+} from '../src/features/rules/rules-version-actions.ts';
 
 const gameId = '11111111-1111-4111-8111-111111111111';
 const savedRulesVersion = {
@@ -19,12 +24,23 @@ const draft = { columns: 5, rows: 3, spinCost: 10 };
 
 function createClient(overrides = {}) {
   return {
+    archiveRulesVersion: async () => ({ data: undefined }),
     archivePayline: async () => ({ data: undefined }),
     createRulesVersion: async () => ({ data: savedRulesVersion }),
     createPayline: async () => ({ data: undefined }),
+    getRulesPublicationReadiness: async () => ({
+      data: { issues: [], ready: true, rulesVersionId: savedRulesVersion.id },
+    }),
     listGames: async () => ({ data: [] }),
     listPaylines: async () => ({ data: [] }),
     listRulesVersions: async () => ({ data: [] }),
+    publishRulesVersion: async () => ({
+      data: {
+        ...savedRulesVersion,
+        publishedAt: '2026-07-27T11:00:00Z',
+        status: 'published',
+      },
+    }),
     updatePayline: async () => ({ data: undefined }),
     updateRulesVersion: async () => ({ data: savedRulesVersion }),
     ...overrides,
@@ -53,6 +69,50 @@ test('creates a server-numbered rules draft with dimensions and cost only', asyn
   assert.deepEqual(result, {
     ok: true,
     rulesVersion: savedRulesVersion,
+  });
+});
+
+test('loads readiness, publishes and maps archive to local immutable state', async () => {
+  const readiness = await loadPublicationReadiness(
+    createClient(),
+    savedRulesVersion.id,
+  );
+  const published = await publishRulesVersion(
+    createClient(),
+    savedRulesVersion.id,
+  );
+  const archived = await archiveRulesVersion(createClient(), {
+    ...savedRulesVersion,
+    publishedAt: '2026-07-27T11:00:00Z',
+    status: 'published',
+  });
+
+  assert.equal(readiness.ok, true);
+  assert.equal(readiness.readiness.ready, true);
+  assert.equal(published.ok, true);
+  assert.equal(published.rulesVersion.status, 'published');
+  assert.equal(archived.ok, true);
+  assert.equal(archived.rulesVersion.status, 'archived');
+  assert.equal(archived.rulesVersion.publishedAt, '2026-07-27T11:00:00Z');
+});
+
+test('preserves a stable publication conflict returned by the API', async () => {
+  const result = await publishRulesVersion(
+    createClient({
+      publishRulesVersion: async () => ({
+        error: {
+          code: 'RULES_VERSION_NOT_READY',
+          details: { issues: [] },
+          message: 'Rules version has publication blockers.',
+        },
+      }),
+    }),
+    savedRulesVersion.id,
+  );
+
+  assert.deepEqual(result, {
+    error: 'Rules version has publication blockers. (RULES_VERSION_NOT_READY)',
+    ok: false,
   });
 });
 

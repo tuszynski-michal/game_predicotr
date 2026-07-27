@@ -13,7 +13,10 @@ from game_predictor_api.domain.catalog import (
     GameStatus,
     SymbolStatus,
 )
-from game_predictor_api.domain.rules import RulesConflictError
+from game_predictor_api.domain.rules import (
+    RulesConflictError,
+    RulesVersionStatus,
+)
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
@@ -75,7 +78,9 @@ def test_catalog_repository_uses_real_constraints(
             "alembic_version",
             "games",
             "paylines",
+            "payout_rules",
             "rules_versions",
+            "rules_version_symbols",
             "symbols",
         }
 
@@ -181,6 +186,108 @@ def test_catalog_repository_uses_real_constraints(
                 )
             assert error.value.code == "DUPLICATE_PAYLINE"
             session.rollback()
+
+            symbol_config = rules_service.update_rules_version_symbol(
+                first_rules.id,
+                first.id,
+                minimum_match_length=2,
+                is_active=True,
+            )
+            payout_two = rules_service.create_payout_rule(
+                first_rules.id,
+                symbol_id=first.id,
+                match_length=2,
+                payout_credits=10,
+                is_active=True,
+            )
+            payout_five = rules_service.create_payout_rule(
+                first_rules.id,
+                symbol_id=first.id,
+                match_length=5,
+                payout_credits=100,
+                is_active=True,
+            )
+            assert symbol_config.minimum_match_length == 2
+            assert [
+                item.match_length
+                for item in rules_service.list_payout_rules(first_rules.id)
+            ] == [2, 5]
+            rules_service.update_rules_version_symbol(
+                first_rules.id,
+                first.id,
+                minimum_match_length=3,
+                is_active=True,
+            )
+            assert (
+                rules_service.get_payout_rule(
+                    first_rules.id,
+                    payout_two.id,
+                ).is_active
+                is False
+            )
+            assert (
+                rules_service.get_payout_rule(
+                    first_rules.id,
+                    payout_five.id,
+                ).is_active
+                is True
+            )
+            wildcard_config = rules_service.update_rules_version_symbol(
+                first_rules.id,
+                second.id,
+                minimum_match_length=None,
+                is_active=True,
+            )
+            assert wildcard_config.minimum_match_length is None
+            session.commit()
+
+            with pytest.raises(CatalogConflictError) as identity_error:
+                service.update_symbol(
+                    game.id,
+                    first.id,
+                    is_wildcard=True,
+                )
+            assert identity_error.value.code == "SYMBOL_RULES_IDENTITY_IN_USE"
+            session.rollback()
+
+            with pytest.raises(RulesConflictError) as error:
+                rules_service.create_payout_rule(
+                    first_rules.id,
+                    symbol_id=first.id,
+                    match_length=5,
+                    payout_credits=200,
+                    is_active=True,
+                )
+            assert error.value.code == "PAYOUT_RULE_ALREADY_EXISTS"
+            session.rollback()
+
+            for match_length, payout_credits in ((3, 20), (4, 50)):
+                rules_service.create_payout_rule(
+                    first_rules.id,
+                    symbol_id=first.id,
+                    match_length=match_length,
+                    payout_credits=payout_credits,
+                    is_active=True,
+                )
+            assert rules_service.get_publication_readiness(first_rules.id).ready
+            published = rules_service.publish_rules_version(first_rules.id)
+            assert published.status is RulesVersionStatus.PUBLISHED
+            assert published.published_at is not None
+            session.commit()
+
+            with pytest.raises(RulesConflictError) as immutable_error:
+                rules_service.update_payout_rule(
+                    first_rules.id,
+                    payout_five.id,
+                    payout_credits=200,
+                )
+            assert immutable_error.value.code == "RULES_VERSION_IMMUTABLE"
+            session.rollback()
+
+            archived = rules_service.archive_rules_version(first_rules.id)
+            assert archived.status is RulesVersionStatus.ARCHIVED
+            assert archived.published_at == published.published_at
+            session.commit()
 
         with Session(engine, expire_on_commit=False) as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))

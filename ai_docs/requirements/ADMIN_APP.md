@@ -94,6 +94,11 @@ Przykład dla planszy 5-kolumnowej:
 - minimum 2 wymaga payoutów dla długości 2, 3, 4 i 5,
 - minimum 3 wymaga payoutów dla długości 3, 4 i 5.
 
+Pierwszy zapis utrwala konfigurację symbolu w konkretnej wersji reguł.
+Podniesienie minimum archiwizuje payouty poniżej nowego progu. Po użyciu
+symbolu w wersji reguł nie można zmienić jego roli zwykły/joker w katalogu,
+ponieważ unieważniłoby to wersjonowane minimum i wypłaty.
+
 Nie można opublikować wersji z brakującą wartością, aktywną regułą poniżej
 minimum albo dwoma aktywnymi wpisami dla tej samej wersji reguł, symbolu i
 długości. Wartości jednego symbolu muszą rosnąć wraz z długością.
@@ -101,6 +106,26 @@ długości. Wartości jednego symbolu muszą rosnąć wraz z długością.
 Payout nie jest własnością payline. Te same wartości symbol/długość obowiązują na każdej aktywnej payline.
 Każda wygrana musi zaczynać się w pierwszej kolumnie payline; panel nie
 konfiguruje kolumny startowej.
+
+### Publikacja wersji reguł
+
+Panel udostępnia dla draftu raport gotowości obejmujący wszystkie blokady, a
+nie tylko pierwszy błąd. Publikacja jest dostępna dopiero po spełnieniu
+następujących warunków:
+
+- istnieje co najmniej jedna aktywna payline,
+- istnieje co najmniej jeden aktywny zwykły symbol,
+- każdy aktywny zwykły symbol ma kompletny payout dla każdej długości od
+  własnego minimum do liczby kolumn,
+- payouty symbolu rosną ściśle wraz z długością,
+- joker, nieaktywny symbol oraz długość poza zakresem nie mają aktywnego
+  payoutu.
+
+Przed publikacją administrator potwierdza, że wersja stanie się niezmienna.
+Panel blokuje podwójne wysłanie żądania. Po publikacji wymiary, koszt spinu,
+paylines, konfiguracje symboli i payouty są tylko do odczytu. Opublikowaną
+wersję można jawnie zarchiwizować; archiwizacja zachowuje czas publikacji i nie
+usuwa rekordu.
 
 ### Layout data
 

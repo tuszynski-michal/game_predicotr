@@ -15,6 +15,12 @@ import type {
   ArchivePaylineData,
   ArchivePaylineErrors,
   ArchivePaylineResponses,
+  ArchivePayoutRuleData,
+  ArchivePayoutRuleErrors,
+  ArchivePayoutRuleResponses,
+  ArchiveRulesVersionData,
+  ArchiveRulesVersionErrors,
+  ArchiveRulesVersionResponses,
   ArchiveSymbolData,
   ArchiveSymbolErrors,
   ArchiveSymbolResponses,
@@ -24,6 +30,9 @@ import type {
   CreatePaylineData,
   CreatePaylineErrors,
   CreatePaylineResponses,
+  CreatePayoutRuleData,
+  CreatePayoutRuleErrors,
+  CreatePayoutRuleResponses,
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
@@ -38,6 +47,12 @@ import type {
   GetPaylineData,
   GetPaylineErrors,
   GetPaylineResponses,
+  GetPayoutRuleData,
+  GetPayoutRuleErrors,
+  GetPayoutRuleResponses,
+  GetRulesPublicationReadinessData,
+  GetRulesPublicationReadinessErrors,
+  GetRulesPublicationReadinessResponses,
   GetRulesVersionData,
   GetRulesVersionErrors,
   GetRulesVersionResponses,
@@ -49,21 +64,36 @@ import type {
   ListPaylinesData,
   ListPaylinesErrors,
   ListPaylinesResponses,
+  ListPayoutRulesData,
+  ListPayoutRulesErrors,
+  ListPayoutRulesResponses,
   ListRulesVersionsData,
   ListRulesVersionsErrors,
   ListRulesVersionsResponses,
+  ListRulesVersionSymbolsData,
+  ListRulesVersionSymbolsErrors,
+  ListRulesVersionSymbolsResponses,
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
+  PublishRulesVersionData,
+  PublishRulesVersionErrors,
+  PublishRulesVersionResponses,
   UpdateGameData,
   UpdateGameErrors,
   UpdateGameResponses,
   UpdatePaylineData,
   UpdatePaylineErrors,
   UpdatePaylineResponses,
+  UpdatePayoutRuleData,
+  UpdatePayoutRuleErrors,
+  UpdatePayoutRuleResponses,
   UpdateRulesVersionData,
   UpdateRulesVersionErrors,
   UpdateRulesVersionResponses,
+  UpdateRulesVersionSymbolData,
+  UpdateRulesVersionSymbolErrors,
+  UpdateRulesVersionSymbolResponses,
   UpdateSymbolData,
   UpdateSymbolErrors,
   UpdateSymbolResponses,
@@ -272,6 +302,22 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Archive a published rules version
+ */
+export const archiveRulesVersion = <ThrowOnError extends boolean = false>(
+  options: Options<ArchiveRulesVersionData, ThrowOnError>,
+): RequestResult<
+  ArchiveRulesVersionResponses,
+  ArchiveRulesVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    ArchiveRulesVersionResponses,
+    ArchiveRulesVersionErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/rules-versions/{rules_version_id}', ...options });
+
+/**
  * Get rules version
  */
 export const getRulesVersion = <ThrowOnError extends boolean = false>(
@@ -386,6 +432,187 @@ export const updatePayline = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List rules-version payout rules
+ */
+export const listPayoutRules = <ThrowOnError extends boolean = false>(
+  options: Options<ListPayoutRulesData, ThrowOnError>,
+): RequestResult<
+  ListPayoutRulesResponses,
+  ListPayoutRulesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPayoutRulesResponses,
+    ListPayoutRulesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules',
+    ...options,
+  });
+
+/**
+ * Create a draft payout rule
+ */
+export const createPayoutRule = <ThrowOnError extends boolean = false>(
+  options: Options<CreatePayoutRuleData, ThrowOnError>,
+): RequestResult<
+  CreatePayoutRuleResponses,
+  CreatePayoutRuleErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreatePayoutRuleResponses,
+    CreatePayoutRuleErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Archive a draft payout rule
+ */
+export const archivePayoutRule = <ThrowOnError extends boolean = false>(
+  options: Options<ArchivePayoutRuleData, ThrowOnError>,
+): RequestResult<
+  ArchivePayoutRuleResponses,
+  ArchivePayoutRuleErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    ArchivePayoutRuleResponses,
+    ArchivePayoutRuleErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}',
+    ...options,
+  });
+
+/**
+ * Get a payout rule
+ */
+export const getPayoutRule = <ThrowOnError extends boolean = false>(
+  options: Options<GetPayoutRuleData, ThrowOnError>,
+): RequestResult<GetPayoutRuleResponses, GetPayoutRuleErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetPayoutRuleResponses,
+    GetPayoutRuleErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}',
+    ...options,
+  });
+
+/**
+ * Update a draft payout rule
+ */
+export const updatePayoutRule = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePayoutRuleData, ThrowOnError>,
+): RequestResult<
+  UpdatePayoutRuleResponses,
+  UpdatePayoutRuleErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).patch<
+    UpdatePayoutRuleResponses,
+    UpdatePayoutRuleErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Validate a rules version before publication
+ */
+export const getRulesPublicationReadiness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetRulesPublicationReadinessData, ThrowOnError>,
+): RequestResult<
+  GetRulesPublicationReadinessResponses,
+  GetRulesPublicationReadinessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRulesPublicationReadinessResponses,
+    GetRulesPublicationReadinessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/publication-readiness',
+    ...options,
+  });
+
+/**
+ * Publish a ready draft rules version
+ */
+export const publishRulesVersion = <ThrowOnError extends boolean = false>(
+  options: Options<PublishRulesVersionData, ThrowOnError>,
+): RequestResult<
+  PublishRulesVersionResponses,
+  PublishRulesVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PublishRulesVersionResponses,
+    PublishRulesVersionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/publish',
+    ...options,
+  });
+
+/**
+ * List configured rules-version symbols
+ */
+export const listRulesVersionSymbols = <ThrowOnError extends boolean = false>(
+  options: Options<ListRulesVersionSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListRulesVersionSymbolsResponses,
+  ListRulesVersionSymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListRulesVersionSymbolsResponses,
+    ListRulesVersionSymbolsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/symbols',
+    ...options,
+  });
+
+/**
+ * Configure a draft rules-version symbol
+ */
+export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateRulesVersionSymbolData, ThrowOnError>,
+): RequestResult<
+  UpdateRulesVersionSymbolResponses,
+  UpdateRulesVersionSymbolErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).patch<
+    UpdateRulesVersionSymbolResponses,
+    UpdateRulesVersionSymbolErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',

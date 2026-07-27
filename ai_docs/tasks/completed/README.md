@@ -36,5 +36,7 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0020 — Symbols UI, reference assets and archival rules](0020-symbols-ui-reference-assets-archival-rules.md)
 - [TASK-0021 — Rules versions domain, API and dimensions UI](0021-rules-versions-domain-api-dimensions-ui.md)
 - [TASK-0022 — Payline grid editor and duplicate validation](0022-payline-grid-editor-duplicate-validation.md)
+- [TASK-0023 — Per-symbol minimum and payout rules API/UI](0023-per-symbol-minimum-payout-rules-api-ui.md)
+- [TASK-0024 — Immutable rules publication workflow](0024-immutable-rules-publication-workflow.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

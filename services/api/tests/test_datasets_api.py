@@ -6,6 +6,10 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.datasets import (
     DatasetConflictError,
     DatasetNotFoundError,
+    DatasetValidationCheck,
+    DatasetValidationCheckCode,
+    DatasetValidationCheckStatus,
+    DatasetValidationReport,
     DatasetVersion,
     DatasetVersionStatus,
 )
@@ -65,6 +69,44 @@ class FakeDatasetService:
         self.items[item.id] = item
         return item
 
+    def get_validation_report(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationReport:
+        item = self.items.get(dataset_version_id)
+        if item is None:
+            raise DatasetNotFoundError(
+                "DATASET_VERSION_NOT_FOUND",
+                "Dataset version does not exist.",
+            )
+        if item.generator_version != "mock-v1":
+            raise DatasetConflictError(
+                "DATASET_VALIDATION_REQUIRES_JOB",
+                "This dataset must be validated by a worker job.",
+            )
+        return DatasetValidationReport(
+            dataset_version_id=item.id,
+            dataset_version=item.version,
+            ready_for_publication=True,
+            declared_layout_count=1000,
+            actual_layout_count=1000,
+            min_sequence_number=1,
+            max_sequence_number=1000,
+            checks=(
+                DatasetValidationCheck(
+                    code=DatasetValidationCheckCode.DUPLICATE_SIGNATURE,
+                    status=DatasetValidationCheckStatus.WARNING,
+                    issue_count=6,
+                    message="Duplicate layout signatures are allowed and were found.",
+                ),
+            ),
+            duplicate_signature_group_count=6,
+            duplicate_signature_affected_layout_count=12,
+            duplicate_signature_excess_layout_count=6,
+            duplicate_signatures=(),
+            duplicate_signatures_truncated=False,
+        )
+
 
 def _client(service: FakeDatasetService) -> TestClient:
     return TestClient(
@@ -122,6 +164,37 @@ def test_mock_generation_list_and_get_contract() -> None:
             f"/api/v1/admin/games/{game_id}/dataset-versions"
         )
         assert [item["id"] for item in listed.json()] == [dataset_id]
+        report = client.get(
+            f"/api/v1/admin/dataset-versions/{dataset_id}/validation-report"
+        )
+        assert report.status_code == 200
+        assert report.json() == {
+            "datasetVersionId": dataset_id,
+            "datasetVersion": 1,
+            "readyForPublication": True,
+            "declaredLayoutCount": 1000,
+            "actualLayoutCount": 1000,
+            "minSequenceNumber": 1,
+            "maxSequenceNumber": 1000,
+            "checks": [
+                {
+                    "code": "DUPLICATE_SIGNATURE",
+                    "status": "warning",
+                    "issueCount": 6,
+                    "message": (
+                        "Duplicate layout signatures are allowed and were found."
+                    ),
+                    "sequenceNumbers": [],
+                    "mobileCodes": [],
+                    "truncated": False,
+                }
+            ],
+            "duplicateSignatureGroupCount": 6,
+            "duplicateSignatureAffectedLayoutCount": 12,
+            "duplicateSignatureExcessLayoutCount": 6,
+            "duplicateSignatures": [],
+            "duplicateSignaturesTruncated": False,
+        }
 
 
 def test_dataset_api_reports_validation_conflict_and_missing() -> None:
@@ -148,3 +221,28 @@ def test_dataset_api_reports_validation_conflict_and_missing() -> None:
         )
         assert missing.status_code == 404
         assert missing.json()["code"] == "DATASET_VERSION_NOT_FOUND"
+
+        imported_id = uuid4()
+        service.items[imported_id] = DatasetVersion(
+            id=imported_id,
+            game_id=game_id,
+            version=1,
+            rows=3,
+            columns=5,
+            signature_cell_width=2,
+            layout_count=500000,
+            status=DatasetVersionStatus.STAGING,
+            generation_seed=1,
+            generator_version="import-v1",
+            source_job_id=uuid4(),
+            created_at=datetime.now(UTC),
+            published_at=None,
+        )
+        requires_job = client.get(
+            f"/api/v1/admin/dataset-versions/{imported_id}/validation-report"
+        )
+        assert requires_job.status_code == 409
+        assert (
+            requires_job.json()["code"]
+            == "DATASET_VALIDATION_REQUIRES_JOB"
+        )

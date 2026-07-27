@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, status
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.datasets import (
+    DatasetValidationReportResponse,
     DatasetVersionResponse,
     MockDatasetCreate,
 )
@@ -77,6 +78,21 @@ def create_datasets_router(
     ) -> DatasetVersionResponse:
         return DatasetVersionResponse.model_validate(
             service.get_dataset_version(dataset_version_id)
+        )
+
+    @router.get(
+        "/dataset-versions/{dataset_version_id}/validation-report",
+        response_model=DatasetValidationReportResponse,
+        operation_id="getDatasetValidationReport",
+        summary="Validate a bounded staging dataset",
+        responses=ERROR_RESPONSES,
+    )
+    def get_dataset_validation_report(
+        dataset_version_id: UUID,
+        service: Annotated[DatasetService, service_parameter],
+    ) -> DatasetValidationReportResponse:
+        return DatasetValidationReportResponse.model_validate(
+            service.get_validation_report(dataset_version_id)
         )
 
     return router

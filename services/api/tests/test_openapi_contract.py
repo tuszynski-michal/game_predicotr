@@ -185,6 +185,10 @@ def test_datasets_openapi_exposes_bounded_mock_staging_operations() -> None:
             "/api/v1/admin/dataset-versions/{dataset_version_id}",
             "get",
         ): "getDatasetVersion",
+        (
+            "/api/v1/admin/dataset-versions/{dataset_version_id}/validation-report",
+            "get",
+        ): "getDatasetValidationReport",
     }
 
     for (path, method), operation_id in expected_operations.items():
@@ -195,3 +199,8 @@ def test_datasets_openapi_exposes_bounded_mock_staging_operations() -> None:
     create_schema = schema["components"]["schemas"]["MockDatasetCreate"]
     assert create_schema["required"] == ["rulesVersionId", "seed"]
     assert create_schema["properties"]["seed"]["minimum"] == 0
+    report_schema = schema["components"]["schemas"][
+        "DatasetValidationReportResponse"
+    ]
+    assert "readyForPublication" in report_schema["required"]
+    assert "duplicateSignatures" in report_schema["required"]

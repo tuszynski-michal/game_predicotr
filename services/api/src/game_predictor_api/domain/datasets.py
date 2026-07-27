@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import random
-from collections.abc import Sequence
+from collections import Counter, defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -17,6 +18,7 @@ MOCK_GENERATOR_VERSION = "mock-v1"
 MAX_GENERATOR_SEED = 2_147_483_647
 MAX_SIGNATURE_CELL_WIDTH = 5
 MAX_MOCK_CELL_COUNT = 100
+VALIDATION_DIAGNOSTIC_LIMIT = 100
 _DUPLICATE_SOURCE_SEQUENCES = (101, 102, 103, 104, 105, 106)
 
 
@@ -24,6 +26,23 @@ class DatasetVersionStatus(StrEnum):
     STAGING = "staging"
     PUBLISHED = "published"
     ARCHIVED = "archived"
+
+
+class DatasetValidationCheckStatus(StrEnum):
+    PASSED = "passed"
+    WARNING = "warning"
+    BLOCKING = "blocking"
+
+
+class DatasetValidationCheckCode(StrEnum):
+    LAYOUT_COUNT_MISMATCH = "LAYOUT_COUNT_MISMATCH"
+    MISSING_SEQUENCE_NUMBER = "MISSING_SEQUENCE_NUMBER"
+    OUT_OF_RANGE_SEQUENCE_NUMBER = "OUT_OF_RANGE_SEQUENCE_NUMBER"
+    DUPLICATE_SEQUENCE_NUMBER = "DUPLICATE_SEQUENCE_NUMBER"
+    INVALID_CELL_COUNT = "INVALID_CELL_COUNT"
+    FOREIGN_SYMBOL = "FOREIGN_SYMBOL"
+    SIGNATURE_MISMATCH = "SIGNATURE_MISMATCH"
+    DUPLICATE_SIGNATURE = "DUPLICATE_SIGNATURE"
 
 
 class DatasetError(ValueError):
@@ -80,6 +99,56 @@ class DatasetGenerationSource:
     columns: int
     rules_status: RulesVersionStatus
     symbol_mobile_codes: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LayoutValidationRecord:
+    sequence_number: int
+    signature: str
+    cells: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetValidationSource:
+    dataset_version: DatasetVersion
+    allowed_symbol_mobile_codes: tuple[int, ...]
+    layouts: tuple[LayoutValidationRecord, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetValidationCheck:
+    code: DatasetValidationCheckCode
+    status: DatasetValidationCheckStatus
+    issue_count: int
+    message: str
+    sequence_numbers: tuple[int, ...] = ()
+    mobile_codes: tuple[int, ...] = ()
+    truncated: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class DuplicateSignatureGroup:
+    signature: str
+    occurrence_count: int
+    sequence_numbers: tuple[int, ...]
+    truncated: bool
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetValidationReport:
+    dataset_version_id: UUID
+    dataset_version: int
+    ready_for_publication: bool
+    declared_layout_count: int
+    actual_layout_count: int
+    min_sequence_number: int | None
+    max_sequence_number: int | None
+    checks: tuple[DatasetValidationCheck, ...]
+    duplicate_signature_group_count: int
+    duplicate_signature_affected_layout_count: int
+    duplicate_signature_excess_layout_count: int
+    duplicate_signatures: tuple[DuplicateSignatureGroup, ...]
+    duplicate_signatures_truncated: bool
 
 
 def validate_generation_seed(seed: int) -> int:
@@ -195,4 +264,223 @@ def generate_mock_layouts(
             cells=cells,
         )
         for sequence_number, cells in enumerate(all_cells, start=1)
+    )
+
+
+def validate_dataset(
+    source: DatasetValidationSource,
+) -> DatasetValidationReport:
+    """Return every deterministic blocker and duplicate-signature warning."""
+
+    dataset = source.dataset_version
+    layouts = source.layouts
+    sequence_numbers = tuple(item.sequence_number for item in layouts)
+    sequence_counts = Counter(sequence_numbers)
+    expected_numbers = set(range(1, dataset.layout_count + 1))
+    actual_numbers = set(sequence_counts)
+
+    missing_numbers = expected_numbers - actual_numbers
+    out_of_range_numbers = actual_numbers - expected_numbers
+    duplicate_numbers = {
+        number for number, count in sequence_counts.items() if count > 1
+    }
+    invalid_cell_records = [
+        item
+        for item in layouts
+        if len(item.cells) != dataset.rows * dataset.columns
+    ]
+    allowed_codes = set(source.allowed_symbol_mobile_codes)
+    foreign_records = [
+        item for item in layouts if any(cell not in allowed_codes for cell in item.cells)
+    ]
+    foreign_codes = {
+        cell
+        for item in foreign_records
+        for cell in item.cells
+        if cell not in allowed_codes
+    }
+    signature_mismatches: list[LayoutValidationRecord] = []
+    for item in layouts:
+        try:
+            expected_signature = encode_layout_signature(
+                item.cells,
+                dataset.signature_cell_width,
+            )
+        except DatasetError:
+            signature_mismatches.append(item)
+            continue
+        if expected_signature != item.signature:
+            signature_mismatches.append(item)
+
+    signatures: defaultdict[str, list[int]] = defaultdict(list)
+    for item in layouts:
+        signatures[item.signature].append(item.sequence_number)
+    duplicate_groups_all = [
+        (signature, tuple(sorted(numbers)))
+        for signature, numbers in signatures.items()
+        if len(numbers) > 1
+    ]
+    duplicate_groups_all.sort(key=lambda group: group[0])
+    duplicate_groups = tuple(
+        DuplicateSignatureGroup(
+            signature=signature,
+            occurrence_count=len(numbers),
+            sequence_numbers=numbers[:VALIDATION_DIAGNOSTIC_LIMIT],
+            truncated=len(numbers) > VALIDATION_DIAGNOSTIC_LIMIT,
+        )
+        for signature, numbers in duplicate_groups_all[
+            :VALIDATION_DIAGNOSTIC_LIMIT
+        ]
+    )
+
+    count_difference = abs(dataset.layout_count - len(layouts))
+    checks = (
+        _validation_check(
+            DatasetValidationCheckCode.LAYOUT_COUNT_MISMATCH,
+            issue_count=count_difference,
+            message=(
+                "Declared and actual layout counts match."
+                if count_difference == 0
+                else "Declared and actual layout counts differ."
+            ),
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.MISSING_SEQUENCE_NUMBER,
+            issue_count=len(missing_numbers),
+            message=(
+                "No sequence numbers are missing."
+                if not missing_numbers
+                else "The dataset has missing sequence numbers."
+            ),
+            sequence_numbers=missing_numbers,
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.OUT_OF_RANGE_SEQUENCE_NUMBER,
+            issue_count=len(out_of_range_numbers),
+            message=(
+                "Every sequence number is inside the declared range."
+                if not out_of_range_numbers
+                else "The dataset has sequence numbers outside the declared range."
+            ),
+            sequence_numbers=out_of_range_numbers,
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.DUPLICATE_SEQUENCE_NUMBER,
+            issue_count=len(duplicate_numbers),
+            message=(
+                "Every sequence number occurs once."
+                if not duplicate_numbers
+                else "The dataset has duplicate sequence numbers."
+            ),
+            sequence_numbers=duplicate_numbers,
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.INVALID_CELL_COUNT,
+            issue_count=len(invalid_cell_records),
+            message=(
+                "Every layout has the expected number of cells."
+                if not invalid_cell_records
+                else "Some layouts have an invalid number of cells."
+            ),
+            sequence_numbers=(
+                item.sequence_number for item in invalid_cell_records
+            ),
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.FOREIGN_SYMBOL,
+            issue_count=len(foreign_records),
+            message=(
+                "Every layout cell belongs to the dataset game."
+                if not foreign_records
+                else "Some layouts contain symbols outside the dataset game."
+            ),
+            sequence_numbers=(item.sequence_number for item in foreign_records),
+            mobile_codes=foreign_codes,
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.SIGNATURE_MISMATCH,
+            issue_count=len(signature_mismatches),
+            message=(
+                "Every signature matches its cells and codec width."
+                if not signature_mismatches
+                else "Some signatures do not match their cells and codec width."
+            ),
+            sequence_numbers=(
+                item.sequence_number for item in signature_mismatches
+            ),
+        ),
+        _validation_check(
+            DatasetValidationCheckCode.DUPLICATE_SIGNATURE,
+            issue_count=len(duplicate_groups_all),
+            message=(
+                "No duplicate layout signatures were found."
+                if not duplicate_groups_all
+                else "Duplicate layout signatures are allowed and were found."
+            ),
+            warning=bool(duplicate_groups_all),
+        ),
+    )
+    return DatasetValidationReport(
+        dataset_version_id=dataset.id,
+        dataset_version=dataset.version,
+        ready_for_publication=not any(
+            check.status is DatasetValidationCheckStatus.BLOCKING
+            for check in checks
+        ),
+        declared_layout_count=dataset.layout_count,
+        actual_layout_count=len(layouts),
+        min_sequence_number=min(sequence_numbers, default=None),
+        max_sequence_number=max(sequence_numbers, default=None),
+        checks=checks,
+        duplicate_signature_group_count=len(duplicate_groups_all),
+        duplicate_signature_affected_layout_count=sum(
+            len(numbers) for _, numbers in duplicate_groups_all
+        ),
+        duplicate_signature_excess_layout_count=sum(
+            len(numbers) - 1 for _, numbers in duplicate_groups_all
+        ),
+        duplicate_signatures=duplicate_groups,
+        duplicate_signatures_truncated=(
+            len(duplicate_groups_all) > VALIDATION_DIAGNOSTIC_LIMIT
+        ),
+    )
+
+
+def _validation_check(
+    code: DatasetValidationCheckCode,
+    *,
+    issue_count: int,
+    message: str,
+    sequence_numbers: Iterable[int] = (),
+    mobile_codes: Iterable[int] = (),
+    warning: bool = False,
+) -> DatasetValidationCheck:
+    sampled_sequences, sequences_truncated = _diagnostic_sample(
+        sequence_numbers
+    )
+    sampled_codes, codes_truncated = _diagnostic_sample(mobile_codes)
+    return DatasetValidationCheck(
+        code=code,
+        status=(
+            DatasetValidationCheckStatus.WARNING
+            if warning
+            else (
+                DatasetValidationCheckStatus.BLOCKING
+                if issue_count > 0
+                else DatasetValidationCheckStatus.PASSED
+            )
+        ),
+        issue_count=issue_count,
+        message=message,
+        sequence_numbers=sampled_sequences,
+        mobile_codes=sampled_codes,
+        truncated=sequences_truncated or codes_truncated,
+    )
+
+
+def _diagnostic_sample(values: Iterable[int]) -> tuple[tuple[int, ...], bool]:
+    ordered = tuple(sorted(set(values)))
+    return (
+        ordered[:VALIDATION_DIAGNOSTIC_LIMIT],
+        len(ordered) > VALIDATION_DIAGNOSTIC_LIMIT,
     )

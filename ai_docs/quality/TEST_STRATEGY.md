@@ -93,6 +93,11 @@ Od M2, na testowym PostgreSQL:
 
 - unikalność i ciągłość `sequence_number`,
 - dozwolone duplikaty `signature`,
+- raport sześciu kontrolowanych grup duplikatów bez blokowania publikacji,
+- raport luk, numerów poza zakresem, złej liczby komórek, obcego symbolu i
+  niespójnej sygnatury,
+- dokładne liczniki przy ograniczonych, deterministycznych próbkach
+  diagnostycznych,
 - deterministyczny mock 1000 layoutów dla tego samego seedu i konfiguracji,
 - atomowy zapis stagingowej wersji wraz ze wszystkimi layoutami,
 - walidacja długości `row_path`,

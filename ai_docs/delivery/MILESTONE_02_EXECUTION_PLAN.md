@@ -186,7 +186,9 @@ Status: `passed` (2026-07-27).
 ### Zadania
 
 - `TASK-0025 — Mock dataset generation and staging`
+  — ukończone 2026-07-27
 - `TASK-0026 — Sequence and duplicate validation reports`
+  — ukończone 2026-07-27
 - `TASK-0027 — Dataset preview and immutable publication`
 
 ### Bramka G2.4

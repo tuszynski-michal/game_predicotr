@@ -5,6 +5,110 @@ export type ClientOptions = {
 };
 
 /**
+ * DatasetValidationCheckCode
+ */
+export type DatasetValidationCheckCode =
+  | 'LAYOUT_COUNT_MISMATCH'
+  | 'MISSING_SEQUENCE_NUMBER'
+  | 'OUT_OF_RANGE_SEQUENCE_NUMBER'
+  | 'DUPLICATE_SEQUENCE_NUMBER'
+  | 'INVALID_CELL_COUNT'
+  | 'FOREIGN_SYMBOL'
+  | 'SIGNATURE_MISMATCH'
+  | 'DUPLICATE_SIGNATURE';
+
+/**
+ * DatasetValidationCheckResponse
+ */
+export type DatasetValidationCheckResponse = {
+  code: DatasetValidationCheckCode;
+  /**
+   * Issuecount
+   */
+  issueCount: number;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Mobilecodes
+   */
+  mobileCodes: Array<number>;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  status: DatasetValidationCheckStatus;
+  /**
+   * Truncated
+   */
+  truncated: boolean;
+};
+
+/**
+ * DatasetValidationCheckStatus
+ */
+export type DatasetValidationCheckStatus = 'passed' | 'warning' | 'blocking';
+
+/**
+ * DatasetValidationReportResponse
+ */
+export type DatasetValidationReportResponse = {
+  /**
+   * Actuallayoutcount
+   */
+  actualLayoutCount: number;
+  /**
+   * Checks
+   */
+  checks: Array<DatasetValidationCheckResponse>;
+  /**
+   * Datasetversion
+   */
+  datasetVersion: number;
+  /**
+   * Datasetversionid
+   */
+  datasetVersionId: string;
+  /**
+   * Declaredlayoutcount
+   */
+  declaredLayoutCount: number;
+  /**
+   * Duplicatesignatureaffectedlayoutcount
+   */
+  duplicateSignatureAffectedLayoutCount: number;
+  /**
+   * Duplicatesignatureexcesslayoutcount
+   */
+  duplicateSignatureExcessLayoutCount: number;
+  /**
+   * Duplicatesignaturegroupcount
+   */
+  duplicateSignatureGroupCount: number;
+  /**
+   * Duplicatesignatures
+   */
+  duplicateSignatures: Array<DuplicateSignatureGroupResponse>;
+  /**
+   * Duplicatesignaturestruncated
+   */
+  duplicateSignaturesTruncated: boolean;
+  /**
+   * Maxsequencenumber
+   */
+  maxSequenceNumber: number | null;
+  /**
+   * Minsequencenumber
+   */
+  minSequenceNumber: number | null;
+  /**
+   * Readyforpublication
+   */
+  readyForPublication: boolean;
+};
+
+/**
  * DatasetVersionResponse
  */
 export type DatasetVersionResponse = {
@@ -63,6 +167,28 @@ export type DatasetVersionResponse = {
  * DatasetVersionStatus
  */
 export type DatasetVersionStatus = 'staging' | 'published' | 'archived';
+
+/**
+ * DuplicateSignatureGroupResponse
+ */
+export type DuplicateSignatureGroupResponse = {
+  /**
+   * Occurrencecount
+   */
+  occurrenceCount: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Signature
+   */
+  signature: string;
+  /**
+   * Truncated
+   */
+  truncated: boolean;
+};
 
 /**
  * ErrorResponse
@@ -609,6 +735,46 @@ export type GetDatasetVersionResponses = {
 
 export type GetDatasetVersionResponse =
   GetDatasetVersionResponses[keyof GetDatasetVersionResponses];
+
+export type GetDatasetValidationReportData = {
+  body?: never;
+  path: {
+    /**
+     * Dataset Version Id
+     */
+    dataset_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/dataset-versions/{dataset_version_id}/validation-report';
+};
+
+export type GetDatasetValidationReportErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetDatasetValidationReportError =
+  GetDatasetValidationReportErrors[keyof GetDatasetValidationReportErrors];
+
+export type GetDatasetValidationReportResponses = {
+  /**
+   * Successful Response
+   */
+  200: DatasetValidationReportResponse;
+};
+
+export type GetDatasetValidationReportResponse =
+  GetDatasetValidationReportResponses[keyof GetDatasetValidationReportResponses];
 
 export type ListGamesData = {
   body?: never;

@@ -7,13 +7,17 @@ from typing import Never, Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.datasets import (
+    MOCK_GENERATOR_VERSION,
     DatasetConflictError,
     DatasetGenerationSource,
     DatasetNotFoundError,
+    DatasetValidationReport,
+    DatasetValidationSource,
     DatasetVersion,
     LayoutDraft,
     generate_mock_layouts,
     signature_cell_width,
+    validate_dataset,
     validate_generation_seed,
 )
 
@@ -36,6 +40,11 @@ class DatasetRepository(Protocol):
         game_id: UUID,
         rules_version_id: UUID,
     ) -> DatasetGenerationSource | None: ...
+
+    def get_validation_source(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationSource | None: ...
 
     def add_mock_dataset(
         self,
@@ -109,6 +118,32 @@ class DatasetService:
         if saved is None:
             self._raise_game_not_found(game_id)
         return saved
+
+    def get_validation_report(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationReport:
+        dataset = self._repository.get_dataset_version(dataset_version_id)
+        if dataset is None:
+            raise DatasetNotFoundError(
+                "DATASET_VERSION_NOT_FOUND",
+                "Dataset version does not exist.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        if dataset.generator_version != MOCK_GENERATOR_VERSION:
+            raise DatasetConflictError(
+                "DATASET_VALIDATION_REQUIRES_JOB",
+                "This dataset must be validated by a worker job.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        source = self._repository.get_validation_source(dataset_version_id)
+        if source is None:
+            raise DatasetNotFoundError(
+                "DATASET_VERSION_NOT_FOUND",
+                "Dataset version does not exist.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        return validate_dataset(source)
 
     @staticmethod
     def _raise_game_not_found(game_id: UUID) -> Never:

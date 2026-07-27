@@ -203,6 +203,8 @@ Integralność opublikowanej wersji:
 - liczba komórek równa `rows * columns`,
 - każda komórka zawiera stabilny kod symbolu danej gry,
 - każdy kod symbolu mieści się w `signature_cell_width`,
+- `signature` jest dokładnym stałoszerokim kodowaniem `cells` w kolejności
+  row-major,
 - numery tworzą dokładnie ciąg `1..layout_count`,
 - brak luk i duplikatów numeru.
 

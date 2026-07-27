@@ -146,6 +146,12 @@ wersji reguł. Panel pokazuje seed, wersję generatora, liczbę layoutów i stat
 stagingu. Powtórzenie z tym samym seedem tworzy nowy numer wersji datasetu, ale
 identyczny logiczny ciąg layoutów.
 
+Raport integralności pokazuje deklarowaną i rzeczywistą liczbę rekordów, zakres
+sekwencji, każdą blokadę oraz grupy duplikatów sygnatur z numerami pozycji.
+Przy dużej liczbie problemów panel może pokazać ograniczoną próbkę, ale zawsze
+wyświetla dokładny licznik i informację o obcięciu. Statusy `OK`, `Ostrzeżenie`
+i `Blokada` są przekazywane tekstem, nie tylko kolorem.
+
 Warunki publikacji datasetu:
 
 - dokładnie jedna pozycja dla każdego numeru w ciągłym zakresie,

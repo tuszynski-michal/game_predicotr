@@ -396,29 +396,79 @@ setek tysięcy layoutów nie odbywa się w requestcie HTTP. Generator mocka
 akceptuje planszę o rozmiarze od 1 do 100 komórek; większy układ zwraca
 `INVALID_DATASET_DIMENSIONS`.
 
-### POST `/api/v1/admin/dataset-versions/{datasetVersionId}/validation-jobs`
+### GET `/api/v1/admin/dataset-versions/{datasetVersionId}/validation-report`
+
+Bounded dataset `mock-v1` jest sprawdzany synchronicznie tym samym
+deterministycznym walidatorem, którego użyje publikacja:
 
 ```json
 {
+  "datasetVersionId": "uuid",
+  "datasetVersion": 1,
+  "readyForPublication": true,
+  "declaredLayoutCount": 1000,
+  "actualLayoutCount": 1000,
+  "minSequenceNumber": 1,
+  "maxSequenceNumber": 1000,
   "checks": [
-    "cell_count",
-    "symbol_membership",
-    "continuous_sequence",
-    "duplicate_signatures"
-  ]
+    {
+      "code": "MISSING_SEQUENCE_NUMBER",
+      "status": "passed",
+      "issueCount": 0,
+      "message": "No sequence numbers are missing.",
+      "sequenceNumbers": [],
+      "mobileCodes": [],
+      "truncated": false
+    },
+    {
+      "code": "DUPLICATE_SIGNATURE",
+      "status": "warning",
+      "issueCount": 6,
+      "message": "Duplicate layout signatures are allowed and were found.",
+      "sequenceNumbers": [],
+      "mobileCodes": [],
+      "truncated": false
+    }
+  ],
+  "duplicateSignatureGroupCount": 6,
+  "duplicateSignatureAffectedLayoutCount": 12,
+  "duplicateSignatureExcessLayoutCount": 6,
+  "duplicateSignatures": [
+    {
+      "signature": "0102...",
+      "occurrenceCount": 2,
+      "sequenceNumbers": [101, 995],
+      "truncated": false
+    }
+  ],
+  "duplicateSignaturesTruncated": false
 }
 ```
 
-Response:
+Checki mają stabilną kolejność i kody:
 
-```json
-{
-  "jobId": "uuid",
-  "status": "created"
-}
+```text
+LAYOUT_COUNT_MISMATCH
+MISSING_SEQUENCE_NUMBER
+OUT_OF_RANGE_SEQUENCE_NUMBER
+DUPLICATE_SEQUENCE_NUMBER
+INVALID_CELL_COUNT
+FOREIGN_SYMBOL
+SIGNATURE_MISMATCH
+DUPLICATE_SIGNATURE
 ```
 
-Duplikaty sygnatur są raportem, nie automatycznym błędem publikacji. Luki i duplikaty numeru sekwencji blokują publikację.
+Pierwsze siedem kodów ma status `blocking`, gdy wykryją problem. Duplikat
+sygnatury ma status `warning` i nie zmienia `readyForPublication` na `false`.
+Dokładne liczniki obejmują cały dataset, a listy diagnostyczne są
+deterministycznie ograniczone do pierwszych 100 elementów; `truncated`
+informuje o obcięciu próbki.
+
+Endpoint działa wyłącznie dla obecnego bounded `mock-v1`. Inny generator zwraca
+`409 DATASET_VALIDATION_REQUIRES_JOB`. Docelowy
+`POST /dataset-versions/{datasetVersionId}/validation-jobs` pozostaje
+kontraktem dla importów i dużych datasetów wykonywanym przez worker; nie jest
+częścią OpenAPI TASK-0026.
 
 ## Job status
 

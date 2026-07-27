@@ -13,10 +13,15 @@ from game_predictor_api.domain.datasets import (
     MOCK_LAYOUT_COUNT,
     DatasetConflictError,
     DatasetGenerationSource,
+    DatasetValidationCheckCode,
+    DatasetValidationCheckStatus,
+    DatasetValidationSource,
     DatasetVersion,
     DatasetVersionStatus,
     LayoutDraft,
+    LayoutValidationRecord,
     generate_mock_layouts,
+    validate_dataset,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
 
@@ -64,6 +69,29 @@ class MemoryDatasetRepository(DatasetRepository):
         ):
             return None
         return self.source
+
+    def get_validation_source(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationSource | None:
+        item = self.items.get(dataset_version_id)
+        if item is None:
+            return None
+        layouts = self.layouts.get(dataset_version_id, ())
+        return DatasetValidationSource(
+            dataset_version=item,
+            allowed_symbol_mobile_codes=(
+                () if self.source is None else self.source.symbol_mobile_codes
+            ),
+            layouts=tuple(
+                LayoutValidationRecord(
+                    sequence_number=layout.sequence_number,
+                    signature=layout.signature,
+                    cells=layout.cells,
+                )
+                for layout in layouts
+            ),
+        )
 
     def add_mock_dataset(
         self,
@@ -157,6 +185,167 @@ def test_service_creates_new_staging_versions_with_same_logical_data() -> None:
         second.id,
         first.id,
     ]
+
+
+def test_generated_mock_report_is_ready_with_six_duplicate_warnings() -> None:
+    game_id = uuid4()
+    source = _source(game_id)
+    repository = MemoryDatasetRepository(game_id, source)
+    service = DatasetService(repository)
+    dataset = service.generate_mock_dataset(
+        game_id,
+        rules_version_id=source.rules_version_id,
+        seed=71401,
+    )
+
+    report = service.get_validation_report(dataset.id)
+
+    assert report.ready_for_publication
+    assert report.declared_layout_count == MOCK_LAYOUT_COUNT
+    assert report.actual_layout_count == MOCK_LAYOUT_COUNT
+    assert report.min_sequence_number == 1
+    assert report.max_sequence_number == MOCK_LAYOUT_COUNT
+    assert report.duplicate_signature_group_count == MOCK_DUPLICATE_COUNT
+    assert report.duplicate_signature_affected_layout_count == 12
+    assert report.duplicate_signature_excess_layout_count == 6
+    assert {
+        group.sequence_numbers for group in report.duplicate_signatures
+    } == {
+        (101, 995),
+        (102, 996),
+        (103, 997),
+        (104, 998),
+        (105, 999),
+        (106, 1000),
+    }
+    duplicate_check = report.checks[-1]
+    assert duplicate_check.code is DatasetValidationCheckCode.DUPLICATE_SIGNATURE
+    assert duplicate_check.status is DatasetValidationCheckStatus.WARNING
+    assert all(
+        check.status is DatasetValidationCheckStatus.PASSED
+        for check in report.checks[:-1]
+    )
+
+
+def test_validator_reports_every_blocker_and_keeps_duplicate_as_warning() -> None:
+    dataset = DatasetVersion(
+        id=uuid4(),
+        game_id=uuid4(),
+        version=3,
+        rows=1,
+        columns=2,
+        signature_cell_width=1,
+        layout_count=3,
+        status=DatasetVersionStatus.STAGING,
+        generation_seed=1,
+        generator_version=MOCK_GENERATOR_VERSION,
+        source_job_id=None,
+        created_at=datetime.now(UTC),
+        published_at=None,
+    )
+    source = DatasetValidationSource(
+        dataset_version=dataset,
+        allowed_symbol_mobile_codes=(1, 2),
+        layouts=(
+            LayoutValidationRecord(1, "11", (1, 1)),
+            LayoutValidationRecord(1, "11", (1, 1)),
+            LayoutValidationRecord(4, "xx", (3,)),
+            LayoutValidationRecord(5, "22", (2, 2)),
+        ),
+    )
+
+    report = validate_dataset(source)
+    checks = {check.code: check for check in report.checks}
+
+    assert not report.ready_for_publication
+    assert checks[
+        DatasetValidationCheckCode.LAYOUT_COUNT_MISMATCH
+    ].issue_count == 1
+    assert checks[
+        DatasetValidationCheckCode.MISSING_SEQUENCE_NUMBER
+    ].sequence_numbers == (2, 3)
+    assert checks[
+        DatasetValidationCheckCode.OUT_OF_RANGE_SEQUENCE_NUMBER
+    ].sequence_numbers == (4, 5)
+    assert checks[
+        DatasetValidationCheckCode.DUPLICATE_SEQUENCE_NUMBER
+    ].sequence_numbers == (1,)
+    assert checks[
+        DatasetValidationCheckCode.INVALID_CELL_COUNT
+    ].sequence_numbers == (4,)
+    foreign = checks[DatasetValidationCheckCode.FOREIGN_SYMBOL]
+    assert foreign.sequence_numbers == (4,)
+    assert foreign.mobile_codes == (3,)
+    assert checks[
+        DatasetValidationCheckCode.SIGNATURE_MISMATCH
+    ].sequence_numbers == (4,)
+    assert (
+        checks[DatasetValidationCheckCode.DUPLICATE_SIGNATURE].status
+        is DatasetValidationCheckStatus.WARNING
+    )
+
+
+def test_validation_samples_are_bounded_but_counts_are_exact() -> None:
+    dataset = DatasetVersion(
+        id=uuid4(),
+        game_id=uuid4(),
+        version=1,
+        rows=1,
+        columns=1,
+        signature_cell_width=1,
+        layout_count=150,
+        status=DatasetVersionStatus.STAGING,
+        generation_seed=1,
+        generator_version=MOCK_GENERATOR_VERSION,
+        source_job_id=None,
+        created_at=datetime.now(UTC),
+        published_at=None,
+    )
+
+    report = validate_dataset(
+        DatasetValidationSource(dataset, (1,), ())
+    )
+    missing = next(
+        check
+        for check in report.checks
+        if check.code is DatasetValidationCheckCode.MISSING_SEQUENCE_NUMBER
+    )
+
+    assert missing.issue_count == 150
+    assert missing.sequence_numbers == tuple(range(1, 101))
+    assert missing.truncated
+
+
+def test_service_requires_worker_for_non_mock_validation() -> None:
+    game_id = uuid4()
+    source = _source(game_id)
+    repository = MemoryDatasetRepository(game_id, source)
+    service = DatasetService(repository)
+    dataset = service.generate_mock_dataset(
+        game_id,
+        rules_version_id=source.rules_version_id,
+        seed=1,
+    )
+    repository.items[dataset.id] = DatasetVersion(
+        id=dataset.id,
+        game_id=dataset.game_id,
+        version=dataset.version,
+        rows=dataset.rows,
+        columns=dataset.columns,
+        signature_cell_width=dataset.signature_cell_width,
+        layout_count=dataset.layout_count,
+        status=dataset.status,
+        generation_seed=dataset.generation_seed,
+        generator_version="import-v1",
+        source_job_id=uuid4(),
+        created_at=dataset.created_at,
+        published_at=dataset.published_at,
+    )
+
+    with pytest.raises(DatasetConflictError) as error:
+        service.get_validation_report(dataset.id)
+
+    assert error.value.code == "DATASET_VALIDATION_REQUIRES_JOB"
 
 
 @pytest.mark.parametrize(

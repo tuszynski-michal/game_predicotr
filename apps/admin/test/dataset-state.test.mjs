@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  datasetValidationCheckLabel,
+  datasetValidationStatusLabel,
+  formatDiagnosticNumbers,
   publishedRulesVersions,
   upsertDatasetVersion,
   validateDatasetSeed,
@@ -53,4 +56,14 @@ test('selects published rules and keeps datasets newest first', () => {
     next.map((dataset) => dataset.id),
     ['dataset-2', 'dataset-1'],
   );
+});
+
+test('presents validation codes, statuses and deterministic samples', () => {
+  assert.equal(
+    datasetValidationCheckLabel('DUPLICATE_SIGNATURE'),
+    'Duplikaty sygnatur layoutu',
+  );
+  assert.equal(datasetValidationStatusLabel('blocking'), 'Blokada');
+  assert.equal(datasetValidationStatusLabel('warning'), 'Ostrzeżenie');
+  assert.equal(formatDiagnosticNumbers([1, 4, 9]), '1, 4, 9');
 });

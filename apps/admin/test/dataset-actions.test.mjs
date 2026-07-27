@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { generateMockDataset } from '../src/features/datasets/dataset-actions.ts';
+import {
+  generateMockDataset,
+  getDatasetValidationReport,
+} from '../src/features/datasets/dataset-actions.ts';
 
 const dataset = {
   columns: 5,
@@ -58,6 +61,51 @@ test('preserves a stable generator conflict', async () => {
 
   assert.deepEqual(result, {
     error: 'At least two symbols are required. (INSUFFICIENT_ACTIVE_SYMBOLS)',
+    ok: false,
+  });
+});
+
+test('loads the canonical validation report and preserves stable errors', async () => {
+  const report = {
+    actualLayoutCount: 1000,
+    checks: [],
+    datasetVersion: 1,
+    datasetVersionId: 'dataset-1',
+    declaredLayoutCount: 1000,
+    duplicateSignatureAffectedLayoutCount: 12,
+    duplicateSignatureExcessLayoutCount: 6,
+    duplicateSignatureGroupCount: 6,
+    duplicateSignatures: [],
+    duplicateSignaturesTruncated: false,
+    maxSequenceNumber: 1000,
+    minSequenceNumber: 1,
+    readyForPublication: true,
+  };
+  const success = await getDatasetValidationReport(
+    {
+      getDatasetValidationReport: async (datasetId) => {
+        assert.equal(datasetId, 'dataset-1');
+        return { data: report };
+      },
+    },
+    'dataset-1',
+  );
+  assert.deepEqual(success, { ok: true, report });
+
+  const failure = await getDatasetValidationReport(
+    {
+      getDatasetValidationReport: async () => ({
+        error: {
+          code: 'DATASET_VALIDATION_REQUIRES_JOB',
+          details: {},
+          message: 'Worker validation required.',
+        },
+      }),
+    },
+    'dataset-2',
+  );
+  assert.deepEqual(failure, {
+    error: 'Worker validation required. (DATASET_VALIDATION_REQUIRES_JOB)',
     ok: false,
   });
 });

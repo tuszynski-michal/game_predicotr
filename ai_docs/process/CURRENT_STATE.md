@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M2.4 in progress; ready for TASK-0026`
+`M2.4 in progress; ready for TASK-0027`
 
 ## Completed
 
@@ -282,6 +282,21 @@ last_updated: 2026-07-27
   migracji,
 - zaakceptowano D-029 definiującą synchroniczny wyjątek dla ograniczonego mocka
   1000 rekordów; generacja docelowej skali pozostaje operacją workera,
+- ukończono `TASK-0026`: jeden czysty, deterministyczny walidator raportuje
+  zgodność liczby layoutów, ciągłość i unikalność sekwencji, liczbę komórek,
+  przynależność symboli oraz zgodność sygnatur,
+- duplikaty sygnatur są posortowanym ostrzeżeniem i nie blokują gotowości;
+  mock `mock-v1` daje sześć grup `(101,995)`–`(106,1000)`, 12 layoutów w
+  grupach i 6 nadmiarowych wystąpień,
+- raport zachowuje dokładne liczniki, a deterministyczne próbki numerów i kodów
+  ogranicza do 100 elementów z jawnym `truncated`,
+- panel uruchamia raport z blokadą podwójnego żądania, pokazuje loading, błąd,
+  tekstowe statusy `OK/Ostrzeżenie/Blokada`, metryki i tabelę grup duplikatów,
+- TASK-0026 przeszedł pełną bramkę jakości: 125 testów Python, 63 mobile, 42
+  panelu, 23 wspólnej domeny i 7 klienta API, produkcyjny build Next.js oraz 2
+  fizyczne testy PostgreSQL z kontrolowanym uszkodzeniem i rollbackiem stagingu,
+- zaakceptowano D-030: raport synchroniczny jest ograniczony do bounded
+  `mock-v1`, a importy i duże datasety zachowują ścieżkę validation job workera,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -293,7 +308,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M2.4 oczekuje na polecenie rozpoczęcia TASK-0026.
+- brak aktywnego zadania; M2.4 oczekuje na polecenie rozpoczęcia TASK-0027.
 
 ## Open but not blocking M2
 
@@ -347,7 +362,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po poleceniu właściciela rozpocząć
-`TASK-0026 — Sequence and duplicate validation reports`.
+`TASK-0027 — Dataset preview and immutable publication`.
 
 ## Do not start yet
 

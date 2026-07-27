@@ -42,6 +42,9 @@ import type {
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
+  GetDatasetValidationReportData,
+  GetDatasetValidationReportErrors,
+  GetDatasetValidationReportResponses,
   GetDatasetVersionData,
   GetDatasetVersionErrors,
   GetDatasetVersionResponses,
@@ -141,6 +144,27 @@ export const getDatasetVersion = <ThrowOnError extends boolean = false>(
     GetDatasetVersionErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/dataset-versions/{dataset_version_id}', ...options });
+
+/**
+ * Validate a bounded staging dataset
+ */
+export const getDatasetValidationReport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetDatasetValidationReportData, ThrowOnError>,
+): RequestResult<
+  GetDatasetValidationReportResponses,
+  GetDatasetValidationReportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetDatasetValidationReportResponses,
+    GetDatasetValidationReportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/dataset-versions/{dataset_version_id}/validation-report',
+    ...options,
+  });
 
 /**
  * List games

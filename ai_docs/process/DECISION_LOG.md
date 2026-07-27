@@ -546,6 +546,31 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   `sequence_number/cells/signature`. Raporty i publikacja pozostają w
   TASK-0026–TASK-0027; większe datasety wykonuje worker.
 
+## D-030 — Synchronous validation report for the bounded mock
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** raport integralności datasetu używa jednego czystego,
+  deterministycznego walidatora, który zostanie ponownie użyty przez publikację.
+  Admin API może wykonać go synchronicznie wyłącznie dla bounded datasetu
+  `mock-v1`. Raport zawiera dokładne liczniki i ograniczone, deterministyczne
+  próbki diagnostyczne. Duplikat sygnatury ma poziom `warning`; luka, duplikat
+  numeru, zła liczba komórek, obcy symbol i niespójna sygnatura mają poziom
+  `blocking`.
+- **Context:** obowiązujący kontrakt opisywał validation job, ale M2 nie ma
+  jeszcze infrastruktury trwałych jobów ani workera administracyjnego. Obecny
+  dataset ma zawsze tylko 1000 rekordów.
+- **Reason:** bezpośredni raport zamyka pion M2 bez tworzenia pozornego joba,
+  zachowuje jedną definicję gotowości do publikacji i nie ustanawia długiego
+  requestu dla skali docelowej.
+- **Alternatives:** synchroniczna walidacja dowolnego rozmiaru, atrapowy job
+  kończący się w requestcie, przedwczesne wdrożenie kolejki lub trwałych jobów,
+  osobny walidator w panelu.
+- **Consequences:** endpoint raportu odrzuca inne wersje generatora stabilnym
+  błędem `DATASET_VALIDATION_REQUIRES_JOB`. Importy i datasety docelowej skali
+  zachowują kontrakt validation job realizowany przez workera w późniejszym
+  milestone. Panel nie wylicza integralności samodzielnie.
+
 ## Szablon nowej decyzji
 
 ```text

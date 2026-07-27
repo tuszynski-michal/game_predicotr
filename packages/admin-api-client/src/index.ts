@@ -11,6 +11,7 @@ import {
   createRulesVersion as createGeneratedRulesVersion,
   createSymbol as createGeneratedSymbol,
   generateMockDataset as generateGeneratedMockDataset,
+  getDatasetValidationReport as getGeneratedDatasetValidationReport,
   getDatasetVersion as getGeneratedDatasetVersion,
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
@@ -51,6 +52,11 @@ import type {
 
 export type {
   DatasetVersionResponse,
+  DatasetValidationCheckCode,
+  DatasetValidationCheckResponse,
+  DatasetValidationCheckStatus,
+  DatasetValidationReportResponse,
+  DuplicateSignatureGroupResponse,
   ErrorResponse,
   GameCreate,
   GameResponse,
@@ -146,6 +152,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getDatasetVersion: (datasetVersionId: string) =>
       getGeneratedDatasetVersion({
+        client,
+        path: { dataset_version_id: datasetVersionId },
+      }),
+    getDatasetValidationReport: (datasetVersionId: string) =>
+      getGeneratedDatasetValidationReport({
         client,
         path: { dataset_version_id: datasetVersionId },
       }),

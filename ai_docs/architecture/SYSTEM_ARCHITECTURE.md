@@ -256,6 +256,11 @@ każdym spinie.
 - raport gotowości i publikacja reguł używają tego samego deterministycznego
   walidatora; publikacja oraz każda mutacja draftu blokują rekord
   `rules_versions`, aby nie dopuścić do wyścigu,
+- raport integralności i publikacja datasetu używają tego samego czystego
+  walidatora; bounded `mock-v1` może zostać sprawdzony synchronicznie, ale
+  importy i duże datasety przechodzą przez worker/job,
+- raport datasetu zachowuje dokładne liczniki, ogranicza wyłącznie próbki
+  diagnostyczne i traktuje duplikaty sygnatur jako ostrzeżenie,
 - niegotowa wersja reguł pozostaje draftem bez `published_at`, a jawna
   archiwizacja opublikowanej wersji zachowuje czas publikacji,
 - staging nie trafia do mobile,

@@ -14,9 +14,11 @@ from game_predictor_api.domain.datasets import (
     MOCK_GENERATOR_VERSION,
     DatasetConflictError,
     DatasetGenerationSource,
+    DatasetValidationSource,
     DatasetVersion,
     DatasetVersionStatus,
     LayoutDraft,
+    LayoutValidationRecord,
 )
 from game_predictor_api.storage.models import (
     DatasetVersionModel,
@@ -148,6 +150,41 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         self._flush_or_raise_conflict()
         self._session.refresh(record)
         return _to_dataset_version(record)
+
+    def get_validation_source(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationSource | None:
+        dataset_record = self._session.get(
+            DatasetVersionModel,
+            dataset_version_id,
+        )
+        if dataset_record is None:
+            return None
+        allowed_codes = tuple(
+            self._session.scalars(
+                select(SymbolModel.mobile_code)
+                .where(SymbolModel.game_id == dataset_record.game_id)
+                .order_by(SymbolModel.mobile_code)
+            )
+        )
+        layout_records = self._session.scalars(
+            select(LayoutModel)
+            .where(LayoutModel.dataset_version_id == dataset_version_id)
+            .order_by(LayoutModel.sequence_number, LayoutModel.id)
+        )
+        return DatasetValidationSource(
+            dataset_version=_to_dataset_version(dataset_record),
+            allowed_symbol_mobile_codes=allowed_codes,
+            layouts=tuple(
+                LayoutValidationRecord(
+                    sequence_number=record.sequence_number,
+                    signature=record.signature,
+                    cells=tuple(record.cells),
+                )
+                for record in layout_records
+            ),
+        )
 
     def _flush_or_raise_conflict(self) -> None:
         try:

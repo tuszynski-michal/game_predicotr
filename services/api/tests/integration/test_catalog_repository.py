@@ -334,7 +334,45 @@ def test_catalog_repository_uses_real_constraints(
                 (item.signature, item.cells) for item in second_layouts
             ]
             assert len({item.signature for item in first_layouts}) == 994
+            report = dataset_service.get_validation_report(first_dataset.id)
+            assert report.ready_for_publication
+            assert report.duplicate_signature_group_count == 6
+            assert report.duplicate_signature_affected_layout_count == 12
+            assert {
+                group.sequence_numbers
+                for group in report.duplicate_signatures
+            } == {
+                (101, 995),
+                (102, 996),
+                (103, 997),
+                (104, 998),
+                (105, 999),
+                (106, 1000),
+            }
             session.commit()
+
+            corrupted = second_layouts[1]
+            corrupted.sequence_number = 1001
+            corrupted.cells = [32767] * 14
+            corrupted.signature = "broken"
+            session.flush()
+            blocked_report = dataset_service.get_validation_report(
+                second_dataset.id
+            )
+            blocked_codes = {
+                check.code.value
+                for check in blocked_report.checks
+                if check.status.value == "blocking"
+            }
+            assert not blocked_report.ready_for_publication
+            assert blocked_codes == {
+                "MISSING_SEQUENCE_NUMBER",
+                "OUT_OF_RANGE_SEQUENCE_NUMBER",
+                "INVALID_CELL_COUNT",
+                "FOREIGN_SYMBOL",
+                "SIGNATURE_MISMATCH",
+            }
+            session.rollback()
 
             archived = rules_service.archive_rules_version(first_rules.id)
             assert archived.status is RulesVersionStatus.ARCHIVED

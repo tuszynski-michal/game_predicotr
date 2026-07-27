@@ -339,8 +339,36 @@ test('generated client sends bounded mock dataset staging requests', async () =>
     status: 'staging',
     version: 1,
   };
+  const validationBody = {
+    actualLayoutCount: 1000,
+    checks: [
+      {
+        code: 'DUPLICATE_SIGNATURE',
+        issueCount: 6,
+        message: 'Duplicate layout signatures are allowed and were found.',
+        mobileCodes: [],
+        sequenceNumbers: [],
+        status: 'warning',
+        truncated: false,
+      },
+    ],
+    datasetVersion: 1,
+    datasetVersionId,
+    declaredLayoutCount: 1000,
+    duplicateSignatureAffectedLayoutCount: 12,
+    duplicateSignatureExcessLayoutCount: 6,
+    duplicateSignatureGroupCount: 6,
+    duplicateSignatures: [],
+    duplicateSignaturesTruncated: false,
+    maxSequenceNumber: 1000,
+    minSequenceNumber: 1,
+    readyForPublication: true,
+  };
   const mockFetch = async (request) => {
     requests.push(request);
+    if (new URL(request.url).pathname.endsWith('/validation-report')) {
+      return Response.json(validationBody);
+    }
     return Response.json(
       request.method === 'GET' &&
         new URL(request.url).pathname.endsWith('/dataset-versions')
@@ -360,10 +388,12 @@ test('generated client sends bounded mock dataset staging requests', async () =>
   });
   const listed = await client.listDatasetVersions(gameId);
   const loaded = await client.getDatasetVersion(datasetVersionId);
+  const validation = await client.getDatasetValidationReport(datasetVersionId);
 
   assert.equal(created.data?.layoutCount, 1000);
   assert.equal(listed.data?.length, 1);
   assert.equal(loaded.data?.id, datasetVersionId);
+  assert.equal(validation.data?.duplicateSignatureGroupCount, 6);
   assert.deepEqual(await requests[0].clone().json(), {
     rulesVersionId,
     seed: 71401,
@@ -374,6 +404,7 @@ test('generated client sends bounded mock dataset staging requests', async () =>
       `/api/v1/admin/games/${gameId}/dataset-versions/mock`,
       `/api/v1/admin/games/${gameId}/dataset-versions`,
       `/api/v1/admin/dataset-versions/${datasetVersionId}`,
+      `/api/v1/admin/dataset-versions/${datasetVersionId}/validation-report`,
     ],
   );
 });

@@ -1,6 +1,172 @@
 {
   "components": {
     "schemas": {
+      "DatasetValidationCheckCode": {
+        "enum": [
+          "LAYOUT_COUNT_MISMATCH",
+          "MISSING_SEQUENCE_NUMBER",
+          "OUT_OF_RANGE_SEQUENCE_NUMBER",
+          "DUPLICATE_SEQUENCE_NUMBER",
+          "INVALID_CELL_COUNT",
+          "FOREIGN_SYMBOL",
+          "SIGNATURE_MISMATCH",
+          "DUPLICATE_SIGNATURE"
+        ],
+        "title": "DatasetValidationCheckCode",
+        "type": "string"
+      },
+      "DatasetValidationCheckResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/DatasetValidationCheckCode"
+          },
+          "issueCount": {
+            "title": "Issuecount",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "mobileCodes": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Mobilecodes",
+            "type": "array"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Sequencenumbers",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DatasetValidationCheckStatus"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "status",
+          "issueCount",
+          "message",
+          "sequenceNumbers",
+          "mobileCodes",
+          "truncated"
+        ],
+        "title": "DatasetValidationCheckResponse",
+        "type": "object"
+      },
+      "DatasetValidationCheckStatus": {
+        "enum": [
+          "passed",
+          "warning",
+          "blocking"
+        ],
+        "title": "DatasetValidationCheckStatus",
+        "type": "string"
+      },
+      "DatasetValidationReportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actualLayoutCount": {
+            "title": "Actuallayoutcount",
+            "type": "integer"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetValidationCheckResponse"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "datasetVersion": {
+            "title": "Datasetversion",
+            "type": "integer"
+          },
+          "datasetVersionId": {
+            "format": "uuid",
+            "title": "Datasetversionid",
+            "type": "string"
+          },
+          "declaredLayoutCount": {
+            "title": "Declaredlayoutcount",
+            "type": "integer"
+          },
+          "duplicateSignatureAffectedLayoutCount": {
+            "title": "Duplicatesignatureaffectedlayoutcount",
+            "type": "integer"
+          },
+          "duplicateSignatureExcessLayoutCount": {
+            "title": "Duplicatesignatureexcesslayoutcount",
+            "type": "integer"
+          },
+          "duplicateSignatureGroupCount": {
+            "title": "Duplicatesignaturegroupcount",
+            "type": "integer"
+          },
+          "duplicateSignatures": {
+            "items": {
+              "$ref": "#/components/schemas/DuplicateSignatureGroupResponse"
+            },
+            "title": "Duplicatesignatures",
+            "type": "array"
+          },
+          "duplicateSignaturesTruncated": {
+            "title": "Duplicatesignaturestruncated",
+            "type": "boolean"
+          },
+          "maxSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxsequencenumber"
+          },
+          "minSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minsequencenumber"
+          },
+          "readyForPublication": {
+            "title": "Readyforpublication",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "datasetVersionId",
+          "datasetVersion",
+          "readyForPublication",
+          "declaredLayoutCount",
+          "actualLayoutCount",
+          "minSequenceNumber",
+          "maxSequenceNumber",
+          "checks",
+          "duplicateSignatureGroupCount",
+          "duplicateSignatureAffectedLayoutCount",
+          "duplicateSignatureExcessLayoutCount",
+          "duplicateSignatures",
+          "duplicateSignaturesTruncated"
+        ],
+        "title": "DatasetValidationReportResponse",
+        "type": "object"
+      },
       "DatasetVersionResponse": {
         "additionalProperties": false,
         "properties": {
@@ -101,6 +267,38 @@
         ],
         "title": "DatasetVersionStatus",
         "type": "string"
+      },
+      "DuplicateSignatureGroupResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "occurrenceCount": {
+            "title": "Occurrencecount",
+            "type": "integer"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Sequencenumbers",
+            "type": "array"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "signature",
+          "occurrenceCount",
+          "sequenceNumbers",
+          "truncated"
+        ],
+        "title": "DuplicateSignatureGroupResponse",
+        "type": "object"
       },
       "ErrorResponse": {
         "additionalProperties": false,
@@ -1061,6 +1259,69 @@
           }
         },
         "summary": "Get a dataset version",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/admin/dataset-versions/{dataset_version_id}/validation-report": {
+      "get": {
+        "operationId": "getDatasetValidationReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetValidationReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Validate a bounded staging dataset",
         "tags": [
           "datasets"
         ]

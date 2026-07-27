@@ -606,6 +606,150 @@ a:focus-visible {
   background: rgba(255, 255, 255, 0.018);
 }
 
+.datasetHistoryRow {
+  display: grid;
+  gap: 18px;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.datasetHistoryRow:last-child {
+  border-bottom: 0;
+}
+
+.datasetHistoryHeader,
+.datasetValidationHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.datasetValidationReport {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.datasetValidationReportReady {
+  border-color: rgba(112, 225, 180, 0.28);
+}
+
+.datasetValidationReportBlocked {
+  border-color: rgba(255, 128, 128, 0.28);
+}
+
+.datasetValidationHeader h3 {
+  margin: 4px 0 0;
+}
+
+.datasetValidationHeader > strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.datasetValidationMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.datasetValidationMetrics div {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.datasetValidationMetrics dt {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.datasetValidationMetrics dd {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.datasetValidationChecks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.datasetValidationCheck {
+  display: grid;
+  gap: 6px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.datasetValidationCheck > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.datasetValidationCheck strong {
+  font-size: 12px;
+}
+
+.datasetValidationCheck span,
+.datasetValidationCheck p,
+.datasetDiagnosticNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.datasetValidationCheck-warning {
+  border-color: rgba(242, 198, 109, 0.28);
+}
+
+.datasetValidationCheck-blocking {
+  border-color: rgba(255, 128, 128, 0.28);
+}
+
+.datasetDuplicateTableWrap {
+  overflow-x: auto;
+}
+
+.datasetDuplicateTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.datasetDuplicateTable th,
+.datasetDuplicateTable td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.datasetDuplicateTable th {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.datasetDuplicateTable code {
+  overflow-wrap: anywhere;
+  color: #c8d5e5;
+}
+
 .rulesMetadata {
   display: flex;
   gap: 8px;
@@ -1415,6 +1559,8 @@ a:focus-visible {
 @media (max-width: 680px) {
   .pageHeader,
   .listHeader,
+  .datasetHistoryHeader,
+  .datasetValidationHeader,
   .gameRow,
   .symbolRow,
   .rulesRow,
@@ -1422,6 +1568,10 @@ a:focus-visible {
   .archiveConfirmation {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .datasetValidationMetrics {
+    grid-template-columns: 1fr 1fr;
   }
 
   .pageHeader .primaryButton {

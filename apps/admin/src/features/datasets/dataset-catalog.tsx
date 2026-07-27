@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  DatasetValidationReportResponse,
   DatasetVersionResponse,
   GameResponse,
   RulesVersionResponse,
@@ -19,6 +20,7 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   type DatasetsClient,
   generateMockDataset,
+  getDatasetValidationReport,
 } from '@/features/datasets/dataset-actions';
 import {
   DEFAULT_DATASET_SEED,
@@ -27,6 +29,7 @@ import {
   validateDatasetSeed,
 } from '@/features/datasets/dataset-state';
 import { selectRulesGameId } from '@/features/rules/rules-version-state';
+import { DatasetValidationReport } from '@/features/datasets/dataset-validation-report';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -59,8 +62,20 @@ export function DatasetCatalog({
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [validatingDatasetId, setValidatingDatasetId] = useState<string | null>(
+    null,
+  );
+  const [validationReports, setValidationReports] = useState<
+    Readonly<Record<string, DatasetValidationReportResponse>>
+  >({});
+  const [validationError, setValidationError] = useState<{
+    readonly datasetId: string;
+    readonly message: string;
+  } | null>(null);
   const requestId = useRef(0);
+  const validationRequestId = useRef(0);
   const mutationInProgress = useRef(false);
+  const validationInProgress = useRef<string | null>(null);
 
   const loadGames = useCallback(async () => {
     const currentRequest = ++requestId.current;
@@ -88,6 +103,9 @@ export function DatasetCatalog({
   const loadDatasetWorkspace = useCallback(
     async (gameId: string) => {
       const currentRequest = ++requestId.current;
+      validationRequestId.current += 1;
+      validationInProgress.current = null;
+      setValidatingDatasetId(null);
       setLoadState('loading');
       setError('');
       try {
@@ -119,6 +137,8 @@ export function DatasetCatalog({
             : (published[0]?.id ?? ''),
         );
         setDatasets(datasetsResult.data);
+        setValidationReports({});
+        setValidationError(null);
         setLoadState('ready');
       } catch {
         if (currentRequest === requestId.current) {
@@ -194,6 +214,26 @@ export function DatasetCatalog({
     );
   }
 
+  async function onValidate(datasetId: string) {
+    if (validationInProgress.current !== null) return;
+    const currentRequest = ++validationRequestId.current;
+    validationInProgress.current = datasetId;
+    setValidatingDatasetId(datasetId);
+    setValidationError(null);
+    const result = await getDatasetValidationReport(api, datasetId);
+    if (currentRequest !== validationRequestId.current) return;
+    validationInProgress.current = null;
+    setValidatingDatasetId(null);
+    if (!result.ok) {
+      setValidationError({ datasetId, message: result.error });
+      return;
+    }
+    setValidationReports((current) => ({
+      ...current,
+      [datasetId]: result.report,
+    }));
+  }
+
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
 
   return (
@@ -203,8 +243,8 @@ export function DatasetCatalog({
           <p className="eyebrow">M2.4 · kanoniczny staging</p>
           <h1>Datasety</h1>
           <p className="lead">
-            Generator tworzy deterministyczny staging 1000 layoutów. Raporty,
-            podgląd i publikacja pojawią się w kolejnych zadaniach.
+            Generator tworzy deterministyczny staging 1000 layoutów. Raport
+            oddziela blokady integralności od dozwolonych duplikatów treści.
           </p>
         </div>
       </header>
@@ -330,27 +370,57 @@ export function DatasetCatalog({
                 </p>
               </div>
               {datasets.map((dataset) => (
-                <article className="rulesRow" key={dataset.id}>
-                  <div>
-                    <div className="gameTitleLine">
-                      <h3>Dataset v{dataset.version}</h3>
-                      <span
-                        className={`gameStatus gameStatus-${dataset.status}`}
-                      >
-                        {dataset.status}
-                      </span>
+                <article className="datasetHistoryRow" key={dataset.id}>
+                  <div className="datasetHistoryHeader">
+                    <div>
+                      <div className="gameTitleLine">
+                        <h3>Dataset v{dataset.version}</h3>
+                        <span
+                          className={`gameStatus gameStatus-${dataset.status}`}
+                        >
+                          {dataset.status}
+                        </span>
+                      </div>
+                      <p className="rulesMetadata">
+                        {dataset.rows} × {dataset.columns}
+                        <span>·</span>
+                        {dataset.layoutCount} layoutów
+                        <span>·</span>
+                        seed {dataset.generationSeed}
+                        <span>·</span>
+                        {dataset.generatorVersion}
+                      </p>
                     </div>
-                    <p className="rulesMetadata">
-                      {dataset.rows} × {dataset.columns}
-                      <span>·</span>
-                      {dataset.layoutCount} layoutów
-                      <span>·</span>
-                      seed {dataset.generationSeed}
-                      <span>·</span>
-                      {dataset.generatorVersion}
-                    </p>
+                    <button
+                      className="secondaryButton"
+                      disabled={validatingDatasetId !== null}
+                      onClick={() => void onValidate(dataset.id)}
+                      type="button"
+                    >
+                      {validatingDatasetId === dataset.id
+                        ? 'Sprawdzanie…'
+                        : validationReports[dataset.id]
+                          ? 'Sprawdź ponownie'
+                          : 'Sprawdź integralność'}
+                    </button>
                   </div>
-                  <span className="immutableLabel">Raport w TASK-0026</span>
+                  {validationError?.datasetId === dataset.id ? (
+                    <p
+                      className="feedbackBanner feedbackBannerError"
+                      role="alert"
+                    >
+                      {validationError.message}
+                    </p>
+                  ) : null}
+                  {validationReports[dataset.id] ? (
+                    <DatasetValidationReport
+                      report={validationReports[dataset.id]}
+                    />
+                  ) : (
+                    <p className="datasetDiagnosticNote">
+                      Raport nie został jeszcze uruchomiony.
+                    </p>
+                  )}
                 </article>
               ))}
             </div>

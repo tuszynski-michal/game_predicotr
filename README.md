@@ -49,7 +49,9 @@ npm run admin:dev
 npm run admin:build
 npm run db:up
 npm run db:migrate
+npm run db:reset:local -- -ConfirmReset
 npm run db:baseline:verify
+npm run m2:acceptance
 npm run openapi:generate
 npm run openapi:check
 npm run android
@@ -62,13 +64,10 @@ npm run android:device:accept
 
 ## Local administration foundation
 
-TASK-0015 provides a local-only FastAPI service and Next.js panel. TASK-0016
-adds PostgreSQL 18, SQLAlchemy and an empty Alembic baseline. TASK-0018 adds the
-first canonical domain tables and API operations for games and symbols.
-TASK-0019 adds the panel shell and the game identity workflow: list, create,
-edit mutable fields and archive with explicit confirmation. TASK-0020 completes
-M2.2 with the per-game symbol catalog, wildcard/order/reference-path editing
-and archive-only removal.
+M2 provides a local-only FastAPI service, Next.js panel and PostgreSQL 18
+canonical database. The panel covers games, symbols, versioned rules, paylines,
+symbol payout matrices, deterministic mock datasets, validation, preview and
+immutable publication. Android remains independent from this local platform.
 
 Start Docker Desktop first. The defaults work without environment variables.
 From the repository root, initialize PostgreSQL and its migration history:
@@ -92,7 +91,19 @@ npm run db:baseline:verify
 
 This command starts PostgreSQL if needed and recreates only the dedicated
 `game_predictor_baseline_test` and `game_predictor_catalog_test` databases. It
-never drops the development database `game_predictor`.
+also runs the isolated `game_predictor_m2_acceptance_test` database. It never
+drops the development database `game_predictor`.
+
+Run the complete M2 acceptance scenario separately with:
+
+```powershell
+npm run m2:acceptance
+```
+
+The scenario starts with an empty isolated database, creates the game, 12
+symbols, three paylines, complete payouts, published rules and a published
+1000-layout mock exclusively through the public Admin API. The isolated
+database is removed after the test.
 
 To run the full local platform, open two PowerShell terminals after migrating.
 
@@ -114,6 +125,24 @@ available locally at `http://127.0.0.1:8000/docs`.
 
 Game and symbol operations use the `/api/v1/admin/games` resource. `DELETE`
 archives a record and never physically removes it.
+
+Stop local PostgreSQL without deleting authored data:
+
+```powershell
+npm run db:down
+```
+
+To deliberately erase all domain data from the exact local development
+database `game_predictor` and recreate the current Alembic schema:
+
+```powershell
+npm run db:reset:local -- -ConfirmReset
+```
+
+The reset command refuses to run without `-ConfirmReset`, rejects a non-loopback
+URL and rejects every database name other than exactly `game_predictor`. It
+does not remove the Docker volume or any isolated test database. Back up any
+authored development data before using it.
 
 Configuration names and safe loopback defaults are documented in
 `.env.example`. Override them in the relevant PowerShell process when needed:

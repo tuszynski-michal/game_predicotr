@@ -59,6 +59,11 @@ Instalowalne APK z dołączonym SQLite: 3 gry, 1000 layoutów na grę, lokalny p
 Plan wykonania:
 [MILESTONE_02_EXECUTION_PLAN.md](MILESTONE_02_EXECUTION_PLAN.md)
 
+### Status
+
+Ukończony 2026-07-27. Końcowa bramka G2 przeszła na izolowanym fizycznym
+PostgreSQL przez publiczne Admin API, bez ręcznej mutacji danych SQL.
+
 M2 jest realizowany przez:
 
 1. **M2.1** — lokalną platformę administracyjną i kontrakt,
@@ -81,7 +86,9 @@ M2 jest realizowany przez:
 
 ### Rezultat
 
-Konfiguracja i mock data mogą być tworzone w panelu zamiast utrzymywane wyłącznie w fixture M1.
+Konfiguracja i mock data mogą być tworzone, walidowane, przeglądane i
+publikowane w panelu zamiast utrzymywane wyłącznie w fixture M1. Opublikowane
+wersje reguł i datasetów są niezmienne.
 
 ## M3 — Versioned mobile release pipeline
 

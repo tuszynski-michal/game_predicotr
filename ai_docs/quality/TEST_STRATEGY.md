@@ -127,6 +127,11 @@ Od M2, na testowym PostgreSQL:
 
 Nie tworzymy testów endpointów matching/forecast dla mobile, ponieważ takie endpointy nie istnieją.
 
+Końcowy odbiór M2 uruchamia jeden scenariusz przez publiczne endpointy HTTP i
+prawdziwy PostgreSQL: od pustych list, przez grę 3 × 5, 12 symboli, trzy
+paylines i komplet payoutów, do opublikowanych reguł oraz mock datasetu 1000
+layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
+
 ## Mobile tests
 
 ### Reducer/unit

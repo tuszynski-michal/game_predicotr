@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M2.4 complete; G2.4 passed; ready for TASK-0028`
+`M2 complete; G2 passed; ready for TASK-0029`
 
 ## Completed
 
@@ -312,6 +312,23 @@ last_updated: 2026-07-27
 - zaakceptowano D-031 definiującą keyset pagination, walidację pod blokadą i
   jawny lifecycle `staging → published → archived`,
 - zaliczono bramkę G2.4; M2.4 jest zamknięty, a kolejnym zakresem jest M2.5,
+- ukończono `TASK-0028`: izolowany scenariusz od pustej bazy przez publiczne
+  Admin API tworzy grę 3 × 5, 12 symboli z jokerem, trzy poziome paylines,
+  kompletne macierze payoutów, opublikowane reguły i opublikowany mock 1000
+  layoutów,
+- scenariusz potwierdza stabilne błędy niepełnej i zduplikowanej payline,
+  niezmienność reguł, sześć grup duplikatów datasetu oraz podgląd planszy 3 × 5,
+- dodano `npm run m2:acceptance` na automatycznie usuwanej bazie
+  `game_predictor_m2_acceptance_test` oraz jawnie potwierdzany
+  `db:reset:local`, który odrzuca brak potwierdzenia, inną nazwę bazy i
+  połączenie spoza loopback,
+- README opisuje kompletny bootstrap, start, odbiór, zatrzymanie i reset
+  lokalnej platformy bez usuwania volume,
+- TASK-0028 przeszedł pełną bramkę jakości: 129 standardowych testów Python,
+  63 mobile, 44 panelu, 23 wspólnej domeny i 7 klienta API, produkcyjny build
+  Next.js, osobny odbiór M2 oraz 3 fizyczne testy PostgreSQL,
+- zaliczono końcową bramkę G2; M2 jest ukończony 2026-07-27, a warunek wejścia
+  do M3 został spełniony,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -323,9 +340,9 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M2.5 oczekuje na polecenie rozpoczęcia TASK-0028.
+- brak aktywnego zadania; M3 oczekuje na polecenie rozpoczęcia TASK-0029.
 
-## Open but not blocking M2
+## Open but not blocking next milestones
 
 - Q-015–Q-017: reprezentatywny zbiór zdjęć, stabilność ekranu i etykiety treningowe,
 - Q-019: jeden czy wielu administratorów,
@@ -377,7 +394,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0028 — Admin configuration vertical slice acceptance`.
+`TASK-0029 — Job state machine and Admin API`.
 
 ## Do not start yet
 

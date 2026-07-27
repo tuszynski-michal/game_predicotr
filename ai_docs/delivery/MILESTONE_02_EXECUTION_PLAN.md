@@ -217,6 +217,7 @@ uszkodzonego stagingu oraz archiwizację bez utraty danych.
 ### Zadanie
 
 - `TASK-0028 — Admin configuration vertical slice acceptance`
+  — ukończone 2026-07-27
 
 ### Bramka G2
 
@@ -227,6 +228,12 @@ uszkodzonego stagingu oraz archiwizację bez utraty danych.
 - nie istnieje jeszcze automatyczny release pipeline ani import zdjęć,
 - demonstracja przechodzi od pustej bazy do dwóch opublikowanych wersji bez
   ręcznej zmiany danych SQL.
+
+**Status bramki:** G2 zaliczona 2026-07-27. Izolowany scenariusz HTTP na
+fizycznym PostgreSQL utworzył grę 3 × 5, 12 symboli, trzy poziome paylines,
+kompletne payouty, opublikowaną wersję reguł i opublikowany dataset 1000
+layoutów. Produkcyjny build panelu, OpenAPI, klient, migracje oraz pełna bramka
+jakości są zgodne.
 
 ## Mapa zadań M2
 

@@ -14,6 +14,10 @@ from game_predictor_api.domain.catalog import (
     GameStatus,
     SymbolStatus,
 )
+from game_predictor_api.domain.datasets import (
+    DatasetConflictError,
+    DatasetVersionStatus,
+)
 from game_predictor_api.domain.rules import (
     RulesConflictError,
     RulesVersionStatus,
@@ -349,6 +353,31 @@ def test_catalog_repository_uses_real_constraints(
                 (105, 999),
                 (106, 1000),
             }
+            first_page = dataset_service.list_layouts(
+                first_dataset.id,
+                after_sequence_number=0,
+                limit=10,
+            )
+            second_page = dataset_service.list_layouts(
+                first_dataset.id,
+                after_sequence_number=(
+                    first_page.next_after_sequence_number or 0
+                ),
+                limit=10,
+            )
+            assert [item.sequence_number for item in first_page.items] == list(
+                range(1, 11)
+            )
+            assert [item.sequence_number for item in second_page.items] == list(
+                range(11, 21)
+            )
+            published_dataset = dataset_service.publish_dataset_version(
+                first_dataset.id
+            )
+            assert (
+                published_dataset.status is DatasetVersionStatus.PUBLISHED
+            )
+            assert published_dataset.published_at is not None
             session.commit()
 
             corrupted = second_layouts[1]
@@ -372,7 +401,39 @@ def test_catalog_repository_uses_real_constraints(
                 "FOREIGN_SYMBOL",
                 "SIGNATURE_MISMATCH",
             }
+            with pytest.raises(DatasetConflictError) as publication_error:
+                dataset_service.publish_dataset_version(second_dataset.id)
+            assert (
+                publication_error.value.code == "DATASET_VERSION_NOT_READY"
+            )
             session.rollback()
+
+            archived_dataset = dataset_service.archive_dataset_version(
+                first_dataset.id
+            )
+            assert archived_dataset.status is DatasetVersionStatus.ARCHIVED
+            assert (
+                archived_dataset.published_at
+                == published_dataset.published_at
+            )
+            assert (
+                dataset_service.archive_dataset_version(first_dataset.id)
+                == archived_dataset
+            )
+            assert (
+                len(
+                    list(
+                        session.scalars(
+                            select(LayoutModel).where(
+                                LayoutModel.dataset_version_id
+                                == first_dataset.id
+                            )
+                        )
+                    )
+                )
+                == 1000
+            )
+            session.commit()
 
             archived = rules_service.archive_rules_version(first_rules.id)
             assert archived.status is RulesVersionStatus.ARCHIVED

@@ -183,6 +183,12 @@ Generator mocka zapisuje seed i wersję algorytmu, dzięki czemu powtórzenie ty
 samych wejść daje identyczny uporządkowany zestaw logiczny mimo nowych UUID i
 numeru wersji.
 
+Lifecycle wersji jest jawny: `staging → published → archived`. Publikacja
+ustawia serwerowy `published_at` po walidacji pod blokadą rekordu. Dataset
+`published` i jego layouty są niezmienne; archiwizacja zachowuje timestamp i
+rekordy potomne. Wiele historycznych wersji jednej gry może pozostać
+opublikowanych.
+
 ### layouts
 
 | Pole | Typ | Uwagi |
@@ -213,6 +219,10 @@ Indeksy:
 - unique `(dataset_version_id, sequence_number)`,
 - `(dataset_version_id, signature)` dla exact match i raportu duplikatów,
 - indeks dla prefix match wybrany po benchmarku reprezentacji.
+
+Administracyjny podgląd używa keyset pagination:
+`sequence_number > after_sequence_number`, kolejności rosnącej i bounded
+`limit`. Techniczny `id` nie definiuje kolejności ani kursora domenowego.
 
 ### layout_payouts
 

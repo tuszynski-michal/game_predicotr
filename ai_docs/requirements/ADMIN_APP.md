@@ -160,6 +160,12 @@ Warunki publikacji datasetu:
 - duplikaty treści layoutu są dozwolone i raportowane,
 - kolejność layoutów jest deterministyczna.
 
+Podgląd jest stronicowany w stabilnej kolejności `sequence_number` i pokazuje
+komórki row-major jako siatkę o wymiarach wersji. Przed publikacją panel ponownie
+pokazuje raport i wymaga jawnego potwierdzenia niezmienności. Publikacja ponownie
+waliduje dane po stronie serwera. Opublikowaną wersję można jawnie
+zarchiwizować; archiwizacja zachowuje `published_at` i wszystkie layouty.
+
 ### Jobs
 
 Administrator widzi zadania typu:

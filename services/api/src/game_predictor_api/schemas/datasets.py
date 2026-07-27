@@ -37,6 +37,22 @@ class DatasetVersionResponse(ApiModel):
     published_at: datetime | None
 
 
+class DatasetLayoutResponse(ApiModel):
+    sequence_number: int
+    signature: str
+    cells: tuple[int, ...]
+    source_board_id: UUID | None
+
+
+class DatasetLayoutPageResponse(ApiModel):
+    dataset_version_id: UUID
+    dataset_version: int
+    rows: int
+    columns: int
+    items: tuple[DatasetLayoutResponse, ...]
+    next_after_sequence_number: int | None
+
+
 class DatasetValidationCheckResponse(ApiModel):
     code: DatasetValidationCheckCode
     status: DatasetValidationCheckStatus

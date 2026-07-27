@@ -4,11 +4,12 @@ from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, Response, status
 
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.datasets import (
+    DatasetLayoutPageResponse,
     DatasetValidationReportResponse,
     DatasetVersionResponse,
     MockDatasetCreate,
@@ -81,6 +82,27 @@ def create_datasets_router(
         )
 
     @router.get(
+        "/dataset-versions/{dataset_version_id}/layouts",
+        response_model=DatasetLayoutPageResponse,
+        operation_id="listDatasetLayouts",
+        summary="List a stable page of dataset layouts",
+        responses=ERROR_RESPONSES,
+    )
+    def list_dataset_layouts(
+        dataset_version_id: UUID,
+        service: Annotated[DatasetService, service_parameter],
+        after_sequence_number: Annotated[int, Query(ge=0)] = 0,
+        limit: Annotated[int, Query(ge=1, le=100)] = 25,
+    ) -> DatasetLayoutPageResponse:
+        return DatasetLayoutPageResponse.model_validate(
+            service.list_layouts(
+                dataset_version_id,
+                after_sequence_number=after_sequence_number,
+                limit=limit,
+            )
+        )
+
+    @router.get(
         "/dataset-versions/{dataset_version_id}/validation-report",
         response_model=DatasetValidationReportResponse,
         operation_id="getDatasetValidationReport",
@@ -94,5 +116,34 @@ def create_datasets_router(
         return DatasetValidationReportResponse.model_validate(
             service.get_validation_report(dataset_version_id)
         )
+
+    @router.post(
+        "/dataset-versions/{dataset_version_id}/publish",
+        response_model=DatasetVersionResponse,
+        operation_id="publishDatasetVersion",
+        summary="Validate and publish an immutable dataset version",
+        responses=ERROR_RESPONSES,
+    )
+    def publish_dataset_version(
+        dataset_version_id: UUID,
+        service: Annotated[DatasetService, service_parameter],
+    ) -> DatasetVersionResponse:
+        return DatasetVersionResponse.model_validate(
+            service.publish_dataset_version(dataset_version_id)
+        )
+
+    @router.delete(
+        "/dataset-versions/{dataset_version_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        operation_id="archiveDatasetVersion",
+        summary="Archive a published dataset version",
+        responses=ERROR_RESPONSES,
+    )
+    def archive_dataset_version(
+        dataset_version_id: UUID,
+        service: Annotated[DatasetService, service_parameter],
+    ) -> Response:
+        service.archive_dataset_version(dataset_version_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router

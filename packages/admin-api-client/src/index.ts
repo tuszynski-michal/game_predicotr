@@ -1,5 +1,6 @@
 import { createClient as createGeneratedClient } from './generated/client';
 import {
+  archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
   archivePayoutRule as archiveGeneratedPayoutRule,
@@ -21,6 +22,7 @@ import {
   getRulesVersion as getGeneratedRulesVersion,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
+  listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
   listPaylines as listGeneratedPaylines,
   listPayoutRules as listGeneratedPayoutRules,
@@ -28,6 +30,7 @@ import {
   listRulesVersionSymbols as listGeneratedRulesVersionSymbols,
   listSymbols as listGeneratedSymbols,
   publishRulesVersion as publishGeneratedRulesVersion,
+  publishDatasetVersion as publishGeneratedDatasetVersion,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
   updatePayoutRule as updateGeneratedPayoutRule,
@@ -51,6 +54,8 @@ import type {
 } from './generated/types.gen';
 
 export type {
+  DatasetLayoutPageResponse,
+  DatasetLayoutResponse,
   DatasetVersionResponse,
   DatasetValidationCheckCode,
   DatasetValidationCheckResponse,
@@ -157,6 +162,29 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getDatasetValidationReport: (datasetVersionId: string) =>
       getGeneratedDatasetValidationReport({
+        client,
+        path: { dataset_version_id: datasetVersionId },
+      }),
+    listDatasetLayouts: (
+      datasetVersionId: string,
+      afterSequenceNumber = 0,
+      limit = 25,
+    ) =>
+      listGeneratedDatasetLayouts({
+        client,
+        path: { dataset_version_id: datasetVersionId },
+        query: {
+          after_sequence_number: afterSequenceNumber,
+          limit,
+        },
+      }),
+    publishDatasetVersion: (datasetVersionId: string) =>
+      publishGeneratedDatasetVersion({
+        client,
+        path: { dataset_version_id: datasetVersionId },
+      }),
+    archiveDatasetVersion: (datasetVersionId: string) =>
+      archiveGeneratedDatasetVersion({
         client,
         path: { dataset_version_id: datasetVersionId },
       }),

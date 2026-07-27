@@ -63,6 +63,17 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         )
         return None if record is None else _to_dataset_version(record)
 
+    def get_dataset_version_for_update(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion | None:
+        record = self._session.scalar(
+            select(DatasetVersionModel)
+            .where(DatasetVersionModel.id == dataset_version_id)
+            .with_for_update()
+        )
+        return None if record is None else _to_dataset_version(record)
+
     def get_generation_source(
         self,
         game_id: UUID,
@@ -161,6 +172,68 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         )
         if dataset_record is None:
             return None
+        return self._validation_source(dataset_record)
+
+    def get_locked_validation_source(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationSource | None:
+        dataset_record = self._session.scalar(
+            select(DatasetVersionModel)
+            .where(DatasetVersionModel.id == dataset_version_id)
+            .with_for_update()
+        )
+        if dataset_record is None:
+            return None
+        return self._validation_source(dataset_record)
+
+    def list_layouts(
+        self,
+        dataset_version_id: UUID,
+        *,
+        after_sequence_number: int,
+        limit: int,
+    ) -> list[LayoutValidationRecord]:
+        records = self._session.scalars(
+            select(LayoutModel)
+            .where(
+                LayoutModel.dataset_version_id == dataset_version_id,
+                LayoutModel.sequence_number > after_sequence_number,
+            )
+            .order_by(LayoutModel.sequence_number, LayoutModel.id)
+            .limit(limit)
+        )
+        return [
+            LayoutValidationRecord(
+                sequence_number=record.sequence_number,
+                signature=record.signature,
+                cells=tuple(record.cells),
+                source_board_id=record.source_board_id,
+            )
+            for record in records
+        ]
+
+    def save_dataset_version(
+        self,
+        dataset_version: DatasetVersion,
+    ) -> DatasetVersion:
+        record = self._session.get(
+            DatasetVersionModel,
+            dataset_version.id,
+        )
+        if record is None:
+            raise RuntimeError(
+                "Dataset version disappeared during a transaction."
+            )
+        record.status = dataset_version.status
+        record.published_at = dataset_version.published_at
+        self._flush_or_raise_conflict()
+        return _to_dataset_version(record)
+
+    def _validation_source(
+        self,
+        dataset_record: DatasetVersionModel,
+    ) -> DatasetValidationSource:
         allowed_codes = tuple(
             self._session.scalars(
                 select(SymbolModel.mobile_code)
@@ -170,7 +243,9 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         )
         layout_records = self._session.scalars(
             select(LayoutModel)
-            .where(LayoutModel.dataset_version_id == dataset_version_id)
+            .where(
+                LayoutModel.dataset_version_id == dataset_record.id
+            )
             .order_by(LayoutModel.sequence_number, LayoutModel.id)
         )
         return DatasetValidationSource(
@@ -181,6 +256,7 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
                     sequence_number=record.sequence_number,
                     signature=record.signature,
                     cells=tuple(record.cells),
+                    source_board_id=record.source_board_id,
                 )
                 for record in layout_records
             ),

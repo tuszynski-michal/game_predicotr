@@ -470,6 +470,62 @@ Endpoint działa wyłącznie dla obecnego bounded `mock-v1`. Inny generator zwra
 kontraktem dla importów i dużych datasetów wykonywanym przez worker; nie jest
 częścią OpenAPI TASK-0026.
 
+### Dataset preview
+
+```text
+GET /api/v1/admin/dataset-versions/{datasetVersionId}/layouts
+    ?after_sequence_number=0&limit=25
+```
+
+`after_sequence_number` ma minimum `0`, a `limit` zakres `1..100`. Endpoint
+używa keyset pagination i zwraca rekordy rosnąco po domenowym
+`sequenceNumber`. `nextAfterSequenceNumber` jest numerem ostatniego rekordu
+bieżącej strony tylko wtedy, gdy istnieje następna strona; w przeciwnym razie
+ma wartość `null`.
+
+```json
+{
+  "datasetVersionId": "uuid",
+  "datasetVersion": 1,
+  "rows": 3,
+  "columns": 5,
+  "items": [
+    {
+      "sequenceNumber": 1,
+      "signature": "0102...",
+      "cells": [1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+      "sourceBoardId": null
+    }
+  ],
+  "nextAfterSequenceNumber": 25
+}
+```
+
+### Dataset publication
+
+```text
+POST   /api/v1/admin/dataset-versions/{datasetVersionId}/publish
+DELETE /api/v1/admin/dataset-versions/{datasetVersionId}
+```
+
+POST blokuje rekord `dataset_versions`, wymaga statusu `staging`, uruchamia
+ponownie ten sam walidator co raport i atomowo ustawia `published` oraz
+serwerowy `publishedAt`. Ostrzeżenie `DUPLICATE_SIGNATURE` nie blokuje
+publikacji. Każda blokada zwraca `409 DATASET_VERSION_NOT_READY` z listą
+problemów, bez zmiany statusu i timestampu. Stabilne błędy lifecycle:
+
+```text
+DATASET_VERSION_NOT_FOUND
+DATASET_VERSION_NOT_STAGING
+DATASET_VERSION_NOT_READY
+DATASET_PUBLICATION_REQUIRES_JOB
+DATASET_VERSION_NOT_PUBLISHED
+```
+
+DELETE jest idempotentną archiwizacją wersji opublikowanej i zwraca `204`.
+Zachowuje `publishedAt` i wszystkie layouty. Wersji stagingowej nie archiwizuje
+ten endpoint; odrzucanie importu pozostaje osobną operacją workflow importu.
+
 ## Job status
 
 ### GET `/api/v1/admin/jobs/{jobId}`

@@ -1,6 +1,96 @@
 {
   "components": {
     "schemas": {
+      "DatasetLayoutPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "datasetVersion": {
+            "title": "Datasetversion",
+            "type": "integer"
+          },
+          "datasetVersionId": {
+            "format": "uuid",
+            "title": "Datasetversionid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetLayoutResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextAfterSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextaftersequencenumber"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "datasetVersionId",
+          "datasetVersion",
+          "rows",
+          "columns",
+          "items",
+          "nextAfterSequenceNumber"
+        ],
+        "title": "DatasetLayoutPageResponse",
+        "type": "object"
+      },
+      "DatasetLayoutResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          },
+          "sourceBoardId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceboardid"
+          }
+        },
+        "required": [
+          "sequenceNumber",
+          "signature",
+          "cells",
+          "sourceBoardId"
+        ],
+        "title": "DatasetLayoutResponse",
+        "type": "object"
+      },
       "DatasetValidationCheckCode": {
         "enum": [
           "LAYOUT_COUNT_MISMATCH",
@@ -1202,6 +1292,60 @@
   "openapi": "3.1.0",
   "paths": {
     "/api/v1/admin/dataset-versions/{dataset_version_id}": {
+      "delete": {
+        "operationId": "archiveDatasetVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Archive a published dataset version",
+        "tags": [
+          "datasets"
+        ]
+      },
       "get": {
         "operationId": "getDatasetVersion",
         "parameters": [
@@ -1259,6 +1403,155 @@
           }
         },
         "summary": "Get a dataset version",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/admin/dataset-versions/{dataset_version_id}/layouts": {
+      "get": {
+        "operationId": "listDatasetLayouts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_sequence_number",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After Sequence Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetLayoutPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List a stable page of dataset layouts",
+        "tags": [
+          "datasets"
+        ]
+      }
+    },
+    "/api/v1/admin/dataset-versions/{dataset_version_id}/publish": {
+      "post": {
+        "operationId": "publishDatasetVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dataset Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Dataset state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Validate and publish an immutable dataset version",
         "tags": [
           "datasets"
         ]

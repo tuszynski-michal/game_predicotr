@@ -170,7 +170,7 @@ def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
     ]
 
 
-def test_datasets_openapi_exposes_bounded_mock_staging_operations() -> None:
+def test_datasets_openapi_exposes_preview_and_publication_operations() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     expected_operations = {
         (
@@ -185,6 +185,18 @@ def test_datasets_openapi_exposes_bounded_mock_staging_operations() -> None:
             "/api/v1/admin/dataset-versions/{dataset_version_id}",
             "get",
         ): "getDatasetVersion",
+        (
+            "/api/v1/admin/dataset-versions/{dataset_version_id}",
+            "delete",
+        ): "archiveDatasetVersion",
+        (
+            "/api/v1/admin/dataset-versions/{dataset_version_id}/layouts",
+            "get",
+        ): "listDatasetLayouts",
+        (
+            "/api/v1/admin/dataset-versions/{dataset_version_id}/publish",
+            "post",
+        ): "publishDatasetVersion",
         (
             "/api/v1/admin/dataset-versions/{dataset_version_id}/validation-report",
             "get",
@@ -204,3 +216,22 @@ def test_datasets_openapi_exposes_bounded_mock_staging_operations() -> None:
     ]
     assert "readyForPublication" in report_schema["required"]
     assert "duplicateSignatures" in report_schema["required"]
+    page_schema = schema["components"]["schemas"][
+        "DatasetLayoutPageResponse"
+    ]
+    assert page_schema["required"] == [
+        "datasetVersionId",
+        "datasetVersion",
+        "rows",
+        "columns",
+        "items",
+        "nextAfterSequenceNumber",
+    ]
+    layout_operation = schema["paths"][
+        "/api/v1/admin/dataset-versions/{dataset_version_id}/layouts"
+    ]["get"]
+    parameters = {
+        parameter["name"]: parameter for parameter in layout_operation["parameters"]
+    }
+    assert parameters["after_sequence_number"]["schema"]["minimum"] == 0
+    assert parameters["limit"]["schema"]["maximum"] == 100

@@ -5,6 +5,7 @@ import type {
   DatasetVersionResponse,
   GameResponse,
   RulesVersionResponse,
+  SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import {
   type FormEvent,
@@ -19,6 +20,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   type DatasetsClient,
+  archiveDataset,
   generateMockDataset,
   getDatasetValidationReport,
 } from '@/features/datasets/dataset-actions';
@@ -30,6 +32,8 @@ import {
 } from '@/features/datasets/dataset-state';
 import { selectRulesGameId } from '@/features/rules/rules-version-state';
 import { DatasetValidationReport } from '@/features/datasets/dataset-validation-report';
+import { DatasetPreviewModal } from '@/features/datasets/dataset-preview-modal';
+import { DatasetPublicationModal } from '@/features/datasets/dataset-publication-modal';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
@@ -53,6 +57,7 @@ export function DatasetCatalog({
   const [rulesVersions, setRulesVersions] = useState<
     readonly RulesVersionResponse[]
   >([]);
+  const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [datasets, setDatasets] = useState<readonly DatasetVersionResponse[]>(
     [],
   );
@@ -72,6 +77,14 @@ export function DatasetCatalog({
     readonly datasetId: string;
     readonly message: string;
   } | null>(null);
+  const [previewDataset, setPreviewDataset] =
+    useState<DatasetVersionResponse | null>(null);
+  const [publicationDataset, setPublicationDataset] =
+    useState<DatasetVersionResponse | null>(null);
+  const [archiveCandidateId, setArchiveCandidateId] = useState<string | null>(
+    null,
+  );
+  const [archivingId, setArchivingId] = useState<string | null>(null);
   const requestId = useRef(0);
   const validationRequestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -109,20 +122,23 @@ export function DatasetCatalog({
       setLoadState('loading');
       setError('');
       try {
-        const [rulesResult, datasetsResult] = await Promise.all([
+        const [rulesResult, datasetsResult, symbolsResult] = await Promise.all([
           api.listRulesVersions(gameId),
           api.listDatasetVersions(gameId),
+          api.listSymbols(gameId),
         ]);
         if (currentRequest !== requestId.current) return;
         if (
           rulesResult.error !== undefined ||
           rulesResult.data === undefined ||
           datasetsResult.error !== undefined ||
-          datasetsResult.data === undefined
+          datasetsResult.data === undefined ||
+          symbolsResult.error !== undefined ||
+          symbolsResult.data === undefined
         ) {
           setError(
             apiErrorMessage(
-              rulesResult.error ?? datasetsResult.error,
+              rulesResult.error ?? datasetsResult.error ?? symbolsResult.error,
               'Nie udało się pobrać workspace datasetów.',
             ),
           );
@@ -137,6 +153,7 @@ export function DatasetCatalog({
             : (published[0]?.id ?? ''),
         );
         setDatasets(datasetsResult.data);
+        setSymbols(symbolsResult.data);
         setValidationReports({});
         setValidationError(null);
         setLoadState('ready');
@@ -232,6 +249,30 @@ export function DatasetCatalog({
       ...current,
       [datasetId]: result.report,
     }));
+  }
+
+  function onPublished(dataset: DatasetVersionResponse) {
+    setDatasets((current) => upsertDatasetVersion(current, dataset));
+    setPublicationDataset(null);
+    setFeedback(`Opublikowano niezmienny dataset v${dataset.version}.`);
+  }
+
+  async function confirmArchive(dataset: DatasetVersionResponse) {
+    if (mutationInProgress.current || dataset.status !== 'published') return;
+    mutationInProgress.current = true;
+    setArchivingId(dataset.id);
+    setError('');
+    setFeedback('');
+    const result = await archiveDataset(api, dataset);
+    mutationInProgress.current = false;
+    setArchivingId(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setDatasets((current) => upsertDatasetVersion(current, result.dataset));
+    setArchiveCandidateId(null);
+    setFeedback(`Zarchiwizowano dataset v${dataset.version}.`);
   }
 
   const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
@@ -366,7 +407,8 @@ export function DatasetCatalog({
               <div className="listHeader">
                 <h2>Historia datasetów</h2>
                 <p>
-                  Na tym etapie wszystkie wygenerowane wersje są stagingowe.
+                  Opublikowane wersje są niezmienne; archiwizacja zachowuje
+                  layouty i czas publikacji.
                 </p>
               </div>
               {datasets.map((dataset) => (
@@ -391,18 +433,68 @@ export function DatasetCatalog({
                         {dataset.generatorVersion}
                       </p>
                     </div>
-                    <button
-                      className="secondaryButton"
-                      disabled={validatingDatasetId !== null}
-                      onClick={() => void onValidate(dataset.id)}
-                      type="button"
-                    >
-                      {validatingDatasetId === dataset.id
-                        ? 'Sprawdzanie…'
-                        : validationReports[dataset.id]
-                          ? 'Sprawdź ponownie'
-                          : 'Sprawdź integralność'}
-                    </button>
+                    <div className="rowActions">
+                      <button
+                        className="secondaryButton"
+                        onClick={() => setPreviewDataset(dataset)}
+                        type="button"
+                      >
+                        Podgląd
+                      </button>
+                      <button
+                        className="secondaryButton"
+                        disabled={validatingDatasetId !== null}
+                        onClick={() => void onValidate(dataset.id)}
+                        type="button"
+                      >
+                        {validatingDatasetId === dataset.id
+                          ? 'Sprawdzanie…'
+                          : validationReports[dataset.id]
+                            ? 'Sprawdź ponownie'
+                            : 'Sprawdź integralność'}
+                      </button>
+                      {dataset.status === 'staging' ? (
+                        <button
+                          className="primaryButton"
+                          onClick={() => setPublicationDataset(dataset)}
+                          type="button"
+                        >
+                          Publikuj
+                        </button>
+                      ) : dataset.status === 'published' &&
+                        archiveCandidateId === dataset.id ? (
+                        <>
+                          <button
+                            className="textButton"
+                            disabled={archivingId === dataset.id}
+                            onClick={() => setArchiveCandidateId(null)}
+                            type="button"
+                          >
+                            Anuluj
+                          </button>
+                          <button
+                            className="dangerButton"
+                            disabled={archivingId === dataset.id}
+                            onClick={() => void confirmArchive(dataset)}
+                            type="button"
+                          >
+                            {archivingId === dataset.id
+                              ? 'Archiwizowanie…'
+                              : 'Potwierdź archiwizację'}
+                          </button>
+                        </>
+                      ) : dataset.status === 'published' ? (
+                        <button
+                          className="textButton"
+                          onClick={() => setArchiveCandidateId(dataset.id)}
+                          type="button"
+                        >
+                          Archiwizuj
+                        </button>
+                      ) : (
+                        <span className="immutableLabel">Tylko do odczytu</span>
+                      )}
+                    </div>
                   </div>
                   {validationError?.datasetId === dataset.id ? (
                     <p
@@ -427,6 +519,22 @@ export function DatasetCatalog({
           ) : null}
         </>
       )}
+      {previewDataset ? (
+        <DatasetPreviewModal
+          api={api}
+          dataset={previewDataset}
+          onClose={() => setPreviewDataset(null)}
+          symbols={symbols}
+        />
+      ) : null}
+      {publicationDataset ? (
+        <DatasetPublicationModal
+          api={api}
+          dataset={publicationDataset}
+          onClose={() => setPublicationDataset(null)}
+          onPublished={onPublished}
+        />
+      ) : null}
     </section>
   );
 }

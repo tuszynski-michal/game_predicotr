@@ -5,6 +5,58 @@ export type ClientOptions = {
 };
 
 /**
+ * DatasetLayoutPageResponse
+ */
+export type DatasetLayoutPageResponse = {
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Datasetversion
+   */
+  datasetVersion: number;
+  /**
+   * Datasetversionid
+   */
+  datasetVersionId: string;
+  /**
+   * Items
+   */
+  items: Array<DatasetLayoutResponse>;
+  /**
+   * Nextaftersequencenumber
+   */
+  nextAfterSequenceNumber: number | null;
+  /**
+   * Rows
+   */
+  rows: number;
+};
+
+/**
+ * DatasetLayoutResponse
+ */
+export type DatasetLayoutResponse = {
+  /**
+   * Cells
+   */
+  cells: Array<number>;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Signature
+   */
+  signature: string;
+  /**
+   * Sourceboardid
+   */
+  sourceBoardId: string | null;
+};
+
+/**
  * DatasetValidationCheckCode
  */
 export type DatasetValidationCheckCode =
@@ -696,6 +748,46 @@ export type SymbolUpdate = {
   status?: SymbolStatus | null;
 };
 
+export type ArchiveDatasetVersionData = {
+  body?: never;
+  path: {
+    /**
+     * Dataset Version Id
+     */
+    dataset_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/dataset-versions/{dataset_version_id}';
+};
+
+export type ArchiveDatasetVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ArchiveDatasetVersionError =
+  ArchiveDatasetVersionErrors[keyof ArchiveDatasetVersionErrors];
+
+export type ArchiveDatasetVersionResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ArchiveDatasetVersionResponse =
+  ArchiveDatasetVersionResponses[keyof ArchiveDatasetVersionResponses];
+
 export type GetDatasetVersionData = {
   body?: never;
   path: {
@@ -735,6 +827,95 @@ export type GetDatasetVersionResponses = {
 
 export type GetDatasetVersionResponse =
   GetDatasetVersionResponses[keyof GetDatasetVersionResponses];
+
+export type ListDatasetLayoutsData = {
+  body?: never;
+  path: {
+    /**
+     * Dataset Version Id
+     */
+    dataset_version_id: string;
+  };
+  query?: {
+    /**
+     * After Sequence Number
+     */
+    after_sequence_number?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/dataset-versions/{dataset_version_id}/layouts';
+};
+
+export type ListDatasetLayoutsErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListDatasetLayoutsError =
+  ListDatasetLayoutsErrors[keyof ListDatasetLayoutsErrors];
+
+export type ListDatasetLayoutsResponses = {
+  /**
+   * Successful Response
+   */
+  200: DatasetLayoutPageResponse;
+};
+
+export type ListDatasetLayoutsResponse =
+  ListDatasetLayoutsResponses[keyof ListDatasetLayoutsResponses];
+
+export type PublishDatasetVersionData = {
+  body?: never;
+  path: {
+    /**
+     * Dataset Version Id
+     */
+    dataset_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/dataset-versions/{dataset_version_id}/publish';
+};
+
+export type PublishDatasetVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Dataset state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PublishDatasetVersionError =
+  PublishDatasetVersionErrors[keyof PublishDatasetVersionErrors];
+
+export type PublishDatasetVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: DatasetVersionResponse;
+};
+
+export type PublishDatasetVersionResponse =
+  PublishDatasetVersionResponses[keyof PublishDatasetVersionResponses];
 
 export type GetDatasetValidationReportData = {
   body?: never;

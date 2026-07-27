@@ -5,8 +5,8 @@ from __future__ import annotations
 import random
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -64,7 +64,7 @@ class DatasetNotFoundError(DatasetError):
 
 
 class DatasetConflictError(DatasetError):
-    """Current state cannot be used for deterministic generation."""
+    """Current state cannot be used for the requested dataset operation."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +106,17 @@ class LayoutValidationRecord:
     sequence_number: int
     signature: str
     cells: tuple[int, ...]
+    source_board_id: UUID | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetLayoutPage:
+    dataset_version_id: UUID
+    dataset_version: int
+    rows: int
+    columns: int
+    items: tuple[LayoutValidationRecord, ...]
+    next_after_sequence_number: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +160,36 @@ class DatasetValidationReport:
     duplicate_signature_excess_layout_count: int
     duplicate_signatures: tuple[DuplicateSignatureGroup, ...]
     duplicate_signatures_truncated: bool
+
+
+def publish_dataset_version(
+    dataset: DatasetVersion,
+    *,
+    published_at: datetime | None = None,
+) -> DatasetVersion:
+    if dataset.status is not DatasetVersionStatus.STAGING:
+        raise DatasetConflictError(
+            "DATASET_VERSION_NOT_STAGING",
+            "Only a staging dataset version can be published.",
+            details={"datasetVersionId": str(dataset.id)},
+        )
+    return replace(
+        dataset,
+        status=DatasetVersionStatus.PUBLISHED,
+        published_at=published_at or datetime.now(UTC),
+    )
+
+
+def archive_dataset_version(dataset: DatasetVersion) -> DatasetVersion:
+    if dataset.status is DatasetVersionStatus.ARCHIVED:
+        return dataset
+    if dataset.status is not DatasetVersionStatus.PUBLISHED:
+        raise DatasetConflictError(
+            "DATASET_VERSION_NOT_PUBLISHED",
+            "Only a published dataset version can be archived.",
+            details={"datasetVersionId": str(dataset.id)},
+        )
+    return replace(dataset, status=DatasetVersionStatus.ARCHIVED)
 
 
 def validate_generation_seed(seed: int) -> int:

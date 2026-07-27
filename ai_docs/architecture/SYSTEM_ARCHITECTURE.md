@@ -259,10 +259,13 @@ każdym spinie.
 - raport integralności i publikacja datasetu używają tego samego czystego
   walidatora; bounded `mock-v1` może zostać sprawdzony synchronicznie, ale
   importy i duże datasety przechodzą przez worker/job,
+- publikacja datasetu oraz każda przyszła mutacja jego stagingu blokują ten sam
+  rekord `dataset_versions`; publikacja atomowo ustawia status i czas,
 - raport datasetu zachowuje dokładne liczniki, ogranicza wyłącznie próbki
   diagnostyczne i traktuje duplikaty sygnatur jako ostrzeżenie,
-- niegotowa wersja reguł pozostaje draftem bez `published_at`, a jawna
-  archiwizacja opublikowanej wersji zachowuje czas publikacji,
+- niegotowa wersja reguł pozostaje draftem, a niegotowy dataset stagingiem bez
+  `published_at`; jawna archiwizacja opublikowanej wersji zachowuje czas
+  publikacji i dane potomne,
 - staging nie trafia do mobile,
 - snapshot zawiera manifest wersji i checksumę,
 - aplikacja odmawia obliczeń przy niezgodnym lub uszkodzonym schemacie,

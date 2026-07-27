@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ArchiveDatasetVersionData,
+  ArchiveDatasetVersionErrors,
+  ArchiveDatasetVersionResponses,
   ArchiveGameData,
   ArchiveGameErrors,
   ArchiveGameResponses,
@@ -68,6 +71,9 @@ import type {
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolResponses,
+  ListDatasetLayoutsData,
+  ListDatasetLayoutsErrors,
+  ListDatasetLayoutsResponses,
   ListDatasetVersionsData,
   ListDatasetVersionsErrors,
   ListDatasetVersionsResponses,
@@ -88,6 +94,9 @@ import type {
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
+  PublishDatasetVersionData,
+  PublishDatasetVersionErrors,
+  PublishDatasetVersionResponses,
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
@@ -130,6 +139,22 @@ export type Options<
 };
 
 /**
+ * Archive a published dataset version
+ */
+export const archiveDatasetVersion = <ThrowOnError extends boolean = false>(
+  options: Options<ArchiveDatasetVersionData, ThrowOnError>,
+): RequestResult<
+  ArchiveDatasetVersionResponses,
+  ArchiveDatasetVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    ArchiveDatasetVersionResponses,
+    ArchiveDatasetVersionErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/dataset-versions/{dataset_version_id}', ...options });
+
+/**
  * Get a dataset version
  */
 export const getDatasetVersion = <ThrowOnError extends boolean = false>(
@@ -144,6 +169,44 @@ export const getDatasetVersion = <ThrowOnError extends boolean = false>(
     GetDatasetVersionErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/dataset-versions/{dataset_version_id}', ...options });
+
+/**
+ * List a stable page of dataset layouts
+ */
+export const listDatasetLayouts = <ThrowOnError extends boolean = false>(
+  options: Options<ListDatasetLayoutsData, ThrowOnError>,
+): RequestResult<
+  ListDatasetLayoutsResponses,
+  ListDatasetLayoutsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListDatasetLayoutsResponses,
+    ListDatasetLayoutsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/dataset-versions/{dataset_version_id}/layouts',
+    ...options,
+  });
+
+/**
+ * Validate and publish an immutable dataset version
+ */
+export const publishDatasetVersion = <ThrowOnError extends boolean = false>(
+  options: Options<PublishDatasetVersionData, ThrowOnError>,
+): RequestResult<
+  PublishDatasetVersionResponses,
+  PublishDatasetVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PublishDatasetVersionResponses,
+    PublishDatasetVersionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/dataset-versions/{dataset_version_id}/publish',
+    ...options,
+  });
 
 /**
  * Validate a bounded staging dataset

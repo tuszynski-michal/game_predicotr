@@ -190,6 +190,7 @@ Status: `passed` (2026-07-27).
 - `TASK-0026 — Sequence and duplicate validation reports`
   — ukończone 2026-07-27
 - `TASK-0027 — Dataset preview and immutable publication`
+  — ukończone 2026-07-27
 
 ### Bramka G2.4
 
@@ -199,6 +200,10 @@ Status: `passed` (2026-07-27).
 - luka, duplikat numeru, obcy symbol lub zła liczba komórek blokują publikację,
 - powtórzenie generatora z tym samym seedem daje ten sam logiczny dataset,
 - publikacja jest transakcyjna i nie modyfikuje wersji po fakcie.
+
+**Status bramki:** zaliczona 2026-07-27. Fizyczny PostgreSQL potwierdził
+stabilne strony, publikację mocka z dozwolonym ostrzeżeniem, odrzucenie
+uszkodzonego stagingu oraz archiwizację bez utraty danych.
 
 ## M2.5 — Zintegrowany odbiór panelu
 

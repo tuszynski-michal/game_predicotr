@@ -571,6 +571,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   zachowują kontrakt validation job realizowany przez workera w późniejszym
   milestone. Panel nie wylicza integralności samodzielnie.
 
+## D-031 — Keyset preview and atomic dataset publication
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** podgląd layoutów używa bounded keyset pagination po domenowym
+  `sequence_number`, a nie offsetu ani technicznego UUID. Publikacja blokuje
+  rekord `dataset_versions`, ponownie uruchamia wspólny walidator i atomowo
+  wykonuje `staging → published` z serwerowym `published_at`. Ostrzeżenia o
+  duplikatach sygnatur nie blokują publikacji. Wiele opublikowanych datasetów
+  jednej gry może współistnieć. Archiwizacja jest idempotentnym przejściem
+  `published → archived` i zachowuje timestamp oraz layouty.
+- **Context:** preflight z TASK-0026 poprawia obsługę panelu, ale dane mogłyby
+  zmienić się pomiędzy raportem a publikacją. Podgląd musi zachować porządek
+  istotny dla algorytmu także po wzroście liczby rekordów.
+- **Reason:** wspólna walidacja pod blokadą usuwa drift i wyścig publikacji, a
+  kursor domenowy daje stabilny oraz indeksowalny odczyt bez kosztu rosnącego
+  offsetu. Archiwizacja bez usuwania zachowuje audyt i przyszłe odtwarzanie
+  snapshotu.
+- **Alternatives:** walidacja wyłącznie przed publikacją, offset pagination,
+  automatyczne wycofanie poprzedniej wersji, fizyczne usuwanie wersji lub
+  layoutów.
+- **Consequences:** ponowna publikacja wersji innej niż staging jest odrzucana.
+  Nie istnieje publiczny endpoint mutacji layoutów; każda przyszła mutacja musi
+  blokować ten sam rekord rodzica. Duże importy nadal wymagają validation job,
+  lecz zachowają ten sam warunek gotowości.
+
 ## Szablon nowej decyzji
 
 ```text

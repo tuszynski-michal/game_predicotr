@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M2.4 in progress; ready for TASK-0027`
+`M2.4 complete; G2.4 passed; ready for TASK-0028`
 
 ## Completed
 
@@ -297,6 +297,21 @@ last_updated: 2026-07-27
   fizyczne testy PostgreSQL z kontrolowanym uszkodzeniem i rollbackiem stagingu,
 - zaakceptowano D-030: raport synchroniczny jest ograniczony do bounded
   `mock-v1`, a importy i duże datasety zachowują ścieżkę validation job workera,
+- ukończono `TASK-0027`: layouty są stronicowane stabilnym kursorem
+  `sequence_number` i prezentowane w panelu jako siatka row-major z nazwami
+  symboli,
+- publikacja datasetu blokuje rekord wersji, ponownie uruchamia wspólny
+  walidator i atomowo ustawia `published/published_at`; sześć ostrzeżeń o
+  duplikatach mocka nie blokuje publikacji, a kontrolowane uszkodzenie pozostawia
+  wersję stagingową,
+- archiwizacja jest idempotentna, zachowuje czas publikacji i wszystkie layouty;
+  fizyczny PostgreSQL potwierdził również stabilne strony bez nakładania,
+- TASK-0027 przeszedł pełną bramkę jakości: 129 testów Python, 63 mobile, 44
+  panelu, 23 wspólnej domeny i 7 klienta API, produkcyjny build Next.js oraz 2
+  fizyczne testy PostgreSQL,
+- zaakceptowano D-031 definiującą keyset pagination, walidację pod blokadą i
+  jawny lifecycle `staging → published → archived`,
+- zaliczono bramkę G2.4; M2.4 jest zamknięty, a kolejnym zakresem jest M2.5,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -308,7 +323,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M2.4 oczekuje na polecenie rozpoczęcia TASK-0027.
+- brak aktywnego zadania; M2.5 oczekuje na polecenie rozpoczęcia TASK-0028.
 
 ## Open but not blocking M2
 
@@ -361,8 +376,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po poleceniu właściciela rozpocząć
-`TASK-0027 — Dataset preview and immutable publication`.
+Po kolejnym poleceniu właściciela rozpocząć
+`TASK-0028 — Admin configuration vertical slice acceptance`.
 
 ## Do not start yet
 

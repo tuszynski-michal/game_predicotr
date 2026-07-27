@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.datasets import (
     DatasetConflictError,
+    DatasetLayoutPage,
     DatasetNotFoundError,
     DatasetValidationCheck,
     DatasetValidationCheckCode,
@@ -12,6 +13,7 @@ from game_predictor_api.domain.datasets import (
     DatasetValidationReport,
     DatasetVersion,
     DatasetVersionStatus,
+    LayoutValidationRecord,
 )
 from game_predictor_api.main import create_app
 
@@ -107,6 +109,96 @@ class FakeDatasetService:
             duplicate_signatures_truncated=False,
         )
 
+    def list_layouts(
+        self,
+        dataset_version_id: UUID,
+        *,
+        after_sequence_number: int,
+        limit: int,
+    ) -> DatasetLayoutPage:
+        item = self.get_dataset_version(dataset_version_id)
+        records = tuple(
+            LayoutValidationRecord(
+                sequence_number=sequence_number,
+                signature=f"{sequence_number:02d}" * 15,
+                cells=tuple([sequence_number] * 15),
+            )
+            for sequence_number in range(
+                after_sequence_number + 1,
+                min(after_sequence_number + limit, 3) + 1,
+            )
+        )
+        return DatasetLayoutPage(
+            dataset_version_id=item.id,
+            dataset_version=item.version,
+            rows=item.rows,
+            columns=item.columns,
+            items=records,
+            next_after_sequence_number=(
+                records[-1].sequence_number
+                if records and records[-1].sequence_number < 3
+                else None
+            ),
+        )
+
+    def publish_dataset_version(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion:
+        item = self.get_dataset_version(dataset_version_id)
+        if item.status is not DatasetVersionStatus.STAGING:
+            raise DatasetConflictError(
+                "DATASET_VERSION_NOT_STAGING",
+                "Only staging can be published.",
+            )
+        published = DatasetVersion(
+            id=item.id,
+            game_id=item.game_id,
+            version=item.version,
+            rows=item.rows,
+            columns=item.columns,
+            signature_cell_width=item.signature_cell_width,
+            layout_count=item.layout_count,
+            status=DatasetVersionStatus.PUBLISHED,
+            generation_seed=item.generation_seed,
+            generator_version=item.generator_version,
+            source_job_id=item.source_job_id,
+            created_at=item.created_at,
+            published_at=datetime.now(UTC),
+        )
+        self.items[item.id] = published
+        return published
+
+    def archive_dataset_version(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion:
+        item = self.get_dataset_version(dataset_version_id)
+        if item.status is DatasetVersionStatus.ARCHIVED:
+            return item
+        if item.status is not DatasetVersionStatus.PUBLISHED:
+            raise DatasetConflictError(
+                "DATASET_VERSION_NOT_PUBLISHED",
+                "Only published can be archived.",
+            )
+        archived = DatasetVersion(
+            id=item.id,
+            game_id=item.game_id,
+            version=item.version,
+            rows=item.rows,
+            columns=item.columns,
+            signature_cell_width=item.signature_cell_width,
+            layout_count=item.layout_count,
+            status=DatasetVersionStatus.ARCHIVED,
+            generation_seed=item.generation_seed,
+            generator_version=item.generator_version,
+            source_job_id=item.source_job_id,
+            created_at=item.created_at,
+            published_at=item.published_at,
+        )
+        self.items[item.id] = archived
+        return archived
+
 
 def _client(service: FakeDatasetService) -> TestClient:
     return TestClient(
@@ -195,6 +287,28 @@ def test_mock_generation_list_and_get_contract() -> None:
             "duplicateSignatures": [],
             "duplicateSignaturesTruncated": False,
         }
+        layouts = client.get(
+            f"/api/v1/admin/dataset-versions/{dataset_id}/layouts",
+            params={"afterSequenceNumber": 0, "limit": 2},
+        )
+        assert layouts.status_code == 200
+        assert [
+            item["sequenceNumber"] for item in layouts.json()["items"]
+        ] == [1, 2]
+        assert layouts.json()["nextAfterSequenceNumber"] == 2
+
+        published = client.post(
+            f"/api/v1/admin/dataset-versions/{dataset_id}/publish"
+        )
+        assert published.status_code == 200
+        assert published.json()["status"] == "published"
+        assert published.json()["publishedAt"] is not None
+
+        archived = client.delete(
+            f"/api/v1/admin/dataset-versions/{dataset_id}"
+        )
+        assert archived.status_code == 204
+        assert service.items[UUID(dataset_id)].status is DatasetVersionStatus.ARCHIVED
 
 
 def test_dataset_api_reports_validation_conflict_and_missing() -> None:

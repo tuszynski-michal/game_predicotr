@@ -57,6 +57,12 @@ class MemoryDatasetRepository(DatasetRepository):
     ) -> DatasetVersion | None:
         return self.items.get(dataset_version_id)
 
+    def get_dataset_version_for_update(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion | None:
+        return self.get_dataset_version(dataset_version_id)
+
     def get_generation_source(
         self,
         game_id: UUID,
@@ -92,6 +98,36 @@ class MemoryDatasetRepository(DatasetRepository):
                 for layout in layouts
             ),
         )
+
+    def get_locked_validation_source(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationSource | None:
+        return self.get_validation_source(dataset_version_id)
+
+    def list_layouts(
+        self,
+        dataset_version_id: UUID,
+        *,
+        after_sequence_number: int,
+        limit: int,
+    ) -> list[LayoutValidationRecord]:
+        return [
+            LayoutValidationRecord(
+                sequence_number=layout.sequence_number,
+                signature=layout.signature,
+                cells=layout.cells,
+            )
+            for layout in self.layouts.get(dataset_version_id, ())
+            if layout.sequence_number > after_sequence_number
+        ][:limit]
+
+    def save_dataset_version(
+        self,
+        dataset_version: DatasetVersion,
+    ) -> DatasetVersion:
+        self.items[dataset_version.id] = dataset_version
+        return dataset_version
 
     def add_mock_dataset(
         self,
@@ -225,6 +261,100 @@ def test_generated_mock_report_is_ready_with_six_duplicate_warnings() -> None:
         check.status is DatasetValidationCheckStatus.PASSED
         for check in report.checks[:-1]
     )
+
+
+def test_layout_preview_uses_sequence_keyset_without_overlap() -> None:
+    game_id = uuid4()
+    source = _source(game_id)
+    repository = MemoryDatasetRepository(game_id, source)
+    service = DatasetService(repository)
+    dataset = service.generate_mock_dataset(
+        game_id,
+        rules_version_id=source.rules_version_id,
+        seed=71401,
+    )
+
+    first = service.list_layouts(
+        dataset.id,
+        after_sequence_number=0,
+        limit=3,
+    )
+    second = service.list_layouts(
+        dataset.id,
+        after_sequence_number=first.next_after_sequence_number or 0,
+        limit=3,
+    )
+
+    assert [item.sequence_number for item in first.items] == [1, 2, 3]
+    assert first.next_after_sequence_number == 3
+    assert [item.sequence_number for item in second.items] == [4, 5, 6]
+    assert first.rows == 3
+    assert first.columns == 5
+
+
+def test_publish_accepts_duplicate_warning_and_archive_preserves_timestamp() -> None:
+    game_id = uuid4()
+    source = _source(game_id)
+    repository = MemoryDatasetRepository(game_id, source)
+    service = DatasetService(repository)
+    dataset = service.generate_mock_dataset(
+        game_id,
+        rules_version_id=source.rules_version_id,
+        seed=71401,
+    )
+
+    published = service.publish_dataset_version(dataset.id)
+    assert published.status is DatasetVersionStatus.PUBLISHED
+    assert published.published_at is not None
+
+    archived = service.archive_dataset_version(dataset.id)
+    assert archived.status is DatasetVersionStatus.ARCHIVED
+    assert archived.published_at == published.published_at
+    assert service.archive_dataset_version(dataset.id) == archived
+    assert len(repository.layouts[dataset.id]) == MOCK_LAYOUT_COUNT
+
+
+def test_publish_revalidates_and_keeps_invalid_dataset_staging() -> None:
+    game_id = uuid4()
+    source = _source(game_id)
+    repository = MemoryDatasetRepository(game_id, source)
+    service = DatasetService(repository)
+    dataset = service.generate_mock_dataset(
+        game_id,
+        rules_version_id=source.rules_version_id,
+        seed=71401,
+    )
+    repository.layouts[dataset.id] = repository.layouts[dataset.id][1:]
+
+    with pytest.raises(DatasetConflictError) as error:
+        service.publish_dataset_version(dataset.id)
+
+    assert error.value.code == "DATASET_VERSION_NOT_READY"
+    assert error.value.details["issues"]
+    unchanged = repository.items[dataset.id]
+    assert unchanged.status is DatasetVersionStatus.STAGING
+    assert unchanged.published_at is None
+
+
+def test_publish_and_archive_enforce_dataset_lifecycle() -> None:
+    game_id = uuid4()
+    source = _source(game_id)
+    repository = MemoryDatasetRepository(game_id, source)
+    service = DatasetService(repository)
+    dataset = service.generate_mock_dataset(
+        game_id,
+        rules_version_id=source.rules_version_id,
+        seed=71401,
+    )
+
+    with pytest.raises(DatasetConflictError) as archive_error:
+        service.archive_dataset_version(dataset.id)
+    assert archive_error.value.code == "DATASET_VERSION_NOT_PUBLISHED"
+
+    service.publish_dataset_version(dataset.id)
+    with pytest.raises(DatasetConflictError) as publish_error:
+        service.publish_dataset_version(dataset.id)
+    assert publish_error.value.code == "DATASET_VERSION_NOT_STAGING"
 
 
 def test_validator_reports_every_blocker_and_keeps_duplicate_as_warning() -> None:

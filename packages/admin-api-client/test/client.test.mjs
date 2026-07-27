@@ -364,16 +364,43 @@ test('generated client sends bounded mock dataset staging requests', async () =>
     minSequenceNumber: 1,
     readyForPublication: true,
   };
+  const layoutsBody = {
+    columns: 5,
+    datasetVersion: 1,
+    datasetVersionId,
+    items: [
+      {
+        cells: Array(15).fill(1),
+        sequenceNumber: 13,
+        signature: '01'.repeat(15),
+        sourceBoardId: null,
+      },
+    ],
+    nextAfterSequenceNumber: 13,
+    rows: 3,
+  };
   const mockFetch = async (request) => {
     requests.push(request);
-    if (new URL(request.url).pathname.endsWith('/validation-report')) {
+    const url = new URL(request.url);
+    if (request.method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname.endsWith('/validation-report')) {
       return Response.json(validationBody);
     }
+    if (url.pathname.endsWith('/layouts')) {
+      return Response.json(layoutsBody);
+    }
     return Response.json(
-      request.method === 'GET' &&
-        new URL(request.url).pathname.endsWith('/dataset-versions')
+      request.method === 'GET' && url.pathname.endsWith('/dataset-versions')
         ? [responseBody]
-        : responseBody,
+        : url.pathname.endsWith('/publish')
+          ? {
+              ...responseBody,
+              publishedAt: '2026-07-27T12:00:00Z',
+              status: 'published',
+            }
+          : responseBody,
       { status: request.method === 'POST' ? 201 : 200 },
     );
   };
@@ -389,11 +416,21 @@ test('generated client sends bounded mock dataset staging requests', async () =>
   const listed = await client.listDatasetVersions(gameId);
   const loaded = await client.getDatasetVersion(datasetVersionId);
   const validation = await client.getDatasetValidationReport(datasetVersionId);
+  const layouts = await client.listDatasetLayouts(datasetVersionId, 12, 1);
+  const published = await client.publishDatasetVersion(datasetVersionId);
+  await client.archiveDatasetVersion(datasetVersionId);
 
   assert.equal(created.data?.layoutCount, 1000);
   assert.equal(listed.data?.length, 1);
   assert.equal(loaded.data?.id, datasetVersionId);
   assert.equal(validation.data?.duplicateSignatureGroupCount, 6);
+  assert.equal(layouts.data?.items[0]?.sequenceNumber, 13);
+  assert.equal(published.data?.status, 'published');
+  assert.equal(new URL(requests[4].url).searchParams.get('limit'), '1');
+  assert.equal(
+    new URL(requests[4].url).searchParams.get('after_sequence_number'),
+    '12',
+  );
   assert.deepEqual(await requests[0].clone().json(), {
     rulesVersionId,
     seed: 71401,
@@ -405,6 +442,9 @@ test('generated client sends bounded mock dataset staging requests', async () =>
       `/api/v1/admin/games/${gameId}/dataset-versions`,
       `/api/v1/admin/dataset-versions/${datasetVersionId}`,
       `/api/v1/admin/dataset-versions/${datasetVersionId}/validation-report`,
+      `/api/v1/admin/dataset-versions/${datasetVersionId}/layouts`,
+      `/api/v1/admin/dataset-versions/${datasetVersionId}/publish`,
+      `/api/v1/admin/dataset-versions/${datasetVersionId}`,
     ],
   );
 });

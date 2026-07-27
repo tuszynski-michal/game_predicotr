@@ -10,12 +10,16 @@ from game_predictor_api.domain.datasets import (
     MOCK_GENERATOR_VERSION,
     DatasetConflictError,
     DatasetGenerationSource,
+    DatasetLayoutPage,
     DatasetNotFoundError,
     DatasetValidationReport,
     DatasetValidationSource,
     DatasetVersion,
     LayoutDraft,
+    LayoutValidationRecord,
+    archive_dataset_version,
     generate_mock_layouts,
+    publish_dataset_version,
     signature_cell_width,
     validate_dataset,
     validate_generation_seed,
@@ -35,6 +39,11 @@ class DatasetRepository(Protocol):
         dataset_version_id: UUID,
     ) -> DatasetVersion | None: ...
 
+    def get_dataset_version_for_update(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion | None: ...
+
     def get_generation_source(
         self,
         game_id: UUID,
@@ -45,6 +54,24 @@ class DatasetRepository(Protocol):
         self,
         dataset_version_id: UUID,
     ) -> DatasetValidationSource | None: ...
+
+    def get_locked_validation_source(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetValidationSource | None: ...
+
+    def list_layouts(
+        self,
+        dataset_version_id: UUID,
+        *,
+        after_sequence_number: int,
+        limit: int,
+    ) -> Sequence[LayoutValidationRecord]: ...
+
+    def save_dataset_version(
+        self,
+        dataset_version: DatasetVersion,
+    ) -> DatasetVersion: ...
 
     def add_mock_dataset(
         self,
@@ -144,6 +171,100 @@ class DatasetService:
                 details={"datasetVersionId": str(dataset_version_id)},
             )
         return validate_dataset(source)
+
+    def list_layouts(
+        self,
+        dataset_version_id: UUID,
+        *,
+        after_sequence_number: int,
+        limit: int,
+    ) -> DatasetLayoutPage:
+        dataset = self.get_dataset_version(dataset_version_id)
+        records = tuple(
+            self._repository.list_layouts(
+                dataset_version_id,
+                after_sequence_number=after_sequence_number,
+                limit=limit + 1,
+            )
+        )
+        has_next_page = len(records) > limit
+        items = records[:limit]
+        return DatasetLayoutPage(
+            dataset_version_id=dataset.id,
+            dataset_version=dataset.version,
+            rows=dataset.rows,
+            columns=dataset.columns,
+            items=items,
+            next_after_sequence_number=(
+                items[-1].sequence_number
+                if has_next_page and items
+                else None
+            ),
+        )
+
+    def publish_dataset_version(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion:
+        source = self._repository.get_locked_validation_source(
+            dataset_version_id
+        )
+        if source is None:
+            raise DatasetNotFoundError(
+                "DATASET_VERSION_NOT_FOUND",
+                "Dataset version does not exist.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        dataset = source.dataset_version
+        if dataset.generator_version != MOCK_GENERATOR_VERSION:
+            raise DatasetConflictError(
+                "DATASET_PUBLICATION_REQUIRES_JOB",
+                "This dataset must be validated by a worker job before publication.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        candidate = publish_dataset_version(dataset)
+        report = validate_dataset(source)
+        if not report.ready_for_publication:
+            raise DatasetConflictError(
+                "DATASET_VERSION_NOT_READY",
+                "Dataset version has publication blockers.",
+                details={
+                    "datasetVersionId": str(dataset_version_id),
+                    "issues": [
+                        {
+                            "code": check.code,
+                            "message": check.message,
+                            "issueCount": check.issue_count,
+                            "sequenceNumbers": list(
+                                check.sequence_numbers
+                            ),
+                            "mobileCodes": list(check.mobile_codes),
+                            "truncated": check.truncated,
+                        }
+                        for check in report.checks
+                        if check.status.value == "blocking"
+                    ],
+                },
+            )
+        return self._repository.save_dataset_version(candidate)
+
+    def archive_dataset_version(
+        self,
+        dataset_version_id: UUID,
+    ) -> DatasetVersion:
+        dataset = self._repository.get_dataset_version_for_update(
+            dataset_version_id
+        )
+        if dataset is None:
+            raise DatasetNotFoundError(
+                "DATASET_VERSION_NOT_FOUND",
+                "Dataset version does not exist.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        archived = archive_dataset_version(dataset)
+        if archived is dataset:
+            return archived
+        return self._repository.save_dataset_version(archived)
 
     @staticmethod
     def _raise_game_not_found(game_id: UUID) -> Never:

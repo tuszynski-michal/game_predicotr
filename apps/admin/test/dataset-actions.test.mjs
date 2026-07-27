@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  archiveDataset,
   generateMockDataset,
   getDatasetValidationReport,
+  listDatasetLayouts,
+  publishDataset,
 } from '../src/features/datasets/dataset-actions.ts';
 
 const dataset = {
@@ -107,5 +110,68 @@ test('loads the canonical validation report and preserves stable errors', async 
   assert.deepEqual(failure, {
     error: 'Worker validation required. (DATASET_VALIDATION_REQUIRES_JOB)',
     ok: false,
+  });
+});
+
+test('uses the sequence cursor for layout preview', async () => {
+  const page = {
+    columns: 5,
+    datasetVersion: 1,
+    datasetVersionId: 'dataset-1',
+    items: [],
+    nextAfterSequenceNumber: 24,
+    rows: 3,
+  };
+  let received;
+
+  const result = await listDatasetLayouts(
+    {
+      listDatasetLayouts: async (datasetId, afterSequenceNumber, limit) => {
+        received = { afterSequenceNumber, datasetId, limit };
+        return { data: page };
+      },
+    },
+    'dataset-1',
+    12,
+    12,
+  );
+
+  assert.deepEqual(received, {
+    afterSequenceNumber: 12,
+    datasetId: 'dataset-1',
+    limit: 12,
+  });
+  assert.deepEqual(result, { ok: true, page });
+});
+
+test('publishes and archives through immutable dataset transitions', async () => {
+  const published = {
+    ...dataset,
+    publishedAt: '2026-07-27T12:00:00Z',
+    status: 'published',
+  };
+  const publishResult = await publishDataset(
+    {
+      publishDatasetVersion: async (datasetId) => {
+        assert.equal(datasetId, dataset.id);
+        return { data: published };
+      },
+    },
+    dataset.id,
+  );
+  assert.deepEqual(publishResult, { dataset: published, ok: true });
+
+  const archiveResult = await archiveDataset(
+    {
+      archiveDatasetVersion: async (datasetId) => {
+        assert.equal(datasetId, dataset.id);
+        return {};
+      },
+    },
+    published,
+  );
+  assert.deepEqual(archiveResult, {
+    dataset: { ...published, status: 'archived' },
+    ok: true,
   });
 });

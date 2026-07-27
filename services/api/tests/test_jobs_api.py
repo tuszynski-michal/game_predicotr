@@ -1,3 +1,5 @@
+from dataclasses import replace
+from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID, uuid4
 
@@ -9,16 +11,22 @@ from game_predictor_api.main import create_app
 from test_jobs_domain import MemoryJobRepository
 
 
-def _client() -> tuple[TestClient, UUID, JobService]:
+def _client() -> tuple[
+    TestClient,
+    UUID,
+    JobService,
+    MemoryJobRepository,
+]:
     game_id = uuid4()
-    service = JobService(MemoryJobRepository(game_id))
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
     client = TestClient(
         create_app(
             ApiSettings.from_environment({}),
             job_service_dependency=lambda: service,
         )
     )
-    return client, game_id, service
+    return client, game_id, service, repository
 
 
 def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]:
@@ -38,7 +46,7 @@ def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]
 
 
 def test_create_list_get_and_cancel_job_contract() -> None:
-    client, game_id, _service = _client()
+    client, game_id, _service, _repository = _client()
     with client:
         created = _create_validate_job(client, game_id)
         job_id = created["id"]
@@ -54,6 +62,9 @@ def test_create_list_get_and_cancel_job_contract() -> None:
             "review": 0,
         }
         assert created["error"] is None
+        assert created["attemptCount"] == 0
+        assert created["heartbeatAt"] is None
+        assert created["leaseExpiresAt"] is None
 
         listed = client.get(
             "/api/v1/admin/jobs",
@@ -74,7 +85,7 @@ def test_create_list_get_and_cancel_job_contract() -> None:
 
 
 def test_typed_payload_and_duplicate_errors_are_stable() -> None:
-    client, game_id, _service = _client()
+    client, game_id, _service, _repository = _client()
     dataset_id = uuid4()
     payload = {
         "jobType": "validate",
@@ -106,7 +117,7 @@ def test_typed_payload_and_duplicate_errors_are_stable() -> None:
 
 
 def test_all_five_job_payloads_are_discriminated_by_job_type() -> None:
-    client, game_id, service = _client()
+    client, game_id, service, _repository = _client()
     release_id = uuid4()
     requests = [
         (
@@ -160,3 +171,24 @@ def test_all_five_job_payloads_are_discriminated_by_job_type() -> None:
     )
     assert {job.job_type for job in jobs} == set(JobType)
     assert all(job.status is JobStatus.CREATED for job in jobs)
+
+
+def test_failed_job_retry_requeues_the_same_record() -> None:
+    client, game_id, _service, repository = _client()
+    with client:
+        created = _create_validate_job(client, game_id)
+        job_id = UUID(cast(str, created["id"]))
+        repository.items[job_id] = replace(
+            repository.items[job_id],
+            status=JobStatus.FAILED,
+            error_code="TEST_FAILURE",
+            error_message="Controlled failure.",
+            finished_at=datetime.now(UTC),
+        )
+
+        retried = client.post(f"/api/v1/admin/jobs/{job_id}/retry")
+
+    assert retried.status_code == 200
+    assert retried.json()["id"] == str(job_id)
+    assert retried.json()["status"] == "created"
+    assert retried.json()["error"] is None

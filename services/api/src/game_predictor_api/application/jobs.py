@@ -14,6 +14,7 @@ from game_predictor_api.domain.jobs import (
     JobType,
     create_job,
     request_job_cancellation,
+    requeue_job,
 )
 
 
@@ -108,3 +109,13 @@ class JobService:
         if updated is job:
             return job
         return self._repository.save_job(updated)
+
+    def retry_job(self, job_id: UUID) -> Job:
+        job = self._repository.get_job_for_update(job_id)
+        if job is None:
+            raise JobNotFoundError(
+                "JOB_NOT_FOUND",
+                "Job does not exist.",
+                details={"jobId": str(job_id)},
+            )
+        return self._repository.save_job(requeue_job(job))

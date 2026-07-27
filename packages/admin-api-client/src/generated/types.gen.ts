@@ -445,6 +445,10 @@ export type JobProgressResponse = {
  */
 export type JobResponse = {
   /**
+   * Attemptcount
+   */
+  attemptCount: number;
+  /**
    * Cancelrequestedat
    */
   cancelRequestedAt: string | null;
@@ -462,6 +466,10 @@ export type JobResponse = {
    */
   gameId: string | null;
   /**
+   * Heartbeatat
+   */
+  heartbeatAt: string | null;
+  /**
    * Id
    */
   id: string;
@@ -475,6 +483,10 @@ export type JobResponse = {
     | SnapshotJobPayload
     | AndroidBuildJobPayload;
   jobType: JobType;
+  /**
+   * Leaseexpiresat
+   */
+  leaseExpiresAt: string | null;
   progress: JobProgressResponse;
   /**
    * Startedat
@@ -1942,6 +1954,44 @@ export type CancelJobResponses = {
 };
 
 export type CancelJobResponse = CancelJobResponses[keyof CancelJobResponses];
+
+export type RetryJobData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/jobs/{job_id}/retry';
+};
+
+export type RetryJobErrors = {
+  /**
+   * Job or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Job lifecycle conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RetryJobError = RetryJobErrors[keyof RetryJobErrors];
+
+export type RetryJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobResponse;
+};
+
+export type RetryJobResponse = RetryJobResponses[keyof RetryJobResponses];
 
 export type ArchiveRulesVersionData = {
   body?: never;

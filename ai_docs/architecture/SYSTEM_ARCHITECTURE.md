@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-27
 ---
 
 # Architektura systemu
@@ -83,6 +83,14 @@ cyklu życia jest niezależny od `stage` konkretnego workflow. Żądanie anulowa
 działającego joba zapisuje timestamp; dopiero worker może potwierdzić
 `cancelled` po domknięciu bezpiecznej partii. Atomowy lease i ograniczenie
 jednego ciężkiego wykonania należą do granicy workera.
+
+Worker przejmuje najstarszy `created` przez `FOR UPDATE SKIP LOCKED`, a
+unikalny slot w PostgreSQL dopuszcza tylko jeden rekord `processing`.
+Handler działa poza transakcją i odnawia domyślny 60-sekundowy lease przez
+heartbeat albo atomowy zapis checkpointu z postępem. Losowy token odcina stare
+procesy od zapisu po wygaśnięciu lease. Następny claim najpierw odzyskuje
+osierocony rekord: wraca on do `created` z zachowanym checkpointem albo do
+`cancelled`, jeżeli wcześniej zażądano anulowania.
 
 ### PostgreSQL
 

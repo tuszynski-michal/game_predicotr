@@ -586,6 +586,9 @@ Zwraca najwyżej 200 najnowszych rekordów. Obsługuje filtry `status`,
   },
   "error": null,
   "workerVersion": "worker-v1",
+  "attemptCount": 1,
+  "heartbeatAt": "2026-07-24T10:03:00Z",
+  "leaseExpiresAt": "2026-07-24T10:04:00Z",
   "createdAt": "2026-07-24T10:00:00Z",
   "updatedAt": "2026-07-24T10:03:00Z",
   "startedAt": "2026-07-24T10:00:03Z",
@@ -602,6 +605,17 @@ w bezpiecznym punkcie i dopiero wtedy zapisuje `cancelled`. Powtórzenie dla
 `cancelled` jest idempotentne. `completed` i `failed` zwracają
 `409 JOB_NOT_CANCELLABLE`.
 
+### POST `/api/v1/admin/jobs/{jobId}/retry`
+
+Przenosi ten sam rekord z `failed` albo `waiting_for_review` do `created`.
+Zachowuje wejście, checkpoint, postęp i `attemptCount`, nie tworzy duplikatu.
+Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
+`409 INVALID_JOB_STATUS_TRANSITION`.
+
+`heartbeatAt` i `leaseExpiresAt` są dostępne do diagnostyki aktywnego joba i są
+`null` poza `processing`. Wewnętrzne `leaseToken`, `leaseOwner` oraz
+`checkpointPayload` nigdy nie są zwracane przez Admin API.
+
 Wspólny automat:
 
 ```text
@@ -610,6 +624,7 @@ created -> processing -> completed
                     \-> waiting_for_review -> created
 created/waiting_for_review -> cancelled
 processing + cancelRequestedAt -> cancelled (worker safe point)
+failed/waiting_for_review -> created (explicit retry)
 ```
 
 `stage` nie zmienia automatu. Błędne przejście ma kod

@@ -309,8 +309,23 @@ class JobModel(Base):
             "success_count >= 0 AND failure_count >= 0 AND review_count >= 0",
             name="ck_jobs_outcome_counts_nonnegative",
         ),
+        CheckConstraint(
+            "attempt_count >= 0",
+            name="ck_jobs_attempt_count_nonnegative",
+        ),
+        CheckConstraint(
+            "(status = 'processing' AND execution_slot = 1 "
+            "AND lease_owner IS NOT NULL AND lease_token IS NOT NULL "
+            "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL) "
+            "OR (status <> 'processing' AND execution_slot IS NULL "
+            "AND lease_owner IS NULL AND lease_token IS NULL "
+            "AND lease_expires_at IS NULL AND heartbeat_at IS NULL)",
+            name="ck_jobs_processing_lease_fields",
+        ),
         UniqueConstraint("input_key", name="uq_jobs_input_key"),
+        UniqueConstraint("execution_slot", name="uq_jobs_execution_slot"),
         Index("ix_jobs_status_created_at", "status", "created_at"),
+        Index("ix_jobs_status_lease_expires", "status", "lease_expires_at"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -368,6 +383,29 @@ class JobModel(Base):
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     worker_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    checkpoint_payload: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    execution_slot: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
+    )
+    lease_owner: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    lease_token: Mapped[UUID | None] = mapped_column(nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

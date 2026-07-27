@@ -66,6 +66,13 @@ class Job:
     error_code: str | None
     error_message: str | None
     worker_version: str | None
+    checkpoint_payload: dict[str, object] | None
+    attempt_count: int
+    execution_slot: int | None
+    lease_owner: str | None
+    lease_token: UUID | None
+    lease_expires_at: datetime | None
+    heartbeat_at: datetime | None
     created_at: datetime
     updated_at: datetime
     started_at: datetime | None
@@ -105,6 +112,13 @@ def create_job(
         error_code=None,
         error_message=None,
         worker_version=None,
+        checkpoint_payload=None,
+        attempt_count=0,
+        execution_slot=None,
+        lease_owner=None,
+        lease_token=None,
+        lease_expires_at=None,
+        heartbeat_at=None,
         created_at=now,
         updated_at=now,
         started_at=None,
@@ -136,6 +150,9 @@ def start_job(
     job: Job,
     *,
     worker_version: str,
+    worker_id: str,
+    lease_token: UUID,
+    lease_expires_at: datetime,
     started_at: datetime | None = None,
 ) -> Job:
     if job.status is not JobStatus.CREATED:
@@ -146,11 +163,28 @@ def start_job(
             "INVALID_WORKER_VERSION",
             "workerVersion must not be blank.",
         )
+    normalized_worker_id = worker_id.strip()
+    if not normalized_worker_id:
+        raise JobError(
+            "INVALID_WORKER_ID",
+            "workerId must not be blank.",
+        )
     now = started_at or datetime.now(UTC)
+    if lease_expires_at <= now:
+        raise JobError(
+            "INVALID_JOB_LEASE_EXPIRY",
+            "leaseExpiresAt must be later than the claim time.",
+        )
     return replace(
         job,
         status=JobStatus.PROCESSING,
         worker_version=normalized_version,
+        attempt_count=job.attempt_count + 1,
+        execution_slot=1,
+        lease_owner=normalized_worker_id,
+        lease_token=lease_token,
+        lease_expires_at=lease_expires_at,
+        heartbeat_at=now,
         started_at=job.started_at or now,
         updated_at=now,
         finished_at=None,
@@ -162,6 +196,7 @@ def start_job(
 def update_job_progress(
     job: Job,
     *,
+    lease_token: UUID,
     stage: str,
     current: int,
     total: int | None,
@@ -170,12 +205,14 @@ def update_job_progress(
     review_count: int,
     updated_at: datetime | None = None,
 ) -> Job:
+    now = updated_at or datetime.now(UTC)
     if job.status is not JobStatus.PROCESSING:
         raise JobConflictError(
             "JOB_NOT_PROCESSING",
             "Progress can only be updated for a processing job.",
             details={"jobId": str(job.id), "status": job.status.value},
         )
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
     normalized_stage = stage.strip()
     if not normalized_stage:
         raise JobError("INVALID_JOB_STAGE", "stage must not be blank.")
@@ -224,19 +261,81 @@ def update_job_progress(
         success_count=success_count,
         failure_count=failure_count,
         review_count=review_count,
-        updated_at=updated_at or datetime.now(UTC),
+        updated_at=now,
+    )
+
+
+def checkpoint_job(
+    job: Job,
+    *,
+    lease_token: UUID,
+    checkpoint_payload: dict[str, object],
+    stage: str,
+    current: int,
+    total: int | None,
+    success_count: int,
+    failure_count: int,
+    review_count: int,
+    updated_at: datetime | None = None,
+) -> Job:
+    if checkpoint_payload.get("schema_version") != 1:
+        raise JobError(
+            "UNSUPPORTED_JOB_CHECKPOINT_VERSION",
+            "checkpointPayload must use schemaVersion 1.",
+        )
+    progressed = update_job_progress(
+        job,
+        lease_token=lease_token,
+        stage=stage,
+        current=current,
+        total=total,
+        success_count=success_count,
+        failure_count=failure_count,
+        review_count=review_count,
+        updated_at=updated_at,
+    )
+    return replace(progressed, checkpoint_payload=dict(checkpoint_payload))
+
+
+def renew_job_lease(
+    job: Job,
+    *,
+    lease_token: UUID,
+    lease_expires_at: datetime,
+    heartbeat_at: datetime | None = None,
+) -> Job:
+    now = heartbeat_at or datetime.now(UTC)
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
+    if lease_expires_at <= now:
+        raise JobError(
+            "INVALID_JOB_LEASE_EXPIRY",
+            "leaseExpiresAt must be later than heartbeatAt.",
+        )
+    return replace(
+        job,
+        lease_expires_at=lease_expires_at,
+        heartbeat_at=now,
+        updated_at=now,
     )
 
 
 def wait_for_review(
     job: Job,
     *,
+    lease_token: UUID,
     updated_at: datetime | None = None,
 ) -> Job:
     if job.status is not JobStatus.PROCESSING:
         _raise_invalid_transition(job, JobStatus.WAITING_FOR_REVIEW)
     now = updated_at or datetime.now(UTC)
-    return replace(job, status=JobStatus.WAITING_FOR_REVIEW, updated_at=now)
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.WAITING_FOR_REVIEW,
+            updated_at=now,
+        )
+    )
 
 
 def requeue_job(
@@ -247,44 +346,53 @@ def requeue_job(
     if job.status not in {JobStatus.WAITING_FOR_REVIEW, JobStatus.FAILED}:
         _raise_invalid_transition(job, JobStatus.CREATED)
     now = updated_at or datetime.now(UTC)
-    return replace(
-        job,
-        status=JobStatus.CREATED,
-        updated_at=now,
-        finished_at=None,
-        cancel_requested_at=None,
-        error_code=None,
-        error_message=None,
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.CREATED,
+            updated_at=now,
+            finished_at=None,
+            cancel_requested_at=None,
+            error_code=None,
+            error_message=None,
+        )
     )
 
 
 def complete_job(
     job: Job,
     *,
+    lease_token: UUID,
     finished_at: datetime | None = None,
 ) -> Job:
     if job.status is not JobStatus.PROCESSING:
         _raise_invalid_transition(job, JobStatus.COMPLETED)
     now = finished_at or datetime.now(UTC)
-    return replace(
-        job,
-        status=JobStatus.COMPLETED,
-        updated_at=now,
-        finished_at=now,
-        error_code=None,
-        error_message=None,
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.COMPLETED,
+            updated_at=now,
+            finished_at=now,
+            error_code=None,
+            error_message=None,
+        )
     )
 
 
 def fail_job(
     job: Job,
     *,
+    lease_token: UUID,
     error_code: str,
     error_message: str,
     finished_at: datetime | None = None,
 ) -> Job:
     if job.status is not JobStatus.PROCESSING:
         _raise_invalid_transition(job, JobStatus.FAILED)
+    now = finished_at or datetime.now(UTC)
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
     code = error_code.strip()
     message = error_message.strip()
     if not code or not message:
@@ -292,14 +400,15 @@ def fail_job(
             "INVALID_JOB_ERROR",
             "A failed job requires a non-empty error code and message.",
         )
-    now = finished_at or datetime.now(UTC)
-    return replace(
-        job,
-        status=JobStatus.FAILED,
-        updated_at=now,
-        finished_at=now,
-        error_code=code,
-        error_message=message,
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.FAILED,
+            updated_at=now,
+            finished_at=now,
+            error_code=code,
+            error_message=message,
+        )
     )
 
 
@@ -333,16 +442,87 @@ def request_job_cancellation(
 def acknowledge_job_cancellation(
     job: Job,
     *,
+    lease_token: UUID,
     finished_at: datetime | None = None,
 ) -> Job:
-    if job.status is not JobStatus.PROCESSING or job.cancel_requested_at is None:
+    if job.status is not JobStatus.PROCESSING:
         _raise_invalid_transition(job, JobStatus.CANCELLED)
     now = finished_at or datetime.now(UTC)
+    require_active_job_lease(job, lease_token=lease_token, checked_at=now)
+    if job.cancel_requested_at is None:
+        _raise_invalid_transition(job, JobStatus.CANCELLED)
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.CANCELLED,
+            updated_at=now,
+            finished_at=now,
+        )
+    )
+
+
+def recover_expired_job(
+    job: Job,
+    *,
+    recovered_at: datetime | None = None,
+) -> Job:
+    now = recovered_at or datetime.now(UTC)
+    if (
+        job.status is not JobStatus.PROCESSING
+        or job.lease_expires_at is None
+        or job.lease_expires_at > now
+    ):
+        raise JobConflictError(
+            "JOB_LEASE_NOT_EXPIRED",
+            "Only a processing job with an expired lease can be recovered.",
+            details={"jobId": str(job.id)},
+        )
+    if job.cancel_requested_at is not None:
+        return _without_lease(
+            replace(
+                job,
+                status=JobStatus.CANCELLED,
+                updated_at=now,
+                finished_at=now,
+            )
+        )
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.CREATED,
+            updated_at=now,
+        )
+    )
+
+
+def require_active_job_lease(
+    job: Job,
+    *,
+    lease_token: UUID,
+    checked_at: datetime | None = None,
+) -> None:
+    now = checked_at or datetime.now(UTC)
+    if (
+        job.status is not JobStatus.PROCESSING
+        or job.lease_token != lease_token
+        or job.lease_expires_at is None
+        or job.lease_expires_at <= now
+    ):
+        raise JobConflictError(
+            "JOB_LEASE_LOST",
+            "The worker no longer owns an active lease for this job.",
+            details={"jobId": str(job.id)},
+        )
+
+
+def _without_lease(job: Job) -> Job:
     return replace(
         job,
-        status=JobStatus.CANCELLED,
-        updated_at=now,
-        finished_at=now,
+        execution_slot=None,
+        lease_owner=None,
+        lease_token=None,
+        lease_expires_at=None,
+        heartbeat_at=None,
     )
 
 

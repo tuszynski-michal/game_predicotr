@@ -35,6 +35,7 @@ import {
   listSymbols as listGeneratedSymbols,
   publishRulesVersion as publishGeneratedRulesVersion,
   publishDatasetVersion as publishGeneratedDatasetVersion,
+  retryJob as retryGeneratedJob,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
   updatePayoutRule as updateGeneratedPayoutRule,
@@ -150,6 +151,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedJob({ client, path: { job_id: jobId } }),
     cancelJob: (jobId: string) =>
       cancelGeneratedJob({ client, path: { job_id: jobId } }),
+    retryJob: (jobId: string) =>
+      retryGeneratedJob({ client, path: { job_id: jobId } }),
     listGames: () => listGeneratedGames({ client }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>

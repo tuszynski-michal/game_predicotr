@@ -96,7 +96,7 @@ test('generated client sends typed game and symbol requests', async () => {
   );
 });
 
-test('generated client sends typed job, filters, details and cancel requests', async () => {
+test('generated client sends typed job, filters, details, cancel and retry requests', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
   const datasetVersionId = '66666666-6666-4666-8666-666666666666';
@@ -117,6 +117,9 @@ test('generated client sends typed job, filters, details and cancel requests', a
     },
     error: null,
     workerVersion: null,
+    attemptCount: 0,
+    heartbeatAt: null,
+    leaseExpiresAt: null,
     createdAt: '2026-07-27T10:00:00Z',
     updatedAt: '2026-07-27T10:00:00Z',
     startedAt: null,
@@ -155,6 +158,7 @@ test('generated client sends typed job, filters, details and cancel requests', a
   });
   await client.getJob(jobId);
   await client.cancelJob(jobId);
+  await client.retryJob(jobId);
 
   assert.equal(created.data?.id, jobId);
   assert.deepEqual(await requests[0].clone().json(), {
@@ -176,6 +180,10 @@ test('generated client sends typed job, filters, details and cancel requests', a
   assert.equal(
     new URL(requests[3].url).pathname,
     `/api/v1/admin/jobs/${jobId}/cancel`,
+  );
+  assert.equal(
+    new URL(requests[4].url).pathname,
+    `/api/v1/admin/jobs/${jobId}/retry`,
   );
 });
 

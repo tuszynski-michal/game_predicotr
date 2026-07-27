@@ -235,3 +235,29 @@ def test_datasets_openapi_exposes_preview_and_publication_operations() -> None:
     }
     assert parameters["after_sequence_number"]["schema"]["minimum"] == 0
     assert parameters["limit"]["schema"]["maximum"] == 100
+
+
+def test_jobs_openapi_exposes_retry_and_public_lease_observability() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    expected_operations = {
+        ("/api/v1/admin/jobs", "get"): "listJobs",
+        ("/api/v1/admin/jobs", "post"): "createJob",
+        ("/api/v1/admin/jobs/{job_id}", "get"): "getJob",
+        ("/api/v1/admin/jobs/{job_id}/cancel", "post"): "cancelJob",
+        ("/api/v1/admin/jobs/{job_id}/retry", "post"): "retryJob",
+    }
+
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["jobs"]
+
+    response_schema = schema["components"]["schemas"]["JobResponse"]
+    assert {
+        "attemptCount",
+        "heartbeatAt",
+        "leaseExpiresAt",
+    }.issubset(response_schema["required"])
+    assert "leaseToken" not in response_schema["properties"]
+    assert "leaseOwner" not in response_schema["properties"]
+    assert "checkpointPayload" not in response_schema["properties"]

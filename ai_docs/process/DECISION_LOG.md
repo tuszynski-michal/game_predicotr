@@ -624,6 +624,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   egzekwowane atomowym lease w TASK-0030. `waiting_for_review` nie trzyma workera
   i może wrócić do `created` po rozwiązaniu review.
 
+## D-033 — PostgreSQL singleton lease with fenced worker updates
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** lokalny worker przejmuje najstarszy job `created` w transakcji
+  `FOR UPDATE SKIP LOCKED`. Rekord `processing` otrzymuje singletonowy
+  `execution_slot = 1`, owner, losowy token lease, expiry i heartbeat.
+  Unikalność slotu w PostgreSQL gwarantuje najwyżej jedno ciężkie wykonanie.
+  Każda aktualizacja workera wymaga zgodnego, niewygasłego tokenu. Progress i
+  wersjonowany checkpoint JSONB zapisują się w jednej transakcji. Wygasły lease
+  wraca na tym samym rekordzie do `created` z zachowanym checkpointem; jeśli
+  istniało żądanie anulowania, przechodzi do `cancelled`.
+- **Context:** proces działa lokalnie bez Redis/Celery, może zostać zamknięty w
+  dowolnej chwili, a dwóch przypadkowo uruchomionych workerów nie może
+  wykonywać ciężkich jobs jednocześnie ani nadpisywać nowszej próby.
+- **Reason:** constraint bazy zamyka wyścig niezależnie od liczby procesów,
+  token stanowi fencing dla starego workera, a checkpoint tego samego rekordu
+  zachowuje idempotencję wynikającą z `input_key`.
+- **Alternatives:** blokada wyłącznie w pamięci procesu, advisory lock bez
+  trwałego lease, osobna kolejka Redis/Celery, tworzenie nowego joba przy retry,
+  automatyczne oznaczanie każdego osieroconego joba jako failed.
+- **Consequences:** handler wykonuje się poza transakcją i musi raportować
+  heartbeat/checkpoint przed expiry. Domyślny lease trwa 60 sekund. Konkretne
+  workflow odpowiada za idempotentny zapis własnych wyników; brak handlera jest
+  stabilnym błędem, a ekran statusu pozostaje zakresem TASK-0031.
+
 ## Szablon nowej decyzji
 
 ```text

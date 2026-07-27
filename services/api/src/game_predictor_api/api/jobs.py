@@ -92,4 +92,17 @@ def create_jobs_router(service_dependency: JobServiceDependency) -> APIRouter:
     ) -> JobResponse:
         return JobResponse.from_domain(service.cancel_job(job_id))
 
+    @router.post(
+        "/{job_id}/retry",
+        response_model=JobResponse,
+        operation_id="retryJob",
+        summary="Requeue the same failed or review-paused job",
+        responses=ERROR_RESPONSES,
+    )
+    def retry_job(
+        job_id: UUID,
+        service: Annotated[JobService, service_parameter],
+    ) -> JobResponse:
+        return JobResponse.from_domain(service.retry_job(job_id))
+
     return router

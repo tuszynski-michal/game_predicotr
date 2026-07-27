@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-27
 ---
 
 # Strategia testów
@@ -101,6 +101,12 @@ Od M2, na testowym PostgreSQL:
 - trwałość typowanego payloadu joba, unikalność `input_key`, bounded filtrowanie
   listy i zapis anulowania,
 - constraints nieujemnego postępu i pełny rollback migracji jobs,
+- atomowy claim najstarszego joba i bazowe ograniczenie jednego `processing`,
+- heartbeat, wygaśnięcie lease oraz fencing zapisu starego tokenu,
+- atomowy checkpoint z postępem i wznowienie tego samego rekordu bez regresji
+  liczników,
+- anulowanie przy bezpiecznym checkpointcie oraz zwolnienie slotu po błędzie,
+- konkurencyjny claim dwóch procesów na fizycznym PostgreSQL,
 - deterministyczny mock 1000 layoutów dla tego samego seedu i konfiguracji,
 - atomowy zapis stagingowej wersji wraz ze wszystkimi layoutami,
 - walidacja długości `row_path`,
@@ -127,6 +133,8 @@ Od M2, na testowym PostgreSQL:
 - typowane zlecanie jobs,
 - rozdzielenie statusu i etapu, odrzucanie błędnych przejść oraz natychmiastowe
   i odroczone anulowanie zależnie od stanu,
+- retry tego samego joba oraz publiczna obserwowalność liczby prób, heartbeat i
+  terminu lease bez ujawniania tokenu ani checkpointu,
 - niepełny lub nieudany build nie daje statusu `ready`,
 - klient TypeScript generuje się bez ręcznych rozbieżności.
 

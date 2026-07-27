@@ -47,6 +47,13 @@ class SqlAlchemyJobRepository(JobRepository):
             error_code=job.error_code,
             error_message=job.error_message,
             worker_version=job.worker_version,
+            checkpoint_payload=job.checkpoint_payload,
+            attempt_count=job.attempt_count,
+            execution_slot=job.execution_slot,
+            lease_owner=job.lease_owner,
+            lease_token=job.lease_token,
+            lease_expires_at=job.lease_expires_at,
+            heartbeat_at=job.heartbeat_at,
             created_at=job.created_at,
             updated_at=job.updated_at,
             started_at=job.started_at,
@@ -55,11 +62,11 @@ class SqlAlchemyJobRepository(JobRepository):
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
-        return _to_job(record)
+        return job_from_record(record)
 
     def get_job(self, job_id: UUID) -> Job | None:
         record = self._session.get(JobModel, job_id)
-        return None if record is None else _to_job(record)
+        return None if record is None else job_from_record(record)
 
     def get_job_for_update(self, job_id: UUID) -> Job | None:
         record = self._session.scalar(
@@ -67,13 +74,13 @@ class SqlAlchemyJobRepository(JobRepository):
             .where(JobModel.id == job_id)
             .with_for_update()
         )
-        return None if record is None else _to_job(record)
+        return None if record is None else job_from_record(record)
 
     def get_job_by_input_key(self, input_key: str) -> Job | None:
         record = self._session.scalar(
             select(JobModel).where(JobModel.input_key == input_key)
         )
-        return None if record is None else _to_job(record)
+        return None if record is None else job_from_record(record)
 
     def list_jobs(
         self,
@@ -93,7 +100,7 @@ class SqlAlchemyJobRepository(JobRepository):
         records = self._session.scalars(
             statement.order_by(JobModel.created_at.desc(), JobModel.id).limit(limit)
         )
-        return [_to_job(record) for record in records]
+        return [job_from_record(record) for record in records]
 
     def save_job(self, job: Job) -> Job:
         record = self._session.get(JobModel, job.id)
@@ -103,22 +110,9 @@ class SqlAlchemyJobRepository(JobRepository):
                 "Job no longer exists.",
                 details={"jobId": str(job.id)},
             )
-        record.status = job.status
-        record.stage = job.stage
-        record.progress_current = job.progress_current
-        record.progress_total = job.progress_total
-        record.success_count = job.success_count
-        record.failure_count = job.failure_count
-        record.review_count = job.review_count
-        record.error_code = job.error_code
-        record.error_message = job.error_message
-        record.worker_version = job.worker_version
-        record.updated_at = job.updated_at
-        record.started_at = job.started_at
-        record.finished_at = job.finished_at
-        record.cancel_requested_at = job.cancel_requested_at
+        apply_job_to_record(record, job)
         self._flush_or_raise_conflict()
-        return _to_job(record)
+        return job_from_record(record)
 
     def _flush_or_raise_conflict(self) -> None:
         try:
@@ -141,7 +135,31 @@ class SqlAlchemyJobRepository(JobRepository):
             ) from error
 
 
-def _to_job(record: JobModel) -> Job:
+def apply_job_to_record(record: JobModel, job: Job) -> None:
+    record.status = job.status
+    record.stage = job.stage
+    record.progress_current = job.progress_current
+    record.progress_total = job.progress_total
+    record.success_count = job.success_count
+    record.failure_count = job.failure_count
+    record.review_count = job.review_count
+    record.error_code = job.error_code
+    record.error_message = job.error_message
+    record.worker_version = job.worker_version
+    record.checkpoint_payload = job.checkpoint_payload
+    record.attempt_count = job.attempt_count
+    record.execution_slot = job.execution_slot
+    record.lease_owner = job.lease_owner
+    record.lease_token = job.lease_token
+    record.lease_expires_at = job.lease_expires_at
+    record.heartbeat_at = job.heartbeat_at
+    record.updated_at = job.updated_at
+    record.started_at = job.started_at
+    record.finished_at = job.finished_at
+    record.cancel_requested_at = job.cancel_requested_at
+
+
+def job_from_record(record: JobModel) -> Job:
     return Job(
         id=record.id,
         job_type=record.job_type,
@@ -158,6 +176,17 @@ def _to_job(record: JobModel) -> Job:
         error_code=record.error_code,
         error_message=record.error_message,
         worker_version=record.worker_version,
+        checkpoint_payload=(
+            None
+            if record.checkpoint_payload is None
+            else dict(record.checkpoint_payload)
+        ),
+        attempt_count=record.attempt_count,
+        execution_slot=record.execution_slot,
+        lease_owner=record.lease_owner,
+        lease_token=record.lease_token,
+        lease_expires_at=record.lease_expires_at,
+        heartbeat_at=record.heartbeat_at,
         created_at=record.created_at,
         updated_at=record.updated_at,
         started_at=record.started_at,

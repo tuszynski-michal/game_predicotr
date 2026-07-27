@@ -1,7 +1,7 @@
 ---
 title: Milestone 03 execution plan
 status: accepted
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Plan wykonania Milestone 03 — Versioned mobile release pipeline
@@ -56,7 +56,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 ### Zadania
 
 - `TASK-0029 — Job state machine and Admin API` — done 2026-07-27
-- `TASK-0030 — Local worker execution, lease and resume`
+- `TASK-0030 — Local worker execution, lease and resume` — done 2026-07-27
 - `TASK-0031 — Jobs progress and error UI`
 
 ### Bramka G3.1

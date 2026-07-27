@@ -12,7 +12,7 @@ from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0007_jobs"
+HEAD_REVISION = "0008_job_leases"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 
 pytestmark = pytest.mark.skipif(

@@ -10,10 +10,13 @@ from game_predictor_api.domain.jobs import (
     JobStatus,
     JobType,
     acknowledge_job_cancellation,
+    checkpoint_job,
     complete_job,
     create_job,
     fail_job,
     job_input_key,
+    recover_expired_job,
+    renew_job_lease,
     request_job_cancellation,
     start_job,
     update_job_progress,
@@ -75,6 +78,26 @@ def _job() -> Job:
     )
 
 
+def _leased_job(
+    job: Job | None = None,
+    *,
+    started_at: datetime | None = None,
+) -> tuple[Job, UUID]:
+    now = started_at or datetime(2026, 7, 27, 12, 1, tzinfo=UTC)
+    token = uuid4()
+    return (
+        start_job(
+            job or _job(),
+            worker_version="worker-v1",
+            worker_id="worker-a",
+            lease_token=token,
+            lease_expires_at=now + timedelta(seconds=60),
+            started_at=now,
+        ),
+        token,
+    )
+
+
 def test_input_key_is_canonical_and_includes_type_and_game() -> None:
     game_id = uuid4()
     first = {"schema_version": 1, "alpha": "a", "nested": {"b": 2, "a": 1}}
@@ -90,9 +113,10 @@ def test_input_key_is_canonical_and_includes_type_and_game() -> None:
 
 def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
     original = _job()
-    started = start_job(original, worker_version="worker-v1")
+    started, token = _leased_job(original)
     progressed = update_job_progress(
         started,
+        lease_token=token,
         stage="validating",
         current=20,
         total=100,
@@ -100,24 +124,29 @@ def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
         failure_count=1,
         review_count=1,
     )
-    waiting = wait_for_review(progressed)
+    waiting = wait_for_review(
+        progressed,
+        lease_token=token,
+        updated_at=datetime(2026, 7, 27, 12, 1, 20, tzinfo=UTC),
+    )
 
     assert waiting.status is JobStatus.WAITING_FOR_REVIEW
     assert waiting.stage == "validating"
     with pytest.raises(JobConflictError) as error:
-        complete_job(waiting)
+        complete_job(waiting, lease_token=token)
     assert error.value.code == "INVALID_JOB_STATUS_TRANSITION"
 
 
 def test_invalid_transition_and_progress_regression_are_rejected() -> None:
     original = _job()
     with pytest.raises(JobConflictError) as error:
-        complete_job(original)
+        complete_job(original, lease_token=uuid4())
     assert error.value.code == "INVALID_JOB_STATUS_TRANSITION"
 
-    started = start_job(original, worker_version="worker-v1")
+    started, token = _leased_job(original)
     progressed = update_job_progress(
         started,
+        lease_token=token,
         stage="scanning",
         current=5,
         total=10,
@@ -128,6 +157,7 @@ def test_invalid_transition_and_progress_regression_are_rejected() -> None:
     with pytest.raises(JobError) as progress_error:
         update_job_progress(
             progressed,
+            lease_token=token,
             stage="scanning",
             current=4,
             total=10,
@@ -144,25 +174,35 @@ def test_cancellation_is_immediate_before_start_and_deferred_during_processing()
     assert unstarted.status is JobStatus.CANCELLED
     assert unstarted.finished_at == now
 
-    processing = start_job(_job(), worker_version="worker-v1")
+    processing, token = _leased_job(
+        started_at=datetime(2026, 7, 27, 12, 59, 30, tzinfo=UTC)
+    )
     requested = request_job_cancellation(processing, requested_at=now)
     assert requested.status is JobStatus.PROCESSING
     assert requested.cancel_requested_at == now
 
     acknowledged = acknowledge_job_cancellation(
         requested,
+        lease_token=token,
         finished_at=now + timedelta(seconds=1),
     )
     assert acknowledged.status is JobStatus.CANCELLED
 
 
 def test_completed_and_failed_jobs_are_terminal_for_cancel() -> None:
-    processing = start_job(_job(), worker_version="worker-v1")
-    completed = complete_job(processing)
+    processing, completed_token = _leased_job()
+    completed = complete_job(
+        processing,
+        lease_token=completed_token,
+        finished_at=datetime(2026, 7, 27, 12, 1, 30, tzinfo=UTC),
+    )
+    failing, failing_token = _leased_job()
     failed = fail_job(
-        start_job(_job(), worker_version="worker-v1"),
+        failing,
+        lease_token=failing_token,
         error_code="VALIDATION_FAILED",
         error_message="Dataset is invalid.",
+        finished_at=datetime(2026, 7, 27, 12, 1, 30, tzinfo=UTC),
     )
 
     for terminal in (completed, failed):
@@ -192,3 +232,81 @@ def test_service_rejects_duplicate_input_and_cancels_persisted_job() -> None:
         )
     assert error.value.code == "JOB_INPUT_ALREADY_EXISTS"
     assert service.cancel_job(created.id).status is JobStatus.CANCELLED
+
+
+def test_lease_token_heartbeat_checkpoint_and_expiry_are_fenced() -> None:
+    started_at = datetime(2026, 7, 27, 14, tzinfo=UTC)
+    processing, token = _leased_job(started_at=started_at)
+
+    renewed = renew_job_lease(
+        processing,
+        lease_token=token,
+        heartbeat_at=started_at + timedelta(seconds=20),
+        lease_expires_at=started_at + timedelta(seconds=80),
+    )
+    checkpointed = checkpoint_job(
+        renewed,
+        lease_token=token,
+        checkpoint_payload={"schema_version": 1, "after_sequence_number": 100},
+        stage="validating",
+        current=100,
+        total=1000,
+        success_count=98,
+        failure_count=1,
+        review_count=1,
+        updated_at=started_at + timedelta(seconds=30),
+    )
+
+    assert checkpointed.checkpoint_payload == {
+        "schema_version": 1,
+        "after_sequence_number": 100,
+    }
+    assert checkpointed.heartbeat_at == started_at + timedelta(seconds=20)
+    with pytest.raises(JobConflictError) as wrong_token:
+        renew_job_lease(
+            checkpointed,
+            lease_token=uuid4(),
+            heartbeat_at=started_at + timedelta(seconds=40),
+            lease_expires_at=started_at + timedelta(seconds=100),
+        )
+    assert wrong_token.value.code == "JOB_LEASE_LOST"
+    with pytest.raises(JobConflictError) as expired:
+        renew_job_lease(
+            checkpointed,
+            lease_token=token,
+            heartbeat_at=started_at + timedelta(seconds=81),
+            lease_expires_at=started_at + timedelta(seconds=120),
+        )
+    assert expired.value.code == "JOB_LEASE_LOST"
+
+
+def test_expired_lease_requeues_same_job_and_preserves_checkpoint() -> None:
+    started_at = datetime(2026, 7, 27, 15, tzinfo=UTC)
+    processing, token = _leased_job(started_at=started_at)
+    checkpointed = checkpoint_job(
+        processing,
+        lease_token=token,
+        checkpoint_payload={"schema_version": 1, "cursor": 25},
+        stage="writing",
+        current=25,
+        total=100,
+        success_count=25,
+        failure_count=0,
+        review_count=0,
+        updated_at=started_at + timedelta(seconds=20),
+    )
+    recovered = recover_expired_job(
+        checkpointed,
+        recovered_at=started_at + timedelta(seconds=61),
+    )
+    resumed, _new_token = _leased_job(
+        recovered,
+        started_at=started_at + timedelta(seconds=62),
+    )
+
+    assert recovered.id == processing.id
+    assert recovered.status is JobStatus.CREATED
+    assert recovered.checkpoint_payload == {"schema_version": 1, "cursor": 25}
+    assert recovered.execution_slot is None
+    assert resumed.attempt_count == 2
+    assert resumed.progress_current == 25

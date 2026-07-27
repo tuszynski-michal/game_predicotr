@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.1 in progress; TASK-0029 complete; ready for TASK-0030`
+`M3.1 in progress; TASK-0030 complete`
 
 ## Completed
 
@@ -341,6 +341,20 @@ last_updated: 2026-07-27
 - TASK-0029 przeszedł pełną bramkę jakości: 139 standardowych testów Python,
   63 mobile, 44 panelu, 23 wspólnej domeny i 8 klienta API, produkcyjny build
   Next.js oraz 3 fizyczne testy PostgreSQL,
+- ukończono `TASK-0030`: migracja `0008_job_leases` dodaje wersjonowany
+  checkpoint, licznik prób, singletonowy slot oraz komplet pól lease; constraint
+  PostgreSQL dopuszcza najwyżej jeden rekord `processing`,
+- lokalny worker przejmuje najstarszy job, wykonuje handler poza transakcją,
+  odnawia heartbeat, zapisuje checkpoint z postępem, respektuje anulowanie i
+  odzyskuje ten sam rekord po wygaśnięciu lease,
+- fencing token blokuje zapis starego workera, jawne retry zachowuje job oraz
+  checkpoint, a Admin API i generowany klient udostępniają `retryJob` oraz
+  bezpieczne pola obserwowalności bez ujawniania tokenu,
+- zaakceptowano D-033 i dodano komendy `worker:once`/`worker:poll`; konkretne
+  handlery import/payout/snapshot/build pozostają zakresem kolejnych pionów,
+- TASK-0030 przeszedł pełną bramkę jakości: 150 standardowych testów Python,
+  63 mobile, 44 panelu, 23 wspólnej domeny i 8 klienta API, produkcyjny build
+  Next.js oraz 4 fizyczne testy PostgreSQL,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -352,7 +366,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M3 oczekuje na polecenie rozpoczęcia TASK-0029.
+- brak aktywnego zadania; oczekuje `TASK-0031`.
 
 ## Open but not blocking next milestones
 
@@ -406,7 +420,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0030 — Local worker execution, lease and resume`.
+`TASK-0031 — Jobs progress and error UI`. Nie rozpoczynać go automatycznie.
 
 ## Do not start yet
 

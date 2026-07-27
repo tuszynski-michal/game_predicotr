@@ -44,6 +44,8 @@
     "openapi:generate": ".venv\\Scripts\\python.exe scripts/export_admin_openapi.py && npm run generate --workspace @game-predictor/admin-api-client",
     "test": "npm run test --workspaces --if-present && npm run python:test",
     "typecheck": "npm run typecheck --workspaces --if-present && npm run python:typecheck",
+    "worker:once": ".venv\\Scripts\\python.exe -m game_predictor_worker",
+    "worker:poll": ".venv\\Scripts\\python.exe -m game_predictor_worker --poll",
     "python:lint": ".venv\\Scripts\\python.exe -m ruff check services/api services/worker scripts",
     "python:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_python_tests.ps1",
     "python:typecheck": ".venv\\Scripts\\python.exe -m mypy services/api/src services/worker/src scripts",

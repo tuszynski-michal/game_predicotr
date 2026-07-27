@@ -91,8 +91,9 @@ npm run db:baseline:verify
 
 This command starts PostgreSQL if needed and recreates only the dedicated
 `game_predictor_baseline_test` and `game_predictor_catalog_test` databases. It
-also runs the isolated `game_predictor_m2_acceptance_test` database. It never
-drops the development database `game_predictor`.
+also runs the isolated `game_predictor_m2_acceptance_test` and
+`game_predictor_worker_jobs_test` databases. It never drops the development
+database `game_predictor`.
 
 Run the complete M2 acceptance scenario separately with:
 
@@ -118,6 +119,19 @@ Terminal 2:
 ```powershell
 npm run admin:dev
 ```
+
+The durable worker is a separate local process. Once a concrete workflow
+handler is registered, run one claim attempt or continuous polling in another
+terminal:
+
+```powershell
+npm run worker:once
+npm run worker:poll
+```
+
+The TASK-0030 runtime intentionally has no import, payout, snapshot or build
+handler yet. Claiming such a job before its handler is delivered ends it with
+the stable `JOB_HANDLER_NOT_REGISTERED` error and releases the execution slot.
 
 The panel is available at `http://127.0.0.1:3000`. The health endpoint is
 `http://127.0.0.1:8000/api/v1/health`, and generated FastAPI documentation is

@@ -263,6 +263,13 @@ Oddzielna tabela zapobiega uznaniu payoutu za aktualny po zmianie reguł.
 | error_code | varchar nullable | |
 | error_message | text nullable | |
 | worker_version | varchar nullable | ustawiany po przejęciu przez worker |
+| checkpoint_payload | JSONB nullable | wersjonowany stan wznowienia workflow |
+| attempt_count | integer | liczba skutecznych przejęć tego samego rekordu |
+| execution_slot | smallint nullable | `1` wyłącznie dla aktywnego `processing` |
+| lease_owner | varchar nullable | diagnostyczny identyfikator lokalnego workera |
+| lease_token | UUID nullable | wewnętrzny fencing token, nie jest częścią Admin API |
+| lease_expires_at | timestamptz nullable | granica ważności bieżącego lease |
+| heartbeat_at | timestamptz nullable | ostatnie odnowienie lease |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 | started_at | timestamptz nullable | |
@@ -275,6 +282,14 @@ wartości są `stage`, a nie statusami. Liczniki są nieujemne,
 `input_key` blokuje dwa enqueue dla tego samego wejścia. Szczegóły importu mogą
 być w tabeli `import_job_details`. Retry wznawia istniejący rekord zamiast
 tworzyć duplikat.
+
+Tylko rekord `processing` ma komplet pól lease i `execution_slot = 1`.
+Unikalność slotu gwarantuje najwyżej jedno lokalne wykonanie jednocześnie.
+Worker zapisuje postęp i `checkpoint_payload` w tej samej transakcji, a każdy
+checkpoint ma `schema_version = 1`. Wygaśnięcie lease usuwa pola wykonawcze i
+przywraca ten sam rekord do `created`, zachowując checkpoint i liczniki.
+`attempt_count` rośnie przy kolejnym przejęciu. Token lease jest wyłącznie
+wewnętrzną ochroną zapisu i nie może być zwracany panelowi.
 
 ### source_images
 

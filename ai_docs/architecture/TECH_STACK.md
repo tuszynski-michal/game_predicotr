@@ -177,7 +177,10 @@ rules z kluczem złożonym konfiguracji, złożonym FK payoutu oraz zarezerwowan
 unikalnością symbol/długość.
 Migracja `0007_jobs` dodaje trwałe, typowane jobs, wspólny enum cyklu życia,
 JSONB payload, unikalny hash wejścia, postęp, liczniki wyników i timestamp
-żądania anulowania. Pola lease i heartbeat nie należą do tej migracji.
+żądania anulowania.
+Migracja `0008_job_leases` dodaje wersjonowany checkpoint, licznik prób,
+singletonowy slot wykonawczy oraz pola owner/token/expiry/heartbeat. Constraint
+bazy wymaga pełnego kompletu lease wyłącznie dla statusu `processing`.
 
 ### SQLite — niezmienny snapshot mobile
 
@@ -213,6 +216,20 @@ Postęp jest zapisywany w PostgreSQL. Początkowo działa najwyżej jedno cięż
 wykonanie, `waiting_for_review` zwalnia worker, a `completed`, `failed` i
 `cancelled` są stanami końcowymi. Nazwy etapów, takie jak `scanning` lub
 `writing_layouts`, są przechowywane osobno.
+
+Lokalny runtime używa krótkich transakcji SQLAlchemy do claim, heartbeat,
+checkpoint i zakończenia. Handler wykonuje pracę poza transakcją, a fencing
+token jest weryfikowany przy każdej mutacji. Domyślny lease trwa 60 sekund.
+Worker można uruchomić jednorazowo albo w pętli:
+
+```powershell
+npm run worker:once
+npm run worker:poll
+```
+
+Rejestr konkretnych handlerów jest rozwijany razem z ich pionami
+funkcjonalnymi. Brak handlera kończy przejęty job kodem
+`JOB_HANDLER_NOT_REGISTERED`; nie pozostawia zajętego slotu.
 
 Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane
 zadanie, a worker uruchamia jeden wersjonowany workflow build. Obowiązuje lokalny

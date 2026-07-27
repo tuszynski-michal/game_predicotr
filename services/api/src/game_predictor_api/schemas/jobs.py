@@ -111,6 +111,9 @@ class JobResponse(ApiModel):
     progress: JobProgressResponse
     error: JobErrorResponse | None
     worker_version: str | None
+    attempt_count: int
+    heartbeat_at: datetime | None
+    lease_expires_at: datetime | None
     created_at: datetime
     updated_at: datetime
     started_at: datetime | None
@@ -141,6 +144,9 @@ class JobResponse(ApiModel):
             ),
             error=error,
             worker_version=job.worker_version,
+            attempt_count=job.attempt_count,
+            heartbeat_at=job.heartbeat_at,
+            lease_expires_at=job.lease_expires_at,
             created_at=job.created_at,
             updated_at=job.updated_at,
             started_at=job.started_at,

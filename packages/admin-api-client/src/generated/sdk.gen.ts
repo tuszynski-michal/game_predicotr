@@ -112,6 +112,9 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  RetryJobData,
+  RetryJobErrors,
+  RetryJobResponses,
   UpdateGameData,
   UpdateGameErrors,
   UpdateGameResponses,
@@ -517,6 +520,18 @@ export const cancelJob = <ThrowOnError extends boolean = false>(
     CancelJobErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/jobs/{job_id}/cancel', ...options });
+
+/**
+ * Requeue the same failed or review-paused job
+ */
+export const retryJob = <ThrowOnError extends boolean = false>(
+  options: Options<RetryJobData, ThrowOnError>,
+): RequestResult<RetryJobResponses, RetryJobErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    RetryJobResponses,
+    RetryJobErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/jobs/{job_id}/retry', ...options });
 
 /**
  * Archive a published rules version

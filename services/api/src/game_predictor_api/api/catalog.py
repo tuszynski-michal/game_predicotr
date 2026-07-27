@@ -120,10 +120,7 @@ def create_catalog_router(
         game_id: UUID,
         service: Annotated[CatalogService, service_parameter],
     ) -> list[SymbolResponse]:
-        return [
-            SymbolResponse.model_validate(symbol)
-            for symbol in service.list_symbols(game_id)
-        ]
+        return [SymbolResponse.model_validate(symbol) for symbol in service.list_symbols(game_id)]
 
     @router.post(
         "/games/{game_id}/symbols",

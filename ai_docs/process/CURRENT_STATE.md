@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Current State
 
 ## Phase
 
-`M2.2 — Admin shell and games identity UI, TASK-0019`
+`M2.3 in progress; TASK-0023`
 
 ## Completed
 
@@ -187,6 +187,56 @@ last_updated: 2026-07-26
   testy PostgreSQL zaliczyły migracje, repozytorium i konflikty constraints,
 - zaakceptowano D-024: stabilne kody są nieedytowalne, a publiczne `DELETE`
   zawsze oznacza archiwizację bez fizycznego usuwania,
+- ukończono `TASK-0019`: responsywny shell panelu i katalog gier obsługują
+  listowanie, tworzenie, edycję nazwy/statusu oraz archiwizację po jawnym
+  potwierdzeniu przez typowany klient Admin API,
+- panel rozróżnia loading, empty, error i success, blokuje wielokrotny zapis,
+  pozostawia zarchiwizowane rekordy na liście i nie wyprzedza zakresu wymiarów,
+  kosztu spinu ani symboli,
+- generator klienta używa importów bez rozszerzenia zgodnych z
+  `moduleResolution: Bundler`; kontrola driftu, 11 testów panelu i produkcyjny
+  build Next.js przechodzą,
+- uruchomiony lokalnie panel odpowiedział HTTP 200, API zgłosiło `ok`, katalog
+  zwrócił poprawną pustą listę, a preflight CORS zaakceptował
+  `http://127.0.0.1:3000`,
+- ukończono `TASK-0020`: panel wybiera grę i udostępnia pełny katalog symboli
+  z `mobileCode`, stabilnym kodem, nazwą, jokerem, kolejnością, statusem oraz
+  względną ścieżką obrazu referencyjnego,
+- formularz blokuje zmianę `mobileCode` i kodu po utworzeniu, waliduje zakresy
+  liczbowe oraz bezpieczną ścieżkę POSIX, a archiwizacja wymaga potwierdzenia i
+  pozostawia symbol na liście,
+- mały workspace odświeża selektor symboli po zmianie katalogu gier bez
+  globalnego store; odpowiedzi i błędy nadal przechodzą wyłącznie przez
+  generowany klient Admin API,
+- TASK-0020 przeszedł 19 testów panelu, produkcyjny build Next.js, 2 fizyczne
+  testy integracyjne PostgreSQL i lokalny smoke HTTP 200 dla obu sekcji,
+- zaliczono bramkę G2.2; gra ma tożsamość i katalog symboli, ale wymiary, koszt
+  spinu i wersje reguł pozostają zgodnie z planem w M2.3,
+- ukończono `TASK-0021`: migracja `0003_rules_versions`, domena, repozytorium i
+  Admin API udostępniają serwerowo numerowane wersje reguł ze statusami
+  `draft/published/archived`, wersjonowanymi wymiarami i kosztem spinu,
+- tworzenie blokuje rekord gry i przydziela `max(version) + 1`, lista pokazuje
+  najnowszą wersję pierwszą, a aktualizacja chroni wersje inne niż draft,
+- wygenerowany klient i panel pozwalają wybrać grę, utworzyć draft 3 × 5 / 10,
+  przeglądać historię oraz edytować wymiary i koszt wyłącznie draftu,
+- TASK-0021 przeszedł pełną bramkę jakości, produkcyjny build Next.js i 2
+  fizyczne testy PostgreSQL obejmujące rollback migracji oraz repozytorium,
+- zaakceptowano D-025 definiującą serwerową numerację i mutację wyłącznie draftu;
+  paylines, konfiguracja symboli i publikacja pozostają w TASK-0022–TASK-0024,
+- ukończono `TASK-0022`: migracja `0004_paylines`, domena, repozytorium i Admin
+  API obsługują listowanie, tworzenie, edycję, archiwizację i ponowną aktywację
+  wzorców draftu wersji reguł,
+- `row_path` ma po jednym indeksie 0-based dla każdej kolumny; domena i baza
+  blokują błędną długość, nieistniejący wiersz, zduplikowaną ścieżkę oraz zmianę
+  wymiarów unieważniającą zapisany wzorzec,
+- panel pokazuje wzorce w tabeli i udostępnia modalną siatkę 1-based, która
+  pozwala wybrać najwyżej jedną komórkę w każdej kolumnie oraz zapisać dopiero
+  kompletną linię,
+- TASK-0022 przeszedł pełną bramkę jakości: 102 testy Python, 63 mobile, 29
+  panelu, 23 wspólnej domeny i 4 klienta API, produkcyjny build Next.js oraz 2
+  fizyczne testy PostgreSQL,
+- zaakceptowano D-026 definiującą stabilny kod payline, archiwizację bez
+  zwalniania `row_path` oraz bezpieczne zmiany wymiarów draftu,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -198,7 +248,8 @@ last_updated: 2026-07-26
 
 ## In progress
 
-- `TASK-0019 — Admin shell and games identity UI`.
+- `TASK-0023 — Per-symbol minimum and payout rules API/UI`: wersjonowana
+  konfiguracja symboli, payout rules, typowany Admin API i panel draftu.
 
 ## Open but not blocking M2
 
@@ -251,8 +302,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Ukończyć TASK-0019, a po jego bramce i poleceniu właściciela rozpocząć
-TASK-0020.
+Ukończyć `TASK-0023`, a następnie po poleceniu właściciela rozpocząć
+`TASK-0024 — Immutable rules publication workflow`.
 
 ## Do not start yet
 

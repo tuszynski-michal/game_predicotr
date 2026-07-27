@@ -6,15 +6,18 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     GameStatus,
     SymbolStatus,
 )
+from game_predictor_api.domain.rules import RulesConflictError
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
+from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
@@ -71,6 +74,8 @@ def test_catalog_repository_uses_real_constraints(
         assert set(inspect(engine).get_table_names()) == {
             "alembic_version",
             "games",
+            "paylines",
+            "rules_versions",
             "symbols",
         }
 
@@ -107,11 +112,75 @@ def test_catalog_repository_uses_real_constraints(
                 second.id,
                 first.id,
             ]
-            assert (
-                service.archive_symbol(game.id, first.id).status
-                is SymbolStatus.ARCHIVED
-            )
+            assert service.archive_symbol(game.id, first.id).status is SymbolStatus.ARCHIVED
             session.commit()
+
+            rules_service = RulesService(SqlAlchemyRulesRepository(session))
+            first_rules = rules_service.create_rules_version(
+                game.id,
+                rows=3,
+                columns=5,
+                spin_cost=10,
+            )
+            second_rules = rules_service.create_rules_version(
+                game.id,
+                rows=4,
+                columns=6,
+                spin_cost=20,
+            )
+            assert [item.version for item in rules_service.list_rules_versions(game.id)] == [2, 1]
+            assert first_rules.version == 1
+            assert second_rules.version == 2
+            assert (
+                rules_service.update_rules_version(
+                    second_rules.id,
+                    spin_cost=25,
+                ).spin_cost
+                == 25
+            )
+            first_payline = rules_service.create_payline(
+                first_rules.id,
+                code="line-v",
+                name="V",
+                row_path=[0, 1, 2, 1, 0],
+                display_order=20,
+                is_active=True,
+            )
+            second_payline = rules_service.create_payline(
+                first_rules.id,
+                code="line-top",
+                name="Top",
+                row_path=[0, 0, 0, 0, 0],
+                display_order=10,
+                is_active=True,
+            )
+            assert [payline.id for payline in rules_service.list_paylines(first_rules.id)] == [
+                second_payline.id,
+                first_payline.id,
+            ]
+            assert (
+                rules_service.archive_payline(
+                    first_rules.id,
+                    first_payline.id,
+                ).is_active
+                is False
+            )
+            with pytest.raises(RulesConflictError) as error:
+                rules_service.update_rules_version(first_rules.id, columns=6)
+            assert error.value.code == "RULES_DIMENSIONS_IN_USE"
+            session.commit()
+
+            with pytest.raises(RulesConflictError) as error:
+                rules_service.create_payline(
+                    first_rules.id,
+                    code="line-copy",
+                    name="Copy",
+                    row_path=[0, 1, 2, 1, 0],
+                    display_order=30,
+                    is_active=True,
+                )
+            assert error.value.code == "DUPLICATE_PAYLINE"
+            session.rollback()
 
         with Session(engine, expire_on_commit=False) as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))

@@ -9,11 +9,17 @@ from fastapi.responses import JSONResponse
 
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     CatalogError,
     CatalogNotFoundError,
+)
+from game_predictor_api.domain.rules import (
+    RulesConflictError,
+    RulesError,
+    RulesNotFoundError,
 )
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -22,12 +28,14 @@ from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
 )
+from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 
 
 def create_app(
     settings: ApiSettings | None = None,
     *,
     catalog_service_dependency: Callable[..., object] | None = None,
+    rules_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -42,13 +50,20 @@ def create_app(
                 session.rollback()
                 raise
 
-    resolved_catalog_dependency = (
-        catalog_service_dependency or default_catalog_service_dependency
-    )
+    resolved_catalog_dependency = catalog_service_dependency or default_catalog_service_dependency
+
+    def default_rules_service_dependency() -> Iterator[RulesService]:
+        with session_factory() as session:
+            try:
+                yield RulesService(SqlAlchemyRulesRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_rules_dependency = rules_service_dependency or default_rules_service_dependency
     api_host = (
-        f"[{resolved_settings.host}]"
-        if resolved_settings.host == "::1"
-        else resolved_settings.host
+        f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
     application = FastAPI(
         title=resolved_settings.application_name,
@@ -69,7 +84,11 @@ def create_app(
     )
     application.state.database_engine = database_engine
     application.include_router(
-        create_api_router(resolved_settings, resolved_catalog_dependency)
+        create_api_router(
+            resolved_settings,
+            resolved_catalog_dependency,
+            resolved_rules_dependency,
+        )
     )
 
     @application.exception_handler(CatalogError)
@@ -81,6 +100,25 @@ def create_app(
         if isinstance(error, CatalogNotFoundError):
             status_code = 404
         elif isinstance(error, CatalogConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(RulesError)
+    async def handle_rules_error(
+        _request: Request,
+        error: RulesError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, RulesNotFoundError):
+            status_code = 404
+        elif isinstance(error, RulesConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,
@@ -113,6 +151,7 @@ def create_app(
                 },
             },
         )
+
     return application
 
 

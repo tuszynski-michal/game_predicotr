@@ -65,6 +65,10 @@ npm run android:device:accept
 TASK-0015 provides a local-only FastAPI service and Next.js panel. TASK-0016
 adds PostgreSQL 18, SQLAlchemy and an empty Alembic baseline. TASK-0018 adds the
 first canonical domain tables and API operations for games and symbols.
+TASK-0019 adds the panel shell and the game identity workflow: list, create,
+edit mutable fields and archive with explicit confirmation. TASK-0020 completes
+M2.2 with the per-game symbol catalog, wildcard/order/reference-path editing
+and archive-only removal.
 
 Start Docker Desktop first. The defaults work without environment variables.
 From the repository root, initialize PostgreSQL and its migration history:

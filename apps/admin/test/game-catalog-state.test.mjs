@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  apiErrorMessage,
   markGameArchived,
   upsertGame,
   validateGameDraft,
 } from '../src/features/games/game-catalog-state.ts';
+import { apiErrorMessage } from '../src/features/catalog/catalog-api-error.ts';
 
 const game = {
   code: 'game-1',

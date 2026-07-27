@@ -1,7 +1,7 @@
 ---
 title: Completed tasks archive
 status: active
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Ukończone zadania
@@ -32,5 +32,9 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0016 — PostgreSQL Compose and Alembic baseline](0016-postgresql-compose-alembic-baseline.md)
 - [TASK-0017 — OpenAPI contract and generated admin client](0017-openapi-contract-generated-admin-client.md)
 - [TASK-0018 — Games and symbols domain, repository and API](0018-games-symbols-domain-repository-api.md)
+- [TASK-0019 — Admin shell and games identity UI](0019-admin-shell-games-identity-ui.md)
+- [TASK-0020 — Symbols UI, reference assets and archival rules](0020-symbols-ui-reference-assets-archival-rules.md)
+- [TASK-0021 — Rules versions domain, API and dimensions UI](0021-rules-versions-domain-api-dimensions-ui.md)
+- [TASK-0022 — Payline grid editor and duplicate validation](0022-payline-grid-editor-duplicate-validation.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

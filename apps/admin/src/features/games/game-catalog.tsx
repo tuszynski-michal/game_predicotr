@@ -1,11 +1,8 @@
 'use client';
 
 import type {
-  AdminApiClient,
-  GameCreate,
   GameResponse,
   GameStatus,
-  GameUpdate,
 } from '@game-predictor/admin-api-client';
 import {
   type FormEvent,
@@ -17,8 +14,13 @@ import {
 } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
-  apiErrorMessage,
+  archiveGameIdentity,
+  type GamesClient,
+  saveGameIdentity,
+} from '@/features/games/game-catalog-actions';
+import {
   EMPTY_GAME_DRAFT,
   GAME_STATUS_LABELS,
   type GameDraft,
@@ -26,11 +28,6 @@ import {
   upsertGame,
   validateGameDraft,
 } from '@/features/games/game-catalog-state';
-
-export type GamesClient = Pick<
-  AdminApiClient,
-  'archiveGame' | 'createGame' | 'listGames' | 'updateGame'
->;
 
 type LoadState = 'loading' | 'ready' | 'error';
 type EditorState =
@@ -41,9 +38,14 @@ type EditorState =
 interface GameCatalogProps {
   readonly apiBaseUrl: string;
   readonly client?: GamesClient;
+  readonly onGamesChanged?: () => void;
 }
 
-export function GameCatalog({ apiBaseUrl, client }: GameCatalogProps) {
+export function GameCatalog({
+  apiBaseUrl,
+  client,
+  onGamesChanged,
+}: GameCatalogProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
@@ -149,36 +151,27 @@ export function GameCatalog({ apiBaseUrl, client }: GameCatalogProps) {
     setNotice('');
 
     try {
-      const result =
+      const result = await saveGameIdentity(
+        api,
         editor.mode === 'create'
-          ? await api.createGame({
-              code,
-              name,
-              status,
-            } satisfies GameCreate)
-          : await api.updateGame(editor.game.id, {
-              name,
-              status,
-            } satisfies GameUpdate);
+          ? { mode: 'create' }
+          : { gameId: editor.game.id, mode: 'edit' },
+        { code, name, status },
+      );
 
-      if (result.error !== undefined || result.data === undefined) {
-        setFormError(
-          apiErrorMessage(result.error, 'Nie udało się zapisać gry.'),
-        );
+      if (!result.ok) {
+        setFormError(result.error);
         return;
       }
 
-      const savedGame = result.data;
+      const savedGame = result.game;
       setGames((current) => upsertGame(current, savedGame));
       setEditor({ mode: 'closed' });
+      onGamesChanged?.();
       setNotice(
         editor.mode === 'create'
           ? `Utworzono grę „${savedGame.name}”.`
           : `Zapisano zmiany gry „${savedGame.name}”.`,
-      );
-    } catch {
-      setFormError(
-        'Połączenie z lokalnym Admin API zostało przerwane. Spróbuj ponownie.',
       );
     } finally {
       mutationInProgress.current = false;
@@ -195,21 +188,16 @@ export function GameCatalog({ apiBaseUrl, client }: GameCatalogProps) {
     setNotice('');
 
     try {
-      const result = await api.archiveGame(game.id);
-      if (result.error !== undefined) {
-        setNotice(
-          apiErrorMessage(result.error, 'Nie udało się zarchiwizować gry.'),
-        );
+      const result = await archiveGameIdentity(api, game.id);
+      if (!result.ok) {
+        setNotice(result.error);
         return;
       }
       setGames((current) => markGameArchived(current, game.id));
       setArchiveCandidateId(null);
+      onGamesChanged?.();
       setNotice(
         `Zarchiwizowano grę „${game.name}”. Rekord pozostał w katalogu.`,
-      );
-    } catch {
-      setNotice(
-        'Połączenie z lokalnym Admin API zostało przerwane. Archiwizacja nie została potwierdzona.',
       );
     } finally {
       mutationInProgress.current = false;
@@ -399,8 +387,14 @@ function GameEditor({
           >
             <option value="draft">Szkic</option>
             <option value="active">Aktywna</option>
-            <option value="archived">Zarchiwizowana</option>
+            {mode === 'edit' && draft.status === 'archived' ? (
+              <option value="archived">Zarchiwizowana</option>
+            ) : null}
           </select>
+          <small>
+            Archiwizacja aktywnego rekordu wymaga osobnego potwierdzenia na
+            liście.
+          </small>
         </label>
 
         <div className="formActions">

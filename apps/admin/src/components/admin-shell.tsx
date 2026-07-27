@@ -28,14 +28,14 @@ export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
             <span aria-hidden="true">01</span>
             Gry
           </a>
-          <span aria-disabled="true" className="navItem navItemDisabled">
+          <a className="navItem navItemAvailable" href="#symbols">
             <span aria-hidden="true">02</span>
             Symbole
-          </span>
-          <span aria-disabled="true" className="navItem navItemDisabled">
+          </a>
+          <a className="navItem navItemAvailable" href="#rules">
             <span aria-hidden="true">03</span>
-            Reguły i wypłaty
-          </span>
+            Wersje reguł
+          </a>
           <span aria-disabled="true" className="navItem navItemDisabled">
             <span aria-hidden="true">04</span>
             Datasety

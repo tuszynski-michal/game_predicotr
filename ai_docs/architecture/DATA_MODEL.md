@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Model danych
@@ -110,7 +110,13 @@ Walidacja:
 - długość `row_path` równa `columns`,
 - każdy indeks spełnia `0 <= row < rows`,
 - `(rules_version_id, row_path)` unique,
+- `(rules_version_id, code)` unique,
 - nie można zapisać dwóch komórek dla jednej kolumny, ponieważ pozycja tablicy reprezentuje kolumnę.
+
+`code` jest stabilny po utworzeniu. Publiczne usunięcie draftu ustawia
+`is_active = false`; rekord i jego `row_path` pozostają w wersji oraz mogą być
+ponownie aktywowane. Zmiana wymiarów draftu nie może unieważnić istniejącego
+`row_path`.
 
 ### payout_rules
 

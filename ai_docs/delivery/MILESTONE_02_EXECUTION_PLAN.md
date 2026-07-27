@@ -1,7 +1,7 @@
 ---
 title: Milestone 02 execution plan
 status: accepted
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Plan wykonania Milestone 02 — Admin configuration
@@ -106,7 +106,9 @@ odwracalny cykl migracji, kontrakt OpenAPI i klient nie wykazują driftu, pełne
 - `TASK-0018 — Games and symbols domain, repository and API`
   — ukończone 2026-07-26
 - `TASK-0019 — Admin shell and games identity UI`
+  — ukończone 2026-07-26
 - `TASK-0020 — Symbols UI, reference assets and archival rules`
+  — ukończone 2026-07-27
 
 ### Bramka G2.2
 
@@ -121,6 +123,11 @@ odwracalny cykl migracji, kontrakt OpenAPI i klient nie wykazują driftu, pełne
 Na końcu M2.2 gra ma tożsamość i katalog symboli, ale nie jest jeszcze gotowa do
 layoutów. Wymiary oraz koszt spinu są własnością pierwszej wersji reguł i
 powstają w M2.3.
+
+Bramka G2.2 została zaliczona 2026-07-27. CRUD i fizyczne constraints
+PostgreSQL, typowane operacje klienta oraz UI gier i symboli przeszły testy,
+produkcyjny build i lokalny smoke HTTP. Publiczne akcje archiwizacji nie usuwają
+rekordów.
 
 ## M2.3 — Wersje reguł, paylines i payout rules
 
@@ -139,7 +146,9 @@ powstają w M2.3.
 ### Zadania
 
 - `TASK-0021 — Rules versions domain, API and dimensions UI`
+  — ukończone 2026-07-27
 - `TASK-0022 — Payline grid editor and duplicate validation`
+  — ukończone 2026-07-27
 - `TASK-0023 — Per-symbol minimum and payout rules API/UI`
 - `TASK-0024 — Immutable rules publication workflow`
 

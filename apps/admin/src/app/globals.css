@@ -161,6 +161,11 @@ nav {
   font-weight: 700;
 }
 
+.navItemAvailable:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
 .navItemActive > span {
   color: var(--accent);
 }
@@ -205,6 +210,17 @@ nav {
   width: min(1180px, 100%);
   margin: 0 auto;
   padding: 62px 52px 90px;
+}
+
+#games,
+.catalogSection {
+  scroll-margin-top: 28px;
+}
+
+.catalogSection {
+  margin-top: 110px;
+  padding-top: 64px;
+  border-top: 1px solid var(--line);
 }
 
 .pageHeader {
@@ -331,8 +347,16 @@ a:focus-visible {
   line-height: 1.55;
 }
 
+.feedbackBannerError {
+  border-color: rgba(255, 139, 139, 0.24);
+  background: var(--danger-soft);
+  color: #ffb4b4;
+}
+
 .editorPanel,
 .gamesPanel,
+.symbolsPanel,
+.rulesPanel,
 .statePanel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -369,6 +393,40 @@ a:focus-visible {
   gap: 18px;
 }
 
+.symbolForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.rulesForm {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.rulesForm .editorHeader {
+  grid-column: 1 / -1;
+}
+
+.rulesForm label {
+  display: grid;
+  gap: 8px;
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rulesForm input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(5, 12, 22, 0.62);
+  color: var(--text);
+}
+
 .formError {
   grid-column: 1 / -1;
   margin: 0;
@@ -381,7 +439,8 @@ a:focus-visible {
   line-height: 1.5;
 }
 
-.gameForm label {
+.gameForm label,
+.symbolForm label {
   display: grid;
   align-content: start;
   gap: 8px;
@@ -391,7 +450,9 @@ a:focus-visible {
 }
 
 .gameForm input,
-.gameForm select {
+.gameForm select,
+.symbolForm input,
+.symbolForm select {
   width: 100%;
   min-height: 46px;
   padding: 0 13px;
@@ -401,16 +462,47 @@ a:focus-visible {
   color: var(--text);
 }
 
-.gameForm input:disabled {
+.gameForm input:disabled,
+.symbolForm input:disabled,
+.symbolForm select:disabled {
   color: #8294aa;
   cursor: not-allowed;
 }
 
-.gameForm small {
+.gameForm small,
+.symbolForm small {
   color: #73869e;
   font-size: 10px;
   font-weight: 500;
   line-height: 1.45;
+}
+
+.symbolForm .checkboxField {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  align-self: end;
+  gap: 11px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.symbolForm .checkboxField input {
+  width: 18px;
+  min-height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.symbolForm .checkboxField span {
+  display: grid;
+  gap: 2px;
+}
+
+.symbolForm .imagePathField {
+  grid-column: 1 / -1;
 }
 
 .formActions {
@@ -419,6 +511,41 @@ a:focus-visible {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 4px;
+}
+
+.gameSelectorPanel {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.42fr) minmax(280px, 1fr);
+  gap: 8px 18px;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(19, 34, 56, 0.62);
+}
+
+.gameSelectorPanel label {
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.gameSelectorPanel select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(5, 12, 22, 0.62);
+  color: var(--text);
+}
+
+.gameSelectorPanel p {
+  grid-column: 2;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .gamesPanel {
@@ -452,6 +579,322 @@ a:focus-visible {
   display: grid;
 }
 
+.symbolsList {
+  display: grid;
+}
+
+.rulesPanel {
+  overflow: hidden;
+}
+
+.rulesRow {
+  display: flex;
+  min-height: 104px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rulesRow:last-child {
+  border-bottom: 0;
+}
+
+.rulesRow:hover {
+  background: rgba(255, 255, 255, 0.018);
+}
+
+.rulesMetadata {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.immutableLabel {
+  color: #8294aa;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.paylineDialog {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 28px;
+  overflow-y: auto;
+  border: 0;
+  background: rgba(3, 8, 15, 0.82);
+  color: var(--text);
+  backdrop-filter: blur(12px);
+}
+
+.paylineDialogCard {
+  width: min(1040px, 100%);
+  margin: 32px auto;
+  padding: 28px;
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  background: linear-gradient(145deg, #152640, #0c192a);
+  box-shadow: 0 32px 120px rgba(0, 0, 0, 0.48);
+}
+
+.paylineDialogHeader,
+.paylineToolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.paylineDialogHeader {
+  margin-bottom: 24px;
+}
+
+.paylineDialogHeader h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.paylineToolbar {
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(5, 12, 22, 0.32);
+}
+
+.paylineToolbar p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.paylineTable {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.paylineTableHeader,
+.paylineTableRow {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(210px, 1.1fr) minmax(90px, 0.35fr)
+    minmax(210px, 0.8fr);
+  gap: 18px;
+  align-items: center;
+  padding: 16px 18px;
+}
+
+.paylineTableHeader {
+  border-bottom: 1px solid var(--line);
+  background: rgba(5, 12, 22, 0.45);
+  color: #8294aa;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.paylineTableRow {
+  min-height: 92px;
+  border-bottom: 1px solid var(--line);
+}
+
+.paylineTableRow:last-child {
+  border-bottom: 0;
+}
+
+.paylineTableRow > div:first-child {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+}
+
+.paylineTableRow strong {
+  font-size: 14px;
+}
+
+.paylineTableRow code,
+.rowPathValue {
+  color: #a7b9ce;
+  font-size: 11px;
+}
+
+.paylineStatus {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #8294aa;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.paylineStatusActive {
+  border-color: rgba(112, 225, 180, 0.25);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.modalState {
+  display: flex;
+  min-height: 250px;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.modalState h3 {
+  margin-bottom: 7px;
+}
+
+.modalState p {
+  max-width: 520px;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.paylineEditorForm {
+  display: grid;
+  gap: 22px;
+}
+
+.paylineFields {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 0.7fr 0.75fr;
+  gap: 16px;
+}
+
+.paylineFields label {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.paylineFields input:not([type='checkbox']) {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(5, 12, 22, 0.62);
+  color: var(--text);
+}
+
+.paylineFields input:disabled {
+  color: #8294aa;
+  cursor: not-allowed;
+}
+
+.paylineFields .checkboxField {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  align-self: end;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+}
+
+.paylineFields .checkboxField input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.paylineGridSection {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.paylineGridSection h3 {
+  margin-bottom: 6px;
+}
+
+.paylineGridSection > div:first-child p {
+  margin-bottom: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.paylineGrid {
+  display: grid;
+  gap: 9px;
+  overflow-x: auto;
+}
+
+.paylineCell {
+  display: grid;
+  min-width: 62px;
+  min-height: 64px;
+  place-items: center;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--panel-raised);
+  color: #8294aa;
+}
+
+.paylineCell:hover {
+  border-color: rgba(112, 225, 180, 0.38);
+}
+
+.paylineCell span {
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.paylineCell small {
+  color: #667b94;
+  font-size: 9px;
+}
+
+.paylineCellSelected {
+  border-color: var(--accent-strong);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(112, 225, 180, 0.2);
+}
+
+.paylineCellSelected::before {
+  content: '●';
+  font-size: 8px;
+}
+
+.selectedPath {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.selectedPath code {
+  color: var(--accent);
+}
+
 .gameRow {
   display: flex;
   min-height: 104px;
@@ -466,6 +909,24 @@ a:focus-visible {
   border-bottom: 0;
 }
 
+.symbolRow {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.symbolRow:last-child {
+  border-bottom: 0;
+}
+
+.symbolRow:hover {
+  background: rgba(255, 255, 255, 0.018);
+}
+
 .gameRow:hover {
   background: rgba(255, 255, 255, 0.018);
 }
@@ -475,6 +936,38 @@ a:focus-visible {
   min-width: 0;
   align-items: center;
   gap: 15px;
+}
+
+.symbolIdentity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 15px;
+}
+
+.symbolTile {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background:
+    linear-gradient(145deg, rgba(112, 225, 180, 0.1), transparent),
+    var(--panel-raised);
+  color: var(--accent);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.symbolTileWildcard {
+  border-color: rgba(242, 198, 109, 0.32);
+  background:
+    linear-gradient(145deg, rgba(242, 198, 109, 0.16), transparent),
+    var(--panel-raised);
+  color: var(--warning);
 }
 
 .gameMonogram {
@@ -510,6 +1003,43 @@ a:focus-visible {
 .gameIdentity code {
   color: #8093aa;
   font-size: 11px;
+}
+
+.symbolMetadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  color: #8093aa;
+  font-size: 11px;
+}
+
+.symbolMetadata code {
+  color: #a7b9ce;
+}
+
+.imagePathValue {
+  overflow: hidden;
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: #687d96;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wildcardBadge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid rgba(242, 198, 109, 0.25);
+  border-radius: 999px;
+  background: rgba(242, 198, 109, 0.09);
+  color: var(--warning);
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .gameStatus {
@@ -617,6 +1147,19 @@ a:focus-visible {
   color: var(--danger);
 }
 
+.secondaryLink {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  padding: 0 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -672,6 +1215,27 @@ a:focus-visible {
     grid-template-columns: 1fr 1fr;
   }
 
+  .symbolForm {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rulesForm {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .paylineFields {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .paylineTable {
+    overflow-x: auto;
+  }
+
+  .paylineTableHeader,
+  .paylineTableRow {
+    min-width: 820px;
+  }
+
   .gameForm label:last-of-type {
     grid-column: 1 / -1;
   }
@@ -681,6 +1245,8 @@ a:focus-visible {
   .pageHeader,
   .listHeader,
   .gameRow,
+  .symbolRow,
+  .rulesRow,
   .archiveConfirmation {
     align-items: stretch;
     flex-direction: column;
@@ -694,8 +1260,56 @@ a:focus-visible {
     grid-template-columns: 1fr;
   }
 
+  .symbolForm {
+    grid-template-columns: 1fr;
+  }
+
+  .rulesForm {
+    grid-template-columns: 1fr;
+  }
+
+  .paylineDialog {
+    padding: 0;
+  }
+
+  .paylineDialogCard {
+    min-height: 100%;
+    margin: 0;
+    padding: 22px 16px;
+    border-radius: 0;
+  }
+
+  .paylineToolbar,
+  .paylineDialogHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paylineDialogHeader .iconButton {
+    position: absolute;
+    top: 18px;
+    right: 16px;
+  }
+
+  .paylineFields {
+    grid-template-columns: 1fr;
+  }
+
+  .rulesForm .editorHeader {
+    grid-column: auto;
+  }
+
   .gameForm label:last-of-type,
+  .symbolForm .imagePathField,
   .formActions {
+    grid-column: auto;
+  }
+
+  .gameSelectorPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .gameSelectorPanel p {
     grid-column: auto;
   }
 
@@ -712,6 +1326,10 @@ a:focus-visible {
   }
 
   .gameRow {
+    align-items: stretch;
+  }
+
+  .symbolRow {
     align-items: stretch;
   }
 

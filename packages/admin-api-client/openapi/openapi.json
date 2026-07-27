@@ -153,6 +153,309 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "PaylineCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "displayOrder": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Displayorder",
+            "type": "integer"
+          },
+          "isActive": {
+            "default": true,
+            "title": "Isactive",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "rowPath": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 32767,
+            "minItems": 1,
+            "title": "Rowpath",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "rowPath",
+          "displayOrder"
+        ],
+        "title": "PaylineCreate",
+        "type": "object"
+      },
+      "PaylineResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "displayOrder": {
+            "title": "Displayorder",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "isActive": {
+            "title": "Isactive",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rowPath": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rowpath",
+            "type": "array"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "rulesVersionId",
+          "code",
+          "name",
+          "rowPath",
+          "displayOrder",
+          "isActive"
+        ],
+        "title": "PaylineResponse",
+        "type": "object"
+      },
+      "PaylineUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "displayOrder": {
+            "anyOf": [
+              {
+                "maximum": 2147483647.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayorder"
+          },
+          "isActive": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isactive"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "rowPath": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "maxItems": 32767,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rowpath"
+          }
+        },
+        "title": "PaylineUpdate",
+        "type": "object"
+      },
+      "RulesVersionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "maximum": 32767.0,
+            "minimum": 1.0,
+            "title": "Columns",
+            "type": "integer"
+          },
+          "rows": {
+            "maximum": 32767.0,
+            "minimum": 1.0,
+            "title": "Rows",
+            "type": "integer"
+          },
+          "spinCost": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Spincost",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rows",
+          "columns",
+          "spinCost"
+        ],
+        "title": "RulesVersionCreate",
+        "type": "object"
+      },
+      "RulesVersionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publishedat"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "spinCost": {
+            "title": "Spincost",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RulesVersionStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "version",
+          "rows",
+          "columns",
+          "spinCost",
+          "status",
+          "createdAt",
+          "publishedAt"
+        ],
+        "title": "RulesVersionResponse",
+        "type": "object"
+      },
+      "RulesVersionStatus": {
+        "enum": [
+          "draft",
+          "published",
+          "archived"
+        ],
+        "title": "RulesVersionStatus",
+        "type": "string"
+      },
+      "RulesVersionUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "anyOf": [
+              {
+                "maximum": 32767.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
+          "rows": {
+            "anyOf": [
+              {
+                "maximum": 32767.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows"
+          },
+          "spinCost": {
+            "anyOf": [
+              {
+                "maximum": 2147483647.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spincost"
+          }
+        },
+        "title": "RulesVersionUpdate",
+        "type": "object"
+      },
       "SymbolCreate": {
         "additionalProperties": false,
         "properties": {
@@ -625,6 +928,144 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/rules-versions": {
+      "get": {
+        "operationId": "listRulesVersions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RulesVersionResponse"
+                  },
+                  "title": "Response Listrulesversions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List game rules versions",
+        "tags": [
+          "rules"
+        ]
+      },
+      "post": {
+        "operationId": "createRulesVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesVersionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create draft rules version",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/symbols": {
       "get": {
         "operationId": "listSymbols",
@@ -978,6 +1419,496 @@
         "summary": "Update game symbol",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/admin/rules-versions/{rules_version_id}": {
+      "get": {
+        "operationId": "getRulesVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get rules version",
+        "tags": [
+          "rules"
+        ]
+      },
+      "patch": {
+        "operationId": "updateRulesVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RulesVersionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Update draft rules version dimensions",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/rules-versions/{rules_version_id}/paylines": {
+      "get": {
+        "operationId": "listPaylines",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PaylineResponse"
+                  },
+                  "title": "Response Listpaylines",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List rules-version paylines",
+        "tags": [
+          "rules"
+        ]
+      },
+      "post": {
+        "operationId": "createPayline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaylineCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaylineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create draft payline",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}": {
+      "delete": {
+        "operationId": "archivePayline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "payline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payline Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Archive draft payline",
+        "tags": [
+          "rules"
+        ]
+      },
+      "get": {
+        "operationId": "getPayline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "payline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payline Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaylineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get payline",
+        "tags": [
+          "rules"
+        ]
+      },
+      "patch": {
+        "operationId": "updatePayline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "payline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payline Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaylineUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaylineResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Update draft payline",
+        "tags": [
+          "rules"
         ]
       }
     },

@@ -131,11 +131,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         except IntegrityError as error:
             diagnostic = getattr(error.orig, "diag", None)
             constraint_name = getattr(diagnostic, "constraint_name", None)
-            conflict = (
-                _CONFLICTS.get(constraint_name)
-                if isinstance(constraint_name, str)
-                else None
-            )
+            conflict = _CONFLICTS.get(constraint_name) if isinstance(constraint_name, str) else None
             if conflict is None:
                 raise
             code, message = conflict

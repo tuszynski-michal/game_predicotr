@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-27
 ---
 
 # Wymagania modułu administracyjnego
@@ -24,6 +24,11 @@ Administrator może:
 
 Liczba rzędów i kolumn musi być dodatnia. W M1 konfiguracja testowa ma 3 rzędy i 5 kolumn. Zmiana wymiarów po utworzeniu danych wymaga nowej wersji reguł i datasetu; nie jest zwykłą edycją opublikowanej wersji.
 
+Pierwszy pion interfejsu pokazuje osobne stany ładowania, pustego katalogu i
+błędu lokalnego API z możliwością ponowienia. Kod gry jest edytowalny wyłącznie
+podczas tworzenia rekordu. Archiwizacja wymaga jawnego potwierdzenia, pozostawia
+rekord na liście i przekazuje wynik tekstem, nie tylko kolorem.
+
 ### Symbols
 
 Administrator może:
@@ -34,6 +39,13 @@ Administrator może:
 - oznaczyć symbol jako joker,
 - ustawić kolejność wyświetlania,
 - aktywować lub archiwizować symbol.
+
+Panel wymaga najpierw wyboru gry i pokazuje jej symbole w kanonicznej kolejności
+API. `mobileCode` oraz stabilny kod są edytowalne wyłącznie podczas tworzenia.
+Aktywny symbol można zarchiwizować tylko osobną akcją z potwierdzeniem; rekord
+pozostaje na liście i może zostać ponownie aktywowany przez edycję. Ścieżka
+obrazu referencyjnego jest opcjonalną względną ścieżką POSIX. W tej iteracji
+panel zapisuje metadane ścieżki, a nie binarną zawartość pliku.
 
 Joker nie ma własnej wypłaty. Jeżeli w przyszłości gra będzie miała więcej niż
 jeden rodzaj symbolu specjalnego, jego semantyka wymaga osobnej reguły zamiast

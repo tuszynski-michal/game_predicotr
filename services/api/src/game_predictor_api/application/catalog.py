@@ -150,13 +150,9 @@ class CatalogService:
             symbol,
             name=symbol.name if name is None else validate_name(name),
             image_path=(
-                symbol.image_path
-                if not update_image_path
-                else validate_image_path(image_path)
+                symbol.image_path if not update_image_path else validate_image_path(image_path)
             ),
-            is_wildcard=(
-                symbol.is_wildcard if is_wildcard is None else is_wildcard
-            ),
+            is_wildcard=(symbol.is_wildcard if is_wildcard is None else is_wildcard),
             display_order=(
                 symbol.display_order
                 if display_order is None

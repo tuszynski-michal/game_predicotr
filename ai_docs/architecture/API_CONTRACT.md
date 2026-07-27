@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Kontrakty API i danych mobilnych
@@ -103,7 +103,63 @@ VALIDATION_ERROR
 Konflikty unikalności zwracają `409`, brak zasobu `404`, a walidacja `422`.
 Każda odpowiedź błędu ma wspólny kontrakt `code`, `message`, `details`.
 
+## Rules versions
+
+Operacje wersji reguł:
+
+```text
+GET   /api/v1/admin/games/{gameId}/rules-versions
+POST  /api/v1/admin/games/{gameId}/rules-versions
+GET   /api/v1/admin/rules-versions/{rulesVersionId}
+PATCH /api/v1/admin/rules-versions/{rulesVersionId}
+```
+
+Tworzenie przyjmuje dodatnie `rows`, dodatnie `columns` i nieujemny całkowity
+`spinCost`. API nie przyjmuje numeru ani statusu: blokuje rekord gry, przydziela
+`max(version) + 1` i tworzy `draft`. Lista jest uporządkowana malejąco po
+numerze wersji. Odpowiedź zawiera:
+
+```json
+{
+  "id": "uuid",
+  "gameId": "uuid",
+  "version": 1,
+  "rows": 3,
+  "columns": 5,
+  "spinCost": 10,
+  "status": "draft",
+  "createdAt": "2026-07-27T12:00:00Z",
+  "publishedAt": null
+}
+```
+
+`PATCH` przyjmuje co najmniej jedno z pól `rows`, `columns`, `spinCost` i
+działa wyłącznie dla statusu `draft`. TASK-0021 nie udostępnia zmiany statusu;
+publikację i archiwizację definiuje TASK-0024.
+
+Stabilne błędy:
+
+```text
+GAME_NOT_FOUND
+RULES_VERSION_NOT_FOUND
+RULES_VERSION_IMMUTABLE
+VALIDATION_ERROR
+```
+
+Brak zasobu zwraca `404`, próba zmiany wersji innej niż draft `409`, a błędne
+wymiary lub koszt `422`.
+
 ## Payline
+
+Operacje paylines:
+
+```text
+GET    /api/v1/admin/rules-versions/{rulesVersionId}/paylines
+POST   /api/v1/admin/rules-versions/{rulesVersionId}/paylines
+GET    /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
+PATCH  /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
+DELETE /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
+```
 
 ### POST `/api/v1/admin/rules-versions/{rulesVersionId}/paylines`
 
@@ -114,7 +170,8 @@ API przyjmuje indeksy wierszy 0-based. Admin UI odpowiada za prezentację 1-base
   "code": "line-v",
   "name": "V",
   "rowPath": [0, 1, 2, 1, 0],
-  "displayOrder": 10
+  "displayOrder": 10,
+  "isActive": true
 }
 ```
 
@@ -123,6 +180,16 @@ Walidacja:
 - długość dokładnie równa liczbie kolumn,
 - każda wartość wskazuje istniejący wiersz,
 - brak zduplikowanego `rowPath` w wersji.
+
+Lista jest uporządkowana po `displayOrder`, stabilnym `code` i UUID. PATCH nie
+przyjmuje `code`, ale pozwala zmienić `name`, `rowPath`, `displayOrder` oraz
+`isActive` wyłącznie w drafcie. DELETE jest idempotentną archiwizacją
+`isActive = false`; nie zwalnia kodu ani `rowPath`. GET pozostaje dostępny dla
+każdego statusu wersji.
+
+Zmiana liczby kolumn draftu z istniejącą payline zwraca
+`RULES_DIMENSIONS_IN_USE`. Zmniejszenie liczby rzędów zwraca ten sam konflikt,
+jeżeli co najmniej jeden zapisany indeks przestałby istnieć.
 
 Przykład błędu:
 
@@ -134,6 +201,17 @@ Przykład błędu:
     "existingPaylineId": "uuid"
   }
 }
+```
+
+Pozostałe stabilne błędy:
+
+```text
+PAYLINE_NOT_FOUND
+PAYLINE_CODE_ALREADY_EXISTS
+RULES_VERSION_NOT_FOUND
+RULES_VERSION_IMMUTABLE
+RULES_DIMENSIONS_IN_USE
+VALIDATION_ERROR
 ```
 
 ## Payout rule

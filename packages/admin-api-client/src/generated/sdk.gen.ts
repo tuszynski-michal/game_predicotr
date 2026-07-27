@@ -12,12 +12,21 @@ import type {
   ArchiveGameData,
   ArchiveGameErrors,
   ArchiveGameResponses,
+  ArchivePaylineData,
+  ArchivePaylineErrors,
+  ArchivePaylineResponses,
   ArchiveSymbolData,
   ArchiveSymbolErrors,
   ArchiveSymbolResponses,
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
+  CreatePaylineData,
+  CreatePaylineErrors,
+  CreatePaylineResponses,
+  CreateRulesVersionData,
+  CreateRulesVersionErrors,
+  CreateRulesVersionResponses,
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
@@ -26,17 +35,35 @@ import type {
   GetGameResponses,
   GetHealthData,
   GetHealthResponses,
+  GetPaylineData,
+  GetPaylineErrors,
+  GetPaylineResponses,
+  GetRulesVersionData,
+  GetRulesVersionErrors,
+  GetRulesVersionResponses,
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolResponses,
   ListGamesData,
   ListGamesResponses,
+  ListPaylinesData,
+  ListPaylinesErrors,
+  ListPaylinesResponses,
+  ListRulesVersionsData,
+  ListRulesVersionsErrors,
+  ListRulesVersionsResponses,
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
   UpdateGameData,
   UpdateGameErrors,
   UpdateGameResponses,
+  UpdatePaylineData,
+  UpdatePaylineErrors,
+  UpdatePaylineResponses,
+  UpdateRulesVersionData,
+  UpdateRulesVersionErrors,
+  UpdateRulesVersionResponses,
   UpdateSymbolData,
   UpdateSymbolErrors,
   UpdateSymbolResponses,
@@ -132,6 +159,45 @@ export const updateGame = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List game rules versions
+ */
+export const listRulesVersions = <ThrowOnError extends boolean = false>(
+  options: Options<ListRulesVersionsData, ThrowOnError>,
+): RequestResult<
+  ListRulesVersionsResponses,
+  ListRulesVersionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListRulesVersionsResponses,
+    ListRulesVersionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/rules-versions', ...options });
+
+/**
+ * Create draft rules version
+ */
+export const createRulesVersion = <ThrowOnError extends boolean = false>(
+  options: Options<CreateRulesVersionData, ThrowOnError>,
+): RequestResult<
+  CreateRulesVersionResponses,
+  CreateRulesVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRulesVersionResponses,
+    CreateRulesVersionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/rules-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List game symbols
  */
 export const listSymbols = <ThrowOnError extends boolean = false>(
@@ -198,6 +264,128 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get rules version
+ */
+export const getRulesVersion = <ThrowOnError extends boolean = false>(
+  options: Options<GetRulesVersionData, ThrowOnError>,
+): RequestResult<
+  GetRulesVersionResponses,
+  GetRulesVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetRulesVersionResponses,
+    GetRulesVersionErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/rules-versions/{rules_version_id}', ...options });
+
+/**
+ * Update draft rules version dimensions
+ */
+export const updateRulesVersion = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateRulesVersionData, ThrowOnError>,
+): RequestResult<
+  UpdateRulesVersionResponses,
+  UpdateRulesVersionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).patch<
+    UpdateRulesVersionResponses,
+    UpdateRulesVersionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List rules-version paylines
+ */
+export const listPaylines = <ThrowOnError extends boolean = false>(
+  options: Options<ListPaylinesData, ThrowOnError>,
+): RequestResult<ListPaylinesResponses, ListPaylinesErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    ListPaylinesResponses,
+    ListPaylinesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines',
+    ...options,
+  });
+
+/**
+ * Create draft payline
+ */
+export const createPayline = <ThrowOnError extends boolean = false>(
+  options: Options<CreatePaylineData, ThrowOnError>,
+): RequestResult<CreatePaylineResponses, CreatePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CreatePaylineResponses,
+    CreatePaylineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Archive draft payline
+ */
+export const archivePayline = <ThrowOnError extends boolean = false>(
+  options: Options<ArchivePaylineData, ThrowOnError>,
+): RequestResult<ArchivePaylineResponses, ArchivePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    ArchivePaylineResponses,
+    ArchivePaylineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}',
+    ...options,
+  });
+
+/**
+ * Get payline
+ */
+export const getPayline = <ThrowOnError extends boolean = false>(
+  options: Options<GetPaylineData, ThrowOnError>,
+): RequestResult<GetPaylineResponses, GetPaylineErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetPaylineResponses,
+    GetPaylineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}',
+    ...options,
+  });
+
+/**
+ * Update draft payline
+ */
+export const updatePayline = <ThrowOnError extends boolean = false>(
+  options: Options<UpdatePaylineData, ThrowOnError>,
+): RequestResult<UpdatePaylineResponses, UpdatePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).patch<
+    UpdatePaylineResponses,
+    UpdatePaylineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}',
     ...options,
     headers: {
       'Content-Type': 'application/json',

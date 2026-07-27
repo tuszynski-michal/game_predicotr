@@ -95,3 +95,111 @@ test('generated client sends typed game and symbol requests', async () => {
     `/api/v1/admin/games/${gameId}/symbols`,
   );
 });
+
+test('generated client sends server-versioned rules draft requests', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const rulesVersionId = '33333333-3333-4333-8333-333333333333';
+  const responseBody = {
+    columns: 5,
+    createdAt: '2026-07-27T10:00:00Z',
+    gameId,
+    id: rulesVersionId,
+    publishedAt: null,
+    rows: 3,
+    spinCost: 10,
+    status: 'draft',
+    version: 1,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json(responseBody, {
+      status: request.method === 'POST' ? 201 : 200,
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const created = await client.createRulesVersion(gameId, {
+    columns: 5,
+    rows: 3,
+    spinCost: 10,
+  });
+  const updated = await client.updateRulesVersion(rulesVersionId, {
+    spinCost: 20,
+  });
+
+  assert.equal(created.data?.version, 1);
+  assert.equal(updated.data?.id, rulesVersionId);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/rules-versions`,
+  );
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}`,
+  );
+  assert.deepEqual(await requests[0].clone().json(), {
+    columns: 5,
+    rows: 3,
+    spinCost: 10,
+  });
+});
+
+test('generated client sends zero-based payline CRUD requests', async () => {
+  const requests = [];
+  const rulesVersionId = '33333333-3333-4333-8333-333333333333';
+  const paylineId = '44444444-4444-4444-8444-444444444444';
+  const responseBody = {
+    code: 'line-v',
+    displayOrder: 10,
+    id: paylineId,
+    isActive: true,
+    name: 'V',
+    rowPath: [0, 1, 2, 1, 0],
+    rulesVersionId,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    if (request.method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    return Response.json(responseBody, {
+      status: request.method === 'POST' ? 201 : 200,
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const created = await client.createPayline(rulesVersionId, {
+    code: 'line-v',
+    displayOrder: 10,
+    name: 'V',
+    rowPath: [0, 1, 2, 1, 0],
+  });
+  await client.updatePayline(rulesVersionId, paylineId, {
+    displayOrder: 5,
+  });
+  await client.archivePayline(rulesVersionId, paylineId);
+
+  assert.equal(created.data?.id, paylineId);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/paylines`,
+  );
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}`,
+  );
+  assert.equal(requests[2].method, 'DELETE');
+  assert.deepEqual(await requests[0].clone().json(), {
+    code: 'line-v',
+    displayOrder: 10,
+    name: 'V',
+    rowPath: [0, 1, 2, 1, 0],
+  });
+});

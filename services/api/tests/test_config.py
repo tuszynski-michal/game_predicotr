@@ -9,8 +9,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.port == 8000
     assert settings.admin_origin == "http://127.0.0.1:3000"
     assert settings.database_url == (
-        "postgresql+psycopg://"
-        "game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
+        "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
     )
 
 
@@ -50,11 +49,7 @@ def test_defaults_are_loopback_only() -> None:
             "GAME_PREDICTOR_DATABASE_URL",
         ),
         (
-            {
-                "GAME_PREDICTOR_DATABASE_URL": (
-                    "postgresql+psycopg://user:password@localhost/game"
-                )
-            },
+            {"GAME_PREDICTOR_DATABASE_URL": ("postgresql+psycopg://user:password@localhost/game")},
             "GAME_PREDICTOR_DATABASE_URL",
         ),
     ],

@@ -117,12 +117,7 @@ def validate_display_order(value: int) -> int:
 def validate_image_path(value: str | None) -> str | None:
     if value is None:
         return None
-    if (
-        not value
-        or len(value) > _MAX_IMAGE_PATH_LENGTH
-        or "\\" in value
-        or ":" in value
-    ):
+    if not value or len(value) > _MAX_IMAGE_PATH_LENGTH or "\\" in value or ":" in value:
         raise CatalogError(
             "INVALID_IMAGE_PATH",
             "imagePath must be a relative POSIX path no longer than 500 characters.",

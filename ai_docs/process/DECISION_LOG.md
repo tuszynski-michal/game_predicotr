@@ -431,6 +431,74 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   rekordu i archiwizacji poprzedniego. Przyszłe klucze obce chronią historię,
   ale publiczne API nie zmieni semantyki usuwania.
 
+## D-025 — Server-assigned rules version and draft-only mutation
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** Admin API przydziela kolejny numer wersji reguł jako
+  `max(version) + 1` w obrębie gry po zablokowaniu jej rekordu w tej samej
+  transakcji. Utworzenie zawsze daje status `draft`; publiczna aktualizacja
+  TASK-0021 przyjmuje wyłącznie `rows`, `columns` i `spinCost` oraz działa tylko
+  dla draftu. Lista jest deterministycznie uporządkowana od najnowszej wersji.
+- **Context:** numer wersji jest częścią historycznej tożsamości wydania, ale nie
+  jest decyzją administratora. Równoległe żądania nie mogą utworzyć dwóch
+  rekordów o tym samym numerze ani pozostawić luk przez ręczne wartości.
+- **Reason:** serwerowa numeracja i blokada rekordu gry zapewniają prostą,
+  deterministyczną sekwencję, a ograniczenie mutacji do draftu przygotowuje
+  niezmienność danych bez przedwczesnego implementowania publikacji.
+- **Alternatives:** numer podawany przez UI, retry wyłącznie po konflikcie
+  constraintu, edycja pól niezależnie od statusu.
+- **Consequences:** UI nie wysyła `version` ani `status`. Constraint
+  `(game_id, version)` pozostaje ostatnią linią obrony. Przejścia
+  `draft → published → archived`, kompletność reguł i ustawienie
+  `published_at` należą do TASK-0024.
+
+## D-026 — Stable payline identity and dimension-safe draft lifecycle
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** `paylines.code` jest stabilny i unikalny w wersji reguł.
+  Publiczne `DELETE` ustawia `is_active = false`, bez fizycznego usuwania;
+  PATCH może ponownie aktywować wzorzec. `row_path` pozostaje unikalny także dla
+  nieaktywnego rekordu. Zmiana liczby kolumn draftu jest zabroniona, gdy
+  istnieje jakakolwiek payline, a zmniejszenie liczby rzędów jest możliwe tylko,
+  gdy każdy istniejący indeks nadal mieści się w nowym zakresie.
+- **Context:** kod i ścieżka linii będą częścią odtwarzalnej wersji reguł.
+  Fizyczne usunięcie lub ponowne użycie tożsamości utrudniałoby audyt, a zmiana
+  wymiarów mogłaby pozostawić wzorce sprzeczne z własnym rodzicem.
+- **Reason:** jeden lifecycle draftu zachowuje historię i upraszcza przyszłą
+  publikację, natomiast walidacja wymiarów gwarantuje integralność bez kaskadowej
+  modyfikacji wzorców.
+- **Alternatives:** fizyczne usuwanie nieopublikowanych linii, ponowne używanie
+  zarchiwizowanego `row_path`, automatyczne przycinanie ścieżki po zmianie
+  wymiarów.
+- **Consequences:** korekta stabilnego kodu wymaga nowej payline i archiwizacji
+  poprzedniej. Zarchiwizowany wzorzec można odzyskać przez edycję, a próba
+  utworzenia jego kopii nadal zwraca `DUPLICATE_PAYLINE`.
+
+## D-027 — Draft payout configuration lifecycle
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** pierwszy PATCH symbolu w wersji reguł wykonuje upsert jego
+  konfiguracji. Panel prezentuje brakującą konfigurację zwykłego symbolu z
+  domyślnym minimum 3, ale rekord staje się wersjonowaną prawdą dopiero po
+  zapisie. Podniesienie minimum automatycznie archiwizuje payout rules poniżej
+  nowego progu. Publiczne DELETE payoutu jest archiwizacją; unikalna para
+  symbol/długość pozostaje zarezerwowana i może zostać reaktywowana przez PATCH.
+- **Context:** draft musi pozwalać stopniowo uzupełniać macierz wypłat, ale nie
+  może zachowywać aktywnych reguł sprzecznych z aktualnym minimum ani tracić
+  historycznej tożsamości rekordu.
+- **Reason:** upsert upraszcza konfigurację symboli istniejących przed wersją
+  reguł, automatyczna archiwizacja usuwa lokalną sprzeczność po zmianie progu,
+  a wspólny lifecycle zachowuje audyt zgodny z games, symbols i paylines.
+- **Alternatives:** materializacja konfiguracji wszystkich symboli przy
+  tworzeniu wersji, fizyczne kasowanie payoutów, blokowanie podniesienia progu
+  do czasu ręcznej archiwizacji, atomowy dodatkowy endpoint całego formularza.
+- **Consequences:** CRUD draftu może być przejściowo niekompletny. UI waliduje
+  kompletny i ściśle rosnący zestaw jednego symbolu przed zapisem; walidacja
+  kompletności całej wersji i publikacja pozostają w TASK-0024.
+
 ## Szablon nowej decyzji
 
 ```text

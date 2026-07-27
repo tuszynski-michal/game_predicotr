@@ -8,8 +8,7 @@ from urllib.parse import urlsplit
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _DEFAULT_DATABASE_URL = (
-    "postgresql+psycopg://"
-    "game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
+    "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
 
 
@@ -113,16 +112,12 @@ def _parse_local_database_url(value: str) -> str:
             "GAME_PREDICTOR_DATABASE_URL must contain exactly one database name."
         )
     if parsed.query or parsed.fragment:
-        raise ConfigurationError(
-            "GAME_PREDICTOR_DATABASE_URL cannot contain a query or fragment."
-        )
+        raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL cannot contain a query or fragment.")
 
     try:
         database_port = parsed.port
     except ValueError as error:
-        raise ConfigurationError(
-            "GAME_PREDICTOR_DATABASE_URL contains an invalid port."
-        ) from error
+        raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL contains an invalid port.") from error
 
     if database_port is None:
         raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL must contain an explicit port.")

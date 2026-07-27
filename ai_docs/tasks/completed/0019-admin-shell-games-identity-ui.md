@@ -1,6 +1,6 @@
 ---
 title: TASK-0019 Admin shell and games identity UI
-status: in_progress
+status: done
 last_updated: 2026-07-26
 ---
 
@@ -50,15 +50,15 @@ zachowując wymiary, koszt spinu i symbole dla kolejnych zadań.
 
 ## Acceptance criteria
 
-- [ ] panel po wejściu pobiera i pokazuje listę gier,
-- [ ] brak danych, ładowanie i błąd API mają osobne czytelne stany,
-- [ ] administrator tworzy grę z kodem, nazwą i statusem,
-- [ ] formularz waliduje wymagane wartości i blokuje podwójny submit,
-- [ ] edycja pozwala zmienić nazwę/status, ale nie stabilny kod,
-- [ ] archiwizacja wymaga jawnego potwierdzenia i pozostawia grę na liście,
-- [ ] sukces i błąd zapisu są przekazywane tekstem, nie tylko kolorem,
-- [ ] UI nie zawiera jeszcze wymiarów, kosztu spinu ani edycji symboli,
-- [ ] produkcyjny build, lint, typecheck, testy i pełna bramka jakości przechodzą.
+- [x] panel po wejściu pobiera i pokazuje listę gier,
+- [x] brak danych, ładowanie i błąd API mają osobne czytelne stany,
+- [x] administrator tworzy grę z kodem, nazwą i statusem,
+- [x] formularz waliduje wymagane wartości i blokuje podwójny submit,
+- [x] edycja pozwala zmienić nazwę/status, ale nie stabilny kod,
+- [x] archiwizacja wymaga jawnego potwierdzenia i pozostawia grę na liście,
+- [x] sukces i błąd zapisu są przekazywane tekstem, nie tylko kolorem,
+- [x] UI nie zawiera jeszcze wymiarów, kosztu spinu ani edycji symboli,
+- [x] produkcyjny build, lint, typecheck, testy i pełna bramka jakości przechodzą.
 
 ## Technical notes
 
@@ -97,4 +97,38 @@ npm run quality
 
 ## Outcome
 
-Do uzupełnienia po implementacji.
+### Zmieniono
+
+- dodano responsywny shell panelu z lokalną nawigacją i jawnym adresem API,
+- zastąpiono ekran fundamentu katalogiem gier korzystającym wyłącznie z
+  wygenerowanego klienta Admin API,
+- dodano stany loading, empty, error/success, Retry, formularz create/edit,
+  blokadę wielokrotnego submitu i jawne potwierdzenie archiwizacji,
+- stabilny kod jest wyłączony w edycji, a archiwizacja aktualizuje status bez
+  usuwania rekordu z listy,
+- wydzielono czyste przejścia stanu i akcje UI–API; testy dowodzą, że create
+  wysyła kod, update go nie wysyła, a archive używa identyfikatora,
+- generator klienta przestał dopisywać `.js` do wewnętrznych importów źródeł
+  TypeScript, dzięki czemu pakiet jest zgodny z produkcyjnym buildem Turbopack.
+
+### Zweryfikowano
+
+- `npm run test --workspace @game-predictor/admin` — 11/11 testów,
+- `npm run typecheck --workspace @game-predictor/admin`,
+- `npm run lint --workspace @game-predictor/admin`,
+- `npm run openapi:check`,
+- `npm run admin:build` — statyczna trasa `/` zbudowana poprawnie,
+- lokalny smoke: panel HTTP 200, API `ok`, pusty katalog oraz poprawny preflight
+  CORS dla `http://127.0.0.1:3000`,
+- `npm run quality`.
+
+### Nie wykonano
+
+- nie dodano wymiarów, kosztu spinu ani symboli zgodnie z granicą zadania,
+- automatyczna kontrola wizualna w oknie przeglądarki nie była dostępna z powodu
+  ograniczenia uprawnień środowiska; render został zweryfikowany buildem i
+  lokalnym żądaniem HTTP, a interakcje przez testowane akcje UI–API.
+
+### Następny krok
+
+`TASK-0020 — Symbols UI, reference assets and archival rules`.

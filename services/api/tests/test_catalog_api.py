@@ -51,11 +51,7 @@ class MemoryCatalogRepository(CatalogRepository):
 
     def list_symbols(self, game_id: UUID) -> list[Symbol]:
         return sorted(
-            (
-                symbol
-                for symbol in self.symbols.values()
-                if symbol.game_id == game_id
-            ),
+            (symbol for symbol in self.symbols.values() if symbol.game_id == game_id),
             key=lambda symbol: (symbol.display_order, symbol.mobile_code),
         )
 
@@ -158,18 +154,13 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
         assert [item["id"] for item in listed.json()] == [symbol_id]
 
         assert (
-            client.delete(
-                f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}"
-            ).status_code
-            == 204
+            client.delete(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").status_code == 204
         )
         assert client.delete(f"/api/v1/admin/games/{game_id}").status_code == 204
 
         assert client.get(f"/api/v1/admin/games/{game_id}").json()["status"] == "archived"
         assert (
-            client.get(
-                f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}"
-            ).json()["status"]
+            client.get(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}").json()["status"]
             == "archived"
         )
         assert len(repository.games) == 1

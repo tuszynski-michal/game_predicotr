@@ -1,7 +1,7 @@
 ---
 title: Accepted technology stack
 status: accepted
-last_updated: 2026-07-26
+last_updated: 2026-07-27
 ---
 
 # Stos technologiczny
@@ -94,12 +94,18 @@ Natywny moduł lub inny adapter obliczeń jest dopuszczalny dopiero, gdy pomiary
 - podglądy layoutów, zadań i manual review,
 - panel przygotowania wersji Android.
 
-Biblioteka komponentów formularzy może zostać wybrana podczas pionu admina. Nie jest częścią kontraktu architektonicznego, dopóki nie powstanie prototyp edytora payline.
+Edytor payline używa natywnego elementu `<dialog>`, CSS Grid oraz kontrolowanego
+stanu React. Prototyp potwierdził, że ten pion nie wymaga osobnej biblioteki
+komponentów ani formularzy; ewentualna biblioteka może zostać dodana później
+wyłącznie dla zakresu, którego własne komponenty nie obsłużą czytelnie.
 
 Wygenerowany klient znajduje się w osobnym workspace
 `@game-predictor/admin-api-client`. Generator ma przypiętą wersję i jawne
 wsparcie TypeScript 6; zapisany OpenAPI oraz wygenerowany kod są sprawdzane pod
-kątem driftu w root quality gate.
+kątem driftu w root quality gate. Importy wewnętrzne generowanego źródła nie
+zawierają rozszerzenia pliku, ponieważ panel konsumuje TypeScript bezpośrednio
+przez `moduleResolution: Bundler`; wymuszanie `.js` nie jest zgodne z buildem
+Turbopack tego pakietu źródłowego.
 
 ## Backend administracyjny
 
@@ -161,6 +167,11 @@ Ustanawia wyłącznie historię Alembic, aby każda późniejsza tabela powstał
 z odpowiadającym jej pionem funkcjonalnym i testem rollbacku.
 Migracja `0002_games_symbols` tworzy pierwszy pion kanoniczny wraz z enumami,
 constraints unikalności, zakresem `mobile_code` i relacją symbolu do gry.
+Migracja `0003_rules_versions` dodaje wersjonowane wymiary, koszt spinu, status
+reguł oraz serwerowo numerowaną relację do gry.
+Migracja `0004_paylines` dodaje wzorce należące do wersji reguł, tablicowy
+`row_path`, stabilny kod, archiwizację oraz constraints unikalności kodu i
+ścieżki.
 
 ### SQLite — niezmienny snapshot mobile
 

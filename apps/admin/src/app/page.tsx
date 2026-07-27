@@ -1,6 +1,6 @@
 import { AdminShell } from '@/components/admin-shell';
-import { GameCatalog } from '@/features/games/game-catalog';
 import { resolveAdminApiBaseUrl } from '@/config/admin-api';
+import { CatalogWorkspace } from '@/features/catalog/catalog-workspace';
 
 export default function HomePage() {
   const apiBaseUrl = resolveAdminApiBaseUrl(
@@ -9,7 +9,7 @@ export default function HomePage() {
 
   return (
     <AdminShell apiBaseUrl={apiBaseUrl}>
-      <GameCatalog apiBaseUrl={apiBaseUrl} />
+      <CatalogWorkspace apiBaseUrl={apiBaseUrl} />
     </AdminShell>
   );
 }

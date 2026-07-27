@@ -97,6 +97,168 @@ export type HealthResponse = {
 };
 
 /**
+ * PaylineCreate
+ */
+export type PaylineCreate = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Displayorder
+   */
+  displayOrder: number;
+  /**
+   * Isactive
+   */
+  isActive?: boolean;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Rowpath
+   */
+  rowPath: Array<number>;
+};
+
+/**
+ * PaylineResponse
+ */
+export type PaylineResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Displayorder
+   */
+  displayOrder: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Isactive
+   */
+  isActive: boolean;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Rowpath
+   */
+  rowPath: Array<number>;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+};
+
+/**
+ * PaylineUpdate
+ */
+export type PaylineUpdate = {
+  /**
+   * Displayorder
+   */
+  displayOrder?: number | null;
+  /**
+   * Isactive
+   */
+  isActive?: boolean | null;
+  /**
+   * Name
+   */
+  name?: string | null;
+  /**
+   * Rowpath
+   */
+  rowPath?: Array<number> | null;
+};
+
+/**
+ * RulesVersionCreate
+ */
+export type RulesVersionCreate = {
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Rows
+   */
+  rows: number;
+  /**
+   * Spincost
+   */
+  spinCost: number;
+};
+
+/**
+ * RulesVersionResponse
+ */
+export type RulesVersionResponse = {
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Publishedat
+   */
+  publishedAt: string | null;
+  /**
+   * Rows
+   */
+  rows: number;
+  /**
+   * Spincost
+   */
+  spinCost: number;
+  status: RulesVersionStatus;
+  /**
+   * Version
+   */
+  version: number;
+};
+
+/**
+ * RulesVersionStatus
+ */
+export type RulesVersionStatus = 'draft' | 'published' | 'archived';
+
+/**
+ * RulesVersionUpdate
+ */
+export type RulesVersionUpdate = {
+  /**
+   * Columns
+   */
+  columns?: number | null;
+  /**
+   * Rows
+   */
+  rows?: number | null;
+  /**
+   * Spincost
+   */
+  spinCost?: number | null;
+};
+
+/**
  * SymbolCreate
  */
 export type SymbolCreate = {
@@ -360,6 +522,88 @@ export type UpdateGameResponses = {
 
 export type UpdateGameResponse = UpdateGameResponses[keyof UpdateGameResponses];
 
+export type ListRulesVersionsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/rules-versions';
+};
+
+export type ListRulesVersionsErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListRulesVersionsError =
+  ListRulesVersionsErrors[keyof ListRulesVersionsErrors];
+
+export type ListRulesVersionsResponses = {
+  /**
+   * Response Listrulesversions
+   *
+   * Successful Response
+   */
+  200: Array<RulesVersionResponse>;
+};
+
+export type ListRulesVersionsResponse =
+  ListRulesVersionsResponses[keyof ListRulesVersionsResponses];
+
+export type CreateRulesVersionData = {
+  body: RulesVersionCreate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/rules-versions';
+};
+
+export type CreateRulesVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateRulesVersionError =
+  CreateRulesVersionErrors[keyof CreateRulesVersionErrors];
+
+export type CreateRulesVersionResponses = {
+  /**
+   * Successful Response
+   */
+  201: RulesVersionResponse;
+};
+
+export type CreateRulesVersionResponse =
+  CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
 export type ListSymbolsData = {
   body?: never;
   path: {
@@ -567,6 +811,295 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type GetRulesVersionData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}';
+};
+
+export type GetRulesVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetRulesVersionError =
+  GetRulesVersionErrors[keyof GetRulesVersionErrors];
+
+export type GetRulesVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesVersionResponse;
+};
+
+export type GetRulesVersionResponse =
+  GetRulesVersionResponses[keyof GetRulesVersionResponses];
+
+export type UpdateRulesVersionData = {
+  body: RulesVersionUpdate;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}';
+};
+
+export type UpdateRulesVersionErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UpdateRulesVersionError =
+  UpdateRulesVersionErrors[keyof UpdateRulesVersionErrors];
+
+export type UpdateRulesVersionResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesVersionResponse;
+};
+
+export type UpdateRulesVersionResponse =
+  UpdateRulesVersionResponses[keyof UpdateRulesVersionResponses];
+
+export type ListPaylinesData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines';
+};
+
+export type ListPaylinesErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListPaylinesError = ListPaylinesErrors[keyof ListPaylinesErrors];
+
+export type ListPaylinesResponses = {
+  /**
+   * Response Listpaylines
+   *
+   * Successful Response
+   */
+  200: Array<PaylineResponse>;
+};
+
+export type ListPaylinesResponse =
+  ListPaylinesResponses[keyof ListPaylinesResponses];
+
+export type CreatePaylineData = {
+  body: PaylineCreate;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines';
+};
+
+export type CreatePaylineErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreatePaylineError = CreatePaylineErrors[keyof CreatePaylineErrors];
+
+export type CreatePaylineResponses = {
+  /**
+   * Successful Response
+   */
+  201: PaylineResponse;
+};
+
+export type CreatePaylineResponse =
+  CreatePaylineResponses[keyof CreatePaylineResponses];
+
+export type ArchivePaylineData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payline Id
+     */
+    payline_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}';
+};
+
+export type ArchivePaylineErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ArchivePaylineError =
+  ArchivePaylineErrors[keyof ArchivePaylineErrors];
+
+export type ArchivePaylineResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type ArchivePaylineResponse =
+  ArchivePaylineResponses[keyof ArchivePaylineResponses];
+
+export type GetPaylineData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payline Id
+     */
+    payline_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}';
+};
+
+export type GetPaylineErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetPaylineError = GetPaylineErrors[keyof GetPaylineErrors];
+
+export type GetPaylineResponses = {
+  /**
+   * Successful Response
+   */
+  200: PaylineResponse;
+};
+
+export type GetPaylineResponse = GetPaylineResponses[keyof GetPaylineResponses];
+
+export type UpdatePaylineData = {
+  body: PaylineUpdate;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payline Id
+     */
+    payline_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}';
+};
+
+export type UpdatePaylineErrors = {
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UpdatePaylineError = UpdatePaylineErrors[keyof UpdatePaylineErrors];
+
+export type UpdatePaylineResponses = {
+  /**
+   * Successful Response
+   */
+  200: PaylineResponse;
+};
+
+export type UpdatePaylineResponse =
+  UpdatePaylineResponses[keyof UpdatePaylineResponses];
 
 export type GetHealthData = {
   body?: never;

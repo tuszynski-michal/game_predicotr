@@ -67,9 +67,67 @@ def test_catalog_openapi_exposes_stable_operations_and_error_schema() -> None:
     error_schema = schema["components"]["schemas"]["ErrorResponse"]
     assert error_schema["additionalProperties"] is False
     assert error_schema["required"] == ["code", "message", "details"]
-    assert (
-        schema["paths"]["/api/v1/admin/games"]["post"]["responses"]["409"][
-            "content"
-        ]["application/json"]["schema"]
-        == {"$ref": "#/components/schemas/ErrorResponse"}
-    )
+    assert schema["paths"]["/api/v1/admin/games"]["post"]["responses"]["409"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/ErrorResponse"}
+
+
+def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    expected_operations = {
+        (
+            "/api/v1/admin/games/{game_id}/rules-versions",
+            "get",
+        ): "listRulesVersions",
+        (
+            "/api/v1/admin/games/{game_id}/rules-versions",
+            "post",
+        ): "createRulesVersion",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}",
+            "get",
+        ): "getRulesVersion",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}",
+            "patch",
+        ): "updateRulesVersion",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines",
+            "get",
+        ): "listPaylines",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines",
+            "post",
+        ): "createPayline",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}",
+            "get",
+        ): "getPayline",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}",
+            "patch",
+        ): "updatePayline",
+        (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}",
+            "delete",
+        ): "archivePayline",
+    }
+
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["rules"]
+
+    create_schema = schema["components"]["schemas"]["RulesVersionCreate"]
+    assert create_schema["required"] == ["rows", "columns", "spinCost"]
+    assert "version" not in create_schema["properties"]
+    assert "status" not in create_schema["properties"]
+
+    payline_create = schema["components"]["schemas"]["PaylineCreate"]
+    assert payline_create["required"] == [
+        "code",
+        "name",
+        "rowPath",
+        "displayOrder",
+    ]
+    assert payline_create["properties"]["rowPath"]["items"]["type"] == "integer"

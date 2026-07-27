@@ -1,6 +1,58 @@
 {
   "components": {
     "schemas": {
+      "AndroidBuildJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "inputPayload": {
+            "$ref": "#/components/schemas/AndroidBuildJobPayload"
+          },
+          "jobType": {
+            "const": "android_build",
+            "title": "Jobtype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobType",
+          "inputPayload"
+        ],
+        "title": "AndroidBuildJobCreate",
+        "type": "object"
+      },
+      "AndroidBuildJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "mobileReleaseId": {
+            "format": "uuid",
+            "title": "Mobilereleaseid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mobileReleaseId"
+        ],
+        "title": "AndroidBuildJobPayload",
+        "type": "object"
+      },
       "DatasetLayoutPageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -542,6 +594,290 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "ImportJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "inputPayload": {
+            "$ref": "#/components/schemas/ImportJobPayload"
+          },
+          "jobType": {
+            "const": "import",
+            "title": "Jobtype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobType",
+          "gameId",
+          "inputPayload"
+        ],
+        "title": "ImportJobCreate",
+        "type": "object"
+      },
+      "ImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "pipelineVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Pipelineversion",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourcePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sourcepath",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourcePath",
+          "pipelineVersion"
+        ],
+        "title": "ImportJobPayload",
+        "type": "object"
+      },
+      "JobErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "JobErrorResponse",
+        "type": "object"
+      },
+      "JobProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "review": {
+            "title": "Review",
+            "type": "integer"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "current",
+          "total",
+          "stage",
+          "succeeded",
+          "failed",
+          "review"
+        ],
+        "title": "JobProgressResponse",
+        "type": "object"
+      },
+      "JobResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cancelRequestedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelrequestedat"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobErrorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finishedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finishedat"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inputPayload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ValidateJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/PayoutJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/SnapshotJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/AndroidBuildJobPayload"
+              }
+            ],
+            "title": "Inputpayload"
+          },
+          "jobType": {
+            "$ref": "#/components/schemas/JobType"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/JobProgressResponse"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "workerVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workerversion"
+          }
+        },
+        "required": [
+          "id",
+          "jobType",
+          "gameId",
+          "status",
+          "inputPayload",
+          "progress",
+          "error",
+          "workerVersion",
+          "createdAt",
+          "updatedAt",
+          "startedAt",
+          "finishedAt",
+          "cancelRequestedAt"
+        ],
+        "title": "JobResponse",
+        "type": "object"
+      },
+      "JobStatus": {
+        "enum": [
+          "created",
+          "processing",
+          "waiting_for_review",
+          "completed",
+          "failed",
+          "cancelled"
+        ],
+        "title": "JobStatus",
+        "type": "string"
+      },
+      "JobType": {
+        "enum": [
+          "import",
+          "validate",
+          "payout",
+          "snapshot",
+          "android_build"
+        ],
+        "title": "JobType",
+        "type": "string"
+      },
       "MockDatasetCreate": {
         "additionalProperties": false,
         "properties": {
@@ -716,6 +1052,65 @@
           }
         },
         "title": "PaylineUpdate",
+        "type": "object"
+      },
+      "PayoutJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "inputPayload": {
+            "$ref": "#/components/schemas/PayoutJobPayload"
+          },
+          "jobType": {
+            "const": "payout",
+            "title": "Jobtype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobType",
+          "gameId",
+          "inputPayload"
+        ],
+        "title": "PayoutJobCreate",
+        "type": "object"
+      },
+      "PayoutJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithmVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Algorithmversion",
+            "type": "string"
+          },
+          "datasetVersionId": {
+            "format": "uuid",
+            "title": "Datasetversionid",
+            "type": "string"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "datasetVersionId",
+          "rulesVersionId",
+          "algorithmVersion"
+        ],
+        "title": "PayoutJobPayload",
         "type": "object"
       },
       "PayoutRuleCreate": {
@@ -1091,6 +1486,58 @@
         "title": "RulesVersionUpdate",
         "type": "object"
       },
+      "SnapshotJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "inputPayload": {
+            "$ref": "#/components/schemas/SnapshotJobPayload"
+          },
+          "jobType": {
+            "const": "snapshot",
+            "title": "Jobtype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobType",
+          "inputPayload"
+        ],
+        "title": "SnapshotJobCreate",
+        "type": "object"
+      },
+      "SnapshotJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "mobileReleaseId": {
+            "format": "uuid",
+            "title": "Mobilereleaseid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mobileReleaseId"
+        ],
+        "title": "SnapshotJobPayload",
+        "type": "object"
+      },
       "SymbolCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1281,6 +1728,52 @@
           }
         },
         "title": "SymbolUpdate",
+        "type": "object"
+      },
+      "ValidateJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "inputPayload": {
+            "$ref": "#/components/schemas/ValidateJobPayload"
+          },
+          "jobType": {
+            "const": "validate",
+            "title": "Jobtype",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobType",
+          "gameId",
+          "inputPayload"
+        ],
+        "title": "ValidateJobCreate",
+        "type": "object"
+      },
+      "ValidateJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "datasetVersionId": {
+            "format": "uuid",
+            "title": "Datasetversionid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "datasetVersionId"
+        ],
+        "title": "ValidateJobPayload",
         "type": "object"
       }
     }
@@ -2523,6 +3016,336 @@
         "summary": "Update game symbol",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/admin/jobs": {
+      "get": {
+        "operationId": "listJobs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "job_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobResponse"
+                  },
+                  "title": "Response Listjobs",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List a bounded set of newest jobs",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "post": {
+        "operationId": "createJob",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "android_build": "#/components/schemas/AndroidBuildJobCreate",
+                    "import": "#/components/schemas/ImportJobCreate",
+                    "payout": "#/components/schemas/PayoutJobCreate",
+                    "snapshot": "#/components/schemas/SnapshotJobCreate",
+                    "validate": "#/components/schemas/ValidateJobCreate"
+                  },
+                  "propertyName": "jobType"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ImportJobCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ValidateJobCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PayoutJobCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SnapshotJobCreate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AndroidBuildJobCreate"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Persist a typed job for later worker execution",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/jobs/{job_id}": {
+      "get": {
+        "operationId": "getJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get job status, progress and error",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/jobs/{job_id}/cancel": {
+      "post": {
+        "operationId": "cancelJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Request cancellation at a safe worker checkpoint",
+        "tags": [
+          "jobs"
         ]
       }
     },

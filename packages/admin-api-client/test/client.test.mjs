@@ -96,6 +96,89 @@ test('generated client sends typed game and symbol requests', async () => {
   );
 });
 
+test('generated client sends typed job, filters, details and cancel requests', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const datasetVersionId = '66666666-6666-4666-8666-666666666666';
+  const jobId = '77777777-7777-4777-8777-777777777777';
+  const responseBody = {
+    id: jobId,
+    jobType: 'validate',
+    gameId,
+    status: 'created',
+    inputPayload: { schemaVersion: 1, datasetVersionId },
+    progress: {
+      current: 0,
+      total: null,
+      stage: null,
+      succeeded: 0,
+      failed: 0,
+      review: 0,
+    },
+    error: null,
+    workerVersion: null,
+    createdAt: '2026-07-27T10:00:00Z',
+    updatedAt: '2026-07-27T10:00:00Z',
+    startedAt: null,
+    finishedAt: null,
+    cancelRequestedAt: null,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const url = new URL(request.url);
+    if (request.method === 'GET' && url.pathname.endsWith('/jobs')) {
+      return Response.json([responseBody]);
+    }
+    return Response.json(responseBody, {
+      status:
+        request.method === 'POST' && url.pathname.endsWith('/jobs') ? 201 : 200,
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const created = await client.createJob({
+    jobType: 'validate',
+    gameId,
+    inputPayload: {
+      schemaVersion: 1,
+      datasetVersionId,
+    },
+  });
+  await client.listJobs({
+    status: 'created',
+    jobType: 'validate',
+    gameId,
+    limit: 25,
+  });
+  await client.getJob(jobId);
+  await client.cancelJob(jobId);
+
+  assert.equal(created.data?.id, jobId);
+  assert.deepEqual(await requests[0].clone().json(), {
+    jobType: 'validate',
+    gameId,
+    inputPayload: {
+      schemaVersion: 1,
+      datasetVersionId,
+    },
+  });
+  assert.equal(
+    new URL(requests[1].url).search,
+    `?status=created&job_type=validate&game_id=${gameId}&limit=25`,
+  );
+  assert.equal(
+    new URL(requests[2].url).pathname,
+    `/api/v1/admin/jobs/${jobId}`,
+  );
+  assert.equal(
+    new URL(requests[3].url).pathname,
+    `/api/v1/admin/jobs/${jobId}/cancel`,
+  );
+});
+
 test('generated client sends server-versioned rules draft requests', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

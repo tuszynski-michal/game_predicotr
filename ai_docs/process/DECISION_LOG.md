@@ -597,6 +597,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   blokować ten sam rekord rodzica. Duże importy nadal wymagają validation job,
   lecz zachowają ten sam warunek gotowości.
 
+## D-032 — Universal job lifecycle separated from workflow stage
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** wszystkie długie operacje używają wspólnego cyklu życia
+  `created → processing → completed/failed` z opcjonalnym
+  `processing → waiting_for_review → created` oraz anulowaniem. Szczegół
+  pipeline'u jest przechowywany osobno jako `stage`. Żądanie anulowania joba
+  `processing` tylko ustawia `cancel_requested_at`; dopiero worker w bezpiecznym
+  punkcie przełącza go na `cancelled`. Payload wejściowy ma jawny
+  `schemaVersion`, a kanoniczny hash typu, gry i payloadu jest unikalnym kluczem
+  enqueue.
+- **Context:** wymagania używały nazw `scanning` i `validating` obok stanów
+  terminalnych, choć dotyczą one wyłącznie importu. Te same jobs mają obsłużyć
+  import, walidację, payout, snapshot i Android build.
+- **Reason:** jeden mały automat pozwala jednakowo egzekwować przejścia,
+  anulowanie i retry, a osobny etap zachowuje dokładny postęp każdego workflow.
+  Unikalny klucz wejścia blokuje przypadkowe duplikaty jeszcze przed
+  implementacją workera.
+- **Alternatives:** osobny enum statusów dla każdego typu, etap jako status,
+  anulowanie działającego joba bez potwierdzenia workera, brak ochrony przed
+  powtórnym enqueue.
+- **Consequences:** `created` pełni rolę trwałej kolejki bez Redis/Celery.
+  Wiele jobs może oczekiwać, ale ograniczenie jednego ciężkiego wykonania będzie
+  egzekwowane atomowym lease w TASK-0030. `waiting_for_review` nie trzyma workera
+  i może wrócić do `created` po rozwiązaniu review.
+
 ## Szablon nowej decyzji
 
 ```text

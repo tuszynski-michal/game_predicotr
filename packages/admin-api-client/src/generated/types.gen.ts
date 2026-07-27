@@ -5,6 +5,35 @@ export type ClientOptions = {
 };
 
 /**
+ * AndroidBuildJobCreate
+ */
+export type AndroidBuildJobCreate = {
+  /**
+   * Gameid
+   */
+  gameId?: string | null;
+  inputPayload: AndroidBuildJobPayload;
+  /**
+   * Jobtype
+   */
+  jobType: 'android_build';
+};
+
+/**
+ * AndroidBuildJobPayload
+ */
+export type AndroidBuildJobPayload = {
+  /**
+   * Mobilereleaseid
+   */
+  mobileReleaseId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
  * DatasetLayoutPageResponse
  */
 export type DatasetLayoutPageResponse = {
@@ -335,6 +364,151 @@ export type HealthResponse = {
 };
 
 /**
+ * ImportJobCreate
+ */
+export type ImportJobCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  inputPayload: ImportJobPayload;
+  /**
+   * Jobtype
+   */
+  jobType: 'import';
+};
+
+/**
+ * ImportJobPayload
+ */
+export type ImportJobPayload = {
+  /**
+   * Pipelineversion
+   */
+  pipelineVersion: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Sourcepath
+   */
+  sourcePath: string;
+};
+
+/**
+ * JobErrorResponse
+ */
+export type JobErrorResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Message
+   */
+  message: string;
+};
+
+/**
+ * JobProgressResponse
+ */
+export type JobProgressResponse = {
+  /**
+   * Current
+   */
+  current: number;
+  /**
+   * Failed
+   */
+  failed: number;
+  /**
+   * Review
+   */
+  review: number;
+  /**
+   * Stage
+   */
+  stage: string | null;
+  /**
+   * Succeeded
+   */
+  succeeded: number;
+  /**
+   * Total
+   */
+  total: number | null;
+};
+
+/**
+ * JobResponse
+ */
+export type JobResponse = {
+  /**
+   * Cancelrequestedat
+   */
+  cancelRequestedAt: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  error: JobErrorResponse | null;
+  /**
+   * Finishedat
+   */
+  finishedAt: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Inputpayload
+   */
+  inputPayload:
+    | ImportJobPayload
+    | ValidateJobPayload
+    | PayoutJobPayload
+    | SnapshotJobPayload
+    | AndroidBuildJobPayload;
+  jobType: JobType;
+  progress: JobProgressResponse;
+  /**
+   * Startedat
+   */
+  startedAt: string | null;
+  status: JobStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+  /**
+   * Workerversion
+   */
+  workerVersion: string | null;
+};
+
+/**
+ * JobStatus
+ */
+export type JobStatus =
+  | 'created'
+  | 'processing'
+  | 'waiting_for_review'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+/**
+ * JobType
+ */
+export type JobType =
+  'import' | 'validate' | 'payout' | 'snapshot' | 'android_build';
+
+/**
  * MockDatasetCreate
  */
 export type MockDatasetCreate = {
@@ -428,6 +602,43 @@ export type PaylineUpdate = {
    * Rowpath
    */
   rowPath?: Array<number> | null;
+};
+
+/**
+ * PayoutJobCreate
+ */
+export type PayoutJobCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  inputPayload: PayoutJobPayload;
+  /**
+   * Jobtype
+   */
+  jobType: 'payout';
+};
+
+/**
+ * PayoutJobPayload
+ */
+export type PayoutJobPayload = {
+  /**
+   * Algorithmversion
+   */
+  algorithmVersion: string;
+  /**
+   * Datasetversionid
+   */
+  datasetVersionId: string;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
 };
 
 /**
@@ -651,6 +862,35 @@ export type RulesVersionUpdate = {
 };
 
 /**
+ * SnapshotJobCreate
+ */
+export type SnapshotJobCreate = {
+  /**
+   * Gameid
+   */
+  gameId?: string | null;
+  inputPayload: SnapshotJobPayload;
+  /**
+   * Jobtype
+   */
+  jobType: 'snapshot';
+};
+
+/**
+ * SnapshotJobPayload
+ */
+export type SnapshotJobPayload = {
+  /**
+   * Mobilereleaseid
+   */
+  mobileReleaseId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
  * SymbolCreate
  */
 export type SymbolCreate = {
@@ -746,6 +986,35 @@ export type SymbolUpdate = {
    */
   name?: string | null;
   status?: SymbolStatus | null;
+};
+
+/**
+ * ValidateJobCreate
+ */
+export type ValidateJobCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  inputPayload: ValidateJobPayload;
+  /**
+   * Jobtype
+   */
+  jobType: 'validate';
+};
+
+/**
+ * ValidateJobPayload
+ */
+export type ValidateJobPayload = {
+  /**
+   * Datasetversionid
+   */
+  datasetVersionId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
 };
 
 export type ArchiveDatasetVersionData = {
@@ -1494,6 +1763,185 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type ListJobsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Status
+     */
+    status?: JobStatus | null;
+    /**
+     * Job Type
+     */
+    job_type?: JobType | null;
+    /**
+     * Game Id
+     */
+    game_id?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/jobs';
+};
+
+export type ListJobsErrors = {
+  /**
+   * Job or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Job lifecycle conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListJobsError = ListJobsErrors[keyof ListJobsErrors];
+
+export type ListJobsResponses = {
+  /**
+   * Response Listjobs
+   *
+   * Successful Response
+   */
+  200: Array<JobResponse>;
+};
+
+export type ListJobsResponse = ListJobsResponses[keyof ListJobsResponses];
+
+export type CreateJobData = {
+  /**
+   * Payload
+   */
+  body:
+    | ({
+        jobType: 'import';
+      } & ImportJobCreate)
+    | ({
+        jobType: 'validate';
+      } & ValidateJobCreate)
+    | ({
+        jobType: 'payout';
+      } & PayoutJobCreate)
+    | ({
+        jobType: 'snapshot';
+      } & SnapshotJobCreate)
+    | ({
+        jobType: 'android_build';
+      } & AndroidBuildJobCreate);
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/jobs';
+};
+
+export type CreateJobErrors = {
+  /**
+   * Job or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Job lifecycle conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateJobError = CreateJobErrors[keyof CreateJobErrors];
+
+export type CreateJobResponses = {
+  /**
+   * Successful Response
+   */
+  201: JobResponse;
+};
+
+export type CreateJobResponse = CreateJobResponses[keyof CreateJobResponses];
+
+export type GetJobData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/jobs/{job_id}';
+};
+
+export type GetJobErrors = {
+  /**
+   * Job or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Job lifecycle conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetJobError = GetJobErrors[keyof GetJobErrors];
+
+export type GetJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobResponse;
+};
+
+export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
+
+export type CancelJobData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/jobs/{job_id}/cancel';
+};
+
+export type CancelJobErrors = {
+  /**
+   * Job or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Job lifecycle conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CancelJobError = CancelJobErrors[keyof CancelJobErrors];
+
+export type CancelJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobResponse;
+};
+
+export type CancelJobResponse = CancelJobResponses[keyof CancelJobResponses];
 
 export type ArchiveRulesVersionData = {
   body?: never;

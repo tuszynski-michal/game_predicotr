@@ -528,28 +528,92 @@ ten endpoint; odrzucanie importu pozostaje osobną operacją workflow importu.
 
 ## Job status
 
+### POST `/api/v1/admin/jobs`
+
+Zapisuje zadanie do późniejszego wykonania przez worker i zwraca `201`. Request
+jest dyskryminowany przez `jobType`; każdy `inputPayload` ma
+`schemaVersion: 1`.
+
+```json
+{
+  "jobType": "payout",
+  "gameId": "uuid",
+  "inputPayload": {
+    "schemaVersion": 1,
+    "datasetVersionId": "uuid",
+    "rulesVersionId": "uuid",
+    "algorithmVersion": "payout-v2"
+  }
+}
+```
+
+Typowane payloady:
+
+- `import`: `sourcePath`, `pipelineVersion`,
+- `validate`: `datasetVersionId`,
+- `payout`: `datasetVersionId`, `rulesVersionId`, `algorithmVersion`,
+- `snapshot`: `mobileReleaseId`,
+- `android_build`: `mobileReleaseId`.
+
+Powtórzenie identycznego typu, gry i payloadu zwraca
+`409 JOB_INPUT_ALREADY_EXISTS` z `existingJobId`. API nie wykonuje workflow
+w requestcie.
+
+### GET `/api/v1/admin/jobs`
+
+Zwraca najwyżej 200 najnowszych rekordów. Obsługuje filtry `status`,
+`job_type`, `game_id` oraz bounded `limit`, domyślnie 50.
+
 ### GET `/api/v1/admin/jobs/{jobId}`
 
 ```json
 {
   "id": "uuid",
   "jobType": "snapshot",
+  "gameId": null,
   "status": "processing",
+  "inputPayload": {
+    "schemaVersion": 1,
+    "mobileReleaseId": "uuid"
+  },
   "progress": {
     "current": 250000,
     "total": 500000,
-    "stage": "writing_layouts"
+    "stage": "writing_layouts",
+    "succeeded": 249990,
+    "failed": 4,
+    "review": 6
   },
   "error": null,
+  "workerVersion": "worker-v1",
   "createdAt": "2026-07-24T10:00:00Z",
+  "updatedAt": "2026-07-24T10:03:00Z",
   "startedAt": "2026-07-24T10:00:03Z",
-  "finishedAt": null
+  "finishedAt": null,
+  "cancelRequestedAt": null
 }
 ```
 
 ### POST `/api/v1/admin/jobs/{jobId}/cancel`
 
-Zgłasza prośbę anulowania. Worker zatrzymuje się w bezpiecznym punkcie i nie oznacza niepełnego artefaktu jako gotowy.
+`created` i `waiting_for_review` przechodzą od razu do `cancelled`. Dla
+`processing` endpoint tylko ustawia `cancelRequestedAt`; worker zatrzymuje się
+w bezpiecznym punkcie i dopiero wtedy zapisuje `cancelled`. Powtórzenie dla
+`cancelled` jest idempotentne. `completed` i `failed` zwracają
+`409 JOB_NOT_CANCELLABLE`.
+
+Wspólny automat:
+
+```text
+created -> processing -> completed
+                    \-> failed
+                    \-> waiting_for_review -> created
+created/waiting_for_review -> cancelled
+processing + cancelRequestedAt -> cancelled (worker safe point)
+```
+
+`stage` nie zmienia automatu. Błędne przejście ma kod
+`INVALID_JOB_STATUS_TRANSITION`.
 
 ## Mobile release
 

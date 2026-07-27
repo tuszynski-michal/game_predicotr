@@ -1,0 +1,166 @@
+"""SQLAlchemy repository for durable administrative jobs."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from game_predictor_api.application.jobs import JobRepository
+from game_predictor_api.domain.jobs import (
+    Job,
+    JobConflictError,
+    JobStatus,
+    JobType,
+)
+from game_predictor_api.storage.models import GameModel, JobModel
+
+
+class SqlAlchemyJobRepository(JobRepository):
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def game_exists(self, game_id: UUID) -> bool:
+        return (
+            self._session.scalar(
+                select(GameModel.id).where(GameModel.id == game_id)
+            )
+            is not None
+        )
+
+    def add_job(self, job: Job) -> Job:
+        record = JobModel(
+            id=job.id,
+            job_type=job.job_type,
+            game_id=job.game_id,
+            status=job.status,
+            input_payload=job.input_payload,
+            input_key=job.input_key,
+            stage=job.stage,
+            progress_current=job.progress_current,
+            progress_total=job.progress_total,
+            success_count=job.success_count,
+            failure_count=job.failure_count,
+            review_count=job.review_count,
+            error_code=job.error_code,
+            error_message=job.error_message,
+            worker_version=job.worker_version,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            cancel_requested_at=job.cancel_requested_at,
+        )
+        self._session.add(record)
+        self._flush_or_raise_conflict()
+        return _to_job(record)
+
+    def get_job(self, job_id: UUID) -> Job | None:
+        record = self._session.get(JobModel, job_id)
+        return None if record is None else _to_job(record)
+
+    def get_job_for_update(self, job_id: UUID) -> Job | None:
+        record = self._session.scalar(
+            select(JobModel)
+            .where(JobModel.id == job_id)
+            .with_for_update()
+        )
+        return None if record is None else _to_job(record)
+
+    def get_job_by_input_key(self, input_key: str) -> Job | None:
+        record = self._session.scalar(
+            select(JobModel).where(JobModel.input_key == input_key)
+        )
+        return None if record is None else _to_job(record)
+
+    def list_jobs(
+        self,
+        *,
+        status: JobStatus | None,
+        job_type: JobType | None,
+        game_id: UUID | None,
+        limit: int,
+    ) -> list[Job]:
+        statement = select(JobModel)
+        if status is not None:
+            statement = statement.where(JobModel.status == status)
+        if job_type is not None:
+            statement = statement.where(JobModel.job_type == job_type)
+        if game_id is not None:
+            statement = statement.where(JobModel.game_id == game_id)
+        records = self._session.scalars(
+            statement.order_by(JobModel.created_at.desc(), JobModel.id).limit(limit)
+        )
+        return [_to_job(record) for record in records]
+
+    def save_job(self, job: Job) -> Job:
+        record = self._session.get(JobModel, job.id)
+        if record is None:
+            raise JobConflictError(
+                "JOB_NOT_FOUND",
+                "Job no longer exists.",
+                details={"jobId": str(job.id)},
+            )
+        record.status = job.status
+        record.stage = job.stage
+        record.progress_current = job.progress_current
+        record.progress_total = job.progress_total
+        record.success_count = job.success_count
+        record.failure_count = job.failure_count
+        record.review_count = job.review_count
+        record.error_code = job.error_code
+        record.error_message = job.error_message
+        record.worker_version = job.worker_version
+        record.updated_at = job.updated_at
+        record.started_at = job.started_at
+        record.finished_at = job.finished_at
+        record.cancel_requested_at = job.cancel_requested_at
+        self._flush_or_raise_conflict()
+        return _to_job(record)
+
+    def _flush_or_raise_conflict(self) -> None:
+        try:
+            self._session.flush()
+        except IntegrityError as error:
+            diagnostic = getattr(error.orig, "diag", None)
+            constraint_name = (
+                diagnostic.constraint_name
+                if diagnostic is not None
+                else None
+            )
+            if constraint_name == "uq_jobs_input_key":
+                raise JobConflictError(
+                    "JOB_INPUT_ALREADY_EXISTS",
+                    "A job with the same type and input already exists.",
+                ) from error
+            raise JobConflictError(
+                "JOB_PERSISTENCE_CONFLICT",
+                "Job data conflicts with a persisted record.",
+            ) from error
+
+
+def _to_job(record: JobModel) -> Job:
+    return Job(
+        id=record.id,
+        job_type=record.job_type,
+        game_id=record.game_id,
+        status=record.status,
+        input_payload=dict(record.input_payload),
+        input_key=record.input_key,
+        stage=record.stage,
+        progress_current=record.progress_current,
+        progress_total=record.progress_total,
+        success_count=record.success_count,
+        failure_count=record.failure_count,
+        review_count=record.review_count,
+        error_code=record.error_code,
+        error_message=record.error_message,
+        worker_version=record.worker_version,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+        started_at=record.started_at,
+        finished_at=record.finished_at,
+        cancel_requested_at=record.cancel_requested_at,
+    )

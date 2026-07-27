@@ -1,0 +1,161 @@
+"""OpenAPI schemas for durable administrative jobs."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Annotated, Literal
+from uuid import UUID
+
+from pydantic import Field
+
+from game_predictor_api.domain.jobs import Job, JobStatus, JobType
+from game_predictor_api.schemas.catalog import ApiModel
+
+
+class ImportJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    source_path: str = Field(min_length=1, max_length=1000)
+    pipeline_version: str = Field(min_length=1, max_length=100)
+
+
+class ValidateJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    dataset_version_id: UUID
+
+
+class PayoutJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    dataset_version_id: UUID
+    rules_version_id: UUID
+    algorithm_version: str = Field(min_length=1, max_length=100)
+
+
+class SnapshotJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    mobile_release_id: UUID
+
+
+class AndroidBuildJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    mobile_release_id: UUID
+
+
+class ImportJobCreate(ApiModel):
+    job_type: Literal[JobType.IMPORT]
+    game_id: UUID
+    input_payload: ImportJobPayload
+
+
+class ValidateJobCreate(ApiModel):
+    job_type: Literal[JobType.VALIDATE]
+    game_id: UUID
+    input_payload: ValidateJobPayload
+
+
+class PayoutJobCreate(ApiModel):
+    job_type: Literal[JobType.PAYOUT]
+    game_id: UUID
+    input_payload: PayoutJobPayload
+
+
+class SnapshotJobCreate(ApiModel):
+    job_type: Literal[JobType.SNAPSHOT]
+    game_id: UUID | None = None
+    input_payload: SnapshotJobPayload
+
+
+class AndroidBuildJobCreate(ApiModel):
+    job_type: Literal[JobType.ANDROID_BUILD]
+    game_id: UUID | None = None
+    input_payload: AndroidBuildJobPayload
+
+
+JobCreateRequest = Annotated[
+    ImportJobCreate
+    | ValidateJobCreate
+    | PayoutJobCreate
+    | SnapshotJobCreate
+    | AndroidBuildJobCreate,
+    Field(discriminator="job_type"),
+]
+
+JobPayloadResponse = (
+    ImportJobPayload
+    | ValidateJobPayload
+    | PayoutJobPayload
+    | SnapshotJobPayload
+    | AndroidBuildJobPayload
+)
+
+
+class JobProgressResponse(ApiModel):
+    current: int
+    total: int | None
+    stage: str | None
+    succeeded: int
+    failed: int
+    review: int
+
+
+class JobErrorResponse(ApiModel):
+    code: str
+    message: str
+
+
+class JobResponse(ApiModel):
+    id: UUID
+    job_type: JobType
+    game_id: UUID | None
+    status: JobStatus
+    input_payload: JobPayloadResponse
+    progress: JobProgressResponse
+    error: JobErrorResponse | None
+    worker_version: str | None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    cancel_requested_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, job: Job) -> JobResponse:
+        error = None
+        if job.error_code is not None and job.error_message is not None:
+            error = JobErrorResponse(
+                code=job.error_code,
+                message=job.error_message,
+            )
+        return cls(
+            id=job.id,
+            job_type=job.job_type,
+            game_id=job.game_id,
+            status=job.status,
+            input_payload=_payload_from_domain(job),
+            progress=JobProgressResponse(
+                current=job.progress_current,
+                total=job.progress_total,
+                stage=job.stage,
+                succeeded=job.success_count,
+                failed=job.failure_count,
+                review=job.review_count,
+            ),
+            error=error,
+            worker_version=job.worker_version,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            cancel_requested_at=job.cancel_requested_at,
+        )
+
+
+def _payload_from_domain(job: Job) -> JobPayloadResponse:
+    if job.job_type is JobType.IMPORT:
+        return ImportJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.VALIDATE:
+        return ValidateJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.PAYOUT:
+        return PayoutJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SNAPSHOT:
+        return SnapshotJobPayload.model_validate(job.input_payload)
+    return AndroidBuildJobPayload.model_validate(job.input_payload)

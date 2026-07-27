@@ -78,6 +78,12 @@ produkcyjnej; większe generowanie przechodzi przez worker/job.
 - kontrolowane uruchamianie lokalnego workflow Android build,
 - raportowanie postępu i błędów.
 
+Admin API wyłącznie zapisuje typowany job w stanie `created`. Wspólny status
+cyklu życia jest niezależny od `stage` konkretnego workflow. Żądanie anulowania
+działającego joba zapisuje timestamp; dopiero worker może potwierdzić
+`cancelled` po domknięciu bezpiecznej partii. Atomowy lease i ograniczenie
+jednego ciężkiego wykonania należą do granicy workera.
+
 ### PostgreSQL
 
 - kanoniczne konfiguracje,

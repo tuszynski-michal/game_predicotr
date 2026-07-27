@@ -175,6 +175,9 @@ Migracja `0004_paylines` dodaje wzorce należące do wersji reguł, tablicowy
 Migracja `0005_symbol_payouts` dodaje wersjonowaną konfigurację symboli i payout
 rules z kluczem złożonym konfiguracji, złożonym FK payoutu oraz zarezerwowaną
 unikalnością symbol/długość.
+Migracja `0007_jobs` dodaje trwałe, typowane jobs, wspólny enum cyklu życia,
+JSONB payload, unikalny hash wejścia, postęp, liczniki wyników i timestamp
+żądania anulowania. Pola lease i heartbeat nie należą do tej migracji.
 
 ### SQLite — niezmienny snapshot mobile
 
@@ -205,6 +208,11 @@ worker/CLI; nie wolno rozszerzać tego wyjątku przez samo zwiększenie limitu
 requestu.
 
 Postęp jest zapisywany w PostgreSQL. Początkowo działa najwyżej jedno ciężkie zadanie naraz. Nie używamy Redis ani Celery.
+
+`created` jest trwałym stanem gotowym do przejęcia. `processing` oznacza
+wykonanie, `waiting_for_review` zwalnia worker, a `completed`, `failed` i
+`cancelled` są stanami końcowymi. Nazwy etapów, takie jak `scanning` lub
+`writing_layouts`, są przechowywane osobno.
 
 Panel nie wykonuje dowolnych komend podanych przez użytkownika. Zleca typowane
 zadanie, a worker uruchamia jeden wersjonowany workflow build. Obowiązuje lokalny

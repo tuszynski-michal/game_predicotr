@@ -98,6 +98,9 @@ Od M2, na testowym PostgreSQL:
   niespójnej sygnatury,
 - dokładne liczniki przy ograniczonych, deterministycznych próbkach
   diagnostycznych,
+- trwałość typowanego payloadu joba, unikalność `input_key`, bounded filtrowanie
+  listy i zapis anulowania,
+- constraints nieujemnego postępu i pełny rollback migracji jobs,
 - deterministyczny mock 1000 layoutów dla tego samego seedu i konfiguracji,
 - atomowy zapis stagingowej wersji wraz ze wszystkimi layoutami,
 - walidacja długości `row_path`,
@@ -122,6 +125,8 @@ Od M2, na testowym PostgreSQL:
 - brak wewnętrznych stack trace,
 - walidacja rozmiaru wejścia,
 - typowane zlecanie jobs,
+- rozdzielenie statusu i etapu, odrzucanie błędnych przejść oraz natychmiastowe
+  i odroczone anulowanie zależnie od stanu,
 - niepełny lub nieudany build nie daje statusu `ready`,
 - klient TypeScript generuje się bez ręcznych rozbieżności.
 

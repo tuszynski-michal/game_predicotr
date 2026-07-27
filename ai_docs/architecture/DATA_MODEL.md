@@ -251,19 +251,30 @@ Oddzielna tabela zapobiega uznaniu payoutu za aktualny po zmianie reguł.
 | id | UUID | |
 | job_type | enum | import/validate/payout/snapshot/android_build |
 | game_id | UUID nullable | |
-| status | enum | |
+| status | enum | created/processing/waiting_for_review/completed/failed/cancelled |
 | input_payload | JSONB | wersjonowany kontrakt |
+| input_key | varchar(64) | unikalny SHA-256 typu, gry i kanonicznego payloadu |
+| stage | varchar nullable | etap workflow, np. scanning/validating/writing_layouts |
 | progress_current | bigint | |
 | progress_total | bigint nullable | |
+| success_count | bigint | |
+| failure_count | bigint | |
+| review_count | bigint | |
 | error_code | varchar nullable | |
 | error_message | text nullable | |
-| worker_version | varchar | |
+| worker_version | varchar nullable | ustawiany po przejęciu przez worker |
 | created_at | timestamptz | |
+| updated_at | timestamptz | |
 | started_at | timestamptz nullable | |
 | finished_at | timestamptz nullable | |
 | cancel_requested_at | timestamptz nullable | |
 
-Szczegóły importu mogą być w tabeli `import_job_details`. Job jest wznawialny i idempotentny dla tego samego klucza wejścia.
+Status opisuje wyłącznie wspólny cykl życia. `scanning`, `validating` i podobne
+wartości są `stage`, a nie statusami. Liczniki są nieujemne,
+`progress_current <= progress_total`, gdy total jest znany. Unikalny
+`input_key` blokuje dwa enqueue dla tego samego wejścia. Szczegóły importu mogą
+być w tabeli `import_job_details`. Retry wznawia istniejący rekord zamiast
+tworzyć duplikat.
 
 ### source_images
 

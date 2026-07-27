@@ -27,9 +27,15 @@ import type {
   ArchiveSymbolData,
   ArchiveSymbolErrors,
   ArchiveSymbolResponses,
+  CancelJobData,
+  CancelJobErrors,
+  CancelJobResponses,
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
+  CreateJobData,
+  CreateJobErrors,
+  CreateJobResponses,
   CreatePaylineData,
   CreatePaylineErrors,
   CreatePaylineResponses,
@@ -56,6 +62,9 @@ import type {
   GetGameResponses,
   GetHealthData,
   GetHealthResponses,
+  GetJobData,
+  GetJobErrors,
+  GetJobResponses,
   GetPaylineData,
   GetPaylineErrors,
   GetPaylineResponses,
@@ -79,6 +88,9 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListJobsData,
+  ListJobsErrors,
+  ListJobsResponses,
   ListPaylinesData,
   ListPaylinesErrors,
   ListPaylinesResponses,
@@ -451,6 +463,60 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * List a bounded set of newest jobs
+ */
+export const listJobs = <ThrowOnError extends boolean = false>(
+  options?: Options<ListJobsData, ThrowOnError>,
+): RequestResult<ListJobsResponses, ListJobsErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListJobsResponses,
+    ListJobsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/jobs', ...options });
+
+/**
+ * Persist a typed job for later worker execution
+ */
+export const createJob = <ThrowOnError extends boolean = false>(
+  options: Options<CreateJobData, ThrowOnError>,
+): RequestResult<CreateJobResponses, CreateJobErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CreateJobResponses,
+    CreateJobErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/jobs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get job status, progress and error
+ */
+export const getJob = <ThrowOnError extends boolean = false>(
+  options: Options<GetJobData, ThrowOnError>,
+): RequestResult<GetJobResponses, GetJobErrors, ThrowOnError> =>
+  (options.client ?? client).get<GetJobResponses, GetJobErrors, ThrowOnError>({
+    url: '/api/v1/admin/jobs/{job_id}',
+    ...options,
+  });
+
+/**
+ * Request cancellation at a safe worker checkpoint
+ */
+export const cancelJob = <ThrowOnError extends boolean = false>(
+  options: Options<CancelJobData, ThrowOnError>,
+): RequestResult<CancelJobResponses, CancelJobErrors, ThrowOnError> =>
+  (options.client ?? client).post<
+    CancelJobResponses,
+    CancelJobErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/jobs/{job_id}/cancel', ...options });
 
 /**
  * Archive a published rules version

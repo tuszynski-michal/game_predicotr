@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M2 complete; G2 passed; ready for TASK-0029`
+`M3.1 in progress; TASK-0029 complete; ready for TASK-0030`
 
 ## Completed
 
@@ -329,6 +329,18 @@ last_updated: 2026-07-27
   Next.js, osobny odbiór M2 oraz 3 fizyczne testy PostgreSQL,
 - zaliczono końcową bramkę G2; M2 jest ukończony 2026-07-27, a warunek wejścia
   do M3 został spełniony,
+- ukończono `TASK-0029`: dodano wspólny automat stanów jobs, osobny `stage`,
+  postęp, liczniki wyników, błędy, dwuetapowe anulowanie i unikalny hash
+  typowanego wejścia,
+- migracja `0007_jobs` tworzy trwałe JSONB payloady, enumy, constraints,
+  indeksy oraz FK źródłowego joba datasetu; jest jedynym headem Alembic,
+- Admin API udostępnia create/list/get/cancel dla pięciu payloadów
+  `schemaVersion = 1`, a OpenAPI i klient TypeScript zostały zregenerowane,
+- zaakceptowano D-032 rozdzielającą uniwersalny lifecycle od etapów workflow;
+  lease, heartbeat i ograniczenie jednego wykonania pozostają w TASK-0030,
+- TASK-0029 przeszedł pełną bramkę jakości: 139 standardowych testów Python,
+  63 mobile, 44 panelu, 23 wspólnej domeny i 8 klienta API, produkcyjny build
+  Next.js oraz 3 fizyczne testy PostgreSQL,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -394,7 +406,7 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0029 — Job state machine and Admin API`.
+`TASK-0030 — Local worker execution, lease and resume`.
 
 ## Do not start yet
 

@@ -55,7 +55,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M3.
 
 ### Zadania
 
-- `TASK-0029 — Job state machine and Admin API`
+- `TASK-0029 — Job state machine and Admin API` — done 2026-07-27
 - `TASK-0030 — Local worker execution, lease and resume`
 - `TASK-0031 — Jobs progress and error UI`
 

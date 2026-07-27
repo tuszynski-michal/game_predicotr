@@ -13,6 +13,7 @@ RULES_REVISION = "0003_rules_versions"
 PAYLINES_REVISION = "0004_paylines"
 PAYOUTS_REVISION = "0005_symbol_payouts"
 DATASETS_REVISION = "0006_dataset_staging"
+JOBS_REVISION = "0007_jobs"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -24,7 +25,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_datasets_migration_is_the_only_head_and_follows_payouts() -> None:
+def test_jobs_migration_is_the_only_head_and_follows_datasets() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -32,8 +33,9 @@ def test_datasets_migration_is_the_only_head_and_follows_payouts() -> None:
     paylines = script.get_revision(PAYLINES_REVISION)
     payouts = script.get_revision(PAYOUTS_REVISION)
     datasets = script.get_revision(DATASETS_REVISION)
+    jobs = script.get_revision(JOBS_REVISION)
 
-    assert script.get_heads() == [DATASETS_REVISION]
+    assert script.get_heads() == [JOBS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -46,6 +48,8 @@ def test_datasets_migration_is_the_only_head_and_follows_payouts() -> None:
     assert payouts.down_revision == PAYLINES_REVISION
     assert datasets is not None
     assert datasets.down_revision == PAYOUTS_REVISION
+    assert jobs is not None
+    assert jobs.down_revision == DATASETS_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -211,3 +215,33 @@ def test_dataset_staging_migration_generates_constraints_and_downgrade() -> None
     assert "drop table layouts" in downgrade_sql
     assert "drop table dataset_versions" in downgrade_sql
     assert "drop type dataset_version_status" in downgrade_sql
+
+
+def test_jobs_migration_generates_enums_constraints_indexes_and_downgrade() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{JOBS_REVISION}:{DATASETS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table jobs" in upgrade_sql
+    assert "create type job_type" in upgrade_sql
+    assert "create type job_status" in upgrade_sql
+    assert "uq_jobs_input_key" in upgrade_sql
+    assert "ck_jobs_progress_within_total" in upgrade_sql
+    assert "ix_jobs_status_created_at" in upgrade_sql
+    assert "fk_dataset_versions_source_job_id_jobs" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table jobs" in downgrade_sql
+    assert "drop type job_status" in downgrade_sql
+    assert "drop type job_type" in downgrade_sql

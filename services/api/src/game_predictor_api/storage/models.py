@@ -17,14 +17,16 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
+from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.metadata import Base
 
@@ -33,6 +35,8 @@ def _enum_values(
     enum_type: (
         type[DatasetVersionStatus]
         | type[GameStatus]
+        | type[JobStatus]
+        | type[JobType]
         | type[SymbolStatus]
         | type[RulesVersionStatus]
     ),
@@ -286,6 +290,109 @@ class PayoutRuleModel(Base):
     )
 
 
+class JobModel(Base):
+    __tablename__ = "jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "progress_current >= 0",
+            name="ck_jobs_progress_current_nonnegative",
+        ),
+        CheckConstraint(
+            "progress_total IS NULL OR progress_total >= 0",
+            name="ck_jobs_progress_total_nonnegative",
+        ),
+        CheckConstraint(
+            "progress_total IS NULL OR progress_current <= progress_total",
+            name="ck_jobs_progress_within_total",
+        ),
+        CheckConstraint(
+            "success_count >= 0 AND failure_count >= 0 AND review_count >= 0",
+            name="ck_jobs_outcome_counts_nonnegative",
+        ),
+        UniqueConstraint("input_key", name="uq_jobs_input_key"),
+        Index("ix_jobs_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_type: Mapped[JobType] = mapped_column(
+        Enum(
+            JobType,
+            name="job_type",
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    game_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    status: Mapped[JobStatus] = mapped_column(
+        Enum(
+            JobStatus,
+            name="job_status",
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=JobStatus.CREATED,
+    )
+    input_payload: Mapped[dict[str, object]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    input_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    stage: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    progress_current: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+    )
+    progress_total: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    success_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+    )
+    failure_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+    )
+    review_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=0,
+    )
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    worker_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
 class DatasetVersionModel(Base):
     __tablename__ = "dataset_versions"
     __table_args__ = (
@@ -346,7 +453,10 @@ class DatasetVersionModel(Base):
     )
     generation_seed: Mapped[int] = mapped_column(BigInteger, nullable=False)
     generator_version: Mapped[str] = mapped_column(String(64), nullable=False)
-    source_job_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    source_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

@@ -186,6 +186,11 @@ Dla zadania widzi:
 - log błędów,
 - możliwość wznowienia bez dublowania wyników.
 
+Wspólne statusy to `created`, `processing`, `waiting_for_review`, `completed`,
+`failed` i `cancelled`. Nazwa etapu workflow jest osobnym polem. Anulowanie
+przed startem kończy job od razu, a anulowanie podczas pracy staje się żądaniem
+obsługiwanym przez worker w bezpiecznym punkcie.
+
 ### Manual review
 
 Dla niepewnego elementu administrator otrzymuje:

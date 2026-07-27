@@ -138,18 +138,15 @@ Dane są najpierw zapisywane do tabel stagingowych. Utworzenie wersji datasetu w
 - idempotentnego importu,
 - braku nierozwiązanych elementów blokujących.
 
-## Statusy zadania
+## Stan i etapy zadania
 
 ```text
-created
-scanning
-processing
-waiting_for_review
-validating
-completed
-failed
-cancelled
+status: created | processing | waiting_for_review | completed | failed | cancelled
+stage: scanning | processing_images | validating
 ```
+
+Status należy do wspólnego automatu jobs. Etap opisuje wyłącznie aktualną część
+pipeline'u importu i może zostać rozszerzony bez zmiany cyklu życia.
 
 ## Wznawianie
 

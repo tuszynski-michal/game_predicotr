@@ -1,12 +1,14 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import (
@@ -18,6 +20,11 @@ from game_predictor_api.domain.datasets import (
     DatasetConflictError,
     DatasetVersionStatus,
 )
+from game_predictor_api.domain.jobs import (
+    JobConflictError,
+    JobStatus,
+    JobType,
+)
 from game_predictor_api.domain.rules import (
     RulesConflictError,
     RulesVersionStatus,
@@ -28,6 +35,7 @@ from game_predictor_api.storage.catalog_repository import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import LayoutModel
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 from sqlalchemy import create_engine, inspect, select
@@ -87,6 +95,7 @@ def test_catalog_repository_uses_real_constraints(
             "alembic_version",
             "dataset_versions",
             "games",
+            "jobs",
             "layouts",
             "paylines",
             "payout_rules",
@@ -102,6 +111,36 @@ def test_catalog_repository_uses_real_constraints(
                 name="Game 1",
                 status=GameStatus.ACTIVE,
             )
+            job_service = JobService(SqlAlchemyJobRepository(session))
+            job_payload: dict[str, object] = {
+                "schema_version": 1,
+                "dataset_version_id": str(uuid4()),
+            }
+            job = job_service.create_job(
+                JobType.VALIDATE,
+                game_id=game.id,
+                input_payload=job_payload,
+            )
+            assert job.status is JobStatus.CREATED
+            assert job_service.get_job(job.id).input_payload == job_payload
+            assert [
+                item.id
+                for item in job_service.list_jobs(
+                    status=JobStatus.CREATED,
+                    job_type=JobType.VALIDATE,
+                    game_id=game.id,
+                    limit=10,
+                )
+            ] == [job.id]
+            with pytest.raises(JobConflictError) as job_error:
+                job_service.create_job(
+                    JobType.VALIDATE,
+                    game_id=game.id,
+                    input_payload=job_payload,
+                )
+            assert job_error.value.code == "JOB_INPUT_ALREADY_EXISTS"
+            assert job_service.cancel_job(job.id).status is JobStatus.CANCELLED
+
             first = service.create_symbol(
                 game.id,
                 mobile_code=1,
@@ -442,16 +481,16 @@ def test_catalog_repository_uses_real_constraints(
 
         with Session(engine, expire_on_commit=False) as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))
-            with pytest.raises(CatalogConflictError) as error:
+            with pytest.raises(CatalogConflictError) as game_conflict:
                 service.create_game(
                     code="game-1",
                     name="Duplicate",
                     status=GameStatus.DRAFT,
                 )
-            assert error.value.code == "GAME_CODE_ALREADY_EXISTS"
+            assert game_conflict.value.code == "GAME_CODE_ALREADY_EXISTS"
             session.rollback()
 
-            with pytest.raises(CatalogConflictError) as error:
+            with pytest.raises(CatalogConflictError) as symbol_code_conflict:
                 service.create_symbol(
                     game.id,
                     mobile_code=3,
@@ -462,10 +501,10 @@ def test_catalog_repository_uses_real_constraints(
                     display_order=30,
                     status=SymbolStatus.ACTIVE,
                 )
-            assert error.value.code == "SYMBOL_CODE_ALREADY_EXISTS"
+            assert symbol_code_conflict.value.code == "SYMBOL_CODE_ALREADY_EXISTS"
             session.rollback()
 
-            with pytest.raises(CatalogConflictError) as error:
+            with pytest.raises(CatalogConflictError) as mobile_code_conflict:
                 service.create_symbol(
                     game.id,
                     mobile_code=2,
@@ -476,6 +515,6 @@ def test_catalog_repository_uses_real_constraints(
                     display_order=30,
                     status=SymbolStatus.ACTIVE,
                 )
-            assert error.value.code == "SYMBOL_MOBILE_CODE_ALREADY_EXISTS"
+            assert mobile_code_conflict.value.code == "SYMBOL_MOBILE_CODE_ALREADY_EXISTS"
     finally:
         engine.dispose()

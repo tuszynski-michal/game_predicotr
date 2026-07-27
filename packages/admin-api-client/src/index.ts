@@ -6,6 +6,8 @@ import {
   archivePayoutRule as archiveGeneratedPayoutRule,
   archiveRulesVersion as archiveGeneratedRulesVersion,
   archiveSymbol as archiveGeneratedSymbol,
+  cancelJob as cancelGeneratedJob,
+  createJob as createGeneratedJob,
   createGame as createGeneratedGame,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
@@ -16,12 +18,14 @@ import {
   getDatasetVersion as getGeneratedDatasetVersion,
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
+  getJob as getGeneratedJob,
   getPayline as getGeneratedPayline,
   getPayoutRule as getGeneratedPayoutRule,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
+  listJobs as listGeneratedJobs,
   listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
   listPaylines as listGeneratedPaylines,
@@ -39,6 +43,9 @@ import {
   updateSymbol as updateGeneratedSymbol,
 } from './generated/sdk.gen';
 import type {
+  CreateJobData,
+  JobStatus,
+  JobType,
   MockDatasetCreate,
   GameCreate,
   GameUpdate,
@@ -54,6 +61,8 @@ import type {
 } from './generated/types.gen';
 
 export type {
+  AndroidBuildJobCreate,
+  AndroidBuildJobPayload,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -68,6 +77,13 @@ export type {
   GameStatus,
   GameUpdate,
   HealthResponse,
+  ImportJobCreate,
+  ImportJobPayload,
+  JobErrorResponse,
+  JobProgressResponse,
+  JobResponse,
+  JobStatus,
+  JobType,
   MockDatasetCreate,
   PaylineCreate,
   PaylineResponse,
@@ -75,6 +91,8 @@ export type {
   PayoutRuleCreate,
   PayoutRuleResponse,
   PayoutRuleUpdate,
+  PayoutJobCreate,
+  PayoutJobPayload,
   RulesPublicationIssueResponse,
   RulesPublicationReadinessResponse,
   RulesVersionCreate,
@@ -87,11 +105,24 @@ export type {
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
+  SnapshotJobCreate,
+  SnapshotJobPayload,
+  ValidateJobCreate,
+  ValidateJobPayload,
 } from './generated/types.gen';
 
 export interface AdminApiClientOptions {
   readonly baseUrl: string;
   readonly fetch?: typeof globalThis.fetch;
+}
+
+export type JobCreate = CreateJobData['body'];
+
+export interface ListJobsOptions {
+  readonly status?: JobStatus;
+  readonly jobType?: JobType;
+  readonly gameId?: string;
+  readonly limit?: number;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -102,6 +133,23 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
+    createJob: (body: JobCreate) => createGeneratedJob({ body, client }),
+    listJobs: (filters: ListJobsOptions = {}) =>
+      listGeneratedJobs({
+        client,
+        query: {
+          ...(filters.status === undefined ? {} : { status: filters.status }),
+          ...(filters.jobType === undefined
+            ? {}
+            : { job_type: filters.jobType }),
+          ...(filters.gameId === undefined ? {} : { game_id: filters.gameId }),
+          ...(filters.limit === undefined ? {} : { limit: filters.limit }),
+        },
+      }),
+    getJob: (jobId: string) =>
+      getGeneratedJob({ client, path: { job_id: jobId } }),
+    cancelJob: (jobId: string) =>
+      cancelGeneratedJob({ client, path: { job_id: jobId } }),
     listGames: () => listGeneratedGames({ client }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>

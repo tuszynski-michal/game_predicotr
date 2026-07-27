@@ -675,6 +675,29 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   po awarii przed upsertem jest bezpieczny i zostanie deterministycznie
   zastąpiony przy retry. Rozmiar partii i audytów podlega pomiarowi M3.5.
 
+## D-035 — Exact-version payout readiness gate
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** gotowość payoutów jest liczona wyłącznie dla dokładnej kombinacji
+  dataset/rules/algorithm. Wymaga opublikowanych i zgodnych źródeł, jednego
+  wyniku dla każdej sekwencji oraz niepustego `audit_path`. Repozytorium zwraca
+  dokładne agregaty i najwyżej 100 rosnących brakujących numerów. Zawartość
+  JSONL potwierdza osobny strumieniowy weryfikator.
+- **Context:** historyczne wyniki są celowo zachowywane, więc sama liczba
+  rekordów lub payout innej wersji mogłyby fałszywie domknąć wejście snapshotu.
+  Docelowy dataset ma około 500 000 layoutów i nie może być materializowany w
+  pamięci tylko dla diagnostyki.
+- **Reason:** dokładny klucz wersji zapewnia odtwarzalność wydania, agregaty SQL
+  zachowują bounded memory, a jawny raport z kodami problemów może być używany
+  przez generator snapshotu i późniejszą orkiestrację release.
+- **Alternatives:** uznanie najnowszego wyniku sekwencji niezależnie od wersji,
+  pełne pobranie 500 000 rekordów do workera, brak audytu jako ostrzeżenie,
+  weryfikacja tylko liczby payoutów bez lewego złączenia z layoutami.
+- **Consequences:** archiwalny dataset lub rules nie jest nowym gotowym wejściem
+  snapshotu. Brak ścieżki audytu blokuje gotowość, a koszt sprawdzenia zawartości
+  wszystkich plików audytu zostanie zmierzony w M3.5.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -24,6 +24,7 @@ from game_predictor_api.storage.models import (
     SymbolModel,
 )
 from game_predictor_worker.payouts.contracts import CalculatedLayoutPayout
+from game_predictor_worker.payouts.readiness import PayoutReadinessService
 from game_predictor_worker.payouts.store import SqlAlchemyPayoutStore
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import URL, make_url
@@ -81,7 +82,9 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
     store = SqlAlchemyPayoutStore(session_factory)
     game_id = uuid4()
     rules_id = uuid4()
+    other_rules_id = uuid4()
     dataset_id = uuid4()
+    other_dataset_id = uuid4()
     ordinary_id = uuid4()
     wildcard_id = uuid4()
     calculated_at = datetime(2026, 7, 27, 21, tzinfo=UTC)
@@ -127,6 +130,19 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
                     id=rules_id,
                     game_id=game_id,
                     version=1,
+                    rows=2,
+                    columns=3,
+                    spin_cost=10,
+                    status=RulesVersionStatus.PUBLISHED,
+                    published_at=calculated_at,
+                )
+            )
+            session.flush()
+            session.add(
+                RulesVersionModel(
+                    id=other_rules_id,
+                    game_id=game_id,
+                    version=2,
                     rows=2,
                     columns=3,
                     spin_cost=10,
@@ -212,6 +228,32 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
                 ]
             )
 
+        with Session(engine) as session, session.begin():
+            session.add(
+                DatasetVersionModel(
+                    id=other_dataset_id,
+                    game_id=game_id,
+                    version=2,
+                    rows=2,
+                    columns=3,
+                    signature_cell_width=2,
+                    layout_count=1,
+                    status=DatasetVersionStatus.PUBLISHED,
+                    generation_seed=2,
+                    generator_version="test-v1",
+                    published_at=calculated_at,
+                )
+            )
+            session.flush()
+            session.add(
+                LayoutModel(
+                    dataset_version_id=other_dataset_id,
+                    sequence_number=1,
+                    signature="090909010101",
+                    cells=[9, 9, 9, 1, 1, 1],
+                )
+            )
+
         source = store.load_source(dataset_id, rules_id)
         assert source is not None
         assert source.game_id == game_id
@@ -247,5 +289,98 @@ def test_payout_store_loads_versioned_source_and_upserts_without_duplicates(
             assert persisted is not None
             assert persisted.total_payout == 20
             assert persisted.audit_path == "payout-audits/batch.jsonl"
+
+        incomplete = store.get_completeness_facts(
+            dataset_id,
+            rules_id,
+            "payout-v2",
+        )
+        assert incomplete is not None
+        assert incomplete.payout_count == 1
+        assert incomplete.missing_payout_count == 1
+        assert incomplete.missing_sequence_numbers == (2,)
+
+        store.upsert_payouts(
+            (
+                CalculatedLayoutPayout(
+                    dataset_version_id=dataset_id,
+                    rules_version_id=rules_id,
+                    sequence_number=2,
+                    algorithm_version="payout-v1",
+                    total_payout=999,
+                    audit_path="payout-audits/old-algorithm.jsonl",
+                    calculated_at=calculated_at,
+                ),
+                CalculatedLayoutPayout(
+                    dataset_version_id=dataset_id,
+                    rules_version_id=other_rules_id,
+                    sequence_number=2,
+                    algorithm_version="payout-v2",
+                    total_payout=999,
+                    audit_path="payout-audits/old-rules.jsonl",
+                    calculated_at=calculated_at,
+                ),
+                CalculatedLayoutPayout(
+                    dataset_version_id=other_dataset_id,
+                    rules_version_id=rules_id,
+                    sequence_number=1,
+                    algorithm_version="payout-v2",
+                    total_payout=999,
+                    audit_path="payout-audits/old-dataset.jsonl",
+                    calculated_at=calculated_at,
+                ),
+            )
+        )
+        still_incomplete = store.get_completeness_facts(
+            dataset_id,
+            rules_id,
+            "payout-v2",
+        )
+        assert still_incomplete is not None
+        assert still_incomplete.payout_count == 1
+        assert still_incomplete.missing_sequence_numbers == (2,)
+
+        with Session(engine) as session, session.begin():
+            session.add(
+                LayoutPayoutModel(
+                    dataset_version_id=dataset_id,
+                    rules_version_id=rules_id,
+                    sequence_number=2,
+                    algorithm_version="payout-v2",
+                    total_payout=20,
+                    audit_path=None,
+                    calculated_at=calculated_at,
+                )
+            )
+        missing_audit = store.get_completeness_facts(
+            dataset_id,
+            rules_id,
+            "payout-v2",
+        )
+        assert missing_audit is not None
+        assert missing_audit.payout_count == 2
+        assert missing_audit.missing_payout_count == 0
+        assert missing_audit.missing_audit_count == 1
+
+        store.upsert_payouts(
+            (
+                CalculatedLayoutPayout(
+                    dataset_version_id=dataset_id,
+                    rules_version_id=rules_id,
+                    sequence_number=2,
+                    algorithm_version="payout-v2",
+                    total_payout=20,
+                    audit_path="payout-audits/current.jsonl",
+                    calculated_at=calculated_at,
+                ),
+            )
+        )
+        ready = PayoutReadinessService(store).require(
+            dataset_id,
+            rules_id,
+            "payout-v2",
+        )
+        assert ready.ready is True
+        assert ready.payout_count == 2
     finally:
         engine.dispose()

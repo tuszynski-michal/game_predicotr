@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
@@ -18,7 +20,12 @@ from game_predictor_worker.domain.contracts import (
     SymbolDefinition,
 )
 from game_predictor_worker.jobs.runtime import JobHandlerError
-from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
+from game_predictor_worker.payouts.audit import (
+    ExpectedAuditPayout,
+    JsonlPayoutAuditWriter,
+    PayoutAuditError,
+    verify_payout_audit_batch,
+)
 from game_predictor_worker.payouts.contracts import (
     AuditedPayout,
     CalculatedLayoutPayout,
@@ -31,6 +38,12 @@ GAME_ID = UUID("11111111-1111-4111-8111-111111111111")
 DATASET_ID = UUID("22222222-2222-4222-8222-222222222222")
 RULES_ID = UUID("33333333-3333-4333-8333-333333333333")
 NOW = datetime(2026, 7, 27, 20, tzinfo=UTC)
+GOLDEN_PATH = (
+    Path(__file__).parents[3]
+    / "packages"
+    / "domain-fixtures"
+    / "payout-golden-cases.json"
+)
 
 
 class FakePayoutStore:
@@ -104,6 +117,11 @@ class FakeContext:
 
     def checkpoint(self, **values: object) -> None:
         self.checkpoints.append(values)
+
+
+class CrashingContext:
+    def checkpoint(self, **_values: object) -> None:
+        raise RuntimeError("simulated process crash after payout upsert")
 
 
 def _source(**changes: object) -> PayoutSource:
@@ -222,6 +240,108 @@ def test_handler_resumes_after_checkpoint_and_upsert_is_idempotent() -> None:
     assert store.queries[-1] == (2, 2)
     assert len(store.records) == 3
     assert resumed_context.checkpoints[0]["current"] == 3
+
+
+def test_crash_after_upsert_before_checkpoint_repeats_batch_without_duplicates() -> None:
+    store = FakePayoutStore(_source(), _layouts())
+    audits = FakeAuditWriter()
+    handler = PayoutBatchHandler(store, audits, batch_size=2, clock=lambda: NOW)
+
+    with pytest.raises(RuntimeError, match="simulated process crash"):
+        handler(CrashingContext(), _job())  # type: ignore[arg-type]
+
+    assert len(store.records) == 2
+    retry_context = FakeContext()
+    handler(retry_context, _job())  # type: ignore[arg-type]
+
+    assert len(store.records) == 3
+    assert audits.batches == [(1, 2), (1, 2), (3,)]
+    assert retry_context.checkpoints[-1]["current"] == 3
+
+
+def test_handler_persists_every_m1_golden_total() -> None:
+    fixture = cast(
+        Mapping[str, Any],
+        json.loads(GOLDEN_PATH.read_text(encoding="utf-8")),
+    )
+    game_data = fixture["game"]
+    game = GameConfig(
+        id=game_data["id"],
+        code=game_data["code"],
+        name=game_data["name"],
+        rows=game_data["rows"],
+        columns=game_data["columns"],
+        spin_cost=game_data["spinCost"],
+        signature_cell_width=game_data["signatureCellWidth"],
+        symbols=tuple(
+            SymbolDefinition(
+                symbol["mobileCode"],
+                symbol["code"],
+                symbol["name"],
+                symbol["isWildcard"],
+                symbol["displayOrder"],
+            )
+            for symbol in fixture["game"]["symbols"]
+        ),
+    )
+    paylines = {
+        payline["id"]: PaylineDefinition(
+            payline["id"],
+            tuple(payline["rowPath"]),
+        )
+        for payline in fixture["paylines"]
+    }
+    payout_symbols = tuple(
+        PayoutSymbolDefinition(
+            value["symbolMobileCode"],
+            value["minimumMatchLength"],
+        )
+        for value in fixture["payoutSymbols"]
+    )
+    payout_rules = tuple(
+        PayoutRuleDefinition(
+            value["symbolMobileCode"],
+            value["matchLength"],
+            value["payoutCredits"],
+        )
+        for value in fixture["payoutRules"]
+    )
+
+    for case in fixture["cases"]:
+        source = PayoutSource(
+            dataset_version_id=DATASET_ID,
+            rules_version_id=RULES_ID,
+            game_id=GAME_ID,
+            rules_game_id=GAME_ID,
+            dataset_status=DatasetVersionStatus.PUBLISHED,
+            rules_status=RulesVersionStatus.PUBLISHED,
+            dataset_rows=game.rows,
+            dataset_columns=game.columns,
+            layout_count=1,
+            game=game,
+            paylines=tuple(paylines[value] for value in case["paylineIds"]),
+            payout_symbols=payout_symbols,
+            payout_rules=payout_rules,
+        )
+        layout = PayoutLayout(
+            1,
+            tuple(cell for row in case["rows"] for cell in row),
+        )
+        store = FakePayoutStore(source, (layout,))
+        handler = PayoutBatchHandler(
+            store,
+            FakeAuditWriter(),
+            clock=lambda: NOW,
+        )
+
+        handler(FakeContext(), _job())  # type: ignore[arg-type]
+
+        persisted = store.records[
+            (DATASET_ID, RULES_ID, 1, "payout-v2")
+        ]
+        assert persisted.total_payout == case["expected"]["totalPayout"], case[
+            "id"
+        ]
 
 
 @pytest.mark.parametrize(
@@ -354,3 +474,86 @@ def test_jsonl_audit_is_structured_deterministic_and_atomically_replaced(
     assert lines[1]["sequenceNumber"] == 2
     assert lines[1]["audit"]["totalPayout"] == 30
     assert lines[1]["audit"]["matches"][0]["jokerCells"] == [1]
+    verified = verify_payout_audit_batch(
+        tmp_path,
+        second,
+        source,
+        algorithm_version="payout-v2",
+        expected_payouts=(ExpectedAuditPayout(2, 30),),
+    )
+    assert verified.record_count == 1
+    assert verified.total_payout == 30
+
+
+def test_audit_verifier_rejects_wrong_version_total_and_interpretation(
+    tmp_path: Path,
+) -> None:
+    source = _source(layout_count=1)
+    layout = _layouts()[1]
+    from game_predictor_worker.domain.payout import evaluate_payout
+
+    evaluation = evaluate_payout(
+        source.game,
+        layout.cells,
+        source.paylines,
+        source.payout_symbols,
+        source.payout_rules,
+    )
+    writer = JsonlPayoutAuditWriter(tmp_path)
+    audit_path = writer.write_batch(
+        source,
+        algorithm_version="payout-v2",
+        payouts=(AuditedPayout(layout, evaluation),),
+    )
+
+    with pytest.raises(PayoutAuditError) as wrong_version:
+        verify_payout_audit_batch(
+            tmp_path,
+            audit_path,
+            source,
+            algorithm_version="payout-v3",
+            expected_payouts=(ExpectedAuditPayout(2, 30),),
+        )
+    assert wrong_version.value.code == "PAYOUT_AUDIT_HEADER_MISMATCH"
+
+    path = tmp_path / audit_path
+    lines = [
+        json.loads(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+    ]
+    lines[1]["audit"]["totalPayout"] = 31
+    path.write_text(
+        "".join(
+            json.dumps(line, separators=(",", ":"), sort_keys=True) + "\n"
+            for line in lines
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(PayoutAuditError) as wrong_total:
+        verify_payout_audit_batch(
+            tmp_path,
+            audit_path,
+            source,
+            algorithm_version="payout-v2",
+            expected_payouts=(ExpectedAuditPayout(2, 30),),
+        )
+    assert wrong_total.value.code == "PAYOUT_AUDIT_TOTAL_MISMATCH"
+
+    lines[1]["audit"]["totalPayout"] = 30
+    lines[1]["audit"]["matches"][0]["interpretation"] = []
+    path.write_text(
+        "".join(
+            json.dumps(line, separators=(",", ":"), sort_keys=True) + "\n"
+            for line in lines
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(PayoutAuditError) as interpretation:
+        verify_payout_audit_batch(
+            tmp_path,
+            audit_path,
+            source,
+            algorithm_version="payout-v2",
+            expected_payouts=(ExpectedAuditPayout(2, 30),),
+        )
+    assert interpretation.value.code == "PAYOUT_AUDIT_INTERPRETATION_INVALID"

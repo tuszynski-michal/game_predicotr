@@ -256,6 +256,14 @@ zawiera `sequenceNumber`, `totalPayout`, matches, komórki, jokery i
 interpretacje. Wiele rekordów `layout_payouts` jednej partii świadomie wskazuje
 ten sam plik; właściwy wpis identyfikuje `sequence_number`.
 
+Gotowość payoutów jest oceniana wyłącznie dla dokładnej kombinacji
+`(dataset_version_id, rules_version_id, algorithm_version)`. Wymaga
+opublikowanego datasetu i reguł tej samej gry oraz wymiarów, dokładnie jednego
+wyniku dla każdego `sequence_number` i niepustego `audit_path` każdego wyniku.
+Historyczne wyniki innej wersji nie uzupełniają braków. Repozytorium wyznacza
+dokładne liczniki zapytaniami agregującymi, a do raportu pobiera najwyżej 100
+rosnących numerów brakujących sekwencji.
+
 ### jobs
 
 | Pole | Typ | Uwagi |

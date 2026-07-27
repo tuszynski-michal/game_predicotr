@@ -110,7 +110,14 @@ Od M2, na testowym PostgreSQL:
 - złożony klucz payoutu, FK do layoutu i nieujemny wynik,
 - bounded keyset batch layoutów oraz idempotentny upsert bez duplikatów,
 - wznowienie payout joba od ostatniego checkpointu bez pominięcia sekwencji,
+- awaria po upsercie przed checkpointem i bezpieczne ponowienie tej samej partii,
 - deterministyczny JSONL z pełną interpretacją match/joker dla każdej partii,
+- strumieniowa weryfikacja nagłówka, kolejności, totalu, rekonstrukcji matches,
+  komórek, jokerów i interpretacji JSONL,
+- dokładna bramka kompletności dla dataset/rules/algorithm z próbką maksymalnie
+  100 brakujących sekwencji i blokadą braku `audit_path`,
+- version safety: wyniki innego datasetu, rules lub algorytmu nie maskują braków,
+- utrwalone payouty każdej golden case M1 są zgodne z czystym engine,
 - odrzucenie stagingu, nieopublikowanych reguł, niezgodnych wymiarów i
   nieobsługiwanej wersji algorytmu,
 - deterministyczny mock 1000 layoutów dla tego samego seedu i konfiguracji,

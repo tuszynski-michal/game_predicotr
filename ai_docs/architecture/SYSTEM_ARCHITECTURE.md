@@ -128,6 +128,17 @@ Awaria przed checkpointem może więc powtórzyć ostatnią partię, ale nie two
 drugiego wyniku ani innej ścieżki audytu. Katalog artefaktów jest lokalny i
 konfigurowalny argumentem CLI; mobile nigdy go nie odczytuje.
 
+Przed generowaniem snapshotu wielokrotnie używalna bramka gotowości sprawdza
+dokładną kombinację dataset/rules/algorithm. Liczniki są obliczane agregatami
+SQL bez materializowania pełnego datasetu w workerze, a próbka braków jest
+ograniczona do 100 rosnących `sequence_number`. Bramka blokuje staging,
+archiwalne źródło, niezgodną grę lub wymiary, niepełny zestaw i brak przypisania
+audytu. Wyniki innych wersji pozostają w bazie, lecz nie wpływają na raport.
+
+Osobny strumieniowy weryfikator JSONL porównuje nagłówek i każdy rekord z
+oczekiwanym wynikiem partii. Potwierdza kolejność, payout, sumę matches,
+komórki, jokery i ich interpretacje bez ładowania całego pliku do pamięci.
+
 ## Przepływ dopasowania offline
 
 ```mermaid

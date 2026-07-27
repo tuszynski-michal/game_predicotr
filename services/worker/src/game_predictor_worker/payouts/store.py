@@ -16,7 +16,7 @@ from game_predictor_api.storage.models import (
     RulesVersionSymbolModel,
     SymbolModel,
 )
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -31,6 +31,10 @@ from game_predictor_worker.payouts.contracts import (
     CalculatedLayoutPayout,
     PayoutLayout,
     PayoutSource,
+)
+from game_predictor_worker.payouts.readiness import (
+    PAYOUT_DIAGNOSTIC_LIMIT,
+    PayoutCompletenessFacts,
 )
 
 
@@ -213,3 +217,81 @@ class SqlAlchemyPayoutStore:
         )
         with self._session_factory() as session, session.begin():
             session.execute(statement)
+
+    def get_completeness_facts(
+        self,
+        dataset_version_id: UUID,
+        rules_version_id: UUID,
+        algorithm_version: str,
+    ) -> PayoutCompletenessFacts | None:
+        with self._session_factory() as session:
+            dataset = session.get(DatasetVersionModel, dataset_version_id)
+            rules = session.get(RulesVersionModel, rules_version_id)
+            if dataset is None or rules is None:
+                return None
+
+            exact_payout = and_(
+                LayoutPayoutModel.dataset_version_id == dataset_version_id,
+                LayoutPayoutModel.rules_version_id == rules_version_id,
+                LayoutPayoutModel.algorithm_version == algorithm_version,
+            )
+            payout_count = session.scalar(
+                select(func.count())
+                .select_from(LayoutPayoutModel)
+                .where(exact_payout)
+            )
+            missing_join = and_(
+                LayoutPayoutModel.dataset_version_id
+                == LayoutModel.dataset_version_id,
+                LayoutPayoutModel.sequence_number == LayoutModel.sequence_number,
+                LayoutPayoutModel.rules_version_id == rules_version_id,
+                LayoutPayoutModel.algorithm_version == algorithm_version,
+            )
+            missing_filter = and_(
+                LayoutModel.dataset_version_id == dataset_version_id,
+                LayoutPayoutModel.sequence_number.is_(None),
+            )
+            missing_count = session.scalar(
+                select(func.count())
+                .select_from(LayoutModel)
+                .outerjoin(LayoutPayoutModel, missing_join)
+                .where(missing_filter)
+            )
+            missing_sample = tuple(
+                session.scalars(
+                    select(LayoutModel.sequence_number)
+                    .outerjoin(LayoutPayoutModel, missing_join)
+                    .where(missing_filter)
+                    .order_by(LayoutModel.sequence_number)
+                    .limit(PAYOUT_DIAGNOSTIC_LIMIT)
+                )
+            )
+            missing_audit_count = session.scalar(
+                select(func.count())
+                .select_from(LayoutPayoutModel)
+                .where(
+                    exact_payout,
+                    LayoutPayoutModel.audit_path.is_(None),
+                )
+            )
+            return PayoutCompletenessFacts(
+                dataset_version_id=dataset.id,
+                rules_version_id=rules.id,
+                algorithm_version=algorithm_version,
+                dataset_game_id=dataset.game_id,
+                rules_game_id=rules.game_id,
+                dataset_status=dataset.status,
+                rules_status=rules.status,
+                dataset_rows=dataset.rows,
+                dataset_columns=dataset.columns,
+                rules_rows=rules.rows,
+                rules_columns=rules.columns,
+                layout_count=dataset.layout_count,
+                payout_count=payout_count or 0,
+                missing_payout_count=missing_count or 0,
+                missing_sequence_numbers=missing_sample,
+                missing_sequences_truncated=(
+                    (missing_count or 0) > PAYOUT_DIAGNOSTIC_LIMIT
+                ),
+                missing_audit_count=missing_audit_count or 0,
+            )

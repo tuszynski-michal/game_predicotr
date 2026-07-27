@@ -84,7 +84,7 @@ G3.1 zaliczona 2026-07-27.
 ### Zadania
 
 - `TASK-0032 — Batch payout precomputation and audit` — done 2026-07-27
-- `TASK-0033 — Payout completeness, restart and version safety`
+- `TASK-0033 — Payout completeness, restart and version safety` — done 2026-07-27
 
 ### Bramka G3.2
 
@@ -93,6 +93,8 @@ G3.1 zaliczona 2026-07-27.
 - przerwanie i wznowienie nie zmienia wyniku ani nie tworzy duplikatów,
 - brak reguły, zły symbol lub niezgodne wymiary zatrzymują publikację,
 - audyt pozwala odtworzyć paylines, symbole, jokery i sumę.
+
+G3.2 zaliczona 2026-07-27.
 
 ## M3.3 — Produkcyjny snapshot SQLite
 

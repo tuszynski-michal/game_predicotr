@@ -8,7 +8,7 @@ last_updated: 2026-07-27
 
 ## Phase
 
-`M3.2 in progress; awaiting TASK-0033`
+`M3.2 complete; awaiting M3.3`
 
 ## Completed
 
@@ -384,6 +384,18 @@ last_updated: 2026-07-27
 - TASK-0032 przeszedł pełną bramkę jakości: 162 testy Python, 63 mobile, 51
   panelu, 23 wspólnej domeny i 8 klienta API; dodatkowo pełne 5 fizycznych
   testów PostgreSQL przeszło,
+- ukończono `TASK-0033`: dokładna bramka dataset/rules/algorithm raportuje
+  status źródeł, zgodność gry i wymiarów, liczbę payoutów, brak audytu oraz
+  bounded próbkę 100 brakujących sekwencji bez ładowania pełnego datasetu,
+- wyniki historycznego datasetu, rules lub algorytmu nie maskują braków, a
+  strumieniowy walidator JSONL odtwarza nagłówek, totals, matches, komórki,
+  jokery i ich interpretacje,
+- testy potwierdzają bezpieczne ponowienie partii po upsercie przed checkpointem,
+  wznowienie od checkpointu i zgodność wszystkich utrwalonych wyników z golden
+  payout-v2; zaakceptowano D-035,
+- TASK-0033 przeszedł pełną bramkę jakości: 170 standardowych testów Python, 63
+  mobile, 51 panelu, 23 wspólnej domeny i 8 klienta API oraz 5 fizycznych testów
+  PostgreSQL; zaliczono G3.2 i zamknięto M3.2,
 - ukończono `TASK-0091`: usunięto nieaktualne instrukcje po TASK-0090,
   zsynchronizowano przykłady fixture/API/toolchain i uporządkowano własność
   fundamentów Next.js, Alembic baseline oraz wersjonowanych wymiarów w planie
@@ -395,7 +407,7 @@ last_updated: 2026-07-27
 
 ## In progress
 
-- brak aktywnego zadania; M3.2 oczekuje na TASK-0033.
+- Brak aktywnego zadania. M3.2 jest zamknięte.
 
 ## Open but not blocking next milestones
 
@@ -449,8 +461,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Po kolejnym poleceniu właściciela rozpocząć
-`TASK-0033 — Payout completeness, restart and version safety`. Nie tworzyć ani
-nie rozpoczynać pliku zadania przed tym poleceniem.
+`TASK-0034 — Production SQLite snapshot generator`. Nie rozpoczynać go
+automatycznie po zamknięciu TASK-0033.
 
 ## Do not start yet
 

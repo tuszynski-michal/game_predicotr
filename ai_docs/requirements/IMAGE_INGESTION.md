@@ -143,6 +143,25 @@ Kontrakt `board-cell-crops-v1` działa tylko na kompletnym wyniku
   `58/108` pozycji wymaga review, a `51/108` ma konflikt ciągłości; wynik jest
   pomiarem prototypu poniżej proponowanego progu 98%, nie zaliczeniem G5.4.
 
+Benchmark `m5-image-benchmark-v1` potwierdza, że surowy crop z tym samym
+modelem jest gorszy (`46/108 = 42.5926%`), więc preprocessing jasnego komponentu
+pozostaje lepszym baseline'em. Nie jest to jednak finalny wybór modelu.
+Detekcja strony i dziewięciu plansz wynosi 100% na obecnych 12 zdjęciach, ale
+bez niezależnych golden narożników nie wolno deklarować accuracy geometrii.
+Pełny wynik, timing i katalog 40 błędów znajdują się w
+`ai_docs/quality/m5-image-benchmark-report.json`.
+
+### Status prototypu po D-056
+
+- discovery i normalizacja są zachowywanymi kontraktami,
+- geometria oraz cropy pozostają eksperymentalne i ograniczone do wariantu
+  dziewięciu plansz 3 × 3,
+- kontrakt OCR zostaje wymienny, ale bieżący model/preprocessing wymaga reworku,
+- każdy obecny wynik OCR jest sugestią do manual review; nie ma auto-accept,
+- continuity może zgłosić problem, ale nigdy nie tworzy zatwierdzonego numeru,
+- automatyczny import/publikacja zdjęć pozostają wyłączone; M4 jest dostępnym
+  bezpiecznym workflow ręcznym.
+
 ### 6. Podział na komórki
 
 - wariant D-053 używa wymiarów 3 × 5,
@@ -239,8 +258,12 @@ Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje duż
 
 1. Rozszerzyć prototypowy korpus 12 zdjęć do 20–100 reprezentatywnych zdjęć
    przed pełnym benchmarkiem G5.
-2. Zweryfikować geometrię i OCR na pełnym zbiorze.
+2. Dodać niezależne pozycje/narożniki plansz i zweryfikować geometrię na pełnym
+   zbiorze.
 3. Zbudować oznaczony zbiór symboli i podzielić go według zdjęcia źródłowego.
-4. Ustalić mierzalne progi confidence oraz manual review.
-5. Porównać jakość i czas stosu prototypowego z alternatywą tylko wtedy, gdy pomiary pokażą problem.
+4. Zaakceptować progi przed kolejną optymalizacją; confidence nie może być
+   progiem auto-accept bez kalibracji na held-out source images.
+5. Porównać wyspecjalizowane alternatywy OCR cyfr na rozłącznym podziale
+   źródeł; obecne 12 zdjęć nie może być jednocześnie zbiorem strojenia i
+   końcowej oceny.
 6. Zatwierdzić finalne modele i ich wersje w osobnej decyzji architektonicznej.

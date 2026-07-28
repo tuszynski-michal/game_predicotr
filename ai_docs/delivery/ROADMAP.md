@@ -145,6 +145,9 @@ System przyjmuje duże dane bez zależności od automatycznego rozpoznawania zdj
 
 ## M5 — Image ingestion prototype
 
+Status: `completed_with_rework`; G5 `not_passed`. Kontrakty pipeline'u zostają,
+geometria wymaga niezależnych goldenów, a aktualny OCR nie ma auto-accept.
+
 Plan wykonania:
 [MILESTONE_05_EXECUTION_PLAN.md](MILESTONE_05_EXECUTION_PLAN.md)
 
@@ -171,6 +174,8 @@ M5 jest realizowany przez:
 Nie przechodzimy do masowego importu, dopóki prototyp nie osiągnie zaakceptowanych metryk i nie potwierdzi stabilności układu zdjęć.
 
 ## M6 — Symbol classifier and review workflow
+
+Status wejścia: `blocked` przez D-056 do przejścia G5 i zamknięcia Q-017.
 
 Plan wykonania:
 [MILESTONE_06_EXECUTION_PLAN.md](MILESTONE_06_EXECUTION_PLAN.md)

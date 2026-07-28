@@ -1189,6 +1189,49 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** D-010 wyłącznie w zakresie mechanizmu pierwszej implementacji
   OCR; wymienny port, praca offline i obowiązek benchmarku pozostają bez zmian.
 
+## D-056 — Retain image contracts, rework OCR, and hold M6
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** prototyp M5 kończy się wynikiem `completed_with_rework`, bez
+  zaliczenia G5. Zachowujemy lokalny model workera, łańcuch checksum,
+  content-addressed artefakty i wersjonowane kontrakty discovery, normalizacji,
+  geometrii, cropów, OCR oraz benchmarku. `page-board-detector-v1` i
+  `board-cell-crops-v1` pozostają eksperymentalne poza wspieranym wariantem
+  dziewięciu plansz 3 × 3. Port `SequenceNumberRecognizer` oraz raport
+  `sequence-number-ocr-v1` zostają, ale implementacja
+  `en_PP-OCRv5_mobile_rec` z `bright-component-tight-v1` ma status `rework`
+  i nie może automatycznie akceptować numerów.
+- **Context:** TASK-0057 zmierzył 100% detekcji strony i kompletu plansz na 12
+  zdjęciach jednej gry/sesji, lecz bez niezależnych golden pozycji i narożników.
+  OCR osiągnął `68/108 = 62.9630%`, konflikt ciągłości `51/108 = 47.2222%`,
+  a pięć błędnych wyników miało confidence `>= 0.8`. Kontrola surowego cropu
+  była gorsza: `46/108 = 42.5926%`. Korpus nie osiąga minimum 20 zdjęć, progi
+  są `proposed`, a Q-016/Q-017 pozostają otwarte.
+- **Reason:** poprawne granice i audytowalność pipeline'u nie zależą od jakości
+  konkretnego modelu. Jednocześnie wysoki confidence nie odróżnia bezpiecznie
+  błędów, więc automatyczna publikacja obecnego OCR naruszałaby integralność
+  `sequence_number`. Wynik jednego wariantu nie uzasadnia ciężkiego detektora
+  ani deklaracji generalizacji.
+- **Alternatives:** zaakceptowanie 62.9630% wraz z ręcznym czyszczeniem,
+  ciche poprawianie numerów przez continuity, rozpoczęcie M6 mimo niezaliczonego
+  G5, natychmiastowe dodanie większego OCR/detektora albo odrzucenie wszystkich
+  kontraktów M5.
+- **Consequences:** do czasu reworku każdy numer OCR jest wyłącznie sugestią do
+  manual review; nie istnieje próg auto-accept. M4 pozostaje bezpiecznym
+  sposobem wprowadzania danych. TASK-0051 ma status `blocked` na dodatkowym
+  materiale i odpowiedziach Q-016/Q-017. M6 nie rozpoczyna się, dopóki:
+  1) korpus nie ma co najmniej 20 reprezentatywnych zdjęć z opisanymi wariantami,
+  2) niezależne goldeny pozycji/narożników nie pozwalają zmierzyć geometrii,
+  3) progi nie zostaną zaakceptowane przed kolejną optymalizacją,
+  4) OCR nie przejdzie zaakceptowanego progu na held-out source images,
+  5) Q-017 nie potwierdzi wystarczającego materiału symboli.
+  Rework porównuje wyspecjalizowane alternatywy cyfr na podziale według zdjęcia,
+  bez strojenia i raportowania na tych samych 12 goldenach. Czas cropów jest
+  obserwowany, ale nie optymalizowany bez zaakceptowanego budżetu.
+- **Supersedes:** D-053–D-055 wyłącznie w zakresie statusu po benchmarku;
+  kontrakty, ograniczenie wariantu, lokalność i checksumy pozostają w mocy.
+
 ## Szablon nowej decyzji
 
 ```text

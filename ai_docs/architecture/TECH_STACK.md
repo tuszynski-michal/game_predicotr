@@ -334,6 +334,24 @@ Dekoder dopuszcza wyłącznie cyfry, lecz model pozostaje wymienny. Finalne mode
 zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych
 zdjęciach; obecny wynik 62.9630% nie zalicza G5.4.
 
+### Status po benchmarku M5
+
+| Element | Status | Obowiązująca granica |
+|---|---|---|
+| Python/Pillow/OpenCV/NumPy | `retain` | lokalny worker i deterministyczne artefakty |
+| `image-discovery-v1` | `retain` | wejście JPEG, ścieżki względne i SHA-256 |
+| `image-normalization-v1` | `retain` | EXIF Orientation 1–8 i RGB PNG |
+| `page-board-detector-v1` | `experimental` | tylko zaobserwowany wariant 3 × 3 |
+| `board-cell-crops-v1` | `experimental` | tylko kompletna geometria 3 × 3 / plansze 3 × 5 |
+| `SequenceNumberRecognizer` / raport OCR | `retain` | wymienny port, raw/normalized/confidence bez korekty |
+| `en_PP-OCRv5_mobile_rec` + obecny preprocessing | `rework` | sugestia do review, brak auto-accept |
+| `m5-image-benchmark-v1` | `retain` | read-only agregacja raportów i jawne `not_measurable` |
+
+D-056 nie dodaje kolejnej biblioteki ani finalnego modelu. Alternatywa OCR może
+zostać wybrana dopiero po pomiarze na reprezentatywnym podziale według zdjęcia
+źródłowego. Pięć błędów baseline z confidence `>= 0.8` wyklucza ustawienie
+progu auto-accept na podstawie obecnego korpusu.
+
 ## Monorepo
 
 Zaakceptowana struktura:

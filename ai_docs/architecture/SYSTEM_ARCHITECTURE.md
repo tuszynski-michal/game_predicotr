@@ -410,6 +410,27 @@ confidence. Pierwszy adapter D-055 uruchamia oficjalny model
 stabilny błąd i nie może uruchomić pobierania. Walidacja ciągłości jest osobną
 czystą funkcją: dodaje powody review, lecz nie poprawia odpowiedzi OCR.
 
+Benchmark `m5-image-benchmark-v1` jest osobnym, read-only agregatorem raportów
+etapowych. Weryfikuje ich łańcuch checksum, liczy tylko wskazane artefakty,
+przechowuje surowe próbki czasu i odtwarza z nich deterministyczne podsumowanie.
+Metryka bez niezależnego ground truth ma `not_measurable`, a próg `proposed`
+nie może zmienić statusu bramki na `passed`. Kontrola alternatywy zmienia tylko
+wersjonowaną politykę wejścia OCR i nie zmienia stagingu ani baseline adaptera.
+
+Po D-056 pipeline obrazu ma trzy jawne poziomy dojrzałości:
+
+- `retain`: kontrakty plików, checksum, idempotentnych artefaktów i portów są
+  stabilną granicą kolejnych implementacji,
+- `experimental`: geometria i cropy mogą działać automatycznie tylko dla
+  kompletnego wariantu 3 × 3; inny ekran trafia do review/unsupported,
+- `rework`: obecny adapter OCR może tworzyć propozycję i diagnostykę, lecz jego
+  wynik nie może zatwierdzić ani opublikować `sequence_number`.
+
+Manual review nie może ufać samemu confidence OCR. Dopóki osobny held-out
+benchmark nie wyznaczy zaakceptowanych progów, każdy numer wymaga potwierdzenia
+człowieka. Continuity pozostaje walidatorem i nie jest źródłem zastępczej
+wartości. Nie wolno łączyć tego wyjątku z automatyczną publikacją datasetu.
+
 ### Kontrakt lokalnego repozytorium M1
 
 `LocalLayoutRepository` otrzymuje już otwartą instancję SQLite od warstwy

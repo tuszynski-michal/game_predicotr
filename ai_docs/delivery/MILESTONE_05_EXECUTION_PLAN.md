@@ -6,6 +6,13 @@ last_updated: 2026-07-28
 
 # Plan wykonania Milestone 05 — Image ingestion prototype
 
+## Status zamknięcia
+
+`completed_with_rework` — TASK-0052–0058 są ukończone, TASK-0051 pozostaje
+`blocked` na reprezentatywnym materiale i odpowiedziach Q-016/Q-017. G5 nie
+przeszło, dlatego M6 nie może się rozpocząć. D-056 zachowuje kontrakty, lecz
+kieruje geometrię do dalszej walidacji, a implementację OCR do reworku.
+
 ## Cel
 
 Zweryfikować na 20–100 reprezentatywnych zdjęciach, czy klasyczna geometria,
@@ -80,9 +87,9 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
 ### Zadanie
 
-- `TASK-0051 — Representative image corpus and golden annotations` — in progress
-  od 2026-07-28 na podstawie D-049; manifest 12 zdjęć i adnotacje sekwencji są
-  gotowe, pełna geometria oraz Q-016/Q-017 pozostają otwarte
+- `TASK-0051 — Representative image corpus and golden annotations` — blocked
+  od 2026-07-28; manifest 12 zdjęć i adnotacje sekwencji są gotowe, brakuje
+  dodatkowych zdjęć, pełnej geometrii i odpowiedzi Q-016/Q-017
 
 ### Bramka G5.1
 
@@ -182,8 +189,10 @@ jako `passed` wyłącznie dlatego, że wszystkie pozycje otrzymały raport.
 
 ### Zadania
 
-- `TASK-0057 — Geometry and OCR benchmark report`
-- `TASK-0058 — Image prototype architecture decision`
+- `TASK-0057 — Geometry and OCR benchmark report` — done 2026-07-28;
+  rekomendacja `rework`, G5 niezaliczone
+- `TASK-0058 — Image prototype architecture decision` — done 2026-07-28;
+  D-056 zachowuje kontrakty, blokuje auto-accept OCR i start M6
 
 ### Bramka G5
 
@@ -195,6 +204,12 @@ jako `passed` wyłącznie dlatego, że wszystkie pozycje otrzymały raport.
 - finalny wybór adapterów trafia do Decision Log,
 - nie rozpoczęto jeszcze treningu produkcyjnego klasyfikatora ani masowego
   importu.
+
+TASK-0057 potwierdził 100% detekcji strony/kompletu plansz na obecnych 12
+zdjęciach, ale nie mógł zmierzyć golden pozycji/narożników. OCR osiągnął
+62.9630%, a kontrola na surowym cropie 42.5926%. Korpus jest poniżej minimum,
+progi pozostają `proposed`, dlatego bramka G5 ma status `not_passed/rework`.
+D-056 kończy implementacyjny prototyp M5, ale nie zmienia statusu bramki.
 
 ## Mapa zadań M5
 

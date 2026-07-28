@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`TASK-0056 OCR baseline measured; TASK-0057 benchmark is next; M5.1, G5.3, G5.4 and G3 remain open`
+`M5 prototype completed with rework; G5 and M6 entry blocked by corpus, geometry golden, OCR quality and Q-016/Q-017`
 
 ## Completed
 
@@ -682,17 +682,46 @@ last_updated: 2026-07-28
 - 47 testów całego pionu obrazów, Ruff, mypy i `pip check` przechodzi. Wynik
   62.9630% jest uczciwym baseline'em poniżej proponowanego progu 98%, dlatego
   G5.4 pozostaje niezaliczona i wymaga decyzji po TASK-0057.
+- ukończono `TASK-0057`: `m5-image-benchmark-v1` wiąże checksumami wszystkie
+  raporty M5, mierzy jakość, trzy próbki czasu, rozmiary referencjonowanych
+  artefaktów, condition tags, długości numerów i pełny katalog błędów,
+- detekcja strony oraz kompletu dziewięciu plansz wyniosła 100% na 12 zdjęciach;
+  accuracy pozycji i P95 narożników mają `not_measurable`, ponieważ brakuje ich
+  niezależnych golden annotations,
+- baseline OCR zachował `68/108 = 62.9630%`, a kontrola tego samego modelu na
+  surowym cropie osiągnęła `46/108 = 42.5926%`; preprocessing pomaga, lecz oba
+  wyniki pozostają poniżej proponowanego 98%,
+- P95 na pełny korpus wyniósł: discovery `21.1432 ms`, normalizacja
+  `1738.6188 ms`, geometria `4016.3138 ms`, cropy `16473.5893 ms`, baseline
+  OCR `3874.1724 ms` i kontrola OCR `5240.3376 ms`,
+- raport benchmarku ma SHA-256
+  `89c2335b64fdf957f9af8cbc65c008cb7706cb7119fd36af7ac8b7c8a8a2f408`;
+  rekomendacja to `rework`, a G5 pozostaje niezaliczone,
+- weryfikacja TASK-0057 obejmuje 50 testów pionu obrazów, Ruff, mypy,
+  `pip check`, pełny pomiar oraz deterministyczny `--check`.
+- ukończono `TASK-0058` i zaakceptowano D-056: zachowano lokalny worker,
+  checksumy, content-addressed artefakty oraz wersjonowane kontrakty M5,
+- discovery/normalizacja mają status `retain`; geometria i cropy
+  `experimental` dla jednego wariantu 3 × 3; port/raport OCR `retain`, lecz
+  bieżący model z preprocessingiem ma status `rework`,
+- pięć błędów OCR z confidence `>= 0.8` blokuje jakikolwiek auto-accept;
+  każdy bieżący numer jest wyłącznie sugestią do manual review, continuity go
+  nie poprawia, a M4 pozostaje bezpiecznym workflow danych,
+- M5 ma status `completed_with_rework`, G5 `not_passed`, TASK-0051 `blocked`,
+  a M6 nie może rozpocząć się przed spełnieniem warunków D-056.
 
 ## In progress
 
-- `TASK-0051 — Representative image corpus and golden annotations`: rozpoczęto
-  inwentaryzację korpusu i dialog na podstawie D-049; Q-015 jest zamknięte,
-  a Q-016/Q-017, pełne adnotacje geometrii i akceptacja progów pozostają otwarte,
-- 12 istniejących zdjęć jest materiałem prototypowym według D-050, a nie pełnym
-  reprezentatywnym korpusem 20–100 zdjęć ani zaliczoną bramką G5.1.
+- Brak aktywnego zadania implementacyjnego. Dalsze prace nad automatycznym
+  importem oczekują na wejścia opisane w sekcji `Blocked`.
 
 ## Blocked
 
+- `TASK-0051 — Representative image corpus and golden annotations`: 12 zdjęć
+  jest już wykorzystane; potrzeba co najmniej 8 dalszych reprezentatywnych
+  zdjęć, odpowiedzi Q-016/Q-017, goldenów geometrii i akceptacji progów,
+- wejście do M6/TASK-0059: D-056 wymaga najpierw przejścia G5 i zamknięcia
+  Q-017; obecny OCR nie może być źródłem automatycznie zaakceptowanych numerów,
 - `TASK-0039 — Release failure and immutability integration tests`: automatyczna
   macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
   workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie
@@ -710,15 +739,16 @@ last_updated: 2026-07-28
   `--require-pass` poprawnie zwróciło kod `1`. Nie ma podstaw do zmiany adaptera
   ani do zaliczenia G3.
 
-## Open but not blocking next milestones
+## Open questions
 
-- Q-016–Q-017: stabilność ekranu i dostępność etykiet treningowych,
+- Q-016–Q-017: stabilność ekranu i dostępność etykiet treningowych; oba pytania
+  blokują G5 i wejście do M6,
 - Q-019: jeden czy wielu administratorów,
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
 - finalne modele OCR/ML po benchmarku,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Żaden z tych punktów nie zmienia zakresu planszy 3 × 5 ani mock danych M1.
+Q-019, Q-020 i nazwa sekcji nie blokują obecnego reworku prototypu obrazowego.
 
 ## M1 execution structure
 
@@ -761,11 +791,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć `TASK-0057 — Geometry and OCR benchmark report`: skatalogować błędy
-OCR, zmierzyć czas i rozmiar artefaktów oraz porównać alternatywę dla etapu,
-który nie osiągnął proponowanego progu. Q-016/Q-017 i pełny korpus pozostają
-otwarte. Równolegle TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na
-fizycznych raportach Pixela i Samsunga.
+Użytkownik powinien dostarczyć co najmniej 8 dalszych reprezentatywnych zdjęć
+i odpowiedzieć na Q-016/Q-017. Następnie należy uzupełnić niezależne goldeny
+geometrii, zaakceptować progi i wykonać rework OCR na podziale według zdjęcia.
+TASK-0059/M6 pozostaje zablokowane. Równolegle TASK-0041/TASK-0042 oraz G3
+pozostają zablokowane na fizycznych raportach Pixela i Samsunga.
 
 ## Do not start yet
 

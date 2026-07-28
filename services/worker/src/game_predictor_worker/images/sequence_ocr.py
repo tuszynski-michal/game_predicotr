@@ -32,6 +32,7 @@ MODEL_INPUT_HEIGHT = 48
 MODEL_INPUT_WIDTH = 320
 MODEL_FILES = ("inference.json", "inference.pdiparams", "inference.yml")
 PREPROCESSING_VERSION = "bright-component-tight-v1"
+RAW_WARP_PREPROCESSING_VERSION = "raw-warp-v1"
 DIGITS = re.compile(r"^[0-9]+$")
 
 
@@ -134,13 +135,19 @@ class PaddleSequenceNumberRecognizer:
     """Recognition-only PP-OCRv5 adapter using local Paddle Inference files."""
 
     version = OCR_VERSION
-    model_name = MODEL_NAME
     runtime_name = "paddlepaddle-cpu"
 
-    def __init__(self, model_root: Path) -> None:
+    def __init__(self, model_root: Path, *, model_name: str = MODEL_NAME) -> None:
+        if not model_name or model_name.strip() != model_name:
+            raise SequenceOcrError(
+                "SEQUENCE_OCR_MODEL_NAME_INVALID",
+                "OCR model name must be a non-empty trimmed string.",
+            )
+        self.model_name = model_name
         self.runtime_version = version("paddlepaddle")
         self._model_root = model_root.resolve()
-        self.model_files, self.model_fingerprint = _model_identity(self._model_root)
+        model_files, self.model_fingerprint = _model_identity(self._model_root)
+        self.model_files: Mapping[str, str] = model_files
         self._characters = _characters_from_model(self._model_root)
         try:
             inference = importlib.import_module("paddle.inference")
@@ -405,6 +412,7 @@ class SequenceOcrReport:
     normalization_report_sha256: str
     detection_report_sha256: str
     recognizer: SequenceNumberRecognizer
+    preprocessing_version: str
     results: tuple[SequenceArtifact, ...]
 
     def to_dict(self) -> dict[str, object]:
@@ -428,7 +436,7 @@ class SequenceOcrReport:
             "modelName": self.recognizer.model_name,
             "normalizationReportSha256": self.normalization_report_sha256,
             "positionCount": total,
-            "preprocessingVersion": PREPROCESSING_VERSION,
+            "preprocessingVersion": self.preprocessing_version,
             "proposedThresholdEvaluated": False,
             "recognizerVersion": self.recognizer.version,
             "runtimeName": self.recognizer.runtime_name,
@@ -665,9 +673,18 @@ def run_sequence_ocr_corpus(
     artifact_root: Path,
     *,
     recognizer: SequenceNumberRecognizer | None = None,
+    recognition_input_policy: str = PREPROCESSING_VERSION,
 ) -> SequenceOcrReport:
     """Run recognition in corpus order and measure against independent labels."""
 
+    if recognition_input_policy not in {
+        PREPROCESSING_VERSION,
+        RAW_WARP_PREPROCESSING_VERSION,
+    }:
+        raise SequenceOcrError(
+            "SEQUENCE_OCR_PREPROCESSING_UNSUPPORTED",
+            "Recognition input policy is not supported.",
+        )
     corpus_bytes, corpus = _load_json(
         corpus_manifest_path,
         "SEQUENCE_OCR_CORPUS_INVALID",
@@ -847,7 +864,12 @@ def run_sequence_ocr_corpus(
                 rgb,
                 board_quad,
             )
-            recognition = implementation.recognize(processed_crop)
+            recognition_input = (
+                raw_crop
+                if recognition_input_policy == RAW_WARP_PREPROCESSING_VERSION
+                else processed_crop
+            )
+            recognition = implementation.recognize(recognition_input)
             artifact_root_path = PurePosixPath(
                 implementation.version,
                 source_checksum[:2],
@@ -890,6 +912,7 @@ def run_sequence_ocr_corpus(
         golden_annotations_sha256=_sha256_bytes(golden_bytes),
         normalization_report_sha256=normalization_sha,
         detection_report_sha256=_sha256_bytes(detection_bytes),
-        recognizer=cast(SequenceNumberRecognizer, implementation),
+        recognizer=implementation,
+        preprocessing_version=recognition_input_policy,
         results=validate_sequence_continuity(results),
     )

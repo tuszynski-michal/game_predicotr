@@ -1,0 +1,4260 @@
+{
+  "continuityConflictCount": 34,
+  "corpusManifestSha256": "07fee8dd0c5dfd5f60abfca1ae1e51b376ce20a57a03961856cde9f619f6e31d",
+  "decoderPolicy": "ctc-blank-plus-digits-0-9",
+  "detectionReportSha256": "2e12e180a8d0f27704e1973f04632937c7a71b113185fa161e2a47b0d22741ca",
+  "exactAccuracy": 0.425926,
+  "exactCount": 46,
+  "goldenAnnotationsSha256": "f9909d8c2918f7e4180c21515d5148cfce58bcc0350131db1a783ebe12a3370a",
+  "imageCount": 12,
+  "modelFiles": {
+    "inference.json": "fd1b6ec722ea841a72d3ba43e527df1d1066d5d7808e0503ee3eec7265188753",
+    "inference.pdiparams": "3ec8a97ed6cefe8568d3e2ee90bb193299b566a7661aa4fd52d224b96b59f66b",
+    "inference.yml": "27e91d0582f40168aa218303c76e184bc78fa7a5d105aad0cfbad8458b441067"
+  },
+  "modelFingerprint": "397a1e68f494df516a98ff96989d50015448b019915c2be81ad0be2e515c0687",
+  "modelName": "en_PP-OCRv5_mobile_rec",
+  "normalizationReportSha256": "7521e3dbee351918b0dca058905d640d518a2f0fee4ee9bed3a788c96f910352",
+  "positionCount": 108,
+  "preprocessingVersion": "raw-warp-v1",
+  "proposedThresholdEvaluated": false,
+  "recognizerVersion": "sequence-number-ocr-v1",
+  "results": [
+    {
+      "confidence": 0.593231,
+      "cropQuad": [
+        {
+          "x": 164.830002,
+          "y": 498.410004
+        },
+        {
+          "x": 250.490005,
+          "y": 493.589996
+        },
+        {
+          "x": 254.809998,
+          "y": 531.210022
+        },
+        {
+          "x": 166.270004,
+          "y": 532.789978
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 1,
+      "imageId": "m5-img-001",
+      "normalizedNumber": 2,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "420a4235051fe09eeb191a263872647ce61c3697a705d021adf111aa4ab2d8df",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-00/foreground.png",
+      "processedCropWidth": 51,
+      "rawCropChecksumSha256": "568b0cc7afdfd56fdbf0b43746f9df16fadcf36c4abda452f8cc247d2049e6a7",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.921158,
+      "cropQuad": [
+        {
+          "x": 421.165009,
+          "y": 489.024994
+        },
+        {
+          "x": 515.094971,
+          "y": 491.63501
+        },
+        {
+          "x": 516.804993,
+          "y": 525.565002
+        },
+        {
+          "x": 424.13501,
+          "y": 520.974976
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 2,
+      "imageId": "m5-img-001",
+      "normalizedNumber": 2,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "13c8c7593f0fc2420acf8cc5cccfd140389bcde913f228a98517f11ff8e3fe51",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-01/foreground.png",
+      "processedCropWidth": 55,
+      "rawCropChecksumSha256": "23489ff2ac0c8da761459636822f1fdade59daf726370a8345199a12cebd357f",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [
+        "OCR_CONTINUITY_DUPLICATE"
+      ],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.021569,
+      "cropQuad": [
+        {
+          "x": 681.304993,
+          "y": 478.839996
+        },
+        {
+          "x": 763.994995,
+          "y": 502.279999
+        },
+        {
+          "x": 768.405029,
+          "y": 534.320007
+        },
+        {
+          "x": 682.294983,
+          "y": 502.959991
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 3,
+      "imageId": "m5-img-001",
+      "normalizedNumber": 0,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "0fba9fffe4ae371bcd09b3abf17b0c108124244a01c4e3d0c5b4af66c08b65e3",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-02/foreground.png",
+      "processedCropWidth": 192,
+      "rawCropChecksumSha256": "0fba9fffe4ae371bcd09b3abf17b0c108124244a01c4e3d0c5b4af66c08b65e3",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "0",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 168.800003,
+          "y": 664.724976
+        },
+        {
+          "x": 258.399994,
+          "y": 658.174988
+        },
+        {
+          "x": 261.100006,
+          "y": 692.825012
+        },
+        {
+          "x": 169.699997,
+          "y": 700.275024
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 4,
+      "imageId": "m5-img-001",
+      "normalizedNumber": null,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "d9757889ec5b21239f4341e8385c1c9748ea71a768e645ffb036ebb2bbde6a75",
+      "processedCropHeight": 42,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-03/foreground.png",
+      "processedCropWidth": 53,
+      "rawCropChecksumSha256": "21289ec38c258ea5bbcd5d43cf41f3fd038a20b7b6c4d2ba69256c39b7b3ffe7",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.824308,
+      "cropQuad": [
+        {
+          "x": 424.089996,
+          "y": 655.164978
+        },
+        {
+          "x": 522.190002,
+          "y": 653.61499
+        },
+        {
+          "x": 525.609985,
+          "y": 687.184998
+        },
+        {
+          "x": 425.709991,
+          "y": 689.63501
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 5,
+      "imageId": "m5-img-001",
+      "normalizedNumber": 5,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "0e94a0f1c220ce6a0213af7e3b1fb12b847261f475367fe75ac562ec71a8f012",
+      "processedCropHeight": 39,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-04/foreground.png",
+      "processedCropWidth": 53,
+      "rawCropChecksumSha256": "c3916f81e463eb5ced09058e6bb36cafa482509d5f7366617dacaa9047d358f4",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "5",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.005755,
+      "cropQuad": [
+        {
+          "x": 681.60498,
+          "y": 666.190002
+        },
+        {
+          "x": 762.534973,
+          "y": 670.650024
+        },
+        {
+          "x": 763.164978,
+          "y": 704.849976
+        },
+        {
+          "x": 683.494995,
+          "y": 701.109985
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 6,
+      "imageId": "m5-img-001",
+      "normalizedNumber": 6,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "f201e7262b2b3cf9e0e275119bb63535ca4ff4ae2194aed731e0ded5c69577c8",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-05/foreground.png",
+      "processedCropWidth": 56,
+      "rawCropChecksumSha256": "a995958b345b18d99ff736f1d2595a61f65c61948dec3500955eae31d494ead6",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "6",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.940281,
+      "cropQuad": [
+        {
+          "x": 168.065002,
+          "y": 824.599976
+        },
+        {
+          "x": 264.075012,
+          "y": 822.119995
+        },
+        {
+          "x": 265.424988,
+          "y": 855.780029
+        },
+        {
+          "x": 169.235001,
+          "y": 857.900024
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 7,
+      "imageId": "m5-img-001",
+      "normalizedNumber": 7,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "eae260f5b152c08c9649e6f62b6623a08ef2fdb88c37820d0c770ca976cb5537",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-06/foreground.png",
+      "processedCropWidth": 49,
+      "rawCropChecksumSha256": "f6e0d9d4b6411238c55f80fc109702bcb64096dd7717bea1c5ccd5a2ae0a1929",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "7",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 412.494995,
+          "y": 818.844971
+        },
+        {
+          "x": 519.484985,
+          "y": 816.815002
+        },
+        {
+          "x": 519.215027,
+          "y": 849.484985
+        },
+        {
+          "x": 412.404999,
+          "y": 852.054993
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 8,
+      "imageId": "m5-img-001",
+      "normalizedNumber": null,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "04f65a9c35bcbd5d327ca52067aa2d4afc0d070cb942bf375f019d3cdf67eb2b",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-07/foreground.png",
+      "processedCropWidth": 48,
+      "rawCropChecksumSha256": "9326ecf1d47a1d887b8250c648a8985797d36496ad616cd5960552bd8739c976",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 666.684998,
+          "y": 817.554993
+        },
+        {
+          "x": 760.215027,
+          "y": 819.025024
+        },
+        {
+          "x": 759.585022,
+          "y": 850.974976
+        },
+        {
+          "x": 665.515015,
+          "y": 850.044983
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 9,
+      "imageId": "m5-img-001",
+      "normalizedNumber": null,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "ee5871aa1a2b1b920ab6be784cf173da7227ac1bd292309a82689c3814b62e5a",
+      "processedCropHeight": 48,
+      "processedCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-08/foreground.png",
+      "processedCropWidth": 58,
+      "rawCropChecksumSha256": "ca56b3e820b1d0a7d0cfa66e030695d961484370eb39e457f680515f7f9d46a9",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.511267,
+      "cropQuad": [
+        {
+          "x": 231.550003,
+          "y": 411.829987
+        },
+        {
+          "x": 307.130005,
+          "y": 409.850006
+        },
+        {
+          "x": 304.970001,
+          "y": 443.149994
+        },
+        {
+          "x": 227.949997,
+          "y": 444.769989
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 10,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 30,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "44d248cd37779e85a0b356b7947eea142bb41a86b0c71f2c04d72abc1d7a1bd2",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-00/foreground.png",
+      "processedCropWidth": 89,
+      "rawCropChecksumSha256": "6d122bb4f7c258b1159ca1d24637c7c0c8383cb5983008aea03722e1cecb8921",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "30",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 453.075012,
+          "y": 385.869995
+        },
+        {
+          "x": 538.86499,
+          "y": 405.170013
+        },
+        {
+          "x": 536.434998,
+          "y": 435.230011
+        },
+        {
+          "x": 454.424988,
+          "y": 410.529999
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 11,
+      "imageId": "m5-img-002",
+      "normalizedNumber": null,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "241676a8388449ca5fbda4ec15fa261d72857738339cbe31df548100fce19ec1",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-01/foreground.png",
+      "processedCropWidth": 179,
+      "rawCropChecksumSha256": "49c7a68d311c596c209753f80429e6f619d46f1b218d79489ad0896984b10bc4",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.935902,
+      "cropQuad": [
+        {
+          "x": 682.914978,
+          "y": 425.829987
+        },
+        {
+          "x": 754.304993,
+          "y": 433.730011
+        },
+        {
+          "x": 755.294983,
+          "y": 464.869995
+        },
+        {
+          "x": 685.88501,
+          "y": 458.769989
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 12,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 12,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "7c65153565a9b1e88f9b824f891aff875ef05190ceff4db19f14d38ad9eea9bd",
+      "processedCropHeight": 48,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-02/foreground.png",
+      "processedCropWidth": 100,
+      "rawCropChecksumSha256": "ca579603823a94b96cad245297ea40d7a91a0d830e9b8120c49d00d489ecce53",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "12",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.606352,
+      "cropQuad": [
+        {
+          "x": 236.824997,
+          "y": 561.73999
+        },
+        {
+          "x": 316.315002,
+          "y": 557.700012
+        },
+        {
+          "x": 317.484985,
+          "y": 588.299988
+        },
+        {
+          "x": 238.175003,
+          "y": 593.059998
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 13,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 23,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "5799a487581591c0eb9548bf00447669066b7d886c48d9b3960693be81701536",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-03/foreground.png",
+      "processedCropWidth": 87,
+      "rawCropChecksumSha256": "6c379ee06ae19592a96cf4db7118fbffb54e1a79a0baae49bac6c04b37030e9b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "23",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.707382,
+      "cropQuad": [
+        {
+          "x": 460.665009,
+          "y": 558.994995
+        },
+        {
+          "x": 543.594971,
+          "y": 559.465027
+        },
+        {
+          "x": 545.304993,
+          "y": 590.335022
+        },
+        {
+          "x": 463.63501,
+          "y": 590.405029
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 14,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 7,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "c620125698c556288d88dbfbadf23298d10644edb7a659154b1cac00c9a04e49",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-04/foreground.png",
+      "processedCropWidth": 89,
+      "rawCropChecksumSha256": "b91148e2b2f576f41608db0296ebddc2e2263a61e75f4cb6206f2b9b247acb19",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "7",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.740926,
+      "cropQuad": [
+        {
+          "x": 682.909973,
+          "y": 567.419983
+        },
+        {
+          "x": 776.77002,
+          "y": 579.02002
+        },
+        {
+          "x": 786.130005,
+          "y": 610.880005
+        },
+        {
+          "x": 685.789978,
+          "y": 597.47998
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 15,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 15,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "a3a18dee09199eee2d23e0c099639aec0e6364da48a5ee8965e5f90023f47f1e",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-05/foreground.png",
+      "processedCropWidth": 77,
+      "rawCropChecksumSha256": "4d185ca72f8cdbdb36aa163a5ec3e3fc749c38d2a32863a75728ba2a5720fef4",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "15",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.509913,
+      "cropQuad": [
+        {
+          "x": 233.059998,
+          "y": 700.109985
+        },
+        {
+          "x": 317.059998,
+          "y": 699.130005
+        },
+        {
+          "x": 318.140015,
+          "y": 728.469971
+        },
+        {
+          "x": 234.139999,
+          "y": 729.090027
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 16,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 26,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "8678e00f0a3ad0784b567b6f106e4c9b05a595401629418c1482b6e2d82513d5",
+      "processedCropHeight": 61,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-06/foreground.png",
+      "processedCropWidth": 178,
+      "rawCropChecksumSha256": "17beff51556a2c23973713f7db1aaf14b039d204167788cd46f6d905014ff33f",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "26",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.567083,
+      "cropQuad": [
+        {
+          "x": 444.714996,
+          "y": 698.88501
+        },
+        {
+          "x": 536.224976,
+          "y": 699.375
+        },
+        {
+          "x": 535.775024,
+          "y": 728.625
+        },
+        {
+          "x": 444.084991,
+          "y": 728.315002
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 17,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 17,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "00621c025e33f4230329a70b78b46f47e78853f630c8e39ae6ee2219456c4564",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-07/foreground.png",
+      "processedCropWidth": 80,
+      "rawCropChecksumSha256": "a2cb93f2e2f0bf6b465dfec68791263c3cfcee5eacd9ce3eeff1c4e06e574799",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "17",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.398613,
+      "cropQuad": [
+        {
+          "x": 663.640015,
+          "y": 702.080017
+        },
+        {
+          "x": 745.159973,
+          "y": 705.039978
+        },
+        {
+          "x": 743.539978,
+          "y": 732.76001
+        },
+        {
+          "x": 661.659973,
+          "y": 730.52002
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 18,
+      "imageId": "m5-img-002",
+      "normalizedNumber": 18,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "e909d1aa1ca9a4a46fda7a34ccf7fbb1499788c2cacdc7b8e0baf21fcc24ff33",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-08/foreground.png",
+      "processedCropWidth": 160,
+      "rawCropChecksumSha256": "2fad4e6bbb37e8b20421dd670ceaae4e65857f47f8d8ba7a89545ed8a99d7925",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "18",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.968268,
+      "cropQuad": [
+        {
+          "x": 143.485001,
+          "y": 395.540009
+        },
+        {
+          "x": 238.414993,
+          "y": 390.73999
+        },
+        {
+          "x": 236.884995,
+          "y": 431.059998
+        },
+        {
+          "x": 143.214996,
+          "y": 432.26001
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 19,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 19,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "64b1b1769622211b43349c2db01089d72895000990fd630dca53c6ce492a049c",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-00/foreground.png",
+      "processedCropWidth": 93,
+      "rawCropChecksumSha256": "75e290860b7dee97f043f7edf8e7898786237b1e2eb4905bef445c7b69f6b0a2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "19",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.70155,
+      "cropQuad": [
+        {
+          "x": 421.144989,
+          "y": 389.075012
+        },
+        {
+          "x": 530.875,
+          "y": 394.665009
+        },
+        {
+          "x": 528.625,
+          "y": 438.13501
+        },
+        {
+          "x": 423.755005,
+          "y": 430.924988
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 20,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 20,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "5eae80e5c0929e19557701abf8bbe38154b0f9a6bbb1e501891a308794acbc23",
+      "processedCropHeight": 49,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-01/foreground.png",
+      "processedCropWidth": 90,
+      "rawCropChecksumSha256": "8090d878683f18f88fe276f0748fc3291f70d7d1b11f796e9c598b9b298d91f8",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "20",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.824783,
+      "cropQuad": [
+        {
+          "x": 708.715027,
+          "y": 404.290009
+        },
+        {
+          "x": 807.744995,
+          "y": 412.230011
+        },
+        {
+          "x": 812.155029,
+          "y": 452.369995
+        },
+        {
+          "x": 712.585022,
+          "y": 445.51001
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 21,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 22,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "712e41ef001e2cc12fdaddd3c54fed21472dd193d3451730f989b5b5142c192b",
+      "processedCropHeight": 49,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-02/foreground.png",
+      "processedCropWidth": 88,
+      "rawCropChecksumSha256": "ad8c44be9d1da7ebf5a37318557091905ab2cb038690f46fa5a9404be27fb8e1",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "22",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.233939,
+      "cropQuad": [
+        {
+          "x": 139.945007,
+          "y": 556.190002
+        },
+        {
+          "x": 248.115005,
+          "y": 567.48999
+        },
+        {
+          "x": 250.184998,
+          "y": 603.309998
+        },
+        {
+          "x": 138.955002,
+          "y": 586.609985
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 22,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 0,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "e702480417312a9effd1a3ec6167fab911586cffb287fa3e75008826fc5987da",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-03/foreground.png",
+      "processedCropWidth": 178,
+      "rawCropChecksumSha256": "a788ea6a7ab3a78bf99e4aeb3d0abddcfc4c6984306806ee0e712d207b0238ca",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "00",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.942518,
+      "cropQuad": [
+        {
+          "x": 420.279999,
+          "y": 572.640015
+        },
+        {
+          "x": 532.840027,
+          "y": 575.679993
+        },
+        {
+          "x": 534.460022,
+          "y": 614.919983
+        },
+        {
+          "x": 420.820007,
+          "y": 611.159973
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 23,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 23,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "9ad3ab9d437189988e27922755e74312ab983d44ca19b308b97c594a0341e545",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-04/foreground.png",
+      "processedCropWidth": 85,
+      "rawCropChecksumSha256": "e75d34467b89ce8816d23f7210aaf881e1120a8d5fb917038893b566a091f06f",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "23",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.987972,
+      "cropQuad": [
+        {
+          "x": 714.01001,
+          "y": 584.344971
+        },
+        {
+          "x": 809.349976,
+          "y": 586.715027
+        },
+        {
+          "x": 811.150024,
+          "y": 622.085022
+        },
+        {
+          "x": 718.690002,
+          "y": 622.054993
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 24,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 24,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "550d44d2859bcc7243726b92978b4b2458ed4d6e9ce7121ad8b92a86a27c35de",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-05/foreground.png",
+      "processedCropWidth": 95,
+      "rawCropChecksumSha256": "eef0e8a4f7dbd1ce8764b150031dbe32c05f68980ed7ce018fdd05c5a4cd0ca2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "24",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.995733,
+      "cropQuad": [
+        {
+          "x": 154.384995,
+          "y": 752.01001
+        },
+        {
+          "x": 256.875,
+          "y": 750.030029
+        },
+        {
+          "x": 259.125,
+          "y": 786.570007
+        },
+        {
+          "x": 156.815002,
+          "y": 788.190002
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 25,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 25,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "debe6dbe5f44fbd40d4390e909e9a797ebb4fbd654cf74149411d8327ec4149e",
+      "processedCropHeight": 59,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-06/foreground.png",
+      "processedCropWidth": 158,
+      "rawCropChecksumSha256": "88f1dc1092ea1ceb7dc5ccf40eada0625bf7a05908ed692d57de375b8a40f737",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "25",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.931205,
+      "cropQuad": [
+        {
+          "x": 414.480011,
+          "y": 748.284973
+        },
+        {
+          "x": 529.47998,
+          "y": 748.775024
+        },
+        {
+          "x": 529.119995,
+          "y": 785.224976
+        },
+        {
+          "x": 414.119995,
+          "y": 784.914978
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 26,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 26,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "b1cb720e1e0d465f27808d2111befa4631d07e9a3d0085a9fe02a8f0f9fe0cdf",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-07/foreground.png",
+      "processedCropWidth": 79,
+      "rawCropChecksumSha256": "7ea934a36116b0218fe726b4753b4e7da991950a57ecebe3d89644b6222fab79",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "26",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.906486,
+      "cropQuad": [
+        {
+          "x": 688.909973,
+          "y": 751.469971
+        },
+        {
+          "x": 790.890015,
+          "y": 754.450012
+        },
+        {
+          "x": 788.909973,
+          "y": 789.549988
+        },
+        {
+          "x": 687.289978,
+          "y": 786.929993
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 27,
+      "imageId": "m5-img-003",
+      "normalizedNumber": 2,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "b5e87d995dfd4b05de3c6f67e1c0f428a5bad452fe96e44099448c05ec859b4e",
+      "processedCropHeight": 58,
+      "processedCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-08/foreground.png",
+      "processedCropWidth": 127,
+      "rawCropChecksumSha256": "793d6fae5bcfd6ff46f11594e4fd3da56ce71bfddeaba3afbb253650290ab9c8",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.698651,
+      "cropQuad": [
+        {
+          "x": 185.720001,
+          "y": 469.86499
+        },
+        {
+          "x": 279.799988,
+          "y": 462.834991
+        },
+        {
+          "x": 276.200012,
+          "y": 504.86499
+        },
+        {
+          "x": 180.679993,
+          "y": 512.434998
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 28,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 28,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "8b43ada186f2a29b4f1142be78b938764f92789308f84083e2b83bd26b434c4c",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-00/foreground.png",
+      "processedCropWidth": 95,
+      "rawCropChecksumSha256": "14384dbf8a66aedae5f56cab64b8013d97417aacab694d7d28dad7e0416fe2ba",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "28",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.569359,
+      "cropQuad": [
+        {
+          "x": 468.834991,
+          "y": 436.51001
+        },
+        {
+          "x": 586.184998,
+          "y": 445.769989
+        },
+        {
+          "x": 585.015015,
+          "y": 486.630005
+        },
+        {
+          "x": 470.36499,
+          "y": 472.690002
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 29,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 7,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "60e12fb38e39372d833707b0b431988744f1c6280817f3dbc0a2294a03d802be",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-01/foreground.png",
+      "processedCropWidth": 127,
+      "rawCropChecksumSha256": "83ee447b197fa67435cf1788fa38ee4a1f60c64658a4da534c04c9846845af01",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "7",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 767.950012,
+          "y": 447.304993
+        },
+        {
+          "x": 873.409973,
+          "y": 436.915009
+        },
+        {
+          "x": 876.289978,
+          "y": 471.38501
+        },
+        {
+          "x": 771.549988,
+          "y": 488.794983
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 30,
+      "imageId": "m5-img-004",
+      "normalizedNumber": null,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "211feaacc2d32a2bba106ca208597648862279f8a9daca241374e815a2ffeb6d",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-02/foreground.png",
+      "processedCropWidth": 144,
+      "rawCropChecksumSha256": "f909b6a1f53bab45bb32a1a25acb5dcfae1c0b09910cf566181e8dadce9c1612",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.988403,
+      "cropQuad": [
+        {
+          "x": 202.240005,
+          "y": 656.460022
+        },
+        {
+          "x": 300.200012,
+          "y": 648.940002
+        },
+        {
+          "x": 303.799988,
+          "y": 688.359985
+        },
+        {
+          "x": 206.559998,
+          "y": 696.23999
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 31,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 31,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "3970ef5981ea11280d451b6fc274875935a213f45c8e8f2bcbafc99c6cc21e46",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-03/foreground.png",
+      "processedCropWidth": 86,
+      "rawCropChecksumSha256": "6de208302b95ec3c83ca379d86de6c60c5f4f32b88063f40ded4b15e38c0635b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "31",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.749989,
+      "cropQuad": [
+        {
+          "x": 475.640015,
+          "y": 636.150024
+        },
+        {
+          "x": 594.640015,
+          "y": 634.169983
+        },
+        {
+          "x": 597.159973,
+          "y": 673.22998
+        },
+        {
+          "x": 478.160004,
+          "y": 674.849976
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 32,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 32,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "01122e88272860e64f99533e1c810b4cadcb2620b26da0786a4c98013e132d1e",
+      "processedCropHeight": 40,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-04/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "5124832d3d90ff3cd8966295692039951369332aa4c7ab9bfae6c48fdba01bbe",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "32",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.302024,
+      "cropQuad": [
+        {
+          "x": 777.719971,
+          "y": 649.344971
+        },
+        {
+          "x": 898.960022,
+          "y": 673.755005
+        },
+        {
+          "x": 907.23999,
+          "y": 723.344971
+        },
+        {
+          "x": 781.679993,
+          "y": 691.554993
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 33,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 3,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "1af4114d81615652b93bcf283dd3b3ae6d93f9b506bf0a1b582799cd758974a7",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-05/foreground.png",
+      "processedCropWidth": 160,
+      "rawCropChecksumSha256": "0a0a4d824ab4b75192210d79ea72e2667d503b1e3bb987afcea0236b6834923b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "3",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.902764,
+      "cropQuad": [
+        {
+          "x": 208.899994,
+          "y": 825.244995
+        },
+        {
+          "x": 312.380005,
+          "y": 821.775024
+        },
+        {
+          "x": 314.720001,
+          "y": 858.224976
+        },
+        {
+          "x": 211.600006,
+          "y": 861.155029
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 34,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 34,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "521772d54b4c7dbd326a90d956e5bc30af78796ae4e702721f8fa0411ba37a78",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-06/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "c89a7798726bb0394a27c418f2497246553ea0c9f3e6ca804a8785949533cf54",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "34",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.975503,
+      "cropQuad": [
+        {
+          "x": 474.035004,
+          "y": 816.825012
+        },
+        {
+          "x": 594.025024,
+          "y": 814.315002
+        },
+        {
+          "x": 594.474976,
+          "y": 851.484985
+        },
+        {
+          "x": 474.665009,
+          "y": 854.174988
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 35,
+      "imageId": "m5-img-004",
+      "normalizedNumber": 35,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "33b70198515fc187fce00fd26e8f1fa45ea500b98e33670105775463cabac682",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-07/foreground.png",
+      "processedCropWidth": 81,
+      "rawCropChecksumSha256": "0ea08d740f48641dd0fbb3698084e235dd64dcf0d2eb3ca2f571ff54cc89135b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "35",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 760.424988,
+          "y": 812.294983
+        },
+        {
+          "x": 869.434998,
+          "y": 812.765015
+        },
+        {
+          "x": 868.265015,
+          "y": 849.034973
+        },
+        {
+          "x": 759.075012,
+          "y": 849.10498
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 36,
+      "imageId": "m5-img-004",
+      "normalizedNumber": null,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "ed337a0669eaf34e4044ec8c12a15e14f232340fcc1c01a55c039a8ad1b0e907",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-08/foreground.png",
+      "processedCropWidth": 152,
+      "rawCropChecksumSha256": "9d90d5349c7826caad4231d93a0246b2e74293246917bd96e6446c962efb5a42",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.171328,
+      "cropQuad": [
+        {
+          "x": 207.475006,
+          "y": 431.415009
+        },
+        {
+          "x": 285.105011,
+          "y": 441.524994
+        },
+        {
+          "x": 282.494995,
+          "y": 468.975006
+        },
+        {
+          "x": 202.524994,
+          "y": 456.88501
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 37,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 0,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "3bb4201736f145966eddbc7e689925bec55a5a0c794c686e36b2b9d03b668d57",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-00/foreground.png",
+      "processedCropWidth": 155,
+      "rawCropChecksumSha256": "4fecac00c2baee18607aec13811a32d80c9d1bdb08bbaf30365769e5dd607d1b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "0",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.043341,
+      "cropQuad": [
+        {
+          "x": 422.63501,
+          "y": 457.484985
+        },
+        {
+          "x": 507.464996,
+          "y": 463.015015
+        },
+        {
+          "x": 506.834991,
+          "y": 494.785004
+        },
+        {
+          "x": 425.065002,
+          "y": 488.714996
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 38,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 3,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "2848bc6a94e209807a8f549e3a466565cd0984d7583985ea30967754eea2f2d7",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-01/foreground.png",
+      "processedCropWidth": 92,
+      "rawCropChecksumSha256": "9dc160bd9ed45836a66922c1e6f1ed8c41f61651688cd2bebcd2f36cadd80a50",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "3",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.323829,
+      "cropQuad": [
+        {
+          "x": 637.359985,
+          "y": 475.975006
+        },
+        {
+          "x": 709.840027,
+          "y": 484.404999
+        },
+        {
+          "x": 711.460022,
+          "y": 514.195007
+        },
+        {
+          "x": 639.340027,
+          "y": 507.024994
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 39,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 3,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "67bccfbed0cbdb176695c81f697f468905b57644fcbf925c6c2f3cdce14bc3ec",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-02/foreground.png",
+      "processedCropWidth": 94,
+      "rawCropChecksumSha256": "517678c8dacab197cf5804f35d58c5b3d8e0b65d1f716561faa32e97c2f37044",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "3",
+      "reviewReasons": [
+        "OCR_CONTINUITY_DUPLICATE"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 205.264999,
+          "y": 594.205017
+        },
+        {
+          "x": 283.755005,
+          "y": 593.174988
+        },
+        {
+          "x": 283.845001,
+          "y": 623.325012
+        },
+        {
+          "x": 205.535004,
+          "y": 624.89502
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 40,
+      "imageId": "m5-img-005",
+      "normalizedNumber": null,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "8aa6eaf9a02b288046d9268453b9fc513da287f12c91e7f69c8ae4bccab7ab4b",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-03/foreground.png",
+      "processedCropWidth": 90,
+      "rawCropChecksumSha256": "ed0be98bb95e818379597fcb0e7d22f44bc499d7065c3d2f13be1043f4d8d57c",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 410.390015,
+          "y": 595.669983
+        },
+        {
+          "x": 499.450012,
+          "y": 599.650024
+        },
+        {
+          "x": 498.549988,
+          "y": 629.349976
+        },
+        {
+          "x": 408.410004,
+          "y": 625.72998
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 41,
+      "imageId": "m5-img-005",
+      "normalizedNumber": null,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "054db7060f7eb9b3cf67fc130c52a873c37caace1b82b1c0a3ab664e88582e62",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-04/foreground.png",
+      "processedCropWidth": 80,
+      "rawCropChecksumSha256": "55af6c16cbcd0f6b805c16623d83b24f2c111aaeefa95e33b7a0345d991cd3b3",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.579332,
+      "cropQuad": [
+        {
+          "x": 628.22998,
+          "y": 605.494995
+        },
+        {
+          "x": 708.849976,
+          "y": 611.445007
+        },
+        {
+          "x": 710.650024,
+          "y": 637.455017
+        },
+        {
+          "x": 627.869995,
+          "y": 632.405029
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 42,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 2,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "e771e6fd79ae47e38aa9b2713f16656c7afe27a112ba4bc8d5b2b22f37d29e08",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-05/foreground.png",
+      "processedCropWidth": 143,
+      "rawCropChecksumSha256": "81835d2eb755f174f0ade6dfcf3694733cfe8399d28a337df2c445a470122060",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.881055,
+      "cropQuad": [
+        {
+          "x": 197.235001,
+          "y": 726.070007
+        },
+        {
+          "x": 279.744995,
+          "y": 727.090027
+        },
+        {
+          "x": 279.654999,
+          "y": 755.710022
+        },
+        {
+          "x": 196.964996,
+          "y": 754.330017
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 43,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 43,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "dd9053a481c5559ed829ec55c8422a3be3a63e7dada9d3ffdd83d2224f7182ed",
+      "processedCropHeight": 61,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-06/foreground.png",
+      "processedCropWidth": 150,
+      "rawCropChecksumSha256": "c25eae72f23847fa702d6143813b3a0d881fb1607201e088c5b2b823b24a5c63",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "43",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.613092,
+      "cropQuad": [
+        {
+          "x": 403.404999,
+          "y": 728.815002
+        },
+        {
+          "x": 492.415009,
+          "y": 731.284973
+        },
+        {
+          "x": 490.88501,
+          "y": 758.914978
+        },
+        {
+          "x": 401.695007,
+          "y": 756.984985
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 44,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 4,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "47ee1feb53392a4d42d704694da77cd1e3ff445e48f4ac69038ddafb987d7a2f",
+      "processedCropHeight": 60,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-07/foreground.png",
+      "processedCropWidth": 177,
+      "rawCropChecksumSha256": "7a69e2d5bd5f1dc8a035cc4e7c9e934274212fec5d09b4f579c029267cdcba85",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "4",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.980086,
+      "cropQuad": [
+        {
+          "x": 613.88501,
+          "y": 737.789978
+        },
+        {
+          "x": 691.89502,
+          "y": 742.25
+        },
+        {
+          "x": 690.005005,
+          "y": 769.25
+        },
+        {
+          "x": 611.815002,
+          "y": 765.51001
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 45,
+      "imageId": "m5-img-005",
+      "normalizedNumber": 45,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "6879c07942217f6a61d03bcade73cc5f84a238b1f796f8cd8f41b253ba36314e",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-08/foreground.png",
+      "processedCropWidth": 146,
+      "rawCropChecksumSha256": "fba54a6d224164fbbeeda5fea11a482202ea3361bb715e55cdecc83252ab3c11",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "45",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.811958,
+      "cropQuad": [
+        {
+          "x": 154.464996,
+          "y": 455.959991
+        },
+        {
+          "x": 238.074997,
+          "y": 453.920013
+        },
+        {
+          "x": 234.925003,
+          "y": 488.480011
+        },
+        {
+          "x": 149.335007,
+          "y": 491.23999
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 46,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 6,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "f9eeac7e1202cf6731db744c05f71d157536261f7d31fdc7344e3c2f5e494983",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-00/foreground.png",
+      "processedCropWidth": 94,
+      "rawCropChecksumSha256": "7ed2e96e8122cfc34963d42fad912cf5cf4442fa650ba5ee15f846412adfa8a3",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "6",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 389.670013,
+          "y": 455.285004
+        },
+        {
+          "x": 482.48999,
+          "y": 457.774994
+        },
+        {
+          "x": 482.309998,
+          "y": 494.225006
+        },
+        {
+          "x": 392.730011,
+          "y": 491.915009
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 47,
+      "imageId": "m5-img-006",
+      "normalizedNumber": null,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "3a030ed2e958f0eafb53df535c405f0c81065550025749cfcaa25d333f7a49aa",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-01/foreground.png",
+      "processedCropWidth": 93,
+      "rawCropChecksumSha256": "5fc77dac9f49ef8a5547d6d34d15ae8122a2778f876711001e36dcf8416c6580",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.991632,
+      "cropQuad": [
+        {
+          "x": 622.23999,
+          "y": 462.649994
+        },
+        {
+          "x": 704.76001,
+          "y": 474.190002
+        },
+        {
+          "x": 704.940002,
+          "y": 509.109985
+        },
+        {
+          "x": 622.059998,
+          "y": 496.850006
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 48,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 4,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "00938212dc1be8eb49670c67a46675a4cecacb7a1772dee766b81d2ab7a61fae",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-02/foreground.png",
+      "processedCropWidth": 96,
+      "rawCropChecksumSha256": "5c9c43c1b82b7623823f7d8f4e613877a11dd7f747ebe24144c39bdf29a45077",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "4",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.909439,
+      "cropQuad": [
+        {
+          "x": 161.365005,
+          "y": 613.650024
+        },
+        {
+          "x": 245.854996,
+          "y": 609.109985
+        },
+        {
+          "x": 247.744995,
+          "y": 642.590027
+        },
+        {
+          "x": 163.434998,
+          "y": 647.849976
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 49,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 9,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "5b941f82e68214a7f5cd99fbc0f172f1e7aac6428f40f755adec4291aa0209e7",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-03/foreground.png",
+      "processedCropWidth": 91,
+      "rawCropChecksumSha256": "22e03ddf87e38de76dd8a54ba8374eb9530b19b1f66a0a23de39116890a6bade",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "9",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 389.019989,
+          "y": 603.765015
+        },
+        {
+          "x": 484.980011,
+          "y": 605.734985
+        },
+        {
+          "x": 484.619995,
+          "y": 636.965027
+        },
+        {
+          "x": 389.380005,
+          "y": 635.534973
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 50,
+      "imageId": "m5-img-006",
+      "normalizedNumber": null,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "1ae4ac4e153317ef0964b08630d6c9d9714d4ea411e72de88f7774db27783bfb",
+      "processedCropHeight": 41,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-04/foreground.png",
+      "processedCropWidth": 85,
+      "rawCropChecksumSha256": "f735dd195d0f35e51e2c9d70f55f52621de4533a5c05e080ea2aed083d1ccb30",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.674027,
+      "cropQuad": [
+        {
+          "x": 627.539978,
+          "y": 611.965027
+        },
+        {
+          "x": 714.580017,
+          "y": 618.455017
+        },
+        {
+          "x": 716.02002,
+          "y": 649.14502
+        },
+        {
+          "x": 628.26001,
+          "y": 642.835022
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 51,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 51,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "13af9b0b1c44181cdaf8b3c7136e6c8df485e0f2f9c9d1a555170e22c8962e67",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-05/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "84d0ec2dc21def9ec7a020fc183ddf2da4c9a3819516b71854ff1ee11d1b1cb2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "51",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.93743,
+      "cropQuad": [
+        {
+          "x": 161.345001,
+          "y": 758.48999
+        },
+        {
+          "x": 249.835007,
+          "y": 755.98999
+        },
+        {
+          "x": 251.365005,
+          "y": 787.309998
+        },
+        {
+          "x": 163.054993,
+          "y": 789.809998
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 52,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 52,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "3e712b07f320dd2c0ca15d112fad26e5cf3764226bbd11bd6219ced50b21ddc5",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-06/foreground.png",
+      "processedCropWidth": 86,
+      "rawCropChecksumSha256": "0cd369d5165cd75ac770002d37a16b8f534809525d7f78435a160859c50bf88e",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "52",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.70143,
+      "cropQuad": [
+        {
+          "x": 386.035004,
+          "y": 753.974976
+        },
+        {
+          "x": 484.024994,
+          "y": 752.445007
+        },
+        {
+          "x": 484.475006,
+          "y": 782.955017
+        },
+        {
+          "x": 386.665009,
+          "y": 785.025024
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 53,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 53,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "b88ae566be93b72f74f08bcfc8b3f00125194c530941cf5eb8a70e2fbcd2c2d8",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-07/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "7c910917346f633ff94a2c01517220d218f5d3444312cbb40125a54592259c52",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "53",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.639173,
+      "cropQuad": [
+        {
+          "x": 617.710022,
+          "y": 753.659973
+        },
+        {
+          "x": 705.210022,
+          "y": 755.619995
+        },
+        {
+          "x": 704.48999,
+          "y": 784.780029
+        },
+        {
+          "x": 616.98999,
+          "y": 783.539978
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 54,
+      "imageId": "m5-img-006",
+      "normalizedNumber": 54,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "7c804bf437b11010a70ff86a1ad786bbbf827f7197f6a2d247c4d3c63307ccf1",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-08/foreground.png",
+      "processedCropWidth": 178,
+      "rawCropChecksumSha256": "4b0a8e9d57c587d3cb5b5bea7237bbba3b5e75b62435e75e50c7eb3939bf95c2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "54",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.323267,
+      "cropQuad": [
+        {
+          "x": 169.904999,
+          "y": 363.130005
+        },
+        {
+          "x": 256.554993,
+          "y": 361.070007
+        },
+        {
+          "x": 253.044998,
+          "y": 398.329987
+        },
+        {
+          "x": 163.695007,
+          "y": 401.470001
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 55,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 55,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "2af49a0abdcf8ecce5e603a9c3d1aefc7719620b22ed0fdfd530bc8655c93796",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-00/foreground.png",
+      "processedCropWidth": 91,
+      "rawCropChecksumSha256": "8a0d320eec3eaccbdc96b561845ced3009c68e74c1ceabac17bcc8deb5224c65",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "55",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 412.119995,
+          "y": 368.109985
+        },
+        {
+          "x": 507.880005,
+          "y": 374.089996
+        },
+        {
+          "x": 505.720001,
+          "y": 411.709991
+        },
+        {
+          "x": 414.279999,
+          "y": 406.089996
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 56,
+      "imageId": "m5-img-007",
+      "normalizedNumber": null,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "0eefa16940e0718796753af66b24db4c39f76e4332b588ea87e01d30ebefb6ff",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-01/foreground.png",
+      "processedCropWidth": 91,
+      "rawCropChecksumSha256": "aee9f61469880bed8d2f44f87201bde7b42a2df8e299666090f50f0cee0c6f1b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.516424,
+      "cropQuad": [
+        {
+          "x": 660.130005,
+          "y": 384.980011
+        },
+        {
+          "x": 742.030029,
+          "y": 394.899994
+        },
+        {
+          "x": 742.570007,
+          "y": 429.100006
+        },
+        {
+          "x": 662.469971,
+          "y": 420.619995
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 57,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 57,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "f14799566c19f06990dfdc3d26d12287115dac7292aaf7e93e66cf91a165598d",
+      "processedCropHeight": 48,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-02/foreground.png",
+      "processedCropWidth": 101,
+      "rawCropChecksumSha256": "64567ed80ff3e6139a5ee7c51e01b53d11c31d4adb1c911ac18b9d944c58f15c",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "57",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.379981,
+      "cropQuad": [
+        {
+          "x": 173.615005,
+          "y": 529.195007
+        },
+        {
+          "x": 260.565002,
+          "y": 527.664978
+        },
+        {
+          "x": 261.734985,
+          "y": 562.13501
+        },
+        {
+          "x": 175.684998,
+          "y": 564.205017
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 58,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 58,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "0aa65f92c5dfe1d4a8744699d9a50ce06a4c4036f142208b872b90b7d306f252",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-03/foreground.png",
+      "processedCropWidth": 94,
+      "rawCropChecksumSha256": "1d1f35c554dd4684bfd5c7f5617756c66098d8c730f952e35c1061ec728f16fc",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "58",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 408.01001,
+          "y": 527.63501
+        },
+        {
+          "x": 505.98999,
+          "y": 531.10498
+        },
+        {
+          "x": 505.809998,
+          "y": 564.494995
+        },
+        {
+          "x": 408.190002,
+          "y": 561.565002
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 59,
+      "imageId": "m5-img-007",
+      "normalizedNumber": null,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "5f6adcb1ba3d935c629a538be3ed180f3335a398f83cbe7e6caadf193e02b874",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-04/foreground.png",
+      "processedCropWidth": 86,
+      "rawCropChecksumSha256": "8062c665393defabe6a3ecfdc3fc4566dca3c1d1e8da7c0bdc6b485a22da193a",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.52735,
+      "cropQuad": [
+        {
+          "x": 651.234985,
+          "y": 537.255005
+        },
+        {
+          "x": 739.784973,
+          "y": 546.244995
+        },
+        {
+          "x": 740.414978,
+          "y": 577.655029
+        },
+        {
+          "x": 650.965027,
+          "y": 568.844971
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 60,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 60,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "07dacd0b66f19adc125cc74692820d31cbc7f35ec517b66123e061c893f0c4e3",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-05/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "9aa4a6118b34bbc52513b09e40d77bb6d9254f691f96e81fe51d4940befe2734",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "60",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.649908,
+      "cropQuad": [
+        {
+          "x": 170.820007,
+          "y": 680.549988
+        },
+        {
+          "x": 262.299988,
+          "y": 680.049988
+        },
+        {
+          "x": 263.200012,
+          "y": 712.450012
+        },
+        {
+          "x": 172.080002,
+          "y": 712.950012
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 61,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 6,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "669ad18de66a991811acc23edfd0b9a24bc95f9512ae6b74f58c43ccb91fc5f0",
+      "processedCropHeight": 57,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-06/foreground.png",
+      "processedCropWidth": 160,
+      "rawCropChecksumSha256": "b6f22883ccfa881aa647e8e943188f13db8bb88cc065be61a5fd5d94aa190117",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "6",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.467343,
+      "cropQuad": [
+        {
+          "x": 400.450012,
+          "y": 680.539978
+        },
+        {
+          "x": 499.429993,
+          "y": 682.02002
+        },
+        {
+          "x": 498.170013,
+          "y": 713.880005
+        },
+        {
+          "x": 399.549988,
+          "y": 712.76001
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 62,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 2,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "a53939027a781c18dbfc70af6a222f2f1e69a524fb8606d053a666c1fe196de8",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-07/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "3eee9911f8b9d193e2c772f89be6c5d90259d0ae4399b53a248e7f253c6c84a5",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.686577,
+      "cropQuad": [
+        {
+          "x": 635.400024,
+          "y": 686.494995
+        },
+        {
+          "x": 722.400024,
+          "y": 689.965027
+        },
+        {
+          "x": 720.599976,
+          "y": 720.835022
+        },
+        {
+          "x": 633.599976,
+          "y": 717.905029
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 63,
+      "imageId": "m5-img-007",
+      "normalizedNumber": 6,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "293a21207638a2d1f3d51044ba819ac724035cb197f6ef156851e5f65a049371",
+      "processedCropHeight": 61,
+      "processedCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-08/foreground.png",
+      "processedCropWidth": 128,
+      "rawCropChecksumSha256": "10efb005444236ef893ab6fa822f9dc2a2a3cb3902d8cc12fa0fc5e2082ad2d2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "6",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 219.815002,
+          "y": 499.779999
+        },
+        {
+          "x": 280.484985,
+          "y": 499.779999
+        },
+        {
+          "x": 280.214996,
+          "y": 531.820007
+        },
+        {
+          "x": 225.485001,
+          "y": 531.820007
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 64,
+      "imageId": "m5-img-008",
+      "normalizedNumber": null,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "5e665efba003afc01465126f1591350b0f6f1e3bd3dbd6ec0df7fc602b87b220",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-00/foreground.png",
+      "processedCropWidth": 83,
+      "rawCropChecksumSha256": "9051c316a05fe405b19569c57c63e42d2c960d914b41bd23e1544d70a273fe86",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.412815,
+      "cropQuad": [
+        {
+          "x": 419.839996,
+          "y": 502.065002
+        },
+        {
+          "x": 511.200012,
+          "y": 506.595001
+        },
+        {
+          "x": 510.299988,
+          "y": 539.804993
+        },
+        {
+          "x": 421.459991,
+          "y": 534.734985
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 65,
+      "imageId": "m5-img-008",
+      "normalizedNumber": 5,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "aeeda0978517919d6fd5e7fbb31be2432bde21448e71ef1fd2b89a399b00151a",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-01/foreground.png",
+      "processedCropWidth": 88,
+      "rawCropChecksumSha256": "c0d9cc5eb742cf695365640f04aa933520d02b080bfb8881e55981e786b0d391",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "5",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 645.534973,
+          "y": 508.695007
+        },
+        {
+          "x": 724.565002,
+          "y": 518.684998
+        },
+        {
+          "x": 725.734985,
+          "y": 549.015015
+        },
+        {
+          "x": 646.164978,
+          "y": 539.205017
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 66,
+      "imageId": "m5-img-008",
+      "normalizedNumber": null,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "42eca2df386e5a2df03de4f803e9bd39c0424dfa58dcfff0cb569fbf6f66da1f",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-02/foreground.png",
+      "processedCropWidth": 90,
+      "rawCropChecksumSha256": "8f95aa0dd9d57cd145579c75aa92ce7a48491e1923626e01783b1a8a0a45ba11",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.209217,
+      "cropQuad": [
+        {
+          "x": 189.375,
+          "y": 630.400024
+        },
+        {
+          "x": 278.524994,
+          "y": 640.640015
+        },
+        {
+          "x": 278.975006,
+          "y": 670.159973
+        },
+        {
+          "x": 187.125,
+          "y": 655.599976
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 67,
+      "imageId": "m5-img-008",
+      "normalizedNumber": 800,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "d88e7f67f13c5c263a923e8d01a804f657febdaeb4e231a4d951458bf0ec70cb",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-03/foreground.png",
+      "processedCropWidth": 192,
+      "rawCropChecksumSha256": "d88e7f67f13c5c263a923e8d01a804f657febdaeb4e231a4d951458bf0ec70cb",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "800",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 417.049988,
+          "y": 641.599976
+        },
+        {
+          "x": 509.109985,
+          "y": 645.679993
+        },
+        {
+          "x": 511.089996,
+          "y": 675.919983
+        },
+        {
+          "x": 417.950012,
+          "y": 670.400024
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 68,
+      "imageId": "m5-img-008",
+      "normalizedNumber": null,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "ae90c84ab1c36f063c559cd15c2d97444113a82599a970ff3331851e46694aa1",
+      "processedCropHeight": 41,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-04/foreground.png",
+      "processedCropWidth": 87,
+      "rawCropChecksumSha256": "567cf061137fe1564967c14ab03d041c1ec63a3e61790c910f9280e1658cd4b6",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 644.005005,
+          "y": 648.544983
+        },
+        {
+          "x": 726.054993,
+          "y": 656.554993
+        },
+        {
+          "x": 727.044983,
+          "y": 684.544983
+        },
+        {
+          "x": 644.094971,
+          "y": 676.35498
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 69,
+      "imageId": "m5-img-008",
+      "normalizedNumber": null,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "97137882b3c42f19da0d02da59c1b8a1f261b96e1c4bbe1e2600b314cda4815e",
+      "processedCropHeight": 41,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-05/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "1f31cabb5eecc2ab9712ad64953e68795338a34513f28d331c364d173f58b11d",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.909461,
+      "cropQuad": [
+        {
+          "x": 195.050003,
+          "y": 788.659973
+        },
+        {
+          "x": 281.029999,
+          "y": 786.659973
+        },
+        {
+          "x": 281.570007,
+          "y": 816.539978
+        },
+        {
+          "x": 195.949997,
+          "y": 818.539978
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 70,
+      "imageId": "m5-img-008",
+      "normalizedNumber": 70,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "40b6ded88008e2cd2c026ab47ce53ad443247d33f6572cf55c4e030cefd49ac2",
+      "processedCropHeight": 59,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-06/foreground.png",
+      "processedCropWidth": 192,
+      "rawCropChecksumSha256": "a4d49a8a7e5d8436f6902c77225c356c0eba92538c575f732ad7c9376c22e602",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "70",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.953583,
+      "cropQuad": [
+        {
+          "x": 410.709991,
+          "y": 784.640015
+        },
+        {
+          "x": 504.209991,
+          "y": 784.640015
+        },
+        {
+          "x": 503.48999,
+          "y": 814.159973
+        },
+        {
+          "x": 409.98999,
+          "y": 814.159973
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 71,
+      "imageId": "m5-img-008",
+      "normalizedNumber": 71,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "69c3de721d52bc2c9a9d1adee7f2c0274a332d986df2857acea1b268f4c2d20b",
+      "processedCropHeight": 59,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-07/foreground.png",
+      "processedCropWidth": 92,
+      "rawCropChecksumSha256": "b56d33273a997eb6fd2531e4995a4fd9e6827290d573ea482670e16ceec82ff4",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "71",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.983014,
+      "cropQuad": [
+        {
+          "x": 631.940002,
+          "y": 785.565002
+        },
+        {
+          "x": 713.940002,
+          "y": 787.534973
+        },
+        {
+          "x": 712.859985,
+          "y": 815.164978
+        },
+        {
+          "x": 630.859985,
+          "y": 813.734985
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 72,
+      "imageId": "m5-img-008",
+      "normalizedNumber": 72,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "4b6b8b813d66dea19deb779dd432cc59b34ccd9a7127f844fc156874e79d25d6",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-08/foreground.png",
+      "processedCropWidth": 169,
+      "rawCropChecksumSha256": "6626fe9f70b93af744d518d1c5585aede4b01c604aebe5d9382fc0190918fd77",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "72",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.688987,
+      "cropQuad": [
+        {
+          "x": 160.214996,
+          "y": 474.450012
+        },
+        {
+          "x": 247.485001,
+          "y": 472.950012
+        },
+        {
+          "x": 247.214996,
+          "y": 512.549988
+        },
+        {
+          "x": 155.085007,
+          "y": 514.049988
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 73,
+      "imageId": "m5-img-009",
+      "normalizedNumber": 73,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "42e0d87cd42e08652eb1de260c0f315b56892fc4e84de4a5eb6786b902d020b5",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-00/foreground.png",
+      "processedCropWidth": 91,
+      "rawCropChecksumSha256": "6b9a52fe9baa840d5627022febf207773f0e79c7b18e948549651267e1208f6a",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "73",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.730564,
+      "cropQuad": [
+        {
+          "x": 397.894989,
+          "y": 461.049988
+        },
+        {
+          "x": 503.88501,
+          "y": 475.709991
+        },
+        {
+          "x": 501.815002,
+          "y": 510.98999
+        },
+        {
+          "x": 396.005005,
+          "y": 493.450012
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 74,
+      "imageId": "m5-img-009",
+      "normalizedNumber": 74,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "70e758cc899da64173c0ce110ac1ffbe2bf520a4449b2c45e494cbeb58d270e1",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-01/foreground.png",
+      "processedCropWidth": 126,
+      "rawCropChecksumSha256": "987cfeebccddaa652ec6c579c5f0f1752cc57930ae1a95147e3f65f769439984",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "74",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.985714,
+      "cropQuad": [
+        {
+          "x": 650.73999,
+          "y": 490.01001
+        },
+        {
+          "x": 738.299988,
+          "y": 497.910004
+        },
+        {
+          "x": 739.200012,
+          "y": 532.289978
+        },
+        {
+          "x": 650.559998,
+          "y": 526.190002
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 75,
+      "imageId": "m5-img-009",
+      "normalizedNumber": 75,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "d350ccda11433dafe06cf0e3d27c35a9ecf7d3d8b2b4d9d595c97eab6785f1e4",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-02/foreground.png",
+      "processedCropWidth": 89,
+      "rawCropChecksumSha256": "0cc626324c5c489ac7325c58699e3319b87950c62ea35e94978f821a9ea4fac6",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "75",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.93468,
+      "cropQuad": [
+        {
+          "x": 165.589996,
+          "y": 637.210022
+        },
+        {
+          "x": 254.570007,
+          "y": 633.669983
+        },
+        {
+          "x": 255.830002,
+          "y": 668.22998
+        },
+        {
+          "x": 167.210007,
+          "y": 672.48999
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 76,
+      "imageId": "m5-img-009",
+      "normalizedNumber": 76,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "d8c181200e4ff16a957ebb347f891c1c0535778b74adc57e29606c12833ab7fc",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-03/foreground.png",
+      "processedCropWidth": 87,
+      "rawCropChecksumSha256": "0b108ada49b2aea9b2ecad783d706169feebb3c514c15ee424ee309f0b103e4b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "76",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.976161,
+      "cropQuad": [
+        {
+          "x": 402.475006,
+          "y": 631.11499
+        },
+        {
+          "x": 503.505005,
+          "y": 633.585022
+        },
+        {
+          "x": 503.595001,
+          "y": 666.61499
+        },
+        {
+          "x": 402.024994,
+          "y": 664.684998
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 77,
+      "imageId": "m5-img-009",
+      "normalizedNumber": 77,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "ea9bd8f30edd10e88c9dd1eee9e41d1074fc0c0898a2c2bcad53785b8d89a94c",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-04/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "fcfa33c4457ce03879a23e5b5644dc0c5b6d67e3208a6a40e7fb72b1abcdc100",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "77",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 646.755005,
+          "y": 636.164978
+        },
+        {
+          "x": 738.38501,
+          "y": 639.094971
+        },
+        {
+          "x": 740.815002,
+          "y": 667.804993
+        },
+        {
+          "x": 646.844971,
+          "y": 666.13501
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 78,
+      "imageId": "m5-img-009",
+      "normalizedNumber": null,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "59ce57efa60f26fb1067a45e3e20b44b3b1c0ac101ef4a9655712efd17042ca9",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-05/foreground.png",
+      "processedCropWidth": 172,
+      "rawCropChecksumSha256": "ca5f017e28abe31ef59faf038c8c3f0f0fb911fbc53f3b788d946dac7f658c48",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.947118,
+      "cropQuad": [
+        {
+          "x": 163.320007,
+          "y": 787.034973
+        },
+        {
+          "x": 255.800003,
+          "y": 785.544983
+        },
+        {
+          "x": 256.700012,
+          "y": 817.85498
+        },
+        {
+          "x": 164.580002,
+          "y": 819.164978
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 79,
+      "imageId": "m5-img-009",
+      "normalizedNumber": 79,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "5649bef807c7bcbeabf884845307c53437f7f02cc54e4cbcf439f31a01a060da",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-06/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "ea898d3c60c62bd5aaa1764918c5a383201e826df489b518d205e9886dc2fb49",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "79",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 396.964996,
+          "y": 783.794983
+        },
+        {
+          "x": 496.934998,
+          "y": 783.784973
+        },
+        {
+          "x": 495.765015,
+          "y": 815.914978
+        },
+        {
+          "x": 396.334991,
+          "y": 816.10498
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 80,
+      "imageId": "m5-img-009",
+      "normalizedNumber": null,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "61e9859469e1f3e1a6dd493271bba4d1dd98c322a46dd1721d0ce2d8f267e669",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-07/foreground.png",
+      "processedCropWidth": 80,
+      "rawCropChecksumSha256": "77f3dfd4af2af13127172d2d68992679adb7cb27d9af60a965bc7a38602bd5be",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 633.869995,
+          "y": 784.219971
+        },
+        {
+          "x": 721.890015,
+          "y": 785.140015
+        },
+        {
+          "x": 719.909973,
+          "y": 814.659973
+        },
+        {
+          "x": 631.530029,
+          "y": 815.179993
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 81,
+      "imageId": "m5-img-009",
+      "normalizedNumber": null,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "3c90455083919c8e09ca1ff3d839852081cefc1fd0d9545f2c4b658e08607813",
+      "processedCropHeight": 60,
+      "processedCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-08/foreground.png",
+      "processedCropWidth": 119,
+      "rawCropChecksumSha256": "f266e95d388284883b1f615826ead2a0963e31628de891f262dcae051f7080dd",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.995422,
+      "cropQuad": [
+        {
+          "x": 151.699997,
+          "y": 514.304993
+        },
+        {
+          "x": 239.860001,
+          "y": 510.714996
+        },
+        {
+          "x": 237.339996,
+          "y": 546.085022
+        },
+        {
+          "x": 146.300003,
+          "y": 551.294983
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 82,
+      "imageId": "m5-img-010",
+      "normalizedNumber": 2,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "c8a29f23b368b80257214185987d6186419bab0e95245bab0815cf052d91c59d",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-00/foreground.png",
+      "processedCropWidth": 93,
+      "rawCropChecksumSha256": "230e0bbbf589db303b41b5b17db01f9dd15db5562b8cf8651fd1daba42f5538a",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 390.079987,
+          "y": 503.269989
+        },
+        {
+          "x": 496.600006,
+          "y": 516.409973
+        },
+        {
+          "x": 493.899994,
+          "y": 550.789978
+        },
+        {
+          "x": 387.019989,
+          "y": 535.130005
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 83,
+      "imageId": "m5-img-010",
+      "normalizedNumber": null,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "10b74f213749629fc0d8a499ef62972e1fdd7f7e2e87d3e5a0fe5d4a84b505e8",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-01/foreground.png",
+      "processedCropWidth": 127,
+      "rawCropChecksumSha256": "42a730449ab723ce07aa0201ac4e44c009230218fb7e69497453fd65a24fdf41",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.063676,
+      "cropQuad": [
+        {
+          "x": 655.89502,
+          "y": 531.594971
+        },
+        {
+          "x": 743.445007,
+          "y": 538.505005
+        },
+        {
+          "x": 746.955017,
+          "y": 574.594971
+        },
+        {
+          "x": 658.505005,
+          "y": 569.304993
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 84,
+      "imageId": "m5-img-010",
+      "normalizedNumber": 8,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "b903af6bc6893ce6c2a96c8ac868ee207cb4eacca5b3a89601171f9f07dc7040",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-02/foreground.png",
+      "processedCropWidth": 91,
+      "rawCropChecksumSha256": "6d6374aaceb47ed5ae978f354d6d0316c1a3977d7ea65e3367690b29cf3e83c6",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "8",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.692821,
+      "cropQuad": [
+        {
+          "x": 155.610001,
+          "y": 677.455017
+        },
+        {
+          "x": 244.630005,
+          "y": 674.445007
+        },
+        {
+          "x": 246.970001,
+          "y": 709.455017
+        },
+        {
+          "x": 157.589996,
+          "y": 712.64502
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 85,
+      "imageId": "m5-img-010",
+      "normalizedNumber": 85,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "3b54e381ecc3db301a9ebcc077e3a3e8bda5808a699f2bb36ba5111d3b947a9f",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-03/foreground.png",
+      "processedCropWidth": 89,
+      "rawCropChecksumSha256": "ef6561332ade50b4af892079e32c662432524a206c2f6016de313a6c16574bdc",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "85",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.502041,
+      "cropQuad": [
+        {
+          "x": 394.204987,
+          "y": 673.39502
+        },
+        {
+          "x": 496.734985,
+          "y": 676.38501
+        },
+        {
+          "x": 496.464996,
+          "y": 710.315002
+        },
+        {
+          "x": 393.394989,
+          "y": 707.505005
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 86,
+      "imageId": "m5-img-010",
+      "normalizedNumber": 86,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "69269ec50fc2569db9015191fdcecf82b5f59a53df7a55e5b39fdecca3e62266",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-04/foreground.png",
+      "processedCropWidth": 81,
+      "rawCropChecksumSha256": "c0f4ba7f017f8bef0b94f210ebd632e62ba8ff9fd2384f259f7d3318a8bacc2e",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "86",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.076676,
+      "cropQuad": [
+        {
+          "x": 645.150024,
+          "y": 680.525024
+        },
+        {
+          "x": 739.77002,
+          "y": 681.85498
+        },
+        {
+          "x": 740.130005,
+          "y": 710.744995
+        },
+        {
+          "x": 643.349976,
+          "y": 712.474976
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 87,
+      "imageId": "m5-img-010",
+      "normalizedNumber": 0,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "3326bf9414c49a9d1ae2454428ae6bf58e65f9556874e0f25e8f0543ee505d88",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-05/foreground.png",
+      "processedCropWidth": 144,
+      "rawCropChecksumSha256": "7d1b3ec2678fc1c24790ee5dd7aa93ecb15fb8977591e3d406710c94029915df",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "0",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 153.324997,
+          "y": 826.534973
+        },
+        {
+          "x": 245.815002,
+          "y": 826.044983
+        },
+        {
+          "x": 246.985001,
+          "y": 858.35498
+        },
+        {
+          "x": 154.675003,
+          "y": 858.664978
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 88,
+      "imageId": "m5-img-010",
+      "normalizedNumber": null,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "92d63954a12f060ed8a2ef44611f638a9be7864279b22fd438f22fb3f1fa1dbd",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-06/foreground.png",
+      "processedCropWidth": 85,
+      "rawCropChecksumSha256": "7916a88f813e732b7d6cfca3a09550d2c9113b4d64c5f172b200c1268a3371eb",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 388.48999,
+          "y": 827.049988
+        },
+        {
+          "x": 491.470001,
+          "y": 827.549988
+        },
+        {
+          "x": 490.929993,
+          "y": 859.950012
+        },
+        {
+          "x": 388.309998,
+          "y": 859.450012
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 89,
+      "imageId": "m5-img-010",
+      "normalizedNumber": null,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "e535c8a317ad3ac2f77bd0ae46bd914a0aad9a1ec90d4bb05da703430eab5e3e",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-07/foreground.png",
+      "processedCropWidth": 80,
+      "rawCropChecksumSha256": "1b7622e925764c938d453be5338925ccfd8240241073f5aacc79707c8d099db7",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 632.61499,
+          "y": 829.47998
+        },
+        {
+          "x": 724.125,
+          "y": 832.919983
+        },
+        {
+          "x": 721.875,
+          "y": 862.97998
+        },
+        {
+          "x": 630.184998,
+          "y": 860.619995
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 90,
+      "imageId": "m5-img-010",
+      "normalizedNumber": null,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "470a1ce8274965f4a2061987a1e4ba6955412c880737394103bd2489f5f32ef5",
+      "processedCropHeight": 49,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-08/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "dfb481308c4d89d33ea5a8ea4f1e864e0a3ca2f24984bb2f660dc742f1c49d2e",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.854713,
+      "cropQuad": [
+        {
+          "x": 202.425003,
+          "y": 514.549988
+        },
+        {
+          "x": 283.434998,
+          "y": 514.090027
+        },
+        {
+          "x": 282.265015,
+          "y": 547.210022
+        },
+        {
+          "x": 201.074997,
+          "y": 546.950012
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 91,
+      "imageId": "m5-img-011",
+      "normalizedNumber": 91,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "c6bc09ad14cd62404985738b12cee7e5654f20ebd177b0aed6f17c9d24c31468",
+      "processedCropHeight": 47,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-00/foreground.png",
+      "processedCropWidth": 89,
+      "rawCropChecksumSha256": "f89be6661d2f85ddf981bd5e7b3d5ab218c1b0e6090325612f89989611ac84c0",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "91",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.874652,
+      "cropQuad": [
+        {
+          "x": 427.904999,
+          "y": 514.875
+        },
+        {
+          "x": 515.155029,
+          "y": 516.86499
+        },
+        {
+          "x": 513.445007,
+          "y": 550.434998
+        },
+        {
+          "x": 430.695007,
+          "y": 548.625
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 92,
+      "imageId": "m5-img-011",
+      "normalizedNumber": 2,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "ba3e1ee9a4390dca0d24d1f6786428d597d1b6c8dfc30f275ffc3c9dc15828a4",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-01/foreground.png",
+      "processedCropWidth": 92,
+      "rawCropChecksumSha256": "975d163733c5a7f5fcb24983bcdce4f915a38bcc20f3c273708e798f2061ce0b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "2",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 655.099976,
+          "y": 519.210022
+        },
+        {
+          "x": 731.059998,
+          "y": 515.950012
+        },
+        {
+          "x": 732.140015,
+          "y": 542.049988
+        },
+        {
+          "x": 656.900024,
+          "y": 549.98999
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 93,
+      "imageId": "m5-img-011",
+      "normalizedNumber": null,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "8d8e9587b4781f407dacadb7546118e3ba9aa9ac7c8312d3f30a709c4c090a74",
+      "processedCropHeight": 64,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-02/foreground.png",
+      "processedCropWidth": 123,
+      "rawCropChecksumSha256": "2ea32369df8a913a2a983806592a9d8770714f2e45170fea7a234b4b9164c73d",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 206.089996,
+          "y": 665.049988
+        },
+        {
+          "x": 288.070007,
+          "y": 661.51001
+        },
+        {
+          "x": 289.329987,
+          "y": 693.190002
+        },
+        {
+          "x": 207.710007,
+          "y": 697.450012
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 94,
+      "imageId": "m5-img-011",
+      "normalizedNumber": null,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "fb4e7e058fbc41547d4ae5c242b265e1b3d13d3d714b2db175700c9030e0a998",
+      "processedCropHeight": 42,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-03/foreground.png",
+      "processedCropWidth": 86,
+      "rawCropChecksumSha256": "99e969abde1132f49e3cb26f8a42e6bdbf47fff14c86e59a48f45ffdd837f405",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 422.730011,
+          "y": 658.22998
+        },
+        {
+          "x": 516.27002,
+          "y": 659.210022
+        },
+        {
+          "x": 516.630005,
+          "y": 689.98999
+        },
+        {
+          "x": 422.369995,
+          "y": 689.369995
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 95,
+      "imageId": "m5-img-011",
+      "normalizedNumber": null,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "bd6048dc4b150f952d207fc3df4b092fd30f443f803217cf100ed0a94180ccf5",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-04/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "7ead9f75703d5d66ab125de6b2df41be525773980c8a3ae3e88ead127b7fc05d",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.876149,
+      "cropQuad": [
+        {
+          "x": 648.734985,
+          "y": 662.315002
+        },
+        {
+          "x": 732.284973,
+          "y": 663.744995
+        },
+        {
+          "x": 732.914978,
+          "y": 690.655029
+        },
+        {
+          "x": 648.465027,
+          "y": 690.484985
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 96,
+      "imageId": "m5-img-011",
+      "normalizedNumber": 6,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "0a92d68ef03e1a1cec4a465ff74557b847bd1c367445252b97a1b76c7cdcdc3f",
+      "processedCropHeight": 40,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-05/foreground.png",
+      "processedCropWidth": 83,
+      "rawCropChecksumSha256": "dc8f1e414f652a3b880a1e6025d2d59b6d5ddf50b8bc6554075cfc4492eeee30",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "6",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 202.804993,
+          "y": 802.650024
+        },
+        {
+          "x": 288.295013,
+          "y": 800.669983
+        },
+        {
+          "x": 289.105011,
+          "y": 830.72998
+        },
+        {
+          "x": 203.794998,
+          "y": 832.349976
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 97,
+      "imageId": "m5-img-011",
+      "normalizedNumber": null,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "c3492cd6dfe257b4cfe9261e66b19c1b27d83b9709b6008b8cd8983e90a605ae",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-06/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "6bab8c51070b567fdf5bc3a4d502c861892696037d737dadabe7ffa224b295d2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 419.480011,
+          "y": 797.150024
+        },
+        {
+          "x": 512.47998,
+          "y": 796.130005
+        },
+        {
+          "x": 512.119995,
+          "y": 825.469971
+        },
+        {
+          "x": 419.119995,
+          "y": 826.849976
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 98,
+      "imageId": "m5-img-011",
+      "normalizedNumber": null,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "7d040ac8db05339227f29b49cfbf94a6a39134ef2b64f61c2f68ee641e0aab94",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-07/foreground.png",
+      "processedCropWidth": 84,
+      "rawCropChecksumSha256": "520d5f4356ef572f3695a9d272d4cf068011c968fa58ff22bac7d70209e4f005",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.0,
+      "cropQuad": [
+        {
+          "x": 638.919983,
+          "y": 796.585022
+        },
+        {
+          "x": 720.960022,
+          "y": 798.554993
+        },
+        {
+          "x": 720.23999,
+          "y": 826.544983
+        },
+        {
+          "x": 637.47998,
+          "y": 825.11499
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 99,
+      "imageId": "m5-img-011",
+      "normalizedNumber": null,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "7368e3fd566c9516530b78ade0f7615fb33a95e588385dffc66467bda35ab134",
+      "processedCropHeight": 48,
+      "processedCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-08/foreground.png",
+      "processedCropWidth": 82,
+      "rawCropChecksumSha256": "22911c876f601faa6233728d5d58e19e717961d6eae9b5a9f1a6e07274948f2f",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "",
+      "reviewReasons": [
+        "OCR_UNRECOGNIZED"
+      ],
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.546159,
+      "cropQuad": [
+        {
+          "x": 137.645004,
+          "y": 505.725006
+        },
+        {
+          "x": 223.255005,
+          "y": 505.295013
+        },
+        {
+          "x": 223.345001,
+          "y": 542.10498
+        },
+        {
+          "x": 135.755005,
+          "y": 541.275024
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 100,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 260,
+      "positionIndex": 0,
+      "processedCropChecksumSha256": "b8facfd2c38ecba2f546897b7dc43a52f89caae3d853c3e68dd75f8faa757456",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-00/foreground.png",
+      "processedCropWidth": 126,
+      "rawCropChecksumSha256": "dfa60e976804f54ef21a40cbf4db5bf56313c390033c6a68dcd04890bb48cf65",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-00/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "260",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.841972,
+      "cropQuad": [
+        {
+          "x": 367.779999,
+          "y": 505.269989
+        },
+        {
+          "x": 469.179993,
+          "y": 509.769989
+        },
+        {
+          "x": 467.920013,
+          "y": 546.130005
+        },
+        {
+          "x": 368.320007,
+          "y": 541.630005
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 101,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 201,
+      "positionIndex": 1,
+      "processedCropChecksumSha256": "4f636914227962ec66d7c82ca56e210b4ff49400046081901f83818825bec44a",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-01/foreground.png",
+      "processedCropWidth": 112,
+      "rawCropChecksumSha256": "4784e96fc0e168eaa5bbd6c83064c4a66f29e06ccc46f512c864ecd29f9c4b63",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-01/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "201",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.992479,
+      "cropQuad": [
+        {
+          "x": 611.775024,
+          "y": 520.474976
+        },
+        {
+          "x": 695.244995,
+          "y": 529.424988
+        },
+        {
+          "x": 695.155029,
+          "y": 564.075012
+        },
+        {
+          "x": 612.224976,
+          "y": 556.025024
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 102,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 102,
+      "positionIndex": 2,
+      "processedCropChecksumSha256": "2ea3ec48b8e5b0e2498192d9bac99ca6b45ade50d6b9c3b99dd0f0211addf4a1",
+      "processedCropHeight": 43,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-02/foreground.png",
+      "processedCropWidth": 126,
+      "rawCropChecksumSha256": "b1c9938755765e77d13d25cdcab4c1dbbb9fbb70c100cd1e67066db81c190ad2",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-02/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "102",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.877547,
+      "cropQuad": [
+        {
+          "x": 146.639999,
+          "y": 659.575012
+        },
+        {
+          "x": 231.600006,
+          "y": 657.044983
+        },
+        {
+          "x": 233.399994,
+          "y": 689.35498
+        },
+        {
+          "x": 149.160004,
+          "y": 692.424988
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 103,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 283,
+      "positionIndex": 3,
+      "processedCropChecksumSha256": "25f645b46c4b350c047d7ea14f40d66aea3b95ccc75d394267c238b121365a60",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-03/foreground.png",
+      "processedCropWidth": 126,
+      "rawCropChecksumSha256": "e7d3456cb47467340efa3b76fb66abac65fd00cc8b181ac2ade5f15c106d7044",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-03/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "283",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.997989,
+      "cropQuad": [
+        {
+          "x": 372.545013,
+          "y": 653.215027
+        },
+        {
+          "x": 469.515015,
+          "y": 656.244995
+        },
+        {
+          "x": 469.785004,
+          "y": 687.655029
+        },
+        {
+          "x": 373.355011,
+          "y": 684.085022
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 104,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 104,
+      "positionIndex": 4,
+      "processedCropChecksumSha256": "d0d55f0d557d58c9c1ac0ff51872e6677e9088a3a5aa2ed84c87d718ae99b924",
+      "processedCropHeight": 44,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-04/foreground.png",
+      "processedCropWidth": 115,
+      "rawCropChecksumSha256": "475bdaa6ba20755717d17712c523f69850555bf63ef55c6458ebd67a53c1607b",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-04/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "104",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.992532,
+      "cropQuad": [
+        {
+          "x": 609.984985,
+          "y": 661.174988
+        },
+        {
+          "x": 700.075012,
+          "y": 664.085022
+        },
+        {
+          "x": 701.424988,
+          "y": 692.61499
+        },
+        {
+          "x": 609.715027,
+          "y": 691.325012
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 105,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 105,
+      "positionIndex": 5,
+      "processedCropChecksumSha256": "4d9b14ad9bac22a4d30755e406aadd39aa66bbba8174a7b61fd9a3e208fbb7af",
+      "processedCropHeight": 42,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-05/foreground.png",
+      "processedCropWidth": 112,
+      "rawCropChecksumSha256": "7567b96019fc0dac7001b471829982ab2ac15e3982355db01033e26bf6505181",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-05/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "105",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "recognized"
+    },
+    {
+      "confidence": 0.820596,
+      "cropQuad": [
+        {
+          "x": 145.339996,
+          "y": 801.674988
+        },
+        {
+          "x": 233.820007,
+          "y": 799.664978
+        },
+        {
+          "x": 235.080002,
+          "y": 829.63501
+        },
+        {
+          "x": 146.960007,
+          "y": 831.825012
+        }
+      ],
+      "exactMatch": false,
+      "expectedNumber": 106,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 205,
+      "positionIndex": 6,
+      "processedCropChecksumSha256": "1b5ca5d736cea265d0dd1bff4180112822001780ca5d9a734a01fac467d85784",
+      "processedCropHeight": 46,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-06/foreground.png",
+      "processedCropWidth": 113,
+      "rawCropChecksumSha256": "746ef4a042a45b624b2bf2259cf12955a5a03d240b5f7c9dae493fa79201e686",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-06/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "205",
+      "reviewReasons": [
+        "OCR_CONTINUITY_GAP"
+      ],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.947132,
+      "cropQuad": [
+        {
+          "x": 368.744995,
+          "y": 798.169983
+        },
+        {
+          "x": 466.234985,
+          "y": 797.150024
+        },
+        {
+          "x": 465.964996,
+          "y": 826.849976
+        },
+        {
+          "x": 368.654999,
+          "y": 828.22998
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 107,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 107,
+      "positionIndex": 7,
+      "processedCropChecksumSha256": "f0535f0b2123bba5394d45701436441f784abd15f58c54c2392e05c81ce3e323",
+      "processedCropHeight": 45,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-07/foreground.png",
+      "processedCropWidth": 114,
+      "rawCropChecksumSha256": "d4eca442629cb7a2b158ca0cfa0d309e8bba4ec8cd1c4c65d5389eab72ce872d",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-07/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "107",
+      "reviewReasons": [
+        "OCR_CONTINUITY_CONFLICT"
+      ],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "needs_review"
+    },
+    {
+      "confidence": 0.554571,
+      "cropQuad": [
+        {
+          "x": 599.440002,
+          "y": 800.38501
+        },
+        {
+          "x": 684.440002,
+          "y": 801.835022
+        },
+        {
+          "x": 683.359985,
+          "y": 830.36499
+        },
+        {
+          "x": 598.359985,
+          "y": 829.815002
+        }
+      ],
+      "exactMatch": true,
+      "expectedNumber": 108,
+      "imageId": "m5-img-012",
+      "normalizedNumber": 108,
+      "positionIndex": 8,
+      "processedCropChecksumSha256": "7367f178a93bb2c85050bc203ed97bd89af83543b04fa4279fbfc38bc88efad9",
+      "processedCropHeight": 52,
+      "processedCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-08/foreground.png",
+      "processedCropWidth": 118,
+      "rawCropChecksumSha256": "610e667a0e3da994a5da6367deb460d3da4ec71381b80bbd4aecf49d6d176020",
+      "rawCropHeight": 64,
+      "rawCropRelativePath": "sequence-number-ocr-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/position-08/raw.png",
+      "rawCropWidth": 192,
+      "rawText": "108",
+      "reviewReasons": [],
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "recognized"
+    }
+  ],
+  "reviewCount": 63,
+  "runtimeName": "paddlepaddle-cpu",
+  "runtimeVersion": "3.3.1",
+  "schemaVersion": 1,
+  "status": "measured",
+  "unresolvedContinuityConflictRate": 0.314815
+}

@@ -32,6 +32,13 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M6.
 - Q-017 jest zamknięte i dostępny jest wystarczający materiał na każdy symbol.
 - Geometria wycinków ma zaakceptowany, wersjonowany kontrakt.
 
+### Bieżący status
+
+`blocked` — D-056 zakończyła prototyp M5 wynikiem `completed_with_rework`, ale
+G5 nie przeszło. Brakuje reprezentatywnego korpusu, niezależnych goldenów
+geometrii, zaakceptowanych progów, OCR spełniającego próg na held-out source
+images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
+
 ## Zasady realizacji
 
 - podział train/validation/test odbywa się według zdjęcia źródłowego,

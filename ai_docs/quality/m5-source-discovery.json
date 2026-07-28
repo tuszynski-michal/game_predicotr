@@ -1,0 +1,184 @@
+{
+  "discoveryVersion": "image-discovery-v1",
+  "duplicateFileCount": 0,
+  "ignoredFileCount": 1,
+  "images": [
+    {
+      "checksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "contentId": "sha256:18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "files": [
+        {
+          "modifiedAtNs": 1784844642209128800,
+          "relativePath": "5983122166590934317.jpg",
+          "sizeBytes": 164662
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "contentId": "sha256:243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "files": [
+        {
+          "modifiedAtNs": 1785205094611089100,
+          "relativePath": "5983122166590934323.jpg",
+          "sizeBytes": 167670
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "contentId": "sha256:5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "files": [
+        {
+          "modifiedAtNs": 1785205077128345100,
+          "relativePath": "5983122166590934320.jpg",
+          "sizeBytes": 178372
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "contentId": "sha256:536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "files": [
+        {
+          "modifiedAtNs": 1785205100668058000,
+          "relativePath": "5983122166590934324.jpg",
+          "sizeBytes": 187893
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "contentId": "sha256:5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "files": [
+        {
+          "modifiedAtNs": 1784844644809803100,
+          "relativePath": "5983122166590934318.jpg",
+          "sizeBytes": 168476
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "contentId": "sha256:683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+      "files": [
+        {
+          "modifiedAtNs": 1785205089256825200,
+          "relativePath": "5983122166590934322.jpg",
+          "sizeBytes": 175242
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "contentId": "sha256:7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "files": [
+        {
+          "modifiedAtNs": 1784844647614030800,
+          "relativePath": "5983122166590934319.jpg",
+          "sizeBytes": 182167
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "contentId": "sha256:be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "files": [
+        {
+          "modifiedAtNs": 1785205104939610800,
+          "relativePath": "5983122166590934325.jpg",
+          "sizeBytes": 167937
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "contentId": "sha256:ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "files": [
+        {
+          "modifiedAtNs": 1785205116133806300,
+          "relativePath": "5983122166590934327.jpg",
+          "sizeBytes": 163739
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "contentId": "sha256:efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "files": [
+        {
+          "modifiedAtNs": 1785205109223891800,
+          "relativePath": "5983122166590934326.jpg",
+          "sizeBytes": 164092
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "contentId": "sha256:f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "files": [
+        {
+          "modifiedAtNs": 1785205084724602900,
+          "relativePath": "5983122166590934321.jpg",
+          "sizeBytes": 173721
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    },
+    {
+      "checksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "contentId": "sha256:f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "files": [
+        {
+          "modifiedAtNs": 1785205121286263800,
+          "relativePath": "5983122166590934328.jpg",
+          "sizeBytes": 163884
+        }
+      ],
+      "height": 1280,
+      "mediaType": "image/jpeg",
+      "width": 960
+    }
+  ],
+  "issueCount": 0,
+  "issues": [],
+  "schemaVersion": 1,
+  "sourceFileCount": 12,
+  "sourceRoot": ".",
+  "supportedMediaTypes": [
+    "image/jpeg"
+  ],
+  "uniqueImageCount": 12
+}

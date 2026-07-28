@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`M5.1 provisional corpus contracts in progress under D-049/D-050; G3 remains blocked`
+`M5.2 discovery and EXIF normalization completed under D-051/D-052; M5.1 and G3 remain open`
 
 ## Completed
 
@@ -621,7 +621,28 @@ last_updated: 2026-07-28
   checksum, wymiarów JPEG, podziału źródeł, zakresów i kompletnej geometrii,
 - TASK-0051 ma `5 passed`, Ruff i mypy bez błędów; rzeczywisty walidator
   potwierdza 12 obrazów i `2 057 855` bajtów oraz poprawnie zwraca
-  `readyForGeometryBenchmark = false`.
+  `readyForGeometryBenchmark = false`,
+- ukończono `TASK-0052`: read-only scanner `image-discovery-v1` tworzy
+  deterministyczny manifest ścieżek względnych, SHA-256, rozmiarów, mtime,
+  wymiarów, aliasów identycznej treści i stabilnych problemów źródłowych,
+- rzeczywisty discovery ma 12 plików, 12 unikalnych obrazów, zero duplikatów
+  treści i zero problemów; SHA-256 manifestu to
+  `45ac57f91fefa7c75bb8d281bf5936e59ff94c13345279dbc48ef9ae436801d8`,
+- ponowny check manifestu przeszedł bez driftu, porównanie z korpusem rozpoznało
+  wszystkie 12 checksum jako znane, a kontrola korpusu potwierdziła niezmienione
+  oryginały; weryfikacja TASK-0052 zakończyła się `11 passed`, Ruff i mypy,
+- ukończono `TASK-0053`: `image-normalization-v1` z Pillow 12.3.0 ponownie
+  weryfikuje discovery/SHA-256, stosuje EXIF Orientation 1–8 i zapisuje
+  content-addressed RGB PNG oraz diagnostykę bez nadpisywania kolizji,
+- syntetyczne golden tests potwierdzają wszystkie osiem orientacji, brak tagu,
+  drift, limit pikseli i idempotencję; rzeczywisty korpus dał 12/12 wyników,
+  zero problemów i raport SHA-256
+  `7521e3dbee351918b0dca058905d640d518a2f0fee4ee9bed3a788c96f910352`,
+- 12 roboczych PNG ma łącznie `15 983 691` bajtów, wszystkie są RGB 960 × 1280
+  bez Orientation; 24 binarne/diagnostyczne artefakty pozostają lokalne i
+  ignorowane przez Git,
+- weryfikacja M5.2 zakończyła się `25 passed`, Ruff, mypy i `pip check`; ponowny
+  check nie wykazał driftu, a oryginalne checksumy pozostały zgodne.
 
 ## In progress
 
@@ -701,11 +722,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Kontynuować `TASK-0051` od odpowiedzi właściciela na Q-016 o stabilności układu
-strony między grami i ekranami, a następnie Q-017 o zbiorze treningowym.
-Równolegle
-TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach Pixela
-i Samsunga.
+Przed TASK-0054 odpowiedzieć na Q-016 o stabilności układu strony między grami
+i ekranami; ta odpowiedź określa, czy geometria może zakładać jedną siatkę
+3 × 3. Następnie TASK-0054 wymaga kolejnego jawnego polecenia i nie oznacza
+zaliczenia G5.1. Równolegle TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na
+fizycznych raportach Pixela i Samsunga.
 
 ## Do not start yet
 

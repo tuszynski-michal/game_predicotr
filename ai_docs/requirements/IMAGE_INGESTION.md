@@ -57,17 +57,36 @@ Na początku nie wprowadzamy:
 ### 1. Discovery
 
 - skanowanie wskazanego folderu,
-- obsługa jawnie zatwierdzonych formatów,
+- kontrakt `image-discovery-v1` obsługuje początkowo JPEG `.jpg/.jpeg`; inne
+  rozszerzenia obrazów mają stabilny błąd `IMAGE_SOURCE_FORMAT_UNSUPPORTED`,
 - zapis ścieżki względnej, rozmiaru, czasu modyfikacji i checksum,
-- pomijanie plików już przetworzonych tą wersją pipeline'u.
+- pomijanie plików już przetworzonych tą wersją pipeline'u,
+- grupowanie identycznych bajtów pod wieloma nazwami według SHA-256,
+- deterministyczny manifest bez ścieżki absolutnej i czasu wygenerowania,
+- brak zapisu w katalogu źródłowym; manifest i późniejsze artefakty muszą
+  znajdować się poza nim.
+
+Pliki niebędące obrazami są ignorowane. Uszkodzony JPEG, niezgodna sygnatura,
+nieczytelny plik i ścieżka wychodząca poza root mają osobne stabilne kody.
+Tożsamość i pomijanie znanego wejścia zależą od SHA-256, nie od nazwy ani mtime.
 
 ### 2. Normalizacja
 
 - odczyt orientacji EXIF,
-- obrót,
+- kontrakt `image-normalization-v1` stosuje wartości Orientation 1–8 przez
+  `ImageOps.exif_transpose`; brak tagu zapisuje jawne `null`,
+- wynik jest czystym RGB PNG bez EXIF i bez kolejnej stratnej kompresji,
 - przygotowanie kopii roboczych w przestrzeniach kolorów potrzebnych algorytmom,
 - opcjonalna korekta jasności i kontrastu wyłącznie w kopii,
-- zachowanie oryginału bez modyfikacji.
+- zachowanie oryginału bez modyfikacji,
+- ponowna weryfikacja discovery manifestu i SHA-256 przed dekodowaniem,
+- content-addressed, niezmienne artefakty poza katalogiem źródłowym,
+- diagnostyka zawierająca źródłowy/wynikowy SHA-256, wymiary, tryb, orientację,
+  transformację, ścieżkę względną i wersje pipeline/Pillow,
+- limit 50 000 000 pikseli na źródło ze stabilnym błędem.
+
+Retry zwraca istniejący artefakt tylko po porównaniu pełnych bajtów. Odmienna
+zawartość pod tą samą ścieżką jest kolizją i nie zostaje nadpisana.
 
 ### 3. Detekcja strony i layoutów
 

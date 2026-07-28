@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
@@ -10,24 +9,13 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
-JPEG_START_OF_FRAME_MARKERS = frozenset(
-    {
-        0xC0,
-        0xC1,
-        0xC2,
-        0xC3,
-        0xC5,
-        0xC6,
-        0xC7,
-        0xC9,
-        0xCA,
-        0xCB,
-        0xCD,
-        0xCE,
-        0xCF,
-    }
+from game_predictor_worker.images.image_file import (
+    ImageFileError,
+    read_jpeg_dimensions,
+    sha256_file,
 )
+
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class CorpusValidationError(ValueError):
@@ -120,62 +108,6 @@ def _safe_relative_path(root: Path, value: object, label: str) -> Path:
     if not resolved.is_relative_to(resolved_root):
         raise CorpusValidationError("M5_CORPUS_UNSAFE_PATH", f"{label} escapes its root.")
     return resolved
-
-
-def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _jpeg_dimensions(path: Path) -> tuple[int, int]:
-    try:
-        with path.open("rb") as source:
-            if source.read(2) != b"\xff\xd8":
-                raise CorpusValidationError(
-                    "M5_CORPUS_UNSUPPORTED_IMAGE", f"{path.name} is not a JPEG file."
-                )
-            while True:
-                marker_start = source.read(1)
-                if not marker_start:
-                    break
-                if marker_start != b"\xff":
-                    continue
-                marker = source.read(1)
-                while marker == b"\xff":
-                    marker = source.read(1)
-                if not marker:
-                    break
-                marker_value = marker[0]
-                if marker_value in {0xD8, 0xD9}:
-                    continue
-                if marker_value == 0xDA:
-                    break
-                length_bytes = source.read(2)
-                if len(length_bytes) != 2:
-                    break
-                segment_length = int.from_bytes(length_bytes, "big")
-                if segment_length < 2:
-                    break
-                if marker_value in JPEG_START_OF_FRAME_MARKERS:
-                    payload = source.read(segment_length - 2)
-                    if len(payload) < 5:
-                        break
-                    height = int.from_bytes(payload[1:3], "big")
-                    width = int.from_bytes(payload[3:5], "big")
-                    if width > 0 and height > 0:
-                        return width, height
-                    break
-                source.seek(segment_length - 2, 1)
-    except OSError as error:
-        raise CorpusValidationError(
-            "M5_CORPUS_IMAGE_READ_FAILED", f"Cannot read image: {path}."
-        ) from error
-    raise CorpusValidationError(
-        "M5_CORPUS_UNSUPPORTED_IMAGE", f"Cannot read JPEG dimensions: {path.name}."
-    )
 
 
 def _validate_point(value: object, label: str, width: int, height: int) -> None:
@@ -331,7 +263,13 @@ def validate_corpus(
             raise CorpusValidationError(
                 "M5_CORPUS_DUPLICATE_CONTENT", f"{image_id} duplicates another image."
             )
-        if _file_sha256(image_path) != expected_sha256:
+        try:
+            actual_sha256 = sha256_file(image_path)
+        except ImageFileError as error:
+            raise CorpusValidationError(
+                "M5_CORPUS_IMAGE_READ_FAILED", f"Cannot read image: {image_path}."
+            ) from error
+        if actual_sha256 != expected_sha256:
             raise CorpusValidationError(
                 "M5_CORPUS_CHECKSUM_MISMATCH", f"{image_id} checksum does not match."
             )
@@ -340,7 +278,13 @@ def validate_corpus(
             raise CorpusValidationError(
                 "M5_CORPUS_SIZE_MISMATCH", f"{image_id} size does not match."
             )
-        width, height = _jpeg_dimensions(image_path)
+        try:
+            width, height = read_jpeg_dimensions(image_path)
+        except ImageFileError as error:
+            raise CorpusValidationError(
+                "M5_CORPUS_UNSUPPORTED_IMAGE",
+                f"Cannot read JPEG dimensions: {image_path.name}.",
+            ) from error
         if width != _integer(
             image.get("width"), f"{image_id}.width", minimum=1
         ) or height != _integer(image.get("height"), f"{image_id}.height", minimum=1):

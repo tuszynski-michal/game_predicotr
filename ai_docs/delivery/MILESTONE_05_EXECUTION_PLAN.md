@@ -43,6 +43,14 @@ Na podstawie D-050 obecne 12 zdjęć z jednej sesji tworzy korpus prototypowy.
 Można na nim rozwijać kontrakty i pierwszy prototyp, ale nie spełnia jeszcze
 warunku reprezentatywnego korpusu 20–100 zdjęć ani bramki G5.1.
 
+Na podstawie D-051 właściciel dopuścił rozpoczęcie read-only TASK-0052, aby
+kolejne zdjęcia mogły być deterministycznie wykrywane i dołączane później.
+Wyjątek nie obejmuje TASK-0053+, geometrii, OCR ani zaliczenia G5.1.
+
+Na podstawie D-052 po ukończeniu discovery właściciel dopuścił TASK-0053,
+ograniczone do EXIF, lokalnych kopii roboczych i diagnostyki. Nie otwiera to
+TASK-0054+, geometrii, OCR ani bramki G5.1.
+
 Analiza aplikacji referencyjnej nie jest częścią ścieżki krytycznej.
 Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
@@ -93,8 +101,8 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
 ### Zadania
 
-- `TASK-0052 — Image discovery and source manifest`
-- `TASK-0053 — EXIF normalization and diagnostics`
+- `TASK-0052 — Image discovery and source manifest` — done 2026-07-28
+- `TASK-0053 — EXIF normalization and diagnostics` — done 2026-07-28
 
 ### Bramka G5.2
 

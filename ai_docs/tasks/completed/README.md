@@ -60,5 +60,7 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0048 — Manual import administration UI](0048-manual-import-administration-ui.md)
 - [TASK-0049 — Transactional dataset publication from staging](0049-transactional-dataset-publication-from-staging.md)
 - [TASK-0050 — Manual import scale and release acceptance](0050-manual-import-scale-release-acceptance.md)
+- [TASK-0052 — Image discovery and source manifest](0052-image-discovery-source-manifest.md)
+- [TASK-0053 — EXIF normalization and diagnostics](0053-exif-normalization-diagnostics.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

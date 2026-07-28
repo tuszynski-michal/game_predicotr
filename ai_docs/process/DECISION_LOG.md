@@ -1069,6 +1069,49 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   20–100 reprezentatywnych zdjęć pozostaje warunkiem pełnego benchmarku G5,
   chyba że właściciel podejmie osobną decyzję na podstawie wyników prototypu.
 
+## D-051 — Conditional image discovery before complete M5 entry gate
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** po zapowiedzi dostarczenia dalszych zdjęć właściciel polecił
+  przejść do następnego zadania. Dopuszczone jest rozpoczęcie TASK-0052 na
+  prototypowym korpusie D-050, ograniczone do read-only discovery, checksum,
+  metadanych i manifestu źródłowego. TASK-0053 oraz geometria/OCR pozostają
+  niedopuszczone do czasu kolejnego jawnego kroku i właściwych wejść.
+- **Context:** TASK-0052 nie zależy od znajomości stałej siatki strony ani
+  etykiet symboli. Jego kontrakt jest potrzebny także do bezpiecznego dołączania
+  kolejnych zdjęć, które właściciel dostarczy później.
+- **Reason:** deterministyczne wykrywanie plików, stabilna tożsamość po SHA-256
+  i brak modyfikacji oryginałów są odwracalnym fundamentem niezależnym od
+  jakości korpusu i wyboru algorytmu obrazu.
+- **Alternatives:** zatrzymanie M5.2 do pełnego G5.1 albo rozpoczęcie całego
+  pipeline'u mimo otwartych Q-016/Q-017.
+- **Consequences:** TASK-0051 pozostaje `in_progress`, G3/G5.1 nie są zaliczone,
+  a TASK-0052 nie może tworzyć wpisów PostgreSQL, obracać obrazów, generować
+  kopii roboczych ani uruchamiać geometrii/OCR.
+- **Supersedes:** D-049 wyłącznie w zakresie dopuszczenia read-only TASK-0052.
+
+## D-052 — Conditional EXIF normalization on the provisional corpus
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** po ukończeniu TASK-0052 właściciel jawnie polecił rozpocząć
+  następne zadanie. Dopuszczone jest TASK-0053 ograniczone do weryfikacji
+  źródła, orientacji EXIF, lokalnych kopii roboczych i diagnostyki.
+- **Context:** normalizacja nie wymaga odpowiedzi Q-016 o stałości geometrii
+  strony ani Q-017 o zbiorze treningowym. Jest potrzebna przed każdym wariantem
+  detektora, a jej poprawność dla Orientation 1–8 można wykazać syntetycznymi
+  golden fixtures mimo braku tagu w obecnym korpusie.
+- **Reason:** odseparowany adapter `image-normalization-v1` nie podejmuje decyzji
+  o geometrii/OCR i nie zapisuje danych domenowych. Content-addressed artefakty
+  oraz ponowna kontrola SHA-256 chronią oryginały i odtwarzalność.
+- **Alternatives:** czekanie na pełny korpus albo łączenie normalizacji z
+  detektorem strony.
+- **Consequences:** można przypiąć Pillow i tworzyć lokalne RGB PNG poza
+  katalogiem źródłowym. TASK-0054+ nadal wymaga kolejnego jawnego polecenia;
+  G3, TASK-0051 i G5.1 pozostają otwarte.
+- **Supersedes:** D-051 wyłącznie w zakresie dopuszczenia TASK-0053.
+
 ## Szablon nowej decyzji
 
 ```text

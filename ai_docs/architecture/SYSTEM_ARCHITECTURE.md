@@ -323,6 +323,20 @@ mogą równolegle usunąć oraz skopiować stagingu.
 6. Worker wykonuje walidację ciągłości.
 7. Zatwierdzony staging tworzy nową wersję datasetu.
 
+Discovery używa kontraktu `image-discovery-v1`. Read-only scanner zapisuje poza
+katalogiem źródłowym deterministyczny manifest ścieżek względnych POSIX,
+SHA-256, rozmiarów, mtime, wymiarów oraz stabilnych problemów. Identyczne bajty
+pod wieloma nazwami tworzą jedną tożsamość treści z listą ścieżek. Znany
+manifest pozwala wybrać wyłącznie nowe checksumy bez zmiany pełnego manifestu
+źródła. Manifest nie zawiera ścieżki absolutnej ani binarnej treści zdjęcia.
+
+Normalizacja używa kontraktu `image-normalization-v1` i Pillow
+`ImageOps.exif_transpose`. Po ponownej kontroli manifestu i SHA-256 zapisuje
+czyste RGB PNG jako
+`image-normalization-v1/<prefix>/<source-sha256>/normalized.png` oraz
+`diagnostic.json`. Artefakty są względne wobec osobnego working root,
+content-addressed i niezmienne; retry porównuje bajty, a kolizji nie nadpisuje.
+
 ## Granice kodu
 
 ```text

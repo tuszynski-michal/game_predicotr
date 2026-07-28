@@ -316,7 +316,7 @@ snapshotu i dokładne pomiary należą do M3 zgodnie z D-020.
 Zaakceptowany stos prototypu:
 
 - Python,
-- Pillow,
+- Pillow `12.3.0`,
 - `opencv-python-headless`,
 - NumPy,
 - PaddleOCR ograniczony do cyfr,

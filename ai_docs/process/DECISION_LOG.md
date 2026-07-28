@@ -1158,6 +1158,37 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   i niezależnych golden annotations. Q-016 pozostaje otwarte.
 - **Supersedes:** D-053 wyłącznie w zakresie dopuszczenia TASK-0055.
 
+## D-055 — Local PP-OCRv5 recognition runtime without PaddleX
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** pierwszy adapter `SequenceNumberRecognizer` używa oficjalnego
+  modelu recognition-only `en_PP-OCRv5_mobile_rec` przez CPU runtime
+  PaddlePaddle `3.3.1`, bez instalowania pakietów orkiestracyjnych PaddleOCR
+  i PaddleX. Model jest przygotowywany wcześniej w jawnym lokalnym katalogu,
+  identyfikowany checksumami, a worker nigdy nie pobiera wag podczas przebiegu.
+  Wersjonowany preprocessing wycina jasny komponent numeru, a dekoder CTC
+  dopuszcza wyłącznie blank i cyfry `0–9`.
+- **Context:** instalacja `paddleocr==3.7.0` wprowadzała
+  `opencv-contrib-python==4.10.0.84` oraz ograniczenie NumPy do `<=2.3.5`, co
+  kolidowało z przypiętym stosem geometrii OpenCV `4.13.0.92` / NumPy `2.4.6`.
+  Warstwa PaddleOCR może też pobierać model, jeżeli nie wskaże się lokalnych
+  katalogów. Bezpośredni runtime Paddle Inference poprawnie otwiera oficjalne
+  pliki `inference.json`, `inference.pdiparams` i `inference.yml`.
+- **Reason:** osobny port zachowuje granicę D-010, usuwa konflikt przestrzeni
+  `cv2`, gwarantuje offline runtime i pozwala zmienić model po benchmarku bez
+  zmiany raportu, stagingu ani manual review.
+- **Alternatives:** instalacja całego PaddleOCR/PaddleX kosztem cofnięcia
+  OpenCV/NumPy, Tesseract z dodatkowym systemowym runtime albo własny model
+  przed zebraniem reprezentatywnego korpusu.
+- **Consequences:** repo przypina `paddlepaddle==3.3.1` i `PyYAML==6.0.3`.
+  Lokalny model nie jest commitowany. Raport zapisuje wersję runtime, nazwę
+  modelu, checksumy plików, fingerprint i politykę dekodera. Baseline
+  `68/108 = 62.9630%` nie spełnia proponowanego progu 98%, dlatego nie zalicza
+  G5.4 i musi być jawnie oceniony w TASK-0057/TASK-0058.
+- **Supersedes:** D-010 wyłącznie w zakresie mechanizmu pierwszej implementacji
+  OCR; wymienny port, praca offline i obowiązek benchmarku pozostają bez zmian.
+
 ## Szablon nowej decyzji
 
 ```text

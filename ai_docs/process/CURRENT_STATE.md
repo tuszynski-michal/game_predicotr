@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`TASK-0055 per-board perspective and 3x5 cell crops completed under D-054; M5.1, G5.3 and G3 remain open`
+`TASK-0056 OCR baseline measured; TASK-0057 benchmark is next; M5.1, G5.3, G5.4 and G3 remain open`
 
 ## Completed
 
@@ -668,6 +668,20 @@ last_updated: 2026-07-28
 - 42 testy całego pionu obrazów, Ruff, format Ruff, mypy i `pip check`
   przechodzą; trzy reprezentatywne overlaye sprawdzono wizualnie, ale bez
   niezależnych golden nadal nie deklarujemy accuracy ani przejścia G5.3.
+- ukończono `TASK-0056`: wymienny port `SequenceNumberRecognizer`, lokalny
+  adapter PaddlePaddle CPU i kontrakt `sequence-number-ocr-v1` zapisują surowy
+  crop, wycięty jasny komponent, raw text, normalized number, confidence,
+  wersje i checksumy bez pobierania modelu w runtime,
+- oficjalny `en_PP-OCRv5_mobile_rec` osiągnął na 108 niezależnie opisanych
+  numerach `68/108 = 62.9630%`; `58` pozycji wymaga review, `51` narusza
+  ciągłość, a raport ma SHA-256
+  `bae6f8129115e45d4085ac75d8990d6ef06691db8847153e71afee69e7247d0b`,
+- retry pełnego przebiegu dał identyczny raport i 216 referencjonowanych,
+  content-addressed artefaktów; walidacja ciągłości nie nadpisuje raw ani
+  normalized, a brak modelu kończy się stabilnym błędem,
+- 47 testów całego pionu obrazów, Ruff, mypy i `pip check` przechodzi. Wynik
+  62.9630% jest uczciwym baseline'em poniżej proponowanego progu 98%, dlatego
+  G5.4 pozostaje niezaliczona i wymaga decyzji po TASK-0057.
 
 ## In progress
 
@@ -747,11 +761,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po kolejnym jawnym poleceniu rozpocząć `TASK-0056 — Sequence number OCR and
-continuity validation`. Nie oznacza to zaliczenia G5.1 ani G5.3; Q-016/Q-017,
-niezależne golden i akceptacja progów pozostają otwarte. Równolegle
-TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
-Pixela i Samsunga.
+Rozpocząć `TASK-0057 — Geometry and OCR benchmark report`: skatalogować błędy
+OCR, zmierzyć czas i rozmiar artefaktów oraz porównać alternatywę dla etapu,
+który nie osiągnął proponowanego progu. Q-016/Q-017 i pełny korpus pozostają
+otwarte. Równolegle TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na
+fizycznych raportach Pixela i Samsunga.
 
 ## Do not start yet
 

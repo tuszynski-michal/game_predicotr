@@ -154,7 +154,8 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
 ### Zadanie
 
-- `TASK-0056 — Sequence number OCR and continuity validation`
+- `TASK-0056 — Sequence number OCR and continuity validation` — done
+  2026-07-28; baseline `68/108 = 62.9630%`, G5.4 pozostaje niezaliczona
 
 ### Bramka G5.4
 
@@ -163,6 +164,10 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 - konflikt numerów trafia do jawnego błędu/review,
 - ciągłość nie zastępuje rozpoznanej wartości bez śladu,
 - adapter OCR można wymienić bez zmiany stagingu.
+
+Kontrakt i metryka są gotowe, ale proponowany próg 98% nie został osiągnięty.
+TASK-0057 ma porównać przypadki błędów i koszt poprawy; nie wolno oznaczyć G5.4
+jako `passed` wyłącznie dlatego, że wszystkie pozycje otrzymały raport.
 
 ## M5.5 — Benchmark i decyzja o stosie
 

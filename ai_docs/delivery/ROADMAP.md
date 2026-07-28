@@ -162,7 +162,7 @@ M5 jest realizowany przez:
 - Pillow/OpenCV/NumPy,
 - indywidualna korekta perspektywy mini-layoutów,
 - detekcja siatki 3 × 3,
-- PaddleOCR ograniczony do cyfr,
+- lokalny model recognition-only PP-OCRv5 przez PaddlePaddle CPU i dekoder cyfr,
 - wycięcie komórek 3 × 5,
 - pomiary jakości każdego etapu.
 

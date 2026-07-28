@@ -39,7 +39,8 @@ Import nie jest pojedynczym endpointem HTTP. Jest długotrwałym, wznawialnym pi
 - Python,
 - Pillow do wejścia/wyjścia i metadanych,
 - `opencv-python-headless` oraz NumPy do geometrii, korekty perspektywy i wycinania,
-- PaddleOCR w ograniczonym trybie cyfr jako pierwsza implementacja OCR,
+- oficjalny model recognition-only `en_PP-OCRv5_mobile_rec` uruchamiany
+  bezpośrednio przez lokalny CPU runtime PaddlePaddle i dekoder cyfr,
 - PyTorch i torchvision do treningu klasyfikatora symboli,
 - ONNX Runtime do lokalnej inferencji wersji produkcyjnej.
 
@@ -124,11 +125,23 @@ Kontrakt `board-cell-crops-v1` działa tylko na kompletnym wyniku
 
 ### 5. Odczyt sequence number
 
-- wytnij obszar numeru pod layoutem,
-- ogranicz OCR do cyfr,
-- zapisz surowy tekst, wartość znormalizowaną i confidence,
-- wykorzystaj oczekiwaną ciągłość 9 numerów na zdjęciu jako walidację, nie jako ciche nadpisanie OCR,
-- raportuj luki, duplikaty i konflikt z sąsiednimi zdjęciami.
+- kontrakt `sequence-number-ocr-v1` wyprowadza deterministyczny quad z dolnej
+  krawędzi każdego layoutu i tworzy crop RGB 192 × 64,
+- wersjonowany preprocessing `bright-component-tight-v1` usuwa górną krawędź
+  ramki, wybiera jasne komponenty i zachowuje również surowy crop,
+- adapter `SequenceNumberRecognizer` otrzymuje pojedynczy wiersz obrazu; jego
+  pierwsza implementacja używa lokalnego `en_PP-OCRv5_mobile_rec`, PaddlePaddle
+  CPU i CTC ograniczonego do blank oraz cyfr `0–9`,
+- raport zapisuje surowy tekst, wartość znormalizowaną, confidence, wersję
+  runtime/modelu, checksumy oraz względne ścieżki obu cropów,
+- wartość znormalizowana powstaje tylko wtedy, gdy cały raw text składa się z
+  cyfr; confidence pozostaje prawdopodobieństwem klas zwróconym przez model,
+- ciągłość wszystkich pozycji w kolejności korpusu flaguje nierozpoznanie,
+  duplikat, lukę albo konflikt, ale nigdy nie zmienia raw text ani normalized
+  number,
+- baseline na niezależnych numerach 1–108 osiąga `68/108 = 62.9630%`,
+  `58/108` pozycji wymaga review, a `51/108` ma konflikt ciągłości; wynik jest
+  pomiarem prototypu poniżej proponowanego progu 98%, nie zaliczeniem G5.4.
 
 ### 6. Podział na komórki
 

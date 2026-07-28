@@ -64,5 +64,6 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0053 — EXIF normalization and diagnostics](0053-exif-normalization-diagnostics.md)
 - [TASK-0054 — Page and 3x3 board detection](0054-page-3x3-board-detection.md)
 - [TASK-0055 — Per-board perspective correction and cell crops](0055-per-board-perspective-cell-crops.md)
+- [TASK-0056 — Sequence number OCR and continuity validation](0056-sequence-number-ocr-continuity.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

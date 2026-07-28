@@ -319,15 +319,20 @@ Zaakceptowany stos prototypu:
 - Pillow `12.3.0`,
 - `opencv-python-headless` `4.13.0.92`,
 - NumPy `2.4.6`,
-- PaddleOCR ograniczony do cyfr,
+- PaddlePaddle CPU `3.3.1` z oficjalnym modelem recognition-only
+  `en_PP-OCRv5_mobile_rec`,
+- PyYAML `6.0.3` do odczytu kontraktu lokalnego modelu,
 - PyTorch i torchvision do treningu,
 - ONNX Runtime do inferencji.
 
 Geometria, OCR i klasyfikator implementują osobne porty. Dla prototypu
 geometrii przypięto dojrzałą linię OpenCV 4.13 zamiast świeżego major 5, aby
-nie łączyć zmiany kontraktu biblioteki z eksperymentem algorytmicznym. Finalne
-modele zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych
-zdjęciach.
+nie łączyć zmiany kontraktu biblioteki z eksperymentem algorytmicznym. Zgodnie
+z D-055 adapter OCR używa bezpośrednio lokalnych plików Paddle Inference,
+ponieważ pakiet PaddleOCR/PaddleX wymuszał konfliktujące wersje OpenCV i NumPy.
+Dekoder dopuszcza wyłącznie cyfry, lecz model pozostaje wymienny. Finalne modele
+zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych
+zdjęciach; obecny wynik 62.9630% nie zalicza G5.4.
 
 ## Monorepo
 

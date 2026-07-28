@@ -401,6 +401,15 @@ Moduły `domain/` nie importują FastAPI, React, Expo ani ORM. Porty oddzielają
 - OCR i klasyfikację od konkretnych bibliotek,
 - przygotowanie wydania od konkretnej komendy Android build.
 
+`SequenceNumberRecognizer` jest wersjonowanym portem recognition-only. Runner
+`sequence-number-ocr-v1` samodzielnie weryfikuje checksumy manifestu,
+normalizacji, detekcji i lokalnego modelu, tworzy content-addressed `raw.png`
+oraz `foreground.png`, a następnie zapisuje raw text, normalized number i
+confidence. Pierwszy adapter D-055 uruchamia oficjalny model
+`en_PP-OCRv5_mobile_rec` bezpośrednio przez PaddlePaddle CPU; brak modelu ma
+stabilny błąd i nie może uruchomić pobierania. Walidacja ciągłości jest osobną
+czystą funkcją: dodaje powody review, lecz nie poprawia odpowiedzi OCR.
+
 ### Kontrakt lokalnego repozytorium M1
 
 `LocalLayoutRepository` otrzymuje już otwartą instancję SQLite od warstwy

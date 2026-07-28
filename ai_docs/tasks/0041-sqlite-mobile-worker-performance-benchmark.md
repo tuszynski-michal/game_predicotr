@@ -1,7 +1,7 @@
 ---
 title: SQLite, mobile and worker performance benchmark
 status: blocked
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # TASK-0041 — SQLite, mobile and worker performance benchmark
@@ -139,6 +139,19 @@ npm run quality
 
 ### Partial verification results
 
+Benchmarkowe APK zostało zbudowane po wznowieniu zadania:
+
+- release `m35-benchmark.1`, version code `4`,
+- rozmiar APK `55 854 686` bajtów,
+- SHA-256 APK
+  `b1ee6fe149e6193b017f8657bac06c63c1fd09b9c14946c2d7f692dad3b0ce11`,
+- osadzony SQLite ma oczekiwany SHA-256
+  `04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27`,
+- niezależny verifier potwierdził `arm64-v8a`, prywatny podpis, standalone
+  bundle i brak uprawnienia `INTERNET`,
+- bazowy asset `m1-snapshot.db` został po buildzie przywrócony do SHA-256
+  `4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`.
+
 Windows/Python SQLite 3.50.4 na snapshotcie `41025536` bajtów:
 
 - exact unique p95 `0.0024 ms`,
@@ -170,12 +183,16 @@ Testy pomocnicze Python: `8 passed`. Mobilny typecheck przeszedł, a test
 harnessu: `2 passed`. ESLint zmienionych plików i składnia wszystkich 11
 skryptów PowerShell przeszły.
 
+Po wznowieniu zadania mobilny typecheck przeszedł ponownie, a pełny zestaw
+mobilny zakończył się wynikiem `66 passed`. Pierwsze uruchomienie miało jeden
+timeout istniejącego testu UI po długim buildzie; izolowane powtórzenie
+`6 passed` oraz ponowienie całego zestawu `66 passed` potwierdziły brak
+powtarzalnej regresji.
+
 ### Not completed
 
-- APK benchmarkowe nie powstało. Proces uruchomiony poza sandboxem nie może
-  odczytać lokalnego artefaktu TASK-0040, ponieważ jego końcowy katalog również
-  ma właściciela `CodexSandboxOffline`. ACL nie zmieniono.
-- ADB nie widzi obecnie żadnego podłączonego telefonu.
+- ADB nie widzi obecnie żadnego podłączonego telefonu, dlatego zweryfikowane APK
+  nie zostało jeszcze zainstalowane.
 - Czasy Hermes/Expo SQLite, peak PSS/RSS i ręczna płynność przewijania na Pixelu
   oraz Samsungu pozostają do wykonania. Bez nich TASK-0041 nie jest ukończony.
 

@@ -1,7 +1,7 @@
 ---
 title: Benchmark decision and release pipeline acceptance
 status: blocked
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # TASK-0042 — Benchmark decision and release pipeline acceptance
@@ -20,8 +20,9 @@ spełnieniu wszystkich kryteriów fizycznych i release.
 ## Context
 
 TASK-0040 dostarczył zwalidowany dataset 500 000 layoutów. TASK-0041 zapisał
-wyniki Windows/SQLite i workera oraz przygotował harness Android, ale pozostaje
-zablokowany bez APK i pomiarów na Pixelu oraz Samsungu. TASK-0039 ma kompletną
+wyniki Windows/SQLite i workera oraz przygotował harness Android i zweryfikowane
+APK `m35-benchmark.1 (4)`, ale pozostaje zablokowany bez pomiarów na Pixelu oraz
+Samsungu. TASK-0039 ma kompletną
 automatyczną macierz awarii, lecz nie ma fizycznego APK i aktualizacji
 urządzenia. Na polecenie właściciela TASK-0042 rozpoczyna się mimo tych braków,
 aby brakujące dowody były raportowane maszynowo, a nie zastępowane
@@ -138,7 +139,8 @@ niekompletne.
 
 ## Risks / open questions
 
-- TASK-0041 nie może dostarczyć raportów urządzeń bez benchmarkowego APK.
+- TASK-0041 nie może dostarczyć raportów urządzeń bez fizycznie podłączonych
+  Pixela i Samsunga; benchmarkowe APK jest już dostępne i zweryfikowane.
 - TASK-0039 nie może dostarczyć dowodu release bez minimalnego dostępu builda
   do dwóch plików snapshotu i fizycznej aktualizacji urządzenia.
 - Jeśli urządzenie przekroczy 10 s dla Target E2E, potrzebny będzie osobny
@@ -172,6 +174,12 @@ niekompletne.
 - decyzja: `pending_device_evidence`,
 - nie ma wyniku `failed`, więc obecne pomiary nie uzasadniają zmiany adaptera.
 
+Ponowna ocena 2026-07-28, już po zbudowaniu i statycznej weryfikacji
+benchmarkowego APK, zachowała ten sam poprawny wynik: cztery kontrole `passed`,
+pięć grup dowodów `missing`, decyzja `pending_device_evidence` i status
+`blocked`. Samo istnienie APK nie zastępuje raportów ADB ani fizycznego dowodu
+workflow release.
+
 `--require-pass` zgodnie z kontraktem zwraca kod `1`.
 
 ### Verification
@@ -183,6 +191,8 @@ niekompletne.
 - mypy: `94 source files`,
 - Ruff, TypeScript, ESLint zmienionych plików, Prettier oraz składnia 11
   skryptów PowerShell przeszły.
+- Po ponownym uruchomieniu oceny: `4 passed` dla testów acceptance, Ruff i mypy
+  przeszły, a `--require-pass` zgodnie z kontraktem zwrócił kod `1`.
 
 Pierwszy pełny pytest bez `--basetemp` nie mógł odczytać systemowego katalogu
 `pytest-of-user` w sandboxie. Powtórzenie z ignorowanym
@@ -190,13 +200,13 @@ Pierwszy pełny pytest bez `--basetemp` nie mógł odczytać systemowego katalog
 
 ### Not completed
 
-- nie utworzono benchmarkowego APK i nie wykonano pomiarów obu telefonów,
+- utworzono benchmarkowe APK, ale nie wykonano pomiarów obu telefonów,
 - nie utworzono fizycznego raportu release z TASK-0039,
 - nie podjęto ostatecznej decyzji TEXT/BLOB ani adaptera,
 - G3 i M3 pozostają niezaliczone.
 
 ### Recommended next step
 
-Rozwiązać minimalny dostęp builda do chronionych plików bez zmiany ACL bez
-zgody właściciela, dokończyć TASK-0039 i TASK-0041, a następnie ponowić
+Podłączyć kolejno Pixel i Samsung, dokończyć TASK-0041 oraz fizyczny dowód
+TASK-0039, a następnie ponowić
 `m35:acceptance:evaluate -- --require-pass`.

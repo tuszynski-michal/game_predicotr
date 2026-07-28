@@ -211,14 +211,10 @@ def test_datasets_openapi_exposes_preview_and_publication_operations() -> None:
     create_schema = schema["components"]["schemas"]["MockDatasetCreate"]
     assert create_schema["required"] == ["rulesVersionId", "seed"]
     assert create_schema["properties"]["seed"]["minimum"] == 0
-    report_schema = schema["components"]["schemas"][
-        "DatasetValidationReportResponse"
-    ]
+    report_schema = schema["components"]["schemas"]["DatasetValidationReportResponse"]
     assert "readyForPublication" in report_schema["required"]
     assert "duplicateSignatures" in report_schema["required"]
-    page_schema = schema["components"]["schemas"][
-        "DatasetLayoutPageResponse"
-    ]
+    page_schema = schema["components"]["schemas"]["DatasetLayoutPageResponse"]
     assert page_schema["required"] == [
         "datasetVersionId",
         "datasetVersion",
@@ -230,9 +226,7 @@ def test_datasets_openapi_exposes_preview_and_publication_operations() -> None:
     layout_operation = schema["paths"][
         "/api/v1/admin/dataset-versions/{dataset_version_id}/layouts"
     ]["get"]
-    parameters = {
-        parameter["name"]: parameter for parameter in layout_operation["parameters"]
-    }
+    parameters = {parameter["name"]: parameter for parameter in layout_operation["parameters"]}
     assert parameters["after_sequence_number"]["schema"]["minimum"] == 0
     assert parameters["limit"]["schema"]["maximum"] == 100
 
@@ -261,3 +255,52 @@ def test_jobs_openapi_exposes_retry_and_public_lease_observability() -> None:
     assert "leaseToken" not in response_schema["properties"]
     assert "leaseOwner" not in response_schema["properties"]
     assert "checkpointPayload" not in response_schema["properties"]
+
+    import_create = schema["components"]["schemas"]["ImportJobCreatePayload"]
+    assert import_create["required"] == ["sourcePath"]
+    assert set(import_create["properties"]) == {
+        "schemaVersion",
+        "sourcePath",
+        "contractVersion",
+    }
+    import_response = schema["components"]["schemas"]["ImportJobPayload"]
+    assert {
+        "importKind",
+        "sourceChecksum",
+        "sourceSizeBytes",
+        "fileFormat",
+        "contractVersion",
+    }.issubset(import_response["required"])
+
+
+def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    report_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report"
+    rows_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/rows"
+    publication_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/publish"
+    rejection_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/staging"
+
+    assert schema["paths"][report_path]["get"]["operationId"] == ("getLayoutImportIntegrityReport")
+    assert schema["paths"][rows_path]["get"]["operationId"] == ("listLayoutImportNormalizedRows")
+    assert schema["paths"][publication_path]["post"]["operationId"] == (
+        "publishLayoutImportDataset"
+    )
+    assert schema["paths"][rejection_path]["delete"]["operationId"] == ("rejectLayoutImportStaging")
+    assert schema["paths"][report_path]["get"]["tags"] == ["layout-imports"]
+    response_schema = schema["components"]["schemas"]["LayoutImportIntegrityReportResponse"]
+    assert {
+        "readyForPublication",
+        "expectedRowCount",
+        "actualRowCount",
+        "missingSequenceCount",
+        "duplicateSequences",
+        "duplicateSignatures",
+        "errorCodeCounts",
+    }.issubset(response_schema["required"])
+    parameters = {
+        parameter["name"]: parameter
+        for parameter in schema["paths"][rows_path]["get"]["parameters"]
+    }
+    assert parameters["after_line_number"]["schema"]["minimum"] == 0
+    assert parameters["limit"]["schema"]["maximum"] == 100
+    assert parameters["status"]["schema"]["$ref"].endswith("LayoutImportRowStatus")

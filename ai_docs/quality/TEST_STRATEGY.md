@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Strategia testów
@@ -152,8 +152,44 @@ Od M2, na testowym PostgreSQL:
 - nieudana publikacja bez częściowej zmiany statusu lub `published_at`,
 - publikacja pod blokadą rekordu i archiwizacja zachowująca `published_at`,
 - idempotentny import,
+- strumieniowy parser CSV/JSONL zachowujący fizyczne numery linii i offsety,
+- bounded obsługa linii większej niż limit bez utraty kolejnego rekordu,
+- izolacja parserowo błędnego wiersza bez utraty poprawnych wierszy partii,
+- idempotentny upsert surowego stagingu po `(job_id, line_number)`,
+- awaria po upsercie przed checkpointem i replay bez duplikatów,
+- usunięcie wyłącznie nietrwałego ogona znajdującego się za checkpointem,
+- niezgodny łańcuch checksumy prefiksu wymuszający pełny bezpieczny replay,
+- zmiana pliku przed lub podczas stagingu blokująca ukończenie joba,
 - staging nie trafia do wydania,
-- transakcja publikacji,
+- walidacja importu odrzuca nieukończony job, nieopublikowane reguły, obcą grę
+  i pusty aktywny alfabet,
+- stała szerokość sygnatury wynika z całego aktywnego alfabetu wersji reguł,
+- zła liczba komórek i obcy symbol są izolowane ze stabilnym kodem bez utraty
+  dobrych wierszy,
+- bounded odczyt surowego stagingu oraz idempotentny upsert normalizacji po
+  `(validation_job_id, line_number)`,
+- awaria po upsercie normalizacji przed checkpointem bezpiecznie powtarza
+  partię i daje ten sam staging,
+- raport zakończonego importu porównuje oczekiwany i rzeczywisty licznik
+  stagingu, liczy luki od `1` wyłącznie na poprawnych wierszach oraz traktuje
+  błędny wiersz jako blokadę bez wypełniania jego numeru,
+- dokładne agregaty duplikatów numerów i sygnatur zachowują bounded,
+  deterministyczne próbki; duplikat numeru blokuje, a duplikat sygnatury
+  pozostaje ostrzeżeniem,
+- lista znormalizowanych wierszy używa keyset po `line_number` i łączy filtry
+  statusu oraz kodu błędu bez materializacji całego stagingu,
+- odrzucenie stagingu usuwa znormalizowane wiersze przed surowymi, zachowuje
+  joby, jest idempotentne dla pustego stagingu i respektuje FK,
+- aktywna walidacja oraz dataset wskazujący import lub walidację blokują
+  odrzucenie stabilnym konfliktem,
+- publikacja błędnego stagingu zwraca stabilny konflikt i nie pozostawia
+  `dataset_versions` ani layoutów,
+- poprawny import z dozwolonym duplikatem sygnatury tworzy w jednej transakcji
+  opublikowany dataset o ciągu `1..layout_count`, poprawnym codec i
+  `source_job_id` walidacji,
+- retry publikacji zwraca ten sam dataset, a częściowy unikalny indeks
+  `source_job_id` chroni idempotencję także na poziomie PostgreSQL,
+- po publikacji odrzucenie stagingu jest blokowane,
 - unikalna i bezpieczna wersja mobile release,
 - od 1 do 15 unikalnych wyborów gry w jednym atomowym zapisie,
 - blokada staging/archived datasetu lub rules, obcej gry, niezgodnych wymiarów
@@ -207,6 +243,15 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
   checksumy; produkcyjny build sprawdza cały kontrakt komponentu,
 - pobranie APK przechodzi przez wygenerowany klient; test API odrzuca release
   niegotowy i zmianę SHA-256 oraz zwraca zweryfikowane bajty gotowego pliku.
+- panel importu tworzy typowany job importu i walidacji, pokazuje tekstowo każdy
+  check raportu, dokładne liczniki i informację o obcięciu próbek,
+- filtry statusu i kodu błędu resetują kursor, a następna/poprzednia strona
+  zachowuje keyset `line_number`,
+- podgląd poprawnego wiersza mapuje komórki row-major do siatki wymiarów reguł,
+- odrzucenie wymaga otwarcia osobnego dialogu i przepisania dokładnego
+  `importJobId`; podwójny submit jest zablokowany,
+- test przeglądarkowy sprawdza pusty stan, brak błędów konsoli i brak poziomego
+  overflow przy szerokości 390 px.
 
 ## Mobile tests
 

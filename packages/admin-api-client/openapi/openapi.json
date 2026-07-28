@@ -603,7 +603,7 @@
             "type": "string"
           },
           "inputPayload": {
-            "$ref": "#/components/schemas/ImportJobPayload"
+            "$ref": "#/components/schemas/ImportJobCreatePayload"
           },
           "jobType": {
             "const": "import",
@@ -619,14 +619,14 @@
         "title": "ImportJobCreate",
         "type": "object"
       },
-      "ImportJobPayload": {
+      "ImportJobCreatePayload": {
         "additionalProperties": false,
         "properties": {
-          "pipelineVersion": {
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Pipelineversion",
-            "type": "string"
+          "contractVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Contractversion",
+            "type": "integer"
           },
           "schemaVersion": {
             "const": 1,
@@ -635,15 +635,69 @@
             "type": "integer"
           },
           "sourcePath": {
-            "maxLength": 1000,
+            "maxLength": 500,
             "minLength": 1,
             "title": "Sourcepath",
             "type": "string"
           }
         },
         "required": [
+          "sourcePath"
+        ],
+        "title": "ImportJobCreatePayload",
+        "type": "object"
+      },
+      "ImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": 1,
+            "title": "Contractversion",
+            "type": "integer"
+          },
+          "fileFormat": {
+            "enum": [
+              "csv",
+              "jsonl"
+            ],
+            "title": "Fileformat",
+            "type": "string"
+          },
+          "importKind": {
+            "const": "layout_file",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceChecksum": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksum",
+            "type": "string"
+          },
+          "sourcePath": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Sourcepath",
+            "type": "string"
+          },
+          "sourceSizeBytes": {
+            "minimum": 1.0,
+            "title": "Sourcesizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "importKind",
           "sourcePath",
-          "pipelineVersion"
+          "sourceChecksum",
+          "sourceSizeBytes",
+          "fileFormat",
+          "contractVersion"
         ],
         "title": "ImportJobPayload",
         "type": "object"
@@ -804,6 +858,9 @@
                 "$ref": "#/components/schemas/ValidateJobPayload"
               },
               {
+                "$ref": "#/components/schemas/LayoutImportValidateJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PayoutJobPayload"
               },
               {
@@ -908,6 +965,566 @@
         ],
         "title": "JobType",
         "type": "string"
+      },
+      "LayoutImportDuplicateSequenceGroupResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lineNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Linenumbers",
+            "type": "array"
+          },
+          "occurrenceCount": {
+            "title": "Occurrencecount",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sequenceNumber",
+          "occurrenceCount",
+          "lineNumbers",
+          "truncated"
+        ],
+        "title": "LayoutImportDuplicateSequenceGroupResponse",
+        "type": "object"
+      },
+      "LayoutImportDuplicateSignatureGroupResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "lineNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Linenumbers",
+            "type": "array"
+          },
+          "lineNumbersTruncated": {
+            "title": "Linenumberstruncated",
+            "type": "boolean"
+          },
+          "occurrenceCount": {
+            "title": "Occurrencecount",
+            "type": "integer"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Sequencenumbers",
+            "type": "array"
+          },
+          "sequenceNumbersTruncated": {
+            "title": "Sequencenumberstruncated",
+            "type": "boolean"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "signature",
+          "occurrenceCount",
+          "sequenceNumbers",
+          "lineNumbers",
+          "sequenceNumbersTruncated",
+          "lineNumbersTruncated"
+        ],
+        "title": "LayoutImportDuplicateSignatureGroupResponse",
+        "type": "object"
+      },
+      "LayoutImportErrorCodeCountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "count"
+        ],
+        "title": "LayoutImportErrorCodeCountResponse",
+        "type": "object"
+      },
+      "LayoutImportIntegrityCheckCode": {
+        "enum": [
+          "NORMALIZED_ROW_COUNT_MISMATCH",
+          "NO_VALID_IMPORT_ROWS",
+          "INVALID_IMPORT_ROW",
+          "MISSING_SEQUENCE_NUMBER",
+          "DUPLICATE_SEQUENCE_NUMBER",
+          "DUPLICATE_SIGNATURE"
+        ],
+        "title": "LayoutImportIntegrityCheckCode",
+        "type": "string"
+      },
+      "LayoutImportIntegrityCheckResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/LayoutImportIntegrityCheckCode"
+          },
+          "issueCount": {
+            "title": "Issuecount",
+            "type": "integer"
+          },
+          "lineNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Linenumbers",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "sequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Sequencenumbers",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/LayoutImportIntegrityCheckStatus"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "status",
+          "issueCount",
+          "message",
+          "sequenceNumbers",
+          "lineNumbers",
+          "truncated"
+        ],
+        "title": "LayoutImportIntegrityCheckResponse",
+        "type": "object"
+      },
+      "LayoutImportIntegrityCheckStatus": {
+        "enum": [
+          "passed",
+          "warning",
+          "blocking"
+        ],
+        "title": "LayoutImportIntegrityCheckStatus",
+        "type": "string"
+      },
+      "LayoutImportIntegrityReportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actualRowCount": {
+            "title": "Actualrowcount",
+            "type": "integer"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutImportIntegrityCheckResponse"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "duplicateSequenceAffectedRowCount": {
+            "title": "Duplicatesequenceaffectedrowcount",
+            "type": "integer"
+          },
+          "duplicateSequenceExcessRowCount": {
+            "title": "Duplicatesequenceexcessrowcount",
+            "type": "integer"
+          },
+          "duplicateSequenceGroupCount": {
+            "title": "Duplicatesequencegroupcount",
+            "type": "integer"
+          },
+          "duplicateSequences": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutImportDuplicateSequenceGroupResponse"
+            },
+            "title": "Duplicatesequences",
+            "type": "array"
+          },
+          "duplicateSequencesTruncated": {
+            "title": "Duplicatesequencestruncated",
+            "type": "boolean"
+          },
+          "duplicateSignatureAffectedRowCount": {
+            "title": "Duplicatesignatureaffectedrowcount",
+            "type": "integer"
+          },
+          "duplicateSignatureExcessRowCount": {
+            "title": "Duplicatesignatureexcessrowcount",
+            "type": "integer"
+          },
+          "duplicateSignatureGroupCount": {
+            "title": "Duplicatesignaturegroupcount",
+            "type": "integer"
+          },
+          "duplicateSignatures": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutImportDuplicateSignatureGroupResponse"
+            },
+            "title": "Duplicatesignatures",
+            "type": "array"
+          },
+          "duplicateSignaturesTruncated": {
+            "title": "Duplicatesignaturestruncated",
+            "type": "boolean"
+          },
+          "errorCodeCounts": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutImportErrorCodeCountResponse"
+            },
+            "title": "Errorcodecounts",
+            "type": "array"
+          },
+          "expectedRowCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedrowcount"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "invalidRowCount": {
+            "title": "Invalidrowcount",
+            "type": "integer"
+          },
+          "maxSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxsequencenumber"
+          },
+          "minSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minsequencenumber"
+          },
+          "missingSequenceCount": {
+            "title": "Missingsequencecount",
+            "type": "integer"
+          },
+          "missingSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Missingsequencenumbers",
+            "type": "array"
+          },
+          "missingSequenceNumbersTruncated": {
+            "title": "Missingsequencenumberstruncated",
+            "type": "boolean"
+          },
+          "readyForPublication": {
+            "title": "Readyforpublication",
+            "type": "boolean"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          },
+          "uniqueSequenceCount": {
+            "title": "Uniquesequencecount",
+            "type": "integer"
+          },
+          "validRowCount": {
+            "title": "Validrowcount",
+            "type": "integer"
+          },
+          "validationJobId": {
+            "format": "uuid",
+            "title": "Validationjobid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validationJobId",
+          "importJobId",
+          "rulesVersionId",
+          "rows",
+          "columns",
+          "readyForPublication",
+          "expectedRowCount",
+          "actualRowCount",
+          "validRowCount",
+          "invalidRowCount",
+          "minSequenceNumber",
+          "maxSequenceNumber",
+          "uniqueSequenceCount",
+          "checks",
+          "missingSequenceCount",
+          "missingSequenceNumbers",
+          "missingSequenceNumbersTruncated",
+          "duplicateSequenceGroupCount",
+          "duplicateSequenceAffectedRowCount",
+          "duplicateSequenceExcessRowCount",
+          "duplicateSequences",
+          "duplicateSequencesTruncated",
+          "duplicateSignatureGroupCount",
+          "duplicateSignatureAffectedRowCount",
+          "duplicateSignatureExcessRowCount",
+          "duplicateSignatures",
+          "duplicateSignaturesTruncated",
+          "errorCodeCounts"
+        ],
+        "title": "LayoutImportIntegrityReportResponse",
+        "type": "object"
+      },
+      "LayoutImportNormalizedRowPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LayoutImportNormalizedRowResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextAfterLineNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextafterlinenumber"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          },
+          "validationJobId": {
+            "format": "uuid",
+            "title": "Validationjobid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validationJobId",
+          "importJobId",
+          "rulesVersionId",
+          "rows",
+          "columns",
+          "items",
+          "nextAfterLineNumber"
+        ],
+        "title": "LayoutImportNormalizedRowPageResponse",
+        "type": "object"
+      },
+      "LayoutImportNormalizedRowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cells"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "lineNumber": {
+            "title": "Linenumber",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
+          }
+        },
+        "required": [
+          "lineNumber",
+          "sequenceNumber",
+          "cells",
+          "signature",
+          "errorCode",
+          "errorMessage"
+        ],
+        "title": "LayoutImportNormalizedRowResponse",
+        "type": "object"
+      },
+      "LayoutImportRowStatus": {
+        "enum": [
+          "all",
+          "valid",
+          "invalid"
+        ],
+        "title": "LayoutImportRowStatus",
+        "type": "string"
+      },
+      "LayoutImportStagingRejectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deletedNormalizedRowCount": {
+            "title": "Deletednormalizedrowcount",
+            "type": "integer"
+          },
+          "deletedRawRowCount": {
+            "title": "Deletedrawrowcount",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "validationJobId": {
+            "format": "uuid",
+            "title": "Validationjobid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validationJobId",
+          "importJobId",
+          "deletedNormalizedRowCount",
+          "deletedRawRowCount"
+        ],
+        "title": "LayoutImportStagingRejectionResponse",
+        "type": "object"
+      },
+      "LayoutImportValidateJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "rulesVersionId": {
+            "format": "uuid",
+            "title": "Rulesversionid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "validationKind": {
+            "const": "layout_import",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "validationKind",
+          "importJobId",
+          "rulesVersionId"
+        ],
+        "title": "LayoutImportValidateJobPayload",
+        "type": "object"
       },
       "MobileReleaseApkResponse": {
         "additionalProperties": false,
@@ -2049,7 +2666,15 @@
             "type": "string"
           },
           "inputPayload": {
-            "$ref": "#/components/schemas/ValidateJobPayload"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidateJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/LayoutImportValidateJobPayload"
+              }
+            ],
+            "title": "Inputpayload"
           },
           "jobType": {
             "const": "validate",
@@ -3719,6 +4344,308 @@
         "summary": "Requeue the same failed or review-paused job",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report": {
+      "get": {
+        "operationId": "getLayoutImportIntegrityReport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "validation_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Validation Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutImportIntegrityReportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get exact integrity aggregates and bounded diagnostics",
+        "tags": [
+          "layout-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/layout-import-validations/{validation_job_id}/publish": {
+      "post": {
+        "operationId": "publishLayoutImportDataset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "validation_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Validation Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Atomically publish a validated import as an immutable dataset",
+        "tags": [
+          "layout-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/layout-import-validations/{validation_job_id}/rows": {
+      "get": {
+        "operationId": "listLayoutImportNormalizedRows",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "validation_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Validation Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_line_number",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After Line Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/LayoutImportRowStatus",
+              "default": "all"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutImportNormalizedRowPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List a stable page of normalized import rows",
+        "tags": [
+          "layout-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/layout-import-validations/{validation_job_id}/staging": {
+      "delete": {
+        "operationId": "rejectLayoutImportStaging",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "validation_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Validation Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LayoutImportStagingRejectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Layout import validation state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Reject and remove unpublished import staging",
+        "tags": [
+          "layout-imports"
         ]
       }
     },

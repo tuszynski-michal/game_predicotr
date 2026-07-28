@@ -11,6 +11,7 @@ _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _DEFAULT_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
+_DEFAULT_IMPORT_MAX_BYTES = 1024 * 1024 * 1024
 
 
 class ConfigurationError(ValueError):
@@ -26,6 +27,8 @@ class ApiSettings:
     admin_origin: str
     database_url: str = field(default=_DEFAULT_DATABASE_URL, repr=False)
     artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
+    import_root: Path = field(default_factory=lambda: Path("imports").resolve())
+    import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -52,12 +55,25 @@ class ApiSettings:
         if not artifact_root_value:
             raise ConfigurationError("GAME_PREDICTOR_ARTIFACT_ROOT cannot be empty.")
         artifact_root = Path(artifact_root_value).resolve()
+        import_root_value = source.get("GAME_PREDICTOR_IMPORT_ROOT", "imports").strip()
+        if not import_root_value:
+            raise ConfigurationError("GAME_PREDICTOR_IMPORT_ROOT cannot be empty.")
+        import_root = Path(import_root_value).resolve()
+        import_max_bytes = _parse_positive_integer(
+            source.get(
+                "GAME_PREDICTOR_IMPORT_MAX_BYTES",
+                str(_DEFAULT_IMPORT_MAX_BYTES),
+            ),
+            variable_name="GAME_PREDICTOR_IMPORT_MAX_BYTES",
+        )
         return cls(
             host=host,
             port=port,
             admin_origin=admin_origin,
             database_url=database_url,
             artifact_root=artifact_root,
+            import_root=import_root,
+            import_max_bytes=import_max_bytes,
         )
 
 
@@ -70,6 +86,16 @@ def _parse_port(value: str) -> int:
     if not 1 <= port <= 65535:
         raise ConfigurationError("GAME_PREDICTOR_API_PORT must be between 1 and 65535.")
     return port
+
+
+def _parse_positive_integer(value: str, *, variable_name: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise ConfigurationError(f"{variable_name} must be an integer.") from error
+    if parsed < 1:
+        raise ConfigurationError(f"{variable_name} must be positive.")
+    return parsed
 
 
 def _parse_loopback_origin(value: str) -> str:

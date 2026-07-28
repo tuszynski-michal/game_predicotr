@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Current State
 
 ## Phase
 
-`M3.5 blocked; TASK-0039, TASK-0041 and TASK-0042 require physical evidence`
+`M4 and G4 completed conditionally under D-041; return to M3.5 physical evidence before M5`
 
 ## Completed
 
@@ -470,23 +470,164 @@ last_updated: 2026-07-27
 - rozpisano M2–M8 w siedmiu osobnych planach na 34 podetapy i 75
   zarezerwowanych zadań (`TASK-0015–TASK-0089`) z osobnymi bramkami jakości;
   nie utworzono ani nie
-  rozpoczęto przyszłych plików zadań.
+  rozpoczęto przyszłych plików zadań,
+- właściciel potwierdził ręcznie poprawne działanie układów normalnych,
+  duplikatów i pozostałych funkcji na zainstalowanym kandydacie M3.4,
+- zaakceptowano D-041: implementacja M4 może ruszyć warunkowo, natomiast
+  benchmarki Pixel/Samsung i formalne G3 muszą zostać domknięte po M4 i przed
+  M5,
+- ukończono `TASK-0043`: `layout-import-v1` definiuje ścisłe UTF-8 bez BOM,
+  dokładny CSV oraz strumieniowy JSON Lines, dodatni domenowy numer sekwencji,
+  tablicę komórek row-major i stabilne kody błędów,
+- zaakceptowano D-042; przykłady CSV/JSONL są wykonywalnymi fixture testów, a
+  czysta walidacja kontraktu nie zna ścieżek, API, ORM, wymiarów gry ani
+  katalogu symboli,
+- ukończono `TASK-0044`: API tworzy job importu wyłącznie dla niepustego
+  lokalnego CSV/JSONL znajdującego się pod skonfigurowanym `import_root`,
+  kanonizuje ścieżkę i blokuje traversal, ścieżki absolutne oraz wyjście przez
+  symlink/junction,
+- serwer wykonuje ograniczony preview kontraktu, liczy SHA-256 partiami,
+  wykrywa zmianę pliku podczas inspekcji i utrwala poświadczony format, rozmiar,
+  checksumę, wersję kontraktu oraz ścieżkę względną,
+- idempotencja importu zależy od gry, treści, formatu i wersji kontraktu, więc
+  kopia tych samych bajtów pod inną nazwą nie tworzy drugiego joba,
+- zaakceptowano D-043, zsynchronizowano OpenAPI i klient TypeScript oraz
+  zaliczono bramkę G4.1 bez zmiany schematu PostgreSQL,
+- ukończono `TASK-0045`: migracja `0011_layout_import_staging` dodaje surowe
+  wiersze importu izolowane kluczem `(job_id, line_number)`, fizyczny offset
+  oraz dokładnie jeden wariant poprawnego rekordu albo bezpiecznego błędu,
+- worker `worker-v3` rejestruje handler `import`, ponownie atestuje źródło,
+  czyta CSV/JSONL bounded liniami i partiami po 1000, wykonuje idempotentny
+  upsert, a dopiero potem zapisuje checkpoint bajtów i liczników,
+- łańcuch checksumy fizycznego prefiksu oraz odcięcie nietrwałego ogona
+  zabezpieczają restart także po awarii między upsertem a checkpointem; końcowy
+  SHA-256 musi nadal odpowiadać jobowi,
+- zaakceptowano D-044; pełne testy API/workera dały `324 passed`, wszystkie
+  dziewięć izolowanych integracji PostgreSQL przeszło, a surowy staging nadal
+  nie jest datasetem ani źródłem release.
+- ukończono `TASK-0046`: osobny wariant joba
+  `validate/layout_import` wiąże zakończony surowy import z opublikowaną wersją
+  reguł tej samej gry, bez zmiany dotychczasowego datasetowego `validate`,
+- migracja `0012_layout_import_normalization` dodaje znormalizowany staging
+  keyed przez `(validation_job_id, line_number)`, z FK do surowej linii,
+  zachowaniem błędów parsera i domeny oraz nieunikalnymi indeksami numeru i
+  sygnatury,
+- worker `worker-v4` pobiera surowe rekordy bounded partiami po 1000, waliduje
+  `rows * columns` i aktywny alfabet, wyprowadza szerokość z całej wersji reguł,
+  koduje signature codec v1, wykonuje upsert przed checkpointem i bezpiecznie
+  powtarza partię po awarii,
+- zaakceptowano D-045; staging walidacji nadal nie tworzy
+  `dataset_versions/layouts` ani źródła release, dzięki czemu TASK-0047 może
+  raportować luki oraz duplikaty przed publikacją,
+- TASK-0046 przeszedł `329 passed` standardowych testów Python, `10 passed`
+  fizycznych integracji PostgreSQL, Ruff, mypy dla 104 modułów, kontrolę
+  OpenAPI/generowanego klienta, typecheck panelu i klienta oraz 11 testów
+  klienta TypeScript; zaliczono G4.2.
+- ukończono `TASK-0047`: zakończony staging walidacji ma read-only raport
+  integralności z dokładnymi agregatami liczby wierszy, poprawnych i błędnych
+  wariantów, ciągu od `1`, luk, duplikatów numerów, duplikatów sygnatur i kodów
+  błędów,
+- błędny wiersz jest blokadą i nie wypełnia luki; duplikat numeru blokuje,
+  natomiast duplikat sygnatury pozostaje dozwolonym ostrzeżeniem,
+- próbki diagnostyczne są deterministyczne i ograniczone do 100 elementów, a
+  podgląd stagingu używa keyset po fizycznym `line_number` oraz filtrów statusu
+  i kodu błędu,
+- Admin API udostępnia `integrity-report` i `rows`; OpenAPI oraz klient
+  TypeScript zostały zregenerowane, a panel nie utrzymuje ręcznych typów,
+- zaakceptowano D-046; raport nie tworzy tabeli cache ani datasetu, używa
+  agregatów SQL i bounded przedziałów luk bez generowania zakresu do
+  największego numeru,
+- TASK-0047 przeszedł `346 passed, 1 skipped` w pełnym zestawie Python z
+  włączonymi `11 passed` integracjami PostgreSQL, Ruff, pełny mypy dla 109
+  modułów, kontrolę OpenAPI/generowanego klienta oraz 12 testów klienta
+  TypeScript.
+- ukończono `TASK-0048`: panel ma osobną sekcję ręcznego importu, tworzy typowane
+  joby importu i walidacji, wybiera wyłącznie ukończone walidacje
+  `layout_import` oraz pokazuje dokładne statystyki, tekstowe blokady i
+  dozwolone ostrzeżenia raportu TASK-0047,
+- podgląd wierszy używa filtrów statusu i stabilnego kodu błędu, bounded keyset
+  po `line_number` oraz planszy row-major z etykietami symboli; próbki luk i
+  duplikatów jawnie informują o obcięciu,
+- odrzucenie stagingu wymaga osobnego dialogu i przepisania pełnego
+  `importJobId`; backend usuwa wszystkie znormalizowane wiersze importu przed
+  surowymi, pozostawia joby jako audyt oraz blokuje aktywną walidację i staging
+  używany przez dataset,
+- zaakceptowano D-047; operacja odrzucenia nie wymaga migracji, jest
+  idempotentna dla pustego stagingu i zachowuje granicę publikacji TASK-0049,
+- TASK-0048 przeszedł `336 passed, 12 skipped` w standardowym zestawie Python
+  oraz `11 passed` w pełnej fizycznej macierzy PostgreSQL, Ruff, mypy dla 109
+  modułów, kontrolę
+  OpenAPI/generowanego klienta, 12 testów klienta, 64 testy panelu,
+  produkcyjny build Next.js oraz browser smoke bez błędów konsoli i poziomego
+  overflow przy szerokości 390 px; zaliczono G4.3.
+- ukończono `TASK-0049`: zakończona walidacja `layout_import` bez blokad może
+  atomowo utworzyć opublikowany, niezmienny dataset przez setowy
+  `INSERT ... SELECT`, bez materializowania layoutów w procesie API,
+- publikacja blokuje wspólny job importu, wszystkie jego walidacje, wersję
+  reguł i grę, ponownie liczy raport TASK-0047 oraz sprawdza liczbę skopiowanych
+  rekordów przed ustawieniem `published`,
+- `source_job_id = validation_job_id` jest chroniony częściowym indeksem
+  unikalnym migracji `0013_layout_import_publication`; retry zwraca tę samą
+  wersję, a opublikowany staging nie może zostać odrzucony,
+- panel pokazuje przycisk wyłącznie dla raportu bez blokad, wymaga potwierdzenia
+  niezmienności, blokuje podwójny submit i pokazuje wersję, liczbę layoutów oraz
+  provenance po sukcesie,
+- zaakceptowano D-048; TASK-0049 przeszedł `340 passed, 12 skipped` w
+  standardowym zestawie Python, `11 passed` w pełnej fizycznej macierzy
+  PostgreSQL, 12 testów klienta, 65 testów panelu, Ruff, mypy dla 109 modułów,
+  kontrolę OpenAPI/generowanego klienta, typecheck, ESLint i produkcyjny build
+  Next.js.
+- ukończono `TASK-0050`: deterministyczny generator utworzył strumieniowy
+  JSONL `layout-import-v1` z 500 000 rekordów, sześcioma kontrolowanymi grupami
+  duplikatów sygnatur, SHA-256
+  `214ff8b99c74b24e1781a6b70b0add738588c15c9e85d3df745e14a73ec49d8d`
+  i rozmiarem `42 340 054` bajtów,
+- pierwszy przebieg dużego importu został przerwany po trwałym checkpointcie
+  linii 1000; retry tego samego joba zakończył 500 000 rekordów z
+  `attemptCount = 2`, bez błędów i bez nadmiarowego stagingu,
+- walidacja 500 000 rekordów potwierdziła ciąg `1..500000`, dokładnie
+  `499 994` unikalne sygnatury i sześć dozwolonych grup duplikatów; osobny
+  wariant z luką `10` i duplikatem `9` zwrócił stabilną blokadę publikacji,
+- idempotentna publikacja zwróciła ten sam dataset przy retry, a pipeline
+  obliczył dokładnie 500 000 payoutów i utworzył niezależnie zweryfikowany
+  snapshot `41 246 720` bajtów o SHA-256
+  `103eeb52c9e0e5ef2212073bbff645b67d92285645bdea35425b96307b1b6ade`,
+- pierwszy Android build ujawnił `EPERM` przy destrukcyjnym czyszczeniu
+  wygenerowanego katalogu; po zmianie czyszczenia na jawny opt-in kontrolowany
+  builder wznowił dokładny niezmienny snapshot i utworzył prywatnie podpisany
+  APK `47 409 574` bajtów o SHA-256
+  `63945624cc3c19686e02f7ce2d83d435bc7f41a157473c4381d88920fb79a972`,
+- niezależny audyt finalnego APK potwierdził `arm64-v8a`, release bez debug,
+  podpis `Game Predictor Private Release`, standalone bundle, dokładny SQLite
+  oraz brak uprawnienia `INTERNET`,
+- pełny przebieg wraz z recovery trwał `3931.5769 s`; największy zmierzony peak
+  RSS wyniósł `482 725 888` bajtów, a szczegółowe czasy, przyrosty pamięci,
+  liczniki i historia pierwszego błędu są w
+  `ai_docs/quality/m4-import-acceptance-report.json`,
+- TASK-0050 przeszedł pełne `npm run quality`: 65 testów panelu, 66 mobile,
+  12 klienta, 23 shared, `346 passed, 12 skipped` Python, Ruff, mypy dla 113
+  modułów, PowerShell syntax, OpenAPI, typecheck i walidacje M1; osobna fizyczna
+  macierz PostgreSQL zakończyła się `11 passed`,
+- zaliczono G4 warunkowo na podstawie D-041; M4 nie użyło OCR, zdjęć ani
+  ręcznych mutacji SQL, ale nie zalicza to nadal brakującego G3 na telefonach.
 
 ## In progress
 
-- brak; automatyczna część TASK-0042 jest gotowa, lecz nie może zamknąć G3 bez
-  fizycznych dowodów TASK-0039 i TASK-0041.
+- brak aktywnego zadania implementacyjnego; po warunkowym ukończeniu M4 trzeba
+  wrócić do fizycznych pomiarów TASK-0041/TASK-0042 przed rozpoczęciem M5.
 
 ## Blocked
 
 - `TASK-0039 — Release failure and immutability integration tests`: automatyczna
-  macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe; rzeczywisty
-  APK oraz odbiór aktualizacji wymagają wyraźnej zgody na minimalne prawo
-  `Modify` dla dwóch plików bazowego snapshotu. ACL nie zostało zmienione.
+  macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
+  workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie
+  deklaruje `INTERNET` i zawiera dokładny snapshot. Aktualizacja na Samsungu i
+  ręczne scenariusze funkcjonalne przeszły; pozostaje sformalizowanie dowodu
+  wersji/checksumy i raportu release wymaganego przez TASK-0042.
 - `TASK-0041 — SQLite, mobile and worker performance benchmark`: wyniki
-  Windows/SQLite i workera są zapisane, a harness Android jest gotowy. APK i
-  pomiary offline na Pixelu oraz Samsungu blokuje dostęp procesu build do
-  artefaktu właściciela `CodexSandboxOffline`; ADB nie widzi telefonu.
+  Windows/SQLite i workera są zapisane, a harness Android jest gotowy. Nie
+  istnieją jeszcze raporty benchmarku 500 000 layoutów z Pixela i Samsunga;
+  zwykłe testy funkcjonalne nie zastępują czasów, pamięci i przewijania.
 - `TASK-0042 — Benchmark decision and release pipeline acceptance`: raport
   `m35-acceptance-report.json` przechodzi dataset, SQLite, worker i kontrolę
   zależności, ale ma status `blocked`, pięć grup brakujących dowodów oraz
@@ -544,10 +685,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Udostępnić buildowi benchmarkowy snapshot bez rozszerzania ACL bez zgody,
-dokończyć fizyczny workflow TASK-0039 i zebrać pomiary TASK-0041 na Pixelu
-oraz Samsungu. Następnie ponowić ocenę TASK-0042 z `--require-pass`; G3
-pozostaje niezaliczona.
+Wznowić `TASK-0041 — SQLite, mobile and worker performance benchmark`: podgrać
+APK 500 000 layoutów na Pixel 10 Pro XL i Samsung Galaxy S21 Ultra, zebrać
+raporty czasu/pamięci/przewijania, a następnie ponowić TASK-0042 z
+`--require-pass`. G3 pozostaje niezaliczona i M5 nie może się rozpocząć do czasu
+zebrania tych dowodów.
 
 ## Do not start yet
 

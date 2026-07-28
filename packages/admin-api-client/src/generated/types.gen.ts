@@ -371,7 +371,7 @@ export type ImportJobCreate = {
    * Gameid
    */
   gameId: string;
-  inputPayload: ImportJobPayload;
+  inputPayload: ImportJobCreatePayload;
   /**
    * Jobtype
    */
@@ -379,13 +379,13 @@ export type ImportJobCreate = {
 };
 
 /**
- * ImportJobPayload
+ * ImportJobCreatePayload
  */
-export type ImportJobPayload = {
+export type ImportJobCreatePayload = {
   /**
-   * Pipelineversion
+   * Contractversion
    */
-  pipelineVersion: string;
+  contractVersion?: 1;
   /**
    * Schemaversion
    */
@@ -394,6 +394,40 @@ export type ImportJobPayload = {
    * Sourcepath
    */
   sourcePath: string;
+};
+
+/**
+ * ImportJobPayload
+ */
+export type ImportJobPayload = {
+  /**
+   * Contractversion
+   */
+  contractVersion: 1;
+  /**
+   * Fileformat
+   */
+  fileFormat: 'csv' | 'jsonl';
+  /**
+   * Importkind
+   */
+  importKind: 'layout_file';
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Sourcechecksum
+   */
+  sourceChecksum: string;
+  /**
+   * Sourcepath
+   */
+  sourcePath: string;
+  /**
+   * Sourcesizebytes
+   */
+  sourceSizeBytes: number;
 };
 
 /**
@@ -479,6 +513,7 @@ export type JobResponse = {
   inputPayload:
     | ImportJobPayload
     | ValidateJobPayload
+    | LayoutImportValidateJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload;
@@ -519,6 +554,348 @@ export type JobStatus =
  */
 export type JobType =
   'import' | 'validate' | 'payout' | 'snapshot' | 'android_build';
+
+/**
+ * LayoutImportDuplicateSequenceGroupResponse
+ */
+export type LayoutImportDuplicateSequenceGroupResponse = {
+  /**
+   * Linenumbers
+   */
+  lineNumbers: Array<number>;
+  /**
+   * Occurrencecount
+   */
+  occurrenceCount: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Truncated
+   */
+  truncated: boolean;
+};
+
+/**
+ * LayoutImportDuplicateSignatureGroupResponse
+ */
+export type LayoutImportDuplicateSignatureGroupResponse = {
+  /**
+   * Linenumbers
+   */
+  lineNumbers: Array<number>;
+  /**
+   * Linenumberstruncated
+   */
+  lineNumbersTruncated: boolean;
+  /**
+   * Occurrencecount
+   */
+  occurrenceCount: number;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  /**
+   * Sequencenumberstruncated
+   */
+  sequenceNumbersTruncated: boolean;
+  /**
+   * Signature
+   */
+  signature: string;
+};
+
+/**
+ * LayoutImportErrorCodeCountResponse
+ */
+export type LayoutImportErrorCodeCountResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Count
+   */
+  count: number;
+};
+
+/**
+ * LayoutImportIntegrityCheckCode
+ */
+export type LayoutImportIntegrityCheckCode =
+  | 'NORMALIZED_ROW_COUNT_MISMATCH'
+  | 'NO_VALID_IMPORT_ROWS'
+  | 'INVALID_IMPORT_ROW'
+  | 'MISSING_SEQUENCE_NUMBER'
+  | 'DUPLICATE_SEQUENCE_NUMBER'
+  | 'DUPLICATE_SIGNATURE';
+
+/**
+ * LayoutImportIntegrityCheckResponse
+ */
+export type LayoutImportIntegrityCheckResponse = {
+  code: LayoutImportIntegrityCheckCode;
+  /**
+   * Issuecount
+   */
+  issueCount: number;
+  /**
+   * Linenumbers
+   */
+  lineNumbers: Array<number>;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Sequencenumbers
+   */
+  sequenceNumbers: Array<number>;
+  status: LayoutImportIntegrityCheckStatus;
+  /**
+   * Truncated
+   */
+  truncated: boolean;
+};
+
+/**
+ * LayoutImportIntegrityCheckStatus
+ */
+export type LayoutImportIntegrityCheckStatus =
+  'passed' | 'warning' | 'blocking';
+
+/**
+ * LayoutImportIntegrityReportResponse
+ */
+export type LayoutImportIntegrityReportResponse = {
+  /**
+   * Actualrowcount
+   */
+  actualRowCount: number;
+  /**
+   * Checks
+   */
+  checks: Array<LayoutImportIntegrityCheckResponse>;
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Duplicatesequenceaffectedrowcount
+   */
+  duplicateSequenceAffectedRowCount: number;
+  /**
+   * Duplicatesequenceexcessrowcount
+   */
+  duplicateSequenceExcessRowCount: number;
+  /**
+   * Duplicatesequencegroupcount
+   */
+  duplicateSequenceGroupCount: number;
+  /**
+   * Duplicatesequences
+   */
+  duplicateSequences: Array<LayoutImportDuplicateSequenceGroupResponse>;
+  /**
+   * Duplicatesequencestruncated
+   */
+  duplicateSequencesTruncated: boolean;
+  /**
+   * Duplicatesignatureaffectedrowcount
+   */
+  duplicateSignatureAffectedRowCount: number;
+  /**
+   * Duplicatesignatureexcessrowcount
+   */
+  duplicateSignatureExcessRowCount: number;
+  /**
+   * Duplicatesignaturegroupcount
+   */
+  duplicateSignatureGroupCount: number;
+  /**
+   * Duplicatesignatures
+   */
+  duplicateSignatures: Array<LayoutImportDuplicateSignatureGroupResponse>;
+  /**
+   * Duplicatesignaturestruncated
+   */
+  duplicateSignaturesTruncated: boolean;
+  /**
+   * Errorcodecounts
+   */
+  errorCodeCounts: Array<LayoutImportErrorCodeCountResponse>;
+  /**
+   * Expectedrowcount
+   */
+  expectedRowCount: number | null;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Invalidrowcount
+   */
+  invalidRowCount: number;
+  /**
+   * Maxsequencenumber
+   */
+  maxSequenceNumber: number | null;
+  /**
+   * Minsequencenumber
+   */
+  minSequenceNumber: number | null;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Missingsequencenumbers
+   */
+  missingSequenceNumbers: Array<number>;
+  /**
+   * Missingsequencenumberstruncated
+   */
+  missingSequenceNumbersTruncated: boolean;
+  /**
+   * Readyforpublication
+   */
+  readyForPublication: boolean;
+  /**
+   * Rows
+   */
+  rows: number;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Uniquesequencecount
+   */
+  uniqueSequenceCount: number;
+  /**
+   * Validrowcount
+   */
+  validRowCount: number;
+  /**
+   * Validationjobid
+   */
+  validationJobId: string;
+};
+
+/**
+ * LayoutImportNormalizedRowPageResponse
+ */
+export type LayoutImportNormalizedRowPageResponse = {
+  /**
+   * Columns
+   */
+  columns: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Items
+   */
+  items: Array<LayoutImportNormalizedRowResponse>;
+  /**
+   * Nextafterlinenumber
+   */
+  nextAfterLineNumber: number | null;
+  /**
+   * Rows
+   */
+  rows: number;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Validationjobid
+   */
+  validationJobId: string;
+};
+
+/**
+ * LayoutImportNormalizedRowResponse
+ */
+export type LayoutImportNormalizedRowResponse = {
+  /**
+   * Cells
+   */
+  cells: Array<number> | null;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Linenumber
+   */
+  lineNumber: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  /**
+   * Signature
+   */
+  signature: string | null;
+};
+
+/**
+ * LayoutImportRowStatus
+ */
+export type LayoutImportRowStatus = 'all' | 'valid' | 'invalid';
+
+/**
+ * LayoutImportStagingRejectionResponse
+ */
+export type LayoutImportStagingRejectionResponse = {
+  /**
+   * Deletednormalizedrowcount
+   */
+  deletedNormalizedRowCount: number;
+  /**
+   * Deletedrawrowcount
+   */
+  deletedRawRowCount: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Validationjobid
+   */
+  validationJobId: string;
+};
+
+/**
+ * LayoutImportValidateJobPayload
+ */
+export type LayoutImportValidateJobPayload = {
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Rulesversionid
+   */
+  rulesVersionId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Validationkind
+   */
+  validationKind: 'layout_import';
+};
 
 /**
  * MobileReleaseApkResponse
@@ -1172,7 +1549,10 @@ export type ValidateJobCreate = {
    * Gameid
    */
   gameId: string;
-  inputPayload: ValidateJobPayload;
+  /**
+   * Inputpayload
+   */
+  inputPayload: ValidateJobPayload | LayoutImportValidateJobPayload;
   /**
    * Jobtype
    */
@@ -2156,6 +2536,180 @@ export type RetryJobResponses = {
 };
 
 export type RetryJobResponse = RetryJobResponses[keyof RetryJobResponses];
+
+export type GetLayoutImportIntegrityReportData = {
+  body?: never;
+  path: {
+    /**
+     * Validation Job Id
+     */
+    validation_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report';
+};
+
+export type GetLayoutImportIntegrityReportErrors = {
+  /**
+   * Layout import validation not found
+   */
+  404: ErrorResponse;
+  /**
+   * Layout import validation state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetLayoutImportIntegrityReportError =
+  GetLayoutImportIntegrityReportErrors[keyof GetLayoutImportIntegrityReportErrors];
+
+export type GetLayoutImportIntegrityReportResponses = {
+  /**
+   * Successful Response
+   */
+  200: LayoutImportIntegrityReportResponse;
+};
+
+export type GetLayoutImportIntegrityReportResponse =
+  GetLayoutImportIntegrityReportResponses[keyof GetLayoutImportIntegrityReportResponses];
+
+export type PublishLayoutImportDatasetData = {
+  body?: never;
+  path: {
+    /**
+     * Validation Job Id
+     */
+    validation_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/layout-import-validations/{validation_job_id}/publish';
+};
+
+export type PublishLayoutImportDatasetErrors = {
+  /**
+   * Layout import validation not found
+   */
+  404: ErrorResponse;
+  /**
+   * Layout import validation state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PublishLayoutImportDatasetError =
+  PublishLayoutImportDatasetErrors[keyof PublishLayoutImportDatasetErrors];
+
+export type PublishLayoutImportDatasetResponses = {
+  /**
+   * Successful Response
+   */
+  200: DatasetVersionResponse;
+};
+
+export type PublishLayoutImportDatasetResponse =
+  PublishLayoutImportDatasetResponses[keyof PublishLayoutImportDatasetResponses];
+
+export type ListLayoutImportNormalizedRowsData = {
+  body?: never;
+  path: {
+    /**
+     * Validation Job Id
+     */
+    validation_job_id: string;
+  };
+  query?: {
+    /**
+     * After Line Number
+     */
+    after_line_number?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+    status?: LayoutImportRowStatus;
+    /**
+     * Error Code
+     */
+    error_code?: string | null;
+  };
+  url: '/api/v1/admin/layout-import-validations/{validation_job_id}/rows';
+};
+
+export type ListLayoutImportNormalizedRowsErrors = {
+  /**
+   * Layout import validation not found
+   */
+  404: ErrorResponse;
+  /**
+   * Layout import validation state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListLayoutImportNormalizedRowsError =
+  ListLayoutImportNormalizedRowsErrors[keyof ListLayoutImportNormalizedRowsErrors];
+
+export type ListLayoutImportNormalizedRowsResponses = {
+  /**
+   * Successful Response
+   */
+  200: LayoutImportNormalizedRowPageResponse;
+};
+
+export type ListLayoutImportNormalizedRowsResponse =
+  ListLayoutImportNormalizedRowsResponses[keyof ListLayoutImportNormalizedRowsResponses];
+
+export type RejectLayoutImportStagingData = {
+  body?: never;
+  path: {
+    /**
+     * Validation Job Id
+     */
+    validation_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/layout-import-validations/{validation_job_id}/staging';
+};
+
+export type RejectLayoutImportStagingErrors = {
+  /**
+   * Layout import validation not found
+   */
+  404: ErrorResponse;
+  /**
+   * Layout import validation state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RejectLayoutImportStagingError =
+  RejectLayoutImportStagingErrors[keyof RejectLayoutImportStagingErrors];
+
+export type RejectLayoutImportStagingResponses = {
+  /**
+   * Successful Response
+   */
+  200: LayoutImportStagingRejectionResponse;
+};
+
+export type RejectLayoutImportStagingResponse =
+  RejectLayoutImportStagingResponses[keyof RejectLayoutImportStagingResponses];
 
 export type ListMobileReleasesData = {
   body?: never;

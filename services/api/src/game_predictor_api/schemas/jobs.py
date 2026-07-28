@@ -12,15 +12,32 @@ from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ApiModel
 
 
+class ImportJobCreatePayload(ApiModel):
+    schema_version: Literal[1] = 1
+    source_path: str = Field(min_length=1, max_length=500)
+    contract_version: Literal[1] = 1
+
+
 class ImportJobPayload(ApiModel):
     schema_version: Literal[1] = 1
-    source_path: str = Field(min_length=1, max_length=1000)
-    pipeline_version: str = Field(min_length=1, max_length=100)
+    import_kind: Literal["layout_file"]
+    source_path: str = Field(min_length=1, max_length=500)
+    source_checksum: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_size_bytes: int = Field(ge=1)
+    file_format: Literal["csv", "jsonl"]
+    contract_version: Literal[1]
 
 
 class ValidateJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     dataset_version_id: UUID
+
+
+class LayoutImportValidateJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    validation_kind: Literal["layout_import"]
+    import_job_id: UUID
+    rules_version_id: UUID
 
 
 class PayoutJobPayload(ApiModel):
@@ -43,13 +60,13 @@ class AndroidBuildJobPayload(ApiModel):
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
-    input_payload: ImportJobPayload
+    input_payload: ImportJobCreatePayload
 
 
 class ValidateJobCreate(ApiModel):
     job_type: Literal[JobType.VALIDATE]
     game_id: UUID
-    input_payload: ValidateJobPayload
+    input_payload: ValidateJobPayload | LayoutImportValidateJobPayload
 
 
 class PayoutJobCreate(ApiModel):
@@ -82,6 +99,7 @@ JobCreateRequest = Annotated[
 JobPayloadResponse = (
     ImportJobPayload
     | ValidateJobPayload
+    | LayoutImportValidateJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
@@ -159,6 +177,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMPORT:
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
+        if job.input_payload.get("validation_kind") == "layout_import":
+            return LayoutImportValidateJobPayload.model_validate(job.input_payload)
         return ValidateJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.PAYOUT:
         return PayoutJobPayload.model_validate(job.input_payload)

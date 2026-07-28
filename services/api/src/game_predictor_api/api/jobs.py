@@ -9,7 +9,13 @@ from fastapi import APIRouter, Depends, Query, status
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.schemas.catalog import ErrorResponse
-from game_predictor_api.schemas.jobs import JobCreateRequest, JobResponse
+from game_predictor_api.schemas.jobs import (
+    ImportJobCreate,
+    JobCreateRequest,
+    JobResponse,
+    LayoutImportValidateJobPayload,
+    ValidateJobCreate,
+)
 
 JobServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -35,11 +41,27 @@ def create_jobs_router(service_dependency: JobServiceDependency) -> APIRouter:
         payload: JobCreateRequest,
         service: Annotated[JobService, service_parameter],
     ) -> JobResponse:
-        job = service.create_job(
-            JobType(payload.job_type),
-            game_id=payload.game_id,
-            input_payload=dict(payload.input_payload.model_dump(mode="json")),
-        )
+        if isinstance(payload, ImportJobCreate):
+            job = service.create_layout_import_job(
+                game_id=payload.game_id,
+                source_path=payload.input_payload.source_path,
+                contract_version=payload.input_payload.contract_version,
+            )
+        elif isinstance(payload, ValidateJobCreate) and isinstance(
+            payload.input_payload,
+            LayoutImportValidateJobPayload,
+        ):
+            job = service.create_layout_import_validation_job(
+                game_id=payload.game_id,
+                import_job_id=payload.input_payload.import_job_id,
+                rules_version_id=payload.input_payload.rules_version_id,
+            )
+        else:
+            job = service.create_job(
+                JobType(payload.job_type),
+                game_id=payload.game_id,
+                input_payload=dict(payload.input_payload.model_dump(mode="json")),
+            )
         return JobResponse.from_domain(job)
 
     @router.get(

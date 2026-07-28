@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [string]$ApkPath = 'apps\mobile\android\app\build\outputs\apk\release\app-release.apk'
+    [string]$ApkPath = 'apps\mobile\android\app\build\outputs\apk\release\app-release.apk',
+
+    [string]$SnapshotManifestPath = 'apps\mobile\assets\snapshot\manifest.json'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,13 +10,18 @@ Set-StrictMode -Version Latest
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $resolvedApkPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $ApkPath))
-$manifestPath = Join-Path $repositoryRoot 'apps\mobile\assets\snapshot\manifest.json'
+$manifestPath = [System.IO.Path]::GetFullPath(
+    (Join-Path $repositoryRoot $SnapshotManifestPath)
+)
 $aaptPath = Join-Path $repositoryRoot '.tooling\android-sdk\build-tools\36.0.0\aapt.exe'
 $apksignerPath = Join-Path $repositoryRoot '.tooling\android-sdk\build-tools\36.0.0\apksigner.bat'
 $localJdkRoot = Join-Path $repositoryRoot '.tooling\jdk'
 
 if (-not (Test-Path -LiteralPath $resolvedApkPath)) {
     throw "APK not found at $resolvedApkPath."
+}
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+    throw "Snapshot manifest not found at $manifestPath."
 }
 if (-not (Test-Path -LiteralPath $aaptPath)) {
     throw 'Android Asset Packaging Tool was not found. Run npm run android:toolchain:setup.'

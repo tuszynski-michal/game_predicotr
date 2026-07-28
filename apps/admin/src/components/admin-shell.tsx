@@ -40,12 +40,16 @@ export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
             <span aria-hidden="true">04</span>
             Datasety
           </a>
-          <a className="navItem navItemAvailable" href="#jobs">
+          <a className="navItem navItemAvailable" href="#imports">
             <span aria-hidden="true">05</span>
+            Import layoutów
+          </a>
+          <a className="navItem navItemAvailable" href="#jobs">
+            <span aria-hidden="true">06</span>
             Jobs
           </a>
           <a className="navItem navItemAvailable" href="#releases">
-            <span aria-hidden="true">06</span>
+            <span aria-hidden="true">07</span>
             Wydania Android
           </a>
         </nav>

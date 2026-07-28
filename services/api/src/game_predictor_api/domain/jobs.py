@@ -133,10 +133,19 @@ def job_input_key(
     game_id: UUID | None,
     input_payload: dict[str, object],
 ) -> str:
+    identity_payload = input_payload
+    if job_type is JobType.IMPORT and input_payload.get("import_kind") == "layout_file":
+        identity_payload = {
+            "schema_version": input_payload.get("schema_version"),
+            "import_kind": input_payload.get("import_kind"),
+            "source_checksum": input_payload.get("source_checksum"),
+            "file_format": input_payload.get("file_format"),
+            "contract_version": input_payload.get("contract_version"),
+        }
     canonical = json.dumps(
         {
             "gameId": None if game_id is None else str(game_id),
-            "inputPayload": input_payload,
+            "inputPayload": identity_payload,
             "jobType": job_type.value,
         },
         ensure_ascii=True,
@@ -244,11 +253,7 @@ def update_job_progress(
             "JOB_PROGRESS_REGRESSION",
             "Progress counters cannot decrease.",
         )
-    if (
-        job.progress_total is not None
-        and total is not None
-        and total < job.progress_total
-    ):
+    if job.progress_total is not None and total is not None and total < job.progress_total:
         raise JobError(
             "JOB_PROGRESS_REGRESSION",
             "progress.total cannot decrease.",

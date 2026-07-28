@@ -22,6 +22,7 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getJob as getGeneratedJob,
+  getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
   getMobileRelease as getGeneratedMobileRelease,
   getPayline as getGeneratedPayline,
   getPayoutRule as getGeneratedPayoutRule,
@@ -30,6 +31,7 @@ import {
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listJobs as listGeneratedJobs,
+  listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
   listMobileReleases as listGeneratedMobileReleases,
   listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
@@ -40,6 +42,8 @@ import {
   listSymbols as listGeneratedSymbols,
   publishRulesVersion as publishGeneratedRulesVersion,
   publishDatasetVersion as publishGeneratedDatasetVersion,
+  publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
+  rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
@@ -52,6 +56,7 @@ import type {
   CreateJobData,
   JobStatus,
   JobType,
+  LayoutImportRowStatus,
   MockDatasetCreate,
   MobileReleaseCreate,
   GameCreate,
@@ -91,6 +96,18 @@ export type {
   JobResponse,
   JobStatus,
   JobType,
+  LayoutImportDuplicateSequenceGroupResponse,
+  LayoutImportDuplicateSignatureGroupResponse,
+  LayoutImportErrorCodeCountResponse,
+  LayoutImportIntegrityCheckCode,
+  LayoutImportIntegrityCheckResponse,
+  LayoutImportIntegrityCheckStatus,
+  LayoutImportIntegrityReportResponse,
+  LayoutImportNormalizedRowPageResponse,
+  LayoutImportNormalizedRowResponse,
+  LayoutImportRowStatus,
+  LayoutImportStagingRejectionResponse,
+  LayoutImportValidateJobPayload,
   MockDatasetCreate,
   MobileReleaseApkResponse,
   MobileReleaseBuildResponse,
@@ -140,6 +157,13 @@ export interface ListJobsOptions {
   readonly limit?: number;
 }
 
+export interface ListLayoutImportRowsOptions {
+  readonly afterLineNumber?: number;
+  readonly limit?: number;
+  readonly status?: LayoutImportRowStatus;
+  readonly errorCode?: string;
+}
+
 export function createAdminApiClient(options: AdminApiClientOptions) {
   const client = createGeneratedClient({
     baseUrl: options.baseUrl,
@@ -167,6 +191,39 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       cancelGeneratedJob({ client, path: { job_id: jobId } }),
     retryJob: (jobId: string) =>
       retryGeneratedJob({ client, path: { job_id: jobId } }),
+    getLayoutImportIntegrityReport: (validationJobId: string) =>
+      getGeneratedLayoutImportIntegrityReport({
+        client,
+        path: { validation_job_id: validationJobId },
+      }),
+    listLayoutImportNormalizedRows: (
+      validationJobId: string,
+      options: ListLayoutImportRowsOptions = {},
+    ) =>
+      listGeneratedLayoutImportNormalizedRows({
+        client,
+        path: { validation_job_id: validationJobId },
+        query: {
+          ...(options.afterLineNumber === undefined
+            ? {}
+            : { after_line_number: options.afterLineNumber }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.status === undefined ? {} : { status: options.status }),
+          ...(options.errorCode === undefined
+            ? {}
+            : { error_code: options.errorCode }),
+        },
+      }),
+    rejectLayoutImportStaging: (validationJobId: string) =>
+      rejectGeneratedLayoutImportStaging({
+        client,
+        path: { validation_job_id: validationJobId },
+      }),
+    publishLayoutImportDataset: (validationJobId: string) =>
+      publishGeneratedLayoutImportDataset({
+        client,
+        path: { validation_job_id: validationJobId },
+      }),
     listMobileReleases: () => listGeneratedMobileReleases({ client }),
     createMobileRelease: (body: MobileReleaseCreate) =>
       createGeneratedMobileRelease({ body, client }),

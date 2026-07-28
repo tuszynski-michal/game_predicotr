@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Model danych
@@ -178,6 +178,11 @@ Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje
 
 Unikalność: `(game_id, version)`.
 
+Niepusty `source_job_id` jest unikalny. Dataset opublikowany z ręcznego importu
+wskazuje job walidacji `layout_import`, ma
+`generator_version = layout-import-v1` oraz `generation_seed = 0`. Ponowienie
+publikacji tej samej walidacji zwraca istniejący rekord.
+
 Wydanie może połączyć dataset i rules wyłącznie przy zgodnych wymiarach.
 Generator mocka zapisuje seed i wersję algorytmu, dzięki czemu powtórzenie tych
 samych wejść daje identyczny uporządkowany zestaw logiczny mimo nowych UUID i
@@ -303,6 +308,19 @@ wartości są `stage`, a nie statusami. Liczniki są nieujemne,
 być w tabeli `import_job_details`. Retry wznawia istniejący rekord zamiast
 tworzyć duplikat.
 
+Layout import M4 zapisuje w `input_payload` wyłącznie serwerowo poświadczone
+wartości: `import_kind = layout_file`, kanoniczny względny `source_path`,
+`source_checksum`, `source_size_bytes`, `file_format` i `contract_version = 1`.
+Dla tego typu `input_key` pomija nazwę oraz rozmiar i identyfikuje grę,
+checksumę, format oraz kontrakt. Dzięki temu kopia tych samych bajtów pod inną
+nazwą nie tworzy drugiego joba.
+
+Walidacja layout importu jest osobnym jobem `validate` z payloadem
+`validation_kind = layout_import`, `import_job_id` oraz `rules_version_id`.
+Wejście wymaga zakończonego surowego importu i opublikowanych reguł tej samej
+gry. Oba UUID są częścią zwykłego `input_key`, dlatego ponowienie tej samej pary
+nie tworzy duplikatu, a inna wersja reguł daje osobny wynik.
+
 Tylko rekord `processing` ma komplet pól lease i `execution_slot = 1`.
 Unikalność slotu gwarantuje najwyżej jedno lokalne wykonanie jednocześnie.
 Worker zapisuje postęp i `checkpoint_payload` w tej samej transakcji, a każdy
@@ -310,6 +328,79 @@ checkpoint ma `schema_version = 1`. Wygaśnięcie lease usuwa pola wykonawcze i
 przywraca ten sam rekord do `created`, zachowując checkpoint i liczniki.
 `attempt_count` rośnie przy kolejnym przejęciu. Token lease jest wyłącznie
 wewnętrzną ochroną zapisu i nie może być zwracany panelowi.
+
+### layout_import_rows
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| job_id | UUID | FK jobs, część PK |
+| line_number | bigint | fizyczna linia źródła, część PK |
+| byte_offset_end | bigint | offset końca całej linii |
+| sequence_number | bigint nullable | tylko dla poprawnego rekordu parsera |
+| cells | smallint[] nullable | tylko dla poprawnego rekordu parsera |
+| error_code | varchar nullable | tylko dla błędnego rekordu |
+| error_message | varchar nullable | bezpieczny opis do 500 znaków |
+| created_at | timestamptz | |
+
+Klucz `(job_id, line_number)` zapewnia idempotentny replay partii. Constraint
+wymaga dokładnie jednego wariantu: kompletnego `sequence_number/cells` albo
+niepustego `error_code/error_message`. Numer sekwencji, offset i komórki mają
+constraints zakresu; indeks `(job_id, byte_offset_end)` wspiera diagnostykę
+fizycznego kursora.
+
+Tabela jest surowym, izolowanym stagingiem parsera. Nie ma `dataset_version_id`
+ani sygnatury i nie jest czytana przez release pipeline. TASK-0046 waliduje
+wymiary oraz alfabet gry i dopiero z poprawnych wierszy tworzy znormalizowaną
+postać datasetu.
+
+Checkpoint importu schema v1 przechowuje poświadczone metadata źródła,
+`byte_offset`, `line_number`, liczniki i `prefix_chain`. Przed wznowieniem
+worker ponownie liczy łańcuch fizycznych linii do offsetu i usuwa rekordy z
+`line_number` większym od trwałego kursora. Zapis partii zawsze poprzedza
+checkpoint, dlatego awaria może powtórzyć upsert, ale nie tworzy duplikatu ani
+nie zachowuje nietrwałego ogona.
+
+### layout_import_normalized_rows
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| validation_job_id | UUID | FK jobs, część PK |
+| line_number | bigint | fizyczna linia źródła, część PK |
+| import_job_id | UUID | wraz z linią FK do surowego stagingu |
+| rules_version_id | UUID | opublikowana konfiguracja wymiarów i alfabetu |
+| sequence_number | bigint nullable | zachowany dla parserowo poprawnego wiersza |
+| cells | smallint[] nullable | zachowane dane row-major |
+| signature | varchar nullable | wyłącznie dla poprawnego wiersza |
+| error_code | varchar nullable | błąd parsera albo walidacji domenowej |
+| error_message | varchar nullable | bezpieczny opis do 500 znaków |
+| created_at | timestamptz | |
+
+Klucz `(validation_job_id, line_number)` zapewnia idempotentny replay.
+Poprawny wariant ma `sequence_number/cells/signature` bez błędu. Wariant błędu
+ma niepusty kod i opis; dla błędu parsera numer i komórki są null, a dla błędu
+wymiarów lub alfabetu pozostają zachowane. Indeksy
+`(validation_job_id, sequence_number)` i `(validation_job_id, signature)`
+przygotowują bounded raport integralności TASK-0047 bez wymuszania unikalności.
+
+Checkpoint walidacji przechowuje wybrane UUID, liczbę surowych rekordów,
+ostatni fizyczny `line_number`, liczniki oraz flagę ukończenia. Upsert partii
+poprzedza checkpoint, dlatego replay daje ten sam wynik. Tabela nie ma
+`dataset_version_id` i nie jest czytana przez release pipeline.
+
+Raport TASK-0047 nie tworzy osobnej tabeli ani utrwalonego cache. Dla
+zakończonego joba wykonuje dokładne agregaty SQL na niezmiennym stagingu:
+liczniki wariantów, `min/max/count(distinct sequence_number)`, grupy duplikatów
+numerów i sygnatur oraz liczniki kodów błędów. Liczba luk jest równa
+`max(sequence_number) - count(distinct sequence_number)` dla poprawnych
+dodatnich numerów. Bounded próbka luk powstaje z pierwszych uporządkowanych
+przedziałów wyznaczonych przez `lag`, bez `generate_series` zależnego od
+największego numeru. Dzięki temu dokładne liczniki nie wymagają materializacji
+500 000 wierszy w procesie API.
+
+Podgląd stagingu używa kursora `line_number`, ponieważ przed publikacją
+`sequence_number` może mieć duplikaty. Poprawny wiersz jest częścią kontroli
+ciągłości, a wiersz błędny pozostaje osobną blokadą i nie wypełnia brakującej
+pozycji przyszłego datasetu.
 
 ### source_images
 

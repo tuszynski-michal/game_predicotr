@@ -39,3 +39,5 @@ Thumbs.db
 
 # Local generated artifacts
 artifacts/
+imports/*
+!imports/README.md

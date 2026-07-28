@@ -96,6 +96,8 @@ def test_catalog_repository_uses_real_constraints(
             "dataset_versions",
             "games",
             "jobs",
+            "layout_import_rows",
+            "layout_import_normalized_rows",
             "layouts",
             "layout_payouts",
             "mobile_release_games",

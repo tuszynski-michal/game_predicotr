@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
+import { relative } from 'node:path';
 
 import { createClient } from '@hey-api/openapi-ts';
 
@@ -16,6 +17,9 @@ const tsConfigPath = fileURLToPath(
 const prettierPath = fileURLToPath(
   new URL('../../../node_modules/prettier/bin/prettier.cjs', import.meta.url),
 );
+const generatedPrettierIgnorePath = fileURLToPath(
+  new URL('./prettier-generated.ignore', import.meta.url),
+);
 const execFileAsync = promisify(execFile);
 
 export async function generateAdminApiClient(outputPath) {
@@ -26,5 +30,11 @@ export async function generateAdminApiClient(outputPath) {
       tsConfigPath,
     },
   });
-  await execFileAsync(process.execPath, [prettierPath, '--write', outputPath]);
+  await execFileAsync(process.execPath, [
+    prettierPath,
+    '--write',
+    '--ignore-path',
+    generatedPrettierIgnorePath,
+    `${relative(process.cwd(), outputPath).replaceAll('\\', '/')}/**/*.ts`,
+  ]);
 }

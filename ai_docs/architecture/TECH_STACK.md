@@ -184,6 +184,12 @@ bazy wymaga pełnego kompletu lease wyłącznie dla statusu `processing`.
 Migracja `0010_mobile_releases` dodaje niezmienną tożsamość wydania, globalnie
 unikalną wersję, lifecycle, przyszłe pola artefaktów i dokładny zestaw
 dataset/rules wybrany dla każdej gry.
+Migracja `0011_layout_import_staging` dodaje surowe wiersze importu izolowane
+przez job, fizyczny numer linii i offset oraz rozłączny wariant poprawnego
+rekordu albo bezpiecznego błędu.
+Migracja `0012_layout_import_normalization` dodaje osobny, resumowalny staging
+walidacji związany z surową linią, jobem `validate` i opublikowaną wersją reguł
+oraz indeksy numeru sekwencji i nieunikalnej sygnatury.
 
 ### SQLite — niezmienny snapshot mobile
 
@@ -201,6 +207,7 @@ Nie zawiera zdjęć, wycinków, stagingu ani danych treningowych. Nie jest kanon
 
 Osobny lokalny Python worker/CLI wykonuje:
 
+- strumieniowy staging ręcznych CSV/JSONL,
 - import zdjęć,
 - walidację datasetu,
 - precomputing payoutów,
@@ -230,8 +237,12 @@ npm run worker:once
 npm run worker:poll
 ```
 
-Worker `worker-v2` rejestruje handler `payout-v2` oraz nadrzędny handler
-`android_build`. Ten drugi wykonuje rewalidację, payouty, snapshot i kontrolowany
+Worker `worker-v4` rejestruje handlery `import`, `validate`, `payout-v2` oraz nadrzędny
+`android_build`. Import odczytuje plik w bounded partiach, zapisuje surowy
+staging przed checkpointem i weryfikuje pełny checksum przed oraz po
+przebiegu. Wariant `validate/layout_import` normalizuje zakończony staging
+partiami po 1000 względem opublikowanych reguł i zapisuje wynik przed
+checkpointem. Handler build wykonuje rewalidację, payouty, snapshot i kontrolowany
 Android build w jednym jobie, z zagnieżdżonym checkpointem payoutu per gra.
 Domyślnie zapisuje audyty i niezmienne artefakty w `artifacts/`; alternatywny
 katalog można wskazać:
@@ -250,6 +261,20 @@ npm run api:dev
 
 API nie przyjmuje ścieżki artefaktu od panelu; identyfikator release prowadzi do
 niezmiennej ścieżki zapisanej po weryfikacji workera.
+
+Ręczne pliki layoutów są umieszczane w oddzielnym lokalnym katalogu wejściowym.
+Domyślna konfiguracja oraz przykład PowerShell:
+
+```powershell
+$env:GAME_PREDICTOR_IMPORT_ROOT = 'D:\game-predictor-imports'
+$env:GAME_PREDICTOR_IMPORT_MAX_BYTES = '1073741824'
+npm run api:dev
+```
+
+Klient podaje ścieżkę względną pod tym rootem. API używa standardowych
+`pathlib`, `hashlib` i parserów CSV/JSON z biblioteki standardowej; TASK-0044
+nie dodaje zależności ani uploadu HTTP. Worker używa tego samego
+`GAME_PREDICTOR_IMPORT_ROOT` i limitu, a trwały staging zapisuje w PostgreSQL.
 
 Brak handlera kończy przejęty job kodem
 `JOB_HANDLER_NOT_REGISTERED`; nie pozostawia zajętego slotu.

@@ -13,6 +13,9 @@ def test_defaults_are_loopback_only() -> None:
     )
     assert settings.artifact_root.is_absolute()
     assert settings.artifact_root.name == "artifacts"
+    assert settings.import_root.is_absolute()
+    assert settings.import_root.name == "imports"
+    assert settings.import_max_bytes == 1024 * 1024 * 1024
 
 
 @pytest.mark.parametrize(
@@ -58,6 +61,18 @@ def test_defaults_are_loopback_only() -> None:
             {"GAME_PREDICTOR_ARTIFACT_ROOT": "  "},
             "GAME_PREDICTOR_ARTIFACT_ROOT",
         ),
+        (
+            {"GAME_PREDICTOR_IMPORT_ROOT": "  "},
+            "GAME_PREDICTOR_IMPORT_ROOT",
+        ),
+        (
+            {"GAME_PREDICTOR_IMPORT_MAX_BYTES": "0"},
+            "GAME_PREDICTOR_IMPORT_MAX_BYTES",
+        ),
+        (
+            {"GAME_PREDICTOR_IMPORT_MAX_BYTES": "one"},
+            "GAME_PREDICTOR_IMPORT_MAX_BYTES",
+        ),
     ],
 )
 def test_rejects_non_local_or_invalid_configuration(
@@ -84,3 +99,16 @@ def test_database_password_is_not_exposed_by_settings_repr() -> None:
     )
 
     assert "secret" not in repr(settings)
+
+
+def test_import_root_and_limit_are_configurable(tmp_path) -> None:
+    import_root = tmp_path / "incoming"
+    settings = ApiSettings.from_environment(
+        {
+            "GAME_PREDICTOR_IMPORT_ROOT": str(import_root),
+            "GAME_PREDICTOR_IMPORT_MAX_BYTES": "2048",
+        }
+    )
+
+    assert settings.import_root == import_root.resolve()
+    assert settings.import_max_bytes == 2048

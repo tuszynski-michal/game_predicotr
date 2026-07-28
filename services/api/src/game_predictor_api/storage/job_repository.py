@@ -8,7 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from game_predictor_api.application.jobs import JobRepository
+from game_predictor_api.application.jobs import (
+    JobRepository,
+    LayoutImportRulesReference,
+)
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -20,6 +23,7 @@ from game_predictor_api.storage.models import (
     GameModel,
     JobModel,
     MobileReleaseModel,
+    RulesVersionModel,
 )
 
 
@@ -29,6 +33,18 @@ class SqlAlchemyJobRepository(JobRepository):
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
+
+    def get_layout_import_rules_reference(
+        self,
+        rules_version_id: UUID,
+    ) -> LayoutImportRulesReference | None:
+        record = self._session.get(RulesVersionModel, rules_version_id)
+        if record is None:
+            return None
+        return LayoutImportRulesReference(
+            game_id=record.game_id,
+            status=record.status,
+        )
 
     def add_job(self, job: Job) -> Job:
         record = job_record_from_domain(job)

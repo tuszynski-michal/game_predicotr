@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from game_predictor_api.domain.jobs import JobType
@@ -45,7 +47,14 @@ def _replace_dependencies(
     monkeypatch: pytest.MonkeyPatch,
     engine: FakeEngine,
 ) -> None:
-    monkeypatch.setattr(cli.ApiSettings, "from_environment", lambda: object())
+    monkeypatch.setattr(
+        cli.ApiSettings,
+        "from_environment",
+        lambda: SimpleNamespace(
+            import_root=Path("imports").resolve(),
+            import_max_bytes=1024 * 1024,
+        ),
+    )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)
     monkeypatch.setattr(
         cli,
@@ -72,6 +81,8 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert capsys.readouterr().out.strip() == "no_job"
     assert len(FakeWorker.instances) == 1
     assert JobType.PAYOUT in FakeWorker.instances[0].handlers
+    assert JobType.IMPORT in FakeWorker.instances[0].handlers
+    assert JobType.VALIDATE in FakeWorker.instances[0].handlers
     assert engine.disposed is True
 
 

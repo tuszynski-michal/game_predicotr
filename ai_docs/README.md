@@ -39,6 +39,7 @@ implementacyjnym.
 - [Admin app](requirements/ADMIN_APP.md)
 - [Algorithms](requirements/ALGORITHMS.md)
 - [Image ingestion](requirements/IMAGE_INGESTION.md)
+- [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
 
 ### Architektura
 

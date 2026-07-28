@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-26
+last_updated: 2026-07-28
 ---
 
 # Decision Log
@@ -815,6 +815,208 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Consequences:** Admin API i worker muszą wskazywać ten sam
   `artifact_root`. Pobranie czyta i hashuje APK przed odpowiedzią; koszt jest
   akceptowalny dla ręcznej, prywatnej dystrybucji i nie dotyczy mobile runtime.
+
+## D-041 — Conditional M4 start before physical G3 evidence
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** implementacja M4 może rozpocząć się przed formalnym zaliczeniem
+  G3. Brakujące benchmarki 500 000 layoutów na Pixelu i Samsungu oraz końcowy
+  raport akceptacyjny M3 pozostają obowiązkowe i zostaną wykonane po M4, przed
+  rozpoczęciem M5. Rozpoczęcie M4 nie zmienia statusu `blocked` TASK-0039,
+  TASK-0041, TASK-0042 ani raportu G3.
+- **Context:** właściciel wykonał bieżące testy funkcjonalne layoutów normalnych,
+  duplikatów i pozostałych funkcji, a dokładne testy wydajnościowe świadomie
+  odłożył do odbioru po M4.
+- **Reason:** M4 korzysta ze stabilnych kontraktów `cells`, sygnatury,
+  wersjonowania datasetu i istniejącego resumowalnego lifecycle jobs. Brakujące
+  dowody G3 dotyczą wydajności urządzeń i formalnego odbioru release, a nie
+  modelu ręcznego importu.
+- **Alternatives:** zatrzymanie całego developmentu do czasu pełnych pomiarów
+  obu telefonów albo fałszywe oznaczenie G3 jako zaliczone.
+- **Consequences:** M4 jest realizowane warunkowo. Nie wolno używać rozpoczęcia
+  M4 jako dowodu akceptacji adaptera Android ani zamykać M3 bez raportu
+  `m35-acceptance-report.json` o statusie `passed`.
+
+## D-042 — Streaming layout import formats v1
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** `layout-import-v1` obsługuje ścisłe UTF-8 bez BOM, dokładny CSV
+  z kolumnami `schema_version,sequence_number,cells` oraz JSON Lines z polami
+  `schemaVersion`, `sequenceNumber`, `cells`. Wersja `1` jest zapisana w każdym
+  rekordzie, a `cells` jest tablicą JSON dodatnich kodów `smallint` w kolejności
+  row-major.
+- **Context:** ręczny import ma obsługiwać około 500 000 layoutów bez
+  materializacji całego pliku. Zwykły wielki dokument JSON wymagałby dodatkowego
+  parsera strumieniowego i utrudniał checkpoint na granicy rekordu.
+- **Reason:** CSV i JSONL są czytelne, łatwe do wygenerowania z zewnętrznych
+  narzędzi oraz pozwalają wznawiać pracę na stabilnej granicy linii. Powtarzana
+  wersja wykrywa sklejone lub częściowo niezgodne pliki.
+- **Alternatives:** monolityczny JSON array, binarny format własny, sidecar z
+  metadanymi albo wersja wyłącznie w nazwie pliku.
+- **Consequences:** CSV zapisuje `cells` jako cytowaną tablicę JSON. UTF-8 BOM,
+  nieznane pola i dodatkowe kolumny są błędami kontraktu. Wymiary i alfabet gry
+  pozostają poza formatem i są walidowane podczas stagingu.
+
+## D-043 — Server-attested local import source
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** ręczny layout import przyjmuje od klienta wyłącznie względny
+  POSIX `sourcePath` pod skonfigurowanym `import_root` oraz
+  `contractVersion = 1`. Admin API samo ustala format z `.csv/.jsonl`, sprawdza
+  zwykły plik, limit, preview, liczy SHA-256 bounded partiami i zapisuje
+  poświadczone metadata w istniejącym jobie `import`. Klient nie podaje
+  checksumy, rozmiaru ani formatu.
+- **Context:** generyczny wcześniejszy payload `sourcePath/pipelineVersion`
+  pozwalał wskazać dowolną lokalną ścieżkę i nie wiązał joba z konkretnymi
+  bajtami. M4 wymaga bezpiecznej ścieżki oraz idempotencji dla dużych plików.
+- **Reason:** osobny root ogranicza dostęp systemu plików, serwerowy checksum
+  daje odtwarzalne wejście, a użycie istniejącego lifecycle jobs zachowuje lease,
+  retry i unikalny `input_key` bez nowej tabeli.
+- **Alternatives:** upload wielkiego pliku przez FastAPI, zaufanie checksumie
+  klienta, ścieżka absolutna, kopiowanie pliku w requestcie albo nowy model
+  kolejki importów.
+- **Consequences:** domyślny limit wynosi 1 GiB i jest konfigurowalny.
+  `input_key` layout importu ignoruje nazwę pliku, a obejmuje grę, SHA-256,
+  format i wersję kontraktu. Worker musi ponownie potwierdzić checksum przed
+  stagingiem, ponieważ użytkownik może zmienić plik po utworzeniu joba.
+
+## D-044 — Raw import rows with prefix-fenced resumable checkpoints
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** TASK-0045 zapisuje każdy niepusty fizyczny rekord
+  `layout-import-v1` do osobnej tabeli `layout_import_rows` przypisanej do joba.
+  Rekord zawiera pozycję pliku oraz dokładnie jeden wariant:
+  `sequence_number/cells` albo stabilny błąd. Checkpoint powstaje po
+  idempotentnym upsercie partii i zawiera offset, numer linii oraz łańcuch
+  checksumy fizycznego prefiksu. Wznowienie weryfikuje ten łańcuch i usuwa
+  wszystkie wiersze znajdujące się za trwałym numerem linii.
+- **Context:** zapis bezpośrednio do `layouts` wymagałby przedwcześnie wymiarów,
+  alfabetu gry i finalnej sygnatury należących do TASK-0046. Sam offset nie
+  wykrywałby sytuacji, w której plik zmienił się po zapisie partii, a proces
+  zakończył przed checkpointem; w bazie mógłby pozostać nietrwały ogon.
+- **Reason:** surowa tabela zachowuje błędy bez blokowania poprawnych rekordów i
+  nie jest widoczna dla release. Klucz `(job_id, line_number)` pozwala
+  powtarzać partię, natomiast łańcuch prefiksu i odcięcie ogona wiążą staging z
+  dokładnymi bajtami poprzedniego przebiegu bez serializacji stanu `hashlib`.
+- **Alternatives:** bezpośredni zapis do `layouts`, jeden JSONB z całym
+  stagingiem, checkpoint wyłącznie po `sequence_number`, ufanie samemu
+  offsetowi, kopiowanie całego źródła do osobnego artefaktu przed parsowaniem.
+- **Consequences:** migracja `0011_layout_import_staging` dodaje jedną tabelę i
+  indeks. Worker `worker-v3` ponownie hashuje źródło przed i po przebiegu oraz
+  odtwarza bounded prefiks przy wznowieniu. Surowe rekordy zajmują dodatkowe
+  miejsce do czasu jawnego odrzucenia lub normalizacji; utworzenie datasetu i
+  sygnatur pozostaje zakresem TASK-0046.
+
+## D-045 — Separate rules-bound layout import validation job
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** normalizacja surowego importu jest osobnym jobem `validate` z
+  `validation_kind = layout_import`, `import_job_id` i `rules_version_id`.
+  Wymaga zakończonego importu oraz opublikowanej wersji reguł tej samej gry.
+  Wynik trafia do `layout_import_normalized_rows` keyed przez
+  `(validation_job_id, line_number)` i nadal nie jest datasetem.
+- **Context:** surowy job TASK-0045 ma postęp liczony w bajtach i kończy się po
+  reatestacji pliku. Wymiary, aktywny alfabet i szerokość sygnatury pojawiają
+  się dopiero w TASK-0046. Łączenie obu etapów w jednym jobie zmieniałoby
+  znaczenie postępu i uniemożliwiałoby bezpieczną ponowną walidację tych samych
+  bajtów względem innej wersji reguł.
+- **Reason:** osobny lifecycle zachowuje jednoznaczne liczniki, prosty retry,
+  niezmienny surowy staging i jawne powiązanie z regułami. Osobna tabela
+  dopuszcza tymczasowe duplikaty `sequence_number`, których nie przyjmie finalne
+  `layouts`, oraz przygotowuje raport TASK-0047.
+- **Alternatives:** dopisać normalizację po końcu joba importu, nadpisywać
+  surowe wiersze, wybrać automatycznie najnowsze reguły albo zapisywać od razu
+  do `layouts`.
+- **Consequences:** generyczny payload datasetowego `validate` pozostaje
+  obsługiwany, a nowy wariant ma jawne `validationKind`. Worker `worker-v4`
+  checkpointuje liczbę rekordów i fizyczną linię po idempotentnym upsercie.
+  TASK-0047 raportuje luki i duplikaty, a TASK-0049 dopiero tworzy
+  `dataset_version`.
+
+## D-046 — Exact SQL import report with bounded diagnostics
+
+- **Status:** accepted
+- **Date:** 2026-07-27
+- **Decision:** raport znormalizowanego importu jest liczony read-only z
+  zakończonego stagingu. Dokładne agregaty SQL obejmują zgodność liczby wierszy,
+  poprawne i błędne warianty, ciąg dodatnich numerów od `1`, duplikaty numerów,
+  duplikaty sygnatur i kody błędów. Próbki są ograniczone do 100 elementów.
+  Podgląd używa keyset po fizycznym `line_number`.
+- **Context:** staging celowo dopuszcza błędy, luki i duplikaty, których nie
+  przyjmie finalna tabela `layouts`. Docelowe 500 000 rekordów nie może zostać
+  pobrane do procesu API tylko po to, aby zbudować raport lub listę.
+- **Reason:** dokładne liczniki z bounded próbkami zachowują pełną informację
+  decyzyjną i przewidywalną pamięć. `line_number` jest jednoznacznym kursorem
+  także wtedy, gdy `sequence_number` ma duplikaty. Wyznaczenie przedziałów luk
+  przez `lag` unika nieograniczonego `generate_series` dla wadliwego, bardzo
+  wysokiego numeru.
+- **Alternatives:** utrwalony cache raportu, pełna materializacja stagingu w
+  Pythonie, offset pagination, generowanie każdego numeru od `1` do maksimum.
+- **Consequences:** błędny wiersz blokuje gotowość i nie wypełnia luki w zbiorze
+  poprawnych layoutów. Brak poprawnych wierszy, różnica względem
+  `progress.total`, luka i duplikat numeru są blokadami. Duplikat sygnatury jest
+  dozwolonym ostrzeżeniem. Raport nie zmienia danych i nie tworzy datasetu;
+  publikacja TASK-0049 musi ponownie użyć tej samej definicji gotowości.
+
+## D-047 — Confirmed rejection of an entire unpublished import staging
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** odrzucenie wskazuje zakończony job walidacji
+  `layout_import`, z którego backend wyprowadza dokładny `import_job_id`.
+  W jednej transakcji usuwa wszystkie znormalizowane wiersze wszystkich
+  walidacji tego importu, a następnie surowe wiersze. Joby pozostają trwałym
+  audytem. Panel wymaga przepisania pełnego `importJobId` przed potwierdzeniem.
+- **Context:** jeden surowy import może zostać zwalidowany względem kilku wersji
+  reguł, a FK znormalizowanych wierszy nie pozwala bezpiecznie usunąć wyłącznie
+  surowej części. Usuwanie tylko wyniku jednej walidacji pozostawiłoby
+  niejednoznaczny, częściowo istniejący import.
+- **Reason:** granicą destrukcyjnej operacji jest cały nieopublikowany import,
+  natomiast identyfikator walidacji daje panelowi jednoznaczny kontekst raportu.
+  Zachowanie jobów utrzymuje historię wejścia i wykonania bez dodawania osobnej
+  tabeli odrzuceń.
+- **Alternatives:** usunięcie tylko jednego znormalizowanego stagingu, usunięcie
+  jobów, fizyczne usuwanie przez dowolny `importJobId` podany przez klienta albo
+  nowa encja lifecycle stagingu.
+- **Consequences:** aktywna walidacja tego samego importu oraz dataset wskazujący
+  import lub którąkolwiek jego walidację blokują odrzucenie. Powtórzenie po
+  udanym usunięciu zwraca zerowe liczniki. Nie jest potrzebna migracja; TASK-0049
+  musi zapisać `source_job_id` tak, aby ochrona użycia pozostała skuteczna.
+
+## D-048 — Atomic and idempotent publication from normalized import staging
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** zakończona walidacja `layout_import` bez blokad tworzy
+  `dataset_versions` i `layouts` w jednej transakcji PostgreSQL. Dane są
+  kopiowane setowym `INSERT ... SELECT`; wersja otrzymuje od razu status
+  `published`, serwerowy timestamp i
+  `source_job_id = validation_job_id`. Niepusty `source_job_id` chroni
+  częściowy indeks unikalny. Import używa
+  `generator_version = layout-import-v1` oraz neutralnego
+  `generation_seed = 0`.
+- **Context:** znormalizowany staging może zawierać około 500 000 rekordów i
+  nie może zostać pobrany do procesu API. Publikacja musi użyć tej samej
+  definicji gotowości co raport TASK-0047, wykluczyć wyścig z odrzuceniem i
+  bezpiecznie przeżyć utratę odpowiedzi HTTP.
+- **Reason:** blokada wspólnego joba importu i jego walidacji daje jedną granicę
+  synchronizacji dla publikacji oraz usuwania. Blokada gry serializuje
+  serwerowe `max(version) + 1`, a unikalne provenance zapewnia idempotencję.
+  Atomowe utworzenie stagingowego rekordu, kopiowanie i przejście do
+  `published` nie wystawia częściowego datasetu.
+- **Alternatives:** materializacja layoutów w Pythonie, osobny długotrwały job
+  kopiujący, tworzenie widocznego datasetu staging przed kopiowaniem,
+  idempotencja wyłącznie w kodzie albo wskazanie surowego import joba jako
+  provenance.
+- **Consequences:** publikacja pozostawia staging jako audyt i blokuje jego
+  późniejsze odrzucenie. Retry zwraca istniejący dataset. Payouty, snapshot i
+  APK pozostają jawnymi kolejnymi operacjami; reprezentatywny test skali i
+  pełny release należą do TASK-0050.
 
 ## Szablon nowej decyzji
 

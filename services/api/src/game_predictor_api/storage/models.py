@@ -20,6 +20,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -432,6 +433,145 @@ class JobModel(Base):
     )
 
 
+class LayoutImportRowModel(Base):
+    __tablename__ = "layout_import_rows"
+    __table_args__ = (
+        CheckConstraint(
+            "line_number > 0",
+            name="ck_layout_import_rows_line_positive",
+        ),
+        CheckConstraint(
+            "byte_offset_end > 0",
+            name="ck_layout_import_rows_offset_positive",
+        ),
+        CheckConstraint(
+            "sequence_number IS NULL OR sequence_number > 0",
+            name="ck_layout_import_rows_sequence_positive",
+        ),
+        CheckConstraint(
+            "cells IS NULL OR cardinality(cells) > 0",
+            name="ck_layout_import_rows_cells_not_empty",
+        ),
+        CheckConstraint(
+            "cells IS NULL OR (1 <= ALL(cells) AND 32767 >= ALL(cells))",
+            name="ck_layout_import_rows_cells_mobile_code_range",
+        ),
+        CheckConstraint(
+            "("
+            "sequence_number IS NOT NULL AND cells IS NOT NULL "
+            "AND error_code IS NULL AND error_message IS NULL"
+            ") OR ("
+            "sequence_number IS NULL AND cells IS NULL "
+            "AND error_code IS NOT NULL AND error_message IS NOT NULL "
+            "AND length(btrim(error_code)) > 0 "
+            "AND length(btrim(error_message)) > 0"
+            ")",
+            name="ck_layout_import_rows_result_variant",
+        ),
+        Index(
+            "ix_layout_import_rows_job_offset",
+            "job_id",
+            "byte_offset_end",
+        ),
+    )
+
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    line_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    byte_offset_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    cells: Mapped[list[int] | None] = mapped_column(
+        ARRAY(SmallInteger, dimensions=1),
+        nullable=True,
+    )
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class LayoutImportNormalizedRowModel(Base):
+    __tablename__ = "layout_import_normalized_rows"
+    __table_args__ = (
+        CheckConstraint(
+            "line_number > 0",
+            name="ck_layout_import_normalized_rows_line_positive",
+        ),
+        CheckConstraint(
+            "sequence_number IS NULL OR sequence_number > 0",
+            name="ck_layout_import_normalized_rows_sequence_positive",
+        ),
+        CheckConstraint(
+            "cells IS NULL OR cardinality(cells) > 0",
+            name="ck_layout_import_normalized_rows_cells_not_empty",
+        ),
+        CheckConstraint(
+            "cells IS NULL OR (1 <= ALL(cells) AND 32767 >= ALL(cells))",
+            name="ck_layout_import_normalized_rows_cells_code_range",
+        ),
+        CheckConstraint(
+            "("
+            "sequence_number IS NOT NULL AND cells IS NOT NULL "
+            "AND signature IS NOT NULL AND length(signature) > 0 "
+            "AND error_code IS NULL AND error_message IS NULL"
+            ") OR ("
+            "signature IS NULL AND error_code IS NOT NULL "
+            "AND error_message IS NOT NULL "
+            "AND length(btrim(error_code)) > 0 "
+            "AND length(btrim(error_message)) > 0 "
+            "AND ((sequence_number IS NULL AND cells IS NULL) "
+            "OR (sequence_number IS NOT NULL AND cells IS NOT NULL))"
+            ")",
+            name="ck_layout_import_normalized_rows_result_variant",
+        ),
+        ForeignKeyConstraint(
+            ["import_job_id", "line_number"],
+            ["layout_import_rows.job_id", "layout_import_rows.line_number"],
+            name="fk_layout_import_normalized_rows_raw_row",
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_layout_import_normalized_rows_sequence",
+            "validation_job_id",
+            "sequence_number",
+        ),
+        Index(
+            "ix_layout_import_normalized_rows_signature",
+            "validation_job_id",
+            "signature",
+        ),
+    )
+
+    validation_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    line_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    import_job_id: Mapped[UUID] = mapped_column(nullable=False)
+    rules_version_id: Mapped[UUID] = mapped_column(
+        ForeignKey("rules_versions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    cells: Mapped[list[int] | None] = mapped_column(
+        ARRAY(SmallInteger, dimensions=1),
+        nullable=True,
+    )
+    signature: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class DatasetVersionModel(Base):
     __tablename__ = "dataset_versions"
     __table_args__ = (
@@ -463,6 +603,12 @@ class DatasetVersionModel(Base):
             "game_id",
             "version",
             name="uq_dataset_versions_game_version",
+        ),
+        Index(
+            "uq_dataset_versions_source_job",
+            "source_job_id",
+            unique=True,
+            postgresql_where=text("source_job_id IS NOT NULL"),
         ),
     )
 

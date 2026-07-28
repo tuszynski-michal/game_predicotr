@@ -74,6 +74,9 @@ import type {
   GetJobData,
   GetJobErrors,
   GetJobResponses,
+  GetLayoutImportIntegrityReportData,
+  GetLayoutImportIntegrityReportErrors,
+  GetLayoutImportIntegrityReportResponses,
   GetMobileReleaseData,
   GetMobileReleaseErrors,
   GetMobileReleaseResponses,
@@ -103,6 +106,9 @@ import type {
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
+  ListLayoutImportNormalizedRowsData,
+  ListLayoutImportNormalizedRowsErrors,
+  ListLayoutImportNormalizedRowsResponses,
   ListMobileReleasesData,
   ListMobileReleasesErrors,
   ListMobileReleasesResponses,
@@ -124,9 +130,15 @@ import type {
   PublishDatasetVersionData,
   PublishDatasetVersionErrors,
   PublishDatasetVersionResponses,
+  PublishLayoutImportDatasetData,
+  PublishLayoutImportDatasetErrors,
+  PublishLayoutImportDatasetResponses,
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  RejectLayoutImportStagingData,
+  RejectLayoutImportStagingErrors,
+  RejectLayoutImportStagingResponses,
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
@@ -547,6 +559,88 @@ export const retryJob = <ThrowOnError extends boolean = false>(
     RetryJobErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/jobs/{job_id}/retry', ...options });
+
+/**
+ * Get exact integrity aggregates and bounded diagnostics
+ */
+export const getLayoutImportIntegrityReport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetLayoutImportIntegrityReportData, ThrowOnError>,
+): RequestResult<
+  GetLayoutImportIntegrityReportResponses,
+  GetLayoutImportIntegrityReportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetLayoutImportIntegrityReportResponses,
+    GetLayoutImportIntegrityReportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report',
+    ...options,
+  });
+
+/**
+ * Atomically publish a validated import as an immutable dataset
+ */
+export const publishLayoutImportDataset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PublishLayoutImportDatasetData, ThrowOnError>,
+): RequestResult<
+  PublishLayoutImportDatasetResponses,
+  PublishLayoutImportDatasetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PublishLayoutImportDatasetResponses,
+    PublishLayoutImportDatasetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/layout-import-validations/{validation_job_id}/publish',
+    ...options,
+  });
+
+/**
+ * List a stable page of normalized import rows
+ */
+export const listLayoutImportNormalizedRows = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListLayoutImportNormalizedRowsData, ThrowOnError>,
+): RequestResult<
+  ListLayoutImportNormalizedRowsResponses,
+  ListLayoutImportNormalizedRowsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListLayoutImportNormalizedRowsResponses,
+    ListLayoutImportNormalizedRowsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/layout-import-validations/{validation_job_id}/rows',
+    ...options,
+  });
+
+/**
+ * Reject and remove unpublished import staging
+ */
+export const rejectLayoutImportStaging = <ThrowOnError extends boolean = false>(
+  options: Options<RejectLayoutImportStagingData, ThrowOnError>,
+): RequestResult<
+  RejectLayoutImportStagingResponses,
+  RejectLayoutImportStagingErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    RejectLayoutImportStagingResponses,
+    RejectLayoutImportStagingErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/layout-import-validations/{validation_job_id}/staging',
+    ...options,
+  });
 
 /**
  * List immutable mobile releases

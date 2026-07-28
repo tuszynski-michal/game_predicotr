@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Architektura systemu
@@ -259,6 +259,59 @@ utrwala globalnie unikalną wersję oraz 1–15 dokładnych wyborów dataset/rul
 Serwer ustala obsługiwany algorytm i schema, blokuje źródła, wymaga statusu
 `published`, wspólnej aktywnej gry oraz zgodnych wymiarów i zapisuje wszystkie
 rekordy w jednej transakcji. Dopiero TASK-0037 tworzy job i zmienia lifecycle.
+
+## Przepływ ręcznego importu layoutów
+
+1. Operator umieszcza CSV/JSONL pod skonfigurowanym lokalnym `import_root`.
+2. Panel przekazuje Admin API wyłącznie względny `sourcePath` i wersję
+   kontraktu.
+3. Warstwa application rozwiązuje ścieżkę pod rootem, sprawdza limit i preview,
+   a następnie liczy SHA-256 bounded partiami.
+4. API tworzy istniejący job `import` z poświadczonym formatem, rozmiarem,
+   checksumą i kanoniczną ścieżką względną.
+5. `input_key` blokuje drugi import tej samej treści/kontraktu dla tej samej gry.
+6. Worker `worker-v3` ponownie sprawdza checksum i usuwa ewentualny nietrwały
+   ogon znajdujący się za checkpointem.
+7. CSV/JSONL jest czytany po jednej ograniczonej linii i partiami po 1000
+   niepustych rekordów; poprawny rekord albo bezpieczny błąd trafia do
+   `layout_import_rows`.
+8. Po idempotentnym upsercie partii worker zapisuje offset bajtowy, numer linii,
+   liczniki i łańcuch checksumy prefiksu w checkpoint schema v1.
+9. Pełny SHA-256 jest ponownie potwierdzany przed końcowym checkpointem; każda
+   rozbieżność usuwa surowy staging i zeruje kursor do bezpiecznego replay.
+10. API tworzy osobny job `validate` dla zakończonego importu i wybranej
+    opublikowanej wersji reguł tej samej gry.
+11. Worker `worker-v4` pobiera surowe wiersze bounded partiami po fizycznym
+    `line_number`, sprawdza `rows * columns` i aktywny alfabet oraz koduje
+    stałoszeroką sygnaturę.
+12. Znormalizowana partia jest idempotentnie zapisywana przed checkpointem.
+    Błędy parsera i błędy domenowe pozostają osobnymi rekordami, więc jeden
+    wadliwy wiersz nie zatrzymuje pozostałych.
+13. Po zakończeniu walidacji Admin API liczy dokładne agregaty integralności
+    bez ładowania całego stagingu do pamięci: zgodność liczby wierszy, ciąg od
+    `1`, luki, duplikaty numerów, duplikaty sygnatur i kody błędów.
+14. Panel może pobierać bounded, deterministyczne próbki oraz stronicować
+    znormalizowane wiersze po fizycznym `line_number`; raport nadal nie tworzy
+    datasetu.
+15. Jawne odrzucenie zakończonej walidacji usuwa wszystkie znormalizowane
+    stagingi jej importu przed surowymi wierszami, pozostawiając joby jako audyt;
+    aktywna walidacja albo istniejący dataset blokuje operację.
+16. Publikacja blokuje job importu, jego walidacje, opublikowane reguły i grę,
+    ponownie liczy ten sam raport, a następnie w jednej transakcji tworzy
+    serwerowo numerowaną wersję datasetu i kopiuje poprawne rekordy setowym
+    `INSERT ... SELECT`. Dataset staje się `published` dopiero po sprawdzeniu
+    liczby skopiowanych layoutów.
+
+HTTP nie przesyła dużego pliku i nie wykonuje pełnego importu w requestcie.
+Inspekcja czyta najwyżej bounded preview oraz jeden przebieg SHA-256; staging i
+pełna walidacja pozostają w workerze. Surowy staging nie tworzy jeszcze
+`dataset_version` ani `layouts` i nie jest widoczny dla wydania mobilnego.
+To samo dotyczy znormalizowanego stagingu: TASK-0047 raportuje luki i duplikaty,
+a TASK-0049 dopiero transakcyjnie tworzy dataset.
+Retry publikacji identyfikuje wynik przez unikalny
+`dataset_versions.source_job_id = validation_job_id` i zwraca tę samą wersję.
+Odrzucenie i publikacja blokują najpierw ten sam job importu, dzięki czemu nie
+mogą równolegle usunąć oraz skopiować stagingu.
 
 ## Przepływ importu zdjęć
 

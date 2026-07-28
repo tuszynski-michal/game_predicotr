@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from datetime import timedelta
 from pathlib import Path
 
+from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobType
 from game_predictor_api.storage.database import (
@@ -16,6 +17,11 @@ from game_predictor_api.storage.database import (
     create_session_factory,
 )
 
+from game_predictor_worker.imports.handler import LayoutImportStagingHandler
+from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingStore
+from game_predictor_worker.imports.validation_handler import (
+    LayoutImportValidationHandler,
+)
 from game_predictor_worker.jobs.runtime import LocalJobWorker
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
@@ -33,7 +39,7 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 
-WORKER_VERSION = "worker-v2"
+WORKER_VERSION = "worker-v4"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -82,6 +88,15 @@ def main(arguments: Sequence[str] | None = None) -> int:
         payout_store,
         JsonlPayoutAuditWriter(artifact_root),
     )
+    import_store = SqlAlchemyLayoutImportStagingStore(session_factory)
+    import_handler = LayoutImportStagingHandler(
+        import_store,
+        LayoutImportSourceInspector(
+            settings.import_root,
+            max_bytes=settings.import_max_bytes,
+        ),
+    )
+    import_validation_handler = LayoutImportValidationHandler(import_store)
     snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
     release_handler = ReleaseWorkflowHandler(
         SqlAlchemyReleaseWorkflowStore(session_factory),
@@ -100,6 +115,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
     worker = LocalJobWorker(
         store,
         {
+            JobType.IMPORT: import_handler,
+            JobType.VALIDATE: import_validation_handler,
             JobType.PAYOUT: payout_handler,
             JobType.ANDROID_BUILD: release_handler,
         },

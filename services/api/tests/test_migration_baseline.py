@@ -17,6 +17,9 @@ JOBS_REVISION = "0007_jobs"
 JOB_LEASES_REVISION = "0008_job_leases"
 LAYOUT_PAYOUTS_REVISION = "0009_layout_payouts"
 MOBILE_RELEASES_REVISION = "0010_mobile_releases"
+LAYOUT_IMPORT_STAGING_REVISION = "0011_layout_import_staging"
+LAYOUT_IMPORT_NORMALIZATION_REVISION = "0012_layout_import_normalization"
+LAYOUT_IMPORT_PUBLICATION_REVISION = "0013_layout_import_publication"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -28,7 +31,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_mobile_releases_migration_is_the_only_head() -> None:
+def test_layout_import_publication_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -40,8 +43,11 @@ def test_mobile_releases_migration_is_the_only_head() -> None:
     job_leases = script.get_revision(JOB_LEASES_REVISION)
     layout_payouts = script.get_revision(LAYOUT_PAYOUTS_REVISION)
     mobile_releases = script.get_revision(MOBILE_RELEASES_REVISION)
+    layout_import_staging = script.get_revision(LAYOUT_IMPORT_STAGING_REVISION)
+    layout_import_normalization = script.get_revision(LAYOUT_IMPORT_NORMALIZATION_REVISION)
+    layout_import_publication = script.get_revision(LAYOUT_IMPORT_PUBLICATION_REVISION)
 
-    assert script.get_heads() == [MOBILE_RELEASES_REVISION]
+    assert script.get_heads() == [LAYOUT_IMPORT_PUBLICATION_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -62,6 +68,12 @@ def test_mobile_releases_migration_is_the_only_head() -> None:
     assert layout_payouts.down_revision == JOB_LEASES_REVISION
     assert mobile_releases is not None
     assert mobile_releases.down_revision == LAYOUT_PAYOUTS_REVISION
+    assert layout_import_staging is not None
+    assert layout_import_staging.down_revision == MOBILE_RELEASES_REVISION
+    assert layout_import_normalization is not None
+    assert layout_import_normalization.down_revision == LAYOUT_IMPORT_STAGING_REVISION
+    assert layout_import_publication is not None
+    assert layout_import_publication.down_revision == LAYOUT_IMPORT_NORMALIZATION_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -344,3 +356,79 @@ def test_mobile_releases_migration_generates_immutable_selections() -> None:
     assert "drop table mobile_release_games" in downgrade_sql
     assert "drop table mobile_releases" in downgrade_sql
     assert "drop type mobile_release_status" in downgrade_sql
+
+
+def test_layout_import_staging_migration_generates_isolated_rows() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{LAYOUT_IMPORT_STAGING_REVISION}:{MOBILE_RELEASES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table layout_import_rows" in upgrade_sql
+    assert "pk_layout_import_rows" in upgrade_sql
+    assert "fk_layout_import_rows_job_id_jobs" in upgrade_sql
+    assert "ck_layout_import_rows_result_variant" in upgrade_sql
+    assert "ix_layout_import_rows_job_offset" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table layout_import_rows" in downgrade_sql
+
+
+def test_layout_import_normalization_migration_generates_staging_and_indexes() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{LAYOUT_IMPORT_NORMALIZATION_REVISION}:{LAYOUT_IMPORT_STAGING_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table layout_import_normalized_rows" in upgrade_sql
+    assert "pk_layout_import_normalized_rows" in upgrade_sql
+    assert "fk_layout_import_normalized_rows_raw_row" in upgrade_sql
+    assert "ck_layout_import_normalized_rows_result_variant" in upgrade_sql
+    assert "ix_layout_import_normalized_rows_sequence" in upgrade_sql
+    assert "ix_layout_import_normalized_rows_signature" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table layout_import_normalized_rows" in downgrade_sql
+
+
+def test_layout_import_publication_migration_adds_unique_source_job() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{LAYOUT_IMPORT_PUBLICATION_REVISION}:{LAYOUT_IMPORT_NORMALIZATION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "uq_dataset_versions_source_job" in upgrade_sql
+    assert "where source_job_id is not null" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop index uq_dataset_versions_source_job" in downgrade_sql

@@ -10,7 +10,9 @@ param(
     [string]$VersionName = '0.1.0',
 
     [ValidateRange(1, 2100000000)]
-    [int]$VersionCode = 1
+    [int]$VersionCode = 1,
+
+    [switch]$CleanNativeProject
 )
 
 $ErrorActionPreference = 'Stop'
@@ -118,21 +120,61 @@ try {
         }
     }
 
-    & $expoCommand prebuild --clean --platform android --no-install
+    $prebuildArguments = @('prebuild', '--platform', 'android', '--no-install')
+    if ($CleanNativeProject) {
+        $prebuildArguments += '--clean'
+    }
+    & $expoCommand @prebuildArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Expo prebuild failed with exit code $LASTEXITCODE."
+    }
+
+    if ($Variant -eq 'Release' -and $CleanNativeProject) {
+        $nodeModulesRoot = [System.IO.Path]::GetFullPath(
+            (Join-Path $repositoryRoot 'node_modules')
+        )
+        $nodeModulesPrefix = $nodeModulesRoot.TrimEnd(
+            [System.IO.Path]::DirectorySeparatorChar
+        ) + [System.IO.Path]::DirectorySeparatorChar
+        $nativeCaches = @(
+            Get-ChildItem `
+                -LiteralPath $nodeModulesRoot `
+                -Directory `
+                -Filter '.cxx' `
+                -Recurse `
+                -Force `
+                -ErrorAction SilentlyContinue
+        )
+        foreach ($nativeCache in $nativeCaches) {
+            $resolvedNativeCache = [System.IO.Path]::GetFullPath($nativeCache.FullName)
+            if (-not $resolvedNativeCache.StartsWith(
+                $nodeModulesPrefix,
+                [System.StringComparison]::OrdinalIgnoreCase
+            )) {
+                throw "Refusing to remove native cache outside node_modules: $resolvedNativeCache"
+            }
+            Remove-Item -LiteralPath $resolvedNativeCache -Recurse -Force
+        }
+        Write-Host "Removed $($nativeCaches.Count) generated native .cxx cache(s)."
     }
 
     Push-Location (Join-Path $mobileRoot 'android')
     try {
         $gradleTask = "assemble$Variant"
-        & .\gradlew.bat `
-            --no-daemon `
-            --no-watch-fs `
-            --max-workers=1 `
-            '-Dkotlin.compiler.execution.strategy=in-process' `
-            $gradleTask `
+        $gradleArguments = @(
+            '--no-daemon',
+            '--no-watch-fs',
+            '--max-workers=1',
+            '-Dkotlin.compiler.execution.strategy=in-process'
+        )
+        if ($CleanNativeProject) {
+            $gradleArguments += 'clean'
+        }
+        $gradleArguments += @(
+            $gradleTask,
             "-PreactNativeArchitectures=$Architectures"
+        )
+        & .\gradlew.bat @gradleArguments
         if ($LASTEXITCODE -ne 0) {
             throw "Gradle $Variant build failed with exit code $LASTEXITCODE."
         }

@@ -2,7 +2,11 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from game_predictor_api.application.jobs import JobRepository, JobService
+from game_predictor_api.application.jobs import (
+    JobRepository,
+    JobService,
+    LayoutImportRulesReference,
+)
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -28,9 +32,16 @@ class MemoryJobRepository(JobRepository):
     def __init__(self, game_id: UUID) -> None:
         self.game_id = game_id
         self.items: dict[UUID, Job] = {}
+        self.rules: dict[UUID, LayoutImportRulesReference] = {}
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
+
+    def get_layout_import_rules_reference(
+        self,
+        rules_version_id: UUID,
+    ) -> LayoutImportRulesReference | None:
+        return self.rules.get(rules_version_id)
 
     def add_job(self, job: Job) -> Job:
         self.items[job.id] = job
@@ -111,6 +122,46 @@ def test_input_key_is_canonical_and_includes_type_and_game() -> None:
     )
 
 
+def test_layout_import_input_key_uses_attested_content_not_file_name() -> None:
+    game_id = uuid4()
+    first: dict[str, object] = {
+        "schema_version": 1,
+        "import_kind": "layout_file",
+        "source_path": "first/layouts.csv",
+        "source_checksum": "a" * 64,
+        "source_size_bytes": 100,
+        "file_format": "csv",
+        "contract_version": 1,
+    }
+    renamed = {
+        **first,
+        "source_path": "renamed/layouts.csv",
+    }
+    changed = {
+        **first,
+        "source_checksum": "b" * 64,
+    }
+
+    assert job_input_key(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload=first,
+    ) == job_input_key(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload=renamed,
+    )
+    assert job_input_key(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload=first,
+    ) != job_input_key(
+        JobType.IMPORT,
+        game_id=game_id,
+        input_payload=changed,
+    )
+
+
 def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
     original = _job()
     started, token = _leased_job(original)
@@ -177,9 +228,7 @@ def test_cancellation_is_immediate_before_start_and_deferred_during_processing()
     assert unstarted.status is JobStatus.CANCELLED
     assert unstarted.finished_at == now
 
-    processing, token = _leased_job(
-        started_at=datetime(2026, 7, 27, 12, 59, 30, tzinfo=UTC)
-    )
+    processing, token = _leased_job(started_at=datetime(2026, 7, 27, 12, 59, 30, tzinfo=UTC))
     requested = request_job_cancellation(processing, requested_at=now)
     assert requested.status is JobStatus.PROCESSING
     assert requested.cancel_requested_at == now
@@ -235,6 +284,19 @@ def test_service_rejects_duplicate_input_and_cancels_persisted_job() -> None:
         )
     assert error.value.code == "JOB_INPUT_ALREADY_EXISTS"
     assert service.cancel_job(created.id).status is JobStatus.CANCELLED
+
+
+def test_service_rejects_import_without_server_source_attestation() -> None:
+    service = JobService(MemoryJobRepository(uuid4()))
+
+    with pytest.raises(JobError) as captured:
+        service.create_job(
+            JobType.IMPORT,
+            game_id=uuid4(),
+            input_payload={"schema_version": 1},
+        )
+
+    assert captured.value.code == "IMPORT_SOURCE_NOT_ATTESTED"
 
 
 def test_lease_token_heartbeat_checkpoint_and_expiry_are_fenced() -> None:

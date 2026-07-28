@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Wymagania modułu administracyjnego
@@ -134,6 +134,8 @@ Administrator może:
 - wygenerować deterministyczny staging 1000 layoutów z podanym seedem i
   opublikowaną wersją reguł,
 - zaimportować dane przygotowane przez worker,
+- wybrać opublikowaną wersję reguł tej samej gry i uruchomić walidację
+  zakończonego surowego importu,
 - sprawdzić liczbę rekordów i zakres `sequence_number`,
 - znaleźć luki i duplikaty numerów,
 - sprawdzić duplikaty sygnatur layoutu,
@@ -163,8 +165,18 @@ Warunki publikacji datasetu:
 Podgląd jest stronicowany w stabilnej kolejności `sequence_number` i pokazuje
 komórki row-major jako siatkę o wymiarach wersji. Przed publikacją panel ponownie
 pokazuje raport i wymaga jawnego potwierdzenia niezmienności. Publikacja ponownie
-waliduje dane po stronie serwera. Opublikowaną wersję można jawnie
+waliduje dane po stronie serwera pod blokadą transakcyjną, a po sukcesie
+pokazuje numer wersji, liczbę layoutów i `sourceJobId`. Przycisk jest dostępny
+wyłącznie dla raportu bez blokad i nie pozwala na podwójny submit.
+Idempotentne ponowienie zwraca tę samą wersję. Opublikowaną wersję można jawnie
 zarchiwizować; archiwizacja zachowuje `published_at` i wszystkie layouty.
+
+Odrzucenie nieopublikowanego importu jest osobną operacją destrukcyjną. Panel
+pokazuje pełne identyfikatory joba walidacji i powiązanego joba importu, wymaga
+przepisania dokładnego identyfikatora importu oraz osobnego kliknięcia
+potwierdzającego. Operacja usuwa surowe i wszystkie znormalizowane wiersze tego
+importu, ale zachowuje joby jako audyt. Backend blokuje odrzucenie, gdy staging
+jest używany przez dataset albo przez aktywną walidację.
 
 ### Jobs
 

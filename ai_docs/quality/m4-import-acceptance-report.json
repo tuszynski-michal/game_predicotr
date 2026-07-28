@@ -1,0 +1,296 @@
+{
+  "androidBuildSkipped": false,
+  "blockedControl": {
+    "errorCodeCounts": [],
+    "publicationErrorCode": "LAYOUT_IMPORT_NOT_READY_FOR_PUBLICATION",
+    "reportChecks": [
+      {
+        "code": "NORMALIZED_ROW_COUNT_MISMATCH",
+        "issueCount": 0,
+        "lineNumbers": [],
+        "message": "The normalized row count matches the completed job.",
+        "sequenceNumbers": [],
+        "status": "passed",
+        "truncated": false
+      },
+      {
+        "code": "NO_VALID_IMPORT_ROWS",
+        "issueCount": 0,
+        "lineNumbers": [],
+        "message": "The import contains at least one valid layout.",
+        "sequenceNumbers": [],
+        "status": "passed",
+        "truncated": false
+      },
+      {
+        "code": "INVALID_IMPORT_ROW",
+        "issueCount": 0,
+        "lineNumbers": [],
+        "message": "Every normalized row is valid.",
+        "sequenceNumbers": [],
+        "status": "passed",
+        "truncated": false
+      },
+      {
+        "code": "MISSING_SEQUENCE_NUMBER",
+        "issueCount": 1,
+        "lineNumbers": [],
+        "message": "The valid layouts have missing sequence numbers.",
+        "sequenceNumbers": [
+          10
+        ],
+        "status": "blocking",
+        "truncated": false
+      },
+      {
+        "code": "DUPLICATE_SEQUENCE_NUMBER",
+        "issueCount": 1,
+        "lineNumbers": [
+          9,
+          10
+        ],
+        "message": "Some valid sequence numbers occur more than once.",
+        "sequenceNumbers": [
+          9
+        ],
+        "status": "blocking",
+        "truncated": false
+      },
+      {
+        "code": "DUPLICATE_SIGNATURE",
+        "issueCount": 0,
+        "lineNumbers": [],
+        "message": "No duplicate layout signatures were found.",
+        "sequenceNumbers": [],
+        "status": "passed",
+        "truncated": false
+      }
+    ]
+  },
+  "capturedAt": "2026-07-27T23:21:49.578816+00:00",
+  "dataset": {
+    "datasetVersion": 1,
+    "generatorVersion": "layout-import-v1",
+    "id": "f98cc319-5c6e-444d-8ab1-00cedd4d5f1b",
+    "layoutCount": 500000,
+    "maximumSequenceNumber": 500000,
+    "minimumSequenceNumber": 1,
+    "publicationRetryReturnedSameId": true,
+    "rulesVersionId": "efa15d23-f61d-4236-9973-95bd31114463",
+    "sourceJobId": "1b2a6c38-e751-47be-811c-76f05227cf43",
+    "uniqueSequenceCount": 500000,
+    "uniqueSignatureCount": 499994
+  },
+  "elapsedSeconds": 2571.9905,
+  "environment": {
+    "machine": "AMD64",
+    "operatingSystem": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.13"
+  },
+  "fixtures": {
+    "blocked": {
+      "duplicateGroupCount": 0,
+      "elapsedSeconds": 0.0017,
+      "layoutCount": 20,
+      "maximumBufferedRecordCount": 1,
+      "path": "C:/Users/user/Documents/game_predicotr/imports/m4-acceptance/layouts-blocked.jsonl",
+      "seed": 50027,
+      "sha256": "18b1da4f373fb6a80e89c894bbc6419880a089557709dc9cc885aa7d28062095",
+      "sizeBytes": 1593
+    },
+    "valid": {
+      "duplicateGroupCount": 6,
+      "elapsedSeconds": 27.8272,
+      "layoutCount": 500000,
+      "maximumBufferedRecordCount": 1,
+      "path": "C:/Users/user/Documents/game_predicotr/imports/m4-acceptance/layouts-500k.jsonl",
+      "seed": 50027,
+      "sha256": "214ff8b99c74b24e1781a6b70b0add738588c15c9e85d3df745e14a73ec49d8d",
+      "sizeBytes": 42340054
+    }
+  },
+  "recovery": {
+    "androidBuildElapsedSeconds": 1359.5864,
+    "completedAt": "2026-07-28T00:31:12.141454+00:00",
+    "initialFailure": {
+      "message": "Release workflow failed: {'code': 'ANDROID_BUILD_FAILED', 'message': 'The controlled Android release build or verification failed.'} (failed)",
+      "type": "RuntimeError"
+    },
+    "method": "Controlled builder resumed from the already published and independently validated immutable snapshot after generated Android cleanup was made non-destructive by default."
+  },
+  "release": {
+    "androidBuildVerified": true,
+    "artifactStatus": "verified_after_recovery",
+    "apkChecksum": "63945624cc3c19686e02f7ce2d83d435bc7f41a157473c4381d88920fb79a972",
+    "apkRelativePath": "android-releases/m4-acceptance.1/app-release-63945624cc3c19686e02f7ce2d83d435bc7f41a157473c4381d88920fb79a972.apk",
+    "apkSizeBytes": 47409574,
+    "embeddedSnapshotChecksum": "103eeb52c9e0e5ef2212073bbff645b67d92285645bdea35425b96307b1b6ade",
+    "independentFinalApkVerifierPassed": true,
+    "offlineVerifierPassed": true,
+    "payoutCount": 500000,
+    "snapshotChecksum": "103eeb52c9e0e5ef2212073bbff645b67d92285645bdea35425b96307b1b6ade",
+    "snapshotLogicalChecksum": "31f2c4869033ca5520265c8e450742b979ad7c8d611c48ea6691b0660ea437bf",
+    "snapshotRelativePath": "snapshots/m4-acceptance.1/31f2c4869033ca5520265c8e450742b979ad7c8d611c48ea6691b0660ea437bf/snapshot.db",
+    "snapshotSizeBytes": 41246720,
+    "workflowJobStatusBeforeRecovery": "failed",
+    "version": "m4-acceptance.1"
+  },
+  "resume": {
+    "attemptCount": 2,
+    "checkpointByteOffset": 81492,
+    "checkpointLineNumber": 1000,
+    "finalCheckpointCount": 500,
+    "sameJobId": "c96ac872-a891-4467-a673-394c4e452721"
+  },
+  "scopeEvidence": {
+    "manualSqlMutationUsed": false,
+    "ocrUsed": false,
+    "sourceImagesUsed": false
+  },
+  "stages": {
+    "blockedImportJobCreation": {
+      "elapsedSeconds": 0.0915,
+      "memory": {
+        "baselineRssBytes": 110391296,
+        "peakRssBytes": 110997504,
+        "peakRssDeltaBytes": 606208,
+        "peakTracedPythonBytes": 1484461
+      }
+    },
+    "blockedImportStaging": {
+      "elapsedSeconds": 0.1571,
+      "memory": {
+        "baselineRssBytes": 111329280,
+        "peakRssBytes": 111693824,
+        "peakRssDeltaBytes": 364544,
+        "peakTracedPythonBytes": 1443415
+      }
+    },
+    "blockedImportValidation": {
+      "elapsedSeconds": 0.1755,
+      "memory": {
+        "baselineRssBytes": 111841280,
+        "peakRssBytes": 112271360,
+        "peakRssDeltaBytes": 430080,
+        "peakTracedPythonBytes": 450179
+      }
+    },
+    "blockedIntegrityReport": {
+      "elapsedSeconds": 0.0947,
+      "memory": {
+        "baselineRssBytes": 112381952,
+        "peakRssBytes": 112447488,
+        "peakRssDeltaBytes": 65536,
+        "peakTracedPythonBytes": 658839
+      }
+    },
+    "configuration": {
+      "elapsedSeconds": 1.5984,
+      "memory": {
+        "baselineRssBytes": 106975232,
+        "peakRssBytes": 112820224,
+        "peakRssDeltaBytes": 5844992,
+        "peakTracedPythonBytes": 2618823
+      }
+    },
+    "databaseMigration": {
+      "elapsedSeconds": 0.4793,
+      "memory": {
+        "baselineRssBytes": 101351424,
+        "peakRssBytes": 105635840,
+        "peakRssDeltaBytes": 4284416,
+        "peakTracedPythonBytes": 1459846
+      }
+    },
+    "datasetPublication": {
+      "elapsedSeconds": 17.17,
+      "memory": {
+        "baselineRssBytes": 270180352,
+        "peakRssBytes": 272138240,
+        "peakRssDeltaBytes": 1957888,
+        "peakTracedPythonBytes": 2299166
+      }
+    },
+    "fixtureGeneration": {
+      "elapsedSeconds": 27.8317,
+      "memory": {
+        "baselineRssBytes": 96968704,
+        "peakRssBytes": 101232640,
+        "peakRssDeltaBytes": 4263936,
+        "peakTracedPythonBytes": 2980839
+      }
+    },
+    "payoutSnapshotAndAndroidRelease": {
+      "elapsedSeconds": 1167.5416,
+      "memory": {
+        "baselineRssBytes": 272150528,
+        "peakRssBytes": 482725888,
+        "peakRssDeltaBytes": 210575360,
+        "peakTracedPythonBytes": 129146120
+      }
+    },
+    "publishedDatasetIntegrity": {
+      "elapsedSeconds": 1.7029,
+      "memory": {
+        "baselineRssBytes": 272117760,
+        "peakRssBytes": 272158720,
+        "peakRssDeltaBytes": 40960,
+        "peakTracedPythonBytes": 260418
+      }
+    },
+    "validImportInterruptedAttempt": {
+      "elapsedSeconds": 0.9962,
+      "memory": {
+        "baselineRssBytes": 112807936,
+        "peakRssBytes": 128372736,
+        "peakRssDeltaBytes": 15564800,
+        "peakTracedPythonBytes": 8453825
+      }
+    },
+    "validImportJobCreationAndChecksum": {
+      "elapsedSeconds": 0.0759,
+      "memory": {
+        "baselineRssBytes": 112791552,
+        "peakRssBytes": 114925568,
+        "peakRssDeltaBytes": 2134016,
+        "peakTracedPythonBytes": 2165322
+      }
+    },
+    "validImportResume": {
+      "elapsedSeconds": 576.8007,
+      "memory": {
+        "baselineRssBytes": 120586240,
+        "peakRssBytes": 230883328,
+        "peakRssDeltaBytes": 110297088,
+        "peakTracedPythonBytes": 69122642
+      }
+    },
+    "validImportValidation": {
+      "elapsedSeconds": 772.5213,
+      "memory": {
+        "baselineRssBytes": 185016320,
+        "peakRssBytes": 344293376,
+        "peakRssDeltaBytes": 159277056,
+        "peakTracedPythonBytes": 90504576
+      }
+    },
+    "validIntegrityReport": {
+      "elapsedSeconds": 2.0221,
+      "memory": {
+        "baselineRssBytes": 269991936,
+        "peakRssBytes": 270200832,
+        "peakRssDeltaBytes": 208896,
+        "peakTracedPythonBytes": 440108
+      }
+    }
+  },
+  "status": "passed",
+  "totalElapsedSeconds": 3931.5769,
+  "validReport": {
+    "actualRowCount": 500000,
+    "duplicateSignatureAffectedRowCount": 12,
+    "duplicateSignatureGroupCount": 6,
+    "errorCodeCounts": [],
+    "readyForPublication": true
+  }
+}

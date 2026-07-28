@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Kontrakty API i danych mobilnych
@@ -50,6 +50,7 @@ Format błędu:
 /dataset-versions/{datasetVersionId}/layouts
 /jobs
 /import-jobs
+/layout-import-validations
 /review-items
 /mobile-releases
 ```
@@ -549,8 +550,10 @@ jest dyskryminowany przez `jobType`; każdy `inputPayload` ma
 
 Typowane payloady:
 
-- `import`: `sourcePath`, `pipelineVersion`,
-- `validate`: `datasetVersionId`,
+- `import` request: `sourcePath`, `contractVersion = 1`,
+- `validate` datasetu: `datasetVersionId`,
+- `validate` layout importu: `validationKind = layout_import`, `importJobId`,
+  `rulesVersionId`,
 - `payout`: `datasetVersionId`, `rulesVersionId`, `algorithmVersion`,
 - `snapshot`: `mobileReleaseId`,
 - `android_build`: `mobileReleaseId`.
@@ -558,6 +561,253 @@ Typowane payloady:
 Powtórzenie identycznego typu, gry i payloadu zwraca
 `409 JOB_INPUT_ALREADY_EXISTS` z `existingJobId`. API nie wykonuje workflow
 w requestcie.
+
+Dla `import` klient wskazuje wyłącznie względny POSIX `sourcePath` pod
+`GAME_PREDICTOR_IMPORT_ROOT`. Nie może przekazać ścieżki absolutnej, formatu,
+rozmiaru ani checksumy. API przed utworzeniem joba:
+
+1. rozwiązuje ścieżkę bez możliwości wyjścia poza skonfigurowany katalog,
+2. wymaga zwykłego, niepustego `.csv` albo `.jsonl` w limicie bajtów,
+3. sprawdza nagłówek i pierwszy rekord `layout-import-v1`,
+4. liczy SHA-256 strumieniowo i odrzuca zmianę pliku podczas odczytu.
+
+Utrwalony i zwracany `inputPayload` importu ma postać:
+
+```json
+{
+  "schemaVersion": 1,
+  "importKind": "layout_file",
+  "sourcePath": "game-1/layouts.csv",
+  "sourceChecksum": "pełny-mały-hex-sha256",
+  "sourceSizeBytes": 123456,
+  "fileFormat": "csv",
+  "contractVersion": 1
+}
+```
+
+`input_key` dla layout importu obejmuje grę, checksum, format i wersję kontraktu,
+ale nie nazwę pliku. Identyczne bajty pod inną nazwą nadal zwracają
+`JOB_INPUT_ALREADY_EXISTS`. Błędy ścieżki/formatu/rozmiaru mają stabilne kody
+`INVALID_IMPORT_SOURCE_PATH`, `IMPORT_SOURCE_NOT_FOUND`,
+`IMPORT_SOURCE_NOT_FILE`, `IMPORT_SOURCE_FORMAT_UNSUPPORTED`,
+`IMPORT_SOURCE_EMPTY`, `IMPORT_SOURCE_TOO_LARGE` i
+`IMPORT_SOURCE_CHANGED`. Błąd preview zachowuje kod TASK-0043 oraz
+`details.lineNumber`.
+
+Po przejęciu joba worker używa istniejących publicznych pól postępu:
+
+- `stage = staging_import_rows` podczas odczytu i `staged_import_rows` po
+  końcowej rewalidacji,
+- `progress.current/total` oznacza przetworzone i wszystkie bajty
+  poświadczonego źródła,
+- `progress.succeeded/failed` oznacza parserowo poprawne i błędne niepuste
+  rekordy,
+- `progress.review = 0`; walidacja domenowa i review nie należą do TASK-0045.
+
+Wewnętrzny checkpoint, offset, numer linii i `prefix_chain` nie są zwracane
+przez API. `completed` oznacza zakończony surowy staging, a nie gotowy lub
+opublikowany dataset. Wiersze z błędem są zachowywane do dalszego raportowania
+i nie zatrzymują odczytu kolejnych rekordów.
+
+Walidacja zakończonego surowego importu używa:
+
+```json
+{
+  "jobType": "validate",
+  "gameId": "uuid",
+  "inputPayload": {
+    "schemaVersion": 1,
+    "validationKind": "layout_import",
+    "importJobId": "uuid",
+    "rulesVersionId": "uuid"
+  }
+}
+```
+
+Import musi mieć status `completed`, a reguły status `published`; oba zasoby
+muszą należeć do `gameId`. Stabilne błędy utworzenia to
+`LAYOUT_IMPORT_JOB_NOT_FOUND`, `LAYOUT_IMPORT_NOT_COMPLETED`,
+`LAYOUT_IMPORT_GAME_MISMATCH`, `RULES_VERSION_NOT_FOUND`,
+`RULES_VERSION_NOT_PUBLISHED` i `LAYOUT_IMPORT_RULES_GAME_MISMATCH`.
+
+Dla tego wariantu `progress.current/total` oznacza zwalidowane i wszystkie
+surowe niepuste rekordy, `succeeded/failed` — końcowe poprawne i błędne wiersze,
+a `stage` przyjmuje `validating_import_rows` lub `validated_import_rows`.
+Powtórzenie tej samej pary import/reguły zwraca `JOB_INPUT_ALREADY_EXISTS`.
+
+## Raport znormalizowanego importu layoutów
+
+### GET `/api/v1/admin/layout-import-validations/{validationJobId}/integrity-report`
+
+Endpoint działa wyłącznie dla zakończonego joba `validate` z
+`validationKind = layout_import`. Zwraca dokładne agregaty pełnego stagingu i
+bounded diagnostykę:
+
+```json
+{
+  "validationJobId": "uuid",
+  "importJobId": "uuid",
+  "rulesVersionId": "uuid",
+  "rows": 3,
+  "columns": 5,
+  "readyForPublication": false,
+  "expectedRowCount": 500000,
+  "actualRowCount": 500000,
+  "validRowCount": 499998,
+  "invalidRowCount": 2,
+  "minSequenceNumber": 1,
+  "maxSequenceNumber": 500000,
+  "uniqueSequenceCount": 499997,
+  "missingSequenceCount": 3,
+  "missingSequenceNumbers": [25, 26, 300],
+  "missingSequenceNumbersTruncated": false,
+  "duplicateSequenceGroupCount": 1,
+  "duplicateSequenceAffectedRowCount": 2,
+  "duplicateSequenceExcessRowCount": 1,
+  "duplicateSequences": [
+    {
+      "sequenceNumber": 20,
+      "occurrenceCount": 2,
+      "lineNumbers": [20, 21],
+      "truncated": false
+    }
+  ],
+  "duplicateSequencesTruncated": false,
+  "duplicateSignatureGroupCount": 1,
+  "duplicateSignatureAffectedRowCount": 2,
+  "duplicateSignatureExcessRowCount": 1,
+  "duplicateSignatures": [
+    {
+      "signature": "0102...",
+      "occurrenceCount": 2,
+      "sequenceNumbers": [100, 200],
+      "lineNumbers": [100, 200],
+      "sequenceNumbersTruncated": false,
+      "lineNumbersTruncated": false
+    }
+  ],
+  "duplicateSignaturesTruncated": false,
+  "errorCodeCounts": [
+    {
+      "code": "import_symbol_not_in_rules",
+      "count": 2
+    }
+  ]
+}
+```
+
+`checks` ma stabilną kolejność i kody:
+
+```text
+NORMALIZED_ROW_COUNT_MISMATCH
+NO_VALID_IMPORT_ROWS
+INVALID_IMPORT_ROW
+MISSING_SEQUENCE_NUMBER
+DUPLICATE_SEQUENCE_NUMBER
+DUPLICATE_SIGNATURE
+```
+
+Pierwsze pięć kodów ma status `blocking`, gdy wykryją problem. Duplikat
+sygnatury ma status `warning`. Wiersze błędne nie wypełniają pozycji ciągu
+poprawnych layoutów. Liczniki są dokładne; próbki zawierają najwyżej 100 grup
+lub wartości.
+
+### GET `/api/v1/admin/layout-import-validations/{validationJobId}/rows`
+
+Query:
+
+```text
+after_line_number=0
+limit=25
+status=all|valid|invalid
+error_code=<stabilny kod opcjonalny>
+```
+
+`after_line_number` ma minimum `0`, a `limit` zakres `1..100`. Lista jest
+uporządkowana rosnąco po fizycznym `lineNumber`, ponieważ staging może jeszcze
+zawierać zduplikowane `sequenceNumber`. Odpowiedź zawiera wymiary wersji reguł,
+`cells/signature` poprawnego wiersza albo bezpieczny kod i opis błędu.
+`nextAfterLineNumber` jest ustawiony tylko, gdy istnieje następna strona.
+
+Stabilne błędy obu endpointów:
+
+```text
+LAYOUT_IMPORT_VALIDATION_NOT_FOUND
+LAYOUT_IMPORT_VALIDATION_KIND_MISMATCH
+LAYOUT_IMPORT_VALIDATION_NOT_COMPLETED
+LAYOUT_IMPORT_VALIDATION_METADATA_INVALID
+INVALID_LAYOUT_IMPORT_ROW_FILTER
+```
+
+### DELETE `/api/v1/admin/layout-import-validations/{validationJobId}/staging`
+
+Jawnie odrzuca nieopublikowany staging wskazanego zakończonego joba walidacji.
+Backend sam odczytuje `importJobId`, usuwa najpierw wszystkie znormalizowane
+wiersze powiązane z tym importem, a następnie surowe wiersze. Job importu i joby
+walidacji pozostają trwałym audytem.
+
+```json
+{
+  "validationJobId": "uuid",
+  "importJobId": "uuid",
+  "deletedNormalizedRowCount": 500000,
+  "deletedRawRowCount": 500000
+}
+```
+
+Operacja jest idempotentna względem już pustego stagingu. Aktywna walidacja albo
+dataset wskazujący job importu lub dowolnej jego walidacji zwraca `409`:
+
+```text
+LAYOUT_IMPORT_STAGING_VALIDATION_ACTIVE
+LAYOUT_IMPORT_STAGING_IN_USE
+```
+
+Panel nie przekazuje `importJobId` do endpointu; pokazuje go użytkownikowi i
+wymaga przepisania jako potwierdzenia dokładnego celu przed wysłaniem żądania.
+
+### POST `/api/v1/admin/layout-import-validations/{validationJobId}/publish`
+
+Publikuje zakończony, poprawny staging jako nową niezmienną wersję datasetu.
+Endpoint ponownie oblicza raport pod blokadą joba importu, wszystkich jego
+walidacji, wersji reguł i gry. `dataset_versions` i pełny setowy
+`INSERT ... SELECT` do `layouts` należą do jednej transakcji.
+
+Odpowiedź ma istniejący kontrakt `DatasetVersionResponse`:
+
+```json
+{
+  "id": "uuid",
+  "gameId": "uuid",
+  "version": 4,
+  "rows": 3,
+  "columns": 5,
+  "signatureCellWidth": 2,
+  "layoutCount": 500000,
+  "status": "published",
+  "generationSeed": 0,
+  "generatorVersion": "layout-import-v1",
+  "sourceJobId": "validation-job-uuid",
+  "createdAt": "2026-07-28T12:00:00Z",
+  "publishedAt": "2026-07-28T12:00:00Z"
+}
+```
+
+`sourceJobId` jest unikalny. Retry tej samej walidacji zwraca dokładnie tę samą
+wersję, również gdy pierwsza odpowiedź została utracona. Duplikaty sygnatur są
+dozwolone; pozostałe blokady raportu zwracają `409`.
+
+Stabilne konflikty publikacji:
+
+```text
+LAYOUT_IMPORT_PUBLICATION_SOURCE_INVALID
+LAYOUT_IMPORT_RULES_NOT_PUBLISHED
+LAYOUT_IMPORT_NOT_READY_FOR_PUBLICATION
+LAYOUT_IMPORT_PUBLICATION_ROW_COUNT_CHANGED
+```
+
+Publikacja nie usuwa stagingu i nie uruchamia automatycznie payoutów ani
+pipeline’u Android.
 
 ### GET `/api/v1/admin/jobs`
 

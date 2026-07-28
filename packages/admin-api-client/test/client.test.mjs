@@ -187,6 +187,144 @@ test('generated client sends typed job, filters, details, cancel and retry reque
   );
 });
 
+test('generated client sends only the trusted layout import source request', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const jobId = '77777777-7777-4777-8777-777777777777';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json(
+      {
+        id: jobId,
+        jobType: 'import',
+        gameId,
+        status: 'created',
+        inputPayload: {
+          schemaVersion: 1,
+          importKind: 'layout_file',
+          sourcePath: 'game-1/layouts.csv',
+          sourceChecksum: 'a'.repeat(64),
+          sourceSizeBytes: 123,
+          fileFormat: 'csv',
+          contractVersion: 1,
+        },
+        progress: {
+          current: 0,
+          total: null,
+          stage: null,
+          succeeded: 0,
+          failed: 0,
+          review: 0,
+        },
+        error: null,
+        workerVersion: null,
+        attemptCount: 0,
+        heartbeatAt: null,
+        leaseExpiresAt: null,
+        createdAt: '2026-07-27T10:00:00Z',
+        updatedAt: '2026-07-27T10:00:00Z',
+        startedAt: null,
+        finishedAt: null,
+        cancelRequestedAt: null,
+      },
+      { status: 201 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const result = await client.createJob({
+    jobType: 'import',
+    gameId,
+    inputPayload: {
+      schemaVersion: 1,
+      sourcePath: 'game-1/layouts.csv',
+      contractVersion: 1,
+    },
+  });
+
+  assert.equal(result.data?.inputPayload.sourceChecksum, 'a'.repeat(64));
+  assert.deepEqual(await requests[0].clone().json(), {
+    jobType: 'import',
+    gameId,
+    inputPayload: {
+      schemaVersion: 1,
+      sourcePath: 'game-1/layouts.csv',
+      contractVersion: 1,
+    },
+  });
+});
+
+test('generated client sends a rules-bound layout import validation request', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const importJobId = '22222222-2222-4222-8222-222222222222';
+  const rulesVersionId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        {
+          id: '44444444-4444-4444-8444-444444444444',
+          jobType: 'validate',
+          gameId,
+          status: 'created',
+          inputPayload: {
+            schemaVersion: 1,
+            validationKind: 'layout_import',
+            importJobId,
+            rulesVersionId,
+          },
+          progress: {
+            current: 0,
+            total: null,
+            stage: null,
+            succeeded: 0,
+            failed: 0,
+            review: 0,
+          },
+          error: null,
+          workerVersion: null,
+          attemptCount: 0,
+          heartbeatAt: null,
+          leaseExpiresAt: null,
+          createdAt: '2026-07-27T10:00:00Z',
+          updatedAt: '2026-07-27T10:00:00Z',
+          startedAt: null,
+          finishedAt: null,
+          cancelRequestedAt: null,
+        },
+        { status: 201 },
+      );
+    },
+  });
+
+  await client.createJob({
+    jobType: 'validate',
+    gameId,
+    inputPayload: {
+      schemaVersion: 1,
+      validationKind: 'layout_import',
+      importJobId,
+      rulesVersionId,
+    },
+  });
+
+  assert.deepEqual(await requests[0].clone().json(), {
+    jobType: 'validate',
+    gameId,
+    inputPayload: {
+      schemaVersion: 1,
+      validationKind: 'layout_import',
+      importJobId,
+      rulesVersionId,
+    },
+  });
+});
+
 test('generated client sends server-versioned rules draft requests', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -538,6 +676,123 @@ test('generated client sends bounded mock dataset staging requests', async () =>
       `/api/v1/admin/dataset-versions/${datasetVersionId}`,
     ],
   );
+});
+
+test('generated client sends layout import report and row filters', async () => {
+  const requests = [];
+  const validationJobId = '11111111-1111-4111-8111-111111111111';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/rows')) {
+      return Response.json({
+        columns: 5,
+        importJobId: '22222222-2222-4222-8222-222222222222',
+        items: [
+          {
+            cells: [1, 99],
+            errorCode: 'import_symbol_not_in_rules',
+            errorMessage: 'Foreign symbol.',
+            lineNumber: 5,
+            sequenceNumber: 3,
+            signature: null,
+          },
+        ],
+        nextAfterLineNumber: null,
+        rows: 3,
+        rulesVersionId: '33333333-3333-4333-8333-333333333333',
+        validationJobId,
+      });
+    }
+    if (url.pathname.endsWith('/staging')) {
+      return Response.json({
+        deletedNormalizedRowCount: 6,
+        deletedRawRowCount: 6,
+        importJobId: '22222222-2222-4222-8222-222222222222',
+        validationJobId,
+      });
+    }
+    if (url.pathname.endsWith('/publish')) {
+      return Response.json({
+        columns: 5,
+        createdAt: '2026-07-28T12:00:00Z',
+        gameId: '44444444-4444-4444-8444-444444444444',
+        generationSeed: 0,
+        generatorVersion: 'layout-import-v1',
+        id: '55555555-5555-4555-8555-555555555555',
+        layoutCount: 6,
+        publishedAt: '2026-07-28T12:00:00Z',
+        rows: 3,
+        signatureCellWidth: 1,
+        sourceJobId: validationJobId,
+        status: 'published',
+        version: 1,
+      });
+    }
+    return Response.json({
+      actualRowCount: 6,
+      checks: [],
+      columns: 5,
+      duplicateSequenceAffectedRowCount: 0,
+      duplicateSequenceExcessRowCount: 0,
+      duplicateSequenceGroupCount: 0,
+      duplicateSequences: [],
+      duplicateSequencesTruncated: false,
+      duplicateSignatureAffectedRowCount: 0,
+      duplicateSignatureExcessRowCount: 0,
+      duplicateSignatureGroupCount: 0,
+      duplicateSignatures: [],
+      duplicateSignaturesTruncated: false,
+      errorCodeCounts: [],
+      expectedRowCount: 6,
+      importJobId: '22222222-2222-4222-8222-222222222222',
+      invalidRowCount: 0,
+      maxSequenceNumber: 6,
+      minSequenceNumber: 1,
+      missingSequenceCount: 0,
+      missingSequenceNumbers: [],
+      missingSequenceNumbersTruncated: false,
+      readyForPublication: true,
+      rows: 3,
+      rulesVersionId: '33333333-3333-4333-8333-333333333333',
+      uniqueSequenceCount: 6,
+      validRowCount: 6,
+      validationJobId,
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const report = await client.getLayoutImportIntegrityReport(validationJobId);
+  const rows = await client.listLayoutImportNormalizedRows(validationJobId, {
+    afterLineNumber: 4,
+    errorCode: 'import_symbol_not_in_rules',
+    limit: 1,
+    status: 'invalid',
+  });
+  const published = await client.publishLayoutImportDataset(validationJobId);
+  const rejection = await client.rejectLayoutImportStaging(validationJobId);
+
+  assert.equal(report.data?.readyForPublication, true);
+  assert.equal(rows.data?.items[0]?.lineNumber, 5);
+  assert.equal(published.data?.sourceJobId, validationJobId);
+  assert.equal(rejection.data?.deletedRawRowCount, 6);
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      `/api/v1/admin/layout-import-validations/${validationJobId}/integrity-report`,
+      `/api/v1/admin/layout-import-validations/${validationJobId}/rows`,
+      `/api/v1/admin/layout-import-validations/${validationJobId}/publish`,
+      `/api/v1/admin/layout-import-validations/${validationJobId}/staging`,
+    ],
+  );
+  const query = new URL(requests[1].url).searchParams;
+  assert.equal(query.get('after_line_number'), '4');
+  assert.equal(query.get('limit'), '1');
+  assert.equal(query.get('status'), 'invalid');
+  assert.equal(query.get('error_code'), 'import_symbol_not_in_rules');
 });
 
 test('generated client sends immutable mobile release requests', async () => {

@@ -1,7 +1,7 @@
 ---
 title: Milestone 04 execution plan
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-28
 ---
 
 # Plan wykonania Milestone 04 — Manual data import
@@ -31,6 +31,11 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 - Format `cells`, sygnatury i wersji datasetu jest stabilny.
 - Job lifecycle oraz publikacja są wznawialne i idempotentne.
 
+Na podstawie D-041 właściciel dopuścił warunkowe rozpoczęcie implementacji M4
+przed zebraniem fizycznych dowodów G3. Nie oznacza to zaliczenia M3: TASK-0039,
+TASK-0041 i TASK-0042 pozostają zablokowane, a pełny benchmark obu telefonów
+oraz raport `passed` są obowiązkowe po M4 i przed M5.
+
 ## Zasady realizacji
 
 - pliki trafiają najpierw do stagingu i nigdy bezpośrednio do wydania,
@@ -53,8 +58,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 
 ### Zadania
 
-- `TASK-0043 — CSV and JSON import contracts`
-- `TASK-0044 — Import job creation, checksums and path safety`
+- `TASK-0043 — CSV and JSON import contracts` — done 2026-07-27
+- `TASK-0044 — Import job creation, checksums and path safety` — done 2026-07-27
 
 ### Bramka G4.1
 
@@ -63,6 +68,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 - ten sam plik i kontrakt nie tworzą drugiego importu bez jawnej intencji,
 - API nie przyjmuje dowolnej ścieżki wychodzącej poza dozwolony katalog,
 - podgląd nie modyfikuje opublikowanych danych.
+
+G4.1 zaliczona 2026-07-27.
 
 ## M4.2 — Streaming, staging i wznowienie
 
@@ -77,8 +84,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 
 ### Zadania
 
-- `TASK-0045 — Streaming parser and resumable staging`
-- `TASK-0046 — Layout normalization and row validation`
+- `TASK-0045 — Streaming parser and resumable staging` — done 2026-07-27
+- `TASK-0046 — Layout normalization and row validation` — done 2026-07-27
 
 ### Bramka G4.2
 
@@ -87,6 +94,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 - błędny wiersz ma numer, kod i bezpieczny opis,
 - poprawne wiersze nie są tracone przez pojedynczy błąd,
 - staging nie jest widoczny dla wydania mobilnego.
+
+G4.2 zaliczona 2026-07-27.
 
 ## M4.3 — Raport integralności i UI
 
@@ -102,8 +111,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 
 ### Zadania
 
-- `TASK-0047 — Import integrity and duplicate reports`
-- `TASK-0048 — Manual import administration UI`
+- `TASK-0047 — Import integrity and duplicate reports` — ukończono 2026-07-27
+- `TASK-0048 — Manual import administration UI` — ukończono 2026-07-28
 
 ### Bramka G4.3
 
@@ -112,6 +121,8 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 - podgląd planszy odpowiada kolejności `row-major`,
 - usunięcie stagingu wymaga wskazania celu i potwierdzenia,
 - raporty są odtwarzalne dla tego samego importu.
+
+G4.3 zaliczona 2026-07-28.
 
 ## M4.4 — Publikacja i odbiór dużego importu
 
@@ -125,8 +136,10 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 
 ### Zadania
 
-- `TASK-0049 — Transactional dataset publication from staging`
-- `TASK-0050 — Manual import scale and release acceptance`
+- `TASK-0049 — Transactional dataset publication from staging` — ukończono
+  2026-07-28
+- `TASK-0050 — Manual import scale and release acceptance` — ukończono
+  2026-07-28
 
 ### Bramka G4
 
@@ -136,6 +149,15 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 - na jej podstawie powstaje zweryfikowany snapshot oraz APK,
 - żaden etap nie używa OCR, zdjęć ani ręcznej edycji SQL,
 - czasy, pamięć i liczba błędów są zapisane w Outcome.
+
+G4 zaliczona warunkowo 2026-07-28. Reprezentatywny JSONL 500 000 rekordów
+przeszedł kontrolowaną przerwę po checkpointcie, wznowienie tego samego joba,
+walidację, idempotentną publikację, 500 000 payoutów oraz produkcyjny snapshot.
+Po pierwszym błędzie uprawnień wygenerowanego katalogu Android dokładny,
+niezmienny snapshot został wznowiony w kontrolowanym builderze i osadzony w
+niezależnie zweryfikowanym APK bez uprawnienia `INTERNET`. Pełny raport,
+łącznie z pierwszym błędem i recovery, znajduje się w
+`quality/m4-import-acceptance-report.json`.
 
 ## Mapa zadań M4
 
@@ -147,7 +169,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M4.
 | M4.4 Publikacja | TASK-0049–0050 | 2 |
 | **Razem M4** | **TASK-0043–0050** | **8** |
 
-## Następny milestone
+## Następny krok
 
-Po przejściu G4 i zamknięciu Q-015–Q-017 obowiązuje
+Zgodnie z D-041 po G4 trzeba wrócić do TASK-0041 i TASK-0042, zebrać fizyczne
+benchmarki 500 000 layoutów na Pixelu i Samsungu oraz uzyskać raport G3
+`passed`. Dopiero po G3 i zamknięciu Q-015–Q-017 można rozpocząć
 `MILESTONE_05_EXECUTION_PLAN.md`.

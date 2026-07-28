@@ -11,6 +11,12 @@ from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.layout_import_reports import (
+    LayoutImportReportService,
+)
+from game_predictor_api.application.layout_imports import (
+    LayoutImportSourceInspector,
+)
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
 )
@@ -52,6 +58,9 @@ from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.layout_import_report_repository import (
+    SqlAlchemyLayoutImportReportRepository,
+)
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
@@ -65,6 +74,7 @@ def create_app(
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
+    layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
@@ -107,13 +117,37 @@ def create_app(
     def default_job_service_dependency() -> Iterator[JobService]:
         with session_factory() as session:
             try:
-                yield JobService(SqlAlchemyJobRepository(session))
+                yield JobService(
+                    SqlAlchemyJobRepository(session),
+                    LayoutImportSourceInspector(
+                        resolved_settings.import_root,
+                        max_bytes=resolved_settings.import_max_bytes,
+                    ),
+                )
                 session.commit()
             except BaseException:
                 session.rollback()
                 raise
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency
+
+    def default_layout_import_report_service_dependency() -> (
+        Iterator[LayoutImportReportService]
+    ):
+        with session_factory() as session:
+            try:
+                yield LayoutImportReportService(
+                    SqlAlchemyLayoutImportReportRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_layout_import_report_dependency = (
+        layout_import_report_service_dependency
+        or default_layout_import_report_service_dependency
+    )
 
     def default_mobile_release_service_dependency() -> Iterator[MobileReleaseService]:
         with session_factory() as session:
@@ -155,6 +189,7 @@ def create_app(
             resolved_rules_dependency,
             resolved_dataset_dependency,
             resolved_job_dependency,
+            resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
         )
     )

@@ -1,7 +1,7 @@
 ---
 title: Completed tasks archive
 status: active
-last_updated: 2026-07-27
+last_updated: 2026-07-28
 ---
 
 # Ukończone zadania
@@ -52,5 +52,13 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0036 — Mobile release domain and API](0036-mobile-release-domain-api.md)
 - [TASK-0037 — Release workflow orchestration](0037-release-workflow-orchestration.md)
 - [TASK-0038 — Android release panel and artifact UI](0038-android-release-panel-artifact-ui.md)
+- [TASK-0043 — CSV and JSON import contracts](0043-csv-json-import-contracts.md)
+- [TASK-0044 — Import job creation, checksums and path safety](0044-import-job-checksums-path-safety.md)
+- [TASK-0045 — Streaming parser and resumable staging](0045-streaming-parser-resumable-staging.md)
+- [TASK-0046 — Layout normalization and row validation](0046-layout-normalization-row-validation.md)
+- [TASK-0047 — Import integrity and duplicate reports](0047-import-integrity-duplicate-reports.md)
+- [TASK-0048 — Manual import administration UI](0048-manual-import-administration-ui.md)
+- [TASK-0049 — Transactional dataset publication from staging](0049-transactional-dataset-publication-from-staging.md)
+- [TASK-0050 — Manual import scale and release acceptance](0050-manual-import-scale-release-acceptance.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)

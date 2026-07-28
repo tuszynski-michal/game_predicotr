@@ -107,7 +107,12 @@ class _DeterministicAndroidBuilder:
         self.calls: list[AndroidReleaseBuildSpec] = []
         self.before_return: Callable[[], None] | None = None
 
-    def build(self, spec: AndroidReleaseBuildSpec) -> AndroidReleaseArtifact:
+    def build(
+        self,
+        spec: AndroidReleaseBuildSpec,
+        *,
+        heartbeat: Callable[[], None] | None = None,
+    ) -> AndroidReleaseArtifact:
         self.calls.append(spec)
         snapshot_checksum = spec.snapshot.manifest.snapshot_file_sha256
         apk_path = (
@@ -120,6 +125,8 @@ class _DeterministicAndroidBuilder:
         apk_path.parent.mkdir(parents=True, exist_ok=True)
         payload = (f"{spec.release_version}\n{spec.version_code}\n{snapshot_checksum}\n").encode()
         apk_path.write_bytes(payload)
+        if heartbeat is not None:
+            heartbeat()
         if self.before_return is not None:
             self.before_return()
         return AndroidReleaseArtifact(
@@ -277,10 +284,17 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
                     version=version,
                     games=(source,),
                 )
-                service.start_mobile_release_build(release.id)
+                build_job = service.start_mobile_release_build(release.id)
                 release_ids.append(release.id)
 
-            assert worker.run_once() is JobExecutionResult.COMPLETED
+            execution_result = worker.run_once()
+            with Session(engine) as session:
+                persisted_job = SqlAlchemyJobRepository(session).get_job(build_job.id)
+            assert persisted_job is not None
+            assert execution_result is JobExecutionResult.COMPLETED, (
+                persisted_job.error_code,
+                persisted_job.error_message,
+            )
 
             with Session(engine) as session:
                 completed = SqlAlchemyMobileReleaseRepository(session).get_mobile_release(

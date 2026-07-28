@@ -14,8 +14,9 @@ from typing import Literal
 
 from PIL import Image, UnidentifiedImageError
 
-from .rectification import CELL_HEIGHT, CELL_WIDTH
+from .rectification import BOARD_HEIGHT, BOARD_WIDTH, CELL_HEIGHT, CELL_WIDTH
 from .symbol_dataset import (
+    CALIBRATED_INVENTORY_VERSION,
     LABEL_SOURCE_VERSION,
     ReviewedLabel,
     ReviewedLabelSource,
@@ -89,6 +90,8 @@ class BootstrapSymbolReview:
         inventory_path: Path,
         crop_root: Path,
         label_output_path: Path,
+        *,
+        require_calibrated: bool = False,
     ) -> None:
         try:
             _, inventory = load_symbol_crop_inventory(inventory_path)
@@ -114,6 +117,11 @@ class BootstrapSymbolReview:
             )
         self.inventory_path = inventory_path.resolve(strict=True)
         self.inventory = inventory
+        if require_calibrated and inventory.inventory_version != CALIBRATED_INVENTORY_VERSION:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_CALIBRATED_INVENTORY_REQUIRED",
+                "Whole-layout review requires symbol-crop-inventory-v2.",
+            )
         self.crop_root = resolved_crop_root
         self.label_output_path = output
         self._samples_by_id = {sample.sample_id: sample for sample in inventory.samples}
@@ -124,6 +132,25 @@ class BootstrapSymbolReview:
         self._samples_by_checksum = {
             checksum: tuple(sample_ids) for checksum, sample_ids in checksum_groups.items()
         }
+        board_groups: dict[str, list[SymbolCropSample]] = defaultdict(list)
+        for sample in inventory.samples:
+            if sample.board_id is not None:
+                board_groups[sample.board_id].append(sample)
+        self._boards = tuple(
+            tuple(sorted(samples, key=lambda sample: sample.cell_index))
+            for _, samples in sorted(
+                board_groups.items(),
+                key=lambda item: item[1][0].sequence_number,
+            )
+        )
+        if require_calibrated and (
+            len(self._boards) * 15 != len(inventory.samples)
+            or any(len(board) != 15 for board in self._boards)
+        ):
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_BOARD_GROUP_INVALID",
+                "Calibrated inventory must contain complete 5 x 3 boards.",
+            )
         self._lock = threading.RLock()
         self._game_id: str | None = None
         self._game_code: str | None = None
@@ -303,6 +330,125 @@ class BootstrapSymbolReview:
                 self._save()
             return changed
 
+    def decide_board(
+        self,
+        *,
+        board_id: str,
+        decisions: Iterable[dict[str, object]],
+        apply_to_identical: bool = False,
+    ) -> int:
+        """Atomically apply a set of explicit cell decisions from one board."""
+
+        with self._lock:
+            if not self.configured:
+                raise SymbolReviewError(
+                    "SYMBOL_REVIEW_NOT_CONFIGURED",
+                    "Configure the game and symbols before reviewing samples.",
+                )
+            board = self._board(board_id)
+            board_sample_ids = {sample.sample_id for sample in board}
+            requested = list(decisions)
+            if not requested or len(requested) > 15:
+                raise SymbolReviewError(
+                    "SYMBOL_REVIEW_BOARD_DECISIONS_INVALID",
+                    "A board update must contain between 1 and 15 cell decisions.",
+                )
+            candidate = dict(self._decisions)
+            touched: set[str] = set()
+            for index, raw in enumerate(requested):
+                sample_id = raw.get("sampleId")
+                decision = raw.get("decision")
+                symbol_code = raw.get("symbolCode")
+                if not isinstance(sample_id, str) or sample_id not in board_sample_ids:
+                    raise SymbolReviewError(
+                        "SYMBOL_REVIEW_BOARD_SAMPLE_INVALID",
+                        f"Decision {index} does not belong to the selected board.",
+                    )
+                if sample_id in touched or decision not in {"accepted", "rejected", "clear"}:
+                    raise SymbolReviewError(
+                        "SYMBOL_REVIEW_BOARD_DECISIONS_INVALID",
+                        "Board decisions must use unique samples and valid actions.",
+                    )
+                touched.add(sample_id)
+                sample = self._sample(sample_id)
+                target_ids = (
+                    self._samples_by_checksum[sample.crop_checksum_sha256]
+                    if apply_to_identical
+                    else (sample_id,)
+                )
+                if decision == "clear":
+                    if symbol_code is not None:
+                        raise SymbolReviewError(
+                            "SYMBOL_REVIEW_BOARD_DECISIONS_INVALID",
+                            "A clear action cannot carry a symbol.",
+                        )
+                    for target_id in target_ids:
+                        candidate.pop(target_id, None)
+                    continue
+                reviewed = self._validated_decision(
+                    decision=decision,
+                    symbol_code=symbol_code if isinstance(symbol_code, str) else None,
+                )
+                for target_id in target_ids:
+                    candidate[target_id] = reviewed
+            accepted_by_checksum: dict[str, str] = {}
+            for sample_id, decision in candidate.items():
+                if decision.decision != "accepted":
+                    continue
+                sample = self._sample(sample_id)
+                previous = accepted_by_checksum.get(sample.crop_checksum_sha256)
+                if previous is not None and previous != decision.symbol_code:
+                    raise SymbolReviewError(
+                        "SYMBOL_REVIEW_IDENTICAL_CONFLICT",
+                        "Identical crop bytes cannot use different symbols.",
+                    )
+                assert decision.symbol_code is not None
+                accepted_by_checksum[sample.crop_checksum_sha256] = decision.symbol_code
+            changed = sum(
+                self._decisions.get(sample_id) != decision
+                for sample_id, decision in candidate.items()
+            ) + sum(sample_id not in candidate for sample_id in self._decisions)
+            if changed:
+                self._decisions = candidate
+                self._review_revision += 1
+                self._save()
+            return changed
+
+    def _validated_decision(
+        self,
+        *,
+        decision: object,
+        symbol_code: str | None,
+    ) -> ReviewDecision:
+        if decision == "accepted":
+            if symbol_code is None:
+                raise SymbolReviewError(
+                    "SYMBOL_REVIEW_SYMBOL_REQUIRED",
+                    "Accepted decision requires a symbol code.",
+                )
+            symbol = self._symbols.get(_validate_code(symbol_code, "symbolCode"))
+            if symbol is None:
+                raise SymbolReviewError(
+                    "SYMBOL_REVIEW_SYMBOL_UNKNOWN",
+                    "Accepted decision references an unknown symbol.",
+                )
+            return ReviewDecision(
+                decision="accepted",
+                symbol_id=symbol.symbol_id,
+                symbol_code=symbol.symbol_code,
+            )
+        if decision == "rejected":
+            if symbol_code is not None:
+                raise SymbolReviewError(
+                    "SYMBOL_REVIEW_REJECTED_HAS_SYMBOL",
+                    "Rejected decision cannot carry a symbol.",
+                )
+            return ReviewDecision(decision="rejected")
+        raise SymbolReviewError(
+            "SYMBOL_REVIEW_DECISION_INVALID",
+            "Decision must be accepted or rejected.",
+        )
+
     def clear(
         self,
         *,
@@ -375,6 +521,77 @@ class BootstrapSymbolReview:
                 "totalFiltered": len(filtered),
             }
 
+    def board_state(
+        self,
+        *,
+        offset: int = 0,
+        status: Literal["all", "pending", "accepted", "rejected"] = "pending",
+        sequence_number: int | None = None,
+    ) -> dict[str, object]:
+        if offset < 0 or status not in {"all", "pending", "accepted", "rejected"}:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_PAGE_INVALID",
+                "Board offset and status filter are invalid.",
+            )
+        with self._lock:
+            filtered = [
+                board
+                for board in self._boards
+                if (status == "all" or self._board_status(board) == status)
+                and (
+                    sequence_number is None
+                    or board[0].sequence_number == sequence_number
+                )
+            ]
+            board = filtered[offset] if offset < len(filtered) else None
+            return {
+                "board": self._board_payload(board) if board else None,
+                "configuration": self.state(offset=0, limit=1)["configuration"],
+                "filter": status,
+                "offset": offset,
+                "progress": self.board_progress(),
+                "totalFiltered": len(filtered),
+            }
+
+    def board_progress(self) -> dict[str, object]:
+        board_counts = Counter(self._board_status(board) for board in self._boards)
+        cell_progress = self.progress()
+        return {
+            "boards": {
+                "accepted": board_counts["accepted"],
+                "pending": board_counts["pending"],
+                "rejected": board_counts["rejected"],
+                "total": len(self._boards),
+            },
+            "cells": cell_progress,
+        }
+
+    def resolve_board(self, board_id: str) -> tuple[Path, str]:
+        board = self._board(board_id)
+        sample = board[0]
+        if sample.board_relative_path is None or sample.board_checksum_sha256 is None:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_BOARD_UNAVAILABLE",
+                "Board artifact is not present in this inventory.",
+            )
+        path = self._resolve_artifact(sample.board_relative_path, "board")
+        try:
+            content = path.read_bytes()
+            with Image.open(path) as image:
+                image.load()
+                valid = image.mode == "RGB" and image.size == (BOARD_WIDTH, BOARD_HEIGHT)
+        except (OSError, UnidentifiedImageError) as error:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_BOARD_UNREADABLE",
+                "Board is not a readable image.",
+            ) from error
+        if hashlib.sha256(content).hexdigest() != sample.board_checksum_sha256 or not valid:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_BOARD_DRIFT",
+                "Board checksum or dimensions differ from the inventory.",
+            )
+        return path, sample.board_checksum_sha256
+
     def progress(self) -> dict[str, object]:
         counts = Counter(self._sample_status(sample.sample_id) for sample in self.inventory.samples)
         per_symbol = Counter(
@@ -436,6 +653,31 @@ class BootstrapSymbolReview:
             )
         return path, sample.crop_checksum_sha256
 
+    def _resolve_artifact(self, relative_path: str, label: str) -> Path:
+        relative = PurePosixPath(relative_path)
+        if (
+            relative.is_absolute()
+            or not relative.parts
+            or any(part in {"", ".", ".."} for part in relative.parts)
+        ):
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_CROP_PATH_UNSAFE",
+                f"{label} path is not a safe relative POSIX path.",
+            )
+        try:
+            path = (self.crop_root / Path(*relative.parts)).resolve(strict=True)
+        except OSError as error:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_CROP_UNREADABLE",
+                f"{label} cannot be resolved.",
+            ) from error
+        if not path.is_relative_to(self.crop_root):
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_CROP_PATH_UNSAFE",
+                f"{label} path escapes the crop root.",
+            )
+        return path
+
     def _sample(self, sample_id: str) -> SymbolCropSample:
         sample = self._samples_by_id.get(sample_id)
         if sample is None:
@@ -444,6 +686,46 @@ class BootstrapSymbolReview:
                 "Unknown sampleId.",
             )
         return sample
+
+    def _board(self, board_id: str) -> tuple[SymbolCropSample, ...]:
+        for board in self._boards:
+            if board[0].board_id == board_id:
+                return board
+        raise SymbolReviewError(
+            "SYMBOL_REVIEW_BOARD_UNKNOWN",
+            "Unknown boardId.",
+        )
+
+    def _board_status(
+        self,
+        board: tuple[SymbolCropSample, ...],
+    ) -> Literal["pending", "accepted", "rejected"]:
+        decisions = [self._decisions.get(sample.sample_id) for sample in board]
+        if any(decision is None for decision in decisions):
+            return "pending"
+        if all(decision is not None and decision.decision == "accepted" for decision in decisions):
+            return "accepted"
+        return "rejected"
+
+    def _board_payload(
+        self,
+        board: tuple[SymbolCropSample, ...] | None,
+    ) -> dict[str, object] | None:
+        if board is None:
+            return None
+        first = board[0]
+        return {
+            "boardChecksumSha256": first.board_checksum_sha256,
+            "boardId": first.board_id,
+            "boardIndex": first.board_index,
+            "boardUrl": f"/api/boards/{first.board_id}",
+            "calibrationProfileId": first.calibration_profile_id,
+            "calibrationProfileVersion": first.calibration_profile_version,
+            "cells": [self._sample_payload(sample) for sample in board],
+            "sequenceNumber": first.sequence_number,
+            "sourceGroup": first.source_group,
+            "status": self._board_status(board),
+        }
 
     def _sample_status(
         self,

@@ -334,6 +334,13 @@ brak uprawnienia `INTERNET`.
 - błędna klasyfikacja trafia do review,
 - pełnolayoutowy edytor zachowuje row-major, nie zapisuje etykiety przy
   niezaakceptowanej geometrii i wznawia częściowy layout,
+- inwentarz symboli odrzuca v1, detektorowy v2, niezaliczoną bramkę jakości,
+  drift profilu, planszy lub cropu oraz niespójne `observationId/cropSampleId`,
+- atomowy zapis planszy odrzuca obcy sample bez częściowej zmiany, zachowuje
+  idempotencję, konflikty identycznych bajtów i rozdziela postęp plansz od
+  postępu komórek,
+- loopback HTTP ponownie sprawdza checksumę planszy 500 × 300, token i Origin,
+  a endpoint planszy nie przyjmuje ścieżki z klienta,
 - trening jest batchowy i wersjonowany; pojedyncza decyzja nie mutuje aktywnego
   modelu,
 - active learning wybiera niepewne przypadki na podstawie zapisanej wersji

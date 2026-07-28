@@ -1,5 +1,6 @@
 """Image corpus contracts used before algorithm implementation."""
 
+from .calibrated_symbol_inventory import build_calibrated_symbol_crop_inventory
 from .cell_grid_golden import (
     CellGridGoldenError,
     CellGridGoldenReview,
@@ -39,6 +40,7 @@ from .rectification import (
     PerspectiveBoardCellCropperV2Calibrated,
 )
 from .symbol_dataset import (
+    CALIBRATED_INVENTORY_VERSION,
     SymbolDatasetError,
     build_symbol_crop_inventory,
     export_reviewed_symbol_dataset,
@@ -56,12 +58,14 @@ __all__ = [
     "CellGridReviewHttpError",
     "CellGridV2QualityError",
     "CALIBRATED_CROPPER_VERSION",
+    "CALIBRATED_INVENTORY_VERSION",
     "CALIBRATED_QUALITY_REPORT_VERSION",
     "SymbolDatasetError",
     "SymbolReviewError",
     "SymbolReviewHttpError",
     "BootstrapSymbolReview",
     "build_symbol_crop_inventory",
+    "build_calibrated_symbol_crop_inventory",
     "build_calibrated_quality_report",
     "build_profile_document",
     "baseline_report_bytes",

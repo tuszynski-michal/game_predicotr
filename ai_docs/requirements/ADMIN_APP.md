@@ -231,6 +231,13 @@ Edytor pokazuje zakres profilu `(source_group, board_position)`, jego anchory,
 wersję oraz zachowanie exact/interpolation/clamp przed zapisaniem nowej,
 niezmiennej wersji profilu kalibracji.
 
+Lokalny bootstrap przed wdrożeniem docelowych `review_items` pokazuje obok
+siebie kanoniczną planszę 500 × 300, siatkę 15 cropów i paletę symboli.
+Administrator może filtrować plansze niedokończone, kompletne lub zawierające
+odrzucenie, przejść bezpośrednio do `sequence_number` i wznowić częściową
+planszę po restarcie. Każda komórka ma widoczny stan; zapis nie może
+automatycznie przypisać symbolu na podstawie OCR albo podobieństwa obrazu.
+
 Decyzja użytkownika jest zachowywana jako oznaczony przykład możliwy do
 wykorzystania przy kolejnych wersjach klasyfikatora. Model nie uczy się
 niejawnie po pojedynczym kliknięciu: ponowne uczenie tworzy nową wersję

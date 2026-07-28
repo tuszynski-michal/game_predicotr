@@ -16,6 +16,7 @@ from .symbol_review import BootstrapSymbolReview, SymbolReviewError
 
 _MAX_REQUEST_BYTES = 64 * 1024
 _SAMPLE_ID_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+_BOARD_ID_PATTERN = _SAMPLE_ID_PATTERN
 _STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
@@ -69,6 +70,24 @@ class ReviewHttpApplication:
             status=cast(Literal["all", "pending", "accepted", "rejected"], status),
         )
 
+    def board_state(self, query: dict[str, list[str]]) -> dict[str, object]:
+        status = _single_query_value(query, "status", "pending")
+        offset = _integer_query_value(query, "offset", 0)
+        raw_sequence = _single_query_value(query, "sequenceNumber", "")
+        sequence_number = None
+        if raw_sequence:
+            try:
+                sequence_number = int(raw_sequence)
+            except ValueError as error:
+                raise _invalid_request("sequenceNumber must be an integer.") from error
+            if sequence_number <= 0:
+                raise _invalid_request("sequenceNumber must be positive.")
+        return self.review.board_state(
+            offset=offset,
+            status=cast(Literal["all", "pending", "accepted", "rejected"], status),
+            sequence_number=sequence_number,
+        )
+
     def static_file(self, path: str) -> tuple[bytes, str]:
         value = _STATIC_FILES.get(path)
         if value is None:
@@ -95,6 +114,16 @@ class ReviewHttpApplication:
                 "Crop not found.",
             )
         path, checksum = self.review.resolve_crop(sample_id)
+        return path.read_bytes(), checksum
+
+    def board(self, board_id: str) -> tuple[bytes, str]:
+        if not _BOARD_ID_PATTERN.fullmatch(board_id):
+            raise SymbolReviewHttpError(
+                HTTPStatus.NOT_FOUND,
+                "SYMBOL_REVIEW_HTTP_NOT_FOUND",
+                "Board not found.",
+            )
+        path, checksum = self.review.resolve_board(board_id)
         return path.read_bytes(), checksum
 
     def post(self, path: str, body: dict[str, object]) -> dict[str, object]:
@@ -130,6 +159,18 @@ class ReviewHttpApplication:
                 apply_to_identical=_optional_boolean(body, "applyToIdentical"),
             )
             return {"changed": cleared_count}
+        if path == "/api/board-decisions":
+            raw_decisions = body.get("decisions")
+            if not isinstance(raw_decisions, list) or not all(
+                isinstance(value, dict) for value in raw_decisions
+            ):
+                raise _invalid_request("decisions must be an array of objects.")
+            changed = self.review.decide_board(
+                board_id=_required_string(body, "boardId"),
+                decisions=cast(list[dict[str, object]], raw_decisions),
+                apply_to_identical=_optional_boolean(body, "applyToIdentical"),
+            )
+            return {"changed": changed}
         raise SymbolReviewHttpError(
             HTTPStatus.NOT_FOUND,
             "SYMBOL_REVIEW_HTTP_NOT_FOUND",
@@ -177,6 +218,27 @@ def _handler_factory(
                     self._send_json(
                         HTTPStatus.OK,
                         application.state(parse_qs(parsed.query, keep_blank_values=True)),
+                    )
+                    return
+                if parsed.path == "/api/boards":
+                    self._send_json(
+                        HTTPStatus.OK,
+                        application.board_state(
+                            parse_qs(parsed.query, keep_blank_values=True)
+                        ),
+                    )
+                    return
+                board_prefix = "/api/boards/"
+                if parsed.path.startswith(board_prefix):
+                    content, checksum = application.board(
+                        parsed.path[len(board_prefix) :]
+                    )
+                    self._send_bytes(
+                        HTTPStatus.OK,
+                        content,
+                        "image/png",
+                        cache_control="private, max-age=31536000, immutable",
+                        extra_headers={"ETag": f'"{checksum}"'},
                     )
                     return
                 crop_prefix = "/api/crops/"

@@ -5,130 +5,148 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Lokalne narzędzie bootstrap review dla symboli Game Predictor."
+      content="Lokalne pełnolayoutowe etykietowanie symboli Game Predictor."
     />
-    <title>Game Predictor — etykietowanie symboli</title>
+    <title>Game Predictor — plansze 5 × 3</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <main class="shell">
       <header class="hero">
-        <p class="eyebrow">M6 · Bootstrap review</p>
-        <h1>Etykietowanie symboli</h1>
-        <p>
-          Wycinki są już gotowe. Tutaj tylko przypisujesz symbol, odrzucasz
-          nieczytelny obraz albo pomijasz go na później.
-        </p>
+        <div>
+          <p class="eyebrow">M6 · Whole-layout review</p>
+          <h1>Oznacz całą planszę</h1>
+          <p>
+            Pracujesz wyłącznie na skalibrowanych planszach. Wybierz komórkę, a
+            potem symbol. Każda decyzja zapisuje się od razu.
+          </p>
+        </div>
+        <span class="quality-badge">P95 geometrii · 1,8337 px</span>
       </header>
 
-      <section id="status-panel" class="status-grid" aria-label="Postęp">
+      <section class="status-grid" aria-label="Postęp plansz">
         <article>
-          <span>Oczekujące</span><strong id="pending-count">—</strong>
+          <span>Plansze oczekujące</span><strong id="boards-pending">—</strong>
         </article>
         <article>
-          <span>Zaakceptowane</span><strong id="accepted-count">—</strong>
+          <span>Plansze kompletne</span><strong id="boards-complete">—</strong>
         </article>
         <article>
-          <span>Odrzucone</span><strong id="rejected-count">—</strong>
+          <span>Komórki opisane</span><strong id="cells-complete">—</strong>
         </article>
         <article>
-          <span>Wszystkie</span><strong id="total-count">—</strong>
+          <span>Wszystkie komórki</span><strong id="cells-total">—</strong>
         </article>
       </section>
 
       <section id="setup-panel" class="panel" hidden>
         <h2>Konfiguracja gry</h2>
-        <p class="hint">
-          Kody są techniczne i stabilne, np. <code>blazing-hot</code>,
-          <code>seven</code>, <code>star</code>, <code>lemon</code>.
-        </p>
         <form id="setup-form">
+          <label>Kod gry <input id="game-code" required /></label>
+          <label
+            >Recenzent <input id="reviewed-by" required value="owner"
+          /></label>
           <label>
-            Kod gry
-            <input
-              id="game-code"
-              required
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,99}"
-            />
-          </label>
-          <label>
-            Recenzent
-            <input id="reviewed-by" required maxlength="100" value="owner" />
-          </label>
-          <label>
-            Kody symboli — osobno w każdym wierszu
+            Kody symboli — po jednym wierszu
             <textarea id="symbol-codes" required rows="8"></textarea>
           </label>
           <button type="submit" class="primary">Zapisz konfigurację</button>
         </form>
       </section>
 
-      <section id="review-panel" class="panel review-panel" hidden>
+      <section id="review-panel" class="workspace panel" hidden>
         <div class="toolbar">
           <label>
-            Widok
+            Widok plansz
             <select id="filter">
-              <option value="pending">Oczekujące</option>
-              <option value="accepted">Zaakceptowane</option>
-              <option value="rejected">Odrzucone</option>
+              <option value="pending">Niedokończone</option>
+              <option value="accepted">Wszystkie zaakceptowane</option>
+              <option value="rejected">Z odrzuconą komórką</option>
               <option value="all">Wszystkie</option>
             </select>
           </label>
+          <form id="jump-form" class="jump">
+            <label>
+              Numer sekwencji
+              <input id="sequence-jump" type="number" min="1" max="387" />
+            </label>
+            <button type="submit">Przejdź</button>
+            <button id="clear-jump" type="button">Wyczyść</button>
+          </form>
           <div class="navigation">
-            <button id="previous" type="button">← Poprzedni</button>
+            <button id="previous" type="button">←</button>
             <span id="position">—</span>
-            <button id="next" type="button">Następny →</button>
+            <button id="next" type="button">→</button>
           </div>
         </div>
 
-        <div id="loading" class="notice">Wczytywanie…</div>
+        <div id="loading" class="notice">Wczytywanie planszy…</div>
         <div id="empty" class="notice success" hidden>
-          Brak elementów w tym widoku.
+          Brak plansz w tym widoku.
         </div>
         <div id="error" class="notice error" role="alert" hidden></div>
 
-        <article id="sample-card" class="sample-card" hidden>
-          <div class="crop-stage">
-            <img id="crop-image" alt="Wycinek symbolu do oznaczenia" />
-          </div>
-          <dl class="metadata">
+        <article id="board-card" hidden>
+          <div class="board-heading">
             <div>
-              <dt>Sekwencja</dt>
-              <dd id="sequence-number">—</dd>
+              <p class="eyebrow">
+                Sekwencja <span id="sequence-number">—</span>
+              </p>
+              <h2>Plansza 5 × 3</h2>
             </div>
-            <div>
-              <dt>Plansza</dt>
-              <dd id="board-index">—</dd>
-            </div>
-            <div>
-              <dt>Komórka</dt>
-              <dd id="cell-position">—</dd>
-            </div>
-            <div>
-              <dt>Decyzja</dt>
-              <dd id="current-decision">—</dd>
-            </div>
-          </dl>
-
-          <div>
-            <h2>Wybierz symbol</h2>
-            <div id="symbol-buttons" class="symbol-buttons"></div>
-          </div>
-
-          <div class="secondary-actions">
-            <button id="reject" type="button" class="danger">R · Odrzuć</button>
-            <button id="clear" type="button">C · Cofnij decyzję</button>
-            <button id="skip" type="button">S · Pomiń</button>
+            <dl class="metadata">
+              <div>
+                <dt>Pozycja</dt>
+                <dd id="board-index">—</dd>
+              </div>
+              <div>
+                <dt>Grupa</dt>
+                <dd id="source-group">—</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd id="board-status">—</dd>
+              </div>
+              <div>
+                <dt>Profil</dt>
+                <dd id="profile-version">—</dd>
+              </div>
+            </dl>
           </div>
 
-          <label class="checkbox">
-            <input id="apply-identical" type="checkbox" checked />
-            Zastosuj także do cropów o identycznych bajtach
-          </label>
-          <p class="hint">
-            Skróty: 1–9 wybierają symbol, R odrzuca, C cofa, S pomija, strzałki
-            zmieniają element.
-          </p>
+          <div class="review-grid">
+            <section>
+              <h3>Podgląd całej planszy</h3>
+              <div class="board-stage">
+                <img id="board-image" alt="Pełna skalibrowana plansza 5 na 3" />
+              </div>
+              <h3>Wybierz komórkę</h3>
+              <div
+                id="cell-grid"
+                class="cell-grid"
+                aria-label="Komórki planszy"
+              ></div>
+            </section>
+
+            <aside class="decision-panel">
+              <p class="selection-label">Wybrana komórka</p>
+              <strong id="selected-cell">Kliknij komórkę</strong>
+              <div id="symbol-buttons" class="symbol-buttons"></div>
+              <button id="reject" type="button" class="danger">
+                R · Odrzuć komórkę
+              </button>
+              <button id="clear" type="button">C · Cofnij decyzję</button>
+              <label class="checkbox">
+                <input id="apply-identical" type="checkbox" />
+                Zastosuj do identycznych cropów
+              </label>
+              <p class="hint">
+                Skróty 1–9 przypisują symbol wybranej komórce. Strzałki
+                przechodzą między planszami. Decyzje zapisują się atomowo.
+              </p>
+              <div id="per-symbol" class="per-symbol"></div>
+            </aside>
+          </div>
         </article>
       </section>
     </main>

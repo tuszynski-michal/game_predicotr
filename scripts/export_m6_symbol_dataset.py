@@ -12,11 +12,25 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 WORKER_SOURCE = REPOSITORY_ROOT / "services" / "worker" / "src"
 sys.path.insert(0, str(WORKER_SOURCE))
 
+from game_predictor_worker.images.calibrated_symbol_inventory import (  # noqa: E402
+    build_calibrated_symbol_crop_inventory,
+)
 from game_predictor_worker.images.symbol_dataset import (  # noqa: E402
     SymbolDatasetError,
-    build_symbol_crop_inventory,
     export_reviewed_symbol_dataset,
 )
+
+QUALITY_ROOT = REPOSITORY_ROOT / "ai_docs" / "quality"
+DEFAULT_CORPUS = QUALITY_ROOT / "m5-corpus-manifest.json"
+DEFAULT_ANNOTATIONS = QUALITY_ROOT / "m5-golden-annotations.json"
+DEFAULT_GRID_GOLDEN = QUALITY_ROOT / "m5-cell-grid-golden.json"
+DEFAULT_PROFILES = QUALITY_ROOT / "m5-grid-calibration-profiles.json"
+DEFAULT_CROP_REPORT = QUALITY_ROOT / "m5-board-cell-crops-v2-calibrated-report.json"
+DEFAULT_QUALITY_REPORT = (
+    QUALITY_ROOT / "m5-board-cell-crops-v2-calibrated-quality-report.json"
+)
+DEFAULT_CROP_ROOT = REPOSITORY_ROOT / "artifacts" / "m5-board-crops"
+DEFAULT_INVENTORY = QUALITY_ROOT / "m6-symbol-crop-inventory-v2.json"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -27,11 +41,14 @@ def _parse_args() -> argparse.Namespace:
         "inventory",
         help="Verify all M5 crops and produce stable sample IDs.",
     )
-    inventory.add_argument("corpus_manifest", type=Path)
-    inventory.add_argument("golden_annotations", type=Path)
-    inventory.add_argument("crop_report", type=Path)
-    inventory.add_argument("--crop-root", type=Path, required=True)
-    inventory.add_argument("--output", type=Path, required=True)
+    inventory.add_argument("--corpus-manifest", type=Path, default=DEFAULT_CORPUS)
+    inventory.add_argument("--golden-annotations", type=Path, default=DEFAULT_ANNOTATIONS)
+    inventory.add_argument("--cell-grid-golden", type=Path, default=DEFAULT_GRID_GOLDEN)
+    inventory.add_argument("--profiles", type=Path, default=DEFAULT_PROFILES)
+    inventory.add_argument("--crop-report", type=Path, default=DEFAULT_CROP_REPORT)
+    inventory.add_argument("--quality-report", type=Path, default=DEFAULT_QUALITY_REPORT)
+    inventory.add_argument("--crop-root", type=Path, default=DEFAULT_CROP_ROOT)
+    inventory.add_argument("--output", type=Path, default=DEFAULT_INVENTORY)
     inventory.add_argument("--check", action="store_true")
 
     export = subparsers.add_parser(
@@ -85,10 +102,13 @@ def main() -> int:
     args = _parse_args()
     try:
         if args.command == "inventory":
-            inventory_report = build_symbol_crop_inventory(
+            inventory_report = build_calibrated_symbol_crop_inventory(
                 args.corpus_manifest,
                 args.golden_annotations,
+                args.cell_grid_golden,
+                args.profiles,
                 args.crop_report,
+                args.quality_report,
                 args.crop_root,
             )
             content = inventory_report.to_json_bytes()

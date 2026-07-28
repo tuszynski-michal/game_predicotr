@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`M6.1 active — TASK-0097 whole-layout labeling is next`
+`M6.1 active — TASK-0097 whole-layout labeling is in progress`
 
 ## Completed
 
@@ -789,12 +789,31 @@ last_updated: 2026-07-28
 - TASK-0096 przeszedł 290 testów workera, Ruff, mypy dla 145 plików, trzy JSON
   Schema, pełny deterministyczny przebieg oraz wizualny browser smoke edytora;
   zaakceptowano D-061 i ponownie zaliczono G5.3.
+- techniczna część `TASK-0097` tworzy `symbol-crop-inventory-v2` wyłącznie z
+  zaakceptowanego `board-cell-crops-v2-calibrated-v1`; inwentarz obejmuje
+  387 plansz i 5805 komórek, ma SHA-256
+  `5687f80bf74004cdf6bcb7d35633a4916a7326ff1ffdbee4e9a82cf958e32f89`,
+- każda komórka ma stabilne `observationId` niezależne od bajtów oraz
+  `cropSampleId` zależne od croppera, profilu i checksumy; pełny łańcuch
+  korpus → golden → profile → cropy → jakość jest sprawdzany przed review,
+- lokalny ekran pokazuje rzeczywistą planszę 500 × 300 i piętnaście cropów,
+  zapisuje atomowo częściowe decyzje, wznawia je, filtruje status plansz i
+  przechodzi po `sequence_number`; browser smoke potwierdził 15 komórek oraz
+  skok do sekwencji 387 bez błędu,
+- istniejąca konfiguracja `blazing-hot-7-deluxe` i ośmiu symboli została
+  bezpiecznie wznowiona, ale nadal zawiera zero decyzji; żaden symbol nie został
+  przypisany automatycznie,
+- techniczna część TASK-0097 przeszła deterministyczny `inventory --check`,
+  296 testów workera, Ruff, mypy dla 146 plików, Prettier, diff check oraz
+  rzeczywisty browser smoke; zadanie pozostaje aktywne wyłącznie na ręczne
+  oznaczenie pierwszych 15–30 plansz.
 
 ## In progress
 
-- M6.1 jest odblokowane; następnym zakresem jest TASK-0097, który użyje
+- M6.1 jest odblokowane; aktywny TASK-0097 używa
   wyłącznie skalibrowanego korpusu do pełnolayoutowego review 5 × 3 i utworzy
-  pierwsze rzeczywiste decyzje symboli,
+  pierwsze rzeczywiste decyzje symboli; implementacja jest gotowa, a właściciel
+  musi oznaczyć reprezentatywne 15–30 plansz,
 - cztery zaakceptowane rekomendacje są podzielone na ukończone TASK-0094–0096,
   następne TASK-0097 oraz doprecyzowane TASK-0061–0063.
 
@@ -869,8 +888,9 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć TASK-0097: pełnolayoutowe etykietowanie na zaakceptowanym
-`board-cell-crops-v2-calibrated-v1`, a następnie dokończyć TASK-0059.
+Kontynuować TASK-0097 w otwartym pełnolayoutowym edytorze: właściciel oznacza
+15–30 reprezentatywnych plansz z
+`board-cell-crops-v2-calibrated-v1`. Po tej ręcznej partii dokończyć TASK-0059.
 Równolegle
 TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
 Pixela i Samsunga.

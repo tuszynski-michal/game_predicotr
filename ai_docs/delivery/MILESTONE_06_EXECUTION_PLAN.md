@@ -42,6 +42,10 @@ skalibrowany korpus ma 5805 komórek, pełne pochodzenie profili,
 
 TASK-0097 zastępuje jednokafelkowy spike pełnolayoutowym review 5 × 3 i tworzy
 pierwsze rzeczywiste decyzje potrzebne do dokończenia TASK-0059.
+Warstwa techniczna TASK-0097 jest gotowa: deterministyczny inwentarz v2 ma
+5805 skalibrowanych komórek, a loopback UI obsługuje 387 plansz. Zadanie
+pozostaje aktywne do ręcznego oznaczenia pierwszej reprezentatywnej partii
+15–30 plansz przez właściciela.
 
 ## Zasady realizacji
 
@@ -73,8 +77,8 @@ pierwsze rzeczywiste decyzje potrzebne do dokończenia TASK-0059.
   blocked only on reviewed labels from TASK-0097
 - `TASK-0093 — Bootstrap symbol label review tool` — done 2026-07-28;
   technical spike retained, single-crop UX will be replaced
-- `TASK-0097 — Whole-layout assisted symbol labeling` — next; completes the
-  first real reviewed export
+- `TASK-0097 — Whole-layout assisted symbol labeling` — in progress; software
+  ready, awaiting the first owner-reviewed 15–30 boards
 - `TASK-0060 — Dataset split, manifest and quality validation`
 
 ### Bramka G6.1

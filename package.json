@@ -63,6 +63,7 @@
     "m5:sequence:ocr": ".venv\\Scripts\\python.exe scripts/run_m5_sequence_ocr.py",
     "m5:benchmark": ".venv\\Scripts\\python.exe scripts/run_m5_image_benchmark.py",
     "m6:symbols:export": ".venv\\Scripts\\python.exe scripts/export_m6_symbol_dataset.py",
+    "m6:symbols:inventory": ".venv\\Scripts\\python.exe scripts/export_m6_symbol_dataset.py inventory",
     "m6:symbols:review": ".venv\\Scripts\\python.exe scripts/review_m6_symbol_labels.py",
     "lint": "npm run lint --workspaces --if-present && npm run python:lint && npm run powershell:check",
     "m2:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_m2_acceptance.ps1",

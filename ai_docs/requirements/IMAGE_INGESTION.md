@@ -230,6 +230,12 @@ fixture M1/M4 nie mogą ich zastąpić.
 
 Pierwszy bootstrap obejmuje ręczne zatwierdzenie pełnych layoutów z różnych
 zdjęć i pozycji, orientacyjnie 15–30 layoutów, a nie 5805 osobnych ekranów.
+Lokalne narzędzie TASK-0097 grupuje `symbol-crop-inventory-v2` po stabilnym
+`boardId`, pokazuje kanoniczną planszę i wszystkie piętnaście cropów row-major.
+Decyzja pojedynczej komórki zapisuje się atomowo w
+`reviewed-cell-labels-v1`; częściowa plansza pozostaje `pending` i wznawia się
+po restarcie. Plansza jest kompletna dopiero po jawnej decyzji dla wszystkich
+15 komórek.
 Trening nie mutuje modelu po każdym kliknięciu. Każda iteracja ma jawny
 dataset, konfigurację, seed, model version i raport held-out. Po pierwszej
 wersji modelu review priorytetyzuje niepewne albo reprezentatywne przypadki.
@@ -255,6 +261,12 @@ ale administrator może poprawić każdą komórkę. Osobny tryb geometrii pozwa
 skorygować cztery narożniki ramy i sprawdzić wynikową siatkę perspektywiczną
 przed etykietowaniem; decyzji symbolu nie zapisuje się dla cropu z
 niezaakceptowaną geometrią.
+
+Przed pierwszym modelem pole `prediction/confidence` jest jawnie nieobecne.
+Bootstrap nie zgaduje klas: administrator wybiera komórkę na pełnej planszy,
+przypisuje znany symbol, odrzuca ją albo cofa decyzję. Filtry i licznik plansz
+działają na stanach `pending`, `accepted` oraz `rejected`, a skok po
+`sequence_number` nie zmienia decyzji.
 
 ### 9. Walidacja i commit
 

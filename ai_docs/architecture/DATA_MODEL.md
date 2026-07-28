@@ -452,6 +452,12 @@ cropu jest osobnym artefaktem wskazującym `cropper_version`,
 tworzy nową wersję cropu tej samej obserwacji; nie nadpisuje starego pliku ani
 nie przenosi automatycznie decyzji symbolu.
 
+W plikowym bootstrapie M6 `observationId` wynika z korpusu, źródła, domenowego
+`sequence_number`, pozycji planszy i współrzędnych komórki, ale nie z bajtów
+cropu. `cropSampleId` dodaje wersję croppera, profil kalibracji i checksumę
+obrazu. `reviewed-cell-labels-v1` wskazuje dokładny `cropSampleId`; zmiana
+geometrii wymaga nowej decyzji albo jawnej migracji w późniejszym zadaniu.
+
 ### grid_calibration_profiles
 
 ```text

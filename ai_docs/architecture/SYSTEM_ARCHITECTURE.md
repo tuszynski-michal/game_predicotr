@@ -464,6 +464,12 @@ pochodzenie. Brak decyzji nie jest błędem danych, lecz stanem `pending`;
 konflikt dwóch zatwierdzonych klas dla identycznych bajtów jest błędem
 blokującym.
 
+TASK-0097 dodatkowo grupuje obserwacje według stabilnego `boardId`, ponownie
+weryfikuje kanoniczny obraz planszy RGB 500 × 300 i udostępnia wyłącznie
+loopbackowy endpoint planszy. Zapis zestawu decyzji komórek jest atomowy,
+idempotentny i nie może obejmować cropu z innej planszy. Częściowe decyzje
+pozostają poprawnym, wznawialnym stanem `reviewed-cell-labels-v1`.
+
 Bootstrap review pokazuje pełną planszę 5 × 3. Pierwsza iteracja etykiet tworzy
 wersjonowany batch treningowy; model nie jest aktualizowany online. Kolejne
 TASK-0061–TASK-0063 tworzą model, ONNX i skalibrowaną politykę active learning,

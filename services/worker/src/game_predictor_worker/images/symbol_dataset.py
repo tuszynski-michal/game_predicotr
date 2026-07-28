@@ -22,6 +22,7 @@ from .rectification import (
 )
 
 INVENTORY_VERSION = "symbol-crop-inventory-v1"
+CALIBRATED_INVENTORY_VERSION = "symbol-crop-inventory-v2"
 LABEL_SOURCE_VERSION = "reviewed-cell-labels-v1"
 DATASET_VERSION = "labeled-symbol-dataset-v1"
 
@@ -48,9 +49,16 @@ class SymbolCropSample:
     column_index: int
     crop_relative_path: str
     crop_checksum_sha256: str
+    observation_id: str | None = None
+    crop_sample_id: str | None = None
+    board_id: str | None = None
+    board_relative_path: str | None = None
+    board_checksum_sha256: str | None = None
+    calibration_profile_id: str | None = None
+    calibration_profile_version: int | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "boardIndex": self.board_index,
             "cellIndex": self.cell_index,
             "columnIndex": self.column_index,
@@ -64,6 +72,20 @@ class SymbolCropSample:
             "sourceImageId": self.source_image_id,
             "sourceImageRelativePath": self.source_image_relative_path,
         }
+        if self.observation_id is not None:
+            value.update(
+                {
+                    "boardChecksumSha256": self.board_checksum_sha256,
+                    "boardId": self.board_id,
+                    "boardRelativePath": self.board_relative_path,
+                    "calibrationProfileId": self.calibration_profile_id,
+                    "calibrationProfileVersion": self.calibration_profile_version,
+                    "cropSampleId": self.crop_sample_id,
+                    "geometryStatus": "accepted",
+                    "observationId": self.observation_id,
+                }
+            )
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,19 +95,24 @@ class SymbolCropInventory:
     golden_annotations_sha256: str
     crop_report_sha256: str
     samples: tuple[SymbolCropSample, ...]
+    inventory_version: str = INVENTORY_VERSION
+    cropper_version: str = CROPPER_VERSION
+    calibration_profile_set_sha256: str | None = None
+    calibration_profile_set_version: str | None = None
+    quality_report_sha256: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         source_groups = sorted({sample.source_group for sample in self.samples})
-        return {
+        value: dict[str, object] = {
             "boardCount": len({sample.sequence_number for sample in self.samples}),
             "cellHeight": CELL_HEIGHT,
             "cellWidth": CELL_WIDTH,
             "corpusId": self.corpus_id,
             "corpusManifestSha256": self.corpus_manifest_sha256,
             "cropReportSha256": self.crop_report_sha256,
-            "cropperVersion": CROPPER_VERSION,
+            "cropperVersion": self.cropper_version,
             "goldenAnnotationsSha256": self.golden_annotations_sha256,
-            "inventoryVersion": INVENTORY_VERSION,
+            "inventoryVersion": self.inventory_version,
             "sampleCount": len(self.samples),
             "samples": [sample.to_dict() for sample in self.samples],
             "schemaVersion": 1,
@@ -93,6 +120,16 @@ class SymbolCropInventory:
             "sourceGroups": source_groups,
             "status": "ready",
         }
+        if self.inventory_version == CALIBRATED_INVENTORY_VERSION:
+            value.update(
+                {
+                    "calibrationProfileSetSha256": self.calibration_profile_set_sha256,
+                    "calibrationProfileSetVersion": self.calibration_profile_set_version,
+                    "qualityReportSha256": self.quality_report_sha256,
+                    "trainingAllowed": True,
+                }
+            )
+        return value
 
     def to_json_bytes(self) -> bytes:
         return _json_bytes(self.to_dict())
@@ -338,6 +375,69 @@ def _sample_id(
             str(board_index),
             str(row_index),
             str(column_index),
+            crop_checksum,
+        )
+    )
+    return hashlib.sha256(logical_key.encode()).hexdigest()
+
+
+def calibrated_observation_id(
+    *,
+    corpus_id: str,
+    source_checksum: str,
+    sequence_number: int,
+    board_index: int,
+    row_index: int,
+    column_index: int,
+) -> str:
+    logical_key = "\0".join(
+        (
+            "cell-observation-v1",
+            corpus_id,
+            source_checksum,
+            str(sequence_number),
+            str(board_index),
+            str(row_index),
+            str(column_index),
+        )
+    )
+    return hashlib.sha256(logical_key.encode()).hexdigest()
+
+
+def calibrated_board_id(
+    *,
+    corpus_id: str,
+    source_checksum: str,
+    sequence_number: int,
+    board_index: int,
+) -> str:
+    logical_key = "\0".join(
+        (
+            "recognized-board-v1",
+            corpus_id,
+            source_checksum,
+            str(sequence_number),
+            str(board_index),
+        )
+    )
+    return hashlib.sha256(logical_key.encode()).hexdigest()
+
+
+def calibrated_crop_sample_id(
+    *,
+    observation_id: str,
+    cropper_version: str,
+    profile_id: str,
+    profile_version: int,
+    crop_checksum: str,
+) -> str:
+    logical_key = "\0".join(
+        (
+            CALIBRATED_INVENTORY_VERSION,
+            observation_id,
+            cropper_version,
+            profile_id,
+            str(profile_version),
             crop_checksum,
         )
     )
@@ -614,10 +714,14 @@ def build_symbol_crop_inventory(
 def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
     """Load and revalidate a deterministic symbol crop inventory."""
     content, value = _load_json(path, "SYMBOL_DATASET_INVENTORY_INVALID")
-    if value.get("inventoryVersion") != INVENTORY_VERSION or value.get("status") != "ready":
+    inventory_version = value.get("inventoryVersion")
+    if (
+        inventory_version not in {INVENTORY_VERSION, CALIBRATED_INVENTORY_VERSION}
+        or value.get("status") != "ready"
+    ):
         raise SymbolDatasetError(
             "SYMBOL_DATASET_INVENTORY_UNSUPPORTED",
-            "A ready symbol-crop-inventory-v1 input is required.",
+            "A ready supported symbol crop inventory is required.",
         )
     samples: list[SymbolCropSample] = []
     for index, sample_value in enumerate(_sequence(value.get("samples"), "samples")):
@@ -650,15 +754,52 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 sample.get("cropChecksumSha256"),
                 "cropChecksumSha256",
             ),
+            observation_id=(
+                _sha256(sample.get("observationId"), "observationId")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
+            crop_sample_id=(
+                _sha256(sample.get("cropSampleId"), "cropSampleId")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
+            board_id=(
+                _sha256(sample.get("boardId"), "boardId")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
+            board_relative_path=(
+                _text(sample.get("boardRelativePath"), "boardRelativePath")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
+            board_checksum_sha256=(
+                _sha256(sample.get("boardChecksumSha256"), "boardChecksumSha256")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
+            calibration_profile_id=(
+                _sha256(sample.get("calibrationProfileId"), "calibrationProfileId")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
+            calibration_profile_version=(
+                _integer(sample.get("calibrationProfileVersion"), "calibrationProfileVersion")
+                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                else None
+            ),
         )
-        if (
-            parsed.sequence_number <= 0
-            or not 0 <= parsed.board_index <= 8
-            or not 0 <= parsed.row_index < BOARD_ROWS
-            or not 0 <= parsed.column_index < BOARD_COLUMNS
-            or parsed.cell_index != parsed.row_index * BOARD_COLUMNS + parsed.column_index
-            or parsed.sample_id
-            != _sample_id(
+        expected_sample_id = (
+            calibrated_crop_sample_id(
+                observation_id=cast(str, parsed.observation_id),
+                cropper_version=_text(value.get("cropperVersion"), "cropperVersion"),
+                profile_id=cast(str, parsed.calibration_profile_id),
+                profile_version=cast(int, parsed.calibration_profile_version),
+                crop_checksum=parsed.crop_checksum_sha256,
+            )
+            if inventory_version == CALIBRATED_INVENTORY_VERSION
+            else _sample_id(
                 corpus_id=_text(value.get("corpusId"), "corpusId"),
                 source_checksum=parsed.source_image_checksum_sha256,
                 sequence_number=parsed.sequence_number,
@@ -666,6 +807,37 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 row_index=parsed.row_index,
                 column_index=parsed.column_index,
                 crop_checksum=parsed.crop_checksum_sha256,
+            )
+        )
+        if (
+            parsed.sequence_number <= 0
+            or not 0 <= parsed.board_index <= 8
+            or not 0 <= parsed.row_index < BOARD_ROWS
+            or not 0 <= parsed.column_index < BOARD_COLUMNS
+            or parsed.cell_index != parsed.row_index * BOARD_COLUMNS + parsed.column_index
+            or parsed.sample_id != expected_sample_id
+            or parsed.crop_sample_id not in {None, parsed.sample_id}
+            or (
+                inventory_version == CALIBRATED_INVENTORY_VERSION
+                and parsed.observation_id
+                != calibrated_observation_id(
+                    corpus_id=_text(value.get("corpusId"), "corpusId"),
+                    source_checksum=parsed.source_image_checksum_sha256,
+                    sequence_number=parsed.sequence_number,
+                    board_index=parsed.board_index,
+                    row_index=parsed.row_index,
+                    column_index=parsed.column_index,
+                )
+            )
+            or (
+                inventory_version == CALIBRATED_INVENTORY_VERSION
+                and parsed.board_id
+                != calibrated_board_id(
+                    corpus_id=_text(value.get("corpusId"), "corpusId"),
+                    source_checksum=parsed.source_image_checksum_sha256,
+                    sequence_number=parsed.sequence_number,
+                    board_index=parsed.board_index,
+                )
             )
         ):
             raise SymbolDatasetError(
@@ -693,6 +865,23 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
             "cropReportSha256",
         ),
         samples=tuple(samples),
+        inventory_version=cast(str, inventory_version),
+        cropper_version=_text(value.get("cropperVersion"), "cropperVersion"),
+        calibration_profile_set_sha256=(
+            _sha256(value.get("calibrationProfileSetSha256"), "calibrationProfileSetSha256")
+            if inventory_version == CALIBRATED_INVENTORY_VERSION
+            else None
+        ),
+        calibration_profile_set_version=(
+            _text(value.get("calibrationProfileSetVersion"), "calibrationProfileSetVersion")
+            if inventory_version == CALIBRATED_INVENTORY_VERSION
+            else None
+        ),
+        quality_report_sha256=(
+            _sha256(value.get("qualityReportSha256"), "qualityReportSha256")
+            if inventory_version == CALIBRATED_INVENTORY_VERSION
+            else None
+        ),
     )
 
 

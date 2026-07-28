@@ -1018,6 +1018,57 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   APK pozostają jawnymi kolejnymi operacjami; reprezentatywny test skali i
   pełny release należą do TASK-0050.
 
+## D-049 — Conditional start of M5.1 before physical G3 evidence
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** po warunkowym ukończeniu M4 właściciel trzykrotnie polecił
+  przejście do kolejnego zadania mimo jawnego przypomnienia o brakujących
+  raportach urządzeniowych. Dopuszczone jest rozpoczęcie wyłącznie TASK-0051,
+  ponieważ inwentaryzacja korpusu i golden annotations nie zmieniają adaptera
+  mobile ani nie fałszują pomiarów G3. TASK-0041, TASK-0042 i G3 zachowują
+  status `blocked`.
+- **Context:** D-041 wymagała domknięcia fizycznych benchmarków po M4 i przed
+  M5. Zweryfikowane APK benchmarkowe istnieje, ale ADB nie widzi telefonu, więc
+  dowodów Pixel/Samsung nie można obecnie zebrać. M5.1 wymaga równolegle
+  odpowiedzi Q-015–Q-017 oraz przygotowania materiału przez właściciela.
+- **Reason:** korpus, prawa użycia, ground truth i progi są niezależnym,
+  odwracalnym zakresem przygotowawczym. Ich wcześniejsze ustalenie nie wymaga
+  wdrożenia OCR, geometrii ani zmiany runtime mobile.
+- **Alternatives:** całkowite zatrzymanie prac do fizycznego G3 albo rozpoczęcie
+  całego pipeline'u M5 bez spełnionych warunków wejścia.
+- **Consequences:** TASK-0051 może rozpocząć dialog i przygotowanie kontraktów.
+  Nie wolno uznać G3 za zaliczoną, rozpocząć M5.2 ani implementować automatycznej
+  geometrii/OCR, dopóki odpowiednie bramki i wejścia nie zostaną jawnie
+  spełnione albo właściciel nie podejmie kolejnej udokumentowanej decyzji.
+- **Supersedes:** D-041 wyłącznie w zakresie dopuszczenia TASK-0051; wszystkie
+  wymagania fizycznego G3 pozostają obowiązujące.
+
+## D-050 — Provisional local corpus for M5.1
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** 12 zdjęć JPEG przekazanych przez właściciela w
+  `examples/imgs/` tworzy korpus `m5-prototype-corpus-v1` do lokalnej pracy
+  kontraktowej i prototypowej. Oryginały są ignorowane przez Git, nie wolno ich
+  redystrybuować, a repozytorium przechowuje wyłącznie ścieżki względne,
+  metadane i SHA-256. Korpus pozostaje `provisional` i nie zalicza G5.1.
+- **Context:** właściciel potwierdził, że obecnie nie ma więcej zdjęć i polecił
+  pracować na dostępnych plikach. Materiał obejmuje jedną grę, jedną sesję,
+  jedną rozdzielczość 960 × 1280 i ciągłe numery 1–108.
+- **Reason:** 12 unikalnych obrazów wystarcza do ustalenia wersjonowanych
+  kontraktów manifestu, golden annotations, walidatora i pierwszego prototypu.
+  Nie daje jednak podstaw do twierdzenia o jakości między grami, urządzeniami,
+  rozdzielczościami i skrajnymi warunkami optycznymi.
+- **Alternatives:** zatrzymanie całego M5.1 do zebrania 20–100 zdjęć albo
+  obniżenie bramki reprezentatywności bez pomiarów.
+- **Consequences:** Q-015 jest zamknięte odpowiedzią „12 obecnie dostępnych”.
+  Q-016 i Q-017 pozostają otwarte. Adnotacje sekwencji mogą powstać od razu,
+  natomiast pełna geometria, akceptacja progów i status
+  `readyForGeometryBenchmark` wymagają dalszych ustaleń. Oryginalny cel
+  20–100 reprezentatywnych zdjęć pozostaje warunkiem pełnego benchmarku G5,
+  chyba że właściciel podejmie osobną decyzję na podstawie wyników prototypu.
+
 ## Szablon nowej decyzji
 
 ```text

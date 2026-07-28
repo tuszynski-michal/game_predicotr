@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.game-predictor.invalid/schemas/m5-golden-annotations-v1.json",
+  "title": "Game Predictor M5 golden annotations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "corpusId", "coordinateSystem", "images"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "corpusId": {"type": "string", "minLength": 1},
+    "coordinateSystem": {"const": "source-image-pixels-before-normalization"},
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["imageId", "status", "sequenceNumbers"],
+        "properties": {
+          "imageId": {"type": "string", "pattern": "^m5-img-[0-9]{3}$"},
+          "status": {"enum": ["sequence_only", "complete"]},
+          "sequenceNumbers": {
+            "type": "array",
+            "minItems": 9,
+            "maxItems": 9,
+            "items": {"type": "integer", "minimum": 1}
+          },
+          "pageQuad": {"$ref": "#/$defs/quad"},
+          "boards": {
+            "type": "array",
+            "minItems": 9,
+            "maxItems": 9,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["positionIndex", "sequenceNumber", "boardQuad", "numberBox"],
+              "properties": {
+                "positionIndex": {"type": "integer", "minimum": 0, "maximum": 8},
+                "sequenceNumber": {"type": "integer", "minimum": 1},
+                "boardQuad": {"$ref": "#/$defs/quad"},
+                "numberBox": {"$ref": "#/$defs/box"}
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"status": {"const": "complete"}}},
+            "then": {"required": ["pageQuad", "boards"]}
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number", "minimum": 0},
+        "y": {"type": "number", "minimum": 0}
+      }
+    },
+    "quad": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/point"}
+    },
+    "box": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {"type": "number", "minimum": 0},
+        "y": {"type": "number", "minimum": 0},
+        "width": {"type": "number", "exclusiveMinimum": 0},
+        "height": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

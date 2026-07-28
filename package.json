@@ -47,6 +47,7 @@
     "m35:worker:benchmark": ".venv\\Scripts\\python.exe scripts/benchmark_m35_worker.py",
     "m4:import:fixture": ".venv\\Scripts\\python.exe scripts/generate_m4_import_fixture.py",
     "m4:import:acceptance": ".venv\\Scripts\\python.exe scripts/run_m4_import_acceptance.py",
+    "m5:corpus:validate": ".venv\\Scripts\\python.exe scripts/validate_m5_corpus.py",
     "lint": "npm run lint --workspaces --if-present && npm run python:lint && npm run powershell:check",
     "m2:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_m2_acceptance.ps1",
     "openapi:check": ".venv\\Scripts\\python.exe scripts/export_admin_openapi.py --check && npm run check:generated --workspace @game-predictor/admin-api-client",

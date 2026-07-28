@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: proposed
-last_updated: 2026-07-24
+last_updated: 2026-07-28
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -10,24 +10,25 @@ last_updated: 2026-07-24
 
 Przetworzyć duży katalog zdjęć wykonanych telefonem, wyodrębnić z każdego zdjęcia do 9 layoutów, odczytać ich numery oraz rozpoznać symbole w komórkach. Zdjęcia i wycinki pozostają po stronie administracyjnej i nigdy nie trafiają do snapshotu mobilnego.
 
-## Materiał przeanalizowany 2026-07-24
+## Materiał przeanalizowany 2026-07-28
 
-Przeanalizowano trzy zdjęcia JPEG 960 × 1280:
-
-- `5983122166590934317.jpg`,
-- `5983122166590934318.jpg`,
-- `5983122166590934319.jpg`.
+Przeanalizowano 12 zdjęć JPEG 960 × 1280 z jednej gry i sesji. Szczegóły
+plików, SHA-256 oraz tagi warunków znajdują się w
+`ai_docs/quality/m5-corpus-manifest.json`.
 
 Widoczne cechy:
 
 - 9 mini-layoutów w układzie 3 × 3,
 - każdy mini-layout ma siatkę 3 × 5,
-- numery 1–27 są umieszczone pod layoutami,
+- ciągłe numery 1–108 są umieszczone pod layoutami,
 - czerwone ramki mogą pomóc w detekcji geometrii,
 - zdjęcia zawierają perspektywę, zakrzywienie ekranu, moiré, rozmycie, refleksy i zmiany koloru,
 - dłoń oraz elementy nawigacji występują głównie poza komórkami.
 
-Trzy próbki wystarczają do prototypu detekcji geometrii, ale nie do zatwierdzenia jakości OCR ani klasyfikatora.
+Zgodnie z D-050 te 12 próbek wystarcza do pracy kontraktowej i pierwszego
+prototypu detekcji geometrii. Jedna gra, sesja i rozdzielczość nie wystarczają
+jednak do zatwierdzenia jakości OCR, klasyfikatora ani reprezentatywności G5.
+Oryginały pozostają lokalne i ignorowane przez Git.
 
 ## Ważne założenie
 
@@ -186,7 +187,8 @@ Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje duż
 
 ## Walidacja technologii przed wdrożeniem masowym
 
-1. Zebrać 20–100 reprezentatywnych zdjęć.
+1. Rozszerzyć prototypowy korpus 12 zdjęć do 20–100 reprezentatywnych zdjęć
+   przed pełnym benchmarkiem G5.
 2. Zweryfikować geometrię i OCR na pełnym zbiorze.
 3. Zbudować oznaczony zbiór symboli i podzielić go według zdjęcia źródłowego.
 4. Ustalić mierzalne progi confidence oraz manual review.

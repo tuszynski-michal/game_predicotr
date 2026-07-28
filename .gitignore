@@ -41,3 +41,5 @@ Thumbs.db
 artifacts/
 imports/*
 !imports/README.md
+examples/imgs/*
+!examples/imgs/README.md

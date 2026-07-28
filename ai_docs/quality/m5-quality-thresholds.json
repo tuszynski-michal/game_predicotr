@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "status": "proposed",
+  "corpusId": "m5-prototype-corpus-v1",
+  "metrics": {
+    "pageDetectionRate": {"minimum": 0.95, "unit": "fraction_of_images"},
+    "allNineBoardsDetectionRate": {"minimum": 0.9, "unit": "fraction_of_images"},
+    "boardPositionAssignmentAccuracy": {"minimum": 0.99, "unit": "fraction_of_boards"},
+    "boardCornerErrorP95": {"maximum": 0.02, "unit": "image_diagonal_fraction"},
+    "sequenceNumberExactAccuracy": {"minimum": 0.98, "unit": "fraction_of_boards"},
+    "unresolvedContinuityConflictRate": {"maximum": 0.02, "unit": "fraction_of_boards"}
+  },
+  "rules": [
+    "Every metric is reported separately; no aggregate score may hide a weak stage.",
+    "A missing board is not excluded from geometry metrics.",
+    "OCR continuity may flag a conflict but may not silently replace raw OCR.",
+    "Thresholds must be accepted before TASK-0054 or TASK-0056 optimization."
+  ]
+}

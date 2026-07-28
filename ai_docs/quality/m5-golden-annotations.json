@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "m5-prototype-corpus-v1",
+  "coordinateSystem": "source-image-pixels-before-normalization",
+  "images": [
+    {"imageId": "m5-img-001", "status": "sequence_only", "sequenceNumbers": [1, 2, 3, 4, 5, 6, 7, 8, 9]},
+    {"imageId": "m5-img-002", "status": "sequence_only", "sequenceNumbers": [10, 11, 12, 13, 14, 15, 16, 17, 18]},
+    {"imageId": "m5-img-003", "status": "sequence_only", "sequenceNumbers": [19, 20, 21, 22, 23, 24, 25, 26, 27]},
+    {"imageId": "m5-img-004", "status": "sequence_only", "sequenceNumbers": [28, 29, 30, 31, 32, 33, 34, 35, 36]},
+    {"imageId": "m5-img-005", "status": "sequence_only", "sequenceNumbers": [37, 38, 39, 40, 41, 42, 43, 44, 45]},
+    {"imageId": "m5-img-006", "status": "sequence_only", "sequenceNumbers": [46, 47, 48, 49, 50, 51, 52, 53, 54]},
+    {"imageId": "m5-img-007", "status": "sequence_only", "sequenceNumbers": [55, 56, 57, 58, 59, 60, 61, 62, 63]},
+    {"imageId": "m5-img-008", "status": "sequence_only", "sequenceNumbers": [64, 65, 66, 67, 68, 69, 70, 71, 72]},
+    {"imageId": "m5-img-009", "status": "sequence_only", "sequenceNumbers": [73, 74, 75, 76, 77, 78, 79, 80, 81]},
+    {"imageId": "m5-img-010", "status": "sequence_only", "sequenceNumbers": [82, 83, 84, 85, 86, 87, 88, 89, 90]},
+    {"imageId": "m5-img-011", "status": "sequence_only", "sequenceNumbers": [91, 92, 93, 94, 95, 96, 97, 98, 99]},
+    {"imageId": "m5-img-012", "status": "sequence_only", "sequenceNumbers": [100, 101, 102, 103, 104, 105, 106, 107, 108]}
+  ]
+}

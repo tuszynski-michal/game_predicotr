@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`M4 and G4 completed conditionally under D-041; return to M3.5 physical evidence before M5`
+`M5.1 provisional corpus contracts in progress under D-049/D-050; G3 remains blocked`
 
 ## Completed
 
@@ -610,11 +610,26 @@ last_updated: 2026-07-28
   macierz PostgreSQL zakończyła się `11 passed`,
 - zaliczono G4 warunkowo na podstawie D-041; M4 nie użyło OCR, zdjęć ani
   ręcznych mutacji SQL, ale nie zalicza to nadal brakującego G3 na telefonach.
+- właściciel przekazał 12 zdjęć JPEG 960 × 1280 z jednej gry i sesji oraz
+  potwierdził, że obecnie nie ma dalszego materiału; D-050 dopuszcza ich
+  lokalne użycie jako prototypowego korpusu bez redystrybucji,
+- manifest `m5-prototype-corpus-v1` zapisuje stabilne identyfikatory, ścieżki
+  względne, SHA-256, rozmiary, warunki i ciągłe zakresy sekwencji 1–108;
+  oryginalne obrazy pozostają ignorowane przez Git,
+- przygotowano schema golden annotations, adnotacje samych sekwencji,
+  proponowane — jeszcze niezaakceptowane — progi jakości oraz walidator
+  checksum, wymiarów JPEG, podziału źródeł, zakresów i kompletnej geometrii,
+- TASK-0051 ma `5 passed`, Ruff i mypy bez błędów; rzeczywisty walidator
+  potwierdza 12 obrazów i `2 057 855` bajtów oraz poprawnie zwraca
+  `readyForGeometryBenchmark = false`.
 
 ## In progress
 
-- brak aktywnego zadania implementacyjnego; po warunkowym ukończeniu M4 trzeba
-  wrócić do fizycznych pomiarów TASK-0041/TASK-0042 przed rozpoczęciem M5.
+- `TASK-0051 — Representative image corpus and golden annotations`: rozpoczęto
+  inwentaryzację korpusu i dialog na podstawie D-049; Q-015 jest zamknięte,
+  a Q-016/Q-017, pełne adnotacje geometrii i akceptacja progów pozostają otwarte,
+- 12 istniejących zdjęć jest materiałem prototypowym według D-050, a nie pełnym
+  reprezentatywnym korpusem 20–100 zdjęć ani zaliczoną bramką G5.1.
 
 ## Blocked
 
@@ -624,19 +639,20 @@ last_updated: 2026-07-28
   deklaruje `INTERNET` i zawiera dokładny snapshot. Aktualizacja na Samsungu i
   ręczne scenariusze funkcjonalne przeszły; pozostaje sformalizowanie dowodu
   wersji/checksumy i raportu release wymaganego przez TASK-0042.
-- `TASK-0041 — SQLite, mobile and worker performance benchmark`: wyniki
-  Windows/SQLite i workera są zapisane, a harness Android jest gotowy. Nie
-  istnieją jeszcze raporty benchmarku 500 000 layoutów z Pixela i Samsunga;
-  zwykłe testy funkcjonalne nie zastępują czasów, pamięci i przewijania.
+- `TASK-0041 — SQLite, mobile and worker performance benchmark`: zweryfikowane
+  APK `m35-benchmark.1 (4)` jest gotowe, ale ADB nie widzi telefonu; brakuje
+  fizycznych raportów z Pixela i Samsunga.
 - `TASK-0042 — Benchmark decision and release pipeline acceptance`: raport
   `m35-acceptance-report.json` przechodzi dataset, SQLite, worker i kontrolę
   zależności, ale ma status `blocked`, pięć grup brakujących dowodów oraz
-  decyzję `pending_device_evidence`. Nie ma podstaw do zmiany adaptera ani do
-  zaliczenia G3.
+  decyzję `pending_device_evidence`. Ponowna ocena 2026-07-28 po zbudowaniu
+  benchmarkowego APK zachowała cztery kontrole `passed`, pięć `missing`, a
+  `--require-pass` poprawnie zwróciło kod `1`. Nie ma podstaw do zmiany adaptera
+  ani do zaliczenia G3.
 
 ## Open but not blocking next milestones
 
-- Q-015–Q-017: reprezentatywny zbiór zdjęć, stabilność ekranu i etykiety treningowe,
+- Q-016–Q-017: stabilność ekranu i dostępność etykiet treningowych,
 - Q-019: jeden czy wielu administratorów,
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
 - finalne modele OCR/ML po benchmarku,
@@ -685,11 +701,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Wznowić `TASK-0041 — SQLite, mobile and worker performance benchmark`: podgrać
-APK 500 000 layoutów na Pixel 10 Pro XL i Samsung Galaxy S21 Ultra, zebrać
-raporty czasu/pamięci/przewijania, a następnie ponowić TASK-0042 z
-`--require-pass`. G3 pozostaje niezaliczona i M5 nie może się rozpocząć do czasu
-zebrania tych dowodów.
+Kontynuować `TASK-0051` od odpowiedzi właściciela na Q-016 o stabilności układu
+strony między grami i ekranami, a następnie Q-017 o zbiorze treningowym.
+Równolegle
+TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach Pixela
+i Samsunga.
 
 ## Do not start yet
 

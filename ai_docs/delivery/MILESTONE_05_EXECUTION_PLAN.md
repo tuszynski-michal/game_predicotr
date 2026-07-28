@@ -1,7 +1,7 @@
 ---
 title: Milestone 05 execution plan
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-28
 ---
 
 # Plan wykonania Milestone 05 — Image ingestion prototype
@@ -30,10 +30,18 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M5.
 ## Warunki wejścia
 
 - M4 przechodzi G4.
-- Właściciel odpowiada na Q-015–Q-017.
+- Właściciel odpowiada na Q-016–Q-017; Q-015 zamknięto decyzją D-050.
 - Dostępny jest zatwierdzony korpus 20–100 zdjęć i zasady jego użycia.
 - Zanim rozpocznie się implementacja, mierzalne progi dla geometrii i OCR
   zostają zapisane w zadaniu M5.1.
+
+Na podstawie D-049 dopuszczono wcześniejsze rozpoczęcie wyłącznie TASK-0051
+jako pracy nad korpusem, ground truth i progami. Nie zalicza to G3 i nie
+pozwala rozpocząć automatycznego pipeline'u M5.2–M5.5 bez pozostałych wejść.
+
+Na podstawie D-050 obecne 12 zdjęć z jednej sesji tworzy korpus prototypowy.
+Można na nim rozwijać kontrakty i pierwszy prototyp, ale nie spełnia jeszcze
+warunku reprezentatywnego korpusu 20–100 zdjęć ani bramki G5.1.
 
 Analiza aplikacji referencyjnej nie jest częścią ścieżki krytycznej.
 Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
@@ -60,7 +68,9 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
 ### Zadanie
 
-- `TASK-0051 — Representative image corpus and golden annotations`
+- `TASK-0051 — Representative image corpus and golden annotations` — in progress
+  od 2026-07-28 na podstawie D-049; manifest 12 zdjęć i adnotacje sekwencji są
+  gotowe, pełna geometria oraz Q-016/Q-017 pozostają otwarte
 
 ### Bramka G5.1
 

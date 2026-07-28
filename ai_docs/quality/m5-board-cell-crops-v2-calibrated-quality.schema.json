@@ -1,0 +1,169 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "m5-board-cell-crops-v2-calibrated-quality.schema.json",
+  "title": "M5 calibrated cell crop quality report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifactVerification",
+    "calibrationProfileSetSha256",
+    "calibrationProfileSetVersion",
+    "cropReportSha256",
+    "cropperVersion",
+    "fullCorpus",
+    "goldenAcceptedEntryCount",
+    "goldenSha256",
+    "goldenVersion",
+    "lineErrorBudgetP95Px",
+    "lineErrors",
+    "nextTask",
+    "percentileMethod",
+    "quadErrors",
+    "qualityReportVersion",
+    "schemaVersion",
+    "status",
+    "summary",
+    "trainingAllowed"
+  ],
+  "properties": {
+    "artifactVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verifiedBoardCount", "verifiedCellCount"],
+      "properties": {
+        "verifiedBoardCount": { "const": 27 },
+        "verifiedCellCount": { "const": 405 }
+      }
+    },
+    "calibrationProfileSetSha256": { "$ref": "#/definitions/sha256" },
+    "calibrationProfileSetVersion": {
+      "const": "grid-calibration-profiles-v1"
+    },
+    "cropReportSha256": { "$ref": "#/definitions/sha256" },
+    "cropperVersion": {
+      "const": "board-cell-crops-v2-calibrated-v1"
+    },
+    "fullCorpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boardCount", "cellCount", "imageCount"],
+      "properties": {
+        "boardCount": { "const": 387 },
+        "cellCount": { "const": 5805 },
+        "imageCount": { "const": 43 }
+      }
+    },
+    "goldenAcceptedEntryCount": { "const": 27 },
+    "goldenSha256": { "$ref": "#/definitions/sha256" },
+    "goldenVersion": { "const": "cell-grid-golden-v1" },
+    "lineErrorBudgetP95Px": { "const": 5 },
+    "lineErrors": {
+      "type": "array",
+      "minItems": 162,
+      "maxItems": 162,
+      "items": { "$ref": "#/definitions/lineError" }
+    },
+    "nextTask": { "enum": ["TASK-0096", "TASK-0097"] },
+    "percentileMethod": { "const": "linear-r7" },
+    "quadErrors": {
+      "type": "array",
+      "minItems": 108,
+      "maxItems": 108,
+      "items": { "$ref": "#/definitions/quadError" }
+    },
+    "qualityReportVersion": {
+      "const": "board-cell-crops-v2-calibrated-quality-v1"
+    },
+    "schemaVersion": { "const": 1 },
+    "status": { "enum": ["passed", "quarantined_calibration_required"] },
+    "summary": {
+      "type": "object",
+      "required": [
+        "byAxis",
+        "byBoardPosition",
+        "bySourceGroup",
+        "overall",
+        "quadCornersOverall"
+      ]
+    },
+    "trainingAllowed": { "type": "boolean" }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "lineError": {
+      "type": "object",
+      "required": [
+        "absoluteErrorPx",
+        "axis",
+        "boardPosition",
+        "endpointAbsoluteErrorsPx",
+        "expectedCoordinate",
+        "lineIndex",
+        "observationId",
+        "projectedEndpoints",
+        "sequenceNumber",
+        "sourceGroup",
+        "v2Coordinate"
+      ],
+      "properties": {
+        "absoluteErrorPx": { "type": "number", "minimum": 0 },
+        "axis": { "enum": ["horizontal", "vertical"] },
+        "boardPosition": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "endpointAbsoluteErrorsPx": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0 }
+        },
+        "expectedCoordinate": { "type": "number" },
+        "lineIndex": { "type": "integer", "minimum": 0 },
+        "observationId": { "$ref": "#/definitions/sha256" },
+        "projectedEndpoints": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/definitions/point" }
+        },
+        "sequenceNumber": { "type": "integer", "minimum": 1 },
+        "sourceGroup": { "type": "string", "minLength": 1 },
+        "v2Coordinate": { "type": "number" }
+      }
+    },
+    "quadError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "absoluteErrorPx",
+        "boardPosition",
+        "calibratedPoint",
+        "cornerIndex",
+        "expectedPoint",
+        "observationId",
+        "sequenceNumber",
+        "sourceGroup"
+      ],
+      "properties": {
+        "absoluteErrorPx": { "type": "number", "minimum": 0 },
+        "boardPosition": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "calibratedPoint": { "$ref": "#/definitions/point" },
+        "cornerIndex": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "expectedPoint": { "$ref": "#/definitions/point" },
+        "observationId": { "$ref": "#/definitions/sha256" },
+        "sequenceNumber": { "type": "integer", "minimum": 1 },
+        "sourceGroup": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

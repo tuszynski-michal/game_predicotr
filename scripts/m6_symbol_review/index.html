@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Lokalne narzędzie bootstrap review dla symboli Game Predictor."
+    />
+    <title>Game Predictor — etykietowanie symboli</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">M6 · Bootstrap review</p>
+        <h1>Etykietowanie symboli</h1>
+        <p>
+          Wycinki są już gotowe. Tutaj tylko przypisujesz symbol, odrzucasz
+          nieczytelny obraz albo pomijasz go na później.
+        </p>
+      </header>
+
+      <section id="status-panel" class="status-grid" aria-label="Postęp">
+        <article>
+          <span>Oczekujące</span><strong id="pending-count">—</strong>
+        </article>
+        <article>
+          <span>Zaakceptowane</span><strong id="accepted-count">—</strong>
+        </article>
+        <article>
+          <span>Odrzucone</span><strong id="rejected-count">—</strong>
+        </article>
+        <article>
+          <span>Wszystkie</span><strong id="total-count">—</strong>
+        </article>
+      </section>
+
+      <section id="setup-panel" class="panel" hidden>
+        <h2>Konfiguracja gry</h2>
+        <p class="hint">
+          Kody są techniczne i stabilne, np. <code>blazing-hot</code>,
+          <code>seven</code>, <code>star</code>, <code>lemon</code>.
+        </p>
+        <form id="setup-form">
+          <label>
+            Kod gry
+            <input
+              id="game-code"
+              required
+              pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,99}"
+            />
+          </label>
+          <label>
+            Recenzent
+            <input id="reviewed-by" required maxlength="100" value="owner" />
+          </label>
+          <label>
+            Kody symboli — osobno w każdym wierszu
+            <textarea id="symbol-codes" required rows="8"></textarea>
+          </label>
+          <button type="submit" class="primary">Zapisz konfigurację</button>
+        </form>
+      </section>
+
+      <section id="review-panel" class="panel review-panel" hidden>
+        <div class="toolbar">
+          <label>
+            Widok
+            <select id="filter">
+              <option value="pending">Oczekujące</option>
+              <option value="accepted">Zaakceptowane</option>
+              <option value="rejected">Odrzucone</option>
+              <option value="all">Wszystkie</option>
+            </select>
+          </label>
+          <div class="navigation">
+            <button id="previous" type="button">← Poprzedni</button>
+            <span id="position">—</span>
+            <button id="next" type="button">Następny →</button>
+          </div>
+        </div>
+
+        <div id="loading" class="notice">Wczytywanie…</div>
+        <div id="empty" class="notice success" hidden>
+          Brak elementów w tym widoku.
+        </div>
+        <div id="error" class="notice error" role="alert" hidden></div>
+
+        <article id="sample-card" class="sample-card" hidden>
+          <div class="crop-stage">
+            <img id="crop-image" alt="Wycinek symbolu do oznaczenia" />
+          </div>
+          <dl class="metadata">
+            <div>
+              <dt>Sekwencja</dt>
+              <dd id="sequence-number">—</dd>
+            </div>
+            <div>
+              <dt>Plansza</dt>
+              <dd id="board-index">—</dd>
+            </div>
+            <div>
+              <dt>Komórka</dt>
+              <dd id="cell-position">—</dd>
+            </div>
+            <div>
+              <dt>Decyzja</dt>
+              <dd id="current-decision">—</dd>
+            </div>
+          </dl>
+
+          <div>
+            <h2>Wybierz symbol</h2>
+            <div id="symbol-buttons" class="symbol-buttons"></div>
+          </div>
+
+          <div class="secondary-actions">
+            <button id="reject" type="button" class="danger">R · Odrzuć</button>
+            <button id="clear" type="button">C · Cofnij decyzję</button>
+            <button id="skip" type="button">S · Pomiń</button>
+          </div>
+
+          <label class="checkbox">
+            <input id="apply-identical" type="checkbox" checked />
+            Zastosuj także do cropów o identycznych bajtach
+          </label>
+          <p class="hint">
+            Skróty: 1–9 wybierają symbol, R odrzuca, C cofa, S pomija, strzałki
+            zmieniają element.
+          </p>
+        </article>
+      </section>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

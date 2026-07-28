@@ -1256,7 +1256,7 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   osiągnięcia 98% OCR mieszałoby dwie wymienne części pipeline'u. Jednocześnie
   obniżenie progu lub użycie continuity do cichego poprawiania numerów byłoby
   niebezpieczne.
-- **Consequences:** TASK-0051 i TASK-0091 mogą zostać zamknięte, G5 otrzymuje
+- **Consequences:** TASK-0051 i TASK-0092 mogą zostać zamknięte, G5 otrzymuje
   status `passed_manual_review_only_ocr`, a TASK-0059 może się rozpocząć.
   Właściciel nie wycina ręcznie obrazów: worker generuje board/cell crops.
   Ręczna praca w M6 dotyczy zatwierdzania lub poprawiania etykiet symboli.
@@ -1265,6 +1265,133 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** D-056 w zakresie blokady wejścia do M6 i dokładnie
   dziewięciu plansz na każdej stronie. D-056 nadal obowiązuje dla braku
   auto-accept, audytowalności i wymiennego adaptera OCR.
+
+## D-058 — Reviewed cell decisions bootstrap the symbol dataset
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** M6 używa dwóch oddzielnych kontraktów:
+  `symbol-crop-inventory-v1` opisuje wszystkie zweryfikowane cropy bez
+  przypisywania klasy, a `reviewed-cell-labels-v1` zawiera wyłącznie jawne
+  decyzje `accepted/rejected` administratora. `labeled-symbol-dataset-v1`
+  eksportuje tylko decyzje `accepted`. OCR, continuity, dane fixture i
+  niezatwierdzona sugestia klasyfikatora nie mogą tworzyć etykiety.
+- **Context:** pipeline M5 utworzył 5805 cropów i przejrzane numery 1–387, ale
+  repozytorium nie zawiera prawdziwych rekordów layoutów odpowiadających tym
+  zdjęciom. Snapshoty M1/M4 zawierają dane testowe lub benchmarkowe i ich
+  symbole nie opisują fotografowanego ekranu.
+- **Reason:** przypisanie danych fixture do rzeczywistych cropów zatrułoby
+  dataset treningowy. Rozdzielenie inwentarza od decyzji człowieka pozwala
+  automatycznie przygotować pliki, zachować audyt i później użyć interfejsu
+  wspomagającego etykietowanie bez zmiany kontraktu eksportu.
+- **Consequences:** każdy sample ma stabilne ID wyprowadzone z korpusu,
+  źródłowego obrazu, zatwierdzonego numeru, pozycji i checksumy cropu.
+  Identyczne bajty są materializowane raz, ale wszystkie wystąpienia pozostają
+  w manifeście. Brak decyzji pozostaje `pending`; duplikat, nieznany symbol,
+  drift lub dwie etykiety dla identycznych bajtów blokują eksport. TASK-0059
+  nie jest ukończone, dopóki nie powstanie pierwsza przejrzana wersja etykiet.
+
+## D-059 — Cell-grid v2 gates symbol labeling and batch active learning
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** `board-cell-crops-v1` nie może zasilać etykietowania ani
+  treningu. Po wyprostowaniu planszy 500 × 300 cropper v2 najpierw tworzy
+  piętnaście slotów 100 × 100, a następnie stosuje wersjonowany inset wewnątrz
+  każdego slotu. Poprawność mierzy niezależny `cell-grid-golden-v1`. Gdy równy
+  profil nie przechodzi goldenu, administrator koryguje cztery linie pionowe i
+  dwie poziome dla wersjonowanego zakresu kalibracji, nie dla każdego layoutu.
+  Etykietowanie odbywa się na pełnej planszy 5 × 3. Model uczy się wyłącznie
+  batchowo z jawnej wersji datasetu; active learning priorytetyzuje niepewne
+  przypadki, a auto-accept wymaga kalibracji held-out.
+- **Context:** podczas pierwszej rzeczywistej sesji bootstrap review właściciel
+  stwierdził, że 5805 cropów jest przeciętych względem symboli. Inspekcja kodu
+  i overlayów potwierdziła, że v1 usuwa globalnie 25/15 px, a potem stosuje
+  krok 90 px zamiast zachować logiczny krok 100 px. Golden quadów planszy
+  weryfikował położenie plansz, ale nie granice piętnastu komórek.
+- **Reason:** etykietowanie wadliwych cropów zatrułoby dataset, a uczenie modelu
+  nie naprawi systematycznego błędu geometrii. Niezależny golden zapobiega
+  ponownemu zatwierdzeniu algorytmu jego własnym wynikiem. Pełnolayoutowy review
+  i active learning ograniczają pracę właściciela bez utraty audytu.
+- **Alternatives:** oznaczenie wszystkich 5805 cropów mimo błędu, ręczne
+  wycinanie każdej komórki, ręczne linie dla każdego layoutu, model uczący się
+  online po każdym kliknięciu albo jeden model rozpoznający całe zdjęcie.
+- **Consequences:** G5 zostaje ponownie otwarte wyłącznie dla granic komórek,
+  M6.1 jest wstrzymane, a v1 pozostaje historycznym artefaktem bez prawa do
+  treningu. Prace dzielą się na TASK-0094–0097; TASK-0061–0063 przejmują
+  batch training, ONNX, kalibrację i wybór active-learning. Stabilne
+  `observationId` jest oddzielone od zależnego od croppera `cropSampleId`.
+- **Supersedes:** D-057 w zakresie akceptacji cell crops i wejścia M6 do
+  etykietowania oraz D-058 w zakresie tożsamości sample zależnej wyłącznie od
+  checksumy. D-057 nadal obowiązuje dla geometrii plansz i
+  `manual_review_only` OCR; D-058 nadal obowiązuje dla jawnych decyzji,
+  deduplikacji i zakazu użycia fixture/OCR jako etykiet.
+
+## D-060 — Source-quad golden precedes canonical cell-grid cuts
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** niezależny golden TASK-0094 zapisuje ręcznie zaakceptowany
+  czworokąt rzeczywistej ramy planszy w układzie współrzędnych oryginalnego
+  zdjęcia. Edytor pokazuje na zdjęciu ukośną siatkę perspektywiczną 5 × 3
+  wyprowadzoną z czterech narożników oraz generowany na żywo kanoniczny podgląd
+  500 × 300 i 15 komórek. Wewnętrzne granice kanonicznej planszy pozostają
+  równe 100 × 100. Nie zapisujemy sześciu dowolnych ukośnych linii na
+  historycznym `board.png`.
+- **Context:** pierwsza plansza rzeczywistego review ujawniła, że linie są
+  osiowe, ale symbole pozostają skośne. Detektor wskazał lewy górny narożnik
+  około `(122, 408)`, podczas gdy widoczna rama zaczyna się bliżej
+  `(117, 399)`. Historyczny warp przyciął część planszy i pozostawił
+  resztkową perspektywę. Dotychczasowy pending golden miał `0/27` akceptacji,
+  `reviewRevision = 0` i żadnych szkiców.
+- **Reason:** korygowanie linii dopiero na przyciętym boardzie utrwalałoby błąd
+  wcześniejszego quadu i nie odzyskałoby utraconych pikseli. Cztery narożniki
+  są najmniejszą wystarczającą adnotacją dla planarnej, regularnej siatki;
+  homografia jednocześnie koryguje obrót, skalę i perspektywę, a reviewer nadal
+  ocenia wszystkie 15 wynikowych komórek.
+- **Alternatives:** sześć niezależnych odcinków na historycznym boardzie,
+  ręczne ustawianie 24 skrzyżowań siatki albo akceptacja prostych linii mimo
+  widocznego skosu.
+- **Consequences:** `cell-grid-golden-v1` przechodzi przed pierwszą decyzją
+  człowieka z osiowych współrzędnych boardu na `sourceQuad` w pikselach zdjęcia.
+  Historyczny baseline mierzy zarówno błąd narożników detektora, jak i pozycję
+  jego linii v1 po odwzorowaniu do kanonicznego układu goldenu. TASK-0095
+  zastosuje zaakceptowany sposób rectyfikacji przed insetem per komórka.
+- **Supersedes:** D-059 w zakresie założenia, że zaakceptowany quad planszy jest
+  wystarczający i że fallback polega na sześciu liniach w historycznym
+  `board.png`. Kwarantanna v1, niezależny golden, cropy 100 × 100 plus inset i
+  batchowe uczenie pozostają bez zmian.
+
+## D-061 — Sequence-anchored source-quad calibration profiles
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** `grid-calibration-profiles-v1` ma dokładnie jeden niezmienny
+  profil dla pary `source_group + board_position`. Każdy z 27 zaakceptowanych
+  quadów TASK-0094 jest kotwicą zawierającą korektę czterech narożników w
+  lokalnej bazie aktualnego quadu detektora. Dla planszy pomiędzy dwiema
+  kotwicami korekta jest interpolowana liniowo po domenowym `sequence_number`;
+  poza zakresem stosuje się najbliższą kotwicę bez ekstrapolacji. Profil z jedną
+  kotwicą stosuje stałą korektę. Regeneracja konsumuje opublikowany profil,
+  zapisuje jego tożsamość w osobnym artefakcie i nie odczytuje goldenu jako
+  bezpośredniego override'u.
+- **Context:** detector-only cropper v2 zachował prawidłowy krok 100 px, ale na
+  27 ręcznie poprawionych planszach uzyskał P95 linii `42.1563 px`. Korpus ma
+  dwie spójne sesje źródłowe i dziewięć pozycji; 27 zaakceptowanych korekt daje
+  18 zakresów kalibracji i od jednej do dwóch kotwic na zakres.
+- **Reason:** lokalne współrzędne korekty są niezależne od skali obrazu,
+  zachowują perspektywę quadu i dają się zastosować do wszystkich 387 plansz.
+  Interpolacja po kolejności modeluje stopniowy dryf sesji, a clamp zapobiega
+  niekontrolowanej ekstrapolacji. Profil pozostaje audytowalny i nie wymaga
+  ręcznej korekty każdej planszy.
+- **Alternatives:** średnia korekta na zakres nie spełnia budżetu jakości
+  (wstępny P95 narożników `13.0096 px`), profile per layout odtwarzają ręczną
+  pracę 387 razy, a dowolne linie na historycznym boardzie nie odzyskują
+  pikseli utraconych przez błędny quad.
+- **Consequences:** profil obowiązuje wyłącznie dla jawnej grupy źródłowej i
+  pozycji. Nowa sesja wymaga nowych kotwic i wersji profilu. Przejście goldenu
+  obecnych dwóch sesji nie jest deklaracją uogólnienia na inne urządzenie,
+  automat lub sposób fotografowania.
 
 ## Szablon nowej decyzji
 

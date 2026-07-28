@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`M5 prototype completed with rework; G5 and M6 entry blocked by corpus, geometry golden, OCR quality and Q-016/Q-017`
+`M6.1 active — TASK-0097 whole-layout labeling is next`
 
 ## Completed
 
@@ -707,21 +707,101 @@ last_updated: 2026-07-28
 - pięć błędów OCR z confidence `>= 0.8` blokuje jakikolwiek auto-accept;
   każdy bieżący numer jest wyłącznie sugestią do manual review, continuity go
   nie poprawia, a M4 pozostaje bezpiecznym workflow danych,
-- M5 ma status `completed_with_rework`, G5 `not_passed`, TASK-0051 `blocked`,
-  a M6 nie może rozpocząć się przed spełnieniem warunków D-056.
+- ukończono korektę `TASK-0092`: zaakceptowany korpus v2 zawiera 43 zdjęcia
+  w dwóch grupach źródłowych, 387 layoutów i ciągłe numery 1–387,
+- Q-016/Q-017 są zamknięte: ostatnia strona może mieć 1–8 pozycji bez luk,
+  a właściciel nie wycina obrazów ręcznie; worker utworzył 387 board crops i
+  5805 cell crops,
+- `page-board-detector-v2` wykrył 43/43 strony i komplet 387 oczekiwanych
+  pozycji; wszystkie overlaye golden geometrii przejrzano wizualnie,
+- OCR osiągnął `247/387 = 63.8243%`, a na held-out
+  `179/279 = 64.1577%`; pozostaje `manual_review_only` i nie może
+  samodzielnie zatwierdzić `sequence_number`,
+- benchmark `m5-image-benchmark-v2` zakończył się decyzją `enter_m6` i
+  statusem `measured_passed_manual_review_only_ocr`,
+- zaakceptowano D-057: M5 i TASK-0051 są ukończone, G5 ma status
+  `passed_manual_review_only_ocr`, a M6 może korzystać z automatycznych cropów
+  i przejrzanych etykiet,
+- zaakceptowano D-058 i zaimplementowano kontrakty
+  `symbol-crop-inventory-v1`, `reviewed-cell-labels-v1` oraz
+  `labeled-symbol-dataset-v1`; inwentarz sprawdził 5805/5805 cropów i ma
+  SHA-256 `8c6e0a0459d47df9e685fffc60b91ffa6be4e867aa7f937517af78a17fddb9c6`,
+- ukończono korekcyjne `TASK-0093`: lokalny serwer bootstrap review działa
+  wyłącznie na loopback, bezpiecznie serwuje zweryfikowane cropy i zapisuje
+  wznawialny `reviewed-cell-labels-v1`,
+- interfejs review pokazuje postęp i filtry, obsługuje accepted/rejected,
+  cofnięcie, pomijanie, skróty oraz deduplikację identycznych cropów; browser
+  smoke potwierdził zapis i wznowienie na rzeczywistym inwentarzu 5805 próbek,
+- testy TASK-0093 obejmują 22 przypadki dataset/review/HTTP; Ruff, mypy i
+  formatowanie zmienionego zakresu przechodzą,
+- pierwsza rzeczywista sesja etykietowania ujawniła, że linie
+  `board-cell-crops-v1` przecinają symbole; inspekcja potwierdziła globalny
+  inset 25/15 px i krok 90 px zamiast logicznych slotów 100 × 100,
+- zaakceptowano D-059: v1 pozostaje historyczne i nie może zasilać treningu;
+  M5.3 wraca do niezależnego goldenu, croppera v2 i profili kalibracji, a
+  uczenie będzie batchowe z pełnolayoutowym review.
+- ukończono `TASK-0094`: właściciel ręcznie skorygował i zaakceptował 27/27
+  źródłowych quadów plansz; wszystkie wpisy mają `human-adjusted`, potwierdzony
+  wpływ v1 i brak wpisów oczekujących,
+- finalny `cell-grid-golden-v1` ma SHA-256
+  `a25b1753f8d3c74e13827c6803b82921e36e68f9c3eb3d1bccae88ce6d96c533`;
+  obejmuje po trzy plansze dla każdej z dziewięciu pozycji i obie grupy
+  źródłowe,
+- deterministyczny raport bazowy v1 wygenerowano dwukrotnie z identycznym
+  SHA-256
+  `a62532ba30d90a861c374f63f7f9d7406f7b9d50d13313760336d09ecb8df9d5`;
+  odrzuca v1 z P95 błędu linii `47.0748 px`, 27 dotkniętymi planszami i 395
+  obserwacjami komórek, więc dane v1 nadal nie mogą zasilać treningu.
+- ukończono `TASK-0095`: cropper v2 zachowuje planszę RGB `500 × 300`, dzieli
+  ją na piętnaście logicznych slotów `100 × 100` i stosuje lokalny inset `5 px`,
+  tworząc deterministyczne wycinki RGB `90 × 90`,
+- pełny korpus v2 zawiera 43 obrazy, 387 plansz i 5805 komórek; osobna
+  przestrzeń `board-cell-crops-v2` nie zmieniła historycznego v1, które nadal
+  ma 6579 plików i 196994964 bajty,
+- raport generacji v2 jest stabilny pod SHA-256
+  `d7d55fccd35e2760ae269cc4c7a25b5afc8271cbb640f1e940ef79af2ae486cc`,
+  a niezależny raport jakości pod SHA-256
+  `d66b129c759abe140979d48f85a93804c33a37ff07050301d7259721bbd43e8d`,
+- pomiar 27 zaakceptowanych plansz i 405 artefaktów dał P50 linii
+  `20.5613 px`, P95 `42.1563 px` i maksimum `91.88 px`; wynik pozostaje
+  `quarantined_calibration_required`, `trainingAllowed = false` i wskazuje
+  TASK-0096, ponieważ nie spełnia budżetu P95 `5 px`,
+- TASK-0095 przeszedł Ruff, mypy dla 141 plików, 283 testy workera, walidację
+  obu JSON Schema oraz powtórny deterministyczny przebieg.
+- ukończono `TASK-0096`: opublikowano dokładnie 18 profili kalibracji dla obu
+  grup źródłowych i pozycji 0–8; wszystkie 27 zaakceptowanych quadów jest
+  niezmiennymi anchorami interpolowanymi po domenowym `sequence_number`,
+- osobny `board-cell-crops-v2-calibrated-v1` zawiera 43 obrazy, 387 plansz,
+  5805 komórek i zero wyników wymagających review; każdy board zapisuje profil,
+  jego wersję, sekwencje anchorów i wagę interpolacji,
+- niezależna bramka 27 plansz i 405 komórek przeszła z P95 linii `1.8337 px`
+  wobec budżetu `5 px` oraz `trainingAllowed = true`,
+- deterministyczne SHA-256 wynoszą:
+  `6928c0cb6909c9106d9f4e1a9bd153500eec56f0b96be3d7f8b6cc2a06ec6242`
+  dla profili,
+  `cefe1a54ea912cac6d8a7cc9dff74d432c3cd56898b91e6213abff5af3a4787b`
+  dla cropów i
+  `8e53f463a42897265bc36cd82b56c72dbd6f05fd128e18de7fc066e09f0470eb`
+  dla jakości,
+- v1 zachował 6579 plików i 196994964 bajty, a detektorowy v2 zachował raport
+  `d66b129c759abe140979d48f85a93804c33a37ff07050301d7259721bbd43e8d`
+  oraz P95 `42.1563 px`; oba pozostają historyczne i w kwarantannie,
+- TASK-0096 przeszedł 290 testów workera, Ruff, mypy dla 145 plików, trzy JSON
+  Schema, pełny deterministyczny przebieg oraz wizualny browser smoke edytora;
+  zaakceptowano D-061 i ponownie zaliczono G5.3.
 
 ## In progress
 
-- `TASK-0091 — M5 corpus, variable final page and OCR rework`: właściciel dodał
-  31 zdjęć, zamknął Q-016/Q-017 i polecił domknięcie G5 przed M6,
-- `TASK-0051` wróciło do `in_progress`; manifest, pełne goldeny i progi są
-  aktualizowane na rozszerzonym korpusie.
+- M6.1 jest odblokowane; następnym zakresem jest TASK-0097, który użyje
+  wyłącznie skalibrowanego korpusu do pełnolayoutowego review 5 × 3 i utworzy
+  pierwsze rzeczywiste decyzje symboli,
+- cztery zaakceptowane rekomendacje są podzielone na ukończone TASK-0094–0096,
+  następne TASK-0097 oraz doprecyzowane TASK-0061–0063.
 
 ## Blocked
 
-- wejście do M6/TASK-0059: D-056 wymaga najpierw przejścia G5 i zamknięcia
-  reworku geometrii/OCR; obecny OCR nie może być źródłem automatycznie
-  zaakceptowanych numerów,
+- finalizacja `TASK-0059`: skalibrowane cropy są zaakceptowane, ale eksporter
+  czeka na rzeczywiste decyzje symboli z pełnych layoutów TASK-0097,
 - `TASK-0039 — Release failure and immutability integration tests`: automatyczna
   macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
   workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie
@@ -741,14 +821,12 @@ last_updated: 2026-07-28
 
 ## Open questions
 
-- Q-016–Q-017: stabilność ekranu i dostępność etykiet treningowych; oba pytania
-  blokują G5 i wejście do M6,
 - Q-019: jeden czy wielu administratorów,
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
 - finalne modele OCR/ML po benchmarku,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Q-019, Q-020 i nazwa sekcji nie blokują obecnego reworku prototypu obrazowego.
+Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują TASK-0097.
 
 ## M1 execution structure
 
@@ -791,15 +869,17 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Użytkownik powinien dostarczyć co najmniej 8 dalszych reprezentatywnych zdjęć
-i odpowiedzieć na Q-016/Q-017. Następnie należy uzupełnić niezależne goldeny
-geometrii, zaakceptować progi i wykonać rework OCR na podziale według zdjęcia.
-TASK-0059/M6 pozostaje zablokowane. Równolegle TASK-0041/TASK-0042 oraz G3
-pozostają zablokowane na fizycznych raportach Pixela i Samsunga.
+Rozpocząć TASK-0097: pełnolayoutowe etykietowanie na zaakceptowanym
+`board-cell-crops-v2-calibrated-v1`, a następnie dokończyć TASK-0059.
+Równolegle
+TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
+Pixela i Samsunga.
 
 ## Do not start yet
 
 - masowego przetwarzania zdjęć,
+- etykietowania symboli i treningu na `board-cell-crops-v1` albo
+  detektorowym `board-cell-crops-v2`,
 - finalnego wyboru OCR/ML,
 - Celery/Redis, mikroserwisów i chmury,
 - synchronizacji danych mobilnych,

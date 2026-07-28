@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game-predictor.local/schemas/m6-symbol-crop-inventory.schema.json",
+  "title": "M6 symbol crop inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "inventoryVersion",
+    "status",
+    "corpusId",
+    "corpusManifestSha256",
+    "goldenAnnotationsSha256",
+    "cropReportSha256",
+    "cropperVersion",
+    "boardCount",
+    "sampleCount",
+    "sourceGroupCount",
+    "sourceGroups",
+    "cellWidth",
+    "cellHeight",
+    "samples"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "inventoryVersion": { "const": "symbol-crop-inventory-v1" },
+    "status": { "const": "ready" },
+    "corpusId": { "type": "string", "minLength": 1 },
+    "corpusManifestSha256": { "$ref": "#/$defs/sha256" },
+    "goldenAnnotationsSha256": { "$ref": "#/$defs/sha256" },
+    "cropReportSha256": { "$ref": "#/$defs/sha256" },
+    "cropperVersion": { "const": "board-cell-crops-v1" },
+    "boardCount": { "type": "integer", "minimum": 1 },
+    "sampleCount": { "type": "integer", "minimum": 1 },
+    "sourceGroupCount": { "type": "integer", "minimum": 1 },
+    "sourceGroups": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "cellWidth": { "const": 90 },
+    "cellHeight": { "const": 90 },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/sample" }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sampleId",
+        "sourceImageId",
+        "sourceImageChecksumSha256",
+        "sourceImageRelativePath",
+        "sourceGroup",
+        "sequenceNumber",
+        "boardIndex",
+        "cellIndex",
+        "rowIndex",
+        "columnIndex",
+        "cropRelativePath",
+        "cropChecksumSha256"
+      ],
+      "properties": {
+        "sampleId": { "$ref": "#/$defs/sha256" },
+        "sourceImageId": { "type": "string", "minLength": 1 },
+        "sourceImageChecksumSha256": { "$ref": "#/$defs/sha256" },
+        "sourceImageRelativePath": { "$ref": "#/$defs/relativePath" },
+        "sourceGroup": { "type": "string", "minLength": 1 },
+        "sequenceNumber": { "type": "integer", "minimum": 1 },
+        "boardIndex": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "cellIndex": { "type": "integer", "minimum": 0, "maximum": 14 },
+        "rowIndex": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "columnIndex": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "cropRelativePath": { "$ref": "#/$defs/relativePath" },
+        "cropChecksumSha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}

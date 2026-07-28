@@ -310,12 +310,34 @@ brak uprawnienia `INTERNET`.
 ## Image pipeline tests
 
 - golden images z oczekiwanymi narożnikami/bounding boxes,
+- niezależny golden granic komórek obejmuje obie grupy źródłowe i wszystkie
+  dziewięć pozycji planszy,
+- plansza 500 × 300 jest dzielona na sloty 100 × 100 przed zastosowaniem
+  per-cell insetu; globalny inset nie może zmienić kroku siatki,
+- detektorowy wariant v2 pozostaje mierzalnym wynikiem w kwarantannie, a P95
+  odchylenia linii skalibrowanego v2 względem zaakceptowanego goldenu mieści się
+  w budżecie `5 px`; zaakceptowany wynik TASK-0096 to `1.8337 px`,
+- profil kalibracji jest wersjonowany, obejmuje dokładnie grupę i pozycję,
+  weryfikuje fingerprinty źródeł oraz nie nadpisuje cropów,
+- testy profilu obejmują dokładny anchor, interpolację pomiędzy anchorami,
+  clamp przed/za zakresem, pojedynczy anchor, brak/duplikat zakresu oraz drift
+  goldenu lub detektora,
+- raport i każdy board artifact zapisują identyfikator/wersję profilu,
+  sekwencje anchorów i wagę interpolacji; ponowna generacja zachowuje SHA-256,
+- zmiana croppera zachowuje logiczne `observationId`, ale tworzy nowy
+  `cropSampleId` i checksumę,
 - zdjęcia obrócone,
 - perspektywa i krzywizna ekranu,
 - moiré, refleksy, słabe światło i rozmycie,
 - brak jednego layoutu,
 - OCR z błędem lub nieciągłą numeracją,
 - błędna klasyfikacja trafia do review,
+- pełnolayoutowy edytor zachowuje row-major, nie zapisuje etykiety przy
+  niezaakceptowanej geometrii i wznawia częściowy layout,
+- trening jest batchowy i wersjonowany; pojedyncza decyzja nie mutuje aktywnego
+  modelu,
+- active learning wybiera niepewne przypadki na podstawie zapisanej wersji
+  modelu i nie auto-akceptuje przed kalibracją held-out,
 - podział train/validation według zdjęcia źródłowego,
 - lokalne wagi bez pobierania w runtime,
 - wznowienie i idempotencja.

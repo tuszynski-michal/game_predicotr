@@ -1,17 +1,18 @@
 ---
 title: Milestone 05 execution plan
-status: accepted
+status: completed
 last_updated: 2026-07-28
 ---
 
 # Plan wykonania Milestone 05 — Image ingestion prototype
 
-## Status zamknięcia
+## Status
 
-`completed_with_rework` — TASK-0052–0058 są ukończone, TASK-0051 pozostaje
-`blocked` na reprezentatywnym materiale i odpowiedziach Q-016/Q-017. G5 nie
-przeszło, dlatego M6 nie może się rozpocząć. D-056 zachowuje kontrakty, lecz
-kieruje geometrię do dalszej walidacji, a implementację OCR do reworku.
+`completed_calibrated_manual_review_only_ocr` — TASK-0051–0058 oraz korekty
+TASK-0092 i TASK-0094–0096 są ukończone. Detektorowy wariant v2 pozostaje
+historycznym artefaktem w kwarantannie, natomiast skalibrowany cropper
+`board-cell-crops-v2-calibrated-v1` osiągnął P95 linii `1.8337 px` wobec
+budżetu `5 px`. G5.3 ponownie przeszła, a M6.1 jest odblokowane.
 
 ## Cel
 
@@ -32,12 +33,12 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M5.
 - `architecture/TECH_STACK.md`
 - `quality/TEST_STRATEGY.md`
 - Q-015–Q-017 w `project/OPEN_QUESTIONS.md`
-- D-006, D-010 i D-014 w `process/DECISION_LOG.md`
+- D-006, D-010, D-014 i D-059 w `process/DECISION_LOG.md`
 
 ## Warunki wejścia
 
 - M4 przechodzi G4.
-- Właściciel odpowiada na Q-016–Q-017; Q-015 zamknięto decyzją D-050.
+- Właściciel odpowiada na Q-016–Q-017; wszystkie pytania zamknięto.
 - Dostępny jest zatwierdzony korpus 20–100 zdjęć i zasady jego użycia.
 - Zanim rozpocznie się implementacja, mierzalne progi dla geometrii i OCR
   zostają zapisane w zadaniu M5.1.
@@ -80,16 +81,17 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
 - inwentaryzacja rozdzielczości, orientacji i wariantów,
 - podział materiału bez przecieku między źródłami,
-- oczekiwane obszary strony, 9 layoutów i numery,
+- oczekiwane obszary strony, 1–9 layoutów i numery,
 - format golden annotations,
 - mierzalne metryki oraz zaakceptowane progi,
 - zasady przechowywania oryginałów i diagnostyki.
 
-### Zadanie
+### Zadania
 
-- `TASK-0051 — Representative image corpus and golden annotations` — blocked
-  od 2026-07-28; manifest 12 zdjęć i adnotacje sekwencji są gotowe, brakuje
-  dodatkowych zdjęć, pełnej geometrii i odpowiedzi Q-016/Q-017
+- `TASK-0051 — Representative image corpus and golden annotations` — done
+  2026-07-28
+- `TASK-0092 — M5 corpus, variable final page and OCR rework` — done
+  2026-07-28
 
 ### Bramka G5.1
 
@@ -128,17 +130,27 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 ### Zakres
 
 - detekcja obszaru ekranu i stabilnych cech,
-- oczekiwana siatka 3 × 3,
+- oczekiwana siatka do 3 × 3, z krótszą wyłącznie ostatnią stroną,
 - confidence oraz narożniki,
 - indywidualna korekta perspektywy każdego mini-layoutu,
 - podział planszy 3 × 5 z marginesem od ramki,
+- niezależny golden granic komórek,
+- wersjonowane profile kalibracji dla wyjątków,
 - diagnostyczne overlaye i wycinki.
 
 ### Zadania
 
 - `TASK-0054 — Page and 3x3 board detection` — done 2026-07-28
 - `TASK-0055 — Per-board perspective correction and cell crops` — done
-  2026-07-28
+  2026-07-28; artefakty v1 zachowane historycznie, podział komórek odrzucony
+- `TASK-0094 — Cell-grid golden annotations and crop quality gate` — done
+  2026-07-28; 27/27 ręcznie skorygowanych quadów, baseline v1 odrzucony
+- `TASK-0095 — Board cell cropper v2 and corpus regeneration` — done
+  2026-07-28; 43 obrazów, 387 plansz i 5805 komórek, P95 linii `42.1563 px`,
+  `trainingAllowed = false`
+- `TASK-0096 — Grid calibration profiles and perspective editor` — done
+  2026-07-28; 18 profili, 27 anchorów, 43 obrazy, 387 plansz i 5805 komórek,
+  P95 linii `1.8337 px`, `trainingAllowed = true`
 
 ### Bramka G5.3
 
@@ -146,6 +158,12 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 - błąd jednego layoutu nie przesuwa indeksów pozostałych po cichu,
 - niski confidence tworzy jawny wynik wymagający review,
 - wycinki mają udokumentowany układ i wersję pipeline’u,
+- niezależny golden obejmuje obie grupy źródłowe i każdą z dziewięciu pozycji,
+- P95 błędu linii croppera v2 wynosi najwyżej 5 px, a wszystkie zaakceptowane
+  golden komórki zawierają jeden właściwy symbol bez przecięcia jego głównej
+  sylwetki,
+- profil kalibracji jest stosowany do zadeklarowanej grupy/pozycji, nie wymaga
+  ręcznego ustawienia 387 layoutów i nie nadpisuje artefaktów,
 - nie wprowadzono ciężkiego detektora bez porównania z geometrią klasyczną.
 
 ## M5.4 — OCR numerów i walidacja ciągłości
@@ -162,7 +180,8 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 ### Zadanie
 
 - `TASK-0056 — Sequence number OCR and continuity validation` — done
-  2026-07-28; baseline `68/108 = 62.9630%`, G5.4 pozostaje niezaliczona
+  2026-07-28; po rozszerzeniu baseline `247/387 = 63.8243%`, dlatego adapter
+  pozostaje `manual_review_only`
 
 ### Bramka G5.4
 
@@ -172,9 +191,10 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 - ciągłość nie zastępuje rozpoznanej wartości bez śladu,
 - adapter OCR można wymienić bez zmiany stagingu.
 
-Kontrakt i metryka są gotowe, ale proponowany próg 98% nie został osiągnięty.
-TASK-0057 ma porównać przypadki błędów i koszt poprawy; nie wolno oznaczyć G5.4
-jako `passed` wyłącznie dlatego, że wszystkie pozycje otrzymały raport.
+Kontrakt i metryka są gotowe, ale zaakceptowany próg 98% dla auto-accept nie
+został osiągnięty. G5.4 jest zaliczone wyłącznie dla ścieżki
+`manual_review_only`: każdy numer wymaga potwierdzenia i nie wolno publikować
+wartości tylko dlatego, że OCR zwrócił wynik.
 
 ## M5.5 — Benchmark i decyzja o stosie
 
@@ -190,9 +210,11 @@ jako `passed` wyłącznie dlatego, że wszystkie pozycje otrzymały raport.
 ### Zadania
 
 - `TASK-0057 — Geometry and OCR benchmark report` — done 2026-07-28;
-  rekomendacja `rework`, G5 niezaliczone
+  po korekcie rekomendacja `enter_m6`
 - `TASK-0058 — Image prototype architecture decision` — done 2026-07-28;
-  D-056 zachowuje kontrakty, blokuje auto-accept OCR i start M6
+  D-056 zachowała kontrakty i zablokowała auto-accept OCR
+- `TASK-0092 — M5 corpus, variable final page and OCR rework` — done
+  2026-07-28; D-057 otwiera M6
 
 ### Bramka G5
 
@@ -205,24 +227,32 @@ jako `passed` wyłącznie dlatego, że wszystkie pozycje otrzymały raport.
 - nie rozpoczęto jeszcze treningu produkcyjnego klasyfikatora ani masowego
   importu.
 
-TASK-0057 potwierdził 100% detekcji strony/kompletu plansz na obecnych 12
-zdjęciach, ale nie mógł zmierzyć golden pozycji/narożników. OCR osiągnął
-62.9630%, a kontrola na surowym cropie 42.5926%. Korpus jest poniżej minimum,
-progi pozostają `proposed`, dlatego bramka G5 ma status `not_passed/rework`.
-D-056 kończy implementacyjny prototyp M5, ale nie zmienia statusu bramki.
+Po TASK-0092 benchmark v2 obejmuje 43 zdjęcia i 387 layoutów. Detekcja
+oczekiwanego zbioru pozycji, kompletność pozycji i zaakceptowane golden
+narożniki mają wynik 100%; pipeline utworzył 5805 cell crops. Golden geometria
+była zainicjalizowana przez detektor i zaakceptowana po wizualnym przeglądzie,
+więc zerowy błąd narożników nie jest niezależnym ręcznym pomiarem.
+
+OCR osiągnął 63.8243%, a held-out 64.1577%, zatem nie uzyskał prawa do
+auto-accept. Przegląd właściciela ujawnił, że globalny inset v1 przecina
+symbole. Korekta TASK-0094–0096 dodała niezależny golden, profile kalibracji
+i osobny skalibrowany korpus. G5 ma status
+`passed_calibrated_manual_review_only_ocr`; status OCR pozostaje
+`manual_review_only`.
 
 ## Mapa zadań M5
 
 | Podetap | Zadania | Liczba |
 |---|---:|---:|
-| M5.1 Korpus | TASK-0051 | 1 |
+| M5.1 Korpus | TASK-0051, TASK-0092 (korekta) | 2 |
 | M5.2 Discovery i normalizacja | TASK-0052–0053 | 2 |
-| M5.3 Geometria | TASK-0054–0055 | 2 |
+| M5.3 Geometria i korekta siatki | TASK-0054–0055, TASK-0094–0096 | 5 |
 | M5.4 OCR | TASK-0056 | 1 |
 | M5.5 Benchmark i decyzja | TASK-0057–0058 | 2 |
-| **Razem M5** | **TASK-0051–0058** | **8** |
+| **Razem M5** | **TASK-0051–0058 + TASK-0092, TASK-0094–0096** | **12** |
 
 ## Następny milestone
 
-Po przejściu G5 i zapewnieniu oznaczonego zbioru symboli obowiązuje
-`MILESTONE_06_EXECUTION_PLAN.md`.
+M6.1 jest odblokowane. Obowiązuje `MILESTONE_06_EXECUTION_PLAN.md`;
+pełnolayoutowy bootstrap TASK-0097 tworzy pierwsze rzeczywiste decyzje symboli,
+po czym TASK-0059 dokończy eksport oznaczonego datasetu.

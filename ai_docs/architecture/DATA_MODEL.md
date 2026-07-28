@@ -435,6 +435,48 @@ pipeline_version
 status
 ```
 
+### cell_observations
+
+Logiczna obserwacja komórki jest stabilna względem ponownego cropowania:
+
+```text
+id
+recognized_board_id
+row_index
+column_index
+```
+
+Unikalność: `(recognized_board_id, row_index, column_index)`. Binarna wersja
+cropu jest osobnym artefaktem wskazującym `cropper_version`,
+`calibration_profile_version`, względną ścieżkę i checksumę. Zmiana geometrii
+tworzy nową wersję cropu tej samej obserwacji; nie nadpisuje starego pliku ani
+nie przenosi automatycznie decyzji symbolu.
+
+### grid_calibration_profiles
+
+```text
+id
+source_group
+board_position
+profile_version
+interpolation_version
+source_golden_sha256
+source_detection_report_sha256
+anchors
+created_by
+created_at
+status
+```
+
+Unikalność opublikowanej wersji obejmuje
+`(source_group, board_position, profile_version)`. Każdy anchor zachowuje
+`sequence_number`, identyfikator obserwacji, quad detektora, zaakceptowany quad
+oraz cztery korekty narożników w lokalnej bazie quadu detektora. Zastosowanie
+profilu interpoluje te korekty liniowo po `sequence_number` albo klamruje je do
+najbliższego anchora; nie wykonuje ekstrapolacji. Profil jest niezmienny po
+publikacji i fingerprintowany razem ze źródłowym goldenem oraz raportem
+detektora. Korekta tworzy kolejną wersję i osobne artefakty.
+
 ### review_items
 
 ```text
@@ -443,6 +485,8 @@ job_id
 source_image_id
 recognized_board_id nullable
 cell_index nullable
+cell_observation_id nullable
+crop_sample_id nullable
 review_type
 predicted_value
 alternatives

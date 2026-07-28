@@ -1,7 +1,7 @@
 ---
 title: Delivery roadmap
 status: accepted
-last_updated: 2026-07-26
+last_updated: 2026-07-28
 ---
 
 # Roadmap
@@ -145,8 +145,10 @@ System przyjmuje duże dane bez zależności od automatycznego rozpoznawania zdj
 
 ## M5 — Image ingestion prototype
 
-Status: `completed_with_rework`; G5 `not_passed`. Kontrakty pipeline'u zostają,
-geometria wymaga niezależnych goldenów, a aktualny OCR nie ma auto-accept.
+Status: `completed_calibrated_manual_review_only_ocr`. Detekcja strony i
+pozycji plansz pozostaje zaakceptowana, OCR pozostaje `manual_review_only`,
+a TASK-0094–0096 zakończyły niezależny golden, cropper v2 i wersjonowane
+profile. Skalibrowany wariant przeszedł bramkę z P95 linii `1.8337 px`.
 
 Plan wykonania:
 [MILESTONE_05_EXECUTION_PLAN.md](MILESTONE_05_EXECUTION_PLAN.md)
@@ -164,7 +166,7 @@ M5 jest realizowany przez:
 - 20–100 reprezentatywnych zdjęć,
 - Pillow/OpenCV/NumPy,
 - indywidualna korekta perspektywy mini-layoutów,
-- detekcja siatki 3 × 3,
+- detekcja strony z 1–9 layoutami w siatce do 3 × 3,
 - lokalny model recognition-only PP-OCRv5 przez PaddlePaddle CPU i dekoder cyfr,
 - wycięcie komórek 3 × 5,
 - pomiary jakości każdego etapu.
@@ -175,7 +177,9 @@ Nie przechodzimy do masowego importu, dopóki prototyp nie osiągnie zaakceptowa
 
 ## M6 — Symbol classifier and review workflow
 
-Status wejścia: `blocked` przez D-056 do przejścia G5 i zamknięcia Q-017.
+Status: `in_progress`; skalibrowane cropy są zaakceptowane, a TASK-0097 jest
+następnym krokiem pełnolayoutowego etykietowania. TASK-0059 zachowuje gotowy
+eksporter i czeka już tylko na rzeczywiste decyzje review.
 
 Plan wykonania:
 [MILESTONE_06_EXECUTION_PLAN.md](MILESTONE_06_EXECUTION_PLAN.md)
@@ -196,6 +200,8 @@ M6 jest realizowany przez:
 - confidence i alternatywy,
 - manual review,
 - zapisywanie korekt jako dataset,
+- pełnolayoutowe review 5 × 3,
+- batchowe uczenie i active-learning review selection bez uczenia online,
 - walidacja dzielona według zdjęcia źródłowego.
 
 ## M7 — Large-scale resumable image import

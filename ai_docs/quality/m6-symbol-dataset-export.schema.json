@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game-predictor.local/schemas/m6-symbol-dataset-export.schema.json",
+  "title": "M6 labeled symbol dataset export",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "datasetVersion",
+    "status",
+    "corpusId",
+    "gameId",
+    "gameCode",
+    "inventorySha256",
+    "labelSourceVersion",
+    "labelSourceSha256",
+    "reviewRevision",
+    "reviewedBy",
+    "sampleCount",
+    "assetCount",
+    "pendingCount",
+    "rejectedCount",
+    "pendingSampleIds",
+    "rejectedSampleIds",
+    "symbols",
+    "samples"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "datasetVersion": { "const": "labeled-symbol-dataset-v1" },
+    "status": { "enum": ["ready", "waiting_for_labels"] },
+    "corpusId": { "type": "string", "minLength": 1 },
+    "gameId": { "type": "string", "minLength": 1 },
+    "gameCode": { "type": "string", "minLength": 1 },
+    "inventorySha256": { "$ref": "#/$defs/sha256" },
+    "labelSourceVersion": { "const": "reviewed-cell-labels-v1" },
+    "labelSourceSha256": { "$ref": "#/$defs/sha256" },
+    "reviewRevision": { "type": "integer", "minimum": 1 },
+    "reviewedBy": { "type": "string", "minLength": 1 },
+    "sampleCount": { "type": "integer", "minimum": 0 },
+    "assetCount": { "type": "integer", "minimum": 0 },
+    "pendingCount": { "type": "integer", "minimum": 0 },
+    "rejectedCount": { "type": "integer", "minimum": 0 },
+    "pendingSampleIds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "rejectedSampleIds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/sha256" }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["symbolId", "symbolCode", "sampleCount", "uniqueAssetCount"],
+        "properties": {
+          "symbolId": { "type": "string", "minLength": 1 },
+          "symbolCode": { "type": "string", "minLength": 1 },
+          "sampleCount": { "type": "integer", "minimum": 1 },
+          "uniqueAssetCount": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sampleId",
+          "sourceImageId",
+          "sourceImageChecksumSha256",
+          "sourceImageRelativePath",
+          "sourceGroup",
+          "sequenceNumber",
+          "boardIndex",
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "cropRelativePath",
+          "cropChecksumSha256",
+          "assetRelativePath",
+          "symbolId",
+          "symbolCode"
+        ],
+        "properties": {
+          "sampleId": { "$ref": "#/$defs/sha256" },
+          "sourceImageId": { "type": "string", "minLength": 1 },
+          "sourceImageChecksumSha256": { "$ref": "#/$defs/sha256" },
+          "sourceImageRelativePath": { "type": "string", "minLength": 1 },
+          "sourceGroup": { "type": "string", "minLength": 1 },
+          "sequenceNumber": { "type": "integer", "minimum": 1 },
+          "boardIndex": { "type": "integer", "minimum": 0, "maximum": 8 },
+          "cellIndex": { "type": "integer", "minimum": 0, "maximum": 14 },
+          "rowIndex": { "type": "integer", "minimum": 0, "maximum": 2 },
+          "columnIndex": { "type": "integer", "minimum": 0, "maximum": 4 },
+          "cropRelativePath": { "type": "string", "minLength": 1 },
+          "cropChecksumSha256": { "$ref": "#/$defs/sha256" },
+          "assetRelativePath": { "type": "string", "minLength": 1 },
+          "symbolId": { "type": "string", "minLength": 1 },
+          "symbolCode": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

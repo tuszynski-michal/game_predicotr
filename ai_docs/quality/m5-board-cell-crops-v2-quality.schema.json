@@ -1,0 +1,256 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "m5-board-cell-crops-v2-quality.schema.json",
+  "title": "M5 board cell crop v2 quality report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifactVerification",
+    "cropReportSha256",
+    "cropperVersion",
+    "fullCorpus",
+    "goldenAcceptedEntryCount",
+    "goldenSha256",
+    "goldenVersion",
+    "lineErrorBudgetP95Px",
+    "lineErrors",
+    "nextTask",
+    "percentileMethod",
+    "quadErrors",
+    "qualityReportVersion",
+    "schemaVersion",
+    "status",
+    "summary",
+    "trainingAllowed"
+  ],
+  "properties": {
+    "artifactVerification": { "$ref": "#/definitions/artifactVerification" },
+    "cropReportSha256": { "$ref": "#/definitions/sha256" },
+    "cropperVersion": { "const": "board-cell-crops-v2" },
+    "fullCorpus": { "$ref": "#/definitions/fullCorpus" },
+    "goldenAcceptedEntryCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "goldenSha256": { "$ref": "#/definitions/sha256" },
+    "goldenVersion": { "const": "cell-grid-golden-v1" },
+    "lineErrorBudgetP95Px": { "const": 5.0 },
+    "lineErrors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/lineError" }
+    },
+    "nextTask": {
+      "type": ["string", "null"],
+      "enum": ["TASK-0096", null]
+    },
+    "percentileMethod": { "const": "linear-r7" },
+    "quadErrors": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/quadError" }
+    },
+    "qualityReportVersion": { "const": "board-cell-crops-v2-quality-v1" },
+    "schemaVersion": { "const": 1 },
+    "status": {
+      "enum": ["passed", "quarantined_calibration_required"]
+    },
+    "summary": { "$ref": "#/definitions/summary" },
+    "trainingAllowed": { "type": "boolean" }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "artifactVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verifiedBoardCount", "verifiedCellCount"],
+      "properties": {
+        "verifiedBoardCount": { "type": "integer", "minimum": 1 },
+        "verifiedCellCount": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "fullCorpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["boardCount", "cellCount", "imageCount"],
+      "properties": {
+        "boardCount": { "type": "integer", "minimum": 0 },
+        "cellCount": { "type": "integer", "minimum": 0 },
+        "imageCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "lineError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "absoluteErrorPx",
+        "axis",
+        "boardPosition",
+        "endpointAbsoluteErrorsPx",
+        "expectedCoordinate",
+        "lineIndex",
+        "observationId",
+        "projectedEndpoints",
+        "sequenceNumber",
+        "sourceGroup",
+        "v2Coordinate"
+      ],
+      "properties": {
+        "absoluteErrorPx": { "type": "number", "minimum": 0 },
+        "axis": { "enum": ["horizontal", "vertical"] },
+        "boardPosition": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "endpointAbsoluteErrorsPx": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "number", "minimum": 0 }
+        },
+        "expectedCoordinate": { "type": "number" },
+        "lineIndex": { "type": "integer", "minimum": 0 },
+        "observationId": { "$ref": "#/definitions/sha256" },
+        "projectedEndpoints": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/definitions/point" }
+        },
+        "sequenceNumber": { "type": "integer", "minimum": 1 },
+        "sourceGroup": { "type": "string", "minLength": 1 },
+        "v2Coordinate": { "type": "number" }
+      }
+    },
+    "quadError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "absoluteErrorPx",
+        "boardPosition",
+        "cornerIndex",
+        "detectedPoint",
+        "expectedPoint",
+        "observationId",
+        "sequenceNumber",
+        "sourceGroup"
+      ],
+      "properties": {
+        "absoluteErrorPx": { "type": "number", "minimum": 0 },
+        "boardPosition": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "cornerIndex": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "detectedPoint": { "$ref": "#/definitions/point" },
+        "expectedPoint": { "$ref": "#/definitions/point" },
+        "observationId": { "$ref": "#/definitions/sha256" },
+        "sequenceNumber": { "type": "integer", "minimum": 1 },
+        "sourceGroup": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metricSummary": {
+      "type": "object",
+      "required": [
+        "lineCount",
+        "maxAbsoluteErrorPx",
+        "p50AbsoluteErrorPx",
+        "p95AbsoluteErrorPx"
+      ],
+      "properties": {
+        "lineCount": { "type": "integer", "minimum": 1 },
+        "maxAbsoluteErrorPx": { "type": "number", "minimum": 0 },
+        "p50AbsoluteErrorPx": { "type": "number", "minimum": 0 },
+        "p95AbsoluteErrorPx": { "type": "number", "minimum": 0 }
+      }
+    },
+    "axisSummary": {
+      "allOf": [
+        { "$ref": "#/definitions/metricSummary" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["axis"],
+          "properties": {
+            "axis": { "enum": ["horizontal", "vertical"] },
+            "lineCount": { "type": "integer", "minimum": 1 },
+            "maxAbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "p50AbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "p95AbsoluteErrorPx": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "positionSummary": {
+      "allOf": [
+        { "$ref": "#/definitions/metricSummary" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["boardPosition"],
+          "properties": {
+            "boardPosition": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8
+            },
+            "lineCount": { "type": "integer", "minimum": 1 },
+            "maxAbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "p50AbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "p95AbsoluteErrorPx": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "sourceGroupSummary": {
+      "allOf": [
+        { "$ref": "#/definitions/metricSummary" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sourceGroup"],
+          "properties": {
+            "lineCount": { "type": "integer", "minimum": 1 },
+            "maxAbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "p50AbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "p95AbsoluteErrorPx": { "type": "number", "minimum": 0 },
+            "sourceGroup": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byAxis",
+        "byBoardPosition",
+        "bySourceGroup",
+        "overall",
+        "quadCornersOverall"
+      ],
+      "properties": {
+        "byAxis": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/axisSummary" }
+        },
+        "byBoardPosition": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/positionSummary" }
+        },
+        "bySourceGroup": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/sourceGroupSummary" }
+        },
+        "overall": { "$ref": "#/definitions/metricSummary" },
+        "quadCornersOverall": { "$ref": "#/definitions/metricSummary" }
+      }
+    }
+  }
+}

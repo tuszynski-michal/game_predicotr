@@ -11,12 +11,20 @@ from game_predictor_worker.images.geometry import DETECTOR_VERSION, Point
 from game_predictor_worker.images.rectification import (
     BOARD_HEIGHT,
     BOARD_WIDTH,
+    CALIBRATED_CROPPER_VERSION,
     CELL_HEIGHT,
+    CELL_INSET,
     CELL_WIDTH,
+    LOGICAL_SLOT_HEIGHT,
+    LOGICAL_SLOT_WIDTH,
+    V2_CROPPER_VERSION,
+    V2_GRID_CONTRACT,
     BoardCropError,
     BoardGeometry,
     PageGeometry,
     PerspectiveBoardCellCropper,
+    PerspectiveBoardCellCropperV2,
+    PerspectiveBoardCellCropperV2Calibrated,
     crop_detected_corpus,
 )
 from PIL import Image
@@ -100,6 +108,60 @@ def _synthetic_page() -> tuple[np.ndarray, PageGeometry, list[tuple[int, int, in
     )
 
 
+def _synthetic_v2_page() -> tuple[np.ndarray, PageGeometry, list[tuple[int, int, int]]]:
+    board = np.full((BOARD_HEIGHT, BOARD_WIDTH, 3), (220, 20, 20), dtype=np.uint8)
+    colors: list[tuple[int, int, int]] = []
+    for row in range(3):
+        for column in range(5):
+            color = (
+                30 + row * 70,
+                25 + column * 40,
+                40 + (row * 5 + column) * 10,
+            )
+            colors.append(color)
+            y0 = row * LOGICAL_SLOT_HEIGHT + CELL_INSET
+            x0 = column * LOGICAL_SLOT_WIDTH + CELL_INSET
+            board[
+                y0 : (row + 1) * LOGICAL_SLOT_HEIGHT - CELL_INSET,
+                x0 : (column + 1) * LOGICAL_SLOT_WIDTH - CELL_INSET,
+            ] = color
+    page = np.full((500, 800, 3), (15, 20, 80), dtype=np.uint8)
+    quad = (
+        Point(90, 80),
+        Point(600, 65),
+        Point(620, 385),
+        Point(75, 400),
+    )
+    source = np.array(
+        [
+            [0, 0],
+            [BOARD_WIDTH - 1, 0],
+            [BOARD_WIDTH - 1, BOARD_HEIGHT - 1],
+            [0, BOARD_HEIGHT - 1],
+        ],
+        dtype=np.float32,
+    )
+    destination = np.array([[point.x, point.y] for point in quad], dtype=np.float32)
+    matrix = cv2.getPerspectiveTransform(source, destination)
+    warped = cv2.warpPerspective(board, matrix, (page.shape[1], page.shape[0]))
+    mask = cv2.warpPerspective(
+        np.full((BOARD_HEIGHT, BOARD_WIDTH), 255, dtype=np.uint8),
+        matrix,
+        (page.shape[1], page.shape[0]),
+    )
+    page[mask > 0] = warped[mask > 0]
+    return (
+        page,
+        PageGeometry(
+            status="detected",
+            image_width=page.shape[1],
+            image_height=page.shape[0],
+            boards=(BoardGeometry(position_index=0, quad=quad),),
+        ),
+        colors,
+    )
+
+
 def _geometry_dict(geometry: PageGeometry) -> dict[str, object]:
     return {
         "boards": [
@@ -136,6 +198,58 @@ def test_perspective_crop_preserves_3x5_row_major_mapping() -> None:
         assert cell.rgb.shape == (CELL_HEIGHT, CELL_WIDTH, 3)
         center = cell.rgb[15:-15, 15:-15].mean(axis=(0, 1))
         assert np.max(np.abs(center - np.array(expected))) < 4
+
+
+def test_v2_uses_logical_slots_before_per_cell_inset() -> None:
+    page, geometry, expected_colors = _synthetic_v2_page()
+
+    result = PerspectiveBoardCellCropperV2().crop(page, geometry)
+
+    assert result.status == "cropped"
+    assert len(result.boards) == 1
+    board = result.boards[0]
+    assert board.grid_contract == V2_GRID_CONTRACT
+    assert board.source_quad_source == "detector"
+    assert [(cell.row_index, cell.column_index) for cell in board.cells] == [
+        (row, column) for row in range(3) for column in range(5)
+    ]
+    for cell, expected in zip(board.cells, expected_colors, strict=True):
+        assert cell.rgb.shape == (CELL_HEIGHT, CELL_WIDTH, 3)
+        center = cell.rgb[10:-10, 10:-10].mean(axis=(0, 1))
+        assert np.max(np.abs(center - np.array(expected))) < 4
+
+
+def test_calibrated_v2_preserves_profile_provenance() -> None:
+    page, geometry, _ = _synthetic_v2_page()
+    source = geometry.boards[0]
+    calibrated_geometry = PageGeometry(
+        status="detected",
+        image_width=geometry.image_width,
+        image_height=geometry.image_height,
+        boards=(
+            BoardGeometry(
+                position_index=source.position_index,
+                quad=source.quad,
+                source_quad_source="calibration-profile",
+                calibration_profile_id="a" * 64,
+                calibration_profile_version=1,
+                calibration_anchor_sequence_numbers=(1, 10),
+                calibration_interpolation_weight=0.5,
+            ),
+        ),
+    )
+    cropper = PerspectiveBoardCellCropperV2Calibrated()
+
+    result = cropper.crop(page, calibrated_geometry)
+
+    assert cropper.version == CALIBRATED_CROPPER_VERSION
+    assert result.status == "cropped"
+    board = result.boards[0]
+    assert board.source_quad_source == "calibration-profile"
+    assert board.calibration_profile_id == "a" * 64
+    assert board.calibration_profile_version == 1
+    assert board.calibration_anchor_sequence_numbers == (1, 10)
+    assert board.calibration_interpolation_weight == 0.5
 
 
 @pytest.mark.parametrize(
@@ -348,6 +462,48 @@ def test_corpus_runner_writes_complete_immutable_artifacts(tmp_path: Path) -> No
     assert all(len(board.cells) == 15 for board in first.images[0].boards)
     assert first.to_json_bytes() == second.to_json_bytes()
     assert cell_path.stat().st_mtime_ns == first_mtime
+
+
+def test_v2_runner_is_separate_and_deterministic(tmp_path: Path) -> None:
+    normalization, detection, normalization_root, _ = _write_runner_inputs(tmp_path)
+    artifact_root = tmp_path / "crops"
+    v1 = crop_detected_corpus(
+        normalization,
+        detection,
+        normalization_root,
+        artifact_root,
+    )
+    v1_cell = artifact_root / Path(
+        *PurePosixPath(v1.images[0].boards[0].cells[0].relative_path).parts
+    )
+    v1_checksum = hashlib.sha256(v1_cell.read_bytes()).hexdigest()
+
+    first = crop_detected_corpus(
+        normalization,
+        detection,
+        normalization_root,
+        artifact_root,
+        cropper=PerspectiveBoardCellCropperV2(),
+    )
+    second = crop_detected_corpus(
+        normalization,
+        detection,
+        normalization_root,
+        artifact_root,
+        cropper=PerspectiveBoardCellCropperV2(),
+    )
+    payload = first.to_dict()
+    board = first.images[0].boards[0]
+
+    assert payload["cropperVersion"] == V2_CROPPER_VERSION
+    assert payload["boardCount"] == 9
+    assert payload["cellCount"] == 135
+    assert board.grid_contract == V2_GRID_CONTRACT
+    assert board.source_quad_source == "detector"
+    assert board.board_relative_path.startswith(f"{V2_CROPPER_VERSION}/")
+    assert all(cell.relative_path.startswith(f"{V2_CROPPER_VERSION}/") for cell in board.cells)
+    assert first.to_json_bytes() == second.to_json_bytes()
+    assert hashlib.sha256(v1_cell.read_bytes()).hexdigest() == v1_checksum
 
 
 def test_corpus_runner_blocks_normalized_checksum_drift(tmp_path: Path) -> None:

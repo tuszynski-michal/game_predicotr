@@ -1,0 +1,5916 @@
+{
+  "artifactVerification": {
+    "verifiedBoardCount": 27,
+    "verifiedCellCount": 405
+  },
+  "cropReportSha256": "d7d55fccd35e2760ae269cc4c7a25b5afc8271cbb640f1e940ef79af2ae486cc",
+  "cropperVersion": "board-cell-crops-v2",
+  "fullCorpus": {
+    "boardCount": 387,
+    "cellCount": 5805,
+    "imageCount": 43
+  },
+  "goldenAcceptedEntryCount": 27,
+  "goldenSha256": "a25b1753f8d3c74e13827c6803b82921e36e68f9c3eb3d1bccae88ce6d96c533",
+  "goldenVersion": "cell-grid-golden-v1",
+  "lineErrorBudgetP95Px": 5.0,
+  "lineErrors": [
+    {
+      "absoluteErrorPx": 2.6296,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        5.0399,
+        0.2193
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "projectedEndpoints": [
+        {
+          "x": 105.0399,
+          "y": -0.1775
+        },
+        {
+          "x": 100.2193,
+          "y": 274.4315
+        }
+      ],
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 15.995,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        17.1582,
+        14.8319
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "projectedEndpoints": [
+        {
+          "x": 182.8418,
+          "y": -7.3238
+        },
+        {
+          "x": 185.1681,
+          "y": 275.1517
+        }
+      ],
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 29.6185,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        34.8046,
+        24.4323
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "projectedEndpoints": [
+        {
+          "x": 265.1954,
+          "y": -14.8881
+        },
+        {
+          "x": 275.5677,
+          "y": 275.918
+        }
+      ],
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 37.7637,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        47.4877,
+        28.0397
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "projectedEndpoints": [
+        {
+          "x": 352.5123,
+          "y": -22.9083
+        },
+        {
+          "x": 371.9603,
+          "y": 276.7352
+        }
+      ],
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 21.8443,
+      "axis": "horizontal",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        9.0209,
+        34.6677
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "projectedEndpoints": [
+        {
+          "x": 27.8911,
+          "y": 90.9791
+        },
+        {
+          "x": 453.5608,
+          "y": 65.3323
+        }
+      ],
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 25.6575,
+      "axis": "horizontal",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        19.7833,
+        31.5317
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "projectedEndpoints": [
+        {
+          "x": 24.157,
+          "y": 180.2167
+        },
+        {
+          "x": 463.4419,
+          "y": 168.4683
+        }
+      ],
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 11.8042,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        8.3791,
+        15.2294
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "projectedEndpoints": [
+        {
+          "x": 91.6209,
+          "y": -30.0326
+        },
+        {
+          "x": 84.7706,
+          "y": 279.161
+        }
+      ],
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 3.7077,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        0.5423,
+        6.8732
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "projectedEndpoints": [
+        {
+          "x": 199.4577,
+          "y": -25.6654
+        },
+        {
+          "x": 193.1268,
+          "y": 278.6594
+        }
+      ],
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 2.9201,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        3.9523,
+        1.8879
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "projectedEndpoints": [
+        {
+          "x": 303.9523,
+          "y": -21.4337
+        },
+        {
+          "x": 298.1121,
+          "y": 278.1734
+        }
+      ],
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 2.6882,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        5.2578,
+        0.1186
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "projectedEndpoints": [
+        {
+          "x": 405.2578,
+          "y": -17.331
+        },
+        {
+          "x": 399.8814,
+          "y": 277.7023
+        }
+      ],
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 23.0737,
+      "axis": "horizontal",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        29.7258,
+        16.4216
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "projectedEndpoints": [
+        {
+          "x": -22.1896,
+          "y": 70.2742
+        },
+        {
+          "x": 500.9011,
+          "y": 83.5784
+        }
+      ],
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 21.9254,
+      "axis": "horizontal",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        24.6343,
+        19.2164
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "projectedEndpoints": [
+        {
+          "x": -24.6647,
+          "y": 175.3657
+        },
+        {
+          "x": 499.2483,
+          "y": 180.7836
+        }
+      ],
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 28.6092,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        32.5014,
+        24.7171
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "projectedEndpoints": [
+        {
+          "x": 67.4986,
+          "y": -24.4911
+        },
+        {
+          "x": 75.2829,
+          "y": 283.8924
+        }
+      ],
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 20.7005,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        22.6853,
+        18.7157
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "projectedEndpoints": [
+        {
+          "x": 177.3147,
+          "y": -22.8694
+        },
+        {
+          "x": 181.2843,
+          "y": 284.0138
+        }
+      ],
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 13.8161,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        13.9295,
+        13.7027
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "projectedEndpoints": [
+        {
+          "x": 286.0705,
+          "y": -21.2634
+        },
+        {
+          "x": 286.2973,
+          "y": 284.134
+        }
+      ],
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 7.9416,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        6.2187,
+        9.6644
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "projectedEndpoints": [
+        {
+          "x": 393.7813,
+          "y": -19.6729
+        },
+        {
+          "x": 390.3356,
+          "y": 284.2531
+        }
+      ],
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 17.3211,
+      "axis": "horizontal",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        20.0312,
+        14.611
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "projectedEndpoints": [
+        {
+          "x": -39.3971,
+          "y": 79.9688
+        },
+        {
+          "x": 497.0005,
+          "y": 85.389
+        }
+      ],
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 14.9558,
+      "axis": "horizontal",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        16.4272,
+        13.4845
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "projectedEndpoints": [
+        {
+          "x": -35.4948,
+          "y": 183.5728
+        },
+        {
+          "x": 494.6557,
+          "y": 186.5155
+        }
+      ],
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 12.1649,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        13.3839,
+        10.9459
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "projectedEndpoints": [
+        {
+          "x": 86.6161,
+          "y": -33.8247
+        },
+        {
+          "x": 89.0541,
+          "y": 256.9441
+        }
+      ],
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 8.4293,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        8.0562,
+        8.8024
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "projectedEndpoints": [
+        {
+          "x": 191.9438,
+          "y": -33.4008
+        },
+        {
+          "x": 191.1976,
+          "y": 258.8414
+        }
+      ],
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 3.6106,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        1.612,
+        5.6092
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "projectedEndpoints": [
+        {
+          "x": 298.388,
+          "y": -32.9725
+        },
+        {
+          "x": 294.3908,
+          "y": 260.7583
+        }
+      ],
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 3.6582,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        5.9665,
+        1.35
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "projectedEndpoints": [
+        {
+          "x": 405.9665,
+          "y": -32.5397
+        },
+        {
+          "x": 398.65,
+          "y": 262.6949
+        }
+      ],
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 33.1476,
+      "axis": "horizontal",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        35.5107,
+        30.7845
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "projectedEndpoints": [
+        {
+          "x": -15.7163,
+          "y": 64.4893
+        },
+        {
+          "x": 509.9606,
+          "y": 69.2155
+        }
+      ],
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 35.1771,
+      "axis": "horizontal",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        38.7813,
+        31.5728
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "projectedEndpoints": [
+        {
+          "x": -13.8583,
+          "y": 161.2187
+        },
+        {
+          "x": 506.3926,
+          "y": 168.4272
+        }
+      ],
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 29.9879,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        52.6292,
+        7.3467
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "projectedEndpoints": [
+        {
+          "x": 152.6292,
+          "y": -41.0052
+        },
+        {
+          "x": 107.3467,
+          "y": 205.8444
+        }
+      ],
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 20.2252,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        38.8429,
+        1.6076
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "projectedEndpoints": [
+        {
+          "x": 238.8429,
+          "y": -33.0561
+        },
+        {
+          "x": 198.3924,
+          "y": 219.0444
+        }
+      ],
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 17.6087,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        28.2093,
+        7.008
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "projectedEndpoints": [
+        {
+          "x": 328.2093,
+          "y": -24.8164
+        },
+        {
+          "x": 292.992,
+          "y": 232.7595
+        }
+      ],
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 14.7736,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        20.9047,
+        8.6425
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "projectedEndpoints": [
+        {
+          "x": 420.9047,
+          "y": -16.2697
+        },
+        {
+          "x": 391.3575,
+          "y": 247.0207
+        }
+      ],
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 46.2816,
+      "axis": "horizontal",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        71.0932,
+        21.47
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "projectedEndpoints": [
+        {
+          "x": 53.443,
+          "y": 28.9068
+        },
+        {
+          "x": 508.6406,
+          "y": 78.53
+        }
+      ],
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 60.8902,
+      "axis": "horizontal",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        90.272,
+        31.5084
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "projectedEndpoints": [
+        {
+          "x": 36.8162,
+          "y": 109.728
+        },
+        {
+          "x": 500.7993,
+          "y": 168.4916
+        }
+      ],
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 12.3453,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        23.7407,
+        0.9499
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "projectedEndpoints": [
+        {
+          "x": 76.2593,
+          "y": -30.3539
+        },
+        {
+          "x": 100.9499,
+          "y": 268.1571
+        }
+      ],
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 10.0528,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        20.0207,
+        0.0849
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "projectedEndpoints": [
+        {
+          "x": 179.9793,
+          "y": -31.3851
+        },
+        {
+          "x": 200.0849,
+          "y": 268.8983
+        }
+      ],
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 7.7046,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        15.0367,
+        0.3725
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "projectedEndpoints": [
+        {
+          "x": 284.9633,
+          "y": -32.4288
+        },
+        {
+          "x": 300.3725,
+          "y": 269.6482
+        }
+      ],
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 5.2993,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        8.7656,
+        1.833
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "projectedEndpoints": [
+        {
+          "x": 391.2344,
+          "y": -33.4853
+        },
+        {
+          "x": 401.833,
+          "y": 270.4068
+        }
+      ],
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 28.0294,
+      "axis": "horizontal",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        27.0159,
+        29.0428
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "projectedEndpoints": [
+        {
+          "x": -16.1629,
+          "y": 72.9841
+        },
+        {
+          "x": 499.7082,
+          "y": 70.9572
+        }
+      ],
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 27.3466,
+      "axis": "horizontal",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        27.8273,
+        26.8658
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "projectedEndpoints": [
+        {
+          "x": -6.414,
+          "y": 172.1727
+        },
+        {
+          "x": 501.6201,
+          "y": 173.1342
+        }
+      ],
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 35.1394,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        44.4762,
+        25.8026
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "projectedEndpoints": [
+        {
+          "x": 55.5238,
+          "y": -19.4195
+        },
+        {
+          "x": 74.1974,
+          "y": 258.9993
+        }
+      ],
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 36.3558,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        47.4996,
+        25.212
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "projectedEndpoints": [
+        {
+          "x": 152.5004,
+          "y": -21.9502
+        },
+        {
+          "x": 174.788,
+          "y": 259.8761
+        }
+      ],
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 35.1022,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        48.1409,
+        22.0634
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "projectedEndpoints": [
+        {
+          "x": 251.8591,
+          "y": -24.5431
+        },
+        {
+          "x": 277.9366,
+          "y": 260.7752
+        }
+      ],
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 31.2845,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        46.3112,
+        16.2579
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "projectedEndpoints": [
+        {
+          "x": 353.6888,
+          "y": -27.2004
+        },
+        {
+          "x": 383.7421,
+          "y": 261.6975
+        }
+      ],
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 30.6714,
+      "axis": "horizontal",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        26.9801,
+        34.3627
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "projectedEndpoints": [
+        {
+          "x": -34.1757,
+          "y": 73.0199
+        },
+        {
+          "x": 468.1892,
+          "y": 65.6373
+        }
+      ],
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 35.7652,
+      "axis": "horizontal",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        34.9883,
+        36.542
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "projectedEndpoints": [
+        {
+          "x": -29.0839,
+          "y": 165.0117
+        },
+        {
+          "x": 479.6198,
+          "y": 163.458
+        }
+      ],
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 41.5173,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        40.782,
+        42.2526
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "projectedEndpoints": [
+        {
+          "x": 59.218,
+          "y": -25.144
+        },
+        {
+          "x": 57.7474,
+          "y": 235.2445
+        }
+      ],
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 42.3275,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        40.6921,
+        43.9629
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "projectedEndpoints": [
+        {
+          "x": 159.3079,
+          "y": -25.5336
+        },
+        {
+          "x": 156.0371,
+          "y": 244.316
+        }
+      ],
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 35.594,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        32.9212,
+        38.2669
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "projectedEndpoints": [
+        {
+          "x": 267.0788,
+          "y": -25.953
+        },
+        {
+          "x": 261.7331,
+          "y": 254.071
+        }
+      ],
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 20.422,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        16.5496,
+        24.2945
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "projectedEndpoints": [
+        {
+          "x": 383.4504,
+          "y": -26.406
+        },
+        {
+          "x": 375.7055,
+          "y": 264.59
+        }
+      ],
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 32.0139,
+      "axis": "horizontal",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        39.7236,
+        24.3042
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "projectedEndpoints": [
+        {
+          "x": -33.9513,
+          "y": 60.2764
+        },
+        {
+          "x": 504.625,
+          "y": 75.6958
+        }
+      ],
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 39.3329,
+      "axis": "horizontal",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        55.5967,
+        23.0691
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "projectedEndpoints": [
+        {
+          "x": -33.9193,
+          "y": 144.4033
+        },
+        {
+          "x": 501.1141,
+          "y": 176.9309
+        }
+      ],
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 20.1102,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        21.3518,
+        18.8685
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "projectedEndpoints": [
+        {
+          "x": 78.6482,
+          "y": -24.1618
+        },
+        {
+          "x": 81.1315,
+          "y": 276.966
+        }
+      ],
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 13.0465,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        12.9988,
+        13.0943
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "projectedEndpoints": [
+        {
+          "x": 187.0012,
+          "y": -25.0473
+        },
+        {
+          "x": 186.9057,
+          "y": 278.4412
+        }
+      ],
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 4.2854,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        2.907,
+        5.6637
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "projectedEndpoints": [
+        {
+          "x": 297.093,
+          "y": -25.947
+        },
+        {
+          "x": 294.3363,
+          "y": 279.9395
+        }
+      ],
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 6.2142,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        8.9658,
+        3.4625
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "projectedEndpoints": [
+        {
+          "x": 408.9658,
+          "y": -26.8613
+        },
+        {
+          "x": 403.4625,
+          "y": 281.4615
+        }
+      ],
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 21.9388,
+      "axis": "horizontal",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        21.7604,
+        22.1172
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "projectedEndpoints": [
+        {
+          "x": -26.3139,
+          "y": 78.2396
+        },
+        {
+          "x": 518.6917,
+          "y": 77.8828
+        }
+      ],
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 20.0247,
+      "axis": "horizontal",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        21.8468,
+        18.2026
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "projectedEndpoints": [
+        {
+          "x": -24.6478,
+          "y": 178.1532
+        },
+        {
+          "x": 515.9132,
+          "y": 181.7974
+        }
+      ],
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 6.9517,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        11.7608,
+        2.1427
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "projectedEndpoints": [
+        {
+          "x": 88.2392,
+          "y": -17.1557
+        },
+        {
+          "x": 97.8573,
+          "y": 281.1003
+        }
+      ],
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 5.9921,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        3.4756,
+        8.5087
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "projectedEndpoints": [
+        {
+          "x": 196.5244,
+          "y": -18.8777
+        },
+        {
+          "x": 208.5087,
+          "y": 272.7973
+        }
+      ],
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 7.34,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        0.2684,
+        14.4116
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "projectedEndpoints": [
+        {
+          "x": 300.2684,
+          "y": -20.5275
+        },
+        {
+          "x": 314.4116,
+          "y": 264.8506
+        }
+      ],
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 8.0571,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        0.249,
+        15.8652
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "projectedEndpoints": [
+        {
+          "x": 399.751,
+          "y": -22.1094
+        },
+        {
+          "x": 415.8652,
+          "y": 257.2377
+        }
+      ],
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 24.2034,
+      "axis": "horizontal",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        14.966,
+        33.4407
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "projectedEndpoints": [
+        {
+          "x": -22.5816,
+          "y": 85.034
+        },
+        {
+          "x": 500.1917,
+          "y": 66.5593
+        }
+      ],
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 27.4244,
+      "axis": "horizontal",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        12.9175,
+        41.9313
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "projectedEndpoints": [
+        {
+          "x": -20.233,
+          "y": 187.0825
+        },
+        {
+          "x": 506.1773,
+          "y": 158.0687
+        }
+      ],
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 21.0646,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        16.3392,
+        25.79
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "projectedEndpoints": [
+        {
+          "x": 116.3392,
+          "y": -41.083
+        },
+        {
+          "x": 125.79,
+          "y": 284.3089
+        }
+      ],
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 20.7358,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        18.2121,
+        23.2595
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "projectedEndpoints": [
+        {
+          "x": 218.2121,
+          "y": -38.6067
+        },
+        {
+          "x": 223.2595,
+          "y": 282.7096
+        }
+      ],
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 17.9501,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        17.5217,
+        18.3785
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "projectedEndpoints": [
+        {
+          "x": 317.5217,
+          "y": -36.1927
+        },
+        {
+          "x": 318.3785,
+          "y": 281.1488
+        }
+      ],
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 12.7973,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        14.3635,
+        11.231
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "projectedEndpoints": [
+        {
+          "x": 414.3635,
+          "y": -33.8386
+        },
+        {
+          "x": 411.231,
+          "y": 279.6253
+        }
+      ],
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 27.6219,
+      "axis": "horizontal",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        30.1405,
+        25.1032
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "projectedEndpoints": [
+        {
+          "x": 16.6504,
+          "y": 69.8595
+        },
+        {
+          "x": 505.5254,
+          "y": 74.8968
+        }
+      ],
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 20.7761,
+      "axis": "horizontal",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        19.9795,
+        21.5727
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "projectedEndpoints": [
+        {
+          "x": 21.3565,
+          "y": 180.0205
+        },
+        {
+          "x": 503.2208,
+          "y": 178.4273
+        }
+      ],
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 25.8946,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        12.8888,
+        38.9003
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "projectedEndpoints": [
+        {
+          "x": 87.1112,
+          "y": -34.8773
+        },
+        {
+          "x": 61.0997,
+          "y": 185.0822
+        }
+      ],
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 29.3958,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        20.8971,
+        37.8945
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "projectedEndpoints": [
+        {
+          "x": 179.1029,
+          "y": -36.5433
+        },
+        {
+          "x": 162.1055,
+          "y": 186.7014
+        }
+      ],
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 29.9547,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        26.2454,
+        33.6641
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "projectedEndpoints": [
+        {
+          "x": 273.7546,
+          "y": -38.2575
+        },
+        {
+          "x": 266.3359,
+          "y": 188.3724
+        }
+      ],
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 27.4344,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        28.8166,
+        26.0522
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "projectedEndpoints": [
+        {
+          "x": 371.1834,
+          "y": -40.0219
+        },
+        {
+          "x": 373.9478,
+          "y": 190.0975
+        }
+      ],
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 67.0687,
+      "axis": "horizontal",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        65.254,
+        68.8834
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "projectedEndpoints": [
+        {
+          "x": -13.1535,
+          "y": 34.746
+        },
+        {
+          "x": 474.7037,
+          "y": 31.1166
+        }
+      ],
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 91.88,
+      "axis": "horizontal",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        92.877,
+        90.8829
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "projectedEndpoints": [
+        {
+          "x": -24.6719,
+          "y": 107.123
+        },
+        {
+          "x": 479.2043,
+          "y": 109.1171
+        }
+      ],
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 18.2529,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        16.8038,
+        19.702
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "projectedEndpoints": [
+        {
+          "x": 83.1962,
+          "y": -24.7763
+        },
+        {
+          "x": 80.298,
+          "y": 276.5425
+        }
+      ],
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 9.4048,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        8.0129,
+        10.7967
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "projectedEndpoints": [
+        {
+          "x": 191.9871,
+          "y": -24.0148
+        },
+        {
+          "x": 189.2033,
+          "y": 276.2806
+        }
+      ],
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 1.3355,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        0.0416,
+        2.6293
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "projectedEndpoints": [
+        {
+          "x": 300.0416,
+          "y": -23.2584
+        },
+        {
+          "x": 297.3707,
+          "y": 276.0205
+        }
+      ],
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 6.0876,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        7.3673,
+        4.8079
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "projectedEndpoints": [
+        {
+          "x": 407.3673,
+          "y": -22.5071
+        },
+        {
+          "x": 404.8079,
+          "y": 275.7622
+        }
+      ],
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 23.4478,
+      "axis": "horizontal",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        24.488,
+        22.4077
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "projectedEndpoints": [
+        {
+          "x": -27.346,
+          "y": 75.512
+        },
+        {
+          "x": 512.09,
+          "y": 77.5923
+        }
+      ],
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 23.1757,
+      "axis": "horizontal",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        23.3676,
+        22.9838
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "projectedEndpoints": [
+        {
+          "x": -28.354,
+          "y": 176.6324
+        },
+        {
+          "x": 511.2704,
+          "y": 177.0162
+        }
+      ],
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 15.6592,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        30.8748,
+        0.4435
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "projectedEndpoints": [
+        {
+          "x": 69.1252,
+          "y": -6.6767
+        },
+        {
+          "x": 100.4435,
+          "y": 285.1153
+        }
+      ],
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 23.8165,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        39.3061,
+        8.3269
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "projectedEndpoints": [
+        {
+          "x": 160.6939,
+          "y": -9.1808
+        },
+        {
+          "x": 191.6731,
+          "y": 286.2739
+        }
+      ],
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 30.097,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        45.4034,
+        14.7907
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "projectedEndpoints": [
+        {
+          "x": 254.5966,
+          "y": -11.7486
+        },
+        {
+          "x": 285.2093,
+          "y": 287.4617
+        }
+      ],
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 33.9678,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        49.0763,
+        18.8594
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "projectedEndpoints": [
+        {
+          "x": 350.9237,
+          "y": -14.3828
+        },
+        {
+          "x": 381.1406,
+          "y": 288.68
+        }
+      ],
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 10.58,
+      "axis": "horizontal",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        7.3381,
+        13.8219
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "projectedEndpoints": [
+        {
+          "x": -9.5613,
+          "y": 92.6619
+        },
+        {
+          "x": 458.7889,
+          "y": 86.1781
+        }
+      ],
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 11.0532,
+      "axis": "horizontal",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        10.9476,
+        11.1589
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "projectedEndpoints": [
+        {
+          "x": 1.0175,
+          "y": 189.0524
+        },
+        {
+          "x": 468.7532,
+          "y": 188.8411
+        }
+      ],
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 15.6495,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        14.2073,
+        17.0917
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "projectedEndpoints": [
+        {
+          "x": 114.2073,
+          "y": -29.726
+        },
+        {
+          "x": 117.0917,
+          "y": 276.2258
+        }
+      ],
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 15.3989,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        15.134,
+        15.6638
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "projectedEndpoints": [
+        {
+          "x": 215.134,
+          "y": -30.3992
+        },
+        {
+          "x": 215.6638,
+          "y": 275.1189
+        }
+      ],
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 14.8522,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        15.7576,
+        13.9468
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "projectedEndpoints": [
+        {
+          "x": 315.7576,
+          "y": -31.0704
+        },
+        {
+          "x": 313.9468,
+          "y": 274.0153
+        }
+      ],
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 14.0107,
+      "axis": "vertical",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        16.0796,
+        11.9419
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "projectedEndpoints": [
+        {
+          "x": 416.0796,
+          "y": -31.7396
+        },
+        {
+          "x": 411.9419,
+          "y": 272.9149
+        }
+      ],
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 27.0094,
+      "axis": "horizontal",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        24.9622,
+        29.0566
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "projectedEndpoints": [
+        {
+          "x": 14.7608,
+          "y": 75.0378
+        },
+        {
+          "x": 512.9191,
+          "y": 70.9434
+        }
+      ],
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 24.9204,
+      "axis": "horizontal",
+      "boardPosition": 3,
+      "endpointAbsoluteErrorsPx": [
+        22.5126,
+        27.3282
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "projectedEndpoints": [
+        {
+          "x": 16.5174,
+          "y": 177.4874
+        },
+        {
+          "x": 510.7698,
+          "y": 172.6718
+        }
+      ],
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 41.3488,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        43.0799,
+        39.6176
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "projectedEndpoints": [
+        {
+          "x": 143.0799,
+          "y": -24.7773
+        },
+        {
+          "x": 139.6176,
+          "y": 280.4721
+        }
+      ],
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 42.1899,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        43.3495,
+        41.0303
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "projectedEndpoints": [
+        {
+          "x": 243.3495,
+          "y": -19.314
+        },
+        {
+          "x": 241.0303,
+          "y": 277.0251
+        }
+      ],
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 37.3041,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        37.9534,
+        36.6549
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "projectedEndpoints": [
+        {
+          "x": 337.9534,
+          "y": -14.1594
+        },
+        {
+          "x": 336.6549,
+          "y": 273.775
+        }
+      ],
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 27.1658,
+      "axis": "vertical",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        27.3585,
+        26.9731
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "projectedEndpoints": [
+        {
+          "x": 427.3585,
+          "y": -9.288
+        },
+        {
+          "x": 426.9731,
+          "y": 270.7051
+        }
+      ],
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 20.1169,
+      "axis": "horizontal",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        26.0904,
+        14.1434
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "projectedEndpoints": [
+        {
+          "x": 35.0445,
+          "y": 73.9096
+        },
+        {
+          "x": 511.2994,
+          "y": 85.8566
+        }
+      ],
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 21.9112,
+      "axis": "horizontal",
+      "boardPosition": 0,
+      "endpointAbsoluteErrorsPx": [
+        20.8345,
+        22.988
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "projectedEndpoints": [
+        {
+          "x": 33.4575,
+          "y": 179.1655
+        },
+        {
+          "x": 511.4415,
+          "y": 177.012
+        }
+      ],
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 23.4481,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        27.36,
+        19.5363
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "projectedEndpoints": [
+        {
+          "x": 72.64,
+          "y": -23.9004
+        },
+        {
+          "x": 80.4637,
+          "y": 273.7302
+        }
+      ],
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 18.3662,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        22.5912,
+        14.1411
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "projectedEndpoints": [
+        {
+          "x": 177.4088,
+          "y": -23.7745
+        },
+        {
+          "x": 185.8589,
+          "y": 274.0821
+        }
+      ],
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 13.1255,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        17.6648,
+        8.5862
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "projectedEndpoints": [
+        {
+          "x": 282.3352,
+          "y": -23.6484
+        },
+        {
+          "x": 291.4138,
+          "y": 274.4344
+        }
+      ],
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 7.7258,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        12.5802,
+        2.8715
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "projectedEndpoints": [
+        {
+          "x": 387.4198,
+          "y": -23.5221
+        },
+        {
+          "x": 397.1285,
+          "y": 274.7873
+        }
+      ],
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 24.4475,
+      "axis": "horizontal",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        24.9495,
+        23.9456
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "projectedEndpoints": [
+        {
+          "x": -29.5731,
+          "y": 75.0505
+        },
+        {
+          "x": 495.0523,
+          "y": 76.0544
+        }
+      ],
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 24.791,
+      "axis": "horizontal",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        25.4817,
+        24.1003
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "projectedEndpoints": [
+        {
+          "x": -27.1653,
+          "y": 174.5183
+        },
+        {
+          "x": 498.5087,
+          "y": 175.8997
+        }
+      ],
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 13.4705,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        7.9365,
+        19.0045
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "projectedEndpoints": [
+        {
+          "x": 107.9365,
+          "y": -42.0559
+        },
+        {
+          "x": 119.0045,
+          "y": 265.403
+        }
+      ],
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 26.8507,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        16.5711,
+        37.1303
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "projectedEndpoints": [
+        {
+          "x": 216.5711,
+          "y": -38.2798
+        },
+        {
+          "x": 237.1303,
+          "y": 253.9265
+        }
+      ],
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 29.7043,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        15.5622,
+        43.8465
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "projectedEndpoints": [
+        {
+          "x": 315.5622,
+          "y": -34.8389
+        },
+        {
+          "x": 343.8465,
+          "y": 243.5585
+        }
+      ],
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 23.4346,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        6.1393,
+        40.73
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "projectedEndpoints": [
+        {
+          "x": 406.1393,
+          "y": -31.6906
+        },
+        {
+          "x": 440.73,
+          "y": 234.1457
+        }
+      ],
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 46.3623,
+      "axis": "horizontal",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        44.6852,
+        48.0394
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "projectedEndpoints": [
+        {
+          "x": -12.0238,
+          "y": 55.3148
+        },
+        {
+          "x": 501.1372,
+          "y": 51.9606
+        }
+      ],
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 49.7053,
+      "axis": "horizontal",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        36.3877,
+        63.0229
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "projectedEndpoints": [
+        {
+          "x": -12.2378,
+          "y": 163.6123
+        },
+        {
+          "x": 514.4013,
+          "y": 136.9771
+        }
+      ],
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 12.1183,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        0.7944,
+        23.4423
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "projectedEndpoints": [
+        {
+          "x": 100.7944,
+          "y": -25.6736
+        },
+        {
+          "x": 123.4423,
+          "y": 253.1759
+        }
+      ],
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 24.8981,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        12.806,
+        36.9903
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "projectedEndpoints": [
+        {
+          "x": 212.806,
+          "y": -25.3654
+        },
+        {
+          "x": 236.9903,
+          "y": 239.6545
+        }
+      ],
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 27.1317,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        14.4612,
+        39.8022
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "projectedEndpoints": [
+        {
+          "x": 314.4612,
+          "y": -25.0856
+        },
+        {
+          "x": 339.8022,
+          "y": 227.4115
+        }
+      ],
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 20.2322,
+      "axis": "vertical",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        7.1326,
+        33.3318
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "projectedEndpoints": [
+        {
+          "x": 407.1326,
+          "y": -24.8306
+        },
+        {
+          "x": 433.3318,
+          "y": 216.2739
+        }
+      ],
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 38.8875,
+      "axis": "horizontal",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        29.3165,
+        48.4584
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "projectedEndpoints": [
+        {
+          "x": -16.4623,
+          "y": 70.6835
+        },
+        {
+          "x": 499.9949,
+          "y": 51.5416
+        }
+      ],
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 51.0993,
+      "axis": "horizontal",
+      "boardPosition": 5,
+      "endpointAbsoluteErrorsPx": [
+        30.9274,
+        71.2712
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "projectedEndpoints": [
+        {
+          "x": -9.5647,
+          "y": 169.0726
+        },
+        {
+          "x": 508.9632,
+          "y": 128.7288
+        }
+      ],
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 11.6684,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        7.8641,
+        15.4728
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "projectedEndpoints": [
+        {
+          "x": 92.1359,
+          "y": -27.8591
+        },
+        {
+          "x": 84.5272,
+          "y": 274.5175
+        }
+      ],
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 4.2526,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        1.0824,
+        7.4227
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "projectedEndpoints": [
+        {
+          "x": 198.9176,
+          "y": -27.5378
+        },
+        {
+          "x": 192.5773,
+          "y": 274.5057
+        }
+      ],
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 2.9257,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        5.4644,
+        0.387
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "projectedEndpoints": [
+        {
+          "x": 305.4644,
+          "y": -27.2173
+        },
+        {
+          "x": 300.387,
+          "y": 274.494
+        }
+      ],
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 9.8671,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        11.7772,
+        7.957
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "projectedEndpoints": [
+        {
+          "x": 411.7772,
+          "y": -26.8975
+        },
+        {
+          "x": 407.957,
+          "y": 274.4822
+        }
+      ],
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 27.2039,
+      "axis": "horizontal",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        27.7307,
+        26.6771
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "projectedEndpoints": [
+        {
+          "x": -17.8289,
+          "y": 72.2693
+        },
+        {
+          "x": 515.9405,
+          "y": 73.3229
+        }
+      ],
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 26.2394,
+      "axis": "horizontal",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        26.489,
+        25.9899
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "projectedEndpoints": [
+        {
+          "x": -20.7998,
+          "y": 173.511
+        },
+        {
+          "x": 515.0773,
+          "y": 174.0101
+        }
+      ],
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 1.7351,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        1.9777,
+        1.4926
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "projectedEndpoints": [
+        {
+          "x": 98.0223,
+          "y": 0.0
+        },
+        {
+          "x": 101.4926,
+          "y": 282.1485
+        }
+      ],
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 4.5385,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        2.9788,
+        6.0981
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "projectedEndpoints": [
+        {
+          "x": 197.0212,
+          "y": 0.0
+        },
+        {
+          "x": 193.9019,
+          "y": 283.4602
+        }
+      ],
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 7.9072,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        2.9887,
+        12.8257
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "projectedEndpoints": [
+        {
+          "x": 297.0113,
+          "y": 0.0
+        },
+        {
+          "x": 287.1743,
+          "y": 284.7842
+        }
+      ],
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 10.3351,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        1.9924,
+        18.6778
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "projectedEndpoints": [
+        {
+          "x": 398.0076,
+          "y": 0.0
+        },
+        {
+          "x": 381.3222,
+          "y": 286.1205
+        }
+      ],
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 1.2102,
+      "axis": "horizontal",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        1.7475,
+        0.6729
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "projectedEndpoints": [
+        {
+          "x": 3.4755,
+          "y": 98.2525
+        },
+        {
+          "x": 490.7358,
+          "y": 100.6729
+        }
+      ],
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 5.6261,
+      "axis": "horizontal",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        7.937,
+        3.3152
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "projectedEndpoints": [
+        {
+          "x": 6.794,
+          "y": 192.063
+        },
+        {
+          "x": 482.8543,
+          "y": 196.6848
+        }
+      ],
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 19.3004,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        13.9925,
+        24.6084
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "projectedEndpoints": [
+        {
+          "x": 86.0075,
+          "y": -22.1517
+        },
+        {
+          "x": 75.3916,
+          "y": 276.8311
+        }
+      ],
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 10.5785,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        7.4054,
+        13.7516
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "projectedEndpoints": [
+        {
+          "x": 192.5946,
+          "y": -22.3358
+        },
+        {
+          "x": 186.2484,
+          "y": 276.2568
+        }
+      ],
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 2.1295,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        1.0806,
+        3.1784
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "projectedEndpoints": [
+        {
+          "x": 298.9194,
+          "y": -22.5194
+        },
+        {
+          "x": 296.8216,
+          "y": 275.684
+        }
+      ],
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 6.0478,
+      "axis": "vertical",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        4.9831,
+        7.1124
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "projectedEndpoints": [
+        {
+          "x": 404.9831,
+          "y": -22.7026
+        },
+        {
+          "x": 407.1124,
+          "y": 275.1126
+        }
+      ],
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 25.2071,
+      "axis": "horizontal",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        24.4406,
+        25.9737
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "projectedEndpoints": [
+        {
+          "x": -25.6989,
+          "y": 75.5594
+        },
+        {
+          "x": 511.7802,
+          "y": 74.0263
+        }
+      ],
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 25.4276,
+      "axis": "horizontal",
+      "boardPosition": 7,
+      "endpointAbsoluteErrorsPx": [
+        24.3366,
+        26.5187
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "projectedEndpoints": [
+        {
+          "x": -30.6835,
+          "y": 175.6634
+        },
+        {
+          "x": 513.8846,
+          "y": 173.4813
+        }
+      ],
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 10.2082,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        12.1387,
+        8.2777
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "projectedEndpoints": [
+        {
+          "x": 87.8613,
+          "y": -21.0428
+        },
+        {
+          "x": 91.7223,
+          "y": 270.0792
+        }
+      ],
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 5.7765,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        7.2802,
+        4.2728
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "projectedEndpoints": [
+        {
+          "x": 192.7198,
+          "y": -21.3198
+        },
+        {
+          "x": 195.7272,
+          "y": 270.6883
+        }
+      ],
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 1.0716,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        1.7776,
+        0.3656
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "projectedEndpoints": [
+        {
+          "x": 298.2224,
+          "y": -21.5986
+        },
+        {
+          "x": 300.3656,
+          "y": 271.3011
+        }
+      ],
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 5.0091,
+      "axis": "vertical",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        4.3749,
+        5.6433
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "projectedEndpoints": [
+        {
+          "x": 404.3749,
+          "y": -21.8791
+        },
+        {
+          "x": 405.6433,
+          "y": 271.9177
+        }
+      ],
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 23.1072,
+      "axis": "horizontal",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        23.1639,
+        23.0505
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "projectedEndpoints": [
+        {
+          "x": -14.7772,
+          "y": 76.8361
+        },
+        {
+          "x": 510.2438,
+          "y": 76.9495
+        }
+      ],
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 25.2968,
+      "axis": "horizontal",
+      "boardPosition": 6,
+      "endpointAbsoluteErrorsPx": [
+        26.0974,
+        24.4962
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "projectedEndpoints": [
+        {
+          "x": -13.2039,
+          "y": 173.9026
+        },
+        {
+          "x": 510.3748,
+          "y": 175.5038
+        }
+      ],
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 34.9803,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        36.3272,
+        33.6334
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "projectedEndpoints": [
+        {
+          "x": 63.6728,
+          "y": -4.689
+        },
+        {
+          "x": 66.3666,
+          "y": 285.1968
+        }
+      ],
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 33.1138,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        34.8231,
+        31.4045
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "projectedEndpoints": [
+        {
+          "x": 165.1769,
+          "y": -8.6787
+        },
+        {
+          "x": 168.5955,
+          "y": 285.8826
+        }
+      ],
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 27.8995,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        29.9944,
+        25.8045
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "projectedEndpoints": [
+        {
+          "x": 270.0056,
+          "y": -12.7991
+        },
+        {
+          "x": 274.1955,
+          "y": 286.591
+        }
+      ],
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 19.1694,
+      "axis": "vertical",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        21.675,
+        16.6637
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "projectedEndpoints": [
+        {
+          "x": 378.325,
+          "y": -17.0568
+        },
+        {
+          "x": 383.3363,
+          "y": 287.3231
+        }
+      ],
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 12.094,
+      "axis": "horizontal",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        5.7979,
+        18.3902
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "projectedEndpoints": [
+        {
+          "x": -33.9922,
+          "y": 94.2021
+        },
+        {
+          "x": 491.1303,
+          "y": 81.6098
+        }
+      ],
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 12.6208,
+      "axis": "horizontal",
+      "boardPosition": 8,
+      "endpointAbsoluteErrorsPx": [
+        10.3598,
+        14.8818
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "projectedEndpoints": [
+        {
+          "x": -33.3191,
+          "y": 189.6402
+        },
+        {
+          "x": 493.0961,
+          "y": 185.1182
+        }
+      ],
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 24.0237,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        47.08,
+        0.9674
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "projectedEndpoints": [
+        {
+          "x": 52.92,
+          "y": -24.7386
+        },
+        {
+          "x": 100.9674,
+          "y": 285.4537
+        }
+      ],
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 22.7283,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        44.812,
+        0.6447
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "projectedEndpoints": [
+        {
+          "x": 155.188,
+          "y": -28.8598
+        },
+        {
+          "x": 199.3553,
+          "y": 277.6587
+        }
+      ],
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 24.8736,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        45.1049,
+        4.6422
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "projectedEndpoints": [
+        {
+          "x": 254.8951,
+          "y": -32.8778
+        },
+        {
+          "x": 295.3578,
+          "y": 270.0527
+        }
+      ],
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 29.4016,
+      "axis": "vertical",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        47.8637,
+        10.9394
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "projectedEndpoints": [
+        {
+          "x": 352.1363,
+          "y": -36.7964
+        },
+        {
+          "x": 389.0606,
+          "y": 262.6289
+        }
+      ],
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 26.3185,
+      "axis": "horizontal",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        13.1517,
+        39.4853
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "projectedEndpoints": [
+        {
+          "x": -34.1885,
+          "y": 86.8483
+        },
+        {
+          "x": 457.5313,
+          "y": 60.5147
+        }
+      ],
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 24.3488,
+      "axis": "horizontal",
+      "boardPosition": 2,
+      "endpointAbsoluteErrorsPx": [
+        8.188,
+        40.5095
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "projectedEndpoints": [
+        {
+          "x": -16.7657,
+          "y": 191.812
+        },
+        {
+          "x": 468.7572,
+          "y": 159.4905
+        }
+      ],
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 15.3585,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        17.9478,
+        12.7692
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "projectedEndpoints": [
+        {
+          "x": 82.0522,
+          "y": -35.1162
+        },
+        {
+          "x": 87.2308,
+          "y": 259.8644
+        }
+      ],
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 15.8594,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        17.7255,
+        13.9933
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "projectedEndpoints": [
+        {
+          "x": 182.2745,
+          "y": -34.4497
+        },
+        {
+          "x": 186.0067,
+          "y": 262.0562
+        }
+      ],
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 15.3116,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        16.439,
+        14.1841
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "projectedEndpoints": [
+        {
+          "x": 283.561,
+          "y": -33.776
+        },
+        {
+          "x": 285.8159,
+          "y": 264.2708
+        }
+      ],
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 13.6983,
+      "axis": "vertical",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        14.0713,
+        13.3252
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "projectedEndpoints": [
+        {
+          "x": 385.9287,
+          "y": -33.0951
+        },
+        {
+          "x": 386.6748,
+          "y": 266.5088
+        }
+      ],
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 33.6726,
+      "axis": "horizontal",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        36.6653,
+        30.6799
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "projectedEndpoints": [
+        {
+          "x": -14.8953,
+          "y": 63.3347
+        },
+        {
+          "x": 488.0916,
+          "y": 69.3201
+        }
+      ],
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 34.2455,
+      "axis": "horizontal",
+      "boardPosition": 4,
+      "endpointAbsoluteErrorsPx": [
+        38.5239,
+        29.9671
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "projectedEndpoints": [
+        {
+          "x": -12.6899,
+          "y": 161.4761
+        },
+        {
+          "x": 487.8309,
+          "y": 170.0329
+        }
+      ],
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 19.7942,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        18.3189,
+        21.2694
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "projectedEndpoints": [
+        {
+          "x": 81.6811,
+          "y": -31.752
+        },
+        {
+          "x": 78.7306,
+          "y": 286.4195
+        }
+      ],
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 19.5059,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        16.8799,
+        22.1319
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "projectedEndpoints": [
+        {
+          "x": 183.1201,
+          "y": -33.3121
+        },
+        {
+          "x": 177.8681,
+          "y": 287.4529
+        }
+      ],
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    },
+    {
+      "absoluteErrorPx": 17.5726,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        13.7581,
+        21.3872
+      ],
+      "expectedCoordinate": 300.0,
+      "lineIndex": 2,
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "projectedEndpoints": [
+        {
+          "x": 286.2419,
+          "y": -34.8981
+        },
+        {
+          "x": 278.6128,
+          "y": 288.503
+        }
+      ],
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 300.0
+    },
+    {
+      "absoluteErrorPx": 13.9535,
+      "axis": "vertical",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        8.9114,
+        18.9957
+      ],
+      "expectedCoordinate": 400.0,
+      "lineIndex": 3,
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "projectedEndpoints": [
+        {
+          "x": 391.0886,
+          "y": -36.5106
+        },
+        {
+          "x": 381.0043,
+          "y": 289.5704
+        }
+      ],
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 400.0
+    },
+    {
+      "absoluteErrorPx": 24.7737,
+      "axis": "horizontal",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        23.0829,
+        26.4645
+      ],
+      "expectedCoordinate": 100.0,
+      "lineIndex": 0,
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "projectedEndpoints": [
+        {
+          "x": -18.3611,
+          "y": 76.9171
+        },
+        {
+          "x": 492.351,
+          "y": 73.5355
+        }
+      ],
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 100.0
+    },
+    {
+      "absoluteErrorPx": 17.0356,
+      "axis": "horizontal",
+      "boardPosition": 1,
+      "endpointAbsoluteErrorsPx": [
+        17.5441,
+        16.527
+      ],
+      "expectedCoordinate": 200.0,
+      "lineIndex": 1,
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "projectedEndpoints": [
+        {
+          "x": -18.6024,
+          "y": 182.4559
+        },
+        {
+          "x": 488.1395,
+          "y": 183.473
+        }
+      ],
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "v2Coordinate": 200.0
+    }
+  ],
+  "nextTask": "TASK-0096",
+  "percentileMethod": "linear-r7",
+  "quadErrors": [
+    {
+      "absoluteErrorPx": 11.4453,
+      "boardPosition": 0,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 122.0,
+        "y": 408.0
+      },
+      "expectedPoint": {
+        "x": 110.6161,
+        "y": 406.8158
+      },
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 23.9293,
+      "boardPosition": 0,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 277.0,
+        "y": 380.0
+      },
+      "expectedPoint": {
+        "x": 299.1164,
+        "y": 389.1366
+      },
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 12.3963,
+      "boardPosition": 0,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 293.0,
+        "y": 489.0
+      },
+      "expectedPoint": {
+        "x": 303.2552,
+        "y": 495.9641
+      },
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 11.3226,
+      "boardPosition": 0,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 122.0,
+        "y": 499.0
+      },
+      "expectedPoint": {
+        "x": 115.1311,
+        "y": 508.0011
+      },
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 10.5857,
+      "boardPosition": 6,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 188.0,
+        "y": 619.0
+      },
+      "expectedPoint": {
+        "x": 194.2997,
+        "y": 627.5071
+      },
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 3.9948,
+      "boardPosition": 6,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 356.0,
+        "y": 615.0
+      },
+      "expectedPoint": {
+        "x": 354.9577,
+        "y": 618.8564
+      },
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 6.1654,
+      "boardPosition": 6,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 359.0,
+        "y": 697.0
+      },
+      "expectedPoint": {
+        "x": 359.849,
+        "y": 703.1067
+      },
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 9.5237,
+      "boardPosition": 6,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 191.0,
+        "y": 699.0
+      },
+      "expectedPoint": {
+        "x": 199.191,
+        "y": 703.8589
+      },
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 17.9397,
+      "boardPosition": 8,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 642.0,
+        "y": 649.0
+      },
+      "expectedPoint": {
+        "x": 657.7501,
+        "y": 657.5887
+      },
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 5.6874,
+      "boardPosition": 8,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 848.0,
+        "y": 657.0
+      },
+      "expectedPoint": {
+        "x": 847.6564,
+        "y": 662.677
+      },
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 5.4576,
+      "boardPosition": 8,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 842.0,
+        "y": 754.0
+      },
+      "expectedPoint": {
+        "x": 844.422,
+        "y": 758.8907
+      },
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 13.0388,
+      "boardPosition": 8,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 638.0,
+        "y": 748.0
+      },
+      "expectedPoint": {
+        "x": 649.8951,
+        "y": 753.34
+      },
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 14.7901,
+      "boardPosition": 4,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 409.0,
+        "y": 528.0
+      },
+      "expectedPoint": {
+        "x": 417.4869,
+        "y": 540.1128
+      },
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 12.7798,
+      "boardPosition": 4,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 647.0,
+        "y": 522.0
+      },
+      "expectedPoint": {
+        "x": 641.7396,
+        "y": 533.6469
+      },
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 13.1124,
+      "boardPosition": 4,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 654.0,
+        "y": 631.0
+      },
+      "expectedPoint": {
+        "x": 653.5991,
+        "y": 644.1063
+      },
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 17.8156,
+      "boardPosition": 4,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 416.0,
+        "y": 635.0
+      },
+      "expectedPoint": {
+        "x": 422.3385,
+        "y": 651.6499
+      },
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 25.5868,
+      "boardPosition": 0,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 186.0,
+        "y": 357.0
+      },
+      "expectedPoint": {
+        "x": 164.3623,
+        "y": 370.6562
+      },
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 5.9332,
+      "boardPosition": 0,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 328.0,
+        "y": 366.0
+      },
+      "expectedPoint": {
+        "x": 322.4922,
+        "y": 368.2061
+      },
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 11.7204,
+      "boardPosition": 0,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 324.0,
+        "y": 445.0
+      },
+      "expectedPoint": {
+        "x": 326.6903,
+        "y": 456.4075
+      },
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 31.8557,
+      "boardPosition": 0,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 169.0,
+        "y": 425.0
+      },
+      "expectedPoint": {
+        "x": 161.9134,
+        "y": 456.0575
+      },
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 13.4953,
+      "boardPosition": 4,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 358.0,
+        "y": 429.0
+      },
+      "expectedPoint": {
+        "x": 367.4727,
+        "y": 438.612
+      },
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 10.0677,
+      "boardPosition": 4,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 556.0,
+        "y": 439.0
+      },
+      "expectedPoint": {
+        "x": 556.1117,
+        "y": 449.0671
+      },
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 8.8912,
+      "boardPosition": 4,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 555.0,
+        "y": 531.0
+      },
+      "expectedPoint": {
+        "x": 553.0622,
+        "y": 539.6775
+      },
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 10.7263,
+      "boardPosition": 4,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 359.0,
+        "y": 524.0
+      },
+      "expectedPoint": {
+        "x": 356.5813,
+        "y": 534.45
+      },
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 14.7902,
+      "boardPosition": 2,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 605.0,
+        "y": 417.0
+      },
+      "expectedPoint": {
+        "x": 617.8546,
+        "y": 424.315
+      },
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 15.4869,
+      "boardPosition": 2,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 760.0,
+        "y": 438.0
+      },
+      "expectedPoint": {
+        "x": 771.4364,
+        "y": 448.4428
+      },
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 10.4721,
+      "boardPosition": 2,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 764.0,
+        "y": 522.0
+      },
+      "expectedPoint": {
+        "x": 765.4891,
+        "y": 532.3657
+      },
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 15.1148,
+      "boardPosition": 2,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 606.0,
+        "y": 502.0
+      },
+      "expectedPoint": {
+        "x": 613.3066,
+        "y": 515.2314
+      },
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 16.0193,
+      "boardPosition": 1,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 350.0,
+        "y": 366.0
+      },
+      "expectedPoint": {
+        "x": 363.1042,
+        "y": 375.214
+      },
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 9.458,
+      "boardPosition": 1,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 563.0,
+        "y": 379.0
+      },
+      "expectedPoint": {
+        "x": 559.2857,
+        "y": 387.6981
+      },
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 8.0202,
+      "boardPosition": 1,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 557.0,
+        "y": 481.0
+      },
+      "expectedPoint": {
+        "x": 557.3671,
+        "y": 489.0118
+      },
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 28.7545,
+      "boardPosition": 1,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 345.0,
+        "y": 452.0
+      },
+      "expectedPoint": {
+        "x": 357.3482,
+        "y": 477.9681
+      },
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 12.9415,
+      "boardPosition": 7,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 337.0,
+        "y": 735.0
+      },
+      "expectedPoint": {
+        "x": 347.8665,
+        "y": 742.0287
+      },
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 11.3,
+      "boardPosition": 7,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 545.0,
+        "y": 736.0
+      },
+      "expectedPoint": {
+        "x": 536.8795,
+        "y": 743.8579
+      },
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 7.0448,
+      "boardPosition": 7,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 543.0,
+        "y": 826.0
+      },
+      "expectedPoint": {
+        "x": 537.7948,
+        "y": 830.7471
+      },
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 11.5034,
+      "boardPosition": 7,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 337.0,
+        "y": 825.0
+      },
+      "expectedPoint": {
+        "x": 346.0358,
+        "y": 832.1191
+      },
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 8.747,
+      "boardPosition": 5,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 609.0,
+        "y": 580.0
+      },
+      "expectedPoint": {
+        "x": 616.4594,
+        "y": 584.568
+      },
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 6.4573,
+      "boardPosition": 5,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 771.0,
+        "y": 590.0
+      },
+      "expectedPoint": {
+        "x": 772.257,
+        "y": 596.3338
+      },
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 13.5859,
+      "boardPosition": 5,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 774.0,
+        "y": 663.0
+      },
+      "expectedPoint": {
+        "x": 769.3174,
+        "y": 675.7534
+      },
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 6.1376,
+      "boardPosition": 5,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 607.0,
+        "y": 660.0
+      },
+      "expectedPoint": {
+        "x": 612.4175,
+        "y": 662.8845
+      },
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 12.6183,
+      "boardPosition": 3,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 96.0,
+        "y": 567.0
+      },
+      "expectedPoint": {
+        "x": 92.3747,
+        "y": 579.0863
+      },
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 9.3533,
+      "boardPosition": 3,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 270.0,
+        "y": 565.0
+      },
+      "expectedPoint": {
+        "x": 267.4424,
+        "y": 573.9968
+      },
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 6.1341,
+      "boardPosition": 3,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 274.0,
+        "y": 654.0
+      },
+      "expectedPoint": {
+        "x": 273.7088,
+        "y": 660.1272
+      },
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 9.6891,
+      "boardPosition": 3,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 104.0,
+        "y": 659.0
+      },
+      "expectedPoint": {
+        "x": 95.1163,
+        "y": 662.8677
+      },
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1"
+    },
+    {
+      "absoluteErrorPx": 7.7615,
+      "boardPosition": 3,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 112.0,
+        "y": 490.0
+      },
+      "expectedPoint": {
+        "x": 112.0127,
+        "y": 497.7615
+      },
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 12.8376,
+      "boardPosition": 3,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 234.0,
+        "y": 493.0
+      },
+      "expectedPoint": {
+        "x": 241.1517,
+        "y": 503.661
+      },
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 27.1044,
+      "boardPosition": 3,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 234.0,
+        "y": 551.0
+      },
+      "expectedPoint": {
+        "x": 236.4343,
+        "y": 577.9949
+      },
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 28.5426,
+      "boardPosition": 3,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 100.0,
+        "y": 540.0
+      },
+      "expectedPoint": {
+        "x": 107.0005,
+        "y": 567.6708
+      },
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.2138,
+      "boardPosition": 7,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 253.0,
+        "y": 712.0
+      },
+      "expectedPoint": {
+        "x": 260.1439,
+        "y": 717.8188
+      },
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.1121,
+      "boardPosition": 7,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 405.0,
+        "y": 719.0
+      },
+      "expectedPoint": {
+        "x": 400.995,
+        "y": 723.6171
+      },
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.123,
+      "boardPosition": 7,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 404.0,
+        "y": 785.0
+      },
+      "expectedPoint": {
+        "x": 400.6539,
+        "y": 790.1278
+      },
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.6813,
+      "boardPosition": 7,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 250.0,
+        "y": 778.0
+      },
+      "expectedPoint": {
+        "x": 258.0976,
+        "y": 783.3062
+      },
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.7422,
+      "boardPosition": 2,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 481.0,
+        "y": 504.0
+      },
+      "expectedPoint": {
+        "x": 486.4302,
+        "y": 505.8671
+      },
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 13.7961,
+      "boardPosition": 2,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 606.0,
+        "y": 520.0
+      },
+      "expectedPoint": {
+        "x": 618.4471,
+        "y": 525.9499
+      },
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.7623,
+      "boardPosition": 2,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 606.0,
+        "y": 593.0
+      },
+      "expectedPoint": {
+        "x": 611.0212,
+        "y": 595.8269
+      },
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 4.7898,
+      "boardPosition": 2,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 482.0,
+        "y": 575.0
+      },
+      "expectedPoint": {
+        "x": 478.4542,
+        "y": 578.2201
+      },
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.3148,
+      "boardPosition": 3,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 119.0,
+        "y": 510.0
+      },
+      "expectedPoint": {
+        "x": 115.3596,
+        "y": 516.3446
+      },
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.9047,
+      "boardPosition": 3,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 243.0,
+        "y": 513.0
+      },
+      "expectedPoint": {
+        "x": 239.3961,
+        "y": 520.0354
+      },
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.0784,
+      "boardPosition": 3,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 245.0,
+        "y": 584.0
+      },
+      "expectedPoint": {
+        "x": 242.8021,
+        "y": 590.7285
+      },
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.4277,
+      "boardPosition": 3,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 116.0,
+        "y": 582.0
+      },
+      "expectedPoint": {
+        "x": 110.8182,
+        "y": 587.3216
+      },
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 12.2407,
+      "boardPosition": 0,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 152.0,
+        "y": 437.0
+      },
+      "expectedPoint": {
+        "x": 142.4722,
+        "y": 444.6848
+      },
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 3.4015,
+      "boardPosition": 0,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 275.0,
+        "y": 446.0
+      },
+      "expectedPoint": {
+        "x": 271.796,
+        "y": 447.1423
+      },
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 8.1431,
+      "boardPosition": 0,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 271.0,
+        "y": 513.0
+      },
+      "expectedPoint": {
+        "x": 267.4306,
+        "y": 520.3191
+      },
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 8.6792,
+      "boardPosition": 0,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 151.0,
+        "y": 515.0
+      },
+      "expectedPoint": {
+        "x": 143.0178,
+        "y": 518.4077
+      },
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.7543,
+      "boardPosition": 8,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 425.0,
+        "y": 660.0
+      },
+      "expectedPoint": {
+        "x": 432.8493,
+        "y": 665.791
+      },
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.2765,
+      "boardPosition": 8,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 560.0,
+        "y": 673.0
+      },
+      "expectedPoint": {
+        "x": 561.6076,
+        "y": 678.0256
+      },
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.1447,
+      "boardPosition": 8,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 559.0,
+        "y": 736.0
+      },
+      "expectedPoint": {
+        "x": 557.9376,
+        "y": 741.0338
+      },
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 8.5869,
+      "boardPosition": 8,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 421.0,
+        "y": 723.0
+      },
+      "expectedPoint": {
+        "x": 427.0384,
+        "y": 729.1051
+      },
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 10.5201,
+      "boardPosition": 5,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 481.0,
+        "y": 611.0
+      },
+      "expectedPoint": {
+        "x": 483.5229,
+        "y": 621.2131
+      },
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.7255,
+      "boardPosition": 5,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 613.0,
+        "y": 632.0
+      },
+      "expectedPoint": {
+        "x": 615.3286,
+        "y": 638.3095
+      },
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 16.6761,
+      "boardPosition": 5,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 620.0,
+        "y": 686.0
+      },
+      "expectedPoint": {
+        "x": 611.5266,
+        "y": 700.3629
+      },
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.7489,
+      "boardPosition": 5,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 476.0,
+        "y": 680.0
+      },
+      "expectedPoint": {
+        "x": 479.0872,
+        "y": 684.8496
+      },
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.1459,
+      "boardPosition": 5,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 481.0,
+        "y": 604.0
+      },
+      "expectedPoint": {
+        "x": 486.9867,
+        "y": 610.9142
+      },
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.6645,
+      "boardPosition": 5,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 617.0,
+        "y": 625.0
+      },
+      "expectedPoint": {
+        "x": 618.5284,
+        "y": 630.4544
+      },
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 20.5902,
+      "boardPosition": 5,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 620.0,
+        "y": 675.0
+      },
+      "expectedPoint": {
+        "x": 613.8748,
+        "y": 694.658
+      },
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.3909,
+      "boardPosition": 5,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 479.0,
+        "y": 673.0
+      },
+      "expectedPoint": {
+        "x": 478.9205,
+        "y": 680.3905
+      },
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.7164,
+      "boardPosition": 6,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 113.0,
+        "y": 658.0
+      },
+      "expectedPoint": {
+        "x": 116.4054,
+        "y": 663.7891
+      },
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.7527,
+      "boardPosition": 6,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 238.0,
+        "y": 661.0
+      },
+      "expectedPoint": {
+        "x": 233.8477,
+        "y": 666.3251
+      },
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.1813,
+      "boardPosition": 6,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 238.0,
+        "y": 723.0
+      },
+      "expectedPoint": {
+        "x": 234.4109,
+        "y": 728.0326
+      },
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.6233,
+      "boardPosition": 6,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 110.0,
+        "y": 720.0
+      },
+      "expectedPoint": {
+        "x": 115.5605,
+        "y": 725.2149
+      },
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 0.0,
+      "boardPosition": 1,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 282.0,
+        "y": 462.0
+      },
+      "expectedPoint": {
+        "x": 282.0,
+        "y": 462.0
+      },
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 0.0,
+      "boardPosition": 1,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 429.0,
+        "y": 467.0
+      },
+      "expectedPoint": {
+        "x": 429.0,
+        "y": 467.0
+      },
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.9065,
+      "boardPosition": 1,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 415.0,
+        "y": 534.0
+      },
+      "expectedPoint": {
+        "x": 421.3203,
+        "y": 536.7845
+      },
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 4.805,
+      "boardPosition": 1,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 285.0,
+        "y": 528.0
+      },
+      "expectedPoint": {
+        "x": 282.2405,
+        "y": 531.9336
+      },
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.9581,
+      "boardPosition": 7,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 254.0,
+        "y": 650.0
+      },
+      "expectedPoint": {
+        "x": 259.8661,
+        "y": 655.3777
+      },
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.2215,
+      "boardPosition": 7,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 406.0,
+        "y": 657.0
+      },
+      "expectedPoint": {
+        "x": 402.6556,
+        "y": 662.2461
+      },
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.3297,
+      "boardPosition": 7,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 405.0,
+        "y": 726.0
+      },
+      "expectedPoint": {
+        "x": 399.9096,
+        "y": 731.2737
+      },
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 11.2352,
+      "boardPosition": 7,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 250.0,
+        "y": 718.0
+      },
+      "expectedPoint": {
+        "x": 259.8661,
+        "y": 723.375
+      },
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.085,
+      "boardPosition": 6,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 108.0,
+        "y": 646.0
+      },
+      "expectedPoint": {
+        "x": 111.9917,
+        "y": 650.5928
+      },
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.5807,
+      "boardPosition": 6,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 239.0,
+        "y": 646.0
+      },
+      "expectedPoint": {
+        "x": 236.2988,
+        "y": 650.8834
+      },
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.6568,
+      "boardPosition": 6,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 240.0,
+        "y": 712.0
+      },
+      "expectedPoint": {
+        "x": 237.1701,
+        "y": 718.0253
+      },
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.305,
+      "boardPosition": 6,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 108.0,
+        "y": 711.0
+      },
+      "expectedPoint": {
+        "x": 110.8299,
+        "y": 717.7346
+      },
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.313,
+      "boardPosition": 8,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 483.0,
+        "y": 673.0
+      },
+      "expectedPoint": {
+        "x": 492.2931,
+        "y": 673.6092
+      },
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 5.4978,
+      "boardPosition": 8,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 625.0,
+        "y": 675.0
+      },
+      "expectedPoint": {
+        "x": 627.5797,
+        "y": 679.855
+      },
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 2.6396,
+      "boardPosition": 8,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 625.0,
+        "y": 743.0
+      },
+      "expectedPoint": {
+        "x": 626.0175,
+        "y": 745.4356
+      },
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.3728,
+      "boardPosition": 8,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 483.0,
+        "y": 735.0
+      },
+      "expectedPoint": {
+        "x": 491.6682,
+        "y": 738.5653
+      },
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 15.3015,
+      "boardPosition": 2,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 472.0,
+        "y": 283.0
+      },
+      "expectedPoint": {
+        "x": 485.731,
+        "y": 289.7525
+      },
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 18.6921,
+      "boardPosition": 2,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 610.0,
+        "y": 295.0
+      },
+      "expectedPoint": {
+        "x": 624.5072,
+        "y": 306.7871
+      },
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 13.9979,
+      "boardPosition": 2,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 618.0,
+        "y": 373.0
+      },
+      "expectedPoint": {
+        "x": 623.5435,
+        "y": 385.8534
+      },
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 1.5499,
+      "boardPosition": 2,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 476.0,
+        "y": 366.0
+      },
+      "expectedPoint": {
+        "x": 475.7725,
+        "y": 367.5331
+      },
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 8.4053,
+      "boardPosition": 4,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 293.0,
+        "y": 484.0
+      },
+      "expectedPoint": {
+        "x": 296.863,
+        "y": 491.465
+      },
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.7987,
+      "boardPosition": 4,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 424.0,
+        "y": 486.0
+      },
+      "expectedPoint": {
+        "x": 426.9788,
+        "y": 493.2074
+      },
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 7.8701,
+      "boardPosition": 4,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 424.0,
+        "y": 554.0
+      },
+      "expectedPoint": {
+        "x": 427.2693,
+        "y": 561.1589
+      },
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.3357,
+      "boardPosition": 4,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 292.0,
+        "y": 546.0
+      },
+      "expectedPoint": {
+        "x": 294.2491,
+        "y": 555.0607
+      },
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 9.1535,
+      "boardPosition": 1,
+      "cornerIndex": 0,
+      "detectedPoint": {
+        "x": 257.0,
+        "y": 314.0
+      },
+      "expectedPoint": {
+        "x": 262.2682,
+        "y": 321.4855
+      },
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 8.9538,
+      "boardPosition": 1,
+      "cornerIndex": 1,
+      "detectedPoint": {
+        "x": 400.0,
+        "y": 317.0
+      },
+      "expectedPoint": {
+        "x": 401.0246,
+        "y": 325.895
+      },
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 4.6593,
+      "boardPosition": 1,
+      "cornerIndex": 2,
+      "detectedPoint": {
+        "x": 400.0,
+        "y": 395.0
+      },
+      "expectedPoint": {
+        "x": 404.171,
+        "y": 397.0766
+      },
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    },
+    {
+      "absoluteErrorPx": 6.5902,
+      "boardPosition": 1,
+      "cornerIndex": 3,
+      "detectedPoint": {
+        "x": 257.0,
+        "y": 392.0
+      },
+      "expectedPoint": {
+        "x": 262.5829,
+        "y": 395.5018
+      },
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2"
+    }
+  ],
+  "qualityReportVersion": "board-cell-crops-v2-quality-v1",
+  "schemaVersion": 1,
+  "status": "quarantined_calibration_required",
+  "summary": {
+    "byAxis": [
+      {
+        "axis": "horizontal",
+        "lineCount": 54,
+        "maxAbsoluteErrorPx": 91.88,
+        "p50AbsoluteErrorPx": 25.252,
+        "p95AbsoluteErrorPx": 54.5261
+      },
+      {
+        "axis": "vertical",
+        "lineCount": 108,
+        "maxAbsoluteErrorPx": 42.3275,
+        "p50AbsoluteErrorPx": 15.6544,
+        "p95AbsoluteErrorPx": 36.9722
+      }
+    ],
+    "byBoardPosition": [
+      {
+        "boardPosition": 0,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 60.8902,
+        "p50AbsoluteErrorPx": 26.4117,
+        "p95AbsoluteErrorPx": 48.4729
+      },
+      {
+        "boardPosition": 1,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 42.3275,
+        "p50AbsoluteErrorPx": 18.5393,
+        "p95AbsoluteErrorPx": 41.6388
+      },
+      {
+        "boardPosition": 2,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 36.3558,
+        "p50AbsoluteErrorPx": 27.8601,
+        "p95AbsoluteErrorPx": 35.8538
+      },
+      {
+        "boardPosition": 3,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 91.88,
+        "p50AbsoluteErrorPx": 22.9925,
+        "p95AbsoluteErrorPx": 70.7904
+      },
+      {
+        "boardPosition": 4,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 35.1771,
+        "p50AbsoluteErrorPx": 14.505,
+        "p95AbsoluteErrorPx": 34.3852
+      },
+      {
+        "boardPosition": 5,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 51.0993,
+        "p50AbsoluteErrorPx": 24.5508,
+        "p95AbsoluteErrorPx": 49.9144
+      },
+      {
+        "boardPosition": 6,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 27.2039,
+        "p50AbsoluteErrorPx": 10.0376,
+        "p95AbsoluteErrorPx": 26.3841
+      },
+      {
+        "boardPosition": 7,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 25.4276,
+        "p50AbsoluteErrorPx": 15.6497,
+        "p95AbsoluteErrorPx": 25.2402
+      },
+      {
+        "boardPosition": 8,
+        "lineCount": 18,
+        "maxAbsoluteErrorPx": 34.9803,
+        "p50AbsoluteErrorPx": 18.7678,
+        "p95AbsoluteErrorPx": 33.3938
+      }
+    ],
+    "bySourceGroup": [
+      {
+        "lineCount": 66,
+        "maxAbsoluteErrorPx": 60.8902,
+        "p50AbsoluteErrorPx": 20.5613,
+        "p95AbsoluteErrorPx": 40.9712,
+        "sourceGroup": "blazing-hot-7-deluxe-session-1"
+      },
+      {
+        "lineCount": 96,
+        "maxAbsoluteErrorPx": 91.88,
+        "p50AbsoluteErrorPx": 21.0717,
+        "p95AbsoluteErrorPx": 43.233,
+        "sourceGroup": "blazing-hot-7-deluxe-session-2"
+      }
+    ],
+    "overall": {
+      "lineCount": 162,
+      "maxAbsoluteErrorPx": 91.88,
+      "p50AbsoluteErrorPx": 20.5613,
+      "p95AbsoluteErrorPx": 42.1563
+    },
+    "quadCornersOverall": {
+      "lineCount": 108,
+      "maxAbsoluteErrorPx": 31.8557,
+      "p50AbsoluteErrorPx": 8.8191,
+      "p95AbsoluteErrorPx": 22.7606
+    }
+  },
+  "trainingAllowed": false
+}

@@ -1,14 +1,15 @@
 ---
 title: TASK-0051 Representative image corpus and golden annotations
-status: in_progress
+status: done
 last_updated: 2026-07-28
+completed: 2026-07-28
 ---
 
 # TASK-0051 — Representative image corpus and golden annotations
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -17,11 +18,10 @@ algorytmu golden annotations i mierzalne progi dla prototypu geometrii i OCR.
 
 ## Context
 
-Właściciel dostarczył 12 zdjęć 960 × 1280 z jednej sesji i jednej gry.
-Potwierdzają podstawowy wariant strony: 9 mini-layoutów w siatce 3 × 3,
-plansze 3 × 5 i ciągłe numery sekwencji 1–108. Zgodnie z D-050 są
-prototypowym korpusem roboczym, ale nie wystarczają do wykazania
-reprezentatywności między grami, urządzeniami i rozdzielczościami.
+Właściciel dostarczył 43 zdjęcia JPEG w dwóch rozdzielczościach i różnej
+jakości. Pokrywają jedną grę, plansze 3 × 5 oraz ciągłe numery sekwencji
+1–387. Strona ma maksymalnie 9 mini-layoutów w siatce 3 × 3, a jawnie
+oznaczona ostatnia strona może zawierać 1–8 pozycji bez luk.
 
 Na podstawie D-049 właściciel dopuścił rozpoczęcie wyłącznie M5.1 przed
 domknięciem fizyczznej bramki G3. Nie oznacza to zaliczenia TASK-0041,
@@ -44,13 +44,13 @@ TASK-0042 ani G3 i nie uruchamia jeszcze automatycznego pipeline'u zdjęć.
 
 ## Scope
 
-- odpowiedzi właściciela na Q-015–Q-017,
+- zamknięcie Q-015–Q-017,
 - inwentaryzacja 20–100 reprezentatywnych zdjęć bez modyfikacji oryginałów,
 - stabilny identyfikator i SHA-256 każdego pliku,
 - metadane rozdzielczości, orientacji, źródła i kontrolowanych zakłóceń,
 - jawne zasady dozwolonego użycia i lokalnego przechowywania materiału,
 - podział korpusu według zdjęcia źródłowego bez przecieku między zbiorami,
-- wersjonowany format golden annotations dla strony, dziewięciu plansz,
+- wersjonowany format golden annotations dla strony, od jednej do dziewięciu plansz,
   numerów sekwencji i opcjonalnych komórek,
 - walidator kompletności, geometrii, indeksów i referencji do manifestu,
 - definicje metryk i progi akceptacji ustalone przed optymalizacją algorytmu.
@@ -67,21 +67,21 @@ TASK-0042 ani G3 i nie uruchamia jeszcze automatycznego pipeline'u zdjęć.
 
 ## Acceptance criteria
 
-- [ ] Właściciel odpowiedział na Q-015–Q-017; Q-015 jest zamknięte, Q-016 i
-      Q-017 pozostają otwarte.
-- [ ] Zatwierdzony korpus zawiera 20–100 reprezentatywnych zdjęć.
+- [x] Właściciel odpowiedział na Q-015–Q-017 i wszystkie trzy pytania są
+      zamknięte.
+- [x] Zatwierdzony korpus zawiera 43 reprezentatywne zdjęcia.
 - [x] Każde zdjęcie ma stabilny identyfikator, SHA-256, rozmiar, wymiary,
       orientację, źródło i tagi warunków.
 - [x] Manifest nie zawiera ścieżek bezwzględnych ani binarnej zawartości zdjęć.
 - [x] Oryginały pozostają niezmienione, a ich checksumy są ponownie
       weryfikowalne.
-- [ ] Golden annotations opisują oczekiwany obszar strony, pozycje plansz,
+- [x] Golden annotations opisują oczekiwany obszar strony, pozycje plansz,
       narożniki/bounding boxes, indeks 0–8 i numer sekwencji.
 - [x] Walidator blokuje brakujące pliki, niezgodne checksumy, złe indeksy,
       geometrię poza obrazem i niepełne wymagane adnotacje.
 - [x] Podział train/validation/test jest wykonywany według zdjęcia źródłowego,
       nie według wycinka.
-- [ ] Definicje metryk i zaakceptowane progi geometrii oraz OCR są zapisane
+- [x] Definicje metryk i zaakceptowane progi geometrii oraz OCR są zapisane
       przed rozpoczęciem TASK-0054/TASK-0056.
 - [x] Testy, formatowanie, lint i typecheck zmienionych części przechodzą.
 
@@ -98,14 +98,14 @@ TASK-0042 ani G3 i nie uruchamia jeszcze automatycznego pipeline'u zdjęć.
 
 ## Existing seed inventory
 
-Korpus roboczy zawiera 12 unikalnych plików JPEG 960 × 1280 o łącznym
-rozmiarze `2 057 855` bajtów. Pokrywają numery sekwencji 1–108. Dokładne
+Korpus zawiera 43 unikalne pliki JPEG 960 × 1280 lub 720 × 1280 o łącznym
+rozmiarze `6 638 360` bajtów. Pokrywają numery sekwencji 1–387. Dokładne
 rozmiary, SHA-256, tagi warunków i grupę źródłową zapisuje
 `ai_docs/quality/m5-corpus-manifest.json`.
 
-Wszystkie obrazy pochodzą z jednej gry, sesji i rozdzielczości. Jest to
-zatwierdzony materiał do pracy kontraktowej i prototypowej, ale nie pełny
-reprezentatywny benchmark G5.1.
+Obrazy pochodzą z jednej gry i dwóch grup źródłowych. Jest to zatwierdzony
+materiał do benchmarku prototypowego, lecz nie dowód generalizacji na inne gry
+lub odmienne rodziny ekranów.
 
 ## Expected files
 
@@ -131,22 +131,24 @@ reprezentatywny benchmark G5.1.
 
 ## Risks / open questions
 
-- Q-016: stabilność siatki 3 × 3, ramek i obszaru numerów między grami.
-- Q-017: możliwość późniejszego uzyskania około 100 oznaczonych wycinków na
-  symbol z wielu zdjęć źródłowych.
+- Q-016 i Q-017 zamknięto odpowiedziami właściciela oraz D-057.
 - D-050 dopuszcza lokalne użycie dostarczonych zdjęć w tym prywatnym projekcie,
   ale nie ich redystrybucję ani dodanie binariów do Git.
-- 12 obecnych zdjęć nie reprezentuje różnych gier, urządzeń, rozdzielczości
-  ani wszystkich warunków optycznych.
+- 43 zdjęcia nadal nie reprezentują różnych gier ani wszystkich warunków
+  optycznych.
 
 ## Outcome
 
-Przygotowano wersjonowany manifest 12 lokalnych zdjęć, adnotacje ciągów
-1–108, schema pełnych adnotacji geometrii, proponowane progi jakości oraz
-walidator z testami negatywnymi. Walidator świadomie zwraca
-`readyForGeometryBenchmark = false`, dopóki Q-016/Q-017, pełna geometria,
-reprezentatywność i akceptacja progów nie zostaną domknięte.
+Przygotowano zaakceptowany manifest `m5-representative-corpus-v2` dla 43
+lokalnych zdjęć i 387 kolejnych layoutów. Pełne adnotacje mają pochodzenie
+`algorithm-assisted-visual-review`: współrzędne zainicjalizował detektor v2,
+a wszystkie overlaye zostały przejrzane wizualnie. Walidator potwierdza dwa
+rozłączne source groups, kompletność geometrii oraz
+`readyForGeometryBenchmark = true`.
 
-Po D-056 zadanie było zablokowane. Właściciel dostarczył 31 dalszych zdjęć,
-zamknął Q-016/Q-017 i polecił domknięcie G5. Rozszerzenie manifestu, pełne
-goldeny geometrii oraz ponowna walidacja są realizowane w TASK-0091.
+Kontrakt dopuszcza 1–9 pozycji bez luk, przy czym krótsza strona może być
+wyłącznie jawnie oznaczoną ostatnią stroną sekwencji. Bieżące zdjęcia zawierają
+po dziewięć pozycji; przypadek krótszej strony pokrywają testy syntetyczne.
+Automatyczny pipeline utworzył 387 board crops i 5805 cell crops, dlatego
+właściciel nie musi wycinać przykładów ręcznie. W M6 pozostaje zatwierdzanie
+lub poprawianie etykiet.

@@ -1,0 +1,2354 @@
+{
+  "canonicalBoard": {
+    "coordinateSystem": "rectified-board-pixels-500x300",
+    "height": 300,
+    "horizontalLines": [
+      100,
+      200
+    ],
+    "verticalLines": [
+      100,
+      200,
+      300,
+      400
+    ],
+    "width": 500
+  },
+  "coordinateSystem": "source-image-pixels",
+  "corpusId": "m5-representative-corpus-v2",
+  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "cropReportSha256": "2a7840f140547c23c0941349a17f4146c94e5721c3a2a9923b5467f8fb1aa0ef",
+  "entries": [
+    {
+      "boardChecksumSha256": "bdef290f248fb7e863f2376e10168c17a2dc60effdf34296bd00e2e4dd8a9c77",
+      "boardHeight": 300,
+      "boardPosition": 0,
+      "boardRelativePath": "board-cell-crops-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/board-00/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 122.0,
+          "y": 408.0
+        },
+        {
+          "x": 277.0,
+          "y": 380.0
+        },
+        {
+          "x": 293.0,
+          "y": 489.0
+        },
+        {
+          "x": 122.0,
+          "y": 499.0
+        }
+      ],
+      "imageId": "m5-img-001",
+      "lineSource": "human-adjusted",
+      "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 0,
+      "sequenceNumber": 1,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934317.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 110.6161,
+          "y": 406.8158
+        },
+        {
+          "x": 299.1164,
+          "y": 389.1366
+        },
+        {
+          "x": 303.2552,
+          "y": 495.9641
+        },
+        {
+          "x": 115.1311,
+          "y": 508.0011
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "f2dd5dfd7252d285166c55d28a2988af96eebac7b450142a0f9cbdd26dcb7508",
+      "boardHeight": 300,
+      "boardPosition": 6,
+      "boardRelativePath": "board-cell-crops-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/board-06/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 188.0,
+          "y": 619.0
+        },
+        {
+          "x": 356.0,
+          "y": 615.0
+        },
+        {
+          "x": 359.0,
+          "y": 697.0
+        },
+        {
+          "x": 191.0,
+          "y": 699.0
+        }
+      ],
+      "imageId": "m5-img-002",
+      "lineSource": "human-adjusted",
+      "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 1,
+      "sequenceNumber": 16,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934318.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 194.2997,
+          "y": 627.5071
+        },
+        {
+          "x": 354.9577,
+          "y": 618.8564
+        },
+        {
+          "x": 359.849,
+          "y": 703.1067
+        },
+        {
+          "x": 199.191,
+          "y": 703.8589
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "1f7019fb5e052d163de1917d31e78afd81ccf0b9987b2269698b443f3cbae469",
+      "boardHeight": 300,
+      "boardPosition": 8,
+      "boardRelativePath": "board-cell-crops-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/board-08/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 642.0,
+          "y": 649.0
+        },
+        {
+          "x": 848.0,
+          "y": 657.0
+        },
+        {
+          "x": 842.0,
+          "y": 754.0
+        },
+        {
+          "x": 638.0,
+          "y": 748.0
+        }
+      ],
+      "imageId": "m5-img-003",
+      "lineSource": "human-adjusted",
+      "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 2,
+      "sequenceNumber": 27,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934319.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 657.7501,
+          "y": 657.5887
+        },
+        {
+          "x": 847.6564,
+          "y": 662.677
+        },
+        {
+          "x": 844.422,
+          "y": 758.8907
+        },
+        {
+          "x": 649.8951,
+          "y": 753.34
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "9fe9eb3257fc6f1455a11f9b207b392d119e0926a4d0f35ac9ab714630ef7d66",
+      "boardHeight": 300,
+      "boardPosition": 4,
+      "boardRelativePath": "board-cell-crops-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/board-04/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 409.0,
+          "y": 528.0
+        },
+        {
+          "x": 647.0,
+          "y": 522.0
+        },
+        {
+          "x": 654.0,
+          "y": 631.0
+        },
+        {
+          "x": 416.0,
+          "y": 635.0
+        }
+      ],
+      "imageId": "m5-img-004",
+      "lineSource": "human-adjusted",
+      "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 3,
+      "sequenceNumber": 32,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934320.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 417.4869,
+          "y": 540.1128
+        },
+        {
+          "x": 641.7396,
+          "y": 533.6469
+        },
+        {
+          "x": 653.5991,
+          "y": 644.1063
+        },
+        {
+          "x": 422.3385,
+          "y": 651.6499
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "9ab8ac66b56b6fae0c416317a7b57449714067cbeee7d308ace98cd5793f39e7",
+      "boardHeight": 300,
+      "boardPosition": 0,
+      "boardRelativePath": "board-cell-crops-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/board-00/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 186.0,
+          "y": 357.0
+        },
+        {
+          "x": 328.0,
+          "y": 366.0
+        },
+        {
+          "x": 324.0,
+          "y": 445.0
+        },
+        {
+          "x": 169.0,
+          "y": 425.0
+        }
+      ],
+      "imageId": "m5-img-005",
+      "lineSource": "human-adjusted",
+      "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 4,
+      "sequenceNumber": 37,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934321.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 164.3623,
+          "y": 370.6562
+        },
+        {
+          "x": 322.4922,
+          "y": 368.2061
+        },
+        {
+          "x": 326.6903,
+          "y": 456.4075
+        },
+        {
+          "x": 161.9134,
+          "y": 456.0575
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "5fbbb500ac5522a5e5f895915f668a7e0bc9ec87e874f46ff0039629d4079c21",
+      "boardHeight": 300,
+      "boardPosition": 4,
+      "boardRelativePath": "board-cell-crops-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/board-04/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 358.0,
+          "y": 429.0
+        },
+        {
+          "x": 556.0,
+          "y": 439.0
+        },
+        {
+          "x": 555.0,
+          "y": 531.0
+        },
+        {
+          "x": 359.0,
+          "y": 524.0
+        }
+      ],
+      "imageId": "m5-img-007",
+      "lineSource": "human-adjusted",
+      "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 5,
+      "sequenceNumber": 59,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934323.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 367.4727,
+          "y": 438.612
+        },
+        {
+          "x": 556.1117,
+          "y": 449.0671
+        },
+        {
+          "x": 553.0622,
+          "y": 539.6775
+        },
+        {
+          "x": 356.5813,
+          "y": 534.45
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "1bfa7af8f33eed70804b75b40bf0e1d2d0eeab1ab821f7eca7bfee52438e1961",
+      "boardHeight": 300,
+      "boardPosition": 2,
+      "boardRelativePath": "board-cell-crops-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/board-02/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 605.0,
+          "y": 417.0
+        },
+        {
+          "x": 760.0,
+          "y": 438.0
+        },
+        {
+          "x": 764.0,
+          "y": 522.0
+        },
+        {
+          "x": 606.0,
+          "y": 502.0
+        }
+      ],
+      "imageId": "m5-img-008",
+      "lineSource": "human-adjusted",
+      "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 6,
+      "sequenceNumber": 66,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934324.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 617.8546,
+          "y": 424.315
+        },
+        {
+          "x": 771.4364,
+          "y": 448.4428
+        },
+        {
+          "x": 765.4891,
+          "y": 532.3657
+        },
+        {
+          "x": 613.3066,
+          "y": 515.2314
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "869829e29142cff66271fc26925910a123a274be7850d3e4b92c24b5b65878b8",
+      "boardHeight": 300,
+      "boardPosition": 1,
+      "boardRelativePath": "board-cell-crops-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/board-01/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 350.0,
+          "y": 366.0
+        },
+        {
+          "x": 563.0,
+          "y": 379.0
+        },
+        {
+          "x": 557.0,
+          "y": 481.0
+        },
+        {
+          "x": 345.0,
+          "y": 452.0
+        }
+      ],
+      "imageId": "m5-img-009",
+      "lineSource": "human-adjusted",
+      "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 7,
+      "sequenceNumber": 74,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934325.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 363.1042,
+          "y": 375.214
+        },
+        {
+          "x": 559.2857,
+          "y": 387.6981
+        },
+        {
+          "x": 557.3671,
+          "y": 489.0118
+        },
+        {
+          "x": 357.3482,
+          "y": 477.9681
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "816923a6874e2b5c5b4432b27cf4387a6fb239e296d00cc2dd9cec2a804ff709",
+      "boardHeight": 300,
+      "boardPosition": 7,
+      "boardRelativePath": "board-cell-crops-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/board-07/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 337.0,
+          "y": 735.0
+        },
+        {
+          "x": 545.0,
+          "y": 736.0
+        },
+        {
+          "x": 543.0,
+          "y": 826.0
+        },
+        {
+          "x": 337.0,
+          "y": 825.0
+        }
+      ],
+      "imageId": "m5-img-010",
+      "lineSource": "human-adjusted",
+      "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 8,
+      "sequenceNumber": 89,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934326.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 347.8665,
+          "y": 742.0287
+        },
+        {
+          "x": 536.8795,
+          "y": 743.8579
+        },
+        {
+          "x": 537.7948,
+          "y": 830.7471
+        },
+        {
+          "x": 346.0358,
+          "y": 832.1191
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "21bc72830bda3f979d650684282a942d6f6d56bfa86e0c2a169b4763f98ce61f",
+      "boardHeight": 300,
+      "boardPosition": 5,
+      "boardRelativePath": "board-cell-crops-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/board-05/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 609.0,
+          "y": 580.0
+        },
+        {
+          "x": 771.0,
+          "y": 590.0
+        },
+        {
+          "x": 774.0,
+          "y": 663.0
+        },
+        {
+          "x": 607.0,
+          "y": 660.0
+        }
+      ],
+      "imageId": "m5-img-011",
+      "lineSource": "human-adjusted",
+      "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 9,
+      "sequenceNumber": 96,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934327.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 616.4594,
+          "y": 584.568
+        },
+        {
+          "x": 772.257,
+          "y": 596.3338
+        },
+        {
+          "x": 769.3174,
+          "y": 675.7534
+        },
+        {
+          "x": 612.4175,
+          "y": 662.8845
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "0636543f92b1bf2248c70792687c1586929715195adbfb8ea8cc78289e4040eb",
+      "boardHeight": 300,
+      "boardPosition": 3,
+      "boardRelativePath": "board-cell-crops-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/board-03/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 96.0,
+          "y": 567.0
+        },
+        {
+          "x": 270.0,
+          "y": 565.0
+        },
+        {
+          "x": 274.0,
+          "y": 654.0
+        },
+        {
+          "x": 104.0,
+          "y": 659.0
+        }
+      ],
+      "imageId": "m5-img-012",
+      "lineSource": "human-adjusted",
+      "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 10,
+      "sequenceNumber": 103,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5983122166590934328.jpg",
+      "sourceImageWidth": 960,
+      "sourceQuad": [
+        {
+          "x": 92.3747,
+          "y": 579.0863
+        },
+        {
+          "x": 267.4424,
+          "y": 573.9968
+        },
+        {
+          "x": 273.7088,
+          "y": 660.1272
+        },
+        {
+          "x": 95.1163,
+          "y": 662.8677
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "da1276f4207998afe0b3f558011e37f5f75f1e3a18aa40cc8d1922a1b517975c",
+      "boardHeight": 300,
+      "boardPosition": 3,
+      "boardRelativePath": "board-cell-crops-v1/5c/5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5/board-03/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 112.0,
+          "y": 490.0
+        },
+        {
+          "x": 234.0,
+          "y": 493.0
+        },
+        {
+          "x": 234.0,
+          "y": 551.0
+        },
+        {
+          "x": 100.0,
+          "y": 540.0
+        }
+      ],
+      "imageId": "m5-img-013",
+      "lineSource": "human-adjusted",
+      "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 11,
+      "sequenceNumber": 112,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600660.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 112.0127,
+          "y": 497.7615
+        },
+        {
+          "x": 241.1517,
+          "y": 503.661
+        },
+        {
+          "x": 236.4343,
+          "y": 577.9949
+        },
+        {
+          "x": 107.0005,
+          "y": 567.6708
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "5c651c8d6bd5406e902aae4dc25b6fbe1997c31250927c9f01ea514de722938a",
+      "boardHeight": 300,
+      "boardPosition": 7,
+      "boardRelativePath": "board-cell-crops-v1/1d/1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9/board-07/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 253.0,
+          "y": 712.0
+        },
+        {
+          "x": 405.0,
+          "y": 719.0
+        },
+        {
+          "x": 404.0,
+          "y": 785.0
+        },
+        {
+          "x": 250.0,
+          "y": 778.0
+        }
+      ],
+      "imageId": "m5-img-015",
+      "lineSource": "human-adjusted",
+      "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 12,
+      "sequenceNumber": 134,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600662.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 260.1439,
+          "y": 717.8188
+        },
+        {
+          "x": 400.995,
+          "y": 723.6171
+        },
+        {
+          "x": 400.6539,
+          "y": 790.1278
+        },
+        {
+          "x": 258.0976,
+          "y": 783.3062
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "61c4262685f4df470cd728cef31bf8cec20df41d5044c6f3e9dedd3646c42904",
+      "boardHeight": 300,
+      "boardPosition": 2,
+      "boardRelativePath": "board-cell-crops-v1/69/6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886/board-02/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 481.0,
+          "y": 504.0
+        },
+        {
+          "x": 606.0,
+          "y": 520.0
+        },
+        {
+          "x": 606.0,
+          "y": 593.0
+        },
+        {
+          "x": 482.0,
+          "y": 575.0
+        }
+      ],
+      "imageId": "m5-img-020",
+      "lineSource": "human-adjusted",
+      "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 13,
+      "sequenceNumber": 174,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600667.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 486.4302,
+          "y": 505.8671
+        },
+        {
+          "x": 618.4471,
+          "y": 525.9499
+        },
+        {
+          "x": 611.0212,
+          "y": 595.8269
+        },
+        {
+          "x": 478.4542,
+          "y": 578.2201
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "98dd0cafb0c36d99d434be9ad3c490495ecccb7a6c8ff710e733aa7404e38235",
+      "boardHeight": 300,
+      "boardPosition": 3,
+      "boardRelativePath": "board-cell-crops-v1/8a/8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4/board-03/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 119.0,
+          "y": 510.0
+        },
+        {
+          "x": 243.0,
+          "y": 513.0
+        },
+        {
+          "x": 245.0,
+          "y": 584.0
+        },
+        {
+          "x": 116.0,
+          "y": 582.0
+        }
+      ],
+      "imageId": "m5-img-023",
+      "lineSource": "human-adjusted",
+      "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 14,
+      "sequenceNumber": 202,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600670.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 115.3596,
+          "y": 516.3446
+        },
+        {
+          "x": 239.3961,
+          "y": 520.0354
+        },
+        {
+          "x": 242.8021,
+          "y": 590.7285
+        },
+        {
+          "x": 110.8182,
+          "y": 587.3216
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "dc541780dd781cc7e0d71391fb1560d2c18f535b61851de1249c11f63acea487",
+      "boardHeight": 300,
+      "boardPosition": 0,
+      "boardRelativePath": "board-cell-crops-v1/39/392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a/board-00/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 152.0,
+          "y": 437.0
+        },
+        {
+          "x": 275.0,
+          "y": 446.0
+        },
+        {
+          "x": 271.0,
+          "y": 513.0
+        },
+        {
+          "x": 151.0,
+          "y": 515.0
+        }
+      ],
+      "imageId": "m5-img-025",
+      "lineSource": "human-adjusted",
+      "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 15,
+      "sequenceNumber": 217,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600672.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 142.4722,
+          "y": 444.6848
+        },
+        {
+          "x": 271.796,
+          "y": 447.1423
+        },
+        {
+          "x": 267.4306,
+          "y": 520.3191
+        },
+        {
+          "x": 143.0178,
+          "y": 518.4077
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "d9e674a42bb68de13ca110106d7e365a4a06c26d6eeb4ea274d517ff71081e03",
+      "boardHeight": 300,
+      "boardPosition": 8,
+      "boardRelativePath": "board-cell-crops-v1/21/217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738/board-08/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 425.0,
+          "y": 660.0
+        },
+        {
+          "x": 560.0,
+          "y": 673.0
+        },
+        {
+          "x": 559.0,
+          "y": 736.0
+        },
+        {
+          "x": 421.0,
+          "y": 723.0
+        }
+      ],
+      "imageId": "m5-img-026",
+      "lineSource": "human-adjusted",
+      "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 16,
+      "sequenceNumber": 234,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600673.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 432.8493,
+          "y": 665.791
+        },
+        {
+          "x": 561.6076,
+          "y": 678.0256
+        },
+        {
+          "x": 557.9376,
+          "y": 741.0338
+        },
+        {
+          "x": 427.0384,
+          "y": 729.1051
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "91e2c706add3f05a87bea897f64107475d0aceba9aad52a1b273935512318aff",
+      "boardHeight": 300,
+      "boardPosition": 5,
+      "boardRelativePath": "board-cell-crops-v1/4e/4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f/board-05/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 481.0,
+          "y": 611.0
+        },
+        {
+          "x": 613.0,
+          "y": 632.0
+        },
+        {
+          "x": 620.0,
+          "y": 686.0
+        },
+        {
+          "x": 476.0,
+          "y": 680.0
+        }
+      ],
+      "imageId": "m5-img-027",
+      "lineSource": "human-adjusted",
+      "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 17,
+      "sequenceNumber": 240,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600674.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 483.5229,
+          "y": 621.2131
+        },
+        {
+          "x": 615.3286,
+          "y": 638.3095
+        },
+        {
+          "x": 611.5266,
+          "y": 700.3629
+        },
+        {
+          "x": 479.0872,
+          "y": 684.8496
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "48fd8714a95f07a60601fd2162e278082e93d96f482b84243ff30249f17cecd2",
+      "boardHeight": 300,
+      "boardPosition": 5,
+      "boardRelativePath": "board-cell-crops-v1/f5/f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d/board-05/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 481.0,
+          "y": 604.0
+        },
+        {
+          "x": 617.0,
+          "y": 625.0
+        },
+        {
+          "x": 620.0,
+          "y": 675.0
+        },
+        {
+          "x": 479.0,
+          "y": 673.0
+        }
+      ],
+      "imageId": "m5-img-029",
+      "lineSource": "human-adjusted",
+      "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 18,
+      "sequenceNumber": 258,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600676.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 486.9867,
+          "y": 610.9142
+        },
+        {
+          "x": 618.5284,
+          "y": 630.4544
+        },
+        {
+          "x": 613.8748,
+          "y": 694.658
+        },
+        {
+          "x": 478.9205,
+          "y": 680.3905
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "1fef8c7b83d3a6d4ceef69c3544edbe23fe378680e02d09d6afb160317b795a5",
+      "boardHeight": 300,
+      "boardPosition": 6,
+      "boardRelativePath": "board-cell-crops-v1/90/901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661/board-06/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 113.0,
+          "y": 658.0
+        },
+        {
+          "x": 238.0,
+          "y": 661.0
+        },
+        {
+          "x": 238.0,
+          "y": 723.0
+        },
+        {
+          "x": 110.0,
+          "y": 720.0
+        }
+      ],
+      "imageId": "m5-img-030",
+      "lineSource": "human-adjusted",
+      "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 19,
+      "sequenceNumber": 268,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600677.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 116.4054,
+          "y": 663.7891
+        },
+        {
+          "x": 233.8477,
+          "y": 666.3251
+        },
+        {
+          "x": 234.4109,
+          "y": 728.0326
+        },
+        {
+          "x": 115.5605,
+          "y": 725.2149
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "72e6b78db1a30f7ab14765caba8e5abca9612d0429349a02ff6a74f9920cd59a",
+      "boardHeight": 300,
+      "boardPosition": 1,
+      "boardRelativePath": "board-cell-crops-v1/99/99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79/board-01/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 282.0,
+          "y": 462.0
+        },
+        {
+          "x": 429.0,
+          "y": 467.0
+        },
+        {
+          "x": 415.0,
+          "y": 534.0
+        },
+        {
+          "x": 285.0,
+          "y": 528.0
+        }
+      ],
+      "imageId": "m5-img-031",
+      "lineSource": "human-adjusted",
+      "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 20,
+      "sequenceNumber": 272,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600678.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 282.0,
+          "y": 462.0
+        },
+        {
+          "x": 429.0,
+          "y": 467.0
+        },
+        {
+          "x": 421.3203,
+          "y": 536.7845
+        },
+        {
+          "x": 282.2405,
+          "y": 531.9336
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "b46455b8010f3d5a5abfa9ef5f0cd5d2890a149e20dc837065043e38c81c7946",
+      "boardHeight": 300,
+      "boardPosition": 7,
+      "boardRelativePath": "board-cell-crops-v1/e6/e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9/board-07/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 254.0,
+          "y": 650.0
+        },
+        {
+          "x": 406.0,
+          "y": 657.0
+        },
+        {
+          "x": 405.0,
+          "y": 726.0
+        },
+        {
+          "x": 250.0,
+          "y": 718.0
+        }
+      ],
+      "imageId": "m5-img-032",
+      "lineSource": "human-adjusted",
+      "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 21,
+      "sequenceNumber": 287,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600679.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 259.8661,
+          "y": 655.3777
+        },
+        {
+          "x": 402.6556,
+          "y": 662.2461
+        },
+        {
+          "x": 399.9096,
+          "y": 731.2737
+        },
+        {
+          "x": 259.8661,
+          "y": 723.375
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "f611c8d1bbc4a2d420070b0ad676d085808158032db314e1dd99f516634aa083",
+      "boardHeight": 300,
+      "boardPosition": 6,
+      "boardRelativePath": "board-cell-crops-v1/79/7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a/board-06/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 108.0,
+          "y": 646.0
+        },
+        {
+          "x": 239.0,
+          "y": 646.0
+        },
+        {
+          "x": 240.0,
+          "y": 712.0
+        },
+        {
+          "x": 108.0,
+          "y": 711.0
+        }
+      ],
+      "imageId": "m5-img-033",
+      "lineSource": "human-adjusted",
+      "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 22,
+      "sequenceNumber": 295,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600680.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 111.9917,
+          "y": 650.5928
+        },
+        {
+          "x": 236.2988,
+          "y": 650.8834
+        },
+        {
+          "x": 237.1701,
+          "y": 718.0253
+        },
+        {
+          "x": 110.8299,
+          "y": 717.7346
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "4e3a2ce0c25cdbb4fda0980590e3e2b4691bb747320c34b1e2a6a3d8af9be164",
+      "boardHeight": 300,
+      "boardPosition": 8,
+      "boardRelativePath": "board-cell-crops-v1/c1/c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c/board-08/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 483.0,
+          "y": 673.0
+        },
+        {
+          "x": 625.0,
+          "y": 675.0
+        },
+        {
+          "x": 625.0,
+          "y": 743.0
+        },
+        {
+          "x": 483.0,
+          "y": 735.0
+        }
+      ],
+      "imageId": "m5-img-034",
+      "lineSource": "human-adjusted",
+      "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 23,
+      "sequenceNumber": 306,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600681.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 492.2931,
+          "y": 673.6092
+        },
+        {
+          "x": 627.5797,
+          "y": 679.855
+        },
+        {
+          "x": 626.0175,
+          "y": 745.4356
+        },
+        {
+          "x": 491.6682,
+          "y": 738.5653
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "e2df6d8dfd562c95ae21c3e795dcf0970dd12cc2d5a2742690380ba65a92d7e7",
+      "boardHeight": 300,
+      "boardPosition": 2,
+      "boardRelativePath": "board-cell-crops-v1/df/df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526/board-02/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 472.0,
+          "y": 283.0
+        },
+        {
+          "x": 610.0,
+          "y": 295.0
+        },
+        {
+          "x": 618.0,
+          "y": 373.0
+        },
+        {
+          "x": 476.0,
+          "y": 366.0
+        }
+      ],
+      "imageId": "m5-img-035",
+      "lineSource": "human-adjusted",
+      "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 24,
+      "sequenceNumber": 309,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600682.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 485.731,
+          "y": 289.7525
+        },
+        {
+          "x": 624.5072,
+          "y": 306.7871
+        },
+        {
+          "x": 623.5435,
+          "y": 385.8534
+        },
+        {
+          "x": 475.7725,
+          "y": 367.5331
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "0f1d0ce08d46bed052296a9d53cde1424552798360099a28bfb3e67fe56a7987",
+      "boardHeight": 300,
+      "boardPosition": 4,
+      "boardRelativePath": "board-cell-crops-v1/a1/a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962/board-04/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 293.0,
+          "y": 484.0
+        },
+        {
+          "x": 424.0,
+          "y": 486.0
+        },
+        {
+          "x": 424.0,
+          "y": 554.0
+        },
+        {
+          "x": 292.0,
+          "y": 546.0
+        }
+      ],
+      "imageId": "m5-img-040",
+      "lineSource": "human-adjusted",
+      "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 25,
+      "sequenceNumber": 356,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600687.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 296.863,
+          "y": 491.465
+        },
+        {
+          "x": 426.9788,
+          "y": 493.2074
+        },
+        {
+          "x": 427.2693,
+          "y": 561.1589
+        },
+        {
+          "x": 294.2491,
+          "y": 555.0607
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    },
+    {
+      "boardChecksumSha256": "79c77d1cdbf34bfa1a5c10816dbfb2c1b8c6dfe56889eeee6d3868e760c73ef9",
+      "boardHeight": 300,
+      "boardPosition": 1,
+      "boardRelativePath": "board-cell-crops-v1/97/97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83/board-01/board.png",
+      "boardWidth": 500,
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "decisionRevision": 1,
+      "detectedSourceQuad": [
+        {
+          "x": 257.0,
+          "y": 314.0
+        },
+        {
+          "x": 400.0,
+          "y": 317.0
+        },
+        {
+          "x": 400.0,
+          "y": 395.0
+        },
+        {
+          "x": 257.0,
+          "y": 392.0
+        }
+      ],
+      "imageId": "m5-img-042",
+      "lineSource": "human-adjusted",
+      "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+      "reviewStatus": "accepted",
+      "reviewedBy": "owner",
+      "selectionIndex": 26,
+      "sequenceNumber": 371,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83",
+      "sourceImageHeight": 1280,
+      "sourceImageRelativePath": "5998913674711600689.jpg",
+      "sourceImageWidth": 720,
+      "sourceQuad": [
+        {
+          "x": 262.2682,
+          "y": 321.4855
+        },
+        {
+          "x": 401.0246,
+          "y": 325.895
+        },
+        {
+          "x": 404.171,
+          "y": 397.0766
+        },
+        {
+          "x": 262.5829,
+          "y": 395.5018
+        }
+      ],
+      "suggestionVersion": "detected-source-quad-v1",
+      "v1CutCellIndexes": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "v1ImpactReviewed": true
+    }
+  ],
+  "geometryVersion": "source-quad-perspective-grid-v1",
+  "goldenAnnotationsSha256": "92fa6ea06112bb314372153914cf694419e9c5187a7edad33f9ef0502fbe3363",
+  "goldenVersion": "cell-grid-golden-v1",
+  "reviewRevision": 27,
+  "schemaVersion": 1,
+  "selection": {
+    "boardCount": 27,
+    "boardsPerPosition": 3,
+    "positionCounts": [
+      {
+        "boardCount": 3,
+        "boardPosition": 0
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 1
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 2
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 3
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 4
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 5
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 6
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 7
+      },
+      {
+        "boardCount": 3,
+        "boardPosition": 8
+      }
+    ],
+    "selectionVersion": "cell-grid-stratified-v1",
+    "sourceGroupCounts": [
+      {
+        "boardCount": 11,
+        "sourceGroup": "blazing-hot-7-deluxe-session-1"
+      },
+      {
+        "boardCount": 16,
+        "sourceGroup": "blazing-hot-7-deluxe-session-2"
+      }
+    ],
+    "sourceGroups": [
+      "blazing-hot-7-deluxe-session-1",
+      "blazing-hot-7-deluxe-session-2"
+    ]
+  },
+  "status": "accepted",
+  "summary": {
+    "acceptedCount": 27,
+    "pendingCount": 0,
+    "totalCount": 27
+  }
+}

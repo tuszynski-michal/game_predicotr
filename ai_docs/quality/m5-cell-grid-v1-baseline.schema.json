@@ -1,0 +1,482 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game-predictor.local/schemas/m5-cell-grid-v1-baseline.schema.json",
+  "title": "cell-grid-v1-baseline-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "affectedBoardCount",
+    "affectedCellObservationCount",
+    "baselineVersion",
+    "cropperVersion",
+    "goldenAcceptedEntryCount",
+    "goldenSha256",
+    "goldenVersion",
+    "geometryVersion",
+    "historicalGrid",
+    "lineErrors",
+    "percentileMethod",
+    "quadErrors",
+    "schemaVersion",
+    "status",
+    "summary",
+    "trainingAllowed",
+    "v1SymbolImpact"
+  ],
+  "properties": {
+    "affectedBoardCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 27
+    },
+    "affectedCellObservationCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 405
+    },
+    "baselineVersion": {
+      "const": "cell-grid-v1-baseline-v1"
+    },
+    "cropperVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "goldenAcceptedEntryCount": {
+      "const": 27
+    },
+    "goldenSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "goldenVersion": {
+      "const": "cell-grid-golden-v1"
+    },
+    "geometryVersion": {
+      "const": "source-quad-perspective-grid-v1"
+    },
+    "historicalGrid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["horizontalLines", "marginX", "marginY", "verticalLines"],
+      "properties": {
+        "horizontalLines": {
+          "const": [105, 195]
+        },
+        "marginX": {
+          "const": 25
+        },
+        "marginY": {
+          "const": 15
+        },
+        "verticalLines": {
+          "const": [115, 205, 295, 385]
+        }
+      }
+    },
+    "lineErrors": {
+      "type": "array",
+      "minItems": 162,
+      "maxItems": 162,
+      "items": {
+        "$ref": "#/$defs/lineError"
+      }
+    },
+    "percentileMethod": {
+      "const": "linear-r7"
+    },
+    "quadErrors": {
+      "type": "array",
+      "minItems": 108,
+      "maxItems": 108,
+      "items": {
+        "$ref": "#/$defs/quadError"
+      }
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "status": {
+      "const": "historical_cropper_rejected"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "byAxis",
+        "byBoardPosition",
+        "bySourceGroup",
+        "overall",
+        "quadCornersOverall"
+      ],
+      "properties": {
+        "byAxis": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/namedMetric"
+          }
+        },
+        "byBoardPosition": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "$ref": "#/$defs/positionMetric"
+          }
+        },
+        "bySourceGroup": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/sourceMetric"
+          }
+        },
+        "overall": {
+          "$ref": "#/$defs/metric"
+        },
+        "quadCornersOverall": {
+          "$ref": "#/$defs/metric"
+        }
+      }
+    },
+    "trainingAllowed": {
+      "const": false
+    },
+    "v1SymbolImpact": {
+      "type": "array",
+      "maxItems": 27,
+      "items": {
+        "$ref": "#/$defs/impact"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineCount",
+        "maxAbsoluteErrorPx",
+        "p50AbsoluteErrorPx",
+        "p95AbsoluteErrorPx"
+      ],
+      "properties": {
+        "lineCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxAbsoluteErrorPx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p95AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "namedMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "axis",
+        "lineCount",
+        "maxAbsoluteErrorPx",
+        "p50AbsoluteErrorPx",
+        "p95AbsoluteErrorPx"
+      ],
+      "properties": {
+        "axis": {
+          "enum": ["horizontal", "vertical"]
+        },
+        "lineCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxAbsoluteErrorPx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p95AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "positionMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boardPosition",
+        "lineCount",
+        "maxAbsoluteErrorPx",
+        "p50AbsoluteErrorPx",
+        "p95AbsoluteErrorPx"
+      ],
+      "properties": {
+        "boardPosition": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "lineCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxAbsoluteErrorPx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p95AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "sourceMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceGroup",
+        "lineCount",
+        "maxAbsoluteErrorPx",
+        "p50AbsoluteErrorPx",
+        "p95AbsoluteErrorPx"
+      ],
+      "properties": {
+        "sourceGroup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lineCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxAbsoluteErrorPx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "p50AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        },
+        "p95AbsoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "lineError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "absoluteErrorPx",
+        "axis",
+        "boardPosition",
+        "endpointAbsoluteErrorsPx",
+        "expectedCoordinate",
+        "historicalV1Coordinate",
+        "lineIndex",
+        "observationId",
+        "projectedEndpoints",
+        "sequenceNumber",
+        "sourceGroup"
+      ],
+      "properties": {
+        "absoluteErrorPx": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "axis": {
+          "enum": ["horizontal", "vertical"]
+        },
+        "boardPosition": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "endpointAbsoluteErrorsPx": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "expectedCoordinate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lineIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "observationId": {
+          "$ref": "#/$defs/sha256"
+        },
+        "historicalV1Coordinate": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "projectedEndpoints": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/point"
+          }
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceGroup": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "quadError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "absoluteErrorPx",
+        "boardPosition",
+        "cornerIndex",
+        "detectedPoint",
+        "expectedPoint",
+        "observationId",
+        "sequenceNumber",
+        "sourceGroup"
+      ],
+      "properties": {
+        "absoluteErrorPx": {
+          "type": "number",
+          "minimum": 0
+        },
+        "boardPosition": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "cornerIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "detectedPoint": {
+          "$ref": "#/$defs/point"
+        },
+        "expectedPoint": {
+          "$ref": "#/$defs/point"
+        },
+        "observationId": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceGroup": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boardPosition",
+        "cellIndexes",
+        "cells",
+        "observationId",
+        "sequenceNumber",
+        "sourceGroup"
+      ],
+      "properties": {
+        "boardPosition": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "cellIndexes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 14
+          }
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cellIndex", "columnIndex", "rowIndex"],
+            "properties": {
+              "cellIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 14
+              },
+              "columnIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "rowIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2
+              }
+            }
+          }
+        },
+        "observationId": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceGroup": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

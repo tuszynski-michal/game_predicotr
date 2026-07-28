@@ -114,7 +114,12 @@ geometrii dla obserwowanej rodziny ekranu.
 
 ### 4. Wycięcie layoutów
 
-Kontrakt `board-cell-crops-v1` działa na kompletnym wyniku
+`board-cell-crops-v1` pozostaje niezmiennym artefaktem historycznym, ale nie
+może zasilać etykietowania ani treningu. Przegląd właściciela wykazał, że
+globalne odcięcie 25 px po bokach i 15 px pionowo przed podziałem przesuwa
+granice względem symboli i przecina część z nich.
+
+Korekta używa kontraktu `board-cell-crops-v2` na kompletnym wyniku
 `page-board-detector-v2` zawierającym oczekiwane 1–9 pozycji:
 
 - każdy quad jest walidowany i prostowany indywidualnie do RGB 500 × 300,
@@ -124,6 +129,10 @@ Kontrakt `board-cell-crops-v1` działa na kompletnym wyniku
 - wynik niekompletny względem oczekiwania, zła kolejność albo niepoprawny quad daje `needs_review`
   bez częściowych wycinków,
 - plansza i overlay siatki są content-addressed oraz niezmienne.
+
+Przed zaakceptowaniem v2 obowiązuje niezależny golden granic komórek. Golden
+obejmuje reprezentatywne plansze z obu grup źródłowych i wszystkich dziewięciu
+pozycji ekranu. Nie może być wygenerowany wyłącznie przez testowany cropper.
 
 ### 5. Odczyt sequence number
 
@@ -152,37 +161,79 @@ Detekcja oczekiwanego zestawu plansz wynosi 100% na 43 zdjęciach. Pełny wynik,
 timing i katalog błędów znajdują się w
 `ai_docs/quality/m5-image-benchmark-report.json`.
 
-### Status prototypu po D-057
+### Status prototypu po D-061
 
 - discovery i normalizacja są zachowywanymi kontraktami,
-- geometria oraz cropy są zaakceptowane dla wariantu do dziewięciu plansz
-  3 × 3 i plansz 3 × 5,
+- geometria strony i pozycje plansz są zaakceptowane dla wariantu do dziewięciu
+  plansz 3 × 3; automatyczne quady są wejściem do wersjonowanych profili
+  kalibracji,
+- podział planszy na komórki v1 i detektorowy wariant v2 pozostają w
+  kwarantannie,
+- `board-cell-crops-v2-calibrated-v1` przeszedł niezależną bramkę na 27
+  planszach i 405 komórkach z P95 linii `1.8337 px`; pełny korpus obejmuje
+  43 obrazy, 387 plansz i 5805 komórek,
 - kontrakt OCR zostaje wymienny, a bieżący model działa w trybie
   `manual_review_only`,
 - każdy wynik OCR jest sugestią do manual review; nie ma auto-accept,
 - continuity może zgłosić problem, ale nigdy nie tworzy zatwierdzonego numeru,
-- M6 może eksportować przejrzane cell crops i etykiety bez polegania na
-  automatycznej akceptacji OCR.
+- M6 może korzystać wyłącznie ze skalibrowanych cropów i wraca do eksportu
+  etykiet przez TASK-0097; nie zależy to od automatycznej akceptacji OCR.
 
 ### 6. Podział na komórki
 
-- wariant D-053 używa wymiarów 3 × 5,
-- od wyprostowanej planszy odetnij po 5%, czyli 25 px poziomo i 15 px pionowo,
-- podziel wewnętrzny obszar 450 × 270 na 15 komórek RGB 90 × 90,
+- wariant D-059 używa wymiarów 3 × 5,
+- źródłowy quad rzeczywistej ramy planszy przekształć homografią do RGB
+  500 × 300, a następnie podziel na piętnaście logicznych slotów 100 × 100,
+- wersjonowany inset jest stosowany osobno wewnątrz każdego slotu; bazowy
+  kandydat 5 px z każdej strony daje crop RGB 90 × 90,
+- globalny margines zmieniający krok siatki jest zabroniony,
 - wiersz i kolumna są 0-based; kolejność zapisu jest row-major,
 - każda komórka ma względną ścieżkę i SHA-256 w raporcie,
 - wycinki są cache roboczym prototypu; nie są jeszcze datasetem treningowym ani
   rekordami opublikowanego datasetu.
 
+Niezależny golden i kalibracja:
+
+- lokalny edytor pokazuje oryginalne zdjęcie, cztery regulowane narożniki ramy,
+  ukośną siatkę perspektywiczną 5 × 3, kanoniczny podgląd 500 × 300 i wszystkie
+  15 cropów,
+- korekta zapisuje źródłowy quad w wersjonowanym goldenie lub profilu
+  kalibracji i nie nadpisuje historycznego artefaktu,
+- dokładnie 18 profili obejmuje pary grupy źródłowej i pozycji planszy 0–8;
+  27 zaakceptowanych quadów jest niezmiennymi anchorami,
+- profil zapisuje korektę narożników w lokalnej bazie quadu detektora; dla
+  `sequence_number` pomiędzy anchorami stosuje interpolację liniową, a poza
+  zakresem najbliższy anchor bez ekstrapolacji,
+- profil jest stosowany na poziomie grupy źródłowej i pozycji planszy; ręczna
+  korekta każdego z 387 layoutów jest ostatecznym wyjątkiem,
+- automatyczne zastosowanie profilu wymaga przejścia tego samego niezależnego
+  goldenu.
+
 ### 7. Klasyfikacja symbolu
 
-1. administrator dostarcza oznaczone przykłady każdego symbolu,
-2. trening używa osobnych zdjęć źródłowych dla zbioru treningowego i walidacyjnego,
-3. klasyfikator zwraca `symbol_id`, confidence i kilka alternatyw,
-4. inferencja produkcyjna używa wersjonowanego modelu ONNX,
-5. niski confidence trafia do manual review.
+1. `symbol-crop-inventory-v2` weryfikuje wyłącznie zaakceptowane skalibrowane
+   cropy v2, profil oraz pełny łańcuch checksum i tworzy stabilną tożsamość
+   obserwacji bez przypisywania klasy,
+2. administrator dostarcza jawnie przejrzane decyzje
+   `reviewed-cell-labels-v1` dla symboli tej samej gry,
+3. `labeled-symbol-dataset-v1` eksportuje tylko decyzje `accepted`, deduplikuje
+   identyczne binaria i zachowuje wszystkie wystąpienia,
+4. trening używa osobnych zdjęć źródłowych dla zbioru treningowego i walidacyjnego,
+5. klasyfikator zwraca `symbol_id`, confidence i kilka alternatyw,
+6. inferencja produkcyjna używa wersjonowanego modelu ONNX,
+7. niski confidence trafia do manual review.
 
-Docelowy punkt startowy do walidacji to około 100 wycinków na symbol z wielu zdjęć. Nie zakładamy samodzielnego odkrycia poprawnych klas bez zatwierdzonych etykiet.
+Docelowy punkt startowy do walidacji to około 100 wycinków na symbol z wielu
+zdjęć. Nie zakładamy samodzielnego odkrycia poprawnych klas bez zatwierdzonych
+etykiet. Numery 1–387 i 5805 cropów nie są jeszcze etykietami symboli, a dane
+fixture M1/M4 nie mogą ich zastąpić.
+
+Pierwszy bootstrap obejmuje ręczne zatwierdzenie pełnych layoutów z różnych
+zdjęć i pozycji, orientacyjnie 15–30 layoutów, a nie 5805 osobnych ekranów.
+Trening nie mutuje modelu po każdym kliknięciu. Każda iteracja ma jawny
+dataset, konfigurację, seed, model version i raport held-out. Po pierwszej
+wersji modelu review priorytetyzuje niepewne albo reprezentatywne przypadki.
+Auto-accept pozostaje wyłączone do zaakceptowanej kalibracji confidence.
 
 ### 8. Manual review
 
@@ -197,6 +248,13 @@ Element trafia do review, jeżeli:
 - layout ma nieprawidłową liczbę komórek.
 
 Administrator zatwierdza, poprawia albo odrzuca element. Korekta symbolu może zostać wyeksportowana jako oznaczony przykład.
+
+Dla symboli podstawowym ekranem bootstrapu jest pełny layout 5 × 3 z siatką,
+15 przewidywaniami, confidence i skrótami. Niepewne komórki są wyróżnione,
+ale administrator może poprawić każdą komórkę. Osobny tryb geometrii pozwala
+skorygować cztery narożniki ramy i sprawdzić wynikową siatkę perspektywiczną
+przed etykietowaniem; decyzji symbolu nie zapisuje się dla cropu z
+niezaakceptowaną geometrią.
 
 ### 9. Walidacja i commit
 
@@ -247,7 +305,7 @@ Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje duż
 ## Metryki jakości
 
 - skuteczność detekcji strony,
-- skuteczność detekcji 9 layoutów,
+- skuteczność detekcji oczekiwanego zestawu 1–9 layoutów,
 - błąd geometrii komórek,
 - accuracy OCR numerów,
 - accuracy klasyfikatora per symbol i macierz pomyłek,
@@ -258,14 +316,16 @@ Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje duż
 
 ## Walidacja technologii przed wdrożeniem masowym
 
-1. Rozszerzyć prototypowy korpus 12 zdjęć do 20–100 reprezentatywnych zdjęć
-   przed pełnym benchmarkiem G5.
-2. Dodać niezależne pozycje/narożniki plansz i zweryfikować geometrię na pełnym
-   zbiorze.
-3. Zbudować oznaczony zbiór symboli i podzielić go według zdjęcia źródłowego.
-4. Zaakceptować progi przed kolejną optymalizacją; confidence nie może być
+1. Utrzymywać zaakceptowany korpus 43 zdjęć i rozszerzać go przy pojawieniu się
+   nowych gier lub nowych wariantów ekranu.
+2. Traktować golden narożników jako wynik wspomaganego algorytmicznie
+   przeglądu wizualnego; przed deklaracją generalizacji wykonać niezależny
+   pomiar na nowych wariantach.
+3. W M6 zbudować oznaczony zbiór symboli z automatycznych cropów i podzielić
+   go według zdjęcia źródłowego. Właściciel zatwierdza lub poprawia etykiety,
+   ale nie wycina obrazów ręcznie.
+4. Zachować zaakceptowane progi przed kolejną optymalizacją; confidence nie może być
    progiem auto-accept bez kalibracji na held-out source images.
 5. Porównać wyspecjalizowane alternatywy OCR cyfr na rozłącznym podziale
-   źródeł; obecne 12 zdjęć nie może być jednocześnie zbiorem strojenia i
-   końcowej oceny.
+   źródeł; bieżący OCR pozostaje `manual_review_only`.
 6. Zatwierdzić finalne modele i ich wersje w osobnej decyzji architektonicznej.

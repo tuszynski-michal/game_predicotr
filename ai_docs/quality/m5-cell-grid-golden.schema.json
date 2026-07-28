@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game-predictor.local/schemas/m5-cell-grid-golden.schema.json",
+  "title": "cell-grid-golden-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "canonicalBoard",
+    "coordinateSystem",
+    "corpusId",
+    "corpusManifestSha256",
+    "cropReportSha256",
+    "entries",
+    "goldenAnnotationsSha256",
+    "goldenVersion",
+    "geometryVersion",
+    "reviewRevision",
+    "schemaVersion",
+    "selection",
+    "status",
+    "summary"
+  ],
+  "properties": {
+    "canonicalBoard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinateSystem",
+        "height",
+        "horizontalLines",
+        "verticalLines",
+        "width"
+      ],
+      "properties": {
+        "coordinateSystem": {
+          "const": "rectified-board-pixels-500x300"
+        },
+        "height": {
+          "const": 300
+        },
+        "horizontalLines": {
+          "const": [100, 200]
+        },
+        "verticalLines": {
+          "const": [100, 200, 300, 400]
+        },
+        "width": {
+          "const": 500
+        }
+      }
+    },
+    "coordinateSystem": {
+      "const": "source-image-pixels"
+    },
+    "corpusId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "corpusManifestSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "cropReportSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 27,
+      "maxItems": 27,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "goldenAnnotationsSha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "goldenVersion": {
+      "const": "cell-grid-golden-v1"
+    },
+    "geometryVersion": {
+      "const": "source-quad-perspective-grid-v1"
+    },
+    "reviewRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boardCount",
+        "boardsPerPosition",
+        "positionCounts",
+        "selectionVersion",
+        "sourceGroupCounts",
+        "sourceGroups"
+      ],
+      "properties": {
+        "boardCount": {
+          "const": 27
+        },
+        "boardsPerPosition": {
+          "const": 3
+        },
+        "positionCounts": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["boardCount", "boardPosition"],
+            "properties": {
+              "boardCount": {
+                "const": 3
+              },
+              "boardPosition": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              }
+            }
+          }
+        },
+        "selectionVersion": {
+          "const": "cell-grid-stratified-v1"
+        },
+        "sourceGroupCounts": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["boardCount", "sourceGroup"],
+            "properties": {
+              "boardCount": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sourceGroup": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "sourceGroups": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "status": {
+      "enum": ["pending_review", "accepted"]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptedCount", "pendingCount", "totalCount"],
+      "properties": {
+        "acceptedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 27
+        },
+        "pendingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 27
+        },
+        "totalCount": {
+          "const": 27
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boardChecksumSha256",
+        "boardHeight",
+        "boardPosition",
+        "boardRelativePath",
+        "boardWidth",
+        "conditionTags",
+        "decisionRevision",
+        "detectedSourceQuad",
+        "imageId",
+        "lineSource",
+        "observationId",
+        "reviewStatus",
+        "reviewedBy",
+        "selectionIndex",
+        "sequenceNumber",
+        "sourceGroup",
+        "sourceImageChecksumSha256",
+        "sourceImageHeight",
+        "sourceImageRelativePath",
+        "sourceImageWidth",
+        "sourceQuad",
+        "suggestionVersion",
+        "v1CutCellIndexes",
+        "v1ImpactReviewed"
+      ],
+      "properties": {
+        "boardChecksumSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "boardHeight": {
+          "const": 300
+        },
+        "boardPosition": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "boardRelativePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "boardWidth": {
+          "const": 500
+        },
+        "conditionTags": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "decisionRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "detectedSourceQuad": {
+          "$ref": "#/$defs/quad"
+        },
+        "imageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lineSource": {
+          "enum": [
+            "detected-quad-suggestion",
+            "human-draft",
+            "human-confirmed-detected-quad",
+            "human-adjusted"
+          ]
+        },
+        "observationId": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reviewStatus": {
+          "enum": ["pending", "accepted"]
+        },
+        "reviewedBy": {
+          "type": ["string", "null"],
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "selectionIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 26
+        },
+        "sequenceNumber": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceGroup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceImageChecksumSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sourceImageHeight": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceImageRelativePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceImageWidth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sourceQuad": {
+          "$ref": "#/$defs/quad"
+        },
+        "suggestionVersion": {
+          "const": "detected-source-quad-v1"
+        },
+        "v1CutCellIndexes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 14
+          }
+        },
+        "v1ImpactReviewed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "quad": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/point"
+      }
+    }
+  }
+}

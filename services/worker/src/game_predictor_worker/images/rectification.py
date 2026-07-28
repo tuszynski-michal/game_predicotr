@@ -16,6 +16,8 @@ from numpy.typing import NDArray
 from .geometry import DETECTOR_VERSION, Point, Quad
 
 CROPPER_VERSION = "board-cell-crops-v1"
+V2_CROPPER_VERSION = "board-cell-crops-v2"
+CALIBRATED_CROPPER_VERSION = "board-cell-crops-v2-calibrated-v1"
 BOARD_WIDTH = 500
 BOARD_HEIGHT = 300
 BOARD_ROWS = 3
@@ -24,6 +26,9 @@ MARGIN_X = 25
 MARGIN_Y = 15
 CELL_WIDTH = 90
 CELL_HEIGHT = 90
+LOGICAL_SLOT_WIDTH = 100
+LOGICAL_SLOT_HEIGHT = 100
+CELL_INSET = 5
 MAX_BOARD_COUNT = 9
 
 
@@ -39,6 +44,11 @@ class BoardCropError(ValueError):
 class BoardGeometry:
     position_index: int
     quad: Quad
+    source_quad_source: str | None = None
+    calibration_profile_id: str | None = None
+    calibration_profile_version: int | None = None
+    calibration_anchor_sequence_numbers: tuple[int, ...] = ()
+    calibration_interpolation_weight: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +68,58 @@ class CellCrop:
 
 
 @dataclass(frozen=True, slots=True)
+class GridContract:
+    rows: int
+    columns: int
+    cell_width: int
+    cell_height: int
+    margin_x: int | None = None
+    margin_y: int | None = None
+    logical_slot_width: int | None = None
+    logical_slot_height: int | None = None
+    inset_px: int | None = None
+
+    def to_dict(self) -> dict[str, int]:
+        value = {
+            "cellHeight": self.cell_height,
+            "cellWidth": self.cell_width,
+            "columns": self.columns,
+            "rows": self.rows,
+        }
+        if self.margin_x is not None and self.margin_y is not None:
+            value["marginX"] = self.margin_x
+            value["marginY"] = self.margin_y
+        if (
+            self.logical_slot_width is not None
+            and self.logical_slot_height is not None
+            and self.inset_px is not None
+        ):
+            value["insetPx"] = self.inset_px
+            value["logicalSlotHeight"] = self.logical_slot_height
+            value["logicalSlotWidth"] = self.logical_slot_width
+        return value
+
+
+V1_GRID_CONTRACT = GridContract(
+    rows=BOARD_ROWS,
+    columns=BOARD_COLUMNS,
+    cell_width=CELL_WIDTH,
+    cell_height=CELL_HEIGHT,
+    margin_x=MARGIN_X,
+    margin_y=MARGIN_Y,
+)
+V2_GRID_CONTRACT = GridContract(
+    rows=BOARD_ROWS,
+    columns=BOARD_COLUMNS,
+    cell_width=CELL_WIDTH,
+    cell_height=CELL_HEIGHT,
+    logical_slot_width=LOGICAL_SLOT_WIDTH,
+    logical_slot_height=LOGICAL_SLOT_HEIGHT,
+    inset_px=CELL_INSET,
+)
+
+
+@dataclass(frozen=True, slots=True)
 class RectifiedBoard:
     position_index: int
     source_quad: Quad
@@ -65,6 +127,12 @@ class RectifiedBoard:
     board_rgb: NDArray[np.uint8]
     grid_overlay_rgb: NDArray[np.uint8]
     cells: tuple[CellCrop, ...]
+    grid_contract: GridContract
+    source_quad_source: str | None = None
+    calibration_profile_id: str | None = None
+    calibration_profile_version: int | None = None
+    calibration_anchor_sequence_numbers: tuple[int, ...] = ()
+    calibration_interpolation_weight: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +153,22 @@ class BoardCellCropper(Protocol):
         geometry: PageGeometry,
     ) -> BoardCropResult:
         """Rectify a complete supported page without mutating its input."""
+
+
+class PageGeometryCalibrator(Protocol):
+    """Versioned pre-rectification source-quad calibration port."""
+
+    profile_set_version: str
+    profile_set_sha256: str
+    corpus_manifest_sha256: str
+    detection_report_sha256: str
+
+    def calibrate(
+        self,
+        source_checksum_sha256: str,
+        geometry: PageGeometry,
+    ) -> PageGeometry:
+        """Return calibrated geometry for one verified source image."""
 
 
 def _rounded_matrix(matrix: NDArray[np.float64]) -> tuple[tuple[float, float, float], ...]:
@@ -144,6 +228,26 @@ def _grid_overlay(board_rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
     for row in range(1, BOARD_ROWS):
         y = MARGIN_Y + row * CELL_HEIGHT
         cv2.line(overlay, (MARGIN_X, y), (BOARD_WIDTH - MARGIN_X - 1, y), color, 2)
+    return overlay
+
+
+def _grid_overlay_v2(board_rgb: NDArray[np.uint8]) -> NDArray[np.uint8]:
+    overlay = board_rgb.copy()
+    slot_color = (0, 255, 255)
+    inset_color = (0, 255, 0)
+    for column in range(1, BOARD_COLUMNS):
+        x = column * LOGICAL_SLOT_WIDTH
+        cv2.line(overlay, (x, 0), (x, BOARD_HEIGHT - 1), slot_color, 2)
+    for row in range(1, BOARD_ROWS):
+        y = row * LOGICAL_SLOT_HEIGHT
+        cv2.line(overlay, (0, y), (BOARD_WIDTH - 1, y), slot_color, 2)
+    for row in range(BOARD_ROWS):
+        for column in range(BOARD_COLUMNS):
+            x0 = column * LOGICAL_SLOT_WIDTH + CELL_INSET
+            y0 = row * LOGICAL_SLOT_HEIGHT + CELL_INSET
+            x1 = (column + 1) * LOGICAL_SLOT_WIDTH - CELL_INSET - 1
+            y1 = (row + 1) * LOGICAL_SLOT_HEIGHT - CELL_INSET - 1
+            cv2.rectangle(overlay, (x0, y0), (x1, y1), inset_color, 1)
     return overlay
 
 
@@ -251,6 +355,7 @@ class PerspectiveBoardCellCropper:
                     board_rgb=warped,
                     grid_overlay_rgb=_grid_overlay(warped),
                     cells=cells,
+                    grid_contract=V1_GRID_CONTRACT,
                 )
             )
         return BoardCropResult(
@@ -260,21 +365,87 @@ class PerspectiveBoardCellCropper:
         )
 
 
+class PerspectiveBoardCellCropperV2(PerspectiveBoardCellCropper):
+    """Correct logical-slot cropper with a per-cell inset."""
+
+    version = V2_CROPPER_VERSION
+
+    def crop(
+        self,
+        rgb_image: NDArray[np.uint8],
+        geometry: PageGeometry,
+    ) -> BoardCropResult:
+        rectified = super().crop(rgb_image, geometry)
+        if rectified.status != "cropped":
+            return rectified
+        boards: list[RectifiedBoard] = []
+        geometry_by_position = {board.position_index: board for board in geometry.boards}
+        for board in rectified.boards:
+            source_geometry = geometry_by_position[board.position_index]
+            cells = tuple(
+                CellCrop(
+                    row_index=row,
+                    column_index=column,
+                    rgb=board.board_rgb[
+                        row * LOGICAL_SLOT_HEIGHT + CELL_INSET : (row + 1) * LOGICAL_SLOT_HEIGHT
+                        - CELL_INSET,
+                        column * LOGICAL_SLOT_WIDTH + CELL_INSET : (column + 1) * LOGICAL_SLOT_WIDTH
+                        - CELL_INSET,
+                    ].copy(),
+                )
+                for row in range(BOARD_ROWS)
+                for column in range(BOARD_COLUMNS)
+            )
+            boards.append(
+                RectifiedBoard(
+                    position_index=board.position_index,
+                    source_quad=board.source_quad,
+                    transform_matrix=board.transform_matrix,
+                    board_rgb=board.board_rgb,
+                    grid_overlay_rgb=_grid_overlay_v2(board.board_rgb),
+                    cells=cells,
+                    grid_contract=V2_GRID_CONTRACT,
+                    source_quad_source=source_geometry.source_quad_source or "detector",
+                    calibration_profile_id=source_geometry.calibration_profile_id,
+                    calibration_profile_version=source_geometry.calibration_profile_version,
+                    calibration_anchor_sequence_numbers=(
+                        source_geometry.calibration_anchor_sequence_numbers
+                    ),
+                    calibration_interpolation_weight=(
+                        source_geometry.calibration_interpolation_weight
+                    ),
+                )
+            )
+        return BoardCropResult(
+            status="cropped",
+            boards=tuple(boards),
+            review_reasons=(),
+        )
+
+
+class PerspectiveBoardCellCropperV2Calibrated(PerspectiveBoardCellCropperV2):
+    """V2 logical cell cropper with versioned pre-rectification calibration."""
+
+    version = CALIBRATED_CROPPER_VERSION
+
+
 @dataclass(frozen=True, slots=True)
 class CellArtifact:
     row_index: int
     column_index: int
     relative_path: str
     checksum_sha256: str
+    width: int
+    height: int
 
     def to_dict(self) -> dict[str, object]:
         return {
             "checksumSha256": self.checksum_sha256,
             "columnIndex": self.column_index,
-            "height": CELL_HEIGHT,
+            "height": self.height,
             "relativePath": self.relative_path,
             "rowIndex": self.row_index,
-            "width": CELL_WIDTH,
+            "width": self.width,
         }
 
 
@@ -288,28 +459,37 @@ class BoardArtifact:
     overlay_relative_path: str
     overlay_checksum_sha256: str
     cells: tuple[CellArtifact, ...]
+    grid_contract: GridContract
+    source_quad_source: str | None
+    calibration_profile_id: str | None
+    calibration_profile_version: int | None
+    calibration_anchor_sequence_numbers: tuple[int, ...]
+    calibration_interpolation_weight: float | None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "boardChecksumSha256": self.board_checksum_sha256,
             "boardHeight": BOARD_HEIGHT,
             "boardRelativePath": self.board_relative_path,
             "boardWidth": BOARD_WIDTH,
             "cells": [cell.to_dict() for cell in self.cells],
-            "grid": {
-                "cellHeight": CELL_HEIGHT,
-                "cellWidth": CELL_WIDTH,
-                "columns": BOARD_COLUMNS,
-                "marginX": MARGIN_X,
-                "marginY": MARGIN_Y,
-                "rows": BOARD_ROWS,
-            },
+            "grid": self.grid_contract.to_dict(),
             "overlayChecksumSha256": self.overlay_checksum_sha256,
             "overlayRelativePath": self.overlay_relative_path,
             "positionIndex": self.position_index,
             "sourceQuad": [point.to_dict() for point in self.source_quad],
             "transformMatrix": [list(row) for row in self.transform_matrix],
         }
+        if self.source_quad_source is not None:
+            value["sourceQuadSource"] = self.source_quad_source
+        if self.calibration_profile_id is not None:
+            value["calibrationProfile"] = {
+                "anchorSequenceNumbers": list(self.calibration_anchor_sequence_numbers),
+                "interpolationWeight": self.calibration_interpolation_weight,
+                "profileId": self.calibration_profile_id,
+                "profileVersion": self.calibration_profile_version,
+            }
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -332,18 +512,22 @@ class ImageCropArtifacts:
 
 @dataclass(frozen=True, slots=True)
 class CorpusCropReport:
+    cropper_version: str
     normalization_report_sha256: str
     detection_report_sha256: str
     images: tuple[ImageCropArtifacts, ...]
+    calibration_profile_set_version: str | None = None
+    calibration_profile_set_sha256: str | None = None
+    corpus_manifest_sha256: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         board_count = sum(len(image.boards) for image in self.images)
         cell_count = sum(len(board.cells) for image in self.images for board in image.boards)
         cropped_count = sum(image.status == "cropped" for image in self.images)
-        return {
+        value: dict[str, object] = {
             "boardCount": board_count,
             "cellCount": cell_count,
-            "cropperVersion": CROPPER_VERSION,
+            "cropperVersion": self.cropper_version,
             "croppedImageCount": cropped_count,
             "detectionReportSha256": self.detection_report_sha256,
             "imageCount": len(self.images),
@@ -355,6 +539,11 @@ class CorpusCropReport:
             "schemaVersion": 1,
             "status": ("cropped" if cropped_count == len(self.images) else "needs_review"),
         }
+        if self.calibration_profile_set_version is not None:
+            value["calibrationProfileSetSha256"] = self.calibration_profile_set_sha256
+            value["calibrationProfileSetVersion"] = self.calibration_profile_set_version
+            value["corpusManifestSha256"] = self.corpus_manifest_sha256
+        return value
 
     def to_json_bytes(self) -> bytes:
         return (
@@ -572,6 +761,7 @@ def crop_detected_corpus(
     artifact_root: Path,
     *,
     cropper: BoardCellCropper | None = None,
+    calibrator: PageGeometryCalibrator | None = None,
 ) -> CorpusCropReport:
     """Rectify every complete detection after verifying both upstream reports."""
 
@@ -601,6 +791,12 @@ def crop_detected_corpus(
         raise BoardCropError(
             "BOARD_CROP_DETECTION_REPORT_DRIFT",
             "Page detection report does not match normalization input.",
+        )
+    detection_sha = hashlib.sha256(detection_bytes).hexdigest()
+    if calibrator is not None and calibrator.detection_report_sha256 != detection_sha:
+        raise BoardCropError(
+            "BOARD_CROP_CALIBRATION_DETECTION_DRIFT",
+            "Calibration profiles do not match the current detection report.",
         )
     try:
         normalization_base = normalization_root.resolve(strict=True)
@@ -697,6 +893,8 @@ def crop_detected_corpus(
             _mapping(item.get("result"), f"detections[{index}].result"),
             f"detections[{index}].result",
         )
+        if calibrator is not None:
+            geometry = calibrator.calibrate(source_checksum, geometry)
         result = implementation.crop(rgb, geometry)
         board_artifacts: list[BoardArtifact] = []
         if result.status == "cropped":
@@ -734,6 +932,8 @@ def crop_detected_corpus(
                                 relative_path=cell_relative,
                                 rgb=cell.rgb,
                             ),
+                            width=int(cell.rgb.shape[1]),
+                            height=int(cell.rgb.shape[0]),
                         )
                     )
                 board_artifacts.append(
@@ -746,6 +946,16 @@ def crop_detected_corpus(
                         overlay_relative_path=overlay_relative,
                         overlay_checksum_sha256=overlay_checksum,
                         cells=tuple(cell_artifacts),
+                        grid_contract=board.grid_contract,
+                        source_quad_source=board.source_quad_source,
+                        calibration_profile_id=board.calibration_profile_id,
+                        calibration_profile_version=board.calibration_profile_version,
+                        calibration_anchor_sequence_numbers=(
+                            board.calibration_anchor_sequence_numbers
+                        ),
+                        calibration_interpolation_weight=(
+                            board.calibration_interpolation_weight
+                        ),
                     )
                 )
         images.append(
@@ -758,7 +968,17 @@ def crop_detected_corpus(
             )
         )
     return CorpusCropReport(
+        cropper_version=implementation.version,
         normalization_report_sha256=normalization_sha,
-        detection_report_sha256=hashlib.sha256(detection_bytes).hexdigest(),
+        detection_report_sha256=detection_sha,
         images=tuple(images),
+        calibration_profile_set_version=(
+            calibrator.profile_set_version if calibrator is not None else None
+        ),
+        calibration_profile_set_sha256=(
+            calibrator.profile_set_sha256 if calibrator is not None else None
+        ),
+        corpus_manifest_sha256=(
+            calibrator.corpus_manifest_sha256 if calibrator is not None else None
+        ),
     )

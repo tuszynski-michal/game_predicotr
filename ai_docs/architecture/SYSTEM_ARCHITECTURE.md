@@ -351,14 +351,16 @@ Overlaye detektora są niezmiennymi artefaktami roboczymi pod
 detektora nie zna CLI ani systemu plików; runner odpowiada za weryfikację
 raportu normalizacji, bezpieczne ścieżki, checksumy i idempotentny zapis.
 
-Prostowanie i podział komórek używa osobnego portu `BoardCellCropper` oraz
-kontraktu `board-cell-crops-v1`. Runner ponownie weryfikuje raport normalizacji,
+Prostowanie i podział komórek używa osobnego portu `BoardCellCropper`.
+`board-cell-crops-v1` jest niezmiennym, odrzuconym wejściem historycznym:
+globalny inset zmienił krok siatki i przeciął symbole. Nowe etykiety mogą
+powstawać wyłącznie z `board-cell-crops-v2`. Runner ponownie weryfikuje raport normalizacji,
 jego checksumę zapisaną przez TASK-0054, tożsamość źródła i checksumę
 znormalizowanego PNG. Dopiero kompletny wynik dziewięciu plansz trafia do
 indywidualnych transformacji perspektywy 500 × 300 i siatki 3 × 5.
 
-Artefakty mają układ
-`board-cell-crops-v1/<prefix>/<source-sha256>/board-<index>/`: `board.png`,
+Artefakty v2 mają układ
+`board-cell-crops-v2/<prefix>/<source-sha256>/board-<index>/`: `board.png`,
 `grid-overlay.png` oraz `cells/r<row>-c<column>.png`. Raport przechowuje
 macierz transformacji i SHA-256 każdego pliku. Port nie zna systemu plików,
 natomiast runner gwarantuje bezpieczne ścieżki, content-addressed zapis,
@@ -410,21 +412,63 @@ confidence. Pierwszy adapter D-055 uruchamia oficjalny model
 stabilny błąd i nie może uruchomić pobierania. Walidacja ciągłości jest osobną
 czystą funkcją: dodaje powody review, lecz nie poprawia odpowiedzi OCR.
 
-Benchmark `m5-image-benchmark-v1` jest osobnym, read-only agregatorem raportów
+Benchmark `m5-image-benchmark-v2` jest osobnym, read-only agregatorem raportów
 etapowych. Weryfikuje ich łańcuch checksum, liczy tylko wskazane artefakty,
 przechowuje surowe próbki czasu i odtwarza z nich deterministyczne podsumowanie.
-Metryka bez niezależnego ground truth ma `not_measurable`, a próg `proposed`
-nie może zmienić statusu bramki na `passed`. Kontrola alternatywy zmienia tylko
-wersjonowaną politykę wejścia OCR i nie zmienia stagingu ani baseline adaptera.
+Mierzy geometrię na 43 przejrzanych obrazach i 387 pozycjach oraz OCR osobno
+na podziale held-out według zdjęcia źródłowego. Kontrola alternatywy zmienia
+tylko wersjonowaną politykę wejścia OCR i nie zmienia stagingu ani baseline
+adaptera.
 
-Po D-056 pipeline obrazu ma trzy jawne poziomy dojrzałości:
+Po D-057 pipeline obrazu ma trzy jawne poziomy dojrzałości:
 
-- `retain`: kontrakty plików, checksum, idempotentnych artefaktów i portów są
-  stabilną granicą kolejnych implementacji,
-- `experimental`: geometria i cropy mogą działać automatycznie tylko dla
-  kompletnego wariantu 3 × 3; inny ekran trafia do review/unsupported,
-- `rework`: obecny adapter OCR może tworzyć propozycję i diagnostykę, lecz jego
-  wynik nie może zatwierdzić ani opublikować `sequence_number`.
+- `retain`: kontrakty plików, checksum, idempotentnych artefaktów, portów,
+  detektor `page-board-detector-v2` jest stabilną granicą, natomiast cropper
+  komórek przechodzi korektę v2,
+- `supported`: strona zawiera od 1 do 9 pozycji row-major; krótsza strona jest
+  dozwolona tylko jako jawnie opisana ostatnia strona sekwencji, a recovery
+  wymaga oczekiwanej liczby pozycji i dowodu czerwonej ramki,
+- `manual_review_only`: obecny adapter OCR może tworzyć propozycję i
+  diagnostykę, lecz jego wynik nie może sam zatwierdzić ani opublikować
+  `sequence_number`.
+
+Golden narożników detektora został zainicjalizowany jego własnym wynikiem i
+zaakceptowany po wizualnym przeglądzie overlayów. Nie jest niezależnym ręcznym
+pomiarem i nie wystarcza do rectyfikacji piętnastu komórek. Zgodnie z D-060
+osobny `cell-grid-golden-v1` zawiera ręcznie zaakceptowany `sourceQuad`
+rzeczywistej ramy planszy na oryginalnym zdjęciu. Homografia quadu tworzy
+kanoniczne 500 × 300, gdzie linie 100 × 100 są osiowe; na zdjęciu te same linie
+są ukośną siatką perspektywiczną. M6 może korzystać wyłącznie z cropów, które
+przejdą tę bramkę; właściciel nie wycina ich ręcznie.
+
+Domyślny cropper v2 dzieli 500 × 300 na logiczne sloty 100 × 100, po czym
+stosuje wersjonowany inset wewnątrz każdego slotu. `GridCalibrationProfile`
+ma zakres `(source_group, board_position)` i przechowuje niezmienne anchory
+zaakceptowanych quadów jako korekty narożników w lokalnej bazie quadu detektora.
+Korekta jest interpolowana liniowo po domenowym `sequence_number`, a poza
+zakresem anchorów klamrowana do najbliższego z nich bez ekstrapolacji. Profil
+nie nadpisuje wcześniejszych artefaktów; skalibrowany cropper materializuje
+osobny namespace `board-cell-crops-v2-calibrated-v1` z identyfikatorem profilu,
+wersją i pochodzeniem anchorów w każdym rekordzie planszy.
+
+Zgodnie z D-058 bootstrap M6 nie łączy cropów z fikcyjnymi rekordami layoutów.
+Po D-061 `symbol-crop-inventory-v2` ponownie sprawdza cały łańcuch M5,
+`cell-grid-golden-v1`, opublikowany profil kalibracji, skalibrowany raport oraz rzeczywiste pliki
+RGB 90 × 90, checksumy i pozycje row-major, a następnie nadaje stabilne
+`observationId` niezależne od bajtów cropu oraz wersjonowane `cropSampleId`
+zależne od croppera i checksumy. Osobny kontrakt decyzji wiąże obserwację i
+dokładną wersję cropu z symbolem dopiero po
+jawnej decyzji człowieka. Eksporter `labeled-symbol-dataset-v1` materializuje
+jeden content-addressed asset na checksumę, zachowując osobne wystąpienia i
+pochodzenie. Brak decyzji nie jest błędem danych, lecz stanem `pending`;
+konflikt dwóch zatwierdzonych klas dla identycznych bajtów jest błędem
+blokującym.
+
+Bootstrap review pokazuje pełną planszę 5 × 3. Pierwsza iteracja etykiet tworzy
+wersjonowany batch treningowy; model nie jest aktualizowany online. Kolejne
+TASK-0061–TASK-0063 tworzą model, ONNX i skalibrowaną politykę active learning,
+która priorytetyzuje niepewne przypadki, ale nie uruchamia auto-accept przed
+przejściem held-out.
 
 Manual review nie może ufać samemu confidence OCR. Dopóki osobny held-out
 benchmark nie wyznaczy zaakceptowanych progów, każdy numer wymaga potwierdzenia

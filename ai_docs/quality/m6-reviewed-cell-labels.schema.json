@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://game-predictor.local/schemas/m6-reviewed-cell-labels.schema.json",
+  "title": "M6 reviewed cell labels",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "labelSourceVersion",
+    "corpusId",
+    "gameId",
+    "gameCode",
+    "reviewRevision",
+    "reviewedBy",
+    "symbols",
+    "labels"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "labelSourceVersion": { "const": "reviewed-cell-labels-v1" },
+    "corpusId": { "type": "string", "minLength": 1 },
+    "gameId": { "type": "string", "minLength": 1 },
+    "gameCode": { "type": "string", "minLength": 1 },
+    "reviewRevision": { "type": "integer", "minimum": 1 },
+    "reviewedBy": { "type": "string", "minLength": 1 },
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["symbolId", "symbolCode"],
+        "properties": {
+          "symbolId": { "type": "string", "minLength": 1 },
+          "symbolCode": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sampleId", "decision", "symbolId", "symbolCode"],
+            "properties": {
+              "sampleId": { "$ref": "#/$defs/sha256" },
+              "decision": { "const": "accepted" },
+              "symbolId": { "type": "string", "minLength": 1 },
+              "symbolCode": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sampleId", "decision"],
+            "properties": {
+              "sampleId": { "$ref": "#/$defs/sha256" },
+              "decision": { "const": "rejected" }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

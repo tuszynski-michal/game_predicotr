@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "m5-grid-calibration-profiles.schema.json",
+  "title": "M5 grid calibration profiles v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "anchorCount",
+    "coordinateSystem",
+    "corpusId",
+    "corpusManifestSha256",
+    "detectorReportSha256",
+    "goldenSha256",
+    "goldenVersion",
+    "interpolation",
+    "profileCount",
+    "profileSetVersion",
+    "profiles",
+    "publishedBy",
+    "schemaVersion",
+    "sourceGroups",
+    "status"
+  ],
+  "properties": {
+    "anchorCount": { "const": 27 },
+    "coordinateSystem": { "const": "detector-quad-local-basis" },
+    "corpusId": { "type": "string", "minLength": 1 },
+    "corpusManifestSha256": { "$ref": "#/definitions/sha256" },
+    "detectorReportSha256": { "$ref": "#/definitions/sha256" },
+    "goldenSha256": { "$ref": "#/definitions/sha256" },
+    "goldenVersion": { "const": "cell-grid-golden-v1" },
+    "interpolation": { "const": "sequence-linear-clamped-v1" },
+    "profileCount": { "const": 18 },
+    "profileSetVersion": { "const": "grid-calibration-profiles-v1" },
+    "profiles": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": { "$ref": "#/definitions/profile" }
+    },
+    "publishedBy": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "schemaVersion": { "const": 1 },
+    "sourceGroups": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "status": { "const": "published" }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "quad": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": { "$ref": "#/definitions/point" }
+    },
+    "offset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["u", "v"],
+      "properties": {
+        "u": { "type": "number", "minimum": -1, "maximum": 1 },
+        "v": { "type": "number", "minimum": -1, "maximum": 1 }
+      }
+    },
+    "anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptedSourceQuad",
+        "detectedSourceQuad",
+        "localCornerOffsets",
+        "observationId",
+        "sequenceNumber",
+        "sourceImageChecksumSha256"
+      ],
+      "properties": {
+        "acceptedSourceQuad": { "$ref": "#/definitions/quad" },
+        "detectedSourceQuad": { "$ref": "#/definitions/quad" },
+        "localCornerOffsets": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/definitions/offset" }
+        },
+        "observationId": { "$ref": "#/definitions/sha256" },
+        "sequenceNumber": { "type": "integer", "minimum": 1 },
+        "sourceImageChecksumSha256": { "$ref": "#/definitions/sha256" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchors",
+        "boardPosition",
+        "interpolation",
+        "profileId",
+        "profileVersion",
+        "sourceGroup",
+        "status"
+      ],
+      "properties": {
+        "anchors": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/anchor" }
+        },
+        "boardPosition": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "interpolation": { "const": "sequence-linear-clamped-v1" },
+        "profileId": { "$ref": "#/definitions/sha256" },
+        "profileVersion": { "const": 1 },
+        "sourceGroup": { "type": "string", "minLength": 1 },
+        "status": { "const": "published" }
+      }
+    }
+  }
+}

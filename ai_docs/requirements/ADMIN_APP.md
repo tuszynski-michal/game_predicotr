@@ -216,13 +216,25 @@ oczekiwanie na bezpieczny checkpoint. Retry jest dostępne dla `failed` i
 Dla niepewnego elementu administrator otrzymuje:
 
 - podgląd oryginalnego zdjęcia,
-- podgląd wyciętej planszy i kafelka,
+- podgląd pełnej wyprostowanej planszy 5 × 3, siatki i wybranego kafelka,
 - przewidywany symbol lub numer,
 - confidence score,
 - listę alternatyw,
 - możliwość zatwierdzenia, poprawienia albo odrzucenia.
 
-Decyzja użytkownika jest zachowywana jako oznaczony przykład możliwy do wykorzystania przy kolejnych wersjach klasyfikatora.
+Bootstrap etykiet symboli działa na poziomie całego layoutu. Panel pokazuje
+piętnaście komórek, pozwala przypisywać symbole skrótami, zatwierdzić layout i
+wyróżnia komórki niepewne. Jeżeli granice są błędne, administrator przechodzi
+do osobnego trybu geometrii, przesuwa cztery narożniki rzeczywistej ramy planszy
+na zdjęciu oraz widzi wynikową ukośną siatkę 5 × 3, kanoniczną planszę i cropy.
+Edytor pokazuje zakres profilu `(source_group, board_position)`, jego anchory,
+wersję oraz zachowanie exact/interpolation/clamp przed zapisaniem nowej,
+niezmiennej wersji profilu kalibracji.
+
+Decyzja użytkownika jest zachowywana jako oznaczony przykład możliwy do
+wykorzystania przy kolejnych wersjach klasyfikatora. Model nie uczy się
+niejawnie po pojedynczym kliknięciu: ponowne uczenie tworzy nową wersję
+datasetu i modelu, a auto-accept wymaga osobno zaakceptowanego progu.
 
 ### Mobile releases
 

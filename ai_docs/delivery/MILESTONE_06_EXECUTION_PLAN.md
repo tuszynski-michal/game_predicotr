@@ -1,7 +1,7 @@
 ---
 title: Milestone 06 execution plan
-status: accepted
-last_updated: 2026-07-24
+status: in_progress
+last_updated: 2026-07-28
 ---
 
 # Plan wykonania Milestone 06 — Symbol classifier and review workflow
@@ -24,7 +24,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M6.
 - `architecture/API_CONTRACT.md`
 - `architecture/TECH_STACK.md`
 - `quality/TEST_STRATEGY.md`
-- D-006, D-010 i D-014 w `process/DECISION_LOG.md`
+- D-006, D-010, D-014, D-057–D-061 w `process/DECISION_LOG.md`
 
 ## Warunki wejścia
 
@@ -34,10 +34,14 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M6.
 
 ### Bieżący status
 
-`blocked` — D-056 zakończyła prototyp M5 wynikiem `completed_with_rework`, ale
-G5 nie przeszło. Brakuje reprezentatywnego korpusu, niezależnych goldenów
-geometrii, zaakceptowanych progów, OCR spełniającego próg na held-out source
-images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
+`active_whole_layout_bootstrap` — Q-017 pozostaje zamknięte, a OCR nadal działa
+jako `manual_review_only`. Historyczne `board-cell-crops-v1` oraz detektorowy
+wariant v2 pozostają w kwarantannie. TASK-0094–0096 zakończyły korektę M5.3:
+skalibrowany korpus ma 5805 komórek, pełne pochodzenie profili,
+`trainingAllowed = true` i P95 linii `1.8337 px`.
+
+TASK-0097 zastępuje jednokafelkowy spike pełnolayoutowym review 5 × 3 i tworzy
+pierwsze rzeczywiste decyzje potrzebne do dokończenia TASK-0059.
 
 ## Zasady realizacji
 
@@ -45,6 +49,9 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 - wagi i modele są wersjonowane i dostępne lokalnie,
 - metryki per symbol mają pierwszeństwo przed samą accuracy globalną,
 - korekta manualna tworzy audyt i nową wersję datasetu treningowego,
+- trening jest batchowy; pojedyncza decyzja nie mutuje aktywnego modelu,
+- active learning może ustalać priorytet review, ale nie omija kalibracji
+  auto-accept na held-out,
 - staging i opublikowane dane nie są modyfikowane bez śladu,
 - plik zadania powstaje bezpośrednio przed rozpoczęciem zakresu.
 
@@ -53,6 +60,7 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 ### Zakres
 
 - eksport wycinków i etykiet,
+- bezetykietowy inwentarz cropów oraz osobny kontrakt decyzji review,
 - stabilne powiązanie z source image,
 - deduplikacja i checksumy,
 - podział train/validation/test według zdjęcia źródłowego,
@@ -61,7 +69,12 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 
 ### Zadania
 
-- `TASK-0059 — Labeled symbol dataset export`
+- `TASK-0059 — Labeled symbol dataset export` — calibrated crops accepted;
+  blocked only on reviewed labels from TASK-0097
+- `TASK-0093 — Bootstrap symbol label review tool` — done 2026-07-28;
+  technical spike retained, single-crop UX will be replaced
+- `TASK-0097 — Whole-layout assisted symbol labeling` — next; completes the
+  first real reviewed export
 - `TASK-0060 — Dataset split, manifest and quality validation`
 
 ### Bramka G6.1
@@ -77,18 +90,22 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 ### Zakres
 
 - powtarzalny trening PyTorch/torchvision,
+- początkowy batch z orientacyjnie 15–30 pełnych layoutów pochodzących z
+  różnych zdjęć i pozycji,
 - zapis konfiguracji, seedów i wag,
 - metryki per symbol oraz confusion matrix,
 - eksport ONNX,
 - test parytetu PyTorch–ONNX,
 - lokalny adapter ONNX Runtime,
-- kalibracja confidence i lista alternatyw.
+- kalibracja confidence i lista alternatyw,
+- wersjonowany wybór najbardziej niepewnych albo reprezentatywnych przypadków
+  do kolejnego batcha review.
 
 ### Zadania
 
-- `TASK-0061 — PyTorch symbol classifier baseline`
+- `TASK-0061 — Versioned batch symbol classifier baseline`
 - `TASK-0062 — ONNX export and local inference parity`
-- `TASK-0063 — Confidence calibration and review thresholds`
+- `TASK-0063 — Confidence calibration and active-learning review selection`
 
 ### Bramka G6.2
 
@@ -97,6 +114,9 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 - ONNX daje wyniki zgodne w zaakceptowanej tolerancji,
 - inferencja nie pobiera wag z sieci,
 - progi auto-accept/review/reject są mierzalne i zapisane,
+- wybór active-learning jest odtwarzalny dla tej samej wersji modelu i danych,
+- decyzja człowieka trafia do następnego datasetu/modelu, a nie zmienia
+  działającego modelu online,
 - słaba klasa nie jest ukrywana przez samą accuracy globalną.
 
 ## M6.3 — Manual review end to end
@@ -104,7 +124,8 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 ### Zakres
 
 - trwały `review_item`,
-- oryginał, layout i crop komórki,
+- oryginał, pełny layout 5 × 3, siatka i crop komórki,
+- osobny tryb korekty geometrii przed decyzją symbolu,
 - predicted value, confidence i alternatywy,
 - approve/correct/reject,
 - audyt rozwiązania,
@@ -120,6 +141,7 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 ### Bramka G6.3
 
 - administrator może odtworzyć kontekst każdej decyzji,
+- nie można zapisać symbolu dla cropu z niezaakceptowaną geometrią,
 - ta sama akcja nie tworzy dwóch korekt,
 - odrzucony element nie trafia do publikacji,
 - corrected symbol należy do właściwej gry,
@@ -152,11 +174,11 @@ images oraz odpowiedzi Q-017. Nie tworzymy TASK-0059 przed ich domknięciem.
 
 | Podetap | Zadania | Liczba |
 |---|---:|---:|
-| M6.1 Dataset symboli | TASK-0059–0060 | 2 |
+| M6.1 Dataset symboli | TASK-0059–0060, TASK-0093, TASK-0097 | 4 |
 | M6.2 Model i ONNX | TASK-0061–0063 | 3 |
 | M6.3 Manual review | TASK-0064–0066 | 3 |
 | M6.4 Odbiór klasyfikacji | TASK-0067 | 1 |
-| **Razem M6** | **TASK-0059–0067** | **9** |
+| **Razem M6** | **TASK-0059–0067 + TASK-0093, TASK-0097** | **11** |
 
 ## Następny milestone
 

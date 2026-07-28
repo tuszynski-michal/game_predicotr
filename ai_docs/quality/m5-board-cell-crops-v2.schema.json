@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "m5-board-cell-crops-v2.schema.json",
+  "title": "M5 board cell crop report v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "boardCount",
+    "cellCount",
+    "croppedImageCount",
+    "cropperVersion",
+    "detectionReportSha256",
+    "imageCount",
+    "images",
+    "needsReviewCount",
+    "normalizationReportSha256",
+    "numpyVersion",
+    "opencvVersion",
+    "schemaVersion",
+    "status"
+  ],
+  "properties": {
+    "boardCount": { "type": "integer", "minimum": 0 },
+    "cellCount": { "type": "integer", "minimum": 0 },
+    "croppedImageCount": { "type": "integer", "minimum": 0 },
+    "cropperVersion": { "const": "board-cell-crops-v2" },
+    "detectionReportSha256": { "$ref": "#/definitions/sha256" },
+    "imageCount": { "type": "integer", "minimum": 0 },
+    "images": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/image" }
+    },
+    "needsReviewCount": { "type": "integer", "minimum": 0 },
+    "normalizationReportSha256": { "$ref": "#/definitions/sha256" },
+    "numpyVersion": { "type": "string", "minLength": 1 },
+    "opencvVersion": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "const": 1 },
+    "status": { "enum": ["cropped", "needs_review"] }
+  },
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      }
+    },
+    "matrixRow": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checksumSha256",
+        "columnIndex",
+        "height",
+        "relativePath",
+        "rowIndex",
+        "width"
+      ],
+      "properties": {
+        "checksumSha256": { "$ref": "#/definitions/sha256" },
+        "columnIndex": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "height": { "const": 90 },
+        "relativePath": {
+          "type": "string",
+          "pattern": "^board-cell-crops-v2/"
+        },
+        "rowIndex": { "type": "integer", "minimum": 0, "maximum": 2 },
+        "width": { "const": 90 }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cellHeight",
+        "cellWidth",
+        "columns",
+        "insetPx",
+        "logicalSlotHeight",
+        "logicalSlotWidth",
+        "rows"
+      ],
+      "properties": {
+        "cellHeight": { "const": 90 },
+        "cellWidth": { "const": 90 },
+        "columns": { "const": 5 },
+        "insetPx": { "const": 5 },
+        "logicalSlotHeight": { "const": 100 },
+        "logicalSlotWidth": { "const": 100 },
+        "rows": { "const": 3 }
+      }
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boardChecksumSha256",
+        "boardHeight",
+        "boardRelativePath",
+        "boardWidth",
+        "cells",
+        "grid",
+        "overlayChecksumSha256",
+        "overlayRelativePath",
+        "positionIndex",
+        "sourceQuad",
+        "sourceQuadSource",
+        "transformMatrix"
+      ],
+      "properties": {
+        "boardChecksumSha256": { "$ref": "#/definitions/sha256" },
+        "boardHeight": { "const": 300 },
+        "boardRelativePath": {
+          "type": "string",
+          "pattern": "^board-cell-crops-v2/"
+        },
+        "boardWidth": { "const": 500 },
+        "cells": {
+          "type": "array",
+          "minItems": 15,
+          "maxItems": 15,
+          "items": { "$ref": "#/definitions/cell" }
+        },
+        "grid": { "$ref": "#/definitions/grid" },
+        "overlayChecksumSha256": { "$ref": "#/definitions/sha256" },
+        "overlayRelativePath": {
+          "type": "string",
+          "pattern": "^board-cell-crops-v2/"
+        },
+        "positionIndex": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "sourceQuad": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/definitions/point" }
+        },
+        "sourceQuadSource": { "const": "detector" },
+        "transformMatrix": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "$ref": "#/definitions/matrixRow" }
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boards",
+        "normalizedRelativePath",
+        "reviewReasons",
+        "sourceChecksumSha256",
+        "status"
+      ],
+      "properties": {
+        "boards": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/board" }
+        },
+        "normalizedRelativePath": { "type": "string", "minLength": 1 },
+        "reviewReasons": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "sourceChecksumSha256": { "$ref": "#/definitions/sha256" },
+        "status": { "enum": ["cropped", "needs_review"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M5 — weryfikacja perspektywy siatki 5 × 3</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">M5 · niezależny golden geometrii</p>
+        <h1>Weryfikacja perspektywy planszy</h1>
+      </div>
+      <div class="progress">
+        <span id="progressText">Ładowanie…</span>
+        <div class="progress-track" aria-hidden="true">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="toolbar" aria-label="Nawigacja">
+        <label>
+          Widok
+          <select id="statusFilter">
+            <option value="pending">Do sprawdzenia</option>
+            <option value="accepted">Zaakceptowane</option>
+            <option value="all">Wszystkie</option>
+          </select>
+        </label>
+        <button id="previousButton" type="button">← Poprzednia</button>
+        <span id="positionText" class="position">—</span>
+        <button id="nextButton" type="button">Następna →</button>
+        <span id="saveState" class="save-state" aria-live="polite"></span>
+      </section>
+
+      <section id="emptyState" class="empty-state" hidden>
+        <h2>Brak plansz w tym widoku</h2>
+        <p>Zmień filtr albo przejdź do raportu po zakończeniu recenzji.</p>
+      </section>
+
+      <div id="reviewContent" class="review-layout" hidden>
+        <section class="panel board-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Oryginalne zdjęcie · siatka perspektywiczna</p>
+              <h2 id="boardTitle">Plansza</h2>
+            </div>
+            <span id="reviewBadge" class="badge">Do sprawdzenia</span>
+          </div>
+
+          <dl class="metadata">
+            <div>
+              <dt>Sekwencja</dt>
+              <dd id="sequenceNumber">—</dd>
+            </div>
+            <div>
+              <dt>Pozycja 0–8</dt>
+              <dd id="boardPosition">—</dd>
+            </div>
+            <div>
+              <dt>Grupa źródła</dt>
+              <dd id="sourceGroup">—</dd>
+            </div>
+            <div>
+              <dt>Zdjęcie</dt>
+              <dd id="imageId">—</dd>
+            </div>
+          </dl>
+
+          <section class="calibration-summary" aria-label="Profil kalibracji">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">TASK-0096 · profil kalibracji</p>
+                <h3 id="profileStatus">Ładowanie profilu…</h3>
+              </div>
+              <span id="profileVersion" class="badge">—</span>
+            </div>
+            <dl class="metadata">
+              <div>
+                <dt>Zakres</dt>
+                <dd id="profileScope">—</dd>
+              </div>
+              <div>
+                <dt>Kotwice sekwencji</dt>
+                <dd id="profileAnchors">—</dd>
+              </div>
+              <div>
+                <dt>Zastosowanie</dt>
+                <dd id="profileInterpolation">—</dd>
+              </div>
+              <div>
+                <dt>Id profilu</dt>
+                <dd id="profileId" class="monospace">—</dd>
+              </div>
+            </dl>
+          </section>
+
+          <div class="canvas-shell source-shell">
+            <img id="sourcePhoto" alt="" aria-hidden="true" />
+            <canvas
+              id="sourceCanvas"
+              width="700"
+              height="450"
+              aria-label="Oryginalne zdjęcie z regulowanymi narożnikami i ukośną siatką"
+            ></canvas>
+          </div>
+          <div class="legend">
+            <span><i class="legend-current"></i> Oceniana siatka</span>
+            <span><i class="legend-suggestion"></i> Quad detektora</span>
+          </div>
+          <p class="help">
+            Przeciągnij cztery turkusowe punkty dokładnie na narożniki czerwonej
+            ramy planszy. Linie wewnętrzne automatycznie ustawią się pod kątem i
+            zgodnie z perspektywą.
+          </p>
+
+          <div class="canonical-heading">
+            <div>
+              <p class="eyebrow">Wynik homografii</p>
+              <h2>Kanoniczna plansza 500 × 300</h2>
+            </div>
+            <span id="quadSummary" class="monospace"></span>
+          </div>
+          <div class="canvas-shell canonical-shell">
+            <canvas
+              id="rectifiedCanvas"
+              width="500"
+              height="300"
+              aria-label="Wyprostowana plansza z równą siatką 5 na 3"
+            ></canvas>
+          </div>
+        </section>
+
+        <aside class="panel controls-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Piksele zdjęcia źródłowego</p>
+              <h2>Cztery narożniki ramy</h2>
+            </div>
+            <button id="resetButton" class="secondary" type="button">
+              Przywróć quad detektora
+            </button>
+          </div>
+          <div id="pointControls" class="point-controls"></div>
+          <p class="help">
+            Kolejność punktów: lewy górny, prawy górny, prawy dolny, lewy dolny.
+            Czworokąt musi pozostać wypukły i mieścić się w zdjęciu.
+          </p>
+
+          <hr />
+
+          <fieldset>
+            <legend>Czy historyczne v1 przecina główny symbol?</legend>
+            <p class="help">
+              Zaznacz komórki, w których dawne cięcie przecina symbol. Czerwone
+              obramowanie podglądu odpowiada zaznaczeniu poniżej.
+            </p>
+            <div class="compact-actions">
+              <button id="selectAllCellsButton" class="secondary" type="button">
+                Zaznacz 15
+              </button>
+              <button id="clearCellsButton" class="secondary" type="button">
+                Wyczyść
+              </button>
+            </div>
+            <div
+              id="impactCells"
+              class="impact-grid"
+              role="group"
+              aria-label="Komórki przecięte przez v1"
+            ></div>
+            <label class="confirmation">
+              <input id="impactReviewed" type="checkbox" />
+              Sprawdziłem wpływ historycznego cięcia v1 na wszystkie 15 komórek.
+            </label>
+          </fieldset>
+
+          <label class="reviewer">
+            Osoba weryfikująca
+            <input id="reviewerInput" maxlength="100" value="owner" />
+          </label>
+
+          <div class="primary-actions">
+            <button id="saveDraftButton" class="secondary" type="button">
+              Zapisz szkic
+            </button>
+            <button id="acceptButton" class="primary" type="button">
+              Zaakceptuj planszę
+            </button>
+            <button id="reopenButton" class="warning" type="button" hidden>
+              Otwórz ponownie
+            </button>
+          </div>
+          <p class="shortcuts">
+            Skróty: Ctrl+S — szkic, Ctrl+Enter — akceptuj, ←/→ — plansze, Ctrl+R
+            — quad detektora.
+          </p>
+        </aside>
+      </div>
+
+      <section id="previewsPanel" class="panel previews-panel" hidden>
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Podgląd na żywo po wyprostowaniu</p>
+            <h2>15 logicznych komórek 100 × 100</h2>
+          </div>
+        </div>
+        <div id="cropPreviews" class="crop-grid"></div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

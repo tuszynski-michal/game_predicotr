@@ -36,7 +36,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--require-complete",
         action="store_true",
-        help="Return exit code 1 unless exactly 108 positions were measured.",
+        help="Return exit code 1 unless every manifest position was measured.",
     )
     return parser.parse_args()
 
@@ -111,8 +111,19 @@ def main() -> int:
                     sort_keys=True,
                 )
             )
-        if args.require_complete and len(report.results) != 108:
-            return 1
+        if args.require_complete:
+            try:
+                manifest = json.loads(args.corpus_manifest.read_text(encoding="utf-8"))
+                expected_positions = sum(
+                    int(image["expectedBoardCount"]) for image in manifest["images"]
+                )
+            except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+                raise SequenceOcrError(
+                    "SEQUENCE_OCR_CORPUS_MANIFEST_INVALID",
+                    "Cannot determine expected position count from the corpus manifest.",
+                ) from error
+            if len(report.results) != expected_positions:
+                return 1
         return 0
     except SequenceOcrError as error:
         print(

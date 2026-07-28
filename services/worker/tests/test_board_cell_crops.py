@@ -156,7 +156,7 @@ def test_perspective_crop_preserves_3x5_row_major_mapping() -> None:
                 status="detected",
                 image_width=geometry.image_width,
                 image_height=geometry.image_height,
-                boards=geometry.boards[:-1],
+                boards=(),
             ),
             "BOARD_CROP_BOARD_COUNT",
         ),
@@ -187,6 +187,22 @@ def test_incomplete_geometry_needs_review_without_partial_crops(
     assert result.status == "needs_review"
     assert result.review_reasons == (reason,)
     assert not result.boards
+
+
+def test_partial_final_page_crops_contiguous_boards() -> None:
+    page, geometry, _ = _synthetic_page()
+    partial = PageGeometry(
+        status="detected",
+        image_width=geometry.image_width,
+        image_height=geometry.image_height,
+        boards=geometry.boards[:5],
+    )
+
+    result = PerspectiveBoardCellCropper().crop(page, partial)
+
+    assert result.status == "cropped"
+    assert [board.position_index for board in result.boards] == list(range(5))
+    assert all(len(board.cells) == 15 for board in result.boards)
 
 
 @pytest.mark.parametrize(

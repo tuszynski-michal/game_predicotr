@@ -22,7 +22,10 @@ from game_predictor_worker.images.benchmark import (  # noqa: E402
     build_image_benchmark_report,
 )
 from game_predictor_worker.images.discovery import discover_images  # noqa: E402
-from game_predictor_worker.images.geometry import detect_normalized_corpus  # noqa: E402
+from game_predictor_worker.images.geometry import (  # noqa: E402
+    detect_normalized_corpus,
+    expected_board_counts_from_manifest,
+)
 from game_predictor_worker.images.normalization import normalize_images  # noqa: E402
 from game_predictor_worker.images.rectification import crop_detected_corpus  # noqa: E402
 from game_predictor_worker.images.sequence_ocr import (  # noqa: E402
@@ -55,10 +58,10 @@ def _parse_args() -> argparse.Namespace:
 def _paths() -> dict[str, Path]:
     return {
         "alternative_model_root": _repo_path("artifacts/m5-models/sequence-number-ocr-v1"),
-        "alternative_ocr_root": _repo_path("artifacts/m5-sequence-ocr-raw-input"),
+        "alternative_ocr_root": _repo_path("artifacts/m5-sequence-ocr-expanded-raw-input"),
         "baseline_model_root": _repo_path("artifacts/m5-models/sequence-number-ocr-v1"),
         "baseline_ocr_report": _repo_path("ai_docs/quality/m5-sequence-ocr-report.json"),
-        "baseline_ocr_root": _repo_path("artifacts/m5-sequence-ocr"),
+        "baseline_ocr_root": _repo_path("artifacts/m5-sequence-ocr-expanded"),
         "corpus": _repo_path("ai_docs/quality/m5-corpus-manifest.json"),
         "crop_report": _repo_path("ai_docs/quality/m5-board-cell-crops-report.json"),
         "crop_root": _repo_path("artifacts/m5-board-crops"),
@@ -161,6 +164,7 @@ def _timings(
                 paths["normalization_report"],
                 paths["normalization_root"],
                 paths["detection_root"],
+                expected_board_counts=expected_board_counts_from_manifest(paths["corpus"]),
             ).to_json_bytes(),
             expected_detection,
             iterations=iterations,

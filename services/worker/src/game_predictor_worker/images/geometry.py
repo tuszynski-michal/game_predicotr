@@ -1,4 +1,4 @@
-"""Classical page and 3 × 3 board detection for normalized RGB images."""
+"""Classical page and 3 Ã— 3 board detection for normalized RGB images."""
 
 from __future__ import annotations
 
@@ -14,8 +14,9 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-DETECTOR_VERSION = "page-board-detector-v1"
+DETECTOR_VERSION = "page-board-detector-v2"
 EXPECTED_BOARD_COUNT = 9
+MAX_BOARD_COUNT = 9
 RED_LOW_1 = np.array((0, 80, 50), dtype=np.uint8)
 RED_HIGH_1 = np.array((18, 255, 255), dtype=np.uint8)
 RED_LOW_2 = np.array((165, 80, 50), dtype=np.uint8)
@@ -101,7 +102,13 @@ class PageBoardDetector(Protocol):
 
     version: str
 
-    def detect(self, rgb_image: NDArray[np.uint8]) -> DetectionResult:
+    def detect(
+        self,
+        rgb_image: NDArray[np.uint8],
+        *,
+        expected_board_count: int = EXPECTED_BOARD_COUNT,
+        allow_grid_recovery: bool = False,
+    ) -> DetectionResult:
         """Detect a supported page variant without mutating the input."""
 
 
@@ -201,17 +208,25 @@ def _search_refined_candidate(
     center_y: float,
     target_width: int,
     target_height: int,
+    search_fraction_x: float = 0.15,
+    search_fraction_y: float = 0.15,
 ) -> _Candidate:
     image_height, image_width = mask.shape
-    minimum_x = max(0, int(center_x - target_width / 2 - target_width * 0.15))
+    minimum_x = max(
+        0,
+        int(center_x - target_width / 2 - target_width * search_fraction_x),
+    )
     maximum_x = min(
         image_width - target_width,
-        int(center_x - target_width / 2 + target_width * 0.15),
+        int(center_x - target_width / 2 + target_width * search_fraction_x),
     )
-    minimum_y = max(0, int(center_y - target_height / 2 - target_height * 0.15))
+    minimum_y = max(
+        0,
+        int(center_y - target_height / 2 - target_height * search_fraction_y),
+    )
     maximum_y = min(
         image_height - target_height,
-        int(center_y - target_height / 2 + target_height * 0.15),
+        int(center_y - target_height / 2 + target_height * search_fraction_y),
     )
     best: tuple[float, _Candidate] | None = None
     for y in range(minimum_y, maximum_y + 1, 2):
@@ -244,6 +259,122 @@ def _search_refined_candidate(
     if best is None:
         raise AssertionError("Refinement search has no valid window")
     return best[1]
+
+
+def _cluster_axis(values: Sequence[float], cluster_count: int) -> tuple[float, ...]:
+    """Split a projected grid axis at its largest deterministic gaps."""
+
+    if cluster_count < 1 or len(values) < cluster_count:
+        raise ValueError("Not enough values to fit the expected grid axis.")
+    ordered = sorted(values)
+    if cluster_count == 1:
+        return (statistics.median(ordered),)
+    gaps = sorted(
+        ((ordered[index + 1] - ordered[index], index) for index in range(len(ordered) - 1)),
+        key=lambda item: (-item[0], item[1]),
+    )
+    cuts = sorted(index for _, index in gaps[: cluster_count - 1])
+    groups: list[list[float]] = []
+    start = 0
+    for cut in cuts:
+        groups.append(ordered[start : cut + 1])
+        start = cut + 1
+    groups.append(ordered[start:])
+    return tuple(statistics.median(group) for group in groups)
+
+
+def _recover_expected_grid(
+    mask: NDArray[np.uint8],
+    candidates: Sequence[_Candidate],
+    *,
+    expected_board_count: int,
+) -> tuple[_Candidate, ...] | None:
+    """Recover only an explicitly expected contiguous row-major page variant."""
+
+    image_height, image_width = mask.shape
+    if not 1 <= expected_board_count <= MAX_BOARD_COUNT or not candidates:
+        return None
+    median_width = statistics.median(candidate.width for candidate in candidates)
+    median_height = statistics.median(candidate.height for candidate in candidates)
+    usable = [
+        candidate
+        for candidate in candidates
+        if candidate.red_border_score >= 0.28
+        and 0.55 <= candidate.width / median_width <= 1.55
+        and 0.55 <= candidate.height / median_height <= 1.55
+        and candidate.center_x < image_width * 0.95
+        and candidate.center_y < image_height * 0.85
+    ]
+    required_rows = (expected_board_count + 2) // 3
+    required_columns = min(3, expected_board_count)
+    if len(usable) < max(required_rows, required_columns, 3):
+        return None
+    try:
+        column_centers = _cluster_axis(
+            [candidate.center_x for candidate in usable],
+            required_columns,
+        )
+        row_centers = _cluster_axis(
+            [candidate.center_y for candidate in usable],
+            required_rows,
+        )
+    except ValueError:
+        return None
+    target_width = int(round(statistics.median(candidate.width for candidate in usable)))
+    target_height = int(round(statistics.median(candidate.height for candidate in usable)))
+    assignments = [
+        (
+            min(
+                range(required_rows),
+                key=lambda index: abs(candidate.center_y - row_centers[index]),
+            ),
+            min(
+                range(required_columns),
+                key=lambda index: abs(candidate.center_x - column_centers[index]),
+            ),
+            candidate,
+        )
+        for candidate in usable
+    ]
+    column_y_offsets = tuple(
+        statistics.median(
+            candidate.center_y - row_centers[row]
+            for row, assigned_column, candidate in assignments
+            if assigned_column == column
+        )
+        for column in range(required_columns)
+    )
+    row_x_offsets = tuple(
+        statistics.median(
+            candidate.center_x - column_centers[column]
+            for assigned_row, column, candidate in assignments
+            if assigned_row == row
+        )
+        for row in range(required_rows)
+    )
+    recovered: list[_Candidate] = []
+    for position in range(expected_board_count):
+        row = position // 3
+        column = position % 3
+        candidate = _search_refined_candidate(
+            mask,
+            center_x=column_centers[column] + row_x_offsets[row],
+            center_y=row_centers[row] + column_y_offsets[column],
+            target_width=target_width,
+            target_height=target_height,
+            search_fraction_x=0.15,
+            search_fraction_y=0.15,
+        )
+        if candidate.red_border_score < 0.20:
+            return None
+        recovered.append(candidate)
+    if any(
+        _overlap(recovered[first], recovered[second])
+        for first in range(len(recovered))
+        for second in range(first + 1, len(recovered))
+    ):
+        return None
+    return tuple(recovered)
 
 
 def _refine_outliers(
@@ -356,21 +487,52 @@ def _page_quad(
 
 
 class ClassicalPageBoardDetector:
-    """HSV/contour detector for the explicitly supported red-frame 3 × 3 page."""
+    """HSV/contour detector for the explicitly supported red-frame 3 Ã— 3 page."""
 
     version = DETECTOR_VERSION
 
-    def detect(self, rgb_image: NDArray[np.uint8]) -> DetectionResult:
+    def detect(
+        self,
+        rgb_image: NDArray[np.uint8],
+        *,
+        expected_board_count: int = EXPECTED_BOARD_COUNT,
+        allow_grid_recovery: bool = False,
+    ) -> DetectionResult:
         if rgb_image.ndim != 3 or rgb_image.shape[2] != 3 or rgb_image.dtype != np.uint8:
             raise GeometryDetectionError(
                 "PAGE_DETECTOR_INVALID_IMAGE",
                 "Detector input must be an RGB uint8 image.",
             )
+        if not 1 <= expected_board_count <= MAX_BOARD_COUNT:
+            raise GeometryDetectionError(
+                "PAGE_DETECTOR_EXPECTED_BOARD_COUNT_INVALID",
+                "Expected board count must be between 1 and 9.",
+            )
         image_height, image_width = rgb_image.shape[:2]
         mask = _red_mask(rgb_image)
         candidates = _initial_candidates(mask)
-        if len(candidates) != EXPECTED_BOARD_COUNT:
-            confidence = round(min(len(candidates), EXPECTED_BOARD_COUNT) / 9, 6)
+        if len(candidates) != expected_board_count:
+            recovered = (
+                _recover_expected_grid(
+                    mask,
+                    candidates,
+                    expected_board_count=expected_board_count,
+                )
+                if allow_grid_recovery
+                else None
+            )
+            if recovered is not None:
+                return self._detected_recovered(
+                    mask,
+                    recovered,
+                    image_width=image_width,
+                    image_height=image_height,
+                    candidate_count=len(candidates),
+                )
+            confidence = round(
+                min(len(candidates), expected_board_count) / expected_board_count,
+                6,
+            )
             return DetectionResult(
                 status="needs_review",
                 image_width=image_width,
@@ -381,6 +543,32 @@ class ClassicalPageBoardDetector:
                 confidence=confidence,
                 confidence_components={"candidateCount": confidence},
                 review_reasons=("BOARD_CANDIDATE_COUNT",),
+            )
+
+        if expected_board_count != EXPECTED_BOARD_COUNT:
+            recovered = _recover_expected_grid(
+                mask,
+                candidates,
+                expected_board_count=expected_board_count,
+            )
+            if recovered is None:
+                return DetectionResult(
+                    status="needs_review",
+                    image_width=image_width,
+                    image_height=image_height,
+                    candidate_count=len(candidates),
+                    page_quad=None,
+                    boards=(),
+                    confidence=0.0,
+                    confidence_components={"candidateCount": 1.0},
+                    review_reasons=("BOARD_EXPECTED_GRID_RECOVERY_FAILED",),
+                )
+            return self._detected_recovered(
+                mask,
+                recovered,
+                image_width=image_width,
+                image_height=image_height,
+                candidate_count=len(candidates),
             )
 
         rows = _refine_outliers(mask, _row_major(candidates))
@@ -447,6 +635,20 @@ class ClassicalPageBoardDetector:
             "sizeConsistency": round(size_consistency, 6),
         }
         confidence = round(statistics.mean(components.values()), 6)
+        if reasons and allow_grid_recovery:
+            recovered = _recover_expected_grid(
+                mask,
+                candidates,
+                expected_board_count=expected_board_count,
+            )
+            if recovered is not None:
+                return self._detected_recovered(
+                    mask,
+                    recovered,
+                    image_width=image_width,
+                    image_height=image_height,
+                    candidate_count=len(candidates),
+                )
         if reasons:
             return DetectionResult(
                 status="needs_review",
@@ -483,6 +685,49 @@ class ClassicalPageBoardDetector:
             page_quad=_page_quad(boards, image_width, image_height),
             boards=boards,
             confidence=confidence,
+            confidence_components=components,
+            review_reasons=(),
+        )
+
+    def _detected_recovered(
+        self,
+        mask: NDArray[np.uint8],
+        candidates: Sequence[_Candidate],
+        *,
+        image_width: int,
+        image_height: int,
+        candidate_count: int,
+    ) -> DetectionResult:
+        boards = tuple(
+            BoardDetection(
+                position_index=index,
+                quad=_candidate_quad(mask, candidate),
+                bounding_box=(
+                    candidate.x,
+                    candidate.y,
+                    candidate.width,
+                    candidate.height,
+                ),
+                red_border_score=candidate.red_border_score,
+                refined_from_grid=True,
+            )
+            for index, candidate in enumerate(candidates)
+        )
+        border_evidence = statistics.mean(candidate.red_border_score for candidate in candidates)
+        expected_evidence = min(1.0, candidate_count / len(candidates))
+        components = {
+            "borderEvidence": round(border_evidence, 6),
+            "expectedCountEvidence": round(expected_evidence, 6),
+            "gridRecovery": 1.0,
+        }
+        return DetectionResult(
+            status="detected",
+            image_width=image_width,
+            image_height=image_height,
+            candidate_count=candidate_count,
+            page_quad=_page_quad(boards, image_width, image_height),
+            boards=boards,
+            confidence=round(statistics.mean(components.values()), 6),
             confidence_components=components,
             review_reasons=(),
         )
@@ -674,12 +919,50 @@ def _write_immutable(path: Path, content: bytes) -> None:
             temporary.unlink()
 
 
+def expected_board_counts_from_manifest(path: Path) -> dict[str, int]:
+    """Load the explicit per-source page shape used to distinguish missing boards."""
+
+    try:
+        value: Any = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise GeometryDetectionError(
+            "PAGE_DETECTION_CORPUS_MANIFEST_INVALID",
+            "Corpus manifest cannot be read.",
+        ) from error
+    manifest = _mapping(value, "corpusManifest")
+    result: dict[str, int] = {}
+    for index, image_value in enumerate(_sequence(manifest.get("images"), "corpusManifest.images")):
+        image = _mapping(image_value, f"corpusManifest.images[{index}]")
+        checksum = _text(
+            image.get("sha256"),
+            f"corpusManifest.images[{index}].sha256",
+        )
+        board_count = image.get("expectedBoardCount")
+        if (
+            not isinstance(board_count, int)
+            or isinstance(board_count, bool)
+            or not 1 <= board_count <= MAX_BOARD_COUNT
+        ):
+            raise GeometryDetectionError(
+                "PAGE_DETECTION_EXPECTED_BOARD_COUNT_INVALID",
+                "Every corpus image must declare expectedBoardCount between 1 and 9.",
+            )
+        if checksum in result:
+            raise GeometryDetectionError(
+                "PAGE_DETECTION_CORPUS_MANIFEST_INVALID",
+                "Corpus manifest contains a duplicate source checksum.",
+            )
+        result[checksum] = board_count
+    return result
+
+
 def detect_normalized_corpus(
     normalization_report_path: Path,
     normalization_root: Path,
     artifact_root: Path,
     *,
     detector: PageBoardDetector | None = None,
+    expected_board_counts: Mapping[str, int] | None = None,
 ) -> CorpusDetectionReport:
     """Run the detector over a verified normalization report."""
 
@@ -759,7 +1042,21 @@ def detect_normalized_corpus(
                 "Normalized image cannot be decoded.",
             )
         rgb = cast(NDArray[np.uint8], cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
-        result = implementation.detect(rgb)
+        expected_board_count = (
+            expected_board_counts.get(source_checksum)
+            if expected_board_counts is not None
+            else EXPECTED_BOARD_COUNT
+        )
+        if expected_board_count is None:
+            raise GeometryDetectionError(
+                "PAGE_DETECTION_EXPECTATION_MISSING",
+                "Corpus expectations do not contain the normalized source image.",
+            )
+        result = implementation.detect(
+            rgb,
+            expected_board_count=expected_board_count,
+            allow_grid_recovery=expected_board_counts is not None,
+        )
         overlay_bytes = _encode_overlay(rgb, result)
         overlay_relative = PurePosixPath(
             implementation.version,

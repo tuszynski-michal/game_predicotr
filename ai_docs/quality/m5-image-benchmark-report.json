@@ -7,8 +7,8 @@
       "totalBytes": 7993991
     },
     "alternativeOcr": {
-      "referencedFileCount": 216,
-      "totalBytes": 2737396
+      "referencedFileCount": 774,
+      "totalBytes": 10780985
     },
     "baselineModel": {
       "modelFingerprint": "397a1e68f494df516a98ff96989d50015448b019915c2be81ad0be2e515c0687",
@@ -17,45 +17,45 @@
       "totalBytes": 7993991
     },
     "baselineOcr": {
-      "referencedFileCount": 216,
-      "totalBytes": 2737396
+      "referencedFileCount": 774,
+      "totalBytes": 10780985
     },
     "boardCrops": {
-      "referencedFileCount": 1836,
-      "totalBytes": 56325183
+      "referencedFileCount": 6579,
+      "totalBytes": 196994964
     },
     "geometry": {
-      "referencedFileCount": 12,
-      "totalBytes": 15711444
+      "referencedFileCount": 43,
+      "totalBytes": 47733006
     },
     "normalization": {
-      "referencedFileCount": 24,
-      "totalBytes": 15993123
+      "referencedFileCount": 86,
+      "totalBytes": 48684770
     }
   },
-  "benchmarkVersion": "m5-image-benchmark-v1",
+  "benchmarkVersion": "m5-image-benchmark-v2",
   "corpus": {
-    "corpusId": "m5-prototype-corpus-v1",
-    "imageCount": 12,
+    "corpusId": "m5-representative-corpus-v2",
+    "imageCount": 43,
     "limitations": [
-      "The corpus contains one game and one observed screen variant.",
-      "All files have the same 960x1280 portrait resolution.",
-      "All files belong to one continuous capture session.",
-      "Twelve images are below the original 20-image validation target."
+      "The corpus contains one game and one observed up-to-nine-board page family.",
+      "The current 43-image corpus contains complete nine-board pages; partial final pages are covered by contract and synthetic tests.",
+      "Source groups use two portrait resolutions and different capture quality, but not multiple games."
     ],
-    "sourceGroupCount": 1,
-    "status": "provisional"
+    "sourceGroupCount": 2,
+    "status": "accepted"
   },
   "decision": {
-    "g5Status": "not_passed",
+    "g5Status": "passed_manual_review_only_ocr",
+    "ocrAutoAcceptEnabled": false,
     "reasons": [
-      "The corpus has 12 images from one game/session, below the 20-image minimum.",
-      "Independent board position and corner ground truth is unavailable.",
-      "Baseline sequence OCR is below the proposed exact-accuracy threshold.",
-      "Baseline continuity conflicts exceed the proposed maximum."
+      "The accepted corpus contains 43 images and 387 reviewed board positions.",
+      "Geometry and automatic board/cell crops meet every accepted geometry threshold.",
+      "OCR remains below the auto-accept threshold and therefore cannot auto-accept numbers.",
+      "M6 dataset export uses reviewed golden sequence labels and does not depend on OCR auto-accept."
     ],
-    "recommendation": "rework",
-    "thresholdsAccepted": false
+    "recommendation": "enter_m6",
+    "thresholdsAccepted": true
   },
   "digitLengthMetrics": [
     {
@@ -72,9 +72,9 @@
     },
     {
       "digitLength": 3,
-      "exactAccuracy": 0.444444,
-      "exactCount": 4,
-      "positionCount": 9
+      "exactAccuracy": 0.635417,
+      "exactCount": 183,
+      "positionCount": 288
     }
   ],
   "environment": {
@@ -88,13 +88,13 @@
   },
   "errorCatalog": {
     "categoryCounts": {
-      "deletion_or_missing_digit": 13,
-      "insertion_or_extra_digit": 1,
-      "same_length_substitution": 19,
-      "unrecognized": 7
+      "deletion_or_missing_digit": 45,
+      "insertion_or_extra_digit": 2,
+      "same_length_substitution": 81,
+      "unrecognized": 12
     },
-    "highConfidenceIncorrectCountAtOrAbove0.8": 5,
-    "incorrectCount": 40,
+    "highConfidenceIncorrectCountAtOrAbove0.8": 40,
+    "incorrectCount": 140,
     "items": [
       {
         "confidence": 0.021569,
@@ -567,154 +567,1373 @@
         "reviewReasons": [
           "OCR_CONTINUITY_GAP"
         ]
+      },
+      {
+        "confidence": 0.769526,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 109,
+        "imageId": "m5-img-013",
+        "normalizedNumber": 309,
+        "positionIndex": 0,
+        "rawText": "309",
+        "reviewReasons": []
+      },
+      {
+        "confidence": 0.225077,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 112,
+        "imageId": "m5-img-013",
+        "normalizedNumber": 0,
+        "positionIndex": 3,
+        "rawText": "00",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.89927,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 117,
+        "imageId": "m5-img-013",
+        "normalizedNumber": 137,
+        "positionIndex": 8,
+        "rawText": "137",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.351179,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 118,
+        "imageId": "m5-img-014",
+        "normalizedNumber": 18,
+        "positionIndex": 0,
+        "rawText": "18",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.854735,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 121,
+        "imageId": "m5-img-014",
+        "normalizedNumber": 122,
+        "positionIndex": 3,
+        "rawText": "122",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.185029,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 123,
+        "imageId": "m5-img-014",
+        "normalizedNumber": 5,
+        "positionIndex": 5,
+        "rawText": "5",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.727062,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 126,
+        "imageId": "m5-img-014",
+        "normalizedNumber": 125,
+        "positionIndex": 8,
+        "rawText": "125",
+        "reviewReasons": [
+          "OCR_CONTINUITY_DUPLICATE"
+        ]
+      },
+      {
+        "confidence": 0.934961,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 129,
+        "imageId": "m5-img-015",
+        "normalizedNumber": 120,
+        "positionIndex": 2,
+        "rawText": "120",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.938204,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 133,
+        "imageId": "m5-img-015",
+        "normalizedNumber": 233,
+        "positionIndex": 6,
+        "rawText": "233",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.660799,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 135,
+        "imageId": "m5-img-015",
+        "normalizedNumber": 235,
+        "positionIndex": 8,
+        "rawText": "235",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.594988,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 136,
+        "imageId": "m5-img-016",
+        "normalizedNumber": 256,
+        "positionIndex": 0,
+        "rawText": "256",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.963879,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 137,
+        "imageId": "m5-img-016",
+        "normalizedNumber": 197,
+        "positionIndex": 1,
+        "rawText": "197",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.774655,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 138,
+        "imageId": "m5-img-016",
+        "normalizedNumber": 190,
+        "positionIndex": 2,
+        "rawText": "190",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.802569,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 144,
+        "imageId": "m5-img-016",
+        "normalizedNumber": 244,
+        "positionIndex": 8,
+        "rawText": "244",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.283564,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 145,
+        "imageId": "m5-img-017",
+        "normalizedNumber": 5,
+        "positionIndex": 0,
+        "rawText": "5",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.146381,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 146,
+        "imageId": "m5-img-017",
+        "normalizedNumber": 1,
+        "positionIndex": 1,
+        "rawText": "1",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.265002,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 148,
+        "imageId": "m5-img-017",
+        "normalizedNumber": 8,
+        "positionIndex": 3,
+        "rawText": "8",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.549884,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 154,
+        "imageId": "m5-img-018",
+        "normalizedNumber": 64,
+        "positionIndex": 0,
+        "rawText": "64",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.0,
+        "editCategory": "unrecognized",
+        "expectedNumber": 159,
+        "imageId": "m5-img-018",
+        "normalizedNumber": null,
+        "positionIndex": 5,
+        "rawText": "",
+        "reviewReasons": [
+          "OCR_UNRECOGNIZED"
+        ]
+      },
+      {
+        "confidence": 0.687931,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 160,
+        "imageId": "m5-img-018",
+        "normalizedNumber": 200,
+        "positionIndex": 6,
+        "rawText": "200",
+        "reviewReasons": []
+      },
+      {
+        "confidence": 0.859497,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 161,
+        "imageId": "m5-img-018",
+        "normalizedNumber": 101,
+        "positionIndex": 7,
+        "rawText": "101",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.514307,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 163,
+        "imageId": "m5-img-019",
+        "normalizedNumber": 75,
+        "positionIndex": 0,
+        "rawText": "075",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.200203,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 166,
+        "imageId": "m5-img-019",
+        "normalizedNumber": 0,
+        "positionIndex": 3,
+        "rawText": "00",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.274856,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 168,
+        "imageId": "m5-img-019",
+        "normalizedNumber": 0,
+        "positionIndex": 5,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.797062,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 172,
+        "imageId": "m5-img-020",
+        "normalizedNumber": 372,
+        "positionIndex": 0,
+        "rawText": "372",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.460013,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 177,
+        "imageId": "m5-img-020",
+        "normalizedNumber": 122,
+        "positionIndex": 5,
+        "rawText": "122",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.855273,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 178,
+        "imageId": "m5-img-020",
+        "normalizedNumber": 170,
+        "positionIndex": 6,
+        "rawText": "170",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.874305,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 181,
+        "imageId": "m5-img-021",
+        "normalizedNumber": 282,
+        "positionIndex": 0,
+        "rawText": "282",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.75216,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 183,
+        "imageId": "m5-img-021",
+        "normalizedNumber": 1,
+        "positionIndex": 2,
+        "rawText": "1",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.876736,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 186,
+        "imageId": "m5-img-021",
+        "normalizedNumber": 106,
+        "positionIndex": 5,
+        "rawText": "106",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.766176,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 187,
+        "imageId": "m5-img-021",
+        "normalizedNumber": 287,
+        "positionIndex": 6,
+        "rawText": "287",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.693931,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 192,
+        "imageId": "m5-img-022",
+        "normalizedNumber": 19,
+        "positionIndex": 2,
+        "rawText": "19",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.144926,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 194,
+        "imageId": "m5-img-022",
+        "normalizedNumber": 0,
+        "positionIndex": 4,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.110805,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 195,
+        "imageId": "m5-img-022",
+        "normalizedNumber": 0,
+        "positionIndex": 5,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_DUPLICATE"
+        ]
+      },
+      {
+        "confidence": 0.864857,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 196,
+        "imageId": "m5-img-022",
+        "normalizedNumber": 195,
+        "positionIndex": 6,
+        "rawText": "195",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.561447,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 198,
+        "imageId": "m5-img-022",
+        "normalizedNumber": 105,
+        "positionIndex": 8,
+        "rawText": "105",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.446632,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 199,
+        "imageId": "m5-img-023",
+        "normalizedNumber": 39,
+        "positionIndex": 0,
+        "rawText": "39",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.299702,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 203,
+        "imageId": "m5-img-023",
+        "normalizedNumber": 0,
+        "positionIndex": 4,
+        "rawText": "000",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.774012,
+        "editCategory": "insertion_or_extra_digit",
+        "expectedNumber": 204,
+        "imageId": "m5-img-023",
+        "normalizedNumber": 2010,
+        "positionIndex": 5,
+        "rawText": "2010",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.150441,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 208,
+        "imageId": "m5-img-024",
+        "normalizedNumber": 8,
+        "positionIndex": 0,
+        "rawText": "08",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.0,
+        "editCategory": "unrecognized",
+        "expectedNumber": 213,
+        "imageId": "m5-img-024",
+        "normalizedNumber": null,
+        "positionIndex": 5,
+        "rawText": "",
+        "reviewReasons": [
+          "OCR_UNRECOGNIZED"
+        ]
+      },
+      {
+        "confidence": 0.801348,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 218,
+        "imageId": "m5-img-025",
+        "normalizedNumber": 230,
+        "positionIndex": 1,
+        "rawText": "230",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.036596,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 220,
+        "imageId": "m5-img-025",
+        "normalizedNumber": 0,
+        "positionIndex": 3,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.0,
+        "editCategory": "unrecognized",
+        "expectedNumber": 222,
+        "imageId": "m5-img-025",
+        "normalizedNumber": null,
+        "positionIndex": 5,
+        "rawText": "",
+        "reviewReasons": [
+          "OCR_UNRECOGNIZED"
+        ]
+      },
+      {
+        "confidence": 0.943101,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 224,
+        "imageId": "m5-img-025",
+        "normalizedNumber": 234,
+        "positionIndex": 7,
+        "rawText": "234",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.98376,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 228,
+        "imageId": "m5-img-026",
+        "normalizedNumber": 220,
+        "positionIndex": 2,
+        "rawText": "220",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.832483,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 232,
+        "imageId": "m5-img-026",
+        "normalizedNumber": 292,
+        "positionIndex": 6,
+        "rawText": "292",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.952545,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 234,
+        "imageId": "m5-img-026",
+        "normalizedNumber": 236,
+        "positionIndex": 8,
+        "rawText": "236",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.785529,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 235,
+        "imageId": "m5-img-027",
+        "normalizedNumber": 35,
+        "positionIndex": 0,
+        "rawText": "35",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.895701,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 237,
+        "imageId": "m5-img-027",
+        "normalizedNumber": 23,
+        "positionIndex": 2,
+        "rawText": "23",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.933975,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 239,
+        "imageId": "m5-img-027",
+        "normalizedNumber": 299,
+        "positionIndex": 4,
+        "rawText": "299",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.520236,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 240,
+        "imageId": "m5-img-027",
+        "normalizedNumber": 24,
+        "positionIndex": 5,
+        "rawText": "24",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.734954,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 248,
+        "imageId": "m5-img-028",
+        "normalizedNumber": 240,
+        "positionIndex": 4,
+        "rawText": "240",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.913542,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 253,
+        "imageId": "m5-img-029",
+        "normalizedNumber": 53,
+        "positionIndex": 0,
+        "rawText": "53",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.618398,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 255,
+        "imageId": "m5-img-029",
+        "normalizedNumber": 258,
+        "positionIndex": 2,
+        "rawText": "258",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.138355,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 258,
+        "imageId": "m5-img-029",
+        "normalizedNumber": 2,
+        "positionIndex": 5,
+        "rawText": "2",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.770801,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 261,
+        "imageId": "m5-img-029",
+        "normalizedNumber": 281,
+        "positionIndex": 8,
+        "rawText": "281",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.950988,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 262,
+        "imageId": "m5-img-030",
+        "normalizedNumber": 282,
+        "positionIndex": 0,
+        "rawText": "282",
+        "reviewReasons": []
+      },
+      {
+        "confidence": 0.0,
+        "editCategory": "unrecognized",
+        "expectedNumber": 263,
+        "imageId": "m5-img-030",
+        "normalizedNumber": null,
+        "positionIndex": 1,
+        "rawText": "",
+        "reviewReasons": [
+          "OCR_UNRECOGNIZED"
+        ]
+      },
+      {
+        "confidence": 0.0,
+        "editCategory": "unrecognized",
+        "expectedNumber": 266,
+        "imageId": "m5-img-030",
+        "normalizedNumber": null,
+        "positionIndex": 4,
+        "rawText": "",
+        "reviewReasons": [
+          "OCR_UNRECOGNIZED"
+        ]
+      },
+      {
+        "confidence": 0.640954,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 281,
+        "imageId": "m5-img-032",
+        "normalizedNumber": 20,
+        "positionIndex": 1,
+        "rawText": "20",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.977972,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 282,
+        "imageId": "m5-img-032",
+        "normalizedNumber": 202,
+        "positionIndex": 2,
+        "rawText": "202",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.141031,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 283,
+        "imageId": "m5-img-032",
+        "normalizedNumber": 800,
+        "positionIndex": 3,
+        "rawText": "800",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.819944,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 286,
+        "imageId": "m5-img-032",
+        "normalizedNumber": 285,
+        "positionIndex": 6,
+        "rawText": "285",
+        "reviewReasons": [
+          "OCR_CONTINUITY_DUPLICATE"
+        ]
+      },
+      {
+        "confidence": 0.002853,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 292,
+        "imageId": "m5-img-033",
+        "normalizedNumber": 0,
+        "positionIndex": 3,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.818861,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 297,
+        "imageId": "m5-img-033",
+        "normalizedNumber": 207,
+        "positionIndex": 8,
+        "rawText": "207",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.135527,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 301,
+        "imageId": "m5-img-034",
+        "normalizedNumber": 200,
+        "positionIndex": 3,
+        "rawText": "200",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.731238,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 304,
+        "imageId": "m5-img-034",
+        "normalizedNumber": 904,
+        "positionIndex": 6,
+        "rawText": "904",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.802963,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 306,
+        "imageId": "m5-img-034",
+        "normalizedNumber": 305,
+        "positionIndex": 8,
+        "rawText": "305",
+        "reviewReasons": [
+          "OCR_CONTINUITY_DUPLICATE"
+        ]
+      },
+      {
+        "confidence": 0.615068,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 308,
+        "imageId": "m5-img-035",
+        "normalizedNumber": 300,
+        "positionIndex": 1,
+        "rawText": "300",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.50113,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 310,
+        "imageId": "m5-img-035",
+        "normalizedNumber": 320,
+        "positionIndex": 3,
+        "rawText": "320",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.91454,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 311,
+        "imageId": "m5-img-035",
+        "normalizedNumber": 911,
+        "positionIndex": 4,
+        "rawText": "911",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.735293,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 313,
+        "imageId": "m5-img-035",
+        "normalizedNumber": 319,
+        "positionIndex": 6,
+        "rawText": "319",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.836937,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 315,
+        "imageId": "m5-img-035",
+        "normalizedNumber": 915,
+        "positionIndex": 8,
+        "rawText": "915",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.710452,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 316,
+        "imageId": "m5-img-036",
+        "normalizedNumber": 926,
+        "positionIndex": 0,
+        "rawText": "926",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.584733,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 317,
+        "imageId": "m5-img-036",
+        "normalizedNumber": 917,
+        "positionIndex": 1,
+        "rawText": "917",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.246035,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 318,
+        "imageId": "m5-img-036",
+        "normalizedNumber": 3,
+        "positionIndex": 2,
+        "rawText": "3",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.97064,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 320,
+        "imageId": "m5-img-036",
+        "normalizedNumber": 920,
+        "positionIndex": 4,
+        "rawText": "920",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.091621,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 323,
+        "imageId": "m5-img-036",
+        "normalizedNumber": 20,
+        "positionIndex": 7,
+        "rawText": "20",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.022474,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 325,
+        "imageId": "m5-img-037",
+        "normalizedNumber": 0,
+        "positionIndex": 0,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.972647,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 329,
+        "imageId": "m5-img-037",
+        "normalizedNumber": 929,
+        "positionIndex": 4,
+        "rawText": "929",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.821228,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 331,
+        "imageId": "m5-img-037",
+        "normalizedNumber": 332,
+        "positionIndex": 6,
+        "rawText": "332",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.608214,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 334,
+        "imageId": "m5-img-038",
+        "normalizedNumber": 4,
+        "positionIndex": 0,
+        "rawText": "04",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.196067,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 336,
+        "imageId": "m5-img-038",
+        "normalizedNumber": 3,
+        "positionIndex": 2,
+        "rawText": "3",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.360801,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 337,
+        "imageId": "m5-img-038",
+        "normalizedNumber": 76,
+        "positionIndex": 3,
+        "rawText": "076",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.852377,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 344,
+        "imageId": "m5-img-039",
+        "normalizedNumber": 944,
+        "positionIndex": 1,
+        "rawText": "944",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.082256,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 346,
+        "imageId": "m5-img-039",
+        "normalizedNumber": 90,
+        "positionIndex": 3,
+        "rawText": "90",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.943278,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 351,
+        "imageId": "m5-img-039",
+        "normalizedNumber": 951,
+        "positionIndex": 8,
+        "rawText": "951",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.057626,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 355,
+        "imageId": "m5-img-040",
+        "normalizedNumber": 0,
+        "positionIndex": 3,
+        "rawText": "00",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.25286,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 361,
+        "imageId": "m5-img-041",
+        "normalizedNumber": 0,
+        "positionIndex": 0,
+        "rawText": "000",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.856979,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 362,
+        "imageId": "m5-img-041",
+        "normalizedNumber": 363,
+        "positionIndex": 1,
+        "rawText": "363",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.912629,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 364,
+        "imageId": "m5-img-041",
+        "normalizedNumber": 964,
+        "positionIndex": 3,
+        "rawText": "964",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.546181,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 365,
+        "imageId": "m5-img-041",
+        "normalizedNumber": 70,
+        "positionIndex": 4,
+        "rawText": "70",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.763521,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 373,
+        "imageId": "m5-img-042",
+        "normalizedNumber": 379,
+        "positionIndex": 3,
+        "rawText": "379",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.836837,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 375,
+        "imageId": "m5-img-042",
+        "normalizedNumber": 975,
+        "positionIndex": 5,
+        "rawText": "975",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.746416,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 378,
+        "imageId": "m5-img-042",
+        "normalizedNumber": 370,
+        "positionIndex": 8,
+        "rawText": "370",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.234874,
+        "editCategory": "deletion_or_missing_digit",
+        "expectedNumber": 379,
+        "imageId": "m5-img-043",
+        "normalizedNumber": 0,
+        "positionIndex": 0,
+        "rawText": "0",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
+      },
+      {
+        "confidence": 0.937035,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 380,
+        "imageId": "m5-img-043",
+        "normalizedNumber": 300,
+        "positionIndex": 1,
+        "rawText": "300",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.780724,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 381,
+        "imageId": "m5-img-043",
+        "normalizedNumber": 901,
+        "positionIndex": 2,
+        "rawText": "901",
+        "reviewReasons": [
+          "OCR_CONTINUITY_GAP"
+        ]
+      },
+      {
+        "confidence": 0.751167,
+        "editCategory": "same_length_substitution",
+        "expectedNumber": 387,
+        "imageId": "m5-img-043",
+        "normalizedNumber": 357,
+        "positionIndex": 8,
+        "rawText": "357",
+        "reviewReasons": [
+          "OCR_CONTINUITY_CONFLICT"
+        ]
       }
     ],
     "reviewReasonCounts": {
-      "OCR_CONTINUITY_CONFLICT": 24,
-      "OCR_CONTINUITY_DUPLICATE": 2,
-      "OCR_CONTINUITY_GAP": 25,
-      "OCR_UNRECOGNIZED": 7
+      "OCR_CONTINUITY_CONFLICT": 95,
+      "OCR_CONTINUITY_DUPLICATE": 9,
+      "OCR_CONTINUITY_GAP": 104,
+      "OCR_UNRECOGNIZED": 12
     },
-    "unrecognizedCount": 7
+    "unrecognizedCount": 12
   },
   "inputs": {
-    "alternativeOcrReportSha256": "8a92143e9718da55ce8a27d8914dc1a91568fca1fe8164d56e90c8e68753f1d6",
-    "baselineOcrReportSha256": "bae6f8129115e45d4085ac75d8990d6ef06691db8847153e71afee69e7247d0b",
-    "boardCropReportSha256": "01756c63ed3f8d6837193908cf0f03c8f4f243a2ead74fa2e9a3b3e5d7a55b4e",
-    "corpusManifestSha256": "07fee8dd0c5dfd5f60abfca1ae1e51b376ce20a57a03961856cde9f619f6e31d",
-    "detectionReportSha256": "2e12e180a8d0f27704e1973f04632937c7a71b113185fa161e2a47b0d22741ca",
-    "goldenAnnotationsSha256": "f9909d8c2918f7e4180c21515d5148cfce58bcc0350131db1a783ebe12a3370a",
-    "normalizationReportSha256": "7521e3dbee351918b0dca058905d640d518a2f0fee4ee9bed3a788c96f910352",
-    "sourceDiscoverySha256": "45ac57f91fefa7c75bb8d281bf5936e59ff94c13345279dbc48ef9ae436801d8",
-    "thresholdsSha256": "f542b891839699ee243c2980a7ec829de0c7e4eaf887193447cbdf21a584669a"
+    "alternativeOcrReportSha256": "2e9521eca5fbe2808d20904a293df9480bf08f83be12dbc1293a4bdf8050f3c6",
+    "baselineOcrReportSha256": "6c5e17ca1aea9074be60547559e73c137c64e46969e265a079889827b232cd43",
+    "boardCropReportSha256": "2a7840f140547c23c0941349a17f4146c94e5721c3a2a9923b5467f8fb1aa0ef",
+    "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+    "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
+    "goldenAnnotationsSha256": "92fa6ea06112bb314372153914cf694419e9c5187a7edad33f9ef0502fbe3363",
+    "normalizationReportSha256": "599f7af8a2b476be514a3693b77055ed1f46e48287f141a5a08ca900fc39cb46",
+    "sourceDiscoverySha256": "4c52f86532e3c088559b502a36c9ab05c4824f90dd1b4a9d75c1f6cc86f76390",
+    "thresholdsSha256": "d408f8d0bbc3806023e92d6a1f24cf732a830f52f1790449e667e2acd3f049b3"
   },
   "metrics": [
     {
-      "comparison": "meets_proposed",
+      "acceptedMinimum": 0.95,
+      "comparison": "meets_accepted",
       "measurementStatus": "measured",
       "metric": "pageDetectionRate",
-      "proposedMinimum": 0.95,
-      "thresholdStatus": "proposed",
+      "thresholdStatus": "accepted",
       "unit": "fraction_of_images",
       "value": 1.0
     },
     {
-      "comparison": "meets_proposed",
+      "acceptedMinimum": 0.9,
+      "comparison": "meets_accepted",
       "measurementStatus": "measured",
-      "metric": "allNineBoardsDetectionRate",
-      "proposedMinimum": 0.9,
-      "thresholdStatus": "proposed",
+      "metric": "expectedBoardSetDetectionRate",
+      "thresholdStatus": "accepted",
       "unit": "fraction_of_images",
       "value": 1.0
     },
     {
-      "measurementStatus": "not_measurable",
+      "acceptedMinimum": 0.99,
+      "comparison": "meets_accepted",
+      "measurementStatus": "measured",
       "metric": "boardPositionAssignmentAccuracy",
-      "reason": "Golden annotations contain sequence numbers but no independent board positions.",
-      "thresholdStatus": "proposed"
+      "thresholdStatus": "accepted",
+      "unit": "fraction_of_boards",
+      "value": 1.0
     },
     {
-      "measurementStatus": "not_measurable",
+      "acceptedMaximum": 0.02,
+      "comparison": "meets_accepted",
+      "measurementStatus": "measured",
       "metric": "boardCornerErrorP95",
-      "reason": "Independent golden board corners are not available.",
-      "thresholdStatus": "proposed"
+      "thresholdStatus": "accepted",
+      "unit": "image_diagonal_fraction",
+      "value": 0.0
     },
     {
-      "comparison": "below_proposed",
+      "acceptedMinimum": 0.98,
+      "comparison": "below_accepted",
       "measurementStatus": "measured",
       "metric": "sequenceNumberExactAccuracy",
-      "proposedMinimum": 0.98,
-      "thresholdStatus": "proposed",
+      "thresholdStatus": "accepted",
       "unit": "fraction_of_boards",
-      "value": 0.62963
+      "value": 0.638243
     },
     {
-      "comparison": "above_proposed",
+      "acceptedMaximum": 0.02,
+      "comparison": "above_accepted",
       "measurementStatus": "measured",
       "metric": "unresolvedContinuityConflictRate",
-      "proposedMaximum": 0.02,
-      "thresholdStatus": "proposed",
+      "thresholdStatus": "accepted",
       "unit": "fraction_of_boards",
-      "value": 0.472222
+      "value": 0.537468
     }
   ],
   "ocrComparison": {
     "alternative": {
-      "continuityConflictCount": 34,
-      "exactAccuracy": 0.425926,
-      "exactCount": 46,
+      "continuityConflictCount": 192,
+      "exactAccuracy": 0.560724,
+      "exactCount": 217,
       "modelFingerprint": "397a1e68f494df516a98ff96989d50015448b019915c2be81ad0be2e515c0687",
       "modelName": "en_PP-OCRv5_mobile_rec",
-      "positionCount": 108,
+      "positionCount": 387,
       "preprocessingVersion": "raw-warp-v1",
-      "reviewCount": 63,
+      "reviewCount": 230,
       "runtimeName": "paddlepaddle-cpu",
       "runtimeVersion": "3.3.1",
-      "unresolvedContinuityConflictRate": 0.314815
+      "unresolvedContinuityConflictRate": 0.496124
     },
     "baseline": {
-      "continuityConflictCount": 51,
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
+      "continuityConflictCount": 208,
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
       "modelFingerprint": "397a1e68f494df516a98ff96989d50015448b019915c2be81ad0be2e515c0687",
       "modelName": "en_PP-OCRv5_mobile_rec",
-      "positionCount": 108,
+      "positionCount": 387,
       "preprocessingVersion": "bright-component-tight-v1",
-      "reviewCount": 58,
+      "reviewCount": 220,
       "runtimeName": "paddlepaddle-cpu",
       "runtimeVersion": "3.3.1",
-      "unresolvedContinuityConflictRate": 0.472222
+      "unresolvedContinuityConflictRate": 0.537468
     },
-    "selectionDeferredToTask0058": true
+    "heldOutExactAccuracy": 0.641577,
+    "heldOutExactCount": 179,
+    "heldOutPositionCount": 279,
+    "operatingMode": "manual_review_only"
   },
   "perConditionTag": [
     {
       "conditionTag": "ambient-reflection",
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
-      "imageCount": 12,
-      "positionCount": 108,
-      "reviewCount": 58
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
+      "imageCount": 43,
+      "positionCount": 387,
+      "reviewCount": 220
+    },
+    {
+      "conditionTag": "lower-resolution",
+      "exactAccuracy": 0.641577,
+      "exactCount": 179,
+      "imageCount": 31,
+      "positionCount": 279,
+      "reviewCount": 162
     },
     {
       "conditionTag": "moire",
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
-      "imageCount": 12,
-      "positionCount": 108,
-      "reviewCount": 58
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
+      "imageCount": 43,
+      "positionCount": 387,
+      "reviewCount": 220
     },
     {
       "conditionTag": "partial-hand-occlusion",
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
-      "imageCount": 12,
-      "positionCount": 108,
-      "reviewCount": 58
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
+      "imageCount": 43,
+      "positionCount": 387,
+      "reviewCount": 220
     },
     {
       "conditionTag": "perspective",
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
-      "imageCount": 12,
-      "positionCount": 108,
-      "reviewCount": 58
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
+      "imageCount": 43,
+      "positionCount": 387,
+      "reviewCount": 220
     },
     {
       "conditionTag": "portrait",
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
-      "imageCount": 12,
-      "positionCount": 108,
-      "reviewCount": 58
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
+      "imageCount": 43,
+      "positionCount": 387,
+      "reviewCount": 220
     },
     {
       "conditionTag": "screen-curvature",
-      "exactAccuracy": 0.62963,
-      "exactCount": 68,
-      "imageCount": 12,
-      "positionCount": 108,
-      "reviewCount": 58
+      "exactAccuracy": 0.638243,
+      "exactCount": 247,
+      "imageCount": 43,
+      "positionCount": 387,
+      "reviewCount": 220
+    },
+    {
+      "conditionTag": "variable-quality",
+      "exactAccuracy": 0.641577,
+      "exactCount": 179,
+      "imageCount": 31,
+      "positionCount": 279,
+      "reviewCount": 162
     }
   ],
   "perImage": [
@@ -732,7 +1951,8 @@
       "exactCount": 7,
       "imageId": "m5-img-001",
       "positionCount": 9,
-      "reviewCount": 3
+      "reviewCount": 3,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -748,7 +1968,8 @@
       "exactCount": 4,
       "imageId": "m5-img-002",
       "positionCount": 9,
-      "reviewCount": 6
+      "reviewCount": 6,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -764,7 +1985,8 @@
       "exactCount": 7,
       "imageId": "m5-img-003",
       "positionCount": 9,
-      "reviewCount": 4
+      "reviewCount": 4,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -780,7 +2002,8 @@
       "exactCount": 4,
       "imageId": "m5-img-004",
       "positionCount": 9,
-      "reviewCount": 8
+      "reviewCount": 8,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -796,7 +2019,8 @@
       "exactCount": 5,
       "imageId": "m5-img-005",
       "positionCount": 9,
-      "reviewCount": 5
+      "reviewCount": 5,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -812,7 +2036,8 @@
       "exactCount": 6,
       "imageId": "m5-img-006",
       "positionCount": 9,
-      "reviewCount": 4
+      "reviewCount": 4,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -828,7 +2053,8 @@
       "exactCount": 4,
       "imageId": "m5-img-007",
       "positionCount": 9,
-      "reviewCount": 5
+      "reviewCount": 5,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -844,7 +2070,8 @@
       "exactCount": 7,
       "imageId": "m5-img-008",
       "positionCount": 9,
-      "reviewCount": 3
+      "reviewCount": 3,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -860,7 +2087,8 @@
       "exactCount": 6,
       "imageId": "m5-img-009",
       "positionCount": 9,
-      "reviewCount": 3
+      "reviewCount": 3,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -876,7 +2104,8 @@
       "exactCount": 6,
       "imageId": "m5-img-010",
       "positionCount": 9,
-      "reviewCount": 6
+      "reviewCount": 6,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -892,7 +2121,8 @@
       "exactCount": 8,
       "imageId": "m5-img-011",
       "positionCount": 9,
-      "reviewCount": 3
+      "reviewCount": 3,
+      "split": "development"
     },
     {
       "conditionTags": [
@@ -908,79 +2138,669 @@
       "exactCount": 4,
       "imageId": "m5-img-012",
       "positionCount": 9,
-      "reviewCount": 8
+      "reviewCount": 8,
+      "split": "development"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 4,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-013",
+      "positionCount": 9,
+      "reviewCount": 4,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 7,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-014",
+      "positionCount": 9,
+      "reviewCount": 7,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-015",
+      "positionCount": 9,
+      "reviewCount": 6,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-016",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-017",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 4,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-018",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-019",
+      "positionCount": 9,
+      "reviewCount": 6,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-020",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 7,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-021",
+      "positionCount": 9,
+      "reviewCount": 7,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 7,
+      "exactAccuracy": 0.444444,
+      "exactCount": 4,
+      "imageId": "m5-img-022",
+      "positionCount": 9,
+      "reviewCount": 7,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-023",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 2,
+      "exactAccuracy": 0.777778,
+      "exactCount": 7,
+      "imageId": "m5-img-024",
+      "positionCount": 9,
+      "reviewCount": 3,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-025",
+      "positionCount": 9,
+      "reviewCount": 7,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-026",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 7,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-027",
+      "positionCount": 9,
+      "reviewCount": 7,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 2,
+      "exactAccuracy": 0.888889,
+      "exactCount": 8,
+      "imageId": "m5-img-028",
+      "positionCount": 9,
+      "reviewCount": 2,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 7,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-029",
+      "positionCount": 9,
+      "reviewCount": 7,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 0,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-030",
+      "positionCount": 9,
+      "reviewCount": 2,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 0,
+      "exactAccuracy": 1.0,
+      "exactCount": 9,
+      "imageId": "m5-img-031",
+      "positionCount": 9,
+      "reviewCount": 0,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-032",
+      "positionCount": 9,
+      "reviewCount": 6,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 3,
+      "exactAccuracy": 0.777778,
+      "exactCount": 7,
+      "imageId": "m5-img-033",
+      "positionCount": 9,
+      "reviewCount": 3,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-034",
+      "positionCount": 9,
+      "reviewCount": 6,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 9,
+      "exactAccuracy": 0.444444,
+      "exactCount": 4,
+      "imageId": "m5-img-035",
+      "positionCount": 9,
+      "reviewCount": 9,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 8,
+      "exactAccuracy": 0.444444,
+      "exactCount": 4,
+      "imageId": "m5-img-036",
+      "positionCount": 9,
+      "reviewCount": 8,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-037",
+      "positionCount": 9,
+      "reviewCount": 6,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-038",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-039",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 3,
+      "exactAccuracy": 0.888889,
+      "exactCount": 8,
+      "imageId": "m5-img-040",
+      "positionCount": 9,
+      "reviewCount": 3,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 6,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-041",
+      "positionCount": 9,
+      "reviewCount": 6,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.666667,
+      "exactCount": 6,
+      "imageId": "m5-img-042",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
+    },
+    {
+      "conditionTags": [
+        "ambient-reflection",
+        "lower-resolution",
+        "moire",
+        "partial-hand-occlusion",
+        "perspective",
+        "portrait",
+        "screen-curvature",
+        "variable-quality"
+      ],
+      "continuityConflictCount": 5,
+      "exactAccuracy": 0.555556,
+      "exactCount": 5,
+      "imageId": "m5-img-043",
+      "positionCount": 9,
+      "reviewCount": 5,
+      "split": "held_out"
     }
   ],
   "schemaVersion": 1,
-  "status": "measured_rework",
+  "status": "measured_passed_manual_review_only_ocr",
   "timing": {
     "clock": "perf_counter_ns",
     "measurementMode": "local-cpu-existing-immutable-artifacts",
     "stages": {
       "alternativeOcr": {
         "iterations": 3,
-        "p50Ms": 3831.086,
-        "p95Ms": 5240.3376,
-        "p95MsPerImage": 436.6948,
+        "p50Ms": 18001.917,
+        "p95Ms": 23027.3518,
+        "p95MsPerImage": 535.519809,
         "samplesMs": [
-          5240.3376,
-          3747.5178,
-          3831.086
+          23027.3518,
+          18001.917,
+          17052.4474
         ]
       },
       "baselineOcr": {
         "iterations": 3,
-        "p50Ms": 3740.4811,
-        "p95Ms": 3874.1724,
-        "p95MsPerImage": 322.8477,
+        "p50Ms": 14781.4235,
+        "p95Ms": 20818.6887,
+        "p95MsPerImage": 484.155551,
         "samplesMs": [
-          3874.1724,
-          3740.4811,
-          3660.2669
+          20818.6887,
+          14781.4235,
+          14660.948
         ]
       },
       "boardCrops": {
         "iterations": 3,
-        "p50Ms": 16398.7242,
-        "p95Ms": 16473.5893,
-        "p95MsPerImage": 1372.799108,
+        "p50Ms": 59385.3551,
+        "p95Ms": 110122.5254,
+        "p95MsPerImage": 2560.988963,
         "samplesMs": [
-          16473.5893,
-          16189.8848,
-          16398.7242
+          110122.5254,
+          59385.3551,
+          59080.9585
         ]
       },
       "discovery": {
         "iterations": 3,
-        "p50Ms": 18.3559,
-        "p95Ms": 21.1432,
-        "p95MsPerImage": 1.761933,
+        "p50Ms": 48.2293,
+        "p95Ms": 53.0221,
+        "p95MsPerImage": 1.233072,
         "samplesMs": [
-          21.1432,
-          18.3559,
-          16.7546
+          48.2293,
+          44.1261,
+          53.0221
         ]
       },
       "geometry": {
         "iterations": 3,
-        "p50Ms": 3937.8833,
-        "p95Ms": 4016.3138,
-        "p95MsPerImage": 334.692817,
+        "p50Ms": 12399.7225,
+        "p95Ms": 12526.5549,
+        "p95MsPerImage": 291.31523,
         "samplesMs": [
-          4016.3138,
-          3937.8833,
-          3908.8797
+          12526.5549,
+          12327.7894,
+          12399.7225
         ]
       },
       "normalization": {
         "iterations": 3,
-        "p50Ms": 1525.6173,
-        "p95Ms": 1738.6188,
-        "p95MsPerImage": 144.8849,
+        "p50Ms": 4129.1332,
+        "p95Ms": 4833.8226,
+        "p95MsPerImage": 112.414479,
         "samplesMs": [
-          1738.6188,
-          1525.6173,
-          1518.4789
+          4833.8226,
+          4129.1332,
+          4081.4241
         ]
       }
     }

@@ -15,6 +15,7 @@ sys.path.insert(0, str(WORKER_SOURCE))
 from game_predictor_worker.images.geometry import (  # noqa: E402
     GeometryDetectionError,
     detect_normalized_corpus,
+    expected_board_counts_from_manifest,
 )
 
 
@@ -23,6 +24,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("normalization_report", type=Path)
     parser.add_argument("--normalization-root", type=Path, required=True)
     parser.add_argument("--artifact-root", type=Path, required=True)
+    parser.add_argument(
+        "--corpus-manifest",
+        type=Path,
+        help="Explicit expected board count per source; enables audited grid recovery.",
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument(
         "--check",
@@ -62,6 +68,11 @@ def main() -> int:
             args.normalization_report,
             args.normalization_root,
             args.artifact_root,
+            expected_board_counts=(
+                expected_board_counts_from_manifest(args.corpus_manifest)
+                if args.corpus_manifest is not None
+                else None
+            ),
         )
         content = report.to_json_bytes()
         if args.check and args.output is None:

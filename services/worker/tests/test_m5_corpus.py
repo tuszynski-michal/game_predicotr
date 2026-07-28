@@ -76,6 +76,12 @@ def _write_contract(
         "schemaVersion": 1,
         "corpusId": "test-corpus",
         "coordinateSystem": "source-image-pixels-before-normalization",
+        "annotationProvenance": {
+            "method": "algorithm-assisted-visual-review",
+            "reviewedImageCount": 1,
+            "boardOrdering": "human-verified-row-major",
+            "sequenceSource": "fixture",
+        },
         "images": [annotation],
     }
     manifest_path = root / "manifest.json"
@@ -136,3 +142,74 @@ def test_rejects_sequence_annotation_mismatch(tmp_path: Path) -> None:
         validate_corpus(tmp_path, manifest, annotations)
 
     assert error.value.code == "M5_CORPUS_SEQUENCE_MISMATCH"
+
+
+def test_accepts_complete_partial_final_page(tmp_path: Path) -> None:
+    manifest_path, annotations_path = _write_contract(tmp_path, complete=True)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    annotation = json.loads(annotations_path.read_text(encoding="utf-8"))
+    manifest["images"][0]["expectedBoardCount"] = 5
+    manifest["images"][0]["expectedSequenceEnd"] = 5
+    annotation["images"][0]["sequenceNumbers"] = list(range(1, 6))
+    annotation["images"][0]["boards"] = annotation["images"][0]["boards"][:5]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    annotations_path.write_text(json.dumps(annotation), encoding="utf-8")
+
+    report = validate_corpus(tmp_path, manifest_path, annotations_path)
+
+    assert report.complete_annotation_count == 1
+    assert report.ready_for_geometry_benchmark is True
+
+
+def test_complete_geometry_uses_dimensions_of_matched_image(tmp_path: Path) -> None:
+    manifest_path, annotations_path = _write_contract(tmp_path, complete=True)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    annotations = json.loads(annotations_path.read_text(encoding="utf-8"))
+    second_bytes = _jpeg(width=8, height=8)
+    (tmp_path / "images" / "second.jpg").write_bytes(second_bytes)
+    second_image = {
+        **manifest["images"][0],
+        "id": "m5-img-002",
+        "relativePath": "second.jpg",
+        "sha256": hashlib.sha256(second_bytes).hexdigest(),
+        "sizeBytes": len(second_bytes),
+        "width": 8,
+        "height": 8,
+        "expectedSequenceStart": 10,
+        "expectedSequenceEnd": 18,
+    }
+    second_annotation = {
+        **annotations["images"][0],
+        "imageId": "m5-img-002",
+        "sequenceNumbers": list(range(10, 19)),
+        "pageQuad": [
+            {"x": 0, "y": 0},
+            {"x": 8, "y": 0},
+            {"x": 8, "y": 8},
+            {"x": 0, "y": 8},
+        ],
+        "boards": [
+            {
+                "positionIndex": position,
+                "sequenceNumber": position + 10,
+                "boardQuad": [
+                    {"x": 0, "y": 0},
+                    {"x": 4, "y": 0},
+                    {"x": 4, "y": 4},
+                    {"x": 0, "y": 4},
+                ],
+                "numberBox": {"x": 0, "y": 4, "width": 2, "height": 2},
+            }
+            for position in range(9)
+        ],
+    }
+    manifest["imageCount"] = 2
+    manifest["images"].append(second_image)
+    annotations["annotationProvenance"]["reviewedImageCount"] = 2
+    annotations["images"].append(second_annotation)
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    annotations_path.write_text(json.dumps(annotations), encoding="utf-8")
+
+    report = validate_corpus(tmp_path, manifest_path, annotations_path)
+
+    assert report.complete_annotation_count == 2

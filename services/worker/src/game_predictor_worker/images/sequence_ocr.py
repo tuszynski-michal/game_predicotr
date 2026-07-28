@@ -21,7 +21,7 @@ from .geometry import DETECTOR_VERSION, Point, Quad
 
 OCR_VERSION = "sequence-number-ocr-v1"
 MODEL_NAME = "en_PP-OCRv5_mobile_rec"
-EXPECTED_BOARD_COUNT = 9
+MAX_BOARD_COUNT = 9
 NUMBER_CROP_WIDTH = 192
 NUMBER_CROP_HEIGHT = 64
 NUMBER_X_START = 0.25
@@ -547,7 +547,10 @@ def _point(value: object, label: str) -> Point:
     )
 
 
-def _boards(value: Mapping[str, object], label: str) -> tuple[tuple[int, Quad], ...]:
+def _boards(
+    value: Mapping[str, object],
+    label: str,
+) -> tuple[tuple[int, Quad], ...]:
     if value.get("status") != "detected":
         raise SequenceOcrError(
             "SEQUENCE_OCR_DETECTION_NEEDS_REVIEW",
@@ -577,12 +580,12 @@ def _boards(value: Mapping[str, object], label: str) -> tuple[tuple[int, Quad], 
                 ),
             )
         )
-    if len(result) != EXPECTED_BOARD_COUNT or [item[0] for item in result] != list(
-        range(EXPECTED_BOARD_COUNT)
+    if not 1 <= len(result) <= MAX_BOARD_COUNT or [item[0] for item in result] != list(
+        range(len(result))
     ):
         raise SequenceOcrError(
             "SEQUENCE_OCR_BOARD_SEQUENCE_INVALID",
-            "Sequence OCR requires board indices 0-8 in row-major order.",
+            "Sequence OCR requires 1-9 contiguous row-major board indices from zero.",
         )
     return tuple(result)
 
@@ -850,10 +853,10 @@ def run_sequence_ocr_corpus(
                 _sequence(golden_by_id[image_id].get("sequenceNumbers"), "sequenceNumbers")
             )
         )
-        if len(expected_values) != EXPECTED_BOARD_COUNT:
+        if len(expected_values) != len(boards):
             raise SequenceOcrError(
                 "SEQUENCE_OCR_GOLDEN_MISMATCH",
-                "Golden image must contain nine sequence numbers.",
+                "Golden sequence count must match the detected page.",
             )
         for (position_index, board_quad), expected in zip(
             boards,

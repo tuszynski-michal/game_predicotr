@@ -17,16 +17,19 @@ właściciela w
 
 ### Q-016 — Stabilność układu strony
 
-Na 12 próbkach z jednej gry i sesji widoczny jest układ 3 × 3 mini-layoutów.
-Trzeba potwierdzić, czy:
-
-- wszystkie gry i ekrany używają tego samego układu,
-- ramki i numery znajdują się w przewidywalnych obszarach,
-- występują inne warianty stron lub liczby layoutów na zdjęciu.
+**Status: closed 2026-07-28.** Strona ma maksymalnie dziewięć mini-layoutów
+w siatce 3 × 3. Ostatnia strona ciągu może zawierać mniej pozycji, ponieważ
+liczba layoutów gry nie musi być podzielna przez dziewięć. Pozycje występują
+bez luk od indeksu 0 w kolejności row-major. Pełna strona nadal wymaga
+dziewięciu pozycji.
 
 ### Q-017 — Zestaw treningowy
 
-Trzeba potwierdzić możliwość przygotowania docelowo około 100 poprawnie oznaczonych wycinków na każdy symbol, pochodzących z wielu różnych zdjęć. Podział trening/walidacja musi być wykonany według zdjęcia źródłowego, nie losowo według kafelka.
+**Status: closed 2026-07-28.** Właściciel potwierdził możliwość zebrania około
+100 przykładów na symbol. Obecne 43 zdjęcia obejmują 387 layoutów i 5805
+automatycznie utworzonych cell crops. Właściciel nie wycina ich ręcznie;
+manualna praca dotyczy zatwierdzenia lub korekty etykiety. Podział
+train/validation/test nadal odbywa się według zdjęcia źródłowego.
 
 ## Administracja i wdrożenie
 
@@ -43,10 +46,8 @@ Czy istnieje zgoda właściciela aplikacji Windows na analizę jej zachowania, p
 - M1 nie ma otwartych pytań blokujących.
 - Techniczne decyzje toolchain/build podejmowane w M1.1 nie wymagają odpowiedzi
   produktowej, ale muszą zostać zapisane w Decision Log.
-- Prace nad automatycznym importem zdjęć wymagają odpowiedzi na Q-016–Q-017
-  oraz domknięcia ograniczeń korpusu zapisanych w D-050.
-- Zgodnie z D-056 brak odpowiedzi Q-016–Q-017, nieukończony reprezentatywny
-  korpus oraz niezaliczona bramka G5 blokują rozpoczęcie M6.
+- Q-016/Q-017 są zamknięte. D-057 dopuszcza M6 na przejrzanych goldenach i
+  automatycznych cropach, przy OCR pozostającym w trybie manual-review-only.
 - M2 może używać lokalnego panelu jednego właściciela bez finalnej warstwy
   autoryzacji; produkcyjna autoryzacja i model wielu administratorów w M8
   wymagają odpowiedzi na Q-019.

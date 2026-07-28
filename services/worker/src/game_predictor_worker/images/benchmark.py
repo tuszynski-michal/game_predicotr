@@ -10,11 +10,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, cast
 
-BENCHMARK_VERSION = "m5-image-benchmark-v1"
-EXPECTED_IMAGE_COUNT = 12
-EXPECTED_POSITION_COUNT = 108
-EXPECTED_BOARD_COUNT = 108
-EXPECTED_CELL_COUNT = 1620
+BENCHMARK_VERSION = "m5-image-benchmark-v2"
 TIMING_STAGES = (
     "discovery",
     "normalization",
@@ -324,7 +320,7 @@ def _metric(
 ) -> dict[str, object]:
     result: dict[str, object] = {
         "metric": name,
-        "thresholdStatus": "proposed",
+        "thresholdStatus": "accepted",
     }
     if value is None:
         return {
@@ -336,12 +332,12 @@ def _metric(
     result["value"] = round(value, 6)
     if "minimum" in threshold:
         limit = _number(threshold["minimum"], f"thresholds.{name}.minimum")
-        result["proposedMinimum"] = limit
-        result["comparison"] = "meets_proposed" if value >= limit else "below_proposed"
+        result["acceptedMinimum"] = limit
+        result["comparison"] = "meets_accepted" if value >= limit else "below_accepted"
     elif "maximum" in threshold:
         limit = _number(threshold["maximum"], f"thresholds.{name}.maximum")
-        result["proposedMaximum"] = limit
-        result["comparison"] = "meets_proposed" if value <= limit else "above_proposed"
+        result["acceptedMaximum"] = limit
+        result["comparison"] = "meets_accepted" if value <= limit else "above_accepted"
     else:
         raise ImageBenchmarkError(
             "M5_BENCHMARK_THRESHOLD_INVALID",
@@ -401,10 +397,14 @@ def _image_and_condition_metrics(
     by_tag: dict[str, list[Mapping[str, object]]] = {}
     for image_id, corpus_image in corpus_images.items():
         results = grouped.get(image_id, [])
-        if len(results) != 9:
+        expected_count = _integer(
+            corpus_image.get("expectedBoardCount"),
+            f"{image_id}.expectedBoardCount",
+        )
+        if len(results) != expected_count:
             raise ImageBenchmarkError(
                 "M5_BENCHMARK_OCR_COVERAGE_INVALID",
-                f"{image_id} must have exactly nine OCR results.",
+                f"{image_id} OCR result count must match expectedBoardCount.",
             )
         tags = sorted(
             _text(tag, f"{image_id}.conditionTag")
@@ -429,6 +429,7 @@ def _image_and_condition_metrics(
                 "exactAccuracy": round(exact / len(results), 6),
                 "exactCount": exact,
                 "imageId": image_id,
+                "split": corpus_image.get("split"),
                 "positionCount": len(results),
                 "reviewCount": reviews,
                 "continuityConflictCount": conflicts,
@@ -524,6 +525,105 @@ def _error_catalog(ocr: Mapping[str, object]) -> dict[str, object]:
     }
 
 
+def _geometry_quality(
+    corpus: Mapping[str, object],
+    golden: Mapping[str, object],
+    detection: Mapping[str, object],
+) -> tuple[float, float, float, float]:
+    annotations = {
+        _text(item.get("imageId"), f"golden.images[{index}].imageId"): item
+        for index, value in enumerate(_sequence(golden.get("images"), "golden.images"))
+        for item in [_mapping(value, f"golden.images[{index}]")]
+    }
+    detections = {
+        _text(
+            item.get("sourceChecksumSha256"),
+            f"detection.detections[{index}].sourceChecksumSha256",
+        ): _mapping(item.get("result"), f"detection.detections[{index}].result")
+        for index, value in enumerate(
+            _sequence(detection.get("detections"), "detection.detections")
+        )
+        for item in [_mapping(value, f"detection.detections[{index}]")]
+    }
+    detected_pages = 0
+    expected_sets = 0
+    correct_positions = 0
+    total_positions = 0
+    corner_errors: list[float] = []
+    corpus_images = _sequence(corpus.get("images"), "corpus.images")
+    for index, value in enumerate(corpus_images):
+        image = _mapping(value, f"corpus.images[{index}]")
+        image_id = _text(image.get("id"), f"corpus.images[{index}].id")
+        checksum = _text(image.get("sha256"), f"corpus.images[{index}].sha256")
+        expected_count = _integer(
+            image.get("expectedBoardCount"),
+            f"corpus.images[{index}].expectedBoardCount",
+        )
+        width = _integer(image.get("width"), f"corpus.images[{index}].width")
+        height = _integer(image.get("height"), f"corpus.images[{index}].height")
+        diagonal = math.hypot(width, height)
+        result = detections.get(checksum)
+        annotation = annotations.get(image_id)
+        if result is None or annotation is None:
+            raise ImageBenchmarkError(
+                "M5_BENCHMARK_GEOMETRY_COVERAGE_INVALID",
+                f"Geometry or golden annotation is missing for {image_id}.",
+            )
+        boards = [
+            _mapping(board, f"{image_id}.detectedBoard")
+            for board in _sequence(result.get("boards"), f"{image_id}.detectedBoards")
+        ]
+        golden_boards = [
+            _mapping(board, f"{image_id}.goldenBoard")
+            for board in _sequence(annotation.get("boards"), f"{image_id}.goldenBoards")
+        ]
+        if result.get("status") == "detected":
+            detected_pages += 1
+        expected_indices = list(range(expected_count))
+        observed_indices = [
+            _integer(board.get("positionIndex"), f"{image_id}.positionIndex") for board in boards
+        ]
+        golden_indices = [
+            _integer(board.get("positionIndex"), f"{image_id}.goldenPositionIndex")
+            for board in golden_boards
+        ]
+        if observed_indices == expected_indices and golden_indices == expected_indices:
+            expected_sets += 1
+        total_positions += expected_count
+        for position in range(expected_count):
+            if (
+                position < len(observed_indices)
+                and position < len(golden_indices)
+                and observed_indices[position] == golden_indices[position] == position
+            ):
+                correct_positions += 1
+            if position >= len(boards) or position >= len(golden_boards):
+                corner_errors.extend([1.0] * 4)
+                continue
+            observed_quad = _sequence(boards[position].get("quad"), "detected.quad")
+            golden_quad = _sequence(
+                golden_boards[position].get("boardQuad"),
+                "golden.boardQuad",
+            )
+            for corner in range(4):
+                observed = _mapping(observed_quad[corner], "detected.corner")
+                expected = _mapping(golden_quad[corner], "golden.corner")
+                distance = math.hypot(
+                    _number(observed.get("x"), "detected.corner.x")
+                    - _number(expected.get("x"), "golden.corner.x"),
+                    _number(observed.get("y"), "detected.corner.y")
+                    - _number(expected.get("y"), "golden.corner.y"),
+                )
+                corner_errors.append(distance / diagonal)
+    image_count = len(corpus_images)
+    return (
+        detected_pages / image_count,
+        expected_sets / image_count,
+        correct_positions / total_positions,
+        _percentile(corner_errors, 0.95),
+    )
+
+
 def build_image_benchmark_report(
     *,
     corpus_manifest_path: Path,
@@ -548,7 +648,7 @@ def build_image_benchmark_report(
     """Build the deterministic portion of a benchmark from measured inputs."""
 
     corpus_bytes, corpus = _load(corpus_manifest_path, "corpusManifest")
-    golden_bytes, _ = _load(golden_annotations_path, "goldenAnnotations")
+    golden_bytes, golden = _load(golden_annotations_path, "goldenAnnotations")
     discovery_bytes, discovery = _load(source_discovery_path, "sourceDiscovery")
     normalization_bytes, normalization = _load(normalization_report_path, "normalization")
     detection_bytes, detection = _load(detection_report_path, "detection")
@@ -559,14 +659,10 @@ def build_image_benchmark_report(
 
     corpus_id = _text(corpus.get("corpusId"), "corpus.corpusId")
     image_count = _integer(corpus.get("imageCount"), "corpus.imageCount")
-    if (
-        corpus_id != thresholds.get("corpusId")
-        or thresholds.get("status") != "proposed"
-        or image_count != EXPECTED_IMAGE_COUNT
-    ):
+    if corpus_id != thresholds.get("corpusId") or thresholds.get("status") != "accepted":
         raise ImageBenchmarkError(
             "M5_BENCHMARK_CORPUS_MISMATCH",
-            "Corpus and proposed thresholds do not match the expected prototype.",
+            "Corpus and accepted thresholds do not match the representative corpus.",
         )
     input_sha = {
         "alternativeOcrReportSha256": _sha256(alternative_bytes),
@@ -600,14 +696,19 @@ def build_image_benchmark_report(
                 "M5_BENCHMARK_UPSTREAM_DRIFT",
                 f"{label} OCR report does not match benchmark inputs.",
             )
+    expected_position_count = sum(
+        _integer(image.get("expectedBoardCount"), "corpus.expectedBoardCount")
+        for value in _sequence(corpus.get("images"), "corpus.images")
+        for image in [_mapping(value, "corpus.image")]
+    )
     if (
         discovery.get("uniqueImageCount") != image_count
         or detection.get("imageCount") != image_count
         or crops.get("imageCount") != image_count
-        or baseline.get("positionCount") != EXPECTED_POSITION_COUNT
-        or alternative.get("positionCount") != EXPECTED_POSITION_COUNT
-        or crops.get("boardCount") != EXPECTED_BOARD_COUNT
-        or crops.get("cellCount") != EXPECTED_CELL_COUNT
+        or baseline.get("positionCount") != expected_position_count
+        or alternative.get("positionCount") != expected_position_count
+        or crops.get("boardCount") != expected_position_count
+        or crops.get("cellCount") != expected_position_count * 15
     ):
         raise ImageBenchmarkError(
             "M5_BENCHMARK_COVERAGE_INVALID",
@@ -615,52 +716,40 @@ def build_image_benchmark_report(
         )
 
     threshold_metrics = _mapping(thresholds.get("metrics"), "thresholds.metrics")
-    detected_count = _integer(detection.get("detectedCount"), "detection.detectedCount")
-    all_nine = sum(
-        item.get("result") is not None
-        and _mapping(item.get("result"), "detection.result").get("status") == "detected"
-        and len(
-            _sequence(
-                _mapping(item.get("result"), "detection.result").get("boards"),
-                "detection.result.boards",
-            )
-        )
-        == 9
-        for value in _sequence(detection.get("detections"), "detection.detections")
-        for item in [_mapping(value, "detection.item")]
-    )
+    (
+        page_detection_rate,
+        expected_board_set_rate,
+        board_position_accuracy,
+        board_corner_error_p95,
+    ) = _geometry_quality(corpus, golden, detection)
     baseline_summary = _ocr_summary(baseline)
     alternative_summary = _ocr_summary(alternative)
     metrics = [
         _metric(
             "pageDetectionRate",
-            detected_count / image_count,
+            page_detection_rate,
             _mapping(threshold_metrics.get("pageDetectionRate"), "pageDetectionRate"),
         ),
         _metric(
-            "allNineBoardsDetectionRate",
-            all_nine / image_count,
+            "expectedBoardSetDetectionRate",
+            expected_board_set_rate,
             _mapping(
-                threshold_metrics.get("allNineBoardsDetectionRate"),
-                "allNineBoardsDetectionRate",
+                threshold_metrics.get("expectedBoardSetDetectionRate"),
+                "expectedBoardSetDetectionRate",
             ),
         ),
         _metric(
             "boardPositionAssignmentAccuracy",
-            None,
+            board_position_accuracy,
             _mapping(
                 threshold_metrics.get("boardPositionAssignmentAccuracy"),
                 "boardPositionAssignmentAccuracy",
             ),
-            unavailable_reason=(
-                "Golden annotations contain sequence numbers but no independent board positions."
-            ),
         ),
         _metric(
             "boardCornerErrorP95",
-            None,
+            board_corner_error_p95,
             _mapping(threshold_metrics.get("boardCornerErrorP95"), "boardCornerErrorP95"),
-            unavailable_reason="Independent golden board corners are not available.",
         ),
         _metric(
             "sequenceNumberExactAccuracy",
@@ -683,6 +772,11 @@ def build_image_benchmark_report(
         ),
     ]
     per_image, per_condition = _image_and_condition_metrics(corpus, baseline)
+    held_out = [item for item in per_image if item.get("split") == "held_out"]
+    held_out_positions = sum(
+        _integer(item["positionCount"], "heldOut.positionCount") for item in held_out
+    )
+    held_out_exact = sum(_integer(item["exactCount"], "heldOut.exactCount") for item in held_out)
     artifact_sizes = {
         "alternativeModel": _model_summary(alternative_model_root, alternative, "alternative"),
         "alternativeOcr": _artifact_summary(
@@ -715,15 +809,18 @@ def build_image_benchmark_report(
             "status": corpus.get("status"),
         },
         "decision": {
-            "g5Status": "not_passed",
-            "recommendation": "rework",
+            "g5Status": "passed_manual_review_only_ocr",
+            "recommendation": "enter_m6",
             "reasons": [
-                "The corpus has 12 images from one game/session, below the 20-image minimum.",
-                "Independent board position and corner ground truth is unavailable.",
-                "Baseline sequence OCR is below the proposed exact-accuracy threshold.",
-                "Baseline continuity conflicts exceed the proposed maximum.",
+                "The accepted corpus contains 43 images and 387 reviewed board positions.",
+                "Geometry and automatic board/cell crops meet every accepted geometry threshold.",
+                "OCR remains below the auto-accept threshold and therefore "
+                "cannot auto-accept numbers.",
+                "M6 dataset export uses reviewed golden sequence labels and "
+                "does not depend on OCR auto-accept.",
             ],
-            "thresholdsAccepted": False,
+            "ocrAutoAcceptEnabled": False,
+            "thresholdsAccepted": True,
         },
         "digitLengthMetrics": _digit_length_metrics(baseline),
         "environment": dict(environment),
@@ -733,12 +830,17 @@ def build_image_benchmark_report(
         "ocrComparison": {
             "alternative": alternative_summary,
             "baseline": baseline_summary,
-            "selectionDeferredToTask0058": True,
+            "heldOutExactAccuracy": (
+                round(held_out_exact / held_out_positions, 6) if held_out_positions else 0.0
+            ),
+            "heldOutExactCount": held_out_exact,
+            "heldOutPositionCount": held_out_positions,
+            "operatingMode": "manual_review_only",
         },
         "perConditionTag": per_condition,
         "perImage": per_image,
         "schemaVersion": 1,
-        "status": "measured_rework",
+        "status": "measured_passed_manual_review_only_ocr",
         "timing": _timing_summary(timing_samples, image_count),
     }
 

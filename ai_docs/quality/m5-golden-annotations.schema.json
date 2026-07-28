@@ -4,11 +4,33 @@
   "title": "Game Predictor M5 golden annotations",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "corpusId", "coordinateSystem", "images"],
+  "required": [
+    "schemaVersion",
+    "corpusId",
+    "coordinateSystem",
+    "annotationProvenance",
+    "images"
+  ],
   "properties": {
     "schemaVersion": {"const": 1},
     "corpusId": {"type": "string", "minLength": 1},
     "coordinateSystem": {"const": "source-image-pixels-before-normalization"},
+    "annotationProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "reviewedImageCount",
+        "boardOrdering",
+        "sequenceSource"
+      ],
+      "properties": {
+        "method": {"const": "algorithm-assisted-visual-review"},
+        "reviewedImageCount": {"type": "integer", "minimum": 1},
+        "boardOrdering": {"type": "string", "minLength": 1},
+        "sequenceSource": {"type": "string", "minLength": 1}
+      }
+    },
     "images": {
       "type": "array",
       "items": {
@@ -20,14 +42,14 @@
           "status": {"enum": ["sequence_only", "complete"]},
           "sequenceNumbers": {
             "type": "array",
-            "minItems": 9,
+            "minItems": 1,
             "maxItems": 9,
             "items": {"type": "integer", "minimum": 1}
           },
           "pageQuad": {"$ref": "#/$defs/quad"},
           "boards": {
             "type": "array",
-            "minItems": 9,
+            "minItems": 1,
             "maxItems": 9,
             "items": {
               "type": "object",

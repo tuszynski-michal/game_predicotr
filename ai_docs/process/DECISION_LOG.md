@@ -1232,6 +1232,40 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** D-053–D-055 wyłącznie w zakresie statusu po benchmarku;
   kontrakty, ograniczenie wariantu, lokalność i checksumy pozostają w mocy.
 
+## D-057 — Variable final page and manual-review-only OCR open M6
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** strona zawiera od 1 do 9 layoutów w kolejności row-major.
+  Wszystkie strony poza ostatnią wymagają dziewięciu pozycji; tylko jawnie
+  wskazana ostatnia strona znanego ciągu może mieć 1–8 pozycji bez luk.
+  `page-board-detector-v2` może odzyskać geometrię siatki wyłącznie przy
+  znanym `expectedBoardCount` i wystarczającym dowodzie czerwonej ramki.
+  Korpus 43 zdjęć / 387 layoutów, zweryfikowana geometria i automatyczne cropy
+  zaliczają G5 dla wejścia do M6. OCR pozostaje w trybie
+  `manual_review_only`; próg 98% nadal obowiązuje przed włączeniem auto-accept.
+- **Context:** właściciel zamknął Q-016/Q-017, dodał 31 zdjęć w różnej jakości
+  i potwierdził możliwość uzyskania około 100 przykładów na symbol. Pipeline
+  utworzył 387 board crops i 5805 cell crops. Detektor osiągnął 43/43 stron,
+  komplet oczekiwanych pozycji i zero nierozwiązanych elementów geometrii.
+  OCR osiągnął `247/387 = 63.8243%`, a na 31 held-out source images
+  `179/279 = 64.1577%`; nie spełnia progu auto-accept.
+- **Reason:** eksport datasetu symboli M6 może korzystać z wizualnie
+  przejrzanych numerów golden i zweryfikowanych cropów, dlatego nie zależy od
+  automatycznej akceptacji OCR. Blokowanie klasyfikatora symboli do czasu
+  osiągnięcia 98% OCR mieszałoby dwie wymienne części pipeline'u. Jednocześnie
+  obniżenie progu lub użycie continuity do cichego poprawiania numerów byłoby
+  niebezpieczne.
+- **Consequences:** TASK-0051 i TASK-0091 mogą zostać zamknięte, G5 otrzymuje
+  status `passed_manual_review_only_ocr`, a TASK-0059 może się rozpocząć.
+  Właściciel nie wycina ręcznie obrazów: worker generuje board/cell crops.
+  Ręczna praca w M6 dotyczy zatwierdzania lub poprawiania etykiet symboli.
+  Każdy numer z OCR nadal wymaga zatwierdzenia i nie może samodzielnie trafić
+  do publikowanego datasetu.
+- **Supersedes:** D-056 w zakresie blokady wejścia do M6 i dokładnie
+  dziewięciu plansz na każdej stronie. D-056 nadal obowiązuje dla braku
+  auto-accept, audytowalności i wymiennego adaptera OCR.
+
 ## Szablon nowej decyzji
 
 ```text

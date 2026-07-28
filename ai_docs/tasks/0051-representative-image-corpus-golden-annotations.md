@@ -1,6 +1,6 @@
 ---
 title: TASK-0051 Representative image corpus and golden annotations
-status: blocked
+status: in_progress
 last_updated: 2026-07-28
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Status
 
-`blocked`
+`in_progress`
 
 ## Goal
 
@@ -147,7 +147,6 @@ walidator z testami negatywnymi. Walidator świadomie zwraca
 `readyForGeometryBenchmark = false`, dopóki Q-016/Q-017, pełna geometria,
 reprezentatywność i akceptacja progów nie zostaną domknięte.
 
-Po D-056 zadanie ma status `blocked`: dostępne 12 zdjęć wykorzystano do
-prototypu i benchmarku, ale do zamknięcia potrzeba co najmniej 8 dalszych,
-reprezentatywnych zdjęć, odpowiedzi Q-016/Q-017, pełnych goldenów geometrii
-oraz jawnej akceptacji progów przed kolejną optymalizacją.
+Po D-056 zadanie było zablokowane. Właściciel dostarczył 31 dalszych zdjęć,
+zamknął Q-016/Q-017 i polecił domknięcie G5. Rozszerzenie manifestu, pełne
+goldeny geometrii oraz ponowna walidacja są realizowane w TASK-0091.

@@ -1,6 +1,6 @@
 ---
 title: Image ingestion requirements
-status: proposed
+status: accepted
 last_updated: 2026-07-28
 ---
 
@@ -12,23 +12,24 @@ Przetworzyć duży katalog zdjęć wykonanych telefonem, wyodrębnić z każdego
 
 ## Materiał przeanalizowany 2026-07-28
 
-Przeanalizowano 12 zdjęć JPEG 960 × 1280 z jednej gry i sesji. Szczegóły
+Przeanalizowano 43 zdjęcia JPEG w rozdzielczościach 960 × 1280 i 720 × 1280,
+obejmujące 387 layoutów jednej gry w dwóch grupach źródłowych. Szczegóły
 plików, SHA-256 oraz tagi warunków znajdują się w
 `ai_docs/quality/m5-corpus-manifest.json`.
 
 Widoczne cechy:
 
-- 9 mini-layoutów w układzie 3 × 3,
+- do 9 mini-layoutów w układzie 3 × 3,
 - każdy mini-layout ma siatkę 3 × 5,
-- ciągłe numery 1–108 są umieszczone pod layoutami,
+- ciągłe numery 1–387 są umieszczone pod layoutami,
 - czerwone ramki mogą pomóc w detekcji geometrii,
 - zdjęcia zawierają perspektywę, zakrzywienie ekranu, moiré, rozmycie, refleksy i zmiany koloru,
 - dłoń oraz elementy nawigacji występują głównie poza komórkami.
 
-Zgodnie z D-050 te 12 próbek wystarcza do pracy kontraktowej i pierwszego
-prototypu detekcji geometrii. Jedna gra, sesja i rozdzielczość nie wystarczają
-jednak do zatwierdzenia jakości OCR, klasyfikatora ani reprezentatywności G5.
-Oryginały pozostają lokalne i ignorowane przez Git.
+Zgodnie z D-057 korpus spełnia liczbowy warunek M5 i zawiera przejrzane
+adnotacje geometrii. Nadal obejmuje jedną grę, dlatego uogólnienie na inne
+motywy będzie osobno walidowane. Oryginały pozostają lokalne i ignorowane
+przez Git.
 
 ## Ważne założenie
 
@@ -91,35 +92,36 @@ zawartość pod tą samą ścieżką jest kolizją i nie zostaje nadpisana.
 
 ### 3. Detekcja strony i layoutów
 
-- kontrakt `page-board-detector-v1` przyjmuje znormalizowany RGB PNG,
-- wspierany wariant obejmuje dokładnie dziewięć czerwonych ramek w siatce
-  3 × 3; wynik zachowuje kolejność row-major i indeksy 0–8,
+- kontrakt `page-board-detector-v2` przyjmuje znormalizowany RGB PNG,
+- wspierany wariant obejmuje od 1 do 9 czerwonych ramek w siatce 3 × 3;
+  wynik zachowuje kolejność row-major i indeksy `0..expectedBoardCount-1`,
+- pełna strona wymaga dziewięciu ramek; tylko jawnie wskazana ostatnia strona
+  znanego ciągu może mieć 1–8 pozycji,
 - klasyczny detektor HSV/contour zapisuje narożniki strony i każdej planszy,
   bounding box, confidence z jawnymi składnikami oraz informację o kontrolowanej
   korekcie kandydata względem regularnej siatki,
-- brak dziewięciu kandydatów, nadmiar, nieregularność, złe wyrównanie albo
-  nakładanie daje `needs_review` ze stabilnym powodem; pipeline nie dopełnia
-  i nie przesuwa indeksów po cichu,
+- kontrolowany grid recovery wymaga jawnego `expectedBoardCount` i dowodu
+  czerwonej ramki; nie tworzy pozycji bez dowodu,
+- brak oczekiwanej liczby, nieregularność albo niepoprawna geometria daje
+  `needs_review`; pipeline nie przesuwa indeksów po cichu,
 - content-addressed overlay diagnostyczny powstaje poza źródłami i
   znormalizowanymi plikami.
 
 Ze względu na krzywiznę wyświetlacza każdy mini-layout powinien być prostowany indywidualnie. Jedna globalna transformacja perspektywy może nie wystarczyć.
 
-Powyższy wariant jest prototypem ograniczonym przez D-053. Wynik 12/12 na
-bieżących zdjęciach potwierdza działanie na obserwowanym ekranie, ale bez
-niezależnych adnotacji narożników nie stanowi pomiaru accuracy ani zaliczenia
-G5.3.
+Wynik 43/43 stron i 387/387 przejrzanych pozycji spełnia zaakceptowane progi
+geometrii dla obserwowanej rodziny ekranu.
 
 ### 4. Wycięcie layoutów
 
-Kontrakt `board-cell-crops-v1` działa tylko na kompletnym wyniku
-`page-board-detector-v1` dla wariantu D-053:
+Kontrakt `board-cell-crops-v1` działa na kompletnym wyniku
+`page-board-detector-v2` zawierającym oczekiwane 1–9 pozycji:
 
 - każdy quad jest walidowany i prostowany indywidualnie do RGB 500 × 300,
 - indeks planszy pozostaje 0-based i row-major z TASK-0054,
 - raport zapisuje źródłowy quad, macierz transformacji, ścieżkę względną,
   checksum i wersję croppera,
-- wynik niekompletny, zła kolejność albo niepoprawny quad daje `needs_review`
+- wynik niekompletny względem oczekiwania, zła kolejność albo niepoprawny quad daje `needs_review`
   bez częściowych wycinków,
 - plansza i overlay siatki są content-addressed oraz niezmienne.
 
@@ -139,28 +141,28 @@ Kontrakt `board-cell-crops-v1` działa tylko na kompletnym wyniku
 - ciągłość wszystkich pozycji w kolejności korpusu flaguje nierozpoznanie,
   duplikat, lukę albo konflikt, ale nigdy nie zmienia raw text ani normalized
   number,
-- baseline na niezależnych numerach 1–108 osiąga `68/108 = 62.9630%`,
-  `58/108` pozycji wymaga review, a `51/108` ma konflikt ciągłości; wynik jest
-  pomiarem prototypu poniżej proponowanego progu 98%, nie zaliczeniem G5.4.
+- baseline na numerach 1–387 osiąga `247/387 = 63.8243%`; na 31 held-out
+  source images wynik to `179/279 = 64.1577%`. Nie spełnia zaakceptowanego
+  progu 98% wymaganego do auto-accept.
 
-Benchmark `m5-image-benchmark-v1` potwierdza, że surowy crop z tym samym
-modelem jest gorszy (`46/108 = 42.5926%`), więc preprocessing jasnego komponentu
+Benchmark `m5-image-benchmark-v2` potwierdza, że surowy crop z tym samym
+modelem jest gorszy (`217/387 = 56.0724%`), więc preprocessing jasnego komponentu
 pozostaje lepszym baseline'em. Nie jest to jednak finalny wybór modelu.
-Detekcja strony i dziewięciu plansz wynosi 100% na obecnych 12 zdjęciach, ale
-bez niezależnych golden narożników nie wolno deklarować accuracy geometrii.
-Pełny wynik, timing i katalog 40 błędów znajdują się w
+Detekcja oczekiwanego zestawu plansz wynosi 100% na 43 zdjęciach. Pełny wynik,
+timing i katalog błędów znajdują się w
 `ai_docs/quality/m5-image-benchmark-report.json`.
 
-### Status prototypu po D-056
+### Status prototypu po D-057
 
 - discovery i normalizacja są zachowywanymi kontraktami,
-- geometria oraz cropy pozostają eksperymentalne i ograniczone do wariantu
-  dziewięciu plansz 3 × 3,
-- kontrakt OCR zostaje wymienny, ale bieżący model/preprocessing wymaga reworku,
-- każdy obecny wynik OCR jest sugestią do manual review; nie ma auto-accept,
+- geometria oraz cropy są zaakceptowane dla wariantu do dziewięciu plansz
+  3 × 3 i plansz 3 × 5,
+- kontrakt OCR zostaje wymienny, a bieżący model działa w trybie
+  `manual_review_only`,
+- każdy wynik OCR jest sugestią do manual review; nie ma auto-accept,
 - continuity może zgłosić problem, ale nigdy nie tworzy zatwierdzonego numeru,
-- automatyczny import/publikacja zdjęć pozostają wyłączone; M4 jest dostępnym
-  bezpiecznym workflow ręcznym.
+- M6 może eksportować przejrzane cell crops i etykiety bez polegania na
+  automatycznej akceptacji OCR.
 
 ### 6. Podział na komórki
 

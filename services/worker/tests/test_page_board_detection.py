@@ -53,6 +53,22 @@ def _center(board: BoardDetection) -> tuple[float, float]:
     return x + width / 2, y + height / 2
 
 
+def _partial_grid_image(board_count: int) -> np.ndarray:
+    image = np.full((640, 680, 3), (20, 30, 180), dtype=np.uint8)
+    for position in range(board_count):
+        row, column = divmod(position, 3)
+        left = 60 + column * 200
+        top = 60 + row * 150
+        cv2.rectangle(
+            image,
+            (left, top),
+            (left + 140, top + 80),
+            (235, 25, 20),
+            10,
+        )
+    return image
+
+
 def test_synthetic_grid_returns_nine_boards_in_row_major_order() -> None:
     detector = ClassicalPageBoardDetector()
     image = _grid_image()
@@ -97,6 +113,28 @@ def test_detector_rejects_invalid_image_contract() -> None:
         ClassicalPageBoardDetector().detect(np.zeros((20, 20), dtype=np.uint8))
 
     assert raised.value.code == "PAGE_DETECTOR_INVALID_IMAGE"
+
+
+def test_explicit_partial_final_page_returns_contiguous_positions() -> None:
+    result = ClassicalPageBoardDetector().detect(
+        _partial_grid_image(5),
+        expected_board_count=5,
+        allow_grid_recovery=True,
+    )
+
+    assert result.status == "detected"
+    assert [board.position_index for board in result.boards] == list(range(5))
+
+
+def test_grid_recovery_does_not_invent_truly_missing_board() -> None:
+    result = ClassicalPageBoardDetector().detect(
+        _grid_image(missing=(1, 1)),
+        expected_board_count=9,
+        allow_grid_recovery=True,
+    )
+
+    assert result.status == "needs_review"
+    assert result.review_reasons == ("BOARD_CANDIDATE_COUNT",)
 
 
 def test_corpus_runner_verifies_input_and_reuses_identical_overlay(

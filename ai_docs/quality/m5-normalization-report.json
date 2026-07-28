@@ -1,6 +1,38 @@
 {
   "images": [
     {
+      "diagnosticRelativePath": "image-normalization-v1/03/03c306b647c7c6a339cdb9b4c6b3e82fb4ac6becdae15cd578a4736df12caee7/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "d07b4457d78cd573fa13198efc22ef513923d8d147bd7a406d766ff257a025fc",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/03/03c306b647c7c6a339cdb9b4c6b3e82fb4ac6becdae15cd578a4736df12caee7/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "03c306b647c7c6a339cdb9b4c6b3e82fb4ac6becdae15cd578a4736df12caee7",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600661.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/10/10ba39b8dbd16118c58504d49e02096da241eda62e5cd50b6287d5089483fd97/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "9667957311811168b6759aac0f3ce8d35c04d4a19ab63213c108fc58cd428a5a",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/10/10ba39b8dbd16118c58504d49e02096da241eda62e5cd50b6287d5089483fd97/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "10ba39b8dbd16118c58504d49e02096da241eda62e5cd50b6287d5089483fd97",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600663.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
       "diagnosticRelativePath": "image-normalization-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/diagnostic.json",
       "exifOrientation": null,
       "normalizedChecksumSha256": "32e1de33e2712c95a8324c39abbfa6bf722acc27fbe6053d86d99c42772d7c01",
@@ -17,6 +49,54 @@
       "sourceWidth": 960
     },
     {
+      "diagnosticRelativePath": "image-normalization-v1/1c/1c9a9767b0cd6a78b8fce02946ab944ae709496b18c730426aa1c3c89bcdf285/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "752c8ac3d5e4509326e855ce51c0c00a73e1db190b4d92c8bf75185ddd6cbb3d",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/1c/1c9a9767b0cd6a78b8fce02946ab944ae709496b18c730426aa1c3c89bcdf285/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "1c9a9767b0cd6a78b8fce02946ab944ae709496b18c730426aa1c3c89bcdf285",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600665.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/1d/1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "cdb9661115321ca983cdf6da45b62c4045d01da3fdd8b6bba279ec292d7a8c18",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/1d/1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600662.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/21/217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "58b52d9abb2f01284bb00da24cdf227f97ce6ded11a91961d3b57f2beed86e87",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/21/217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600673.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
       "diagnosticRelativePath": "image-normalization-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/diagnostic.json",
       "exifOrientation": null,
       "normalizedChecksumSha256": "9cd828d484d736745dafd11c2e15bf2f27ce66941ebffde78d05f3809ec15861",
@@ -31,6 +111,86 @@
         "5983122166590934323.jpg"
       ],
       "sourceWidth": 960
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/30/30731d42dab0aac59f5a052e79b416759c2bffb17baf348381a5cb16d0f433ee/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "5640f7489900af2e26085e3e44b12057f7cc145da3e1c9b3da3b458f8ba0fb0e",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/30/30731d42dab0aac59f5a052e79b416759c2bffb17baf348381a5cb16d0f433ee/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "30731d42dab0aac59f5a052e79b416759c2bffb17baf348381a5cb16d0f433ee",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600684.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/38/388b34f9e97c6fc7f4ad7fd4a60fcff31079ea712385613f174a7e3f2b6e5884/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "83e21de4e39a7ae8f6aa598c4f4356bbb71edbbbaa3a452eb14344cc4184af57",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/38/388b34f9e97c6fc7f4ad7fd4a60fcff31079ea712385613f174a7e3f2b6e5884/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "388b34f9e97c6fc7f4ad7fd4a60fcff31079ea712385613f174a7e3f2b6e5884",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600671.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/39/392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "88b4bad8b1d5e3d54f2f5861b1020a17caeac084d2e9775da18bc779a359c28b",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/39/392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600672.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/49/49f6416bc812df3c6bef3bfb9bf21cf2508151addf1e908ea639223b784708fa/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "79180ca5c49869ed59e66f2546fa311d4c9631dbb5354ecd968373328caedd1b",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/49/49f6416bc812df3c6bef3bfb9bf21cf2508151addf1e908ea639223b784708fa/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "49f6416bc812df3c6bef3bfb9bf21cf2508151addf1e908ea639223b784708fa",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600675.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/4e/4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "3866caf88b7bea25ec4df5ab51622ce2b0d66aa9298300bf3f2e336bda1fc967",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/4e/4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600674.jpg"
+      ],
+      "sourceWidth": 720
     },
     {
       "diagnosticRelativePath": "image-normalization-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/diagnostic.json",
@@ -65,6 +225,38 @@
       "sourceWidth": 960
     },
     {
+      "diagnosticRelativePath": "image-normalization-v1/5a/5a4bf0685189f6c3ae3e7cebff2c679d3e9438ee7f91ddac82691719585ae67a/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "7a5af10e861ff86aef1ea5f494c1358966d0dbeb8515ea39657b4e9ad13bd313",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/5a/5a4bf0685189f6c3ae3e7cebff2c679d3e9438ee7f91ddac82691719585ae67a/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "5a4bf0685189f6c3ae3e7cebff2c679d3e9438ee7f91ddac82691719585ae67a",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600685.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/5c/5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "c0a4aef5d163915408d075f542eff02292d41323eba2612b64d351fd2ddeb77f",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/5c/5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600660.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
       "diagnosticRelativePath": "image-normalization-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/diagnostic.json",
       "exifOrientation": null,
       "normalizedChecksumSha256": "bd3be0deb68c82e6ddfb60eb51652e118971f71bda5709fbcc7af88456ffdcd0",
@@ -97,6 +289,86 @@
       "sourceWidth": 960
     },
     {
+      "diagnosticRelativePath": "image-normalization-v1/69/6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "0b169314fde7380598b27d6400cacf8d487a08925eb4f9c526ff6d677216fea7",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/69/6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600667.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/6e/6ebe38feb5422ab73d399fedc0a0af93f2692d69c09ca8c8bcdeede7a28e3580/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "eebcae862fa418d0cce499efe02f2e9f464fd656d31ffc074f967fb6282b92c4",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/6e/6ebe38feb5422ab73d399fedc0a0af93f2692d69c09ca8c8bcdeede7a28e3580/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "6ebe38feb5422ab73d399fedc0a0af93f2692d69c09ca8c8bcdeede7a28e3580",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600686.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/6f/6fe281ef6288fb4afc409fe0c1d1b7ce57c4db1c38a79babc5b23d0ad174a911/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "51ed0730cd0646b05230aa51b54d9b270f660e7b7f0d83455a3ef1b50e66294f",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/6f/6fe281ef6288fb4afc409fe0c1d1b7ce57c4db1c38a79babc5b23d0ad174a911/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "6fe281ef6288fb4afc409fe0c1d1b7ce57c4db1c38a79babc5b23d0ad174a911",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600669.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/79/7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "f11af46c59e4e84545fdc4ad922c25f0752dcc2b4677013aaaf1088afaca00bf",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/79/7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600680.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/7c/7c6c358cf5dfbad70c2b14f2c4a77b5922f1b95e776a7d45a06d2e320275e284/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "dee75ef1f0075c9fee8ace9320d41eadc8f7bfd29f900c62cb5f854e6ef069ed",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/7c/7c6c358cf5dfbad70c2b14f2c4a77b5922f1b95e776a7d45a06d2e320275e284/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "7c6c358cf5dfbad70c2b14f2c4a77b5922f1b95e776a7d45a06d2e320275e284",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600688.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
       "diagnosticRelativePath": "image-normalization-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/diagnostic.json",
       "exifOrientation": null,
       "normalizedChecksumSha256": "a777351ea55ca2068bdb7513801b4955aebbd65eb25631ccf7f84ac7783f1f59",
@@ -113,6 +385,102 @@
       "sourceWidth": 960
     },
     {
+      "diagnosticRelativePath": "image-normalization-v1/8a/8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "9c8494d3ec3c7503dafa618ad4b85fa58f39d3bc80061dccd05f5ef27326b229",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/8a/8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600670.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/90/901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "7c457e1c2030d650029f12880ad074df9049b8419534e9bac1960f217d5b5fc2",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/90/901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600677.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/92/92cf1df591c082574088fb81ba6150f436f3dd2ebf381c9ad4c1fdeb8e59aec5/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "51d8773ef589f5c9e8df7e3d53c147b97e6afae81f37ba0e7d82795bbd9789f4",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/92/92cf1df591c082574088fb81ba6150f436f3dd2ebf381c9ad4c1fdeb8e59aec5/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "92cf1df591c082574088fb81ba6150f436f3dd2ebf381c9ad4c1fdeb8e59aec5",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600683.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/97/97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "48c760e6cb1d7627ddd596cdd1a076864701118312a80778a383c997856c91ae",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/97/97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600689.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/99/99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "03338f1161df2c4e9950705bd7b3c25fd8699e6173a194aea1e85298f0f71d62",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/99/99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600678.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/a1/a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "a5ad6c888de380566989f9249b11c76c85ee4c21f2bdd7e4df342da6d4209796",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/a1/a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600687.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
       "diagnosticRelativePath": "image-normalization-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/diagnostic.json",
       "exifOrientation": null,
       "normalizedChecksumSha256": "e24ff5733d1d8516466486cccc9d59eb8547ab40fce67726df7ee0c2f9e6b1a2",
@@ -127,6 +495,102 @@
         "5983122166590934325.jpg"
       ],
       "sourceWidth": 960
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/bf/bf20b41068b473c82736b9d4c4ff6fbf65fc9e16892882fa38571fd98acbcf7f/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "cfc5290dc47d78b10107e175c53e22570a55d9045867455e352a26aef8964e4b",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/bf/bf20b41068b473c82736b9d4c4ff6fbf65fc9e16892882fa38571fd98acbcf7f/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "bf20b41068b473c82736b9d4c4ff6fbf65fc9e16892882fa38571fd98acbcf7f",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600691.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/c1/c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "2fce8648f71dfd7bc9aa84db4939e81216f16304d95821ebdce2e2b9f5f42996",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/c1/c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600681.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/df/df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "1e225f4d8150d0362647344a44e20534a2ffae3cfd5ecc3e9a36758cb5c78f43",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/df/df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600682.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/e6/e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "adf859d870ac6a3ba4579e0ad8e4df6e1ba28117a96c4ad8df087c85a2717da0",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/e6/e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600679.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/ea/ea0c457377070ee1113032d28cb0ada828acbfd140b3f3aa59a49c07fe582740/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "cc7d4b15e6fad9c8ebf76badff660a4419f8e08e02835752b7cd7e790d96a054",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/ea/ea0c457377070ee1113032d28cb0ada828acbfd140b3f3aa59a49c07fe582740/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "ea0c457377070ee1113032d28cb0ada828acbfd140b3f3aa59a49c07fe582740",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600668.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/ec/ec3125fea63772ea3d3eb98e8ec5f9d8619cc6aaeedd6fe89b72e77fd0dc69d6/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "20a264f143b26a3f6c47a2762bea93b388ea9022938d3d2567d7ec42fc5feb4f",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/ec/ec3125fea63772ea3d3eb98e8ec5f9d8619cc6aaeedd6fe89b72e77fd0dc69d6/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "ec3125fea63772ea3d3eb98e8ec5f9d8619cc6aaeedd6fe89b72e77fd0dc69d6",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600664.jpg"
+      ],
+      "sourceWidth": 720
     },
     {
       "diagnosticRelativePath": "image-normalization-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/diagnostic.json",
@@ -191,15 +655,47 @@
         "5983122166590934328.jpg"
       ],
       "sourceWidth": 960
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/f5/f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "94a52c74ade4a2f9ec7e46ab3e570185b68d52ed03ff8903797a99d61024ebf5",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/f5/f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600676.jpg"
+      ],
+      "sourceWidth": 720
+    },
+    {
+      "diagnosticRelativePath": "image-normalization-v1/fe/fe60473fbf938b72a70b273c7b46853be5e908c683a26d7b785452e604627dd2/diagnostic.json",
+      "exifOrientation": null,
+      "normalizedChecksumSha256": "d0e24bb798ca37e1215f8bd81951bbf60603fd9f63223da5813571d87d1be911",
+      "normalizedHeight": 1280,
+      "normalizedRelativePath": "image-normalization-v1/fe/fe60473fbf938b72a70b273c7b46853be5e908c683a26d7b785452e604627dd2/normalized.png",
+      "normalizedWidth": 720,
+      "orientationAction": "none",
+      "sourceChecksumSha256": "fe60473fbf938b72a70b273c7b46853be5e908c683a26d7b785452e604627dd2",
+      "sourceHeight": 1280,
+      "sourceMode": "RGB",
+      "sourcePaths": [
+        "5998913674711600666.jpg"
+      ],
+      "sourceWidth": 720
     }
   ],
   "issueCount": 0,
   "issues": [],
   "normalizationVersion": "image-normalization-v1",
-  "normalizedImageCount": 12,
+  "normalizedImageCount": 43,
   "pillowVersion": "12.3.0",
   "schemaVersion": 1,
-  "sourceImageCount": 12,
-  "sourceManifestSha256": "45ac57f91fefa7c75bb8d281bf5936e59ff94c13345279dbc48ef9ae436801d8",
+  "sourceImageCount": 43,
+  "sourceManifestSha256": "4c52f86532e3c088559b502a36c9ab05c4824f90dd1b4a9d75c1f6cc86f76390",
   "status": "clean"
 }

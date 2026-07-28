@@ -24,7 +24,7 @@ MARGIN_X = 25
 MARGIN_Y = 15
 CELL_WIDTH = 90
 CELL_HEIGHT = 90
-EXPECTED_BOARD_COUNT = 9
+MAX_BOARD_COUNT = 9
 
 
 class BoardCropError(ValueError):
@@ -175,13 +175,13 @@ class PerspectiveBoardCellCropper:
                 boards=(),
                 review_reasons=("BOARD_CROP_UPSTREAM_NEEDS_REVIEW",),
             )
-        if len(geometry.boards) != EXPECTED_BOARD_COUNT:
+        if not 1 <= len(geometry.boards) <= MAX_BOARD_COUNT:
             return BoardCropResult(
                 status="needs_review",
                 boards=(),
                 review_reasons=("BOARD_CROP_BOARD_COUNT",),
             )
-        if [board.position_index for board in geometry.boards] != list(range(EXPECTED_BOARD_COUNT)):
+        if [board.position_index for board in geometry.boards] != list(range(len(geometry.boards))):
             return BoardCropResult(
                 status="needs_review",
                 boards=(),

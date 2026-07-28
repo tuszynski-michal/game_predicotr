@@ -158,9 +158,15 @@ def _validate_complete_geometry(
     height = _integer(image.get("height"), f"{image_id}.height", minimum=1)
     _validate_quad(annotation.get("pageQuad"), f"{image_id}.pageQuad", width, height)
     boards = _sequence(annotation.get("boards"), f"{image_id}.boards")
-    if len(boards) != 9:
+    expected_board_count = _integer(
+        image.get("expectedBoardCount"),
+        f"{image_id}.expectedBoardCount",
+        minimum=1,
+    )
+    if len(boards) != expected_board_count:
         raise CorpusValidationError(
-            "M5_CORPUS_INVALID_GEOMETRY", f"{image_id}.boards must contain nine boards."
+            "M5_CORPUS_INVALID_GEOMETRY",
+            f"{image_id}.boards must match expectedBoardCount.",
         )
     observed_positions: set[int] = set()
     sequence_numbers = [
@@ -170,7 +176,7 @@ def _validate_complete_geometry(
     for board_value in boards:
         board = _mapping(board_value, f"{image_id}.board")
         position = _integer(board.get("positionIndex"), f"{image_id}.positionIndex")
-        if position > 8 or position in observed_positions:
+        if position >= expected_board_count or position in observed_positions:
             raise CorpusValidationError(
                 "M5_CORPUS_INVALID_BOARD_INDEX",
                 f"{image_id} has an invalid or duplicate board position {position}.",
@@ -196,9 +202,10 @@ def _validate_complete_geometry(
             width,
             height,
         )
-    if observed_positions != set(range(9)):
+    if observed_positions != set(range(expected_board_count)):
         raise CorpusValidationError(
-            "M5_CORPUS_INVALID_BOARD_INDEX", f"{image_id} does not contain positions 0..8."
+            "M5_CORPUS_INVALID_BOARD_INDEX",
+            f"{image_id} board positions are not contiguous from zero.",
         )
 
 
@@ -222,6 +229,15 @@ def validate_corpus(
         raise CorpusValidationError(
             "M5_CORPUS_INVALID_CONTRACT", "Annotations use an unsupported coordinate system."
         )
+    provenance = _mapping(
+        annotations.get("annotationProvenance"),
+        "annotations.annotationProvenance",
+    )
+    if provenance.get("method") != "algorithm-assisted-visual-review":
+        raise CorpusValidationError(
+            "M5_CORPUS_INVALID_CONTRACT",
+            "Annotations must declare the accepted visual-review method.",
+        )
 
     corpus_root = _safe_relative_path(repository_root, manifest.get("rootPath"), "rootPath")
     image_values = _sequence(manifest.get("images"), "manifest.images")
@@ -230,13 +246,26 @@ def validate_corpus(
         raise CorpusValidationError(
             "M5_CORPUS_IMAGE_COUNT_MISMATCH", "imageCount does not match manifest.images."
         )
+    if (
+        _integer(
+            provenance.get("reviewedImageCount"),
+            "annotationProvenance.reviewedImageCount",
+            minimum=1,
+        )
+        != expected_count
+    ):
+        raise CorpusValidationError(
+            "M5_CORPUS_ANNOTATION_REVIEW_COUNT_MISMATCH",
+            "Annotation review count does not match the corpus.",
+        )
 
     images_by_id: dict[str, Mapping[str, object]] = {}
     observed_paths: set[Path] = set()
     observed_checksums: set[str] = set()
     source_group_splits: dict[str, str] = {}
     total_size = 0
-    for image_value in image_values:
+    previous_sequence_end: int | None = None
+    for image_index, image_value in enumerate(image_values):
         image = _mapping(image_value, "manifest.image")
         image_id = _string(image.get("id"), "image.id")
         if image_id in images_by_id:
@@ -308,11 +337,22 @@ def validate_corpus(
         board_count = _integer(
             image.get("expectedBoardCount"), f"{image_id}.expectedBoardCount", minimum=1
         )
-        if board_count != 9 or end - start + 1 != board_count:
+        if board_count > 9 or end - start + 1 != board_count:
             raise CorpusValidationError(
                 "M5_CORPUS_SEQUENCE_MISMATCH",
-                f"{image_id} sequence range does not contain nine boards.",
+                f"{image_id} sequence range does not match expectedBoardCount.",
             )
+        if board_count < 9 and image_index != len(image_values) - 1:
+            raise CorpusValidationError(
+                "M5_CORPUS_PARTIAL_PAGE_NOT_FINAL",
+                f"{image_id} is partial but is not the final corpus page.",
+            )
+        if previous_sequence_end is not None and start != previous_sequence_end + 1:
+            raise CorpusValidationError(
+                "M5_CORPUS_SEQUENCE_MISMATCH",
+                f"{image_id} does not continue the previous sequence range.",
+            )
+        previous_sequence_end = end
         images_by_id[image_id] = image
         observed_paths.add(image_path)
         observed_checksums.add(expected_sha256)
@@ -355,7 +395,7 @@ def validate_corpus(
             )
         status = _string(annotation.get("status"), f"{image_id}.status")
         if status == "complete":
-            _validate_complete_geometry(annotation, image)
+            _validate_complete_geometry(annotation, matched_image)
             complete_count += 1
         elif status == "sequence_only":
             pending.append(image_id)

@@ -330,9 +330,10 @@ geometrii przypięto dojrzałą linię OpenCV 4.13 zamiast świeżego major 5, a
 nie łączyć zmiany kontraktu biblioteki z eksperymentem algorytmicznym. Zgodnie
 z D-055 adapter OCR używa bezpośrednio lokalnych plików Paddle Inference,
 ponieważ pakiet PaddleOCR/PaddleX wymuszał konfliktujące wersje OpenCV i NumPy.
-Dekoder dopuszcza wyłącznie cyfry, lecz model pozostaje wymienny. Finalne modele
-zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych
-zdjęciach; obecny wynik 62.9630% nie zalicza G5.4.
+Dekoder dopuszcza wyłącznie cyfry, lecz model pozostaje wymienny. Finalny model
+OCR nie został zatwierdzony: wynik 63.8243% na 387 pozycjach utrzymuje go w
+trybie `manual_review_only`, ale nie blokuje eksportu przejrzanych cropów
+symboli w M6.
 
 ### Status po benchmarku M5
 
@@ -341,16 +342,15 @@ zdjęciach; obecny wynik 62.9630% nie zalicza G5.4.
 | Python/Pillow/OpenCV/NumPy | `retain` | lokalny worker i deterministyczne artefakty |
 | `image-discovery-v1` | `retain` | wejście JPEG, ścieżki względne i SHA-256 |
 | `image-normalization-v1` | `retain` | EXIF Orientation 1–8 i RGB PNG |
-| `page-board-detector-v1` | `experimental` | tylko zaobserwowany wariant 3 × 3 |
-| `board-cell-crops-v1` | `experimental` | tylko kompletna geometria 3 × 3 / plansze 3 × 5 |
+| `page-board-detector-v2` | `retain` | jawne 1–9 pozycji, recovery tylko z expected count i dowodem ramki |
+| `board-cell-crops-v1` | `retain` | oczekiwane 1–9 layoutów, plansze 3 × 5 |
 | `SequenceNumberRecognizer` / raport OCR | `retain` | wymienny port, raw/normalized/confidence bez korekty |
-| `en_PP-OCRv5_mobile_rec` + obecny preprocessing | `rework` | sugestia do review, brak auto-accept |
-| `m5-image-benchmark-v1` | `retain` | read-only agregacja raportów i jawne `not_measurable` |
+| `en_PP-OCRv5_mobile_rec` + obecny preprocessing | `manual_review_only` | sugestia do review, brak auto-accept |
+| `m5-image-benchmark-v2` | `retain` | 43 zdjęcia, 387 pozycji, geometria i held-out OCR |
 
-D-056 nie dodaje kolejnej biblioteki ani finalnego modelu. Alternatywa OCR może
-zostać wybrana dopiero po pomiarze na reprezentatywnym podziale według zdjęcia
-źródłowego. Pięć błędów baseline z confidence `>= 0.8` wyklucza ustawienie
-progu auto-accept na podstawie obecnego korpusu.
+D-057 nie dodaje kolejnej biblioteki ani finalnego modelu. OCR nie osiągnął
+progu 98%, dlatego auto-accept pozostaje wyłączony. M6 korzysta z
+automatycznych cropów i przejrzanych etykiet, a nie z niepewnego OCR.
 
 ## Monorepo
 

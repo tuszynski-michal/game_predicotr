@@ -41,15 +41,20 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
         roots[name], checksums[name] = _artifact_root(tmp_path, name)
 
     corpus = {
-        "corpusId": "m5-prototype-corpus-v1",
+        "corpusId": "m5-representative-corpus-v2",
         "imageCount": 12,
         "limitations": ["synthetic"],
         "sourceGroupCount": 1,
-        "status": "provisional",
+        "status": "accepted",
         "images": [
             {
                 "conditionTags": ["portrait", f"group-{index % 2}"],
+                "expectedBoardCount": 9,
+                "height": 1000,
                 "id": f"image-{index:02d}",
+                "sha256": f"{index + 1:064x}",
+                "split": "held_out" if index >= 6 else "development",
+                "width": 800,
             }
             for index in range(12)
         ],
@@ -57,7 +62,31 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
     corpus_path = tmp_path / "corpus.json"
     corpus_bytes = _write_json(corpus_path, corpus)
     golden_path = tmp_path / "golden.json"
-    golden_bytes = _write_json(golden_path, {"corpusId": corpus["corpusId"]})
+    board_quad = [
+        {"x": 10, "y": 10},
+        {"x": 110, "y": 10},
+        {"x": 110, "y": 70},
+        {"x": 10, "y": 70},
+    ]
+    golden_bytes = _write_json(
+        golden_path,
+        {
+            "corpusId": corpus["corpusId"],
+            "images": [
+                {
+                    "boards": [
+                        {
+                            "boardQuad": board_quad,
+                            "positionIndex": position,
+                        }
+                        for position in range(9)
+                    ],
+                    "imageId": f"image-{index:02d}",
+                }
+                for index in range(12)
+            ],
+        },
+    )
     discovery_path = tmp_path / "discovery.json"
     discovery_bytes = _write_json(
         discovery_path,
@@ -71,8 +100,9 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
                 "diagnosticRelativePath": "artifact.bin",
                 "normalizedChecksumSha256": checksums["normalization-root"],
                 "normalizedRelativePath": "artifact.bin",
+                "sourceChecksumSha256": f"{index + 1:064x}",
             }
-            for _ in range(12)
+            for index in range(12)
         ],
     }
     normalization_bytes = _write_json(normalization_path, normalization)
@@ -86,11 +116,14 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
                 "overlayChecksumSha256": checksums["detection-root"],
                 "overlayRelativePath": "artifact.bin",
                 "result": {
-                    "boards": [{"positionIndex": position} for position in range(9)],
+                    "boards": [
+                        {"positionIndex": position, "quad": board_quad} for position in range(9)
+                    ],
                     "status": "detected",
                 },
+                "sourceChecksumSha256": f"{index + 1:064x}",
             }
-            for _ in range(12)
+            for index in range(12)
         ],
     }
     detection_bytes = _write_json(detection_path, detection)
@@ -185,9 +218,9 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
         thresholds_path,
         {
             "corpusId": corpus["corpusId"],
-            "status": "proposed",
+            "status": "accepted",
             "metrics": {
-                "allNineBoardsDetectionRate": {
+                "expectedBoardSetDetectionRate": {
                     "minimum": 0.9,
                     "unit": "fraction",
                 },
@@ -240,15 +273,15 @@ def _fixture(tmp_path: Path) -> dict[str, object]:
     }
 
 
-def test_benchmark_reports_quality_gaps_and_alternative(tmp_path: Path) -> None:
+def test_benchmark_passes_geometry_with_manual_review_only_ocr(tmp_path: Path) -> None:
     report = build_image_benchmark_report(**_fixture(tmp_path))  # type: ignore[arg-type]
 
-    assert report["status"] == "measured_rework"
-    assert report["decision"]["g5Status"] == "not_passed"  # type: ignore[index]
+    assert report["status"] == "measured_passed_manual_review_only_ocr"
+    assert report["decision"]["g5Status"] == "passed_manual_review_only_ocr"  # type: ignore[index]
     metrics = {item["metric"]: item for item in report["metrics"]}  # type: ignore[union-attr]
-    assert metrics["pageDetectionRate"]["comparison"] == "meets_proposed"
-    assert metrics["boardCornerErrorP95"]["measurementStatus"] == "not_measurable"
-    assert metrics["sequenceNumberExactAccuracy"]["comparison"] == "below_proposed"
+    assert metrics["pageDetectionRate"]["comparison"] == "meets_accepted"
+    assert metrics["boardCornerErrorP95"]["comparison"] == "meets_accepted"
+    assert metrics["sequenceNumberExactAccuracy"]["comparison"] == "below_accepted"
     comparison = report["ocrComparison"]
     assert comparison["baseline"]["exactCount"] == 105  # type: ignore[index]
     assert comparison["alternative"]["exactCount"] == 108  # type: ignore[index]

@@ -712,16 +712,16 @@ last_updated: 2026-07-28
 
 ## In progress
 
-- Brak aktywnego zadania implementacyjnego. Dalsze prace nad automatycznym
-  importem oczekują na wejścia opisane w sekcji `Blocked`.
+- `TASK-0091 — M5 corpus, variable final page and OCR rework`: właściciel dodał
+  31 zdjęć, zamknął Q-016/Q-017 i polecił domknięcie G5 przed M6,
+- `TASK-0051` wróciło do `in_progress`; manifest, pełne goldeny i progi są
+  aktualizowane na rozszerzonym korpusie.
 
 ## Blocked
 
-- `TASK-0051 — Representative image corpus and golden annotations`: 12 zdjęć
-  jest już wykorzystane; potrzeba co najmniej 8 dalszych reprezentatywnych
-  zdjęć, odpowiedzi Q-016/Q-017, goldenów geometrii i akceptacji progów,
 - wejście do M6/TASK-0059: D-056 wymaga najpierw przejścia G5 i zamknięcia
-  Q-017; obecny OCR nie może być źródłem automatycznie zaakceptowanych numerów,
+  reworku geometrii/OCR; obecny OCR nie może być źródłem automatycznie
+  zaakceptowanych numerów,
 - `TASK-0039 — Release failure and immutability integration tests`: automatyczna
   macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
   workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie

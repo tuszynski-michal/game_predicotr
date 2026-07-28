@@ -317,13 +317,17 @@ Zaakceptowany stos prototypu:
 
 - Python,
 - Pillow `12.3.0`,
-- `opencv-python-headless`,
-- NumPy,
+- `opencv-python-headless` `4.13.0.92`,
+- NumPy `2.4.6`,
 - PaddleOCR ograniczony do cyfr,
 - PyTorch i torchvision do treningu,
 - ONNX Runtime do inferencji.
 
-Geometria, OCR i klasyfikator implementują osobne porty. Finalne modele zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych zdjęciach.
+Geometria, OCR i klasyfikator implementują osobne porty. Dla prototypu
+geometrii przypięto dojrzałą linię OpenCV 4.13 zamiast świeżego major 5, aby
+nie łączyć zmiany kontraktu biblioteki z eksperymentem algorytmicznym. Finalne
+modele zostaną zatwierdzone dopiero po benchmarku na 20–100 reprezentatywnych
+zdjęciach.
 
 ## Monorepo
 

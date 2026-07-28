@@ -51,6 +51,10 @@ Na podstawie D-052 po ukończeniu discovery właściciel dopuścił TASK-0053,
 ograniczone do EXIF, lokalnych kopii roboczych i diagnostyki. Nie otwiera to
 TASK-0054+, geometrii, OCR ani bramki G5.1.
 
+Na podstawie D-053 właściciel dopuścił TASK-0054 dla jedynego potwierdzonego
+wariantu 3 × 3. Inne warianty muszą trafić do review; Q-016 i niezależne golden
+annotations nadal blokują deklarację uniwersalności i przejście progu accuracy.
+
 Analiza aplikacji referencyjnej nie jest częścią ścieżki krytycznej.
 Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
@@ -125,8 +129,9 @@ Jakiekolwiek prace wykraczające poza obserwację wymagają odpowiedzi na Q-020.
 
 ### Zadania
 
-- `TASK-0054 — Page and 3x3 board detection`
-- `TASK-0055 — Per-board perspective correction and cell crops`
+- `TASK-0054 — Page and 3x3 board detection` — done 2026-07-28
+- `TASK-0055 — Per-board perspective correction and cell crops` — done
+  2026-07-28
 
 ### Bramka G5.3
 

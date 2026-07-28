@@ -50,6 +50,8 @@
     "m5:corpus:validate": ".venv\\Scripts\\python.exe scripts/validate_m5_corpus.py",
     "m5:images:discover": ".venv\\Scripts\\python.exe scripts/discover_m5_images.py",
     "m5:images:normalize": ".venv\\Scripts\\python.exe scripts/normalize_m5_images.py",
+    "m5:boards:detect": ".venv\\Scripts\\python.exe scripts/detect_m5_boards.py",
+    "m5:boards:crop": ".venv\\Scripts\\python.exe scripts/crop_m5_board_cells.py",
     "lint": "npm run lint --workspaces --if-present && npm run python:lint && npm run powershell:check",
     "m2:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_m2_acceptance.ps1",
     "openapi:check": ".venv\\Scripts\\python.exe scripts/export_admin_openapi.py --check && npm run check:generated --workspace @game-predictor/admin-api-client",

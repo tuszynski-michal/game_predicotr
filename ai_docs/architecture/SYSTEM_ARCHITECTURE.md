@@ -337,6 +337,33 @@ czyste RGB PNG jako
 `diagnostic.json`. Artefakty są względne wobec osobnego working root,
 content-addressed i niezmienne; retry porównuje bajty, a kolizji nie nadpisuje.
 
+Geometria używa portu `PageBoardDetector` oraz kontraktu
+`page-board-detector-v1`. Klasyczna implementacja OpenCV/NumPy przyjmuje
+znormalizowany RGB, wykrywa czerwone ramki w HSV i zwraca stronę oraz dokładnie
+dziewięć plansz w kolejności row-major. Każda plansza zawiera indeks, quad,
+bounding box, ocenę czerwonej ramki i jawny znacznik korekty względem siatki.
+Confidence obrazu składa się z dowodu ramki, zgodności rozmiaru, wyrównania
+wierszy/kolumn i stabilności korekty. Niespełniona geometria zwraca
+`needs_review` ze stabilnymi powodami zamiast częściowego wyniku.
+
+Overlaye detektora są niezmiennymi artefaktami roboczymi pod
+`page-board-detector-v1/<prefix>/<source-sha256>/overlay.png`. Warstwa domenowa
+detektora nie zna CLI ani systemu plików; runner odpowiada za weryfikację
+raportu normalizacji, bezpieczne ścieżki, checksumy i idempotentny zapis.
+
+Prostowanie i podział komórek używa osobnego portu `BoardCellCropper` oraz
+kontraktu `board-cell-crops-v1`. Runner ponownie weryfikuje raport normalizacji,
+jego checksumę zapisaną przez TASK-0054, tożsamość źródła i checksumę
+znormalizowanego PNG. Dopiero kompletny wynik dziewięciu plansz trafia do
+indywidualnych transformacji perspektywy 500 × 300 i siatki 3 × 5.
+
+Artefakty mają układ
+`board-cell-crops-v1/<prefix>/<source-sha256>/board-<index>/`: `board.png`,
+`grid-overlay.png` oraz `cells/r<row>-c<column>.png`. Raport przechowuje
+macierz transformacji i SHA-256 każdego pliku. Port nie zna systemu plików,
+natomiast runner gwarantuje bezpieczne ścieżki, content-addressed zapis,
+idempotencję i brak częściowych artefaktów przy wyniku `needs_review`.
+
 ## Granice kodu
 
 ```text

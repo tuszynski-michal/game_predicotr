@@ -90,22 +90,37 @@ zawartość pod tą samą ścieżką jest kolizją i nie zostaje nadpisana.
 
 ### 3. Detekcja strony i layoutów
 
-- znalezienie obszaru ekranu,
-- wykrycie oczekiwanych czerwonych ramek lub innych stabilnych cech,
-- ustalenie siatki 3 × 3 mini-layoutów,
-- zapis confidence i diagnostycznego podglądu.
+- kontrakt `page-board-detector-v1` przyjmuje znormalizowany RGB PNG,
+- wspierany wariant obejmuje dokładnie dziewięć czerwonych ramek w siatce
+  3 × 3; wynik zachowuje kolejność row-major i indeksy 0–8,
+- klasyczny detektor HSV/contour zapisuje narożniki strony i każdej planszy,
+  bounding box, confidence z jawnymi składnikami oraz informację o kontrolowanej
+  korekcie kandydata względem regularnej siatki,
+- brak dziewięciu kandydatów, nadmiar, nieregularność, złe wyrównanie albo
+  nakładanie daje `needs_review` ze stabilnym powodem; pipeline nie dopełnia
+  i nie przesuwa indeksów po cichu,
+- content-addressed overlay diagnostyczny powstaje poza źródłami i
+  znormalizowanymi plikami.
 
 Ze względu na krzywiznę wyświetlacza każdy mini-layout powinien być prostowany indywidualnie. Jedna globalna transformacja perspektywy może nie wystarczyć.
 
+Powyższy wariant jest prototypem ograniczonym przez D-053. Wynik 12/12 na
+bieżących zdjęciach potwierdza działanie na obserwowanym ekranie, ale bez
+niezależnych adnotacji narożników nie stanowi pomiaru accuracy ani zaliczenia
+G5.3.
+
 ### 4. Wycięcie layoutów
 
-Dla każdego obszaru zapisz:
+Kontrakt `board-cell-crops-v1` działa tylko na kompletnym wyniku
+`page-board-detector-v1` dla wariantu D-053:
 
-- indeks pozycji na zdjęciu,
-- bounding box lub narożniki,
-- transformację perspektywy,
-- ścieżkę do wycinka roboczego,
-- status i confidence detekcji.
+- każdy quad jest walidowany i prostowany indywidualnie do RGB 500 × 300,
+- indeks planszy pozostaje 0-based i row-major z TASK-0054,
+- raport zapisuje źródłowy quad, macierz transformacji, ścieżkę względną,
+  checksum i wersję croppera,
+- wynik niekompletny, zła kolejność albo niepoprawny quad daje `needs_review`
+  bez częściowych wycinków,
+- plansza i overlay siatki są content-addressed oraz niezmienne.
 
 ### 5. Odczyt sequence number
 
@@ -117,10 +132,13 @@ Dla każdego obszaru zapisz:
 
 ### 6. Podział na komórki
 
-- użyj wymiarów gry,
-- podziel indywidualnie wyprostowany layout na siatkę,
-- zachowaj margines od ramki,
-- zapisz wycinek każdej komórki do cache roboczego lub datasetu treningowego.
+- wariant D-053 używa wymiarów 3 × 5,
+- od wyprostowanej planszy odetnij po 5%, czyli 25 px poziomo i 15 px pionowo,
+- podziel wewnętrzny obszar 450 × 270 na 15 komórek RGB 90 × 90,
+- wiersz i kolumna są 0-based; kolejność zapisu jest row-major,
+- każda komórka ma względną ścieżkę i SHA-256 w raporcie,
+- wycinki są cache roboczym prototypu; nie są jeszcze datasetem treningowym ani
+  rekordami opublikowanego datasetu.
 
 ### 7. Klasyfikacja symbolu
 

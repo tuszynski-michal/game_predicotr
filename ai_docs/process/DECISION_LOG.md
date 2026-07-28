@@ -1112,6 +1112,52 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   G3, TASK-0051 i G5.1 pozostają otwarte.
 - **Supersedes:** D-051 wyłącznie w zakresie dopuszczenia TASK-0053.
 
+## D-053 — Supported 3 × 3 geometry variant before Q-016
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** po commicie M5.2 właściciel polecił przejść do następnego
+  zadania bez odpowiedzi na Q-016. TASK-0054 może implementować wyłącznie
+  wariant widoczny na obecnym korpusie: dokładnie dziewięć plansz w siatce
+  3 × 3 z czerwonymi ramkami. Inna liczba lub nieregularny układ daje
+  `needs_review/unsupported`, nigdy sztucznie dopełniony wynik.
+- **Context:** detekcja bieżącego wariantu pozwala zmierzyć przydatność
+  klasycznej geometrii, lecz brak odpowiedzi o innych grach nie pozwala uznać
+  tego kontraktu za uniwersalny.
+- **Reason:** jawne ograniczenie wariantu chroni indeksy i sequence order przed
+  cichym przesunięciem, a port detektora pozwala później dodać konfigurację albo
+  wymienić implementację bez zmiany dalszego pipeline'u.
+- **Alternatives:** zatrzymanie do Q-016 albo ukryte założenie, że wszystkie gry
+  mają identyczny ekran.
+- **Consequences:** można użyć OpenCV/NumPy i tworzyć raporty/overlaye dla
+  3 × 3. Nie wolno zaliczyć progu accuracy bez niezależnej pełnej geometrii
+  golden ani rozpocząć TASK-0055 bez kolejnego polecenia. Q-016 pozostaje
+  otwarte.
+- **Supersedes:** D-052 wyłącznie w zakresie dopuszczenia TASK-0054.
+
+## D-054 — Canonical board and cell crop contract for the supported variant
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** na kolejne jawne polecenie właściciela TASK-0055 może
+  indywidualnie prostować dziewięć plansz wariantu D-053. Kontrakt
+  `board-cell-crops-v1` mapuje każdy quad do RGB 500 × 300, odcina po 5%
+  szerokości/wysokości z każdej strony i dzieli wnętrze na 3 × 5 komórek
+  RGB 90 × 90. Indeksy planszy, wiersza i kolumny są 0-based oraz row-major.
+- **Context:** jeden globalny warp nie kompensuje krzywizny ekranu. Stały
+  kanoniczny wymiar i jawny margines dają deterministyczny kontrakt wejścia dla
+  przyszłego klasyfikatora bez uzależnienia go od rozdzielczości źródła.
+- **Reason:** 500 × 300 zachowuje proporcję siatki 5:3, a margines 5% daje bez
+  resamplingu dokładne komórki 90 × 90. Każda transformacja oraz checksum
+  pozostają audytowalne.
+- **Alternatives:** zmienny rozmiar wynikowy, jeden warp strony albo wycinanie
+  osiowych bounding boxów bez korekty perspektywy.
+- **Consequences:** można tworzyć wycinki tylko dla kompletnego, wykrytego
+  wyniku TASK-0054. Inny wariant lub niepoprawny quad daje `needs_review`;
+  nie wolno rozpoczynać OCR ani deklarować accuracy/G5.3 bez osobnego zadania
+  i niezależnych golden annotations. Q-016 pozostaje otwarte.
+- **Supersedes:** D-053 wyłącznie w zakresie dopuszczenia TASK-0055.
+
 ## Szablon nowej decyzji
 
 ```text

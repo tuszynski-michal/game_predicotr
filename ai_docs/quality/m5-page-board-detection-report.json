@@ -1,0 +1,3637 @@
+{
+  "detectedCount": 12,
+  "detections": [
+    {
+      "normalizedRelativePath": "image-normalization-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/normalized.png",
+      "overlayChecksumSha256": "792ce5d187b2377f114af638ec2257b002a57bd84f139ff12569b6fa5bed5b41",
+      "overlayRelativePath": "page-board-detector-v1/18/18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 128,
+              "width": 179,
+              "x": 116,
+              "y": 375
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 122,
+                "y": 408
+              },
+              {
+                "x": 277,
+                "y": 380
+              },
+              {
+                "x": 293,
+                "y": 489
+              },
+              {
+                "x": 122,
+                "y": 499
+              }
+            ],
+            "redBorderScore": 0.567284,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 124,
+              "width": 215,
+              "x": 364,
+              "y": 373
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 364,
+                "y": 400
+              },
+              {
+                "x": 559,
+                "y": 394
+              },
+              {
+                "x": 562,
+                "y": 491
+              },
+              {
+                "x": 374,
+                "y": 486
+              }
+            ],
+            "redBorderScore": 0.449613,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 122,
+              "width": 174,
+              "x": 633,
+              "y": 394
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 642,
+                "y": 410
+              },
+              {
+                "x": 788,
+                "y": 412
+              },
+              {
+                "x": 805,
+                "y": 512
+              },
+              {
+                "x": 640,
+                "y": 466
+              }
+            ],
+            "redBorderScore": 0.340613,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 112,
+              "width": 181,
+              "x": 123,
+              "y": 555
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 124,
+                "y": 566
+              },
+              {
+                "x": 293,
+                "y": 558
+              },
+              {
+                "x": 303,
+                "y": 653
+              },
+              {
+                "x": 124,
+                "y": 666
+              }
+            ],
+            "redBorderScore": 0.455887,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 212,
+              "x": 360,
+              "y": 551
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 373,
+                "y": 557
+              },
+              {
+                "x": 559,
+                "y": 559
+              },
+              {
+                "x": 571,
+                "y": 651
+              },
+              {
+                "x": 375,
+                "y": 654
+              }
+            ],
+            "redBorderScore": 0.442319,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 115,
+              "width": 188,
+              "x": 625,
+              "y": 560
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 634,
+                "y": 564
+              },
+              {
+                "x": 803,
+                "y": 577
+              },
+              {
+                "x": 803,
+                "y": 671
+              },
+              {
+                "x": 641,
+                "y": 662
+              }
+            ],
+            "redBorderScore": 0.439178,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 104,
+              "width": 202,
+              "x": 112,
+              "y": 723
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 117,
+                "y": 732
+              },
+              {
+                "x": 308,
+                "y": 725
+              },
+              {
+                "x": 312,
+                "y": 819
+              },
+              {
+                "x": 120,
+                "y": 824
+              }
+            ],
+            "redBorderScore": 0.699141,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 104,
+              "width": 219,
+              "x": 357,
+              "y": 717
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 359,
+                "y": 725
+              },
+              {
+                "x": 574,
+                "y": 724
+              },
+              {
+                "x": 573,
+                "y": 814
+              },
+              {
+                "x": 359,
+                "y": 818
+              }
+            ],
+            "redBorderScore": 0.738422,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 100,
+              "width": 193,
+              "x": 619,
+              "y": 721
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 624,
+                "y": 724
+              },
+              {
+                "x": 808,
+                "y": 730
+              },
+              {
+                "x": 807,
+                "y": 818
+              },
+              {
+                "x": 620,
+                "y": 815
+              }
+            ],
+            "redBorderScore": 0.697751,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.733601,
+        "confidenceComponents": {
+          "borderEvidence": 0.53669,
+          "columnAlignment": 0.769718,
+          "refinementStability": 1.0,
+          "rowAlignment": 0.603175,
+          "sizeConsistency": 0.75842
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 98,
+            "y": 354
+          },
+          {
+            "x": 827,
+            "y": 354
+          },
+          {
+            "x": 827,
+            "y": 850
+          },
+          {
+            "x": 98,
+            "y": 850
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/normalized.png",
+      "overlayChecksumSha256": "61797bb28a4e51266a92b4b6530033ffd63fd3c34f03c25251e62a8590e37097",
+      "overlayRelativePath": "page-board-detector-v1/24/243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 125,
+              "width": 187,
+              "x": 123,
+              "y": 243
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 148,
+                "y": 254
+              },
+              {
+                "x": 306,
+                "y": 256
+              },
+              {
+                "x": 300,
+                "y": 358
+              },
+              {
+                "x": 127,
+                "y": 362
+              }
+            ],
+            "redBorderScore": 0.597019,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 122,
+              "width": 221,
+              "x": 350,
+              "y": 254
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 352,
+                "y": 257
+              },
+              {
+                "x": 568,
+                "y": 271
+              },
+              {
+                "x": 556,
+                "y": 375
+              },
+              {
+                "x": 364,
+                "y": 363
+              }
+            ],
+            "redBorderScore": 0.603158,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 130,
+              "width": 185,
+              "x": 607,
+              "y": 276
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 610,
+                "y": 277
+              },
+              {
+                "x": 784,
+                "y": 305
+              },
+              {
+                "x": 783,
+                "y": 398
+              },
+              {
+                "x": 619,
+                "y": 378
+              }
+            ],
+            "redBorderScore": 0.385461,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 193,
+              "x": 114,
+              "y": 421
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 123,
+                "y": 430
+              },
+              {
+                "x": 302,
+                "y": 430
+              },
+              {
+                "x": 304,
+                "y": 525
+              },
+              {
+                "x": 130,
+                "y": 528
+              }
+            ],
+            "redBorderScore": 0.461623,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 111,
+              "width": 210,
+              "x": 352,
+              "y": 424
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 358,
+                "y": 429
+              },
+              {
+                "x": 556,
+                "y": 439
+              },
+              {
+                "x": 555,
+                "y": 531
+              },
+              {
+                "x": 359,
+                "y": 524
+              }
+            ],
+            "redBorderScore": 0.559994,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 184,
+              "x": 601,
+              "y": 440
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 609,
+                "y": 443
+              },
+              {
+                "x": 781,
+                "y": 462
+              },
+              {
+                "x": 784,
+                "y": 549
+              },
+              {
+                "x": 607,
+                "y": 531
+              }
+            ],
+            "redBorderScore": 0.572861,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 99,
+              "width": 191,
+              "x": 119,
+              "y": 584
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 121,
+                "y": 589
+              },
+              {
+                "x": 306,
+                "y": 588
+              },
+              {
+                "x": 308,
+                "y": 678
+              },
+              {
+                "x": 125,
+                "y": 679
+              }
+            ],
+            "redBorderScore": 0.813027,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 97,
+              "width": 206,
+              "x": 349,
+              "y": 586
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 353,
+                "y": 588
+              },
+              {
+                "x": 553,
+                "y": 593
+              },
+              {
+                "x": 549,
+                "y": 681
+              },
+              {
+                "x": 351,
+                "y": 678
+              }
+            ],
+            "redBorderScore": 0.800678,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 98,
+              "width": 184,
+              "x": 591,
+              "y": 593
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 597,
+                "y": 595
+              },
+              {
+                "x": 771,
+                "y": 605
+              },
+              {
+                "x": 766,
+                "y": 690
+              },
+              {
+                "x": 592,
+                "y": 683
+              }
+            ],
+            "redBorderScore": 0.616325,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.620322,
+        "confidenceComponents": {
+          "borderEvidence": 0.601127,
+          "columnAlignment": 0.52007,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.282828,
+          "sizeConsistency": 0.753141
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 102,
+            "y": 228
+          },
+          {
+            "x": 803,
+            "y": 228
+          },
+          {
+            "x": 803,
+            "y": 716
+          },
+          {
+            "x": 102,
+            "y": 716
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/normalized.png",
+      "overlayChecksumSha256": "77468cfab21a774507ec87997151cbfb84eed1a63980e47c0e29cd1dc75ba050",
+      "overlayRelativePath": "page-board-detector-v1/51/5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 149,
+              "width": 206,
+              "x": 136,
+              "y": 327
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 155,
+                "y": 352
+              },
+              {
+                "x": 335,
+                "y": 341
+              },
+              {
+                "x": 327,
+                "y": 457
+              },
+              {
+                "x": 139,
+                "y": 471
+              }
+            ],
+            "redBorderScore": 0.387915,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 145,
+              "width": 267,
+              "x": 390,
+              "y": 310
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 402,
+                "y": 336
+              },
+              {
+                "x": 652,
+                "y": 328
+              },
+              {
+                "x": 645,
+                "y": 448
+              },
+              {
+                "x": 410,
+                "y": 430
+              }
+            ],
+            "redBorderScore": 0.440642,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 140,
+              "width": 231,
+              "x": 702,
+              "y": 323
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 704,
+                "y": 325
+              },
+              {
+                "x": 919,
+                "y": 344
+              },
+              {
+                "x": 926,
+                "y": 430
+              },
+              {
+                "x": 715,
+                "y": 450
+              }
+            ],
+            "redBorderScore": 0.51666,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 132,
+              "width": 218,
+              "x": 132,
+              "y": 528
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 140,
+                "y": 547
+              },
+              {
+                "x": 340,
+                "y": 534
+              },
+              {
+                "x": 349,
+                "y": 643
+              },
+              {
+                "x": 153,
+                "y": 658
+              }
+            ],
+            "redBorderScore": 0.346747,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 129,
+              "width": 252,
+              "x": 404,
+              "y": 516
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 409,
+                "y": 528
+              },
+              {
+                "x": 647,
+                "y": 522
+              },
+              {
+                "x": 654,
+                "y": 631
+              },
+              {
+                "x": 416,
+                "y": 635
+              }
+            ],
+            "redBorderScore": 0.639161,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 165,
+              "width": 252,
+              "x": 708,
+              "y": 519
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 712,
+                "y": 528
+              },
+              {
+                "x": 930,
+                "y": 535
+              },
+              {
+                "x": 959,
+                "y": 683
+              },
+              {
+                "x": 717,
+                "y": 635
+              }
+            ],
+            "redBorderScore": 0.35623,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 116,
+              "width": 220,
+              "x": 146,
+              "y": 713
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 149,
+                "y": 726
+              },
+              {
+                "x": 358,
+                "y": 716
+              },
+              {
+                "x": 364,
+                "y": 818
+              },
+              {
+                "x": 157,
+                "y": 825
+              }
+            ],
+            "redBorderScore": 0.583059,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 116,
+              "width": 248,
+              "x": 409,
+              "y": 704
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 412,
+                "y": 712
+              },
+              {
+                "x": 653,
+                "y": 708
+              },
+              {
+                "x": 654,
+                "y": 811
+              },
+              {
+                "x": 414,
+                "y": 816
+              }
+            ],
+            "redBorderScore": 0.775375,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 113,
+              "width": 226,
+              "x": 705,
+              "y": 703
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 710,
+                "y": 707
+              },
+              {
+                "x": 927,
+                "y": 711
+              },
+              {
+                "x": 924,
+                "y": 811
+              },
+              {
+                "x": 706,
+                "y": 810
+              }
+            ],
+            "redBorderScore": 0.785106,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.689075,
+        "confidenceComponents": {
+          "borderEvidence": 0.536766,
+          "columnAlignment": 0.59115,
+          "refinementStability": 1.0,
+          "rowAlignment": 0.646465,
+          "sizeConsistency": 0.670996
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 120,
+            "y": 299
+          },
+          {
+            "x": 959,
+            "y": 299
+          },
+          {
+            "x": 959,
+            "y": 851
+          },
+          {
+            "x": 120,
+            "y": 851
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/normalized.png",
+      "overlayChecksumSha256": "0650d23483744e9dfb95ad56938bafbf18f1cb6b66cf83feef37e10065da034f",
+      "overlayRelativePath": "page-board-detector-v1/53/536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 111,
+              "width": 161,
+              "x": 164,
+              "y": 392
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 165,
+                "y": 409
+              },
+              {
+                "x": 320,
+                "y": 409
+              },
+              {
+                "x": 311,
+                "y": 498
+              },
+              {
+                "x": 189,
+                "y": 498
+              }
+            ],
+            "redBorderScore": 0.450019,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 202,
+              "x": 365,
+              "y": 399
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 366,
+                "y": 408
+              },
+              {
+                "x": 563,
+                "y": 414
+              },
+              {
+                "x": 557,
+                "y": 507
+              },
+              {
+                "x": 374,
+                "y": 498
+              }
+            ],
+            "redBorderScore": 0.572605,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 113,
+              "width": 169,
+              "x": 600,
+              "y": 417
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 605,
+                "y": 417
+              },
+              {
+                "x": 760,
+                "y": 438
+              },
+              {
+                "x": 764,
+                "y": 522
+              },
+              {
+                "x": 606,
+                "y": 502
+              }
+            ],
+            "redBorderScore": 0.428675,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 99,
+              "width": 180,
+              "x": 145,
+              "y": 552
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 155,
+                "y": 560
+              },
+              {
+                "x": 318,
+                "y": 556
+              },
+              {
+                "x": 323,
+                "y": 644
+              },
+              {
+                "x": 145,
+                "y": 624
+              }
+            ],
+            "redBorderScore": 0.472521,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 97,
+              "width": 192,
+              "x": 367,
+              "y": 552
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 370,
+                "y": 560
+              },
+              {
+                "x": 548,
+                "y": 560
+              },
+              {
+                "x": 555,
+                "y": 646
+              },
+              {
+                "x": 371,
+                "y": 638
+              }
+            ],
+            "redBorderScore": 0.618087,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 98,
+              "width": 170,
+              "x": 598,
+              "y": 565
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 604,
+                "y": 566
+              },
+              {
+                "x": 763,
+                "y": 581
+              },
+              {
+                "x": 767,
+                "y": 659
+              },
+              {
+                "x": 603,
+                "y": 643
+              }
+            ],
+            "redBorderScore": 0.545708,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 92,
+              "width": 179,
+              "x": 147,
+              "y": 699
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 149,
+                "y": 705
+              },
+              {
+                "x": 323,
+                "y": 701
+              },
+              {
+                "x": 324,
+                "y": 784
+              },
+              {
+                "x": 152,
+                "y": 788
+              }
+            ],
+            "redBorderScore": 0.796701,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 91,
+              "width": 193,
+              "x": 363,
+              "y": 696
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 366,
+                "y": 701
+              },
+              {
+                "x": 553,
+                "y": 701
+              },
+              {
+                "x": 551,
+                "y": 783
+              },
+              {
+                "x": 364,
+                "y": 783
+              }
+            ],
+            "redBorderScore": 0.74646,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 90,
+              "width": 170,
+              "x": 591,
+              "y": 701
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 594,
+                "y": 704
+              },
+              {
+                "x": 758,
+                "y": 711
+              },
+              {
+                "x": 755,
+                "y": 787
+              },
+              {
+                "x": 591,
+                "y": 783
+              }
+            ],
+            "redBorderScore": 0.688889,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.683846,
+        "confidenceComponents": {
+          "borderEvidence": 0.591074,
+          "columnAlignment": 0.705152,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.410431,
+          "sizeConsistency": 0.768128
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 126,
+            "y": 382
+          },
+          {
+            "x": 786,
+            "y": 382
+          },
+          {
+            "x": 786,
+            "y": 814
+          },
+          {
+            "x": 126,
+            "y": 814
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/normalized.png",
+      "overlayChecksumSha256": "7e8efbeae03bc771e2ebaddd23a49a538b4092773556da0e0e041d857f3cf29c",
+      "overlayRelativePath": "page-board-detector-v1/5f/5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 113,
+              "width": 166,
+              "x": 192,
+              "y": 304
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 206,
+                "y": 320
+              },
+              {
+                "x": 349,
+                "y": 314
+              },
+              {
+                "x": 345,
+                "y": 407
+              },
+              {
+                "x": 194,
+                "y": 411
+              }
+            ],
+            "redBorderScore": 0.557931,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 112,
+              "width": 196,
+              "x": 400,
+              "y": 306
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 401,
+                "y": 314
+              },
+              {
+                "x": 594,
+                "y": 322
+              },
+              {
+                "x": 582,
+                "y": 413
+              },
+              {
+                "x": 410,
+                "y": 375
+              }
+            ],
+            "redBorderScore": 0.446693,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 115,
+              "width": 162,
+              "x": 634,
+              "y": 325
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 636,
+                "y": 326
+              },
+              {
+                "x": 790,
+                "y": 352
+              },
+              {
+                "x": 790,
+                "y": 436
+              },
+              {
+                "x": 647,
+                "y": 420
+              }
+            ],
+            "redBorderScore": 0.375184,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 101,
+              "width": 174,
+              "x": 183,
+              "y": 464
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 193,
+                "y": 474
+              },
+              {
+                "x": 353,
+                "y": 470
+              },
+              {
+                "x": 356,
+                "y": 554
+              },
+              {
+                "x": 197,
+                "y": 562
+              }
+            ],
+            "redBorderScore": 0.476667,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 100,
+              "width": 190,
+              "x": 400,
+              "y": 464
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 409,
+                "y": 469
+              },
+              {
+                "x": 582,
+                "y": 473
+              },
+              {
+                "x": 585,
+                "y": 558
+              },
+              {
+                "x": 419,
+                "y": 557
+              }
+            ],
+            "redBorderScore": 0.639388,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 108,
+              "width": 195,
+              "x": 630,
+              "y": 476
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 637,
+                "y": 479
+              },
+              {
+                "x": 788,
+                "y": 492
+              },
+              {
+                "x": 823,
+                "y": 583
+              },
+              {
+                "x": 636,
+                "y": 560
+              }
+            ],
+            "redBorderScore": 0.28992,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 91,
+              "width": 174,
+              "x": 186,
+              "y": 613
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 188,
+                "y": 619
+              },
+              {
+                "x": 356,
+                "y": 615
+              },
+              {
+                "x": 359,
+                "y": 697
+              },
+              {
+                "x": 191,
+                "y": 699
+              }
+            ],
+            "redBorderScore": 0.82034,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 89,
+              "width": 189,
+              "x": 397,
+              "y": 612
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 401,
+                "y": 615
+              },
+              {
+                "x": 583,
+                "y": 617
+              },
+              {
+                "x": 582,
+                "y": 698
+              },
+              {
+                "x": 399,
+                "y": 697
+              }
+            ],
+            "redBorderScore": 0.742549,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 91,
+              "width": 170,
+              "x": 622,
+              "y": 618
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 629,
+                "y": 619
+              },
+              {
+                "x": 790,
+                "y": 629
+              },
+              {
+                "x": 786,
+                "y": 705
+              },
+              {
+                "x": 623,
+                "y": 699
+              }
+            ],
+            "redBorderScore": 0.693584,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.639051,
+        "confidenceComponents": {
+          "borderEvidence": 0.560251,
+          "columnAlignment": 0.345466,
+          "refinementStability": 1.0,
+          "rowAlignment": 0.515952,
+          "sizeConsistency": 0.773586
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 169,
+            "y": 288
+          },
+          {
+            "x": 842,
+            "y": 288
+          },
+          {
+            "x": 842,
+            "y": 731
+          },
+          {
+            "x": 169,
+            "y": 731
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/normalized.png",
+      "overlayChecksumSha256": "b855768eaf1a1c0da6cf91f30d47b1941991ea730bb5bab56d8080b168f58047",
+      "overlayRelativePath": "page-board-detector-v1/68/683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 120,
+              "width": 180,
+              "x": 108,
+              "y": 341
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 130,
+                "y": 356
+              },
+              {
+                "x": 286,
+                "y": 356
+              },
+              {
+                "x": 280,
+                "y": 451
+              },
+              {
+                "x": 113,
+                "y": 455
+              }
+            ],
+            "redBorderScore": 0.526586,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 120,
+              "width": 214,
+              "x": 328,
+              "y": 341
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 330,
+                "y": 350
+              },
+              {
+                "x": 534,
+                "y": 356
+              },
+              {
+                "x": 529,
+                "y": 457
+              },
+              {
+                "x": 343,
+                "y": 452
+              }
+            ],
+            "redBorderScore": 0.543239,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 119,
+              "width": 180,
+              "x": 578,
+              "y": 361
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 582,
+                "y": 361
+              },
+              {
+                "x": 745,
+                "y": 380
+              },
+              {
+                "x": 746,
+                "y": 478
+              },
+              {
+                "x": 581,
+                "y": 455
+              }
+            ],
+            "redBorderScore": 0.450607,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 107,
+              "width": 187,
+              "x": 103,
+              "y": 509
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 113,
+                "y": 518
+              },
+              {
+                "x": 283,
+                "y": 513
+              },
+              {
+                "x": 288,
+                "y": 605
+              },
+              {
+                "x": 119,
+                "y": 614
+              }
+            ],
+            "redBorderScore": 0.504775,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 104,
+              "width": 205,
+              "x": 333,
+              "y": 507
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 339,
+                "y": 512
+              },
+              {
+                "x": 535,
+                "y": 519
+              },
+              {
+                "x": 533,
+                "y": 605
+              },
+              {
+                "x": 341,
+                "y": 601
+              }
+            ],
+            "redBorderScore": 0.563767,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 106,
+              "width": 180,
+              "x": 579,
+              "y": 521
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 583,
+                "y": 521
+              },
+              {
+                "x": 753,
+                "y": 535
+              },
+              {
+                "x": 758,
+                "y": 620
+              },
+              {
+                "x": 584,
+                "y": 607
+              }
+            ],
+            "redBorderScore": 0.53587,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 97,
+              "width": 187,
+              "x": 109,
+              "y": 664
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 112,
+                "y": 671
+              },
+              {
+                "x": 290,
+                "y": 666
+              },
+              {
+                "x": 294,
+                "y": 753
+              },
+              {
+                "x": 117,
+                "y": 758
+              }
+            ],
+            "redBorderScore": 0.724138,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 95,
+              "width": 202,
+              "x": 334,
+              "y": 661
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 335,
+                "y": 666
+              },
+              {
+                "x": 532,
+                "y": 666
+              },
+              {
+                "x": 533,
+                "y": 750
+              },
+              {
+                "x": 337,
+                "y": 753
+              }
+            ],
+            "redBorderScore": 0.770058,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 94,
+              "width": 181,
+              "x": 574,
+              "y": 665
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 576,
+                "y": 667
+              },
+              {
+                "x": 751,
+                "y": 675
+              },
+              {
+                "x": 749,
+                "y": 755
+              },
+              {
+                "x": 574,
+                "y": 751
+              }
+            ],
+            "redBorderScore": 0.713387,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.747265,
+        "confidenceComponents": {
+          "borderEvidence": 0.592492,
+          "columnAlignment": 0.821747,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.591195,
+          "sizeConsistency": 0.786449
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 93,
+            "y": 324
+          },
+          {
+            "x": 777,
+            "y": 324
+          },
+          {
+            "x": 777,
+            "y": 784
+          },
+          {
+            "x": 93,
+            "y": 784
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/normalized.png",
+      "overlayChecksumSha256": "25fdf56194760067f1a0f9642a542e335fdcc862f9f69cef77b27d34d632a0e7",
+      "overlayRelativePath": "page-board-detector-v1/7f/7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 142,
+              "width": 208,
+              "x": 89,
+              "y": 259
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 95,
+                "y": 299
+              },
+              {
+                "x": 292,
+                "y": 269
+              },
+              {
+                "x": 286,
+                "y": 386
+              },
+              {
+                "x": 96,
+                "y": 396
+              }
+            ],
+            "redBorderScore": 0.541648,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 143,
+              "width": 252,
+              "x": 350,
+              "y": 257
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 352,
+                "y": 270
+              },
+              {
+                "x": 599,
+                "y": 272
+              },
+              {
+                "x": 586,
+                "y": 395
+              },
+              {
+                "x": 366,
+                "y": 384
+              }
+            ],
+            "redBorderScore": 0.461831,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 141,
+              "width": 214,
+              "x": 647,
+              "y": 281
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 649,
+                "y": 282
+              },
+              {
+                "x": 844,
+                "y": 304
+              },
+              {
+                "x": 857,
+                "y": 414
+              },
+              {
+                "x": 659,
+                "y": 398
+              }
+            ],
+            "redBorderScore": 0.519485,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 125,
+              "width": 218,
+              "x": 85,
+              "y": 459
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 93,
+                "y": 472
+              },
+              {
+                "x": 292,
+                "y": 464
+              },
+              {
+                "x": 302,
+                "y": 571
+              },
+              {
+                "x": 86,
+                "y": 549
+              }
+            ],
+            "redBorderScore": 0.401629,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 126,
+              "width": 241,
+              "x": 353,
+              "y": 456
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 364,
+                "y": 463
+              },
+              {
+                "x": 583,
+                "y": 465
+              },
+              {
+                "x": 589,
+                "y": 575
+              },
+              {
+                "x": 364,
+                "y": 569
+              }
+            ],
+            "redBorderScore": 0.606739,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 126,
+              "width": 214,
+              "x": 644,
+              "y": 469
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 649,
+                "y": 473
+              },
+              {
+                "x": 856,
+                "y": 491
+              },
+              {
+                "x": 857,
+                "y": 586
+              },
+              {
+                "x": 666,
+                "y": 581
+              }
+            ],
+            "redBorderScore": 0.538007,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 112,
+              "width": 216,
+              "x": 94,
+              "y": 643
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 96,
+                "y": 651
+              },
+              {
+                "x": 302,
+                "y": 645
+              },
+              {
+                "x": 308,
+                "y": 747
+              },
+              {
+                "x": 103,
+                "y": 751
+              }
+            ],
+            "redBorderScore": 0.730964,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 237,
+              "x": 354,
+              "y": 640
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 358,
+                "y": 644
+              },
+              {
+                "x": 588,
+                "y": 646
+              },
+              {
+                "x": 587,
+                "y": 747
+              },
+              {
+                "x": 357,
+                "y": 746
+              }
+            ],
+            "redBorderScore": 0.698359,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 112,
+              "width": 214,
+              "x": 637,
+              "y": 645
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 642,
+                "y": 649
+              },
+              {
+                "x": 848,
+                "y": 657
+              },
+              {
+                "x": 842,
+                "y": 754
+              },
+              {
+                "x": 638,
+                "y": 748
+              }
+            ],
+            "redBorderScore": 0.666288,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.724535,
+        "confidenceComponents": {
+          "borderEvidence": 0.573883,
+          "columnAlignment": 0.742798,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.594356,
+          "sizeConsistency": 0.767196
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 67,
+            "y": 243
+          },
+          {
+            "x": 876,
+            "y": 243
+          },
+          {
+            "x": 876,
+            "y": 780
+          },
+          {
+            "x": 67,
+            "y": 780
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/normalized.png",
+      "overlayChecksumSha256": "77363d202e1d5ba4d08f1ff9c7bfe5875546aeca35e9110303f5422ce3297ac0",
+      "overlayRelativePath": "page-board-detector-v1/be/be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 125,
+              "width": 189,
+              "x": 114,
+              "y": 352
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 138,
+                "y": 363
+              },
+              {
+                "x": 285,
+                "y": 360
+              },
+              {
+                "x": 291,
+                "y": 470
+              },
+              {
+                "x": 117,
+                "y": 473
+              }
+            ],
+            "redBorderScore": 0.566144,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 125,
+              "width": 222,
+              "x": 344,
+              "y": 360
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 350,
+                "y": 366
+              },
+              {
+                "x": 563,
+                "y": 379
+              },
+              {
+                "x": 557,
+                "y": 481
+              },
+              {
+                "x": 345,
+                "y": 452
+              }
+            ],
+            "redBorderScore": 0.521876,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 125,
+              "width": 185,
+              "x": 603,
+              "y": 381
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 609,
+                "y": 381
+              },
+              {
+                "x": 778,
+                "y": 407
+              },
+              {
+                "x": 782,
+                "y": 500
+              },
+              {
+                "x": 607,
+                "y": 484
+              }
+            ],
+            "redBorderScore": 0.333233,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 111,
+              "width": 198,
+              "x": 103,
+              "y": 529
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 116,
+                "y": 538
+              },
+              {
+                "x": 296,
+                "y": 535
+              },
+              {
+                "x": 299,
+                "y": 630
+              },
+              {
+                "x": 121,
+                "y": 637
+              }
+            ],
+            "redBorderScore": 0.51602,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 109,
+              "width": 210,
+              "x": 347,
+              "y": 530
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 354,
+                "y": 534
+              },
+              {
+                "x": 553,
+                "y": 542
+              },
+              {
+                "x": 554,
+                "y": 633
+              },
+              {
+                "x": 352,
+                "y": 628
+              }
+            ],
+            "redBorderScore": 0.629874,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 184,
+              "x": 601,
+              "y": 545
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 604,
+                "y": 548
+              },
+              {
+                "x": 774,
+                "y": 561
+              },
+              {
+                "x": 784,
+                "y": 639
+              },
+              {
+                "x": 601,
+                "y": 633
+              }
+            ],
+            "redBorderScore": 0.472426,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 99,
+              "width": 194,
+              "x": 110,
+              "y": 690
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 113,
+                "y": 697
+              },
+              {
+                "x": 300,
+                "y": 693
+              },
+              {
+                "x": 302,
+                "y": 783
+              },
+              {
+                "x": 117,
+                "y": 786
+              }
+            ],
+            "redBorderScore": 0.773731,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 98,
+              "width": 209,
+              "x": 345,
+              "y": 687
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 348,
+                "y": 692
+              },
+              {
+                "x": 551,
+                "y": 693
+              },
+              {
+                "x": 547,
+                "y": 782
+              },
+              {
+                "x": 347,
+                "y": 782
+              }
+            ],
+            "redBorderScore": 0.826087,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 95,
+              "width": 183,
+              "x": 590,
+              "y": 693
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 597,
+                "y": 694
+              },
+              {
+                "x": 771,
+                "y": 704
+              },
+              {
+                "x": 766,
+                "y": 784
+              },
+              {
+                "x": 590,
+                "y": 782
+              }
+            ],
+            "redBorderScore": 0.731556,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.663512,
+        "confidenceComponents": {
+          "borderEvidence": 0.596772,
+          "columnAlignment": 0.599084,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.414141,
+          "sizeConsistency": 0.763121
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 94,
+            "y": 334
+          },
+          {
+            "x": 803,
+            "y": 334
+          },
+          {
+            "x": 803,
+            "y": 812
+          },
+          {
+            "x": 94,
+            "y": 812
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/normalized.png",
+      "overlayChecksumSha256": "76d43f1c5566e5241ef1451a8ae28a42959864334fc9dd2ff4f2a78e0cff8316",
+      "overlayRelativePath": "page-board-detector-v1/ec/ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 116,
+              "width": 177,
+              "x": 154,
+              "y": 404
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 166,
+                "y": 424
+              },
+              {
+                "x": 327,
+                "y": 419
+              },
+              {
+                "x": 324,
+                "y": 512
+              },
+              {
+                "x": 162,
+                "y": 513
+              }
+            ],
+            "redBorderScore": 0.486917,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 111,
+              "width": 203,
+              "x": 369,
+              "y": 409
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 370,
+                "y": 418
+              },
+              {
+                "x": 570,
+                "y": 423
+              },
+              {
+                "x": 559,
+                "y": 516
+              },
+              {
+                "x": 384,
+                "y": 512
+              }
+            ],
+            "redBorderScore": 0.57422,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 105,
+              "width": 166,
+              "x": 608,
+              "y": 427
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 611,
+                "y": 427
+              },
+              {
+                "x": 767,
+                "y": 447
+              },
+              {
+                "x": 769,
+                "y": 513
+              },
+              {
+                "x": 617,
+                "y": 519
+              }
+            ],
+            "redBorderScore": 0.383068,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 101,
+              "width": 181,
+              "x": 150,
+              "y": 565
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 160,
+                "y": 574
+              },
+              {
+                "x": 326,
+                "y": 571
+              },
+              {
+                "x": 329,
+                "y": 658
+              },
+              {
+                "x": 165,
+                "y": 665
+              }
+            ],
+            "redBorderScore": 0.576268,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 99,
+              "width": 193,
+              "x": 373,
+              "y": 563
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 378,
+                "y": 569
+              },
+              {
+                "x": 561,
+                "y": 573
+              },
+              {
+                "x": 563,
+                "y": 658
+              },
+              {
+                "x": 376,
+                "y": 656
+              }
+            ],
+            "redBorderScore": 0.618494,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 100,
+              "width": 168,
+              "x": 607,
+              "y": 580
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 609,
+                "y": 580
+              },
+              {
+                "x": 771,
+                "y": 590
+              },
+              {
+                "x": 774,
+                "y": 663
+              },
+              {
+                "x": 607,
+                "y": 660
+              }
+            ],
+            "redBorderScore": 0.556653,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 92,
+              "width": 178,
+              "x": 155,
+              "y": 713
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 157,
+                "y": 720
+              },
+              {
+                "x": 329,
+                "y": 714
+              },
+              {
+                "x": 331,
+                "y": 798
+              },
+              {
+                "x": 160,
+                "y": 802
+              }
+            ],
+            "redBorderScore": 0.729305,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 90,
+              "width": 193,
+              "x": 371,
+              "y": 709
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 374,
+                "y": 713
+              },
+              {
+                "x": 560,
+                "y": 713
+              },
+              {
+                "x": 559,
+                "y": 794
+              },
+              {
+                "x": 373,
+                "y": 796
+              }
+            ],
+            "redBorderScore": 0.82103,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 88,
+              "width": 170,
+              "x": 598,
+              "y": 713
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 603,
+                "y": 714
+              },
+              {
+                "x": 763,
+                "y": 721
+              },
+              {
+                "x": 762,
+                "y": 798
+              },
+              {
+                "x": 598,
+                "y": 794
+              }
+            ],
+            "redBorderScore": 0.774279,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.735059,
+        "confidenceComponents": {
+          "borderEvidence": 0.613359,
+          "columnAlignment": 0.750312,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.611111,
+          "sizeConsistency": 0.756067
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 138,
+            "y": 392
+          },
+          {
+            "x": 793,
+            "y": 392
+          },
+          {
+            "x": 793,
+            "y": 828
+          },
+          {
+            "x": 138,
+            "y": 828
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/normalized.png",
+      "overlayChecksumSha256": "717ec4441944ee5662ad4cb099e1e0e288cd9ea2fbad4b558bbdcac9f9ec38f4",
+      "overlayRelativePath": "page-board-detector-v1/ef/efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 124,
+              "width": 189,
+              "x": 102,
+              "y": 394
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 127,
+                "y": 409
+              },
+              {
+                "x": 287,
+                "y": 411
+              },
+              {
+                "x": 284,
+                "y": 507
+              },
+              {
+                "x": 108,
+                "y": 514
+              }
+            ],
+            "redBorderScore": 0.520784,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 124,
+              "width": 224,
+              "x": 337,
+              "y": 400
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 346,
+                "y": 410
+              },
+              {
+                "x": 557,
+                "y": 422
+              },
+              {
+                "x": 550,
+                "y": 521
+              },
+              {
+                "x": 337,
+                "y": 495
+              }
+            ],
+            "redBorderScore": 0.565802,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 129,
+              "width": 191,
+              "x": 600,
+              "y": 419
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 606,
+                "y": 419
+              },
+              {
+                "x": 776,
+                "y": 442
+              },
+              {
+                "x": 787,
+                "y": 540
+              },
+              {
+                "x": 612,
+                "y": 526
+              }
+            ],
+            "redBorderScore": 0.389034,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 198,
+              "x": 94,
+              "y": 570
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 106,
+                "y": 579
+              },
+              {
+                "x": 282,
+                "y": 574
+              },
+              {
+                "x": 289,
+                "y": 671
+              },
+              {
+                "x": 111,
+                "y": 677
+              }
+            ],
+            "redBorderScore": 0.501082,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 111,
+              "width": 216,
+              "x": 337,
+              "y": 570
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 346,
+                "y": 575
+              },
+              {
+                "x": 548,
+                "y": 582
+              },
+              {
+                "x": 548,
+                "y": 676
+              },
+              {
+                "x": 343,
+                "y": 670
+              }
+            ],
+            "redBorderScore": 0.623832,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 110,
+              "width": 191,
+              "x": 597,
+              "y": 584
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 606,
+                "y": 585
+              },
+              {
+                "x": 783,
+                "y": 605
+              },
+              {
+                "x": 787,
+                "y": 681
+              },
+              {
+                "x": 598,
+                "y": 678
+              }
+            ],
+            "redBorderScore": 0.535028,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 97,
+              "width": 193,
+              "x": 101,
+              "y": 731
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 103,
+                "y": 736
+              },
+              {
+                "x": 289,
+                "y": 734
+              },
+              {
+                "x": 292,
+                "y": 824
+              },
+              {
+                "x": 107,
+                "y": 825
+              }
+            ],
+            "redBorderScore": 0.793482,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 98,
+              "width": 213,
+              "x": 336,
+              "y": 730
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 337,
+                "y": 735
+              },
+              {
+                "x": 545,
+                "y": 736
+              },
+              {
+                "x": 543,
+                "y": 826
+              },
+              {
+                "x": 337,
+                "y": 825
+              }
+            ],
+            "redBorderScore": 0.763104,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 99,
+              "width": 191,
+              "x": 587,
+              "y": 737
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 594,
+                "y": 738
+              },
+              {
+                "x": 776,
+                "y": 751
+              },
+              {
+                "x": 770,
+                "y": 833
+              },
+              {
+                "x": 587,
+                "y": 826
+              }
+            ],
+            "redBorderScore": 0.655364,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.674544,
+        "confidenceComponents": {
+          "borderEvidence": 0.594168,
+          "columnAlignment": 0.625792,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.444444,
+          "sizeConsistency": 0.763872
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 84,
+            "y": 383
+          },
+          {
+            "x": 806,
+            "y": 383
+          },
+          {
+            "x": 806,
+            "y": 859
+          },
+          {
+            "x": 84,
+            "y": 859
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/normalized.png",
+      "overlayChecksumSha256": "49582c929a03a744a009e2798feaae0bf9c16daf6069a8b471e9ccb5808f2d6e",
+      "overlayRelativePath": "page-board-detector-v1/f1/f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 107,
+              "width": 164,
+              "x": 166,
+              "y": 347
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 186,
+                "y": 357
+              },
+              {
+                "x": 328,
+                "y": 366
+              },
+              {
+                "x": 324,
+                "y": 445
+              },
+              {
+                "x": 169,
+                "y": 425
+              }
+            ],
+            "redBorderScore": 0.509163,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 109,
+              "width": 191,
+              "x": 368,
+              "y": 359
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 369,
+                "y": 367
+              },
+              {
+                "x": 556,
+                "y": 375
+              },
+              {
+                "x": 550,
+                "y": 464
+              },
+              {
+                "x": 380,
+                "y": 453
+              }
+            ],
+            "redBorderScore": 0.510384,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 112,
+              "width": 159,
+              "x": 592,
+              "y": 381
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 595,
+                "y": 382
+              },
+              {
+                "x": 742,
+                "y": 406
+              },
+              {
+                "x": 746,
+                "y": 487
+              },
+              {
+                "x": 601,
+                "y": 470
+              }
+            ],
+            "redBorderScore": 0.365768,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 96,
+              "width": 173,
+              "x": 154,
+              "y": 500
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 165,
+                "y": 507
+              },
+              {
+                "x": 323,
+                "y": 508
+              },
+              {
+                "x": 323,
+                "y": 591
+              },
+              {
+                "x": 166,
+                "y": 593
+              }
+            ],
+            "redBorderScore": 0.51626,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 98,
+              "width": 185,
+              "x": 365,
+              "y": 506
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 373,
+                "y": 508
+              },
+              {
+                "x": 545,
+                "y": 518
+              },
+              {
+                "x": 544,
+                "y": 600
+              },
+              {
+                "x": 366,
+                "y": 592
+              }
+            ],
+            "redBorderScore": 0.595285,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 97,
+              "width": 162,
+              "x": 588,
+              "y": 521
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 592,
+                "y": 525
+              },
+              {
+                "x": 741,
+                "y": 542
+              },
+              {
+                "x": 749,
+                "y": 613
+              },
+              {
+                "x": 588,
+                "y": 601
+              }
+            ],
+            "redBorderScore": 0.418817,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 88,
+              "width": 171,
+              "x": 154,
+              "y": 642
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 157,
+                "y": 646
+              },
+              {
+                "x": 321,
+                "y": 646
+              },
+              {
+                "x": 321,
+                "y": 726
+              },
+              {
+                "x": 156,
+                "y": 724
+              }
+            ],
+            "redBorderScore": 0.842672,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 88,
+              "width": 184,
+              "x": 359,
+              "y": 646
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 364,
+                "y": 647
+              },
+              {
+                "x": 541,
+                "y": 655
+              },
+              {
+                "x": 537,
+                "y": 731
+              },
+              {
+                "x": 359,
+                "y": 726
+              }
+            ],
+            "redBorderScore": 0.787765,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 91,
+              "width": 164,
+              "x": 575,
+              "y": 655
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 581,
+                "y": 656
+              },
+              {
+                "x": 736,
+                "y": 669
+              },
+              {
+                "x": 731,
+                "y": 743
+              },
+              {
+                "x": 575,
+                "y": 734
+              }
+            ],
+            "redBorderScore": 0.549411,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.59721,
+        "confidenceComponents": {
+          "borderEvidence": 0.566169,
+          "columnAlignment": 0.528915,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.163803,
+          "sizeConsistency": 0.782721
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 137,
+            "y": 331
+          },
+          {
+            "x": 768,
+            "y": 331
+          },
+          {
+            "x": 768,
+            "y": 769
+          },
+          {
+            "x": 137,
+            "y": 769
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352"
+    },
+    {
+      "normalizedRelativePath": "image-normalization-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/normalized.png",
+      "overlayChecksumSha256": "c294fdb30690c514d8bfc65c2b2b9b153bc160f492ffe5c1fd17c36f3fbe2302",
+      "overlayRelativePath": "page-board-detector-v1/f4/f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f/overlay.png",
+      "result": {
+        "boards": [
+          {
+            "boundingBox": {
+              "height": 122,
+              "width": 190,
+              "x": 85,
+              "y": 388
+            },
+            "positionIndex": 0,
+            "quad": [
+              {
+                "x": 103,
+                "y": 407
+              },
+              {
+                "x": 263,
+                "y": 399
+              },
+              {
+                "x": 266,
+                "y": 503
+              },
+              {
+                "x": 95,
+                "y": 504
+              }
+            ],
+            "redBorderScore": 0.546754,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 120,
+              "width": 220,
+              "x": 312,
+              "y": 395
+            },
+            "positionIndex": 1,
+            "quad": [
+              {
+                "x": 313,
+                "y": 400
+              },
+              {
+                "x": 526,
+                "y": 409
+              },
+              {
+                "x": 520,
+                "y": 510
+              },
+              {
+                "x": 317,
+                "y": 501
+              }
+            ],
+            "redBorderScore": 0.583076,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 120,
+              "width": 182,
+              "x": 566,
+              "y": 413
+            },
+            "positionIndex": 2,
+            "quad": [
+              {
+                "x": 568,
+                "y": 414
+              },
+              {
+                "x": 738,
+                "y": 437
+              },
+              {
+                "x": 737,
+                "y": 532
+              },
+              {
+                "x": 570,
+                "y": 514
+              }
+            ],
+            "redBorderScore": 0.449383,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 104,
+              "width": 188,
+              "x": 87,
+              "y": 558
+            },
+            "positionIndex": 3,
+            "quad": [
+              {
+                "x": 96,
+                "y": 567
+              },
+              {
+                "x": 270,
+                "y": 565
+              },
+              {
+                "x": 274,
+                "y": 654
+              },
+              {
+                "x": 104,
+                "y": 659
+              }
+            ],
+            "redBorderScore": 0.513017,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 103,
+              "width": 205,
+              "x": 318,
+              "y": 558
+            },
+            "positionIndex": 4,
+            "quad": [
+              {
+                "x": 321,
+                "y": 565
+              },
+              {
+                "x": 518,
+                "y": 568
+              },
+              {
+                "x": 518,
+                "y": 656
+              },
+              {
+                "x": 324,
+                "y": 650
+              }
+            ],
+            "redBorderScore": 0.647242,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 104,
+              "width": 181,
+              "x": 565,
+              "y": 566
+            },
+            "positionIndex": 5,
+            "quad": [
+              {
+                "x": 568,
+                "y": 572
+              },
+              {
+                "x": 739,
+                "y": 587
+              },
+              {
+                "x": 745,
+                "y": 664
+              },
+              {
+                "x": 565,
+                "y": 658
+              }
+            ],
+            "redBorderScore": 0.584126,
+            "refinedFromGrid": true
+          },
+          {
+            "boundingBox": {
+              "height": 93,
+              "width": 187,
+              "x": 93,
+              "y": 711
+            },
+            "positionIndex": 6,
+            "quad": [
+              {
+                "x": 96,
+                "y": 717
+              },
+              {
+                "x": 275,
+                "y": 714
+              },
+              {
+                "x": 278,
+                "y": 797
+              },
+              {
+                "x": 101,
+                "y": 801
+              }
+            ],
+            "redBorderScore": 0.751994,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 92,
+              "width": 201,
+              "x": 318,
+              "y": 708
+            },
+            "positionIndex": 7,
+            "quad": [
+              {
+                "x": 320,
+                "y": 713
+              },
+              {
+                "x": 516,
+                "y": 713
+              },
+              {
+                "x": 515,
+                "y": 795
+              },
+              {
+                "x": 320,
+                "y": 797
+              }
+            ],
+            "redBorderScore": 0.73007,
+            "refinedFromGrid": false
+          },
+          {
+            "boundingBox": {
+              "height": 91,
+              "width": 180,
+              "x": 555,
+              "y": 713
+            },
+            "positionIndex": 8,
+            "quad": [
+              {
+                "x": 560,
+                "y": 715
+              },
+              {
+                "x": 730,
+                "y": 723
+              },
+              {
+                "x": 727,
+                "y": 801
+              },
+              {
+                "x": 557,
+                "y": 798
+              }
+            ],
+            "redBorderScore": 0.685101,
+            "refinedFromGrid": false
+          }
+        ],
+        "candidateCount": 9,
+        "confidence": 0.686335,
+        "confidenceComponents": {
+          "borderEvidence": 0.610085,
+          "columnAlignment": 0.64539,
+          "refinementStability": 0.944444,
+          "rowAlignment": 0.487179,
+          "sizeConsistency": 0.744579
+        },
+        "imageHeight": 1280,
+        "imageWidth": 960,
+        "pageQuad": [
+          {
+            "x": 76,
+            "y": 373
+          },
+          {
+            "x": 764,
+            "y": 373
+          },
+          {
+            "x": 764,
+            "y": 827
+          },
+          {
+            "x": 76,
+            "y": 827
+          }
+        ],
+        "reviewReasons": [],
+        "status": "detected"
+      },
+      "sourceChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f"
+    }
+  ],
+  "detectorVersion": "page-board-detector-v1",
+  "imageCount": 12,
+  "needsReviewCount": 0,
+  "normalizationReportSha256": "7521e3dbee351918b0dca058905d640d518a2f0fee4ee9bed3a788c96f910352",
+  "numpyVersion": "2.4.6",
+  "opencvVersion": "4.13.0",
+  "schemaVersion": 1,
+  "status": "detected"
+}

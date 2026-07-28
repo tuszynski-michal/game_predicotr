@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`M5.2 discovery and EXIF normalization completed under D-051/D-052; M5.1 and G3 remain open`
+`TASK-0055 per-board perspective and 3x5 cell crops completed under D-054; M5.1, G5.3 and G3 remain open`
 
 ## Completed
 
@@ -642,7 +642,32 @@ last_updated: 2026-07-28
   bez Orientation; 24 binarne/diagnostyczne artefakty pozostają lokalne i
   ignorowane przez Git,
 - weryfikacja M5.2 zakończyła się `25 passed`, Ruff, mypy i `pip check`; ponowny
-  check nie wykazał driftu, a oryginalne checksumy pozostały zgodne.
+  check nie wykazał driftu, a oryginalne checksumy pozostały zgodne,
+- ukończono `TASK-0054`: port `PageBoardDetector` i klasyczna implementacja
+  `page-board-detector-v1` wykrywają dokładnie dziewięć czerwonych ramek 3 × 3,
+  zachowują indeksy row-major i zwracają jawne `needs_review` dla braku,
+  nadmiaru albo nieregularnej geometrii,
+- rzeczywisty korpus dał 12/12 wyników `detected`, 108 plansz i 9 jawnych
+  korekt `refinedFromGrid`; confidence obrazu mieści się w zakresie
+  `0.597210–0.747265`, a 12 lokalnych overlayów ma łącznie `15 711 444` bajtów,
+- SHA-256 deterministycznego raportu geometrii to
+  `2e12e180a8d0f27704e1973f04632937c7a71b113185fa161e2a47b0d22741ca`;
+  ponowny `--check --require-detected` nie wykazał driftu,
+- 32 testy discovery/normalizacji/geometrii, Ruff, format Ruff, mypy i
+  `pip check` przechodzą; wizualna kontrola overlayów potwierdza położenie
+  plansz, ale bez niezależnych golden narożników nie deklarujemy accuracy ani
+  przejścia G5.3,
+- ukończono `TASK-0055`: port `BoardCellCropper` prostuje indywidualnie każdy
+  quad do RGB 500 × 300 i po jawnym marginesie dzieli planszę na 15 komórek
+  RGB 90 × 90 z indeksami 0-based row-major,
+- rzeczywisty korpus dał 12/12 wyników `cropped`, 108 plansz, 108 overlayów
+  oraz 1620 komórek; 1836 lokalnych plików ma łącznie `56 325 183` bajty,
+- SHA-256 deterministycznego raportu cropów to
+  `01756c63ed3f8d6837193908cf0f03c8f4f243a2ead74fa2e9a3b3e5d7a55b4e`;
+  retry `--check --require-cropped` nie wykazał driftu,
+- 42 testy całego pionu obrazów, Ruff, format Ruff, mypy i `pip check`
+  przechodzą; trzy reprezentatywne overlaye sprawdzono wizualnie, ale bez
+  niezależnych golden nadal nie deklarujemy accuracy ani przejścia G5.3.
 
 ## In progress
 
@@ -722,11 +747,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Przed TASK-0054 odpowiedzieć na Q-016 o stabilności układu strony między grami
-i ekranami; ta odpowiedź określa, czy geometria może zakładać jedną siatkę
-3 × 3. Następnie TASK-0054 wymaga kolejnego jawnego polecenia i nie oznacza
-zaliczenia G5.1. Równolegle TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na
-fizycznych raportach Pixela i Samsunga.
+Po kolejnym jawnym poleceniu rozpocząć `TASK-0056 — Sequence number OCR and
+continuity validation`. Nie oznacza to zaliczenia G5.1 ani G5.3; Q-016/Q-017,
+niezależne golden i akceptacja progów pozostają otwarte. Równolegle
+TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
+Pixela i Samsunga.
 
 ## Do not start yet
 

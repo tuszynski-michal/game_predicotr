@@ -1,0 +1,49 @@
+{
+  "architectureVersion": "spatial-symbol-cnn-v1",
+  "artifact": {
+    "relativePath": "artifacts/m6-spatial-symbol-model-release-v1/spatial-symbol-cnn-v1.onnx",
+    "sha256": "b55180cad5e20168daf278d19198d691f7b9e964578123fb933f41ec82a7668a"
+  },
+  "classes": [
+    "cherries",
+    "grapes",
+    "lemon",
+    "orange",
+    "plum",
+    "seven",
+    "star",
+    "watermelon"
+  ],
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "inputSize": 64,
+  "modelVersion": "production-spatial-symbol-cnn-v1",
+  "onnxModelVersion": "spatial-symbol-cnn-onnx-v1",
+  "parity": {
+    "maximumAbsoluteErrorTolerance": 1e-05,
+    "splits": {
+      "test": {
+        "maximumAbsoluteError": 2.861e-06,
+        "meanAbsoluteError": 3.593e-07,
+        "sampleCount": 313,
+        "topOneMismatchCount": 0
+      },
+      "train": {
+        "maximumAbsoluteError": 2.861e-06,
+        "meanAbsoluteError": 3.566e-07,
+        "sampleCount": 703,
+        "topOneMismatchCount": 0
+      },
+      "validation": {
+        "maximumAbsoluteError": 2.1458e-06,
+        "meanAbsoluteError": 3.389e-07,
+        "sampleCount": 300,
+        "topOneMismatchCount": 0
+      }
+    },
+    "totalTopOneMismatchCount": 0
+  },
+  "preprocessingVersion": "rgb-resize64-normalize-half-v1",
+  "schemaVersion": 1,
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "production_candidate"
+}

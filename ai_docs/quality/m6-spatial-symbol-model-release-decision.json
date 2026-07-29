@@ -1,0 +1,17 @@
+{
+  "calibrationReportSha256": "aa34ec2237483bc3fd232168284f199ccce4da5d56133d0ae1defa5f3c8026bb",
+  "decisionVersion": "spatial-symbol-model-production-decision-v1",
+  "globalBlockers": [
+    "SEQUENCE_OCR_MANUAL_REVIEW_ONLY"
+  ],
+  "manualSupervisedPublicationAllowed": true,
+  "massImportAllowed": false,
+  "modelVersion": "production-spatial-symbol-cnn-v1",
+  "onnxReportSha256": "5e8f4d7b4f7656063cb663636aa9f1693d59b056ccc200c93f8e84dc5e3cd9df",
+  "reason": "Symbol confidence passed, but sequence OCR still requires human review.",
+  "schemaVersion": 1,
+  "status": "passed_supervised_path_global_auto_import_blocked",
+  "symbolAutoAcceptEnabled": true,
+  "symbolAutoAcceptThreshold": 0.88850097,
+  "verticalSliceReportSha256": "d9f56165b808b046bd76bcb647e06ed7472fb89b5288b02f2d05e9b81d762f6b"
+}

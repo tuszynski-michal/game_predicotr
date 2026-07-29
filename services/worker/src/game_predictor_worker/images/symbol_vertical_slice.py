@@ -7,6 +7,7 @@ import math
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -131,7 +132,8 @@ def evaluate_probabilities(
             )
         )
     metrics = calibration_metrics(probabilities, labels, class_codes)
-    recalls = [float(row["recall"]) for row in metrics["perClass"] if isinstance(row, Mapping)]
+    per_class = cast(Sequence[Mapping[str, object]], metrics["perClass"])
+    recalls = [float(cast(float, row["recall"])) for row in per_class]
     metrics["macroRecall"] = round(sum(recalls) / len(recalls), 8)
     return tuple(results), metrics
 

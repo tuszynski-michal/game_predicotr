@@ -15,9 +15,7 @@ import onnxruntime as ort  # type: ignore[import-untyped]
 import torch
 from numpy.typing import NDArray
 from onnx import TensorProto
-from torch import Tensor
-
-from .symbol_classifier import SmallSymbolCnn
+from torch import Tensor, nn
 
 ONNX_MODEL_VERSION = "bootstrap-symbol-cnn-onnx-v1"
 ONNX_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
@@ -111,10 +109,11 @@ def validate_onnx_contract(
 
 
 def export_symbol_classifier_onnx(
-    model: SmallSymbolCnn,
+    model: nn.Module,
     *,
     input_size: int,
     class_count: int,
+    model_version: str = ONNX_MODEL_VERSION,
 ) -> bytes:
     """Export deterministic ONNX bytes without changing the source checkpoint."""
 
@@ -155,7 +154,12 @@ def export_symbol_classifier_onnx(
             "The PyTorch checkpoint could not be exported to ONNX.",
         ) from error
     exported.producer_name = "game-predictor"
-    exported.producer_version = ONNX_MODEL_VERSION
+    if not model_version:
+        raise SymbolOnnxError(
+            "SYMBOL_ONNX_MODEL_VERSION_INVALID",
+            "The ONNX model version must be explicit.",
+        )
+    exported.producer_version = model_version
     exported.domain = "local.game-predictor"
     exported.model_version = 1
     exported.doc_string = ""

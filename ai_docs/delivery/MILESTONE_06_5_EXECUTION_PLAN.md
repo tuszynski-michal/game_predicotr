@@ -73,7 +73,16 @@ automatyzację.
 - test nie uczestniczy w doborze temperatury ani progów,
 - panel może otrzymać stabilną predykcję i maksymalnie cztery alternatywy.
 
+Status: `completed`. Manifest
+`m6-spatial-symbol-model-release-manifest.json` ma SHA-256
+`9f0dd6f7f67105c9c3b479e9b30cb5f9d58d341e6c5b041564be14963a3db8d0`.
+Symbol confidence gate przeszedł przy progu `0.88850097`; globalne
+`massImportAllowed` pozostaje `false` z powodu `manual_review_only` OCR.
+
 ## M6.5.2 — Operacyjna kolejka review
+
+Status: `completed` w TASK-0106. Testy ręczne całego stanowiska pozostają
+odroczone do odbioru po TASK-0111; kontrakt API ma testy automatyczne.
 
 ### Zadanie
 
@@ -98,6 +107,9 @@ automatyzację.
 - zaakceptowany element można ponownie otworzyć i zapisać jako nową rewizję.
 
 ## M6.5.3 — Minimalistyczne stanowisko desktop
+
+Status: `completed` w TASK-0107. Ręczna kontrola widoku 1366 × 768 i pełne
+testy operatorskie pozostają odroczone do wspólnego odbioru po TASK-0111.
 
 ### Zadanie
 
@@ -124,6 +136,10 @@ automatyzację.
 - UI nie przekazuje statusu ani niepewności wyłącznie kolorem.
 
 ## M6.5.4 — Sterowanie klawiaturą i szybka korekta
+
+Status: `completed` w TASK-0108. Automatyczne testy potwierdzają mapowanie
+klawiszy, dwustopniowy zapis, ochronę przed key repeat i konfliktem rewizji.
+Ręczny odbiór operatorski pozostaje odroczony do testów po TASK-0111.
 
 ### Zadanie
 
@@ -232,6 +248,22 @@ automatyzację.
 - ręcznie zweryfikowany, ciągły podzbiór może przejść do walidacji i publikacji,
 - automatyczny masowy import nadal wymaga osobnej pozytywnej decyzji jakości.
 
+### Stan wykonania TASK-0111
+
+Fizyczny profil PostgreSQL z 3000 planszami i 45 000 komórek przeszedł
+2026-07-29. Odpowiedź klienta pozostała ograniczona do jednej planszy, p95
+odczytu sąsiada wyniósł 49,896 ms, a p95 zapisu pełnej decyzji 96,368 ms.
+Exact retry nie utworzył drugiej rewizji, konflikt dwóch kart zwrócił
+`IMAGE_REVIEW_REVISION_CONFLICT`, a nowa sesja wznowiła kolejkę od pierwszej
+nierozwiązanej planszy.
+
+Raport `quality/m65-workbench-acceptance-report.json` zapisuje również
+checksum-bound dowody jakości oraz jawną prognozę 328,27 planszy/h. Jest to
+prognoza oparta na opisanych założeniach, nie pomiar 3000 ręcznych decyzji.
+Krótki odbiór operatora i rzeczywisty pomiar co najmniej 10 plansz pozostają do
+wykonania według `quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`; do tego potrzebny
+jest realny import job `image_directory`.
+
 ## Zdalne review — odłożony zakres M8.7
 
 Zdalny link nie jest częścią G6.5. Samo uruchomienie panelu na domowym Wi-Fi
@@ -265,6 +297,6 @@ tunel lub VPN; domyślny tryb loopback pozostaje bez zmian.
 
 ## Następny krok
 
-Rozpocząć TASK-0105. Po jego odbiorze zbudować operacyjny kontrakt kolejki w
-TASK-0106; nie zaczynać zdalnego dostępu przed lokalnym G6.5 i modelem
-bezpieczeństwa M8.1.
+Rozpocząć TASK-0111 i wykonać odbiór ergonomii, dostępności oraz skali lokalnego
+stanowiska wraz z odroczonymi scenariuszami ręcznymi TASK-0107–0110. Nie
+zaczynać zdalnego dostępu przed lokalnym G6.5 i modelem bezpieczeństwa M8.1.

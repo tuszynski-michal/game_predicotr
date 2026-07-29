@@ -739,6 +739,10 @@ class RecognizedBoardModel(Base):
             "status IN ('pending_review', 'accepted', 'corrected', 'rejected')",
             name="ck_recognized_boards_status",
         ),
+        CheckConstraint(
+            "geometry_revision >= 0",
+            name="ck_recognized_boards_geometry_revision",
+        ),
         UniqueConstraint(
             "source_image_id",
             "position_index",
@@ -766,6 +770,12 @@ class RecognizedBoardModel(Base):
     cells_prediction: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     board_confidence: Mapped[float] = mapped_column(Float, nullable=False)
     pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -902,6 +912,131 @@ class ImageReviewResolutionEventModel(Base):
     command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     resolved_value: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     resolved_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageBoardGeometryRevisionModel(Base):
+    __tablename__ = "image_board_geometry_revisions"
+    __table_args__ = (
+        CheckConstraint(
+            "revision > 0",
+            name="ck_image_board_geometry_revisions_revision",
+        ),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$' AND board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_board_geometry_revisions_sha256",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(corners) = 'array' AND jsonb_array_length(corners) = 4",
+            name="ck_image_board_geometry_revisions_corners",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(crop_artifacts) = 'array' AND jsonb_array_length(crop_artifacts) = 15",
+            name="ck_image_board_geometry_revisions_crops",
+        ),
+        CheckConstraint(
+            r"length(btrim(board_relative_path)) > 0 "
+            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_board_geometry_revisions_relative_path",
+        ),
+        UniqueConstraint(
+            "recognized_board_id",
+            "revision",
+            name="uq_image_board_geometry_revisions_board_revision",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "idempotency_key",
+            name="uq_image_board_geometry_revisions_item_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    corners: Mapped[list[dict[str, int]]] = mapped_column(JSONB, nullable=False)
+    geometry: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    board_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    crop_artifacts: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    corrected_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageVerifiedCohortExportModel(Base):
+    __tablename__ = "image_verified_cohort_exports"
+    __table_args__ = (
+        CheckConstraint(
+            "version > 0",
+            name="ck_image_verified_cohort_exports_version",
+        ),
+        CheckConstraint(
+            "input_state_sha256 ~ '^[0-9a-f]{64}$' AND payload_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_verified_cohort_exports_sha256",
+        ),
+        CheckConstraint(
+            "board_count > 0 AND sample_count = board_count * 15 "
+            "AND pending_item_count >= 0 AND rejected_item_count >= 0",
+            name="ck_image_verified_cohort_exports_counts",
+        ),
+        CheckConstraint(
+            r"length(btrim(artifact_relative_path)) > 0 "
+            r"AND artifact_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_image_verified_cohort_exports_relative_path",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "import_job_id",
+            "version",
+            name="uq_image_verified_cohort_exports_version",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "import_job_id",
+            "input_state_sha256",
+            name="uq_image_verified_cohort_exports_state",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    input_state_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    board_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    pending_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    rejected_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

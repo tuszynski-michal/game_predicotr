@@ -518,6 +518,7 @@ globalnego cache.
 | cells_prediction | JSONB | model, 15 predykcji i alternatywy |
 | board_confidence | float | 0..1 |
 | pipeline_fingerprint | varchar(64) | pełne provenance |
+| geometry_revision | integer | `0` dla pipeline'u, potem bieżąca ręczna rewizja |
 | status | varchar | pending_review/accepted/corrected/rejected |
 
 Unikalne `(source_image_id, position_index)` uniemożliwia ciche przesunięcie
@@ -575,17 +576,21 @@ wcześniejszej decyzji z audytu.
 M6.5 dodaje append-only historię ręcznych korekt geometrii operacyjnej planszy.
 Rekord zawiera:
 
-- `recognized_board_id`,
+- `review_item_id` oraz `recognized_board_id`,
 - rosnącą `revision`,
+- UUID idempotencji i SHA-256 kanonicznej komendy,
 - cztery narożniki w przestrzeni oryginalnego obrazu,
 - wersję croppera, profilu i pipeline fingerprint,
 - względne ścieżki oraz checksumy wyprostowanej planszy i dokładnie 15 cropów,
 - aktora i czas utworzenia.
 
-Unikalne `(recognized_board_id, revision)` zachowuje kolejność. Bieżąca
-projekcja planszy może wskazać najnowszą rewizję, ale stary rekord i pliki nie
-są nadpisywane. Zmiana checksumy cropu tworzy nowy `cropSampleId`; istniejąca
-etykieta nie przechodzi na niego automatycznie.
+`corners`, wynikowa `geometry` i `crop_artifacts` są JSONB; constraint wymaga
+czterech narożników oraz dokładnie 15 artefaktów cropów. Unikalne
+`(recognized_board_id, revision)` zachowuje kolejność, a
+`(review_item_id, idempotency_key)` zabezpiecza exact retry. Bieżąca projekcja
+planszy wskazuje najnowszą rewizję przez `recognized_boards.geometry_revision`,
+ale stary rekord i pliki nie są nadpisywane. Zmiana checksumy cropu tworzy nowy
+`cropSampleId`; istniejąca etykieta nie przechodzi na niego automatycznie.
 
 Accepted/corrected `resolved_value` wskazuje dokładną rewizję geometrii i
 `cropSampleId` każdej z 15 komórek. Dzięki temu późniejsze ulepszenie profilu
@@ -596,13 +601,33 @@ człowiek.
 
 Zamrożony materiał z operacyjnego review jest wersjonowany per gra i import
 job. Rekord przechowuje checksumę kanonicznego stanu wejściowego, checksumę
-payloadu, względną ścieżkę artefaktu, liczby plansz/próbek/odrzuceń, autora i
-czas. Exact retry tego samego stanu zwraca istniejący eksport, a nowa rewizja
-planszy tworzy nową wersję.
+payloadu, względną ścieżkę artefaktu, liczby plansz/próbek/pending/odrzuceń,
+autora i czas. Exact retry tego samego stanu zwraca istniejący eksport, a nowa
+rewizja decyzji albo geometrii tworzy nową wersję.
 
 Payload zawiera wyłącznie kompletne accepted/corrected wraz z numerem,
 15 symbolami, geometrią, cropami, źródłem i pełnym provenance. Nie aktualizuje
 modelu ani datasetu samym utworzeniem.
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| game_id | UUID | FK games |
+| import_job_id | UUID | FK image-directory job |
+| version | integer | dodatnia, rosnąca w kontekście gry i importu |
+| input_state_sha256 | char(64) | kanoniczny stan wszystkich rewizji review |
+| payload_sha256 | char(64) | dokładne bajty niezmiennego JSON |
+| artifact_relative_path | varchar(1000) | POSIX pod `<artifact-root>/data` |
+| board_count | integer | kompletne accepted/corrected |
+| sample_count | integer | dokładnie `board_count * 15` |
+| pending_item_count | integer | informacyjny stan chwili zamrożenia |
+| rejected_item_count | integer | bez próbek |
+| created_by | varchar(200) | lokalny aktor |
+| created_at | timestamptz | czas pierwszego utworzenia stanu |
+
+Unikalne są `(game_id, import_job_id, version)` oraz
+`(game_id, import_job_id, input_state_sha256)`. Artefakt nie zawiera binarnych
+obrazów ani ścieżek absolutnych.
 
 ### image_layout_staging_rows
 

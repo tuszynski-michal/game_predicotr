@@ -45,6 +45,9 @@ import type {
   CreateMobileReleaseData,
   CreateMobileReleaseErrors,
   CreateMobileReleaseResponses,
+  CreateOperationalImageReviewGeometryRevisionData,
+  CreateOperationalImageReviewGeometryRevisionErrors,
+  CreateOperationalImageReviewGeometryRevisionResponses,
   CreatePaylineData,
   CreatePaylineErrors,
   CreatePaylineResponses,
@@ -66,6 +69,9 @@ import type {
   DownloadMobileReleaseApkData,
   DownloadMobileReleaseApkErrors,
   DownloadMobileReleaseApkResponses,
+  FreezeVerifiedImageReviewCohortData,
+  FreezeVerifiedImageReviewCohortErrors,
+  FreezeVerifiedImageReviewCohortResponses,
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
@@ -95,6 +101,18 @@ import type {
   GetMobileReleaseData,
   GetMobileReleaseErrors,
   GetMobileReleaseResponses,
+  GetOperationalImageReviewBoardAssetData,
+  GetOperationalImageReviewBoardAssetErrors,
+  GetOperationalImageReviewBoardAssetResponses,
+  GetOperationalImageReviewCellAssetData,
+  GetOperationalImageReviewCellAssetErrors,
+  GetOperationalImageReviewCellAssetResponses,
+  GetOperationalImageReviewItemData,
+  GetOperationalImageReviewItemErrors,
+  GetOperationalImageReviewItemResponses,
+  GetOperationalImageReviewSourceAssetData,
+  GetOperationalImageReviewSourceAssetErrors,
+  GetOperationalImageReviewSourceAssetResponses,
   GetPaylineData,
   GetPaylineErrors,
   GetPaylineResponses,
@@ -151,6 +169,12 @@ import type {
   ListMobileReleasesData,
   ListMobileReleasesErrors,
   ListMobileReleasesResponses,
+  ListOperationalImageReviewItemsData,
+  ListOperationalImageReviewItemsErrors,
+  ListOperationalImageReviewItemsResponses,
+  ListOperationalImageReviewResolutionEventsData,
+  ListOperationalImageReviewResolutionEventsErrors,
+  ListOperationalImageReviewResolutionEventsResponses,
   ListPaylinesData,
   ListPaylinesErrors,
   ListPaylinesResponses,
@@ -178,6 +202,12 @@ import type {
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
+  ListVerifiedImageReviewCohortsData,
+  ListVerifiedImageReviewCohortsErrors,
+  ListVerifiedImageReviewCohortsResponses,
+  PreviewOperationalImageReviewGeometryData,
+  PreviewOperationalImageReviewGeometryErrors,
+  PreviewOperationalImageReviewGeometryResponses,
   PublishDatasetVersionData,
   PublishDatasetVersionErrors,
   PublishDatasetVersionResponses,
@@ -190,6 +220,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ResolveOperationalImageReviewItemData,
+  ResolveOperationalImageReviewItemErrors,
+  ResolveOperationalImageReviewItemResponses,
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
@@ -652,6 +685,250 @@ export const getImageJobOperations = <ThrowOnError extends boolean = false>(
     GetImageJobOperationsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/image-jobs/{job_id}/operations', ...options });
+
+/**
+ * List immutable verified cohort export versions
+ */
+export const listVerifiedImageReviewCohorts = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListVerifiedImageReviewCohortsData, ThrowOnError>,
+): RequestResult<
+  ListVerifiedImageReviewCohortsResponses,
+  ListVerifiedImageReviewCohortsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListVerifiedImageReviewCohortsResponses,
+    ListVerifiedImageReviewCohortsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-review-cohort-exports', ...options });
+
+/**
+ * Explicitly freeze the current verified board cohort
+ */
+export const freezeVerifiedImageReviewCohort = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<FreezeVerifiedImageReviewCohortData, ThrowOnError>,
+): RequestResult<
+  FreezeVerifiedImageReviewCohortResponses,
+  FreezeVerifiedImageReviewCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeVerifiedImageReviewCohortResponses,
+    FreezeVerifiedImageReviewCohortErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-cohort-exports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List one bounded page of job-local image review items
+ */
+export const listOperationalImageReviewItems = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListOperationalImageReviewItemsData, ThrowOnError>,
+): RequestResult<
+  ListOperationalImageReviewItemsResponses,
+  ListOperationalImageReviewItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListOperationalImageReviewItemsResponses,
+    ListOperationalImageReviewItemsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-review-items', ...options });
+
+/**
+ * Get one job-local image review item with 15 cells
+ */
+export const getOperationalImageReviewItem = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetOperationalImageReviewItemData, ThrowOnError>,
+): RequestResult<
+  GetOperationalImageReviewItemResponses,
+  GetOperationalImageReviewItemErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetOperationalImageReviewItemResponses,
+    GetOperationalImageReviewItemErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-review-items/{review_item_id}', ...options });
+
+/**
+ * Read the checksum-bound rectified board image
+ */
+export const getOperationalImageReviewBoardAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetOperationalImageReviewBoardAssetData, ThrowOnError>,
+): RequestResult<
+  GetOperationalImageReviewBoardAssetResponses,
+  GetOperationalImageReviewBoardAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetOperationalImageReviewBoardAssetResponses,
+    GetOperationalImageReviewBoardAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/assets/board',
+    ...options,
+  });
+
+/**
+ * Read one checksum-bound operational cell crop
+ */
+export const getOperationalImageReviewCellAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetOperationalImageReviewCellAssetData, ThrowOnError>,
+): RequestResult<
+  GetOperationalImageReviewCellAssetResponses,
+  GetOperationalImageReviewCellAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetOperationalImageReviewCellAssetResponses,
+    GetOperationalImageReviewCellAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/assets/cells/{cell_index}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound source image
+ */
+export const getOperationalImageReviewSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetOperationalImageReviewSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetOperationalImageReviewSourceAssetResponses,
+  GetOperationalImageReviewSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetOperationalImageReviewSourceAssetResponses,
+    GetOperationalImageReviewSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/assets/source',
+    ...options,
+  });
+
+/**
+ * Preview a corrected board without persisting files or revisions
+ */
+export const previewOperationalImageReviewGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewOperationalImageReviewGeometryData, ThrowOnError>,
+): RequestResult<
+  PreviewOperationalImageReviewGeometryResponses,
+  PreviewOperationalImageReviewGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewOperationalImageReviewGeometryResponses,
+    PreviewOperationalImageReviewGeometryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Persist immutable corrected geometry and reopen review
+ */
+export const createOperationalImageReviewGeometryRevision = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    CreateOperationalImageReviewGeometryRevisionData,
+    ThrowOnError
+  >,
+): RequestResult<
+  CreateOperationalImageReviewGeometryRevisionResponses,
+  CreateOperationalImageReviewGeometryRevisionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateOperationalImageReviewGeometryRevisionResponses,
+    CreateOperationalImageReviewGeometryRevisionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Atomically append and materialize one whole-board decision
+ */
+export const resolveOperationalImageReviewItem = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ResolveOperationalImageReviewItemData, ThrowOnError>,
+): RequestResult<
+  ResolveOperationalImageReviewItemResponses,
+  ResolveOperationalImageReviewItemErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolveOperationalImageReviewItemResponses,
+    ResolveOperationalImageReviewItemErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List append-only operational review decisions
+ */
+export const listOperationalImageReviewResolutionEvents = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<
+    ListOperationalImageReviewResolutionEventsData,
+    ThrowOnError
+  >,
+): RequestResult<
+  ListOperationalImageReviewResolutionEventsResponses,
+  ListOperationalImageReviewResolutionEventsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListOperationalImageReviewResolutionEventsResponses,
+    ListOperationalImageReviewResolutionEventsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/{review_item_id}/resolution-events',
+    ...options,
+  });
 
 /**
  * Get read-only managed image storage inventory

@@ -10,8 +10,17 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.image_reviews import OperationalImageReviewService
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.catalog import GameStatus
+from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
+from game_predictor_api.domain.image_reviews import (
+    ImageReviewAction,
+    ImageReviewGeometryArtifacts,
+    ImageReviewGeometryCellArtifact,
+    ImageReviewGeometryPoint,
+    ImageReviewResolutionCell,
+    validate_image_review_geometry_command,
+)
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -20,10 +29,16 @@ from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
+from game_predictor_api.storage.image_review_repository import (
+    SqlAlchemyOperationalImageReviewRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    CellObservationModel,
+    ImageBoardGeometryRevisionModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
+    ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     ImageReviewResolutionEventModel,
     JobModel,
@@ -102,6 +117,7 @@ def _image_job(game_id: UUID, pipeline: str, created_at: datetime) -> Job:
             "schema_version": 1,
             "import_kind": "image_directory",
             "pipeline_fingerprint": pipeline,
+            "test_source_batch": created_at.isoformat(),
         },
         created_at=created_at,
     )
@@ -123,6 +139,16 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 code="image-batch-game",
                 name="Image batch game",
                 status=GameStatus.ACTIVE,
+            )
+            CatalogService(SqlAlchemyCatalogRepository(session)).create_symbol(
+                game.id,
+                mobile_code=1,
+                code="lemon",
+                name="Lemon",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
             )
             repository = SqlAlchemyJobRepository(session)
             first_job = repository.add_job(_image_job(game.id, PIPELINE, now))
@@ -258,6 +284,25 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 created_at=now,
             )
             session.add(review)
+            session.add_all(
+                CellObservationModel(
+                    recognized_board_id=board.id,
+                    row_index=index // 5,
+                    column_index=index % 5,
+                    crop_relative_path=f"crops/board-{index}.png",
+                    crop_checksum_sha256=f"{index + 1:064x}",
+                    cropper_version="cropper-v1",
+                    prediction={
+                        "symbolCode": "lemon",
+                        "confidence": 1.0,
+                        "alternatives": [
+                            {"symbolCode": "lemon", "confidence": 1.0}
+                        ],
+                    },
+                    created_at=now,
+                )
+                for index in range(15)
+            )
             session.commit()
 
         pipeline_store = SqlAlchemyImagePipelineStore(session_factory)
@@ -298,11 +343,142 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
             )
         assert idempotency_conflict.value.code == "IMAGE_REVIEW_IDEMPOTENCY_CONFLICT"
 
+        with Session(engine, expire_on_commit=False) as session:
+            operational_repository = SqlAlchemyOperationalImageReviewRepository(session)
+            operational = OperationalImageReviewService(operational_repository)
+            current = operational.get_item(
+                review.id,
+                game_id=game.id,
+                import_job_id=second_job.id,
+            )
+            correction_key = uuid4()
+            cells = tuple(
+                ImageReviewResolutionCell(
+                    cell_index=cell.cell_index,
+                    crop_sample_id=cell.crop_sample_id,
+                    symbol_code="lemon",
+                )
+                for cell in current.cells
+            )
+            corrected, first_event, created = operational.resolve_item(
+                review.id,
+                game_id=game.id,
+                import_job_id=second_job.id,
+                idempotency_key=correction_key,
+                expected_revision=1,
+                action=ImageReviewAction.CORRECTED,
+                sequence_number=2,
+                geometry_revision=0,
+                cells=cells,
+                rejection_reason=None,
+                resolved_by="local-admin",
+            )
+            assert created is True
+            assert corrected.resolution_revision == 2
+            assert first_event.revision == 2
+            retried, retry_event, retry_created = operational.resolve_item(
+                review.id,
+                game_id=game.id,
+                import_job_id=second_job.id,
+                idempotency_key=correction_key,
+                expected_revision=1,
+                action=ImageReviewAction.CORRECTED,
+                sequence_number=2,
+                geometry_revision=0,
+                cells=cells,
+                rejection_reason=None,
+                resolved_by="local-admin",
+            )
+            assert retry_created is False
+            assert retry_event.id == first_event.id
+            assert retried.resolution_revision == 2
+            corrected_again, _event, created_again = operational.resolve_item(
+                review.id,
+                game_id=game.id,
+                import_job_id=second_job.id,
+                idempotency_key=uuid4(),
+                expected_revision=2,
+                action=ImageReviewAction.CORRECTED,
+                sequence_number=3,
+                geometry_revision=0,
+                cells=cells,
+                rejection_reason=None,
+                resolved_by="local-admin",
+            )
+            assert created_again is True
+            assert corrected_again.resolution_revision == 3
+            geometry_key = uuid4()
+            geometry_command = validate_image_review_geometry_command(
+                corners=(
+                    ImageReviewGeometryPoint(1, 1),
+                    ImageReviewGeometryPoint(91, 1),
+                    ImageReviewGeometryPoint(91, 91),
+                    ImageReviewGeometryPoint(1, 91),
+                ),
+                expected_geometry_revision=0,
+                expected_resolution_revision=3,
+                corrected_by="local-admin",
+            )
+            geometry_artifacts = ImageReviewGeometryArtifacts(
+                geometry={
+                    "source": "manual_review",
+                    "sourceQuad": [
+                        {"x": 1, "y": 1},
+                        {"x": 91, "y": 1},
+                        {"x": 91, "y": 91},
+                        {"x": 1, "y": 91},
+                    ],
+                },
+                board_relative_path="image-review-geometry/board.png",
+                board_checksum_sha256="8" * 64,
+                cropper_version="manual-review-geometry-v1",
+                cells=tuple(
+                    ImageReviewGeometryCellArtifact(
+                        row_index=index // 5,
+                        column_index=index % 5,
+                        crop_relative_path=f"image-review-geometry/cell-{index}.png",
+                        crop_checksum_sha256=f"{index + 100:064x}",
+                    )
+                    for index in range(15)
+                ),
+            )
+            reopened, geometry_revision, geometry_created = (
+                operational_repository.save_geometry_revision(
+                    review_item_id=review.id,
+                    game_id=game.id,
+                    import_job_id=second_job.id,
+                    idempotency_key=geometry_key,
+                    command=geometry_command,
+                    artifacts=geometry_artifacts,
+                    created_at=now + timedelta(seconds=10),
+                )
+            )
+            assert geometry_created is True
+            assert geometry_revision.revision == 1
+            assert reopened.status == "pending"
+            assert reopened.geometry_revision == 1
+            assert reopened.resolution_revision == 4
+            assert all(
+                current_cell.crop_sample_id != reopened.cells[index].crop_sample_id
+                for index, current_cell in enumerate(corrected_again.cells)
+            )
+            session.commit()
+
         with Session(engine) as session:
             assert session.scalar(select(func.count()).select_from(ImageFileExecutionModel)) == 2
             assert session.scalar(select(func.count()).select_from(ImageImportJobFileModel)) == 3
             assert (
                 session.scalar(select(func.count()).select_from(ImageReviewResolutionEventModel))
+                == 4
+            )
+            assert (
+                session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel))
+                == 0
+            )
+            assert (
+                session.scalar(
+                    select(func.count()).select_from(ImageBoardGeometryRevisionModel)
+                )
                 == 1
             )
     finally:

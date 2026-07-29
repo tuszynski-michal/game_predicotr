@@ -471,3 +471,10 @@ nadpisywany, a pobranie ponownie sprawdza SHA-256.
 5. Porównać wyspecjalizowane alternatywy OCR cyfr na rozłącznym podziale
    źródeł; bieżący OCR pozostaje `manual_review_only`.
 6. Zatwierdzić finalne modele i ich wersje w osobnej decyzji architektonicznej.
+
+Model symboli został zatwierdzony w D-088 jako
+`production-spatial-symbol-cnn-v1`. Jego automatyczna akceptacja obowiązuje
+wyłącznie od checksum-bound progu `0.88850097`; poniżej progu wynik pozostaje
+sugestią do manual review. Panel może pokazać najwyżej cztery alternatywy.
+Finalny wybór OCR pozostaje otwarty, dlatego automatyczny import całych
+layoutów nadal jest zablokowany.

@@ -1,0 +1,339 @@
+"""OpenAPI schemas for the operational image review queue."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Annotated, Self
+from uuid import UUID
+
+from pydantic import Field, model_validator
+
+from game_predictor_api.application.image_reviews import OperationalImageReviewPage
+from game_predictor_api.domain.image_reviews import (
+    IMAGE_REVIEW_CELL_COUNT,
+    MAX_IMAGE_REVIEW_ALTERNATIVES,
+    ImageReviewAction,
+    ImageReviewGeometryRevision,
+    ImageReviewItem,
+    ImageReviewResolutionEvent,
+    ImageReviewView,
+    crop_sample_id,
+)
+from game_predictor_api.schemas.catalog import ApiModel
+
+Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+Probability = Annotated[float, Field(ge=0.0, le=1.0)]
+
+
+class OperationalImageReviewAlternativeResponse(ApiModel):
+    symbol_code: str = Field(min_length=1, max_length=64)
+    confidence: Probability
+
+
+class OperationalImageReviewCellResponse(ApiModel):
+    observation_id: UUID
+    cell_index: int = Field(ge=0, lt=IMAGE_REVIEW_CELL_COUNT)
+    row_index: int = Field(ge=0, lt=3)
+    column_index: int = Field(ge=0, lt=5)
+    crop_sample_id: Sha256
+    crop_checksum_sha256: Sha256
+    predicted_symbol_code: str = Field(min_length=1, max_length=64)
+    current_symbol_code: str = Field(min_length=1, max_length=64)
+    confidence: Probability
+    alternatives: tuple[OperationalImageReviewAlternativeResponse, ...] = Field(
+        min_length=1,
+        max_length=MAX_IMAGE_REVIEW_ALTERNATIVES,
+    )
+
+
+class OperationalImageReviewItemResponse(ApiModel):
+    id: UUID
+    game_id: UUID
+    import_job_id: UUID
+    recognized_board_id: UUID
+    status: str
+    source_order_index: int = Field(ge=0)
+    position_index: int = Field(ge=0, le=8)
+    sequence_number: int | None = Field(default=None, ge=1)
+    suggested_sequence_number: int | None = Field(default=None, ge=1)
+    source_checksum_sha256: Sha256
+    board_checksum_sha256: Sha256
+    geometry_revision: int = Field(ge=0)
+    geometry: dict[str, object]
+    pipeline_fingerprint: Sha256
+    cells: tuple[OperationalImageReviewCellResponse, ...] = Field(
+        min_length=IMAGE_REVIEW_CELL_COUNT,
+        max_length=IMAGE_REVIEW_CELL_COUNT,
+    )
+    resolved_value: dict[str, object] | None
+    resolved_by: str | None
+    resolved_at: datetime | None
+    resolution_revision: int = Field(ge=0)
+    created_at: datetime
+
+
+class OperationalImageReviewCountsResponse(ApiModel):
+    pending: int = Field(ge=0)
+    accepted: int = Field(ge=0)
+    corrected: int = Field(ge=0)
+    rejected: int = Field(ge=0)
+    completed: int = Field(ge=0)
+    total: int = Field(ge=0)
+
+
+class OperationalImageReviewPageResponse(ApiModel):
+    game_id: UUID
+    import_job_id: UUID
+    view: ImageReviewView
+    items: tuple[OperationalImageReviewItemResponse, ...]
+    counts: OperationalImageReviewCountsResponse
+    previous_cursor: str | None
+    next_cursor: str | None
+
+
+class OperationalImageReviewResolutionCell(ApiModel):
+    cell_index: int = Field(ge=0, lt=IMAGE_REVIEW_CELL_COUNT)
+    crop_sample_id: Sha256
+    symbol_code: str = Field(min_length=1, max_length=64)
+
+
+class OperationalImageReviewResolutionCommand(ApiModel):
+    idempotency_key: UUID
+    expected_revision: int = Field(ge=0)
+    action: ImageReviewAction
+    sequence_number: int | None = Field(default=None, ge=1)
+    geometry_revision: int = Field(ge=0)
+    cells: tuple[OperationalImageReviewResolutionCell, ...] = Field(
+        default=(),
+        max_length=IMAGE_REVIEW_CELL_COUNT,
+    )
+    rejection_reason: str | None = Field(default=None, max_length=500)
+    resolved_by: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def validate_variant(self) -> Self:
+        if self.action is ImageReviewAction.REJECTED:
+            if self.sequence_number is not None or self.cells or not self.rejection_reason:
+                raise ValueError("Rejected resolution requires only rejectionReason.")
+        elif (
+            self.sequence_number is None
+            or len(self.cells) != IMAGE_REVIEW_CELL_COUNT
+            or self.rejection_reason is not None
+        ):
+            raise ValueError("Accepted/corrected resolution requires sequenceNumber and 15 cells.")
+        return self
+
+
+class OperationalImageReviewResolutionEventResponse(ApiModel):
+    id: UUID
+    review_item_id: UUID
+    revision: int = Field(ge=1)
+    idempotency_key: UUID
+    action: str
+    command_sha256: Sha256
+    resolved_value: dict[str, object]
+    resolved_by: str
+    created_at: datetime
+
+
+class OperationalImageReviewResolutionResponse(ApiModel):
+    item: OperationalImageReviewItemResponse
+    event: OperationalImageReviewResolutionEventResponse
+    created: bool
+
+
+class OperationalImageReviewGeometryPoint(ApiModel):
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+
+
+class OperationalImageReviewGeometryPreviewCommand(ApiModel):
+    expected_geometry_revision: int = Field(ge=0)
+    expected_resolution_revision: int = Field(ge=0)
+    corners: tuple[
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+    ]
+
+
+class OperationalImageReviewGeometryCommand(OperationalImageReviewGeometryPreviewCommand):
+    idempotency_key: UUID
+    corrected_by: str = Field(min_length=1, max_length=200)
+
+
+class OperationalImageReviewGeometryCellResponse(ApiModel):
+    cell_index: int = Field(ge=0, lt=IMAGE_REVIEW_CELL_COUNT)
+    row_index: int = Field(ge=0, lt=3)
+    column_index: int = Field(ge=0, lt=5)
+    crop_sample_id: Sha256
+    crop_checksum_sha256: Sha256
+
+
+class OperationalImageReviewGeometryRevisionResponse(ApiModel):
+    id: UUID
+    review_item_id: UUID
+    recognized_board_id: UUID
+    revision: int = Field(ge=1)
+    idempotency_key: UUID
+    command_sha256: Sha256
+    corners: tuple[
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+        OperationalImageReviewGeometryPoint,
+    ]
+    board_checksum_sha256: Sha256
+    cropper_version: str
+    cells: tuple[OperationalImageReviewGeometryCellResponse, ...] = Field(
+        min_length=IMAGE_REVIEW_CELL_COUNT,
+        max_length=IMAGE_REVIEW_CELL_COUNT,
+    )
+    corrected_by: str
+    created_at: datetime
+
+
+class OperationalImageReviewGeometryResponse(ApiModel):
+    item: OperationalImageReviewItemResponse
+    geometry_revision: OperationalImageReviewGeometryRevisionResponse
+    created: bool
+
+
+def to_operational_item_response(
+    item: ImageReviewItem,
+) -> OperationalImageReviewItemResponse:
+    return OperationalImageReviewItemResponse(
+        id=item.id,
+        game_id=item.game_id,
+        import_job_id=item.import_job_id,
+        recognized_board_id=item.recognized_board_id,
+        status=item.status,
+        source_order_index=item.source_order_index,
+        position_index=item.position_index,
+        sequence_number=item.queue_sequence_number,
+        suggested_sequence_number=item.suggested_sequence_number,
+        source_checksum_sha256=item.source_checksum_sha256,
+        board_checksum_sha256=item.board_checksum_sha256,
+        geometry_revision=item.geometry_revision,
+        geometry=dict(item.geometry),
+        pipeline_fingerprint=item.pipeline_fingerprint,
+        cells=tuple(
+            OperationalImageReviewCellResponse(
+                observation_id=cell.observation_id,
+                cell_index=cell.cell_index,
+                row_index=cell.row_index,
+                column_index=cell.column_index,
+                crop_sample_id=cell.crop_sample_id,
+                crop_checksum_sha256=cell.crop_checksum_sha256,
+                predicted_symbol_code=cell.predicted_symbol_code,
+                current_symbol_code=cell.current_symbol_code,
+                confidence=cell.confidence,
+                alternatives=tuple(
+                    OperationalImageReviewAlternativeResponse(
+                        symbol_code=alternative.symbol_code,
+                        confidence=alternative.confidence,
+                    )
+                    for alternative in cell.alternatives
+                ),
+            )
+            for cell in item.cells
+        ),
+        resolved_value=dict(item.resolved_value) if item.resolved_value else None,
+        resolved_by=item.resolved_by,
+        resolved_at=item.resolved_at,
+        resolution_revision=item.resolution_revision,
+        created_at=item.created_at,
+    )
+
+
+def to_operational_page_response(
+    page: OperationalImageReviewPage,
+) -> OperationalImageReviewPageResponse:
+    return OperationalImageReviewPageResponse(
+        game_id=page.game_id,
+        import_job_id=page.import_job_id,
+        view=page.view,
+        items=tuple(to_operational_item_response(item) for item in page.items),
+        counts=OperationalImageReviewCountsResponse(
+            pending=page.counts.pending,
+            accepted=page.counts.accepted,
+            corrected=page.counts.corrected,
+            rejected=page.counts.rejected,
+            completed=page.counts.completed,
+            total=page.counts.total,
+        ),
+        previous_cursor=page.previous_cursor,
+        next_cursor=page.next_cursor,
+    )
+
+
+def to_operational_event_response(
+    event: ImageReviewResolutionEvent,
+) -> OperationalImageReviewResolutionEventResponse:
+    return OperationalImageReviewResolutionEventResponse(
+        id=event.id,
+        review_item_id=event.review_item_id,
+        revision=event.revision,
+        idempotency_key=event.idempotency_key,
+        action=event.action,
+        command_sha256=event.command_sha256,
+        resolved_value=dict(event.resolved_value),
+        resolved_by=event.resolved_by,
+        created_at=event.created_at,
+    )
+
+
+def to_operational_geometry_revision_response(
+    revision: ImageReviewGeometryRevision,
+) -> OperationalImageReviewGeometryRevisionResponse:
+    return OperationalImageReviewGeometryRevisionResponse(
+        id=revision.id,
+        review_item_id=revision.review_item_id,
+        recognized_board_id=revision.recognized_board_id,
+        revision=revision.revision,
+        idempotency_key=revision.idempotency_key,
+        command_sha256=revision.command_sha256,
+        corners=(
+            OperationalImageReviewGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
+            OperationalImageReviewGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),
+            OperationalImageReviewGeometryPoint(x=revision.corners[2].x, y=revision.corners[2].y),
+            OperationalImageReviewGeometryPoint(x=revision.corners[3].x, y=revision.corners[3].y),
+        ),
+        board_checksum_sha256=revision.board_checksum_sha256,
+        cropper_version=revision.cropper_version,
+        cells=tuple(
+            OperationalImageReviewGeometryCellResponse(
+                cell_index=cell.row_index * 5 + cell.column_index,
+                row_index=cell.row_index,
+                column_index=cell.column_index,
+                crop_sample_id=crop_sample_id(
+                    recognized_board_id=revision.recognized_board_id,
+                    row_index=cell.row_index,
+                    column_index=cell.column_index,
+                    cropper_version=revision.cropper_version,
+                    crop_relative_path=cell.crop_relative_path,
+                    crop_checksum_sha256=cell.crop_checksum_sha256,
+                ),
+                crop_checksum_sha256=cell.crop_checksum_sha256,
+            )
+            for cell in revision.cells
+        ),
+        corrected_by=revision.corrected_by,
+        created_at=revision.created_at,
+    )
+
+
+__all__ = [
+    "OperationalImageReviewPageResponse",
+    "OperationalImageReviewGeometryCommand",
+    "OperationalImageReviewGeometryPreviewCommand",
+    "OperationalImageReviewGeometryResponse",
+    "OperationalImageReviewResolutionCommand",
+    "OperationalImageReviewResolutionEventResponse",
+    "OperationalImageReviewResolutionResponse",
+    "to_operational_event_response",
+    "to_operational_geometry_revision_response",
+    "to_operational_item_response",
+    "to_operational_page_response",
+]

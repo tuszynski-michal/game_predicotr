@@ -6,11 +6,21 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from game_predictor_worker.images.manual_geometry_recrop import (
+    ManualGeometryRecropper,
+)
 
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.image_jobs import ImageJobOperationsService
+from game_predictor_api.application.image_review_cohorts import (
+    VerifiedCohortArtifactStore,
+    VerifiedCohortService,
+)
+from game_predictor_api.application.image_reviews import (
+    OperationalImageReviewService,
+)
 from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
@@ -37,6 +47,11 @@ from game_predictor_api.domain.datasets import (
     DatasetConflictError,
     DatasetError,
     DatasetNotFoundError,
+)
+from game_predictor_api.domain.image_reviews import (
+    ImageReviewConflictError,
+    ImageReviewError,
+    ImageReviewNotFoundError,
 )
 from game_predictor_api.domain.jobs import (
     JobConflictError,
@@ -71,6 +86,12 @@ from game_predictor_api.storage.dataset_repository import (
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
+from game_predictor_api.storage.image_review_cohort_repository import (
+    SqlAlchemyVerifiedCohortExportRepository,
+)
+from game_predictor_api.storage.image_review_repository import (
+    SqlAlchemyOperationalImageReviewRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.layout_import_report_repository import (
     SqlAlchemyLayoutImportReportRepository,
@@ -93,6 +114,8 @@ def create_app(
     job_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
+    image_review_service_dependency: Callable[..., object] | None = None,
+    image_review_cohort_service_dependency: Callable[..., object] | None = None,
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
     review_service_dependency: Callable[..., object] | None = None,
@@ -180,6 +203,40 @@ def create_app(
         image_storage_service_dependency or default_image_storage_service_dependency
     )
 
+    def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
+        with session_factory() as session:
+            try:
+                yield OperationalImageReviewService(
+                    SqlAlchemyOperationalImageReviewRepository(session),
+                    artifact_root=resolved_settings.artifact_root,
+                    geometry_recropper=ManualGeometryRecropper(),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_review_dependency = (
+        image_review_service_dependency or default_image_review_service_dependency
+    )
+
+    def default_image_review_cohort_service_dependency() -> Iterator[VerifiedCohortService]:
+        with session_factory() as session:
+            try:
+                yield VerifiedCohortService(
+                    SqlAlchemyOperationalImageReviewRepository(session),
+                    SqlAlchemyVerifiedCohortExportRepository(session),
+                    VerifiedCohortArtifactStore(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_review_cohort_dependency = (
+        image_review_cohort_service_dependency or default_image_review_cohort_service_dependency
+    )
+
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
         with session_factory() as session:
             try:
@@ -246,6 +303,8 @@ def create_app(
             resolved_job_dependency,
             resolved_image_job_dependency,
             resolved_image_storage_dependency,
+            resolved_image_review_dependency,
+            resolved_image_review_cohort_dependency,
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
             resolved_review_dependency,
@@ -261,6 +320,25 @@ def create_app(
         if isinstance(error, CatalogNotFoundError):
             status_code = 404
         elif isinstance(error, CatalogConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(ImageReviewError)
+    async def handle_image_review_error(
+        _request: Request,
+        error: ImageReviewError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, ImageReviewNotFoundError):
+            status_code = 404
+        elif isinstance(error, ImageReviewConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

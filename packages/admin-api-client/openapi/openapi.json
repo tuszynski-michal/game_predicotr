@@ -924,6 +924,23 @@
         "title": "ImageJobStageCountResponse",
         "type": "object"
       },
+      "ImageReviewAction": {
+        "enum": [
+          "accepted",
+          "corrected",
+          "rejected"
+        ],
+        "title": "ImageReviewAction",
+        "type": "string"
+      },
+      "ImageReviewView": {
+        "enum": [
+          "pending",
+          "completed"
+        ],
+        "title": "ImageReviewView",
+        "type": "string"
+      },
       "ImageStorageInventoryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2239,6 +2256,842 @@
           "seed"
         ],
         "title": "MockDatasetCreate",
+        "type": "object"
+      },
+      "OperationalImageReviewAlternativeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "symbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolCode",
+          "confidence"
+        ],
+        "title": "OperationalImageReviewAlternativeResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewCellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewAlternativeResponse"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Alternatives",
+            "type": "array"
+          },
+          "cellIndex": {
+            "exclusiveMaximum": 15.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "exclusiveMaximum": 5.0,
+            "minimum": 0.0,
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "cropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropchecksumsha256",
+            "type": "string"
+          },
+          "cropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropsampleid",
+            "type": "string"
+          },
+          "currentSymbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Currentsymbolcode",
+            "type": "string"
+          },
+          "observationId": {
+            "format": "uuid",
+            "title": "Observationid",
+            "type": "string"
+          },
+          "predictedSymbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Predictedsymbolcode",
+            "type": "string"
+          },
+          "rowIndex": {
+            "exclusiveMaximum": 3.0,
+            "minimum": 0.0,
+            "title": "Rowindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "observationId",
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "cropSampleId",
+          "cropChecksumSha256",
+          "predictedSymbolCode",
+          "currentSymbolCode",
+          "confidence",
+          "alternatives"
+        ],
+        "title": "OperationalImageReviewCellResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "minimum": 0.0,
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "completed": {
+            "minimum": 0.0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "corrected": {
+            "minimum": 0.0,
+            "title": "Corrected",
+            "type": "integer"
+          },
+          "pending": {
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "rejected": {
+            "minimum": 0.0,
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending",
+          "accepted",
+          "corrected",
+          "rejected",
+          "completed",
+          "total"
+        ],
+        "title": "OperationalImageReviewCountsResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewGeometryCellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "exclusiveMaximum": 15.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "exclusiveMaximum": 5.0,
+            "minimum": 0.0,
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "cropChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropchecksumsha256",
+            "type": "string"
+          },
+          "cropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropsampleid",
+            "type": "string"
+          },
+          "rowIndex": {
+            "exclusiveMaximum": 3.0,
+            "minimum": 0.0,
+            "title": "Rowindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "rowIndex",
+          "columnIndex",
+          "cropSampleId",
+          "cropChecksumSha256"
+        ],
+        "title": "OperationalImageReviewGeometryCellResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewGeometryCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "corners": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "correctedBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Correctedby",
+            "type": "string"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedGeometryRevision",
+          "expectedResolutionRevision",
+          "corners",
+          "idempotencyKey",
+          "correctedBy"
+        ],
+        "title": "OperationalImageReviewGeometryCommand",
+        "type": "object"
+      },
+      "OperationalImageReviewGeometryPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "minimum": 0.0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "OperationalImageReviewGeometryPoint",
+        "type": "object"
+      },
+      "OperationalImageReviewGeometryPreviewCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "corners": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "expectedGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Expectedgeometryrevision",
+            "type": "integer"
+          },
+          "expectedResolutionRevision": {
+            "minimum": 0.0,
+            "title": "Expectedresolutionrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedGeometryRevision",
+          "expectedResolutionRevision",
+          "corners"
+        ],
+        "title": "OperationalImageReviewGeometryPreviewCommand",
+        "type": "object"
+      },
+      "OperationalImageReviewGeometryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "geometryRevision": {
+            "$ref": "#/components/schemas/OperationalImageReviewGeometryRevisionResponse"
+          },
+          "item": {
+            "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+          }
+        },
+        "required": [
+          "item",
+          "geometryRevision",
+          "created"
+        ],
+        "title": "OperationalImageReviewGeometryResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewGeometryRevisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewGeometryCellResponse"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "commandSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Commandsha256",
+            "type": "string"
+          },
+          "corners": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "correctedBy": {
+            "title": "Correctedby",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "cropperVersion": {
+            "title": "Cropperversion",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reviewItemId",
+          "recognizedBoardId",
+          "revision",
+          "idempotencyKey",
+          "commandSha256",
+          "corners",
+          "boardChecksumSha256",
+          "cropperVersion",
+          "cells",
+          "correctedBy",
+          "createdAt"
+        ],
+        "title": "OperationalImageReviewGeometryRevisionResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewCellResponse"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "geometry": {
+            "additionalProperties": true,
+            "title": "Geometry",
+            "type": "object"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "resolutionRevision": {
+            "minimum": 0.0,
+            "title": "Resolutionrevision",
+            "type": "integer"
+          },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedat"
+          },
+          "resolvedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedby"
+          },
+          "resolvedValue": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedvalue"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceOrderIndex": {
+            "minimum": 0.0,
+            "title": "Sourceorderindex",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "suggestedSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestedsequencenumber"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "importJobId",
+          "recognizedBoardId",
+          "status",
+          "sourceOrderIndex",
+          "positionIndex",
+          "sourceChecksumSha256",
+          "boardChecksumSha256",
+          "geometryRevision",
+          "geometry",
+          "pipelineFingerprint",
+          "cells",
+          "resolvedValue",
+          "resolvedBy",
+          "resolvedAt",
+          "resolutionRevision",
+          "createdAt"
+        ],
+        "title": "OperationalImageReviewItemResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OperationalImageReviewCountsResponse"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "previousCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previouscursor"
+          },
+          "view": {
+            "$ref": "#/components/schemas/ImageReviewView"
+          }
+        },
+        "required": [
+          "gameId",
+          "importJobId",
+          "view",
+          "items",
+          "counts",
+          "previousCursor",
+          "nextCursor"
+        ],
+        "title": "OperationalImageReviewPageResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewResolutionCell": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "exclusiveMaximum": 15.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "cropSampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cropsampleid",
+            "type": "string"
+          },
+          "symbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "cropSampleId",
+          "symbolCode"
+        ],
+        "title": "OperationalImageReviewResolutionCell",
+        "type": "object"
+      },
+      "OperationalImageReviewResolutionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ImageReviewAction"
+          },
+          "cells": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OperationalImageReviewResolutionCell"
+            },
+            "maxItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "rejectionReason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectionreason"
+          },
+          "resolvedBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Resolvedby",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision",
+          "action",
+          "geometryRevision",
+          "resolvedBy"
+        ],
+        "title": "OperationalImageReviewResolutionCommand",
+        "type": "object"
+      },
+      "OperationalImageReviewResolutionEventResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "commandSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Commandsha256",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "resolvedBy": {
+            "title": "Resolvedby",
+            "type": "string"
+          },
+          "resolvedValue": {
+            "additionalProperties": true,
+            "title": "Resolvedvalue",
+            "type": "object"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reviewItemId",
+          "revision",
+          "idempotencyKey",
+          "action",
+          "commandSha256",
+          "resolvedValue",
+          "resolvedBy",
+          "createdAt"
+        ],
+        "title": "OperationalImageReviewResolutionEventResponse",
+        "type": "object"
+      },
+      "OperationalImageReviewResolutionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "event": {
+            "$ref": "#/components/schemas/OperationalImageReviewResolutionEventResponse"
+          },
+          "item": {
+            "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+          }
+        },
+        "required": [
+          "item",
+          "event",
+          "created"
+        ],
+        "title": "OperationalImageReviewResolutionResponse",
         "type": "object"
       },
       "PaylineCreate": {
@@ -4074,6 +4927,125 @@
         ],
         "title": "ValidateJobPayload",
         "type": "object"
+      },
+      "VerifiedCohortExportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactRelativePath": {
+            "title": "Artifactrelativepath",
+            "type": "string"
+          },
+          "boardCount": {
+            "minimum": 1.0,
+            "title": "Boardcount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "title": "Createdby",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "inputStateSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Inputstatesha256",
+            "type": "string"
+          },
+          "payloadSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Payloadsha256",
+            "type": "string"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "sampleCount": {
+            "minimum": 15.0,
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "importJobId",
+          "version",
+          "inputStateSha256",
+          "payloadSha256",
+          "artifactRelativePath",
+          "boardCount",
+          "sampleCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "createdBy",
+          "createdAt"
+        ],
+        "title": "VerifiedCohortExportResponse",
+        "type": "object"
+      },
+      "VerifiedCohortFreezeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "createdBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Createdby",
+            "type": "string"
+          }
+        },
+        "required": [
+          "createdBy"
+        ],
+        "title": "VerifiedCohortFreezeCommand",
+        "type": "object"
+      },
+      "VerifiedCohortFreezeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "export": {
+            "$ref": "#/components/schemas/VerifiedCohortExportResponse"
+          }
+        },
+        "required": [
+          "export",
+          "created"
+        ],
+        "title": "VerifiedCohortFreezeResponse",
+        "type": "object"
       }
     }
   },
@@ -5679,6 +6651,1001 @@
         "summary": "Get durable image-job stage and file statistics",
         "tags": [
           "image-jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-cohort-exports": {
+      "get": {
+        "operationId": "listVerifiedImageReviewCohorts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VerifiedCohortExportResponse"
+                  },
+                  "title": "Response Listverifiedimagereviewcohorts",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Verified cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Verified cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List immutable verified cohort export versions",
+        "tags": [
+          "image-review-cohorts"
+        ]
+      },
+      "post": {
+        "operationId": "freezeVerifiedImageReviewCohort",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifiedCohortFreezeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedCohortFreezeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Verified cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Verified cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Explicitly freeze the current verified board cohort",
+        "tags": [
+          "image-review-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items": {
+      "get": {
+        "operationId": "listOperationalImageReviewItems",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ImageReviewView",
+              "default": "pending"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftercursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "beforeCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Beforecursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sequenceNumber",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sequencenumber"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalImageReviewPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List one bounded page of job-local image review items",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}": {
+      "get": {
+        "operationId": "getOperationalImageReviewItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalImageReviewItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get one job-local image review item with 15 cells",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/assets/board": {
+      "get": {
+        "operationId": "getOperationalImageReviewBoardAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read the checksum-bound rectified board image",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/assets/cells/{cell_index}": {
+      "get": {
+        "operationId": "getOperationalImageReviewCellAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell_index",
+            "required": true,
+            "schema": {
+              "title": "Cell Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read one checksum-bound operational cell crop",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/assets/source": {
+      "get": {
+        "operationId": "getOperationalImageReviewSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read the checksum-bound source image",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/geometry-preview": {
+      "post": {
+        "operationId": "previewOperationalImageReviewGeometry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryPreviewCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {}
+            },
+            "description": "Rectified 500 by 300 board preview"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview a corrected board without persisting files or revisions",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions": {
+      "post": {
+        "operationId": "createOperationalImageReviewGeometryRevision",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationalImageReviewGeometryCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalImageReviewGeometryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Persist immutable corrected geometry and reopen review",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/resolution": {
+      "post": {
+        "operationId": "resolveOperationalImageReviewItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationalImageReviewResolutionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationalImageReviewResolutionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Atomically append and materialize one whole-board decision",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/{review_item_id}/resolution-events": {
+      "get": {
+        "operationId": "listOperationalImageReviewResolutionEvents",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Importjobid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperationalImageReviewResolutionEventResponse"
+                  },
+                  "title": "Response Listoperationalimagereviewresolutionevents",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List append-only operational review decisions",
+        "tags": [
+          "image-reviews"
         ]
       }
     },

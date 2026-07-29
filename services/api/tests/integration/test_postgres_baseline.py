@@ -12,7 +12,7 @@ from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0018_image_failure_retry"
+HEAD_REVISION = "0020_verified_cohorts"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 
 pytestmark = pytest.mark.skipif(
@@ -78,10 +78,12 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             "jobs",
             "image_file_executions",
             "image_import_job_files",
+            "image_board_geometry_revisions",
             "image_layout_staging_rows",
             "image_pipeline_stage_results",
             "image_review_items",
             "image_review_resolution_events",
+            "image_verified_cohort_exports",
             "layouts",
             "layout_payouts",
             "layout_import_rows",
@@ -117,10 +119,12 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             "jobs",
             "image_file_executions",
             "image_import_job_files",
+            "image_board_geometry_revisions",
             "image_layout_staging_rows",
             "image_pipeline_stage_results",
             "image_review_items",
             "image_review_resolution_events",
+            "image_verified_cohort_exports",
             "layouts",
             "layout_payouts",
             "layout_import_rows",

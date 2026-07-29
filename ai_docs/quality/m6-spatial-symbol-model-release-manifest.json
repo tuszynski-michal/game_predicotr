@@ -1,0 +1,55 @@
+{
+  "architectureVersion": "spatial-symbol-cnn-v1",
+  "artifacts": {
+    "calibrationReport": {
+      "relativePath": "ai_docs/quality/m6-spatial-symbol-model-confidence-calibration-report.json",
+      "sha256": "aa34ec2237483bc3fd232168284f199ccce4da5d56133d0ae1defa5f3c8026bb"
+    },
+    "checkpoint": {
+      "relativePath": "artifacts/m6-spatial-symbol-model-release-v1/spatial-symbol-cnn-v1.pt",
+      "sha256": "33e75b82c79656228707fc4c993c0b455744827010909fea032edd3cd1c5987a"
+    },
+    "decisionReport": {
+      "relativePath": "ai_docs/quality/m6-spatial-symbol-model-release-decision.json",
+      "sha256": "f92cd1359361ed7201344452f53d264cdbd90060adaef21b37d5f621cf724af1"
+    },
+    "onnx": {
+      "relativePath": "artifacts/m6-spatial-symbol-model-release-v1/spatial-symbol-cnn-v1.onnx",
+      "sha256": "b55180cad5e20168daf278d19198d691f7b9e964578123fb933f41ec82a7668a"
+    },
+    "onnxReport": {
+      "relativePath": "ai_docs/quality/m6-spatial-symbol-model-onnx-report.json",
+      "sha256": "5e8f4d7b4f7656063cb663636aa9f1693d59b056ccc200c93f8e84dc5e3cd9df"
+    },
+    "verticalSliceReport": {
+      "relativePath": "ai_docs/quality/m6-spatial-symbol-model-vertical-slice-report.json",
+      "sha256": "d9f56165b808b046bd76bcb647e06ed7472fb89b5288b02f2d05e9b81d762f6b"
+    }
+  },
+  "classes": [
+    "cherries",
+    "grapes",
+    "lemon",
+    "orange",
+    "plum",
+    "seven",
+    "star",
+    "watermelon"
+  ],
+  "inputSize": 64,
+  "inputs": {
+    "benchmarkDecisionSha256": "9f3b1cabe4ab04824a8c93787e426f492191f0b1a8f68062ffb02b6d79ce2a3c",
+    "benchmarkReportSha256": "01c9c3b76dbb29a0a11496e2984a7a4576ae97a3dd1b43fee2731b6699416c6f",
+    "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+    "selectedTestReportSha256": "0e0ddcba28880b49aa0c74c246b4ab32576b3fece575994d0e4c2a2787dec60c",
+    "selectionReportSha256": "1c8d2c0ebb38bf84163ac459068e390e52af43e2f079056d1fcec65b00362618",
+    "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4"
+  },
+  "logicalStateSha256": "fa7a437c514300b2d90db3a9973ba509818bddbe5bb1d2fc0c0483561fb18d0f",
+  "modelVersion": "production-spatial-symbol-cnn-v1",
+  "onnxModelVersion": "spatial-symbol-cnn-onnx-v1",
+  "preprocessingVersion": "rgb-resize64-normalize-half-v1",
+  "releaseVersion": "spatial-symbol-model-release-v1",
+  "schemaVersion": 1,
+  "temperature": 1.1515684402
+}

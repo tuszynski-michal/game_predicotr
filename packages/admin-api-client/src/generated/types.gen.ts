@@ -574,6 +574,16 @@ export type ImageJobStageCountResponse = {
 };
 
 /**
+ * ImageReviewAction
+ */
+export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
+
+/**
+ * ImageReviewView
+ */
+export type ImageReviewView = 'pending' | 'completed';
+
+/**
  * ImageStorageInventoryResponse
  */
 export type ImageStorageInventoryResponse = {
@@ -1344,6 +1354,520 @@ export type MockDatasetCreate = {
    * Seed
    */
   seed: number;
+};
+
+/**
+ * OperationalImageReviewAlternativeResponse
+ */
+export type OperationalImageReviewAlternativeResponse = {
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
+ * OperationalImageReviewCellResponse
+ */
+export type OperationalImageReviewCellResponse = {
+  /**
+   * Alternatives
+   */
+  alternatives: Array<OperationalImageReviewAlternativeResponse>;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string;
+  /**
+   * Currentsymbolcode
+   */
+  currentSymbolCode: string;
+  /**
+   * Observationid
+   */
+  observationId: string;
+  /**
+   * Predictedsymbolcode
+   */
+  predictedSymbolCode: string;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+};
+
+/**
+ * OperationalImageReviewCountsResponse
+ */
+export type OperationalImageReviewCountsResponse = {
+  /**
+   * Accepted
+   */
+  accepted: number;
+  /**
+   * Completed
+   */
+  completed: number;
+  /**
+   * Corrected
+   */
+  corrected: number;
+  /**
+   * Pending
+   */
+  pending: number;
+  /**
+   * Rejected
+   */
+  rejected: number;
+  /**
+   * Total
+   */
+  total: number;
+};
+
+/**
+ * OperationalImageReviewGeometryCellResponse
+ */
+export type OperationalImageReviewGeometryCellResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+};
+
+/**
+ * OperationalImageReviewGeometryCommand
+ */
+export type OperationalImageReviewGeometryCommand = {
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Correctedby
+   */
+  correctedBy: string;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * OperationalImageReviewGeometryPoint
+ */
+export type OperationalImageReviewGeometryPoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * OperationalImageReviewGeometryPreviewCommand
+ */
+export type OperationalImageReviewGeometryPreviewCommand = {
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+};
+
+/**
+ * OperationalImageReviewGeometryResponse
+ */
+export type OperationalImageReviewGeometryResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  geometryRevision: OperationalImageReviewGeometryRevisionResponse;
+  item: OperationalImageReviewItemResponse;
+};
+
+/**
+ * OperationalImageReviewGeometryRevisionResponse
+ */
+export type OperationalImageReviewGeometryRevisionResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Cells
+   */
+  cells: [
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+    OperationalImageReviewGeometryCellResponse,
+  ];
+  /**
+   * Commandsha256
+   */
+  commandSha256: string;
+  /**
+   * Corners
+   */
+  corners: [
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+    OperationalImageReviewGeometryPoint,
+  ];
+  /**
+   * Correctedby
+   */
+  correctedBy: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Cropperversion
+   */
+  cropperVersion: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * OperationalImageReviewItemResponse
+ */
+export type OperationalImageReviewItemResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Cells
+   */
+  cells: [
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+    OperationalImageReviewCellResponse,
+  ];
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Geometry
+   */
+  geometry: {
+    [key: string]: unknown;
+  };
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Resolutionrevision
+   */
+  resolutionRevision: number;
+  /**
+   * Resolvedat
+   */
+  resolvedAt: string | null;
+  /**
+   * Resolvedby
+   */
+  resolvedBy: string | null;
+  /**
+   * Resolvedvalue
+   */
+  resolvedValue: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber?: number | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceorderindex
+   */
+  sourceOrderIndex: number;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Suggestedsequencenumber
+   */
+  suggestedSequenceNumber?: number | null;
+};
+
+/**
+ * OperationalImageReviewPageResponse
+ */
+export type OperationalImageReviewPageResponse = {
+  counts: OperationalImageReviewCountsResponse;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Items
+   */
+  items: Array<OperationalImageReviewItemResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+  /**
+   * Previouscursor
+   */
+  previousCursor: string | null;
+  view: ImageReviewView;
+};
+
+/**
+ * OperationalImageReviewResolutionCell
+ */
+export type OperationalImageReviewResolutionCell = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
+ * OperationalImageReviewResolutionCommand
+ */
+export type OperationalImageReviewResolutionCommand = {
+  action: ImageReviewAction;
+  /**
+   * Cells
+   */
+  cells?: Array<OperationalImageReviewResolutionCell>;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Rejectionreason
+   */
+  rejectionReason?: string | null;
+  /**
+   * Resolvedby
+   */
+  resolvedBy: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber?: number | null;
+};
+
+/**
+ * OperationalImageReviewResolutionEventResponse
+ */
+export type OperationalImageReviewResolutionEventResponse = {
+  /**
+   * Action
+   */
+  action: string;
+  /**
+   * Commandsha256
+   */
+  commandSha256: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Resolvedby
+   */
+  resolvedBy: string;
+  /**
+   * Resolvedvalue
+   */
+  resolvedValue: {
+    [key: string]: unknown;
+  };
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * OperationalImageReviewResolutionResponse
+ */
+export type OperationalImageReviewResolutionResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  event: OperationalImageReviewResolutionEventResponse;
+  item: OperationalImageReviewItemResponse;
 };
 
 /**
@@ -2431,6 +2955,85 @@ export type ValidateJobPayload = {
   schemaVersion?: 1;
 };
 
+/**
+ * VerifiedCohortExportResponse
+ */
+export type VerifiedCohortExportResponse = {
+  /**
+   * Artifactrelativepath
+   */
+  artifactRelativePath: string;
+  /**
+   * Boardcount
+   */
+  boardCount: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Inputstatesha256
+   */
+  inputStateSha256: string;
+  /**
+   * Payloadsha256
+   */
+  payloadSha256: string;
+  /**
+   * Pendingitemcount
+   */
+  pendingItemCount: number;
+  /**
+   * Rejecteditemcount
+   */
+  rejectedItemCount: number;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Version
+   */
+  version: number;
+};
+
+/**
+ * VerifiedCohortFreezeCommand
+ */
+export type VerifiedCohortFreezeCommand = {
+  /**
+   * Createdby
+   */
+  createdBy: string;
+};
+
+/**
+ * VerifiedCohortFreezeResponse
+ */
+export type VerifiedCohortFreezeResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  export: VerifiedCohortExportResponse;
+};
+
 export type ArchiveDatasetVersionData = {
   body?: never;
   path: {
@@ -3394,6 +3997,547 @@ export type GetImageJobOperationsResponses = {
 
 export type GetImageJobOperationsResponse =
   GetImageJobOperationsResponses[keyof GetImageJobOperationsResponses];
+
+export type ListVerifiedImageReviewCohortsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-cohort-exports';
+};
+
+export type ListVerifiedImageReviewCohortsErrors = {
+  /**
+   * Verified cohort resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Verified cohort conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListVerifiedImageReviewCohortsError =
+  ListVerifiedImageReviewCohortsErrors[keyof ListVerifiedImageReviewCohortsErrors];
+
+export type ListVerifiedImageReviewCohortsResponses = {
+  /**
+   * Response Listverifiedimagereviewcohorts
+   *
+   * Successful Response
+   */
+  200: Array<VerifiedCohortExportResponse>;
+};
+
+export type ListVerifiedImageReviewCohortsResponse =
+  ListVerifiedImageReviewCohortsResponses[keyof ListVerifiedImageReviewCohortsResponses];
+
+export type FreezeVerifiedImageReviewCohortData = {
+  body: VerifiedCohortFreezeCommand;
+  path?: never;
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-cohort-exports';
+};
+
+export type FreezeVerifiedImageReviewCohortErrors = {
+  /**
+   * Verified cohort resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Verified cohort conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type FreezeVerifiedImageReviewCohortError =
+  FreezeVerifiedImageReviewCohortErrors[keyof FreezeVerifiedImageReviewCohortErrors];
+
+export type FreezeVerifiedImageReviewCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: VerifiedCohortFreezeResponse;
+};
+
+export type FreezeVerifiedImageReviewCohortResponse =
+  FreezeVerifiedImageReviewCohortResponses[keyof FreezeVerifiedImageReviewCohortResponses];
+
+export type ListOperationalImageReviewItemsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+    view?: ImageReviewView;
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Beforecursor
+     */
+    beforeCursor?: string | null;
+    /**
+     * Sequencenumber
+     */
+    sequenceNumber?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items';
+};
+
+export type ListOperationalImageReviewItemsErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListOperationalImageReviewItemsError =
+  ListOperationalImageReviewItemsErrors[keyof ListOperationalImageReviewItemsErrors];
+
+export type ListOperationalImageReviewItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: OperationalImageReviewPageResponse;
+};
+
+export type ListOperationalImageReviewItemsResponse =
+  ListOperationalImageReviewItemsResponses[keyof ListOperationalImageReviewItemsResponses];
+
+export type GetOperationalImageReviewItemData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}';
+};
+
+export type GetOperationalImageReviewItemErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetOperationalImageReviewItemError =
+  GetOperationalImageReviewItemErrors[keyof GetOperationalImageReviewItemErrors];
+
+export type GetOperationalImageReviewItemResponses = {
+  /**
+   * Successful Response
+   */
+  200: OperationalImageReviewItemResponse;
+};
+
+export type GetOperationalImageReviewItemResponse =
+  GetOperationalImageReviewItemResponses[keyof GetOperationalImageReviewItemResponses];
+
+export type GetOperationalImageReviewBoardAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/assets/board';
+};
+
+export type GetOperationalImageReviewBoardAssetErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetOperationalImageReviewBoardAssetError =
+  GetOperationalImageReviewBoardAssetErrors[keyof GetOperationalImageReviewBoardAssetErrors];
+
+export type GetOperationalImageReviewBoardAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetOperationalImageReviewCellAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/assets/cells/{cell_index}';
+};
+
+export type GetOperationalImageReviewCellAssetErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetOperationalImageReviewCellAssetError =
+  GetOperationalImageReviewCellAssetErrors[keyof GetOperationalImageReviewCellAssetErrors];
+
+export type GetOperationalImageReviewCellAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetOperationalImageReviewSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/assets/source';
+};
+
+export type GetOperationalImageReviewSourceAssetErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetOperationalImageReviewSourceAssetError =
+  GetOperationalImageReviewSourceAssetErrors[keyof GetOperationalImageReviewSourceAssetErrors];
+
+export type GetOperationalImageReviewSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type PreviewOperationalImageReviewGeometryData = {
+  body: OperationalImageReviewGeometryPreviewCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-preview';
+};
+
+export type PreviewOperationalImageReviewGeometryErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewOperationalImageReviewGeometryError =
+  PreviewOperationalImageReviewGeometryErrors[keyof PreviewOperationalImageReviewGeometryErrors];
+
+export type PreviewOperationalImageReviewGeometryResponses = {
+  /**
+   * Rectified 500 by 300 board preview
+   */
+  200: unknown;
+};
+
+export type CreateOperationalImageReviewGeometryRevisionData = {
+  body: OperationalImageReviewGeometryCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions';
+};
+
+export type CreateOperationalImageReviewGeometryRevisionErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateOperationalImageReviewGeometryRevisionError =
+  CreateOperationalImageReviewGeometryRevisionErrors[keyof CreateOperationalImageReviewGeometryRevisionErrors];
+
+export type CreateOperationalImageReviewGeometryRevisionResponses = {
+  /**
+   * Successful Response
+   */
+  200: OperationalImageReviewGeometryResponse;
+};
+
+export type CreateOperationalImageReviewGeometryRevisionResponse =
+  CreateOperationalImageReviewGeometryRevisionResponses[keyof CreateOperationalImageReviewGeometryRevisionResponses];
+
+export type ResolveOperationalImageReviewItemData = {
+  body: OperationalImageReviewResolutionCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/resolution';
+};
+
+export type ResolveOperationalImageReviewItemErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResolveOperationalImageReviewItemError =
+  ResolveOperationalImageReviewItemErrors[keyof ResolveOperationalImageReviewItemErrors];
+
+export type ResolveOperationalImageReviewItemResponses = {
+  /**
+   * Successful Response
+   */
+  200: OperationalImageReviewResolutionResponse;
+};
+
+export type ResolveOperationalImageReviewItemResponse =
+  ResolveOperationalImageReviewItemResponses[keyof ResolveOperationalImageReviewItemResponses];
+
+export type ListOperationalImageReviewResolutionEventsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Importjobid
+     */
+    importJobId: string;
+  };
+  url: '/api/v1/admin/image-review-items/{review_item_id}/resolution-events';
+};
+
+export type ListOperationalImageReviewResolutionEventsErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListOperationalImageReviewResolutionEventsError =
+  ListOperationalImageReviewResolutionEventsErrors[keyof ListOperationalImageReviewResolutionEventsErrors];
+
+export type ListOperationalImageReviewResolutionEventsResponses = {
+  /**
+   * Response Listoperationalimagereviewresolutionevents
+   *
+   * Successful Response
+   */
+  200: Array<OperationalImageReviewResolutionEventResponse>;
+};
+
+export type ListOperationalImageReviewResolutionEventsResponse =
+  ListOperationalImageReviewResolutionEventsResponses[keyof ListOperationalImageReviewResolutionEventsResponses];
 
 export type GetImageStorageInventoryData = {
   body?: never;

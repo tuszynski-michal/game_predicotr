@@ -1,0 +1,90 @@
+{
+  "capturedAt": "2026-07-29T19:44:03.554569+00:00",
+  "decision": {
+    "automaticMassImportAllowed": false,
+    "g6_5Status": "passed_local_supervised",
+    "manualReviewRequired": true,
+    "remoteReviewEnabled": false
+  },
+  "environment": {
+    "machine": "AMD64",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "pythonVersion": "3.12.13"
+  },
+  "fixture": {
+    "boardCount": 3000,
+    "cellCount": 45000,
+    "clientPageLimit": 1,
+    "imagesMaterialized": false,
+    "purpose": "Physical PostgreSQL cursor/read/write profile with synthetic metadata; it is not image-model quality evidence."
+  },
+  "operatorProjection": {
+    "assumptions": {
+      "cleanBoardSeconds": 8.0,
+      "geometryCorrectionSeconds": 90.0,
+      "symbolCorrectionSeconds": 25.0
+    },
+    "backlogBoardCount": 3000,
+    "boardsPerHour": 328.27,
+    "disclaimer": "Planning projection, not a timed 3000-board human session. Rates come from checksum-bound review/model evidence; per-board seconds are explicit planning assumptions to be replaced after the first timed operator sample.",
+    "estimatedHoursFor1000": 3.05,
+    "estimatedHoursFor3000": 9.14,
+    "measurementKind": "planning_projection",
+    "weightedSecondsPerBoard": 10.97
+  },
+  "physicalProfile": {
+    "adjacentRead": {
+      "iterations": 40,
+      "maximumMilliseconds": 55.747,
+      "meanMilliseconds": 45.475,
+      "minimumMilliseconds": 41.395,
+      "p95Milliseconds": 49.896,
+      "thresholdMilliseconds": 500.0
+    },
+    "allChecksPassed": true,
+    "boundedResponseItemCount": 1,
+    "cursorChecks": {
+      "firstSequence": 1,
+      "lastSequence": 3000,
+      "middleAdjacentSequence": 1501,
+      "reversible": true
+    },
+    "exactRetry": {
+      "createdSecondRevision": false,
+      "eventCount": 1
+    },
+    "resolutionWrite": {
+      "iterations": 30,
+      "maximumMilliseconds": 127.23,
+      "meanMilliseconds": 76.523,
+      "minimumMilliseconds": 66.025,
+      "p95Milliseconds": 96.368,
+      "thresholdMilliseconds": 500.0
+    },
+    "restartResume": {
+      "decisionRevisionPreserved": true,
+      "nextPendingSequence": 32
+    },
+    "twoTabConflictCode": "IMAGE_REVIEW_REVISION_CONFLICT"
+  },
+  "qualityEvidence": {
+    "correctedCellCount": 31,
+    "correctedCellPercentage": 2.4603,
+    "geometryCorrectionCount": 14,
+    "geometryCorrectionPercentage": 3.6176,
+    "modelHumanAgreement": 0.97492401,
+    "resolvedBoardCount": 84,
+    "resolvedCellCount": 1260,
+    "sources": [
+      {
+        "relativePath": "ai_docs/quality/m6-spatial-symbol-model-vertical-slice-report.json",
+        "sha256": "d9f56165b808b046bd76bcb647e06ed7472fb89b5288b02f2d05e9b81d762f6b"
+      },
+      {
+        "relativePath": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
+        "sha256": "c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9"
+      }
+    ]
+  },
+  "schemaVersion": "m65-workbench-acceptance-v1"
+}

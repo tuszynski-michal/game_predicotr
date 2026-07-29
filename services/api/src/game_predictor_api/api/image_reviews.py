@@ -1,0 +1,311 @@
+"""HTTP surface for the operational image review workbench."""
+
+from collections.abc import Callable
+from pathlib import Path
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import FileResponse, Response
+
+from game_predictor_api.application.image_review_assets import (
+    OperationalReviewAsset,
+    resolve_operational_board_asset,
+    resolve_operational_cell_asset,
+    resolve_operational_source_asset,
+)
+from game_predictor_api.application.image_reviews import (
+    OperationalImageReviewService,
+)
+from game_predictor_api.domain.image_reviews import (
+    MAX_IMAGE_REVIEW_PAGE_SIZE,
+    ImageReviewGeometryPoint,
+    ImageReviewResolutionCell,
+    ImageReviewView,
+)
+from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.image_reviews import (
+    OperationalImageReviewGeometryCommand,
+    OperationalImageReviewGeometryPreviewCommand,
+    OperationalImageReviewGeometryResponse,
+    OperationalImageReviewItemResponse,
+    OperationalImageReviewPageResponse,
+    OperationalImageReviewResolutionCommand,
+    OperationalImageReviewResolutionEventResponse,
+    OperationalImageReviewResolutionResponse,
+    to_operational_event_response,
+    to_operational_geometry_revision_response,
+    to_operational_item_response,
+    to_operational_page_response,
+)
+
+OperationalImageReviewServiceDependency = Callable[..., object]
+ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    404: {"model": ErrorResponse, "description": "Operational review resource not found"},
+    409: {"model": ErrorResponse, "description": "Operational review conflict"},
+    422: {"model": ErrorResponse, "description": "Validation error"},
+}
+
+
+def create_image_reviews_router(
+    service_dependency: OperationalImageReviewServiceDependency,
+    artifact_root: Path,
+) -> APIRouter:
+    router = APIRouter(prefix="/admin/image-review-items", tags=["image-reviews"])
+    service_parameter = Depends(service_dependency)
+
+    @router.get(
+        "",
+        response_model=OperationalImageReviewPageResponse,
+        operation_id="listOperationalImageReviewItems",
+        summary="List one bounded page of job-local image review items",
+        responses=ERROR_RESPONSES,
+    )
+    def list_operational_image_review_items(
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+        view: ImageReviewView = ImageReviewView.PENDING,
+        after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
+        before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
+        sequence_number: Annotated[
+            int | None,
+            Query(alias="sequenceNumber", ge=1),
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=MAX_IMAGE_REVIEW_PAGE_SIZE)] = 25,
+    ) -> OperationalImageReviewPageResponse:
+        return to_operational_page_response(
+            service.list_items(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                view=view,
+                after_cursor=after_cursor,
+                before_cursor=before_cursor,
+                sequence_number=sequence_number,
+                limit=limit,
+            )
+        )
+
+    @router.post(
+        "/{review_item_id}/geometry-preview",
+        response_class=Response,
+        operation_id="previewOperationalImageReviewGeometry",
+        summary="Preview a corrected board without persisting files or revisions",
+        responses={
+            **ERROR_RESPONSES,
+            200: {
+                "content": {"image/png": {}},
+                "description": "Rectified 500 by 300 board preview",
+            },
+        },
+    )
+    def preview_operational_image_review_geometry(
+        review_item_id: UUID,
+        payload: OperationalImageReviewGeometryPreviewCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> Response:
+        preview = service.preview_geometry(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            expected_geometry_revision=payload.expected_geometry_revision,
+            expected_resolution_revision=payload.expected_resolution_revision,
+            corners=tuple(
+                ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
+            ),
+        )
+        return Response(
+            content=preview.board_png,
+            media_type="image/png",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @router.post(
+        "/{review_item_id}/geometry-revisions",
+        response_model=OperationalImageReviewGeometryResponse,
+        operation_id="createOperationalImageReviewGeometryRevision",
+        summary="Persist immutable corrected geometry and reopen review",
+        responses=ERROR_RESPONSES,
+    )
+    def create_operational_image_review_geometry_revision(
+        review_item_id: UUID,
+        payload: OperationalImageReviewGeometryCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> OperationalImageReviewGeometryResponse:
+        item, revision, created = service.correct_geometry(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            idempotency_key=payload.idempotency_key,
+            expected_geometry_revision=payload.expected_geometry_revision,
+            expected_resolution_revision=payload.expected_resolution_revision,
+            corners=tuple(
+                ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
+            ),
+            corrected_by=payload.corrected_by,
+        )
+        return OperationalImageReviewGeometryResponse(
+            item=to_operational_item_response(item),
+            geometry_revision=to_operational_geometry_revision_response(revision),
+            created=created,
+        )
+
+    @router.get(
+        "/{review_item_id}",
+        response_model=OperationalImageReviewItemResponse,
+        operation_id="getOperationalImageReviewItem",
+        summary="Get one job-local image review item with 15 cells",
+        responses=ERROR_RESPONSES,
+    )
+    def get_operational_image_review_item(
+        review_item_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> OperationalImageReviewItemResponse:
+        return to_operational_item_response(
+            service.get_item(
+                review_item_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+            )
+        )
+
+    @router.post(
+        "/{review_item_id}/resolution",
+        response_model=OperationalImageReviewResolutionResponse,
+        operation_id="resolveOperationalImageReviewItem",
+        summary="Atomically append and materialize one whole-board decision",
+        responses=ERROR_RESPONSES,
+    )
+    def resolve_operational_image_review_item(
+        review_item_id: UUID,
+        payload: OperationalImageReviewResolutionCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> OperationalImageReviewResolutionResponse:
+        item, event, created = service.resolve_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            idempotency_key=payload.idempotency_key,
+            expected_revision=payload.expected_revision,
+            action=payload.action,
+            sequence_number=payload.sequence_number,
+            geometry_revision=payload.geometry_revision,
+            cells=tuple(
+                ImageReviewResolutionCell(
+                    cell_index=cell.cell_index,
+                    crop_sample_id=cell.crop_sample_id,
+                    symbol_code=cell.symbol_code,
+                )
+                for cell in payload.cells
+            ),
+            rejection_reason=payload.rejection_reason,
+            resolved_by=payload.resolved_by,
+        )
+        return OperationalImageReviewResolutionResponse(
+            item=to_operational_item_response(item),
+            event=to_operational_event_response(event),
+            created=created,
+        )
+
+    @router.get(
+        "/{review_item_id}/resolution-events",
+        response_model=list[OperationalImageReviewResolutionEventResponse],
+        operation_id="listOperationalImageReviewResolutionEvents",
+        summary="List append-only operational review decisions",
+        responses=ERROR_RESPONSES,
+    )
+    def list_operational_image_review_resolution_events(
+        review_item_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> list[OperationalImageReviewResolutionEventResponse]:
+        return [
+            to_operational_event_response(event)
+            for event in service.list_resolution_events(
+                review_item_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+            )
+        ]
+
+    def image_response(asset: OperationalReviewAsset) -> FileResponse:
+        return FileResponse(
+            asset.path,
+            media_type=asset.media_type,
+            headers={"Cache-Control": "private, immutable, max-age=31536000"},
+        )
+
+    @router.get(
+        "/{review_item_id}/assets/source",
+        response_class=FileResponse,
+        operation_id="getOperationalImageReviewSourceAsset",
+        summary="Read the checksum-bound source image",
+        responses=ERROR_RESPONSES,
+    )
+    def get_operational_image_review_source_asset(
+        review_item_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> FileResponse:
+        item = service.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        return image_response(resolve_operational_source_asset(item, artifact_root))
+
+    @router.get(
+        "/{review_item_id}/assets/board",
+        response_class=FileResponse,
+        operation_id="getOperationalImageReviewBoardAsset",
+        summary="Read the checksum-bound rectified board image",
+        responses=ERROR_RESPONSES,
+    )
+    def get_operational_image_review_board_asset(
+        review_item_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> FileResponse:
+        item = service.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        return image_response(resolve_operational_board_asset(item, artifact_root))
+
+    @router.get(
+        "/{review_item_id}/assets/cells/{cell_index}",
+        response_class=FileResponse,
+        operation_id="getOperationalImageReviewCellAsset",
+        summary="Read one checksum-bound operational cell crop",
+        responses=ERROR_RESPONSES,
+    )
+    def get_operational_image_review_cell_asset(
+        review_item_id: UUID,
+        cell_index: int,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        import_job_id: Annotated[UUID, Query(alias="importJobId")],
+    ) -> FileResponse:
+        item = service.get_item(
+            review_item_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        return image_response(resolve_operational_cell_asset(item, cell_index, artifact_root))
+
+    return router
+
+
+__all__ = ["create_image_reviews_router"]

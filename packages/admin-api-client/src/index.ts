@@ -11,6 +11,8 @@ import {
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
   createImageDiagnosticExport as createGeneratedImageDiagnosticExport,
+  createOperationalImageReviewGeometryRevision as createGeneratedOperationalImageReviewGeometryRevision,
+  freezeVerifiedImageReviewCohort as freezeGeneratedVerifiedImageReviewCohort,
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
@@ -29,6 +31,10 @@ import {
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
   getMobileRelease as getGeneratedMobileRelease,
+  getOperationalImageReviewBoardAsset as getGeneratedOperationalImageReviewBoardAsset,
+  getOperationalImageReviewCellAsset as getGeneratedOperationalImageReviewCellAsset,
+  getOperationalImageReviewItem as getGeneratedOperationalImageReviewItem,
+  getOperationalImageReviewSourceAsset as getGeneratedOperationalImageReviewSourceAsset,
   getPayline as getGeneratedPayline,
   getPayoutRule as getGeneratedPayoutRule,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
@@ -41,6 +47,9 @@ import {
   listJobs as listGeneratedJobs,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
   listMobileReleases as listGeneratedMobileReleases,
+  listOperationalImageReviewItems as listGeneratedOperationalImageReviewItems,
+  listOperationalImageReviewResolutionEvents as listGeneratedOperationalImageReviewResolutionEvents,
+  listVerifiedImageReviewCohorts as listGeneratedVerifiedImageReviewCohorts,
   listDatasetLayouts as listGeneratedDatasetLayouts,
   listDatasetVersions as listGeneratedDatasetVersions,
   listPaylines as listGeneratedPaylines,
@@ -53,12 +62,14 @@ import {
   listReviewResolutions as listGeneratedReviewResolutions,
   listSymbols as listGeneratedSymbols,
   publishRulesVersion as publishGeneratedRulesVersion,
+  previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
   retryImageJobFile as retryGeneratedImageJobFile,
   resolveReviewItem as resolveGeneratedReviewItem,
+  resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
   updatePayoutRule as updateGeneratedPayoutRule,
@@ -71,9 +82,14 @@ import type {
   ImageJobFileRetryRequest,
   JobStatus,
   JobType,
+  ImageReviewView,
   LayoutImportRowStatus,
   MockDatasetCreate,
   MobileReleaseCreate,
+  OperationalImageReviewResolutionCommand,
+  OperationalImageReviewGeometryCommand,
+  OperationalImageReviewGeometryPreviewCommand,
+  VerifiedCohortFreezeCommand,
   GameCreate,
   GameUpdate,
   PaylineCreate,
@@ -119,6 +135,8 @@ export type {
   ImageJobStageCountResponse,
   ImageStorageInventoryResponse,
   ImageStorageNamespaceResponse,
+  ImageReviewAction,
+  ImageReviewView,
   JobErrorResponse,
   JobProgressResponse,
   JobResponse,
@@ -145,6 +163,24 @@ export type {
   MobileReleaseResponse,
   MobileReleaseSnapshotResponse,
   MobileReleaseStatus,
+  OperationalImageReviewAlternativeResponse,
+  OperationalImageReviewCellResponse,
+  OperationalImageReviewCountsResponse,
+  OperationalImageReviewGeometryCellResponse,
+  OperationalImageReviewGeometryCommand,
+  OperationalImageReviewGeometryPoint,
+  OperationalImageReviewGeometryPreviewCommand,
+  OperationalImageReviewGeometryResponse,
+  OperationalImageReviewGeometryRevisionResponse,
+  OperationalImageReviewItemResponse,
+  OperationalImageReviewPageResponse,
+  OperationalImageReviewResolutionCell,
+  OperationalImageReviewResolutionCommand,
+  OperationalImageReviewResolutionEventResponse,
+  OperationalImageReviewResolutionResponse,
+  VerifiedCohortExportResponse,
+  VerifiedCohortFreezeCommand,
+  VerifiedCohortFreezeResponse,
   PaylineCreate,
   PaylineResponse,
   PaylineUpdate,
@@ -212,6 +248,23 @@ export interface ListReviewItemsOptions {
   readonly limit?: number;
 }
 
+export interface OperationalImageReviewContext {
+  readonly gameId: string;
+  readonly importJobId: string;
+}
+
+export interface ListOperationalImageReviewItemsOptions extends OperationalImageReviewContext {
+  readonly view?: ImageReviewView;
+  readonly afterCursor?: string;
+  readonly beforeCursor?: string;
+  readonly sequenceNumber?: number;
+  readonly limit?: number;
+}
+
+export interface ListVerifiedImageReviewCohortsOptions extends OperationalImageReviewContext {
+  readonly limit?: number;
+}
+
 export function createAdminApiClient(options: AdminApiClientOptions) {
   const client = createGeneratedClient({
     baseUrl: options.baseUrl,
@@ -262,6 +315,126 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
+    listOperationalImageReviewItems: (
+      filters: ListOperationalImageReviewItemsOptions,
+    ) =>
+      listGeneratedOperationalImageReviewItems({
+        client,
+        query: {
+          gameId: filters.gameId,
+          importJobId: filters.importJobId,
+          ...(filters.view === undefined ? {} : { view: filters.view }),
+          ...(filters.afterCursor === undefined
+            ? {}
+            : { afterCursor: filters.afterCursor }),
+          ...(filters.beforeCursor === undefined
+            ? {}
+            : { beforeCursor: filters.beforeCursor }),
+          ...(filters.sequenceNumber === undefined
+            ? {}
+            : { sequenceNumber: filters.sequenceNumber }),
+          ...(filters.limit === undefined ? {} : { limit: filters.limit }),
+        },
+      }),
+    listVerifiedImageReviewCohorts: (
+      filters: ListVerifiedImageReviewCohortsOptions,
+    ) =>
+      listGeneratedVerifiedImageReviewCohorts({
+        client,
+        query: {
+          gameId: filters.gameId,
+          importJobId: filters.importJobId,
+          ...(filters.limit === undefined ? {} : { limit: filters.limit }),
+        },
+      }),
+    freezeVerifiedImageReviewCohort: (
+      context: OperationalImageReviewContext,
+      body: VerifiedCohortFreezeCommand,
+    ) =>
+      freezeGeneratedVerifiedImageReviewCohort({
+        body,
+        client,
+        query: context,
+      }),
+    getOperationalImageReviewItem: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedOperationalImageReviewItem({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    getOperationalImageReviewSourceAsset: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedOperationalImageReviewSourceAsset({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    getOperationalImageReviewBoardAsset: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedOperationalImageReviewBoardAsset({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    getOperationalImageReviewCellAsset: (
+      reviewItemId: string,
+      cellIndex: number,
+      context: OperationalImageReviewContext,
+    ) =>
+      getGeneratedOperationalImageReviewCellAsset({
+        client,
+        path: { cell_index: cellIndex, review_item_id: reviewItemId },
+        query: context,
+      }),
+    previewOperationalImageReviewGeometry: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+      body: OperationalImageReviewGeometryPreviewCommand,
+    ) =>
+      previewGeneratedOperationalImageReviewGeometry({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    createOperationalImageReviewGeometryRevision: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+      body: OperationalImageReviewGeometryCommand,
+    ) =>
+      createGeneratedOperationalImageReviewGeometryRevision({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    resolveOperationalImageReviewItem: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+      body: OperationalImageReviewResolutionCommand,
+    ) =>
+      resolveGeneratedOperationalImageReviewItem({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
+    listOperationalImageReviewResolutionEvents: (
+      reviewItemId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      listGeneratedOperationalImageReviewResolutionEvents({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: context,
+      }),
     createImageDiagnosticExport: (jobId: string) =>
       createGeneratedImageDiagnosticExport({
         client,

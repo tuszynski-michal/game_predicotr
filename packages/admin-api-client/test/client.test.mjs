@@ -1011,3 +1011,108 @@ test('generated client sends immutable mobile release requests', async () => {
     ],
   );
 });
+
+test('generated client previews and persists one scope-bound geometry revision', async () => {
+  const requests = [];
+  const reviewItemId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const previewCommand = {
+    corners: [
+      { x: 10, y: 10 },
+      { x: 510, y: 10 },
+      { x: 510, y: 310 },
+      { x: 10, y: 310 },
+    ],
+    expectedGeometryRevision: 0,
+    expectedResolutionRevision: 2,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    if (new URL(request.url).pathname.endsWith('/geometry-preview')) {
+      return new Response(new Blob(['png']), {
+        headers: { 'content-type': 'image/png' },
+        status: 200,
+      });
+    }
+    return Response.json(
+      { created: true, geometryRevision: {}, item: {} },
+      { status: 200 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const preview = await client.previewOperationalImageReviewGeometry(
+    reviewItemId,
+    context,
+    previewCommand,
+  );
+  const saved = await client.createOperationalImageReviewGeometryRevision(
+    reviewItemId,
+    context,
+    {
+      ...previewCommand,
+      correctedBy: 'local-admin',
+      idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    },
+  );
+
+  assert.equal(preview.data instanceof Blob, true);
+  assert.equal(saved.data?.created, true);
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      `/api/v1/admin/image-review-items/${reviewItemId}/geometry-preview`,
+      `/api/v1/admin/image-review-items/${reviewItemId}/geometry-revisions`,
+    ],
+  );
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('gameId'),
+    context.gameId,
+  );
+  assert.deepEqual(await requests[0].clone().json(), previewCommand);
+});
+
+test('generated client lists and explicitly freezes verified cohorts in one context', async () => {
+  const requests = [];
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        request.method === 'POST'
+          ? { created: true, export: { version: 1 } }
+          : [],
+        { status: 200 },
+      );
+    },
+  });
+
+  await client.listVerifiedImageReviewCohorts({ ...context, limit: 20 });
+  await client.freezeVerifiedImageReviewCohort(context, {
+    createdBy: 'local-admin',
+  });
+
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      '/api/v1/admin/image-review-cohort-exports',
+      '/api/v1/admin/image-review-cohort-exports',
+    ],
+  );
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(requests[1].method, 'POST');
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('importJobId'),
+    context.importJobId,
+  );
+});

@@ -1002,7 +1002,7 @@ stored in PostgreSQL.
 ## Operational image review workbench
 
 M6.5 używa job-local `image_review_items`, a nie bounded batchy
-active-learning. Planowany kontrakt jest osobną grupą Admin API:
+active-learning. TASK-0106 wdrożył osobną grupę Admin API:
 
 ```text
 GET  /api/v1/admin/image-review-items
@@ -1012,7 +1012,13 @@ GET  /api/v1/admin/image-review-items/{reviewItemId}/assets/board
 GET  /api/v1/admin/image-review-items/{reviewItemId}/assets/cells/{cellIndex}
 POST /api/v1/admin/image-review-items/{reviewItemId}/resolution
 GET  /api/v1/admin/image-review-items/{reviewItemId}/resolution-events
+POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-revisions
+```
+
+TASK-0110 dodał osobną, jawną operację zamrożenia:
+
+```text
 POST /api/v1/admin/image-review-cohort-exports
 GET  /api/v1/admin/image-review-cohort-exports
 ```
@@ -1035,14 +1041,32 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
+Kursor jest opaque, związany z `gameId`, `importJobId` i widokiem oraz traci
+ważność po usunięciu wskazywanego elementu z danego widoku. Rozmiar strony jest
+ograniczony do 50. Bazowa geometria pipeline'u ma rewizję `0`, a
+`cropSampleId` v1 jest deterministycznym SHA-256 tożsamości planszy, pozycji,
+wersji croppera, ścieżki i checksumy cropu. Endpointy assetów rozwiązują
+wyłącznie względne ścieżki pod `<artifact-root>/data`, blokują traversal i
+sprawdzają checksumę przed wysłaniem pliku.
+
 Geometry revision przyjmuje cztery narożniki w przestrzeni oryginalnego obrazu
-oraz expected revision. Backend/worker generuje nową planszę i cropy, zapisuje
-ścieżki oraz checksumy i ponownie otwiera review item. Klient nie przesyła
-ścieżek systemowych ani gotowych plików wyjściowych.
+oraz expected geometry i resolution revision. Preview zwraca PNG kanonicznej
+planszy 500 × 300 i nie zapisuje pliku ani rewizji. Zapis wymaga dodatkowo UUID
+idempotencji i aktora; backend/worker generuje nową planszę i dokładnie 15
+cropów, zapisuje ścieżki oraz checksumy i ponownie otwiera review item. Klient
+nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
 
 Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
 zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
-ani nie zmienia modelu.
+ani nie zmienia modelu. `POST` przyjmuje wyłącznie `createdBy`, `gameId` i
+`importJobId`; nie przyjmuje progu, ścieżki ani komendy treningowej. `GET`
+zwraca najwyżej 100 wersji, domyślnie 50, w kolejności malejącej.
+
+Eksport może zamrozić jawnie wybraną iterację mimo pozostających pending,
+ponieważ właściciel może pracować etapami po 1000/3000 planszach. Payload
+zawiera jednak próbki wyłącznie z kompletnych accepted/corrected. Liczniki
+pending/rejected są utrwalone jako dowód stanu; nierozwiązane elementy, luki
+lub duplikaty nadal blokują późniejszą publikację całego zakresu.
 
 Kontrakt zdalnego recenzenta nie jest aliasem powyższego Admin API. M8.7
 zaprojektuje ograniczoną powierzchnię game-scoped po sesji, kodzie i HTTPS;

@@ -356,6 +356,104 @@ def test_reviews_openapi_exposes_immutable_import_and_read_operations() -> None:
     assert "resolutionRevision" in item_schema["required"]
 
 
+def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    expected_operations = {
+        (
+            "/api/v1/admin/image-review-items",
+            "get",
+        ): "listOperationalImageReviewItems",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}",
+            "get",
+        ): "getOperationalImageReviewItem",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/resolution",
+            "post",
+        ): "resolveOperationalImageReviewItem",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/resolution-events",
+            "get",
+        ): "listOperationalImageReviewResolutionEvents",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/geometry-preview",
+            "post",
+        ): "previewOperationalImageReviewGeometry",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions",
+            "post",
+        ): "createOperationalImageReviewGeometryRevision",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/assets/source",
+            "get",
+        ): "getOperationalImageReviewSourceAsset",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/assets/board",
+            "get",
+        ): "getOperationalImageReviewBoardAsset",
+        (
+            "/api/v1/admin/image-review-items/{review_item_id}/assets/cells/{cell_index}",
+            "get",
+        ): "getOperationalImageReviewCellAsset",
+    }
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["image-reviews"]
+
+    list_operation = schema["paths"]["/api/v1/admin/image-review-items"]["get"]
+    parameters = {parameter["name"]: parameter for parameter in list_operation["parameters"]}
+    assert {
+        "gameId",
+        "importJobId",
+        "view",
+        "afterCursor",
+        "beforeCursor",
+        "sequenceNumber",
+        "limit",
+    } == set(parameters)
+    assert parameters["limit"]["schema"]["maximum"] == 50
+    assert parameters["sequenceNumber"]["schema"]["anyOf"][0]["minimum"] == 1
+
+    item_schema = schema["components"]["schemas"]["OperationalImageReviewItemResponse"]
+    assert item_schema["properties"]["cells"]["minItems"] == 15
+    assert item_schema["properties"]["cells"]["maxItems"] == 15
+    cell_schema = schema["components"]["schemas"]["OperationalImageReviewCellResponse"]
+    assert cell_schema["properties"]["alternatives"]["maxItems"] == 4
+    command_schema = schema["components"]["schemas"]["OperationalImageReviewResolutionCommand"]
+    assert {
+        "idempotencyKey",
+        "expectedRevision",
+        "action",
+        "geometryRevision",
+        "resolvedBy",
+    } == set(command_schema["required"])
+    geometry_command = schema["components"]["schemas"]["OperationalImageReviewGeometryCommand"]
+    assert {
+        "corners",
+        "correctedBy",
+        "expectedGeometryRevision",
+        "expectedResolutionRevision",
+        "idempotencyKey",
+    } == set(geometry_command["required"])
+    assert (
+        geometry_command["properties"]["corners"]["prefixItems"]
+        == [{"$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"}] * 4
+    )
+
+
+def test_verified_cohort_openapi_exposes_explicit_freeze_and_history() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    operations = schema["paths"]["/api/v1/admin/image-review-cohort-exports"]
+
+    assert operations["post"]["operationId"] == "freezeVerifiedImageReviewCohort"
+    assert operations["get"]["operationId"] == "listVerifiedImageReviewCohorts"
+    parameters = {parameter["name"]: parameter for parameter in operations["get"]["parameters"]}
+    assert parameters["gameId"]["required"] is True
+    assert parameters["importJobId"]["required"] is True
+    assert parameters["limit"]["schema"]["maximum"] == 100
+
+
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     report_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report"

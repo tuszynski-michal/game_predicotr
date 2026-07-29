@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M6.5 planned — supervised verification workbench`
+`M6.5 in progress — supervised verification workbench`
 
 ## Completed
 
@@ -1341,10 +1341,106 @@ last_updated: 2026-07-29
   jawnych aktorów i odkłada ograniczony link z kodem oraz HTTPS do M8.7,
 - `MILESTONE_06_5_EXECUTION_PLAN.md` rezerwuje TASK-0105–0111 dla lokalnego
   pionu oraz TASK-0112–0114 dla opcjonalnego zdalnego review.
+- ukończono TASK-0105: wybrany checkpoint spatial został skopiowany bajt w bajt
+  do wydania `production-spatial-symbol-cnn-v1`, a jeden manifest wiąże model,
+  ONNX, osiem klas, preprocessing, kalibrację, vertical slice i decyzję,
+- PyTorch/ONNX mają zero top-one mismatch na train, validation i test;
+  maksymalny błąd bezwzględny wynosi `0.000002861`,
+- temperatura `1.1515684402` oraz próg `0.88850097` zostały dobrane wyłącznie
+  na 300 próbkach validation; test nie uczestniczył w strojeniu,
+- symbol auto-accept jest włączony; zamrożony test przy tym progu osiąga
+  precision `0.97674419` oraz coverage `0.82428115`,
+- dynamiczny vertical slice objął 1316 aktualnych próbek, 84 kompletne i 4
+  częściowe plansze; ogólna accuracy wynosi `0.97492401`,
+- manifest wydania ma SHA-256
+  `9f0dd6f7f67105c9c3b479e9b30cb5f9d58d341e6c5b041564be14963a3db8d0`,
+- D-088 zatwierdza spatial CNN jako produkcyjny model sugestii symboli.
+  `massImportAllowed = false` nadal wynika z `manual_review_only` OCR, a nie z
+  jakości klasyfikatora symboli.
+- ukończono TASK-0106: osobne job-local Admin API udostępnia widoki
+  `pending/completed`, dokładne liczniki, bounded opaque cursor
+  poprzedni/następny, skok do `sequenceNumber`, detail 15 komórek i maksymalnie
+  cztery sugestie na komórkę,
+- każdy odczyt, zapis i asset TASK-0106 wymaga zgodnego `gameId` oraz
+  `importJobId`; assety są ograniczone do `<artifact-root>/data`, sprawdzają
+  ścieżkę, typ obrazu i checksumę,
+- decyzje całej planszy accepted/corrected/rejected używają expected revision
+  i UUID idempotencji, tworzą append-only audit, a accepted/corrected
+  aktualizują dokładnie jedną projekcję `image_layout_staging_rows`,
+- completed pozostaje edytowalne jako kolejna rewizja; OpenAPI i klient
+  TypeScript zostały wygenerowane z kontraktu backendu,
+- automatyczna regresja TASK-0106 przeszła: 187 testów API, pełny mypy,
+  Ruff, aktualność wygenerowanego klienta oraz jego TypeScript typecheck.
+  Test PostgreSQL dla atomowego audytu i stagingu jest dodany, ale lokalnie
+  pominięty bez `GAME_PREDICTOR_RUN_POSTGRES_TESTS=1`.
+- ukończono TASK-0107: lokalny panel ma osobną sekcję `Zatwierdzanie`, wybór
+  aktywnej gry i image import joba, widoki pending/completed, dokładne liczniki,
+  bounded poprzedni/następny oraz skok do numeru układu,
+- ekran pobiera jedną planszę na stronę, pokazuje kompaktowy header, dokładnie
+  15 checksum-bound cropów row-major z etykietami i confidence, domyślnie
+  wybraną pierwszą komórkę oraz pełne zdjęcie źródłowe poniżej siatki,
+- completed jest jawnie opisane jako edytowalne przez kolejną rewizję; brak
+  obrazu, loading, empty, błąd transportu i konflikt kursora mają tekstowe
+  stany, a ekran nie zapisuje decyzji samoczynnie,
+- walidacja TASK-0107 przeszła: 83 testy panelu, TypeScript strict, ESLint,
+  Prettier i produkcyjny build Next.js. Ręczne testy viewportu pozostają
+  zgodnie z decyzją właściciela odroczone do odbioru po TASK-0111.
+- ukończono TASK-0108: aktywny katalog gry ma stabilne mapowanie `1`–`9`, `0`,
+  następnie QWERTY, a kliknięcie, skrót i maksymalnie cztery sugestie zmieniają
+  dokładnie wybraną komórkę draftu,
+- czysta maszyna klawiatury obsługuje bounded poprzedni/następny, pomija pola
+  edycyjne, inny dialog, key repeat i zapis; pierwszy `Enter` tylko otwiera
+  potwierdzenie, drugi wysyła jedną komendę, a `Escape` anuluje,
+- accepted/corrected zapisuje cały układ z 15 `cropSampleId`, zaakceptowanym
+  numerem, geometry revision, expected resolution revision i UUID idempotencji;
+  completed wymaga realnej zmiany przed kolejną rewizją,
+- konflikt rewizji ma kontrolowany stan i ponowne wczytanie; 89 testów panelu,
+  TypeScript strict, ESLint, Prettier oraz produkcyjny build Next.js przeszły.
+  Ręczny odbiór pozostaje odroczony do testów po TASK-0111.
+- ukończono TASK-0109: migracja `0019_review_geometry` dodaje bieżący wskaźnik
+  rewizji planszy i append-only `image_board_geometry_revisions` z czterema
+  narożnikami, planszą, 15 cropami, UUID idempotencji oraz SHA-256 komendy,
+- preview `manual-review-geometry-v1` prostuje quad do 500 × 300 i pokazuje
+  dokładne 15 cropów bez zapisu; zatwierdzenie tworzy 16 content-addressed PNG,
+  przełącza bieżącą projekcję, usuwa wyłącznie staging tej planszy i dodaje
+  event `reopened`,
+- stabilne `observationId` pozostają bez zmian, ale każda nowa ścieżka/checksum
+  tworzy nowy `cropSampleId`; item wraca do pending bez kopiowania poprzednich
+  etykiet człowieka,
+- panel ma mały przycisk `Edytuj siatkę`, canvas z czterema przeciąganymi
+  narożnikami i ukośną siatką 5 × 3, backendowy podgląd wyprostowanej planszy,
+  15 cropów oraz zapis dostępny tylko dla aktualnego preview,
+- bramka TASK-0109 przeszła: 190 testów Python (`16 skipped` środowiskowo),
+  osobny fizyczny test PostgreSQL migracji/repozytorium, 15 testów klienta,
+  91 testów panelu, Ruff, mypy, TypeScript strict, ESLint, Prettier, kontrola
+  OpenAPI/generowanego klienta i produkcyjny build Next.js. Ręczny odbiór
+  stanowiska nadal pozostaje odroczony do testów po TASK-0111.
+- ukończono TASK-0110: migracja `0020_verified_cohorts` dodaje wersjonowane
+  `image_verified_cohort_exports` per gra i image import job z osobnymi
+  checksumami stanu oraz payloadu, względną ścieżką i licznikami,
+- jawne zamrożenie blokuje bieżący kontekst, eksportuje wyłącznie kompletne
+  accepted/corrected 15/15 i wiąże numery, rewizje, geometrię, źródło,
+  board/crop checksumy, `observationId`, `cropSampleId` oraz symbole,
+- exact retry weryfikuje istniejący artefakt po SHA-256 i zwraca tę samą
+  wersję; zmiana dowolnego statusu lub rewizji review tworzy nowy checksum,
+  natomiast rejected/pending nie tworzą próbek,
+- panel pokazuje liczbę zweryfikowanych plansz, ostatnią wersję i historię oraz
+  wymaga osobnego potwierdzenia `Zamroź kohortę`; operacja nie ma parametru ani
+  skutku ubocznego treningu, inferencji lub publikacji,
+- staging accepted/corrected pozostaje istniejącą osobną granicą; luki,
+  duplikaty i nierozwiązany zakres nadal blokują standardową publikację, a
+  `massImportAllowed` nie został zmieniony,
+- bramka TASK-0110 przeszła: 195 testów API (`16 skipped` środowiskowo), osobny
+  fizyczny cykl PostgreSQL migracji, 16 testów klienta i 92 testy panelu,
+  Ruff, mypy 233 modułów, TypeScript strict, ESLint, Prettier,
+  OpenAPI/generated-client check i produkcyjny build Next.js. Ręczny odbiór
+  pozostaje odroczony do TASK-0111.
 
 ## In progress
 
-- brak aktywnego zadania; następnym krokiem jest TASK-0105 z planu M6.5.
+- brak aktywnego zadania; następnym krokiem jest TASK-0111 z planu M6.5.
+- zgodnie z decyzją właściciela ręczne testy nowego ekranu odbędą się dopiero
+  po ukończeniu TASK-0111; TASK-0107–0111 muszą nadal mieć testy automatyczne.
 
 ## Blocked
 
@@ -1374,11 +1470,11 @@ last_updated: 2026-07-29
 
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
 - Q-021: wybór tunelu HTTPS albo VPN dla opcjonalnego M8.7,
-- finalne modele OCR/ML po benchmarku,
+- finalny model OCR; model symboli został zatwierdzony w D-088,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
 Q-019 jest zamknięte. Q-021 nie blokuje lokalnego M6.5; Q-020, finalny OCR i
-nazwa sekcji również nie blokują TASK-0105.
+nazwa sekcji również nie blokują TASK-0106.
 
 ## M1 execution structure
 
@@ -1423,14 +1519,20 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Utworzyć `TASK-0105` dla productionization wybranego
-`spatial-symbol-cnn-v1`:
-wersjonowany loader/checkpoint, eksport ONNX, parity, kalibracja confidence i
-dynamiczny vertical slice. Dopiero ten etap może wyliczyć nową wartość
-`massImportAllowed`; sam benchmark jej nie zmienia. Następnie TASK-0106–0111
-budują lokalne stanowisko zgodnie z
-`delivery/MILESTONE_06_5_EXECUTION_PLAN.md`.
-`massImportAllowed = true` jest nadal warunkiem rozpoczęcia TASK-0076.
+Kontynuować aktywny
+`TASK-0111 — Verification workbench scale and usability acceptance`.
+Automatyczna część G6.5 przeszła na fizycznym PostgreSQL dla 3000 plansz:
+p95 odczytu 49,896 ms, p95 zapisu 96,368 ms, bounded page `1`, exact retry,
+konflikt dwóch kart i wznowienie po nowej sesji są potwierdzone. Produkcyjny
+build panelu oraz automatyczne testy klawiatury i fokus dialogu przechodzą.
+
+Do zamknięcia zadania pozostał krótki odbiór operatorski według
+`quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`: realny import `image_directory`,
+widok 1366 × 768, scenariusze TASK-0107–0110 i pomiar co najmniej 10 plansz.
+W aktualnie sprawdzonej lokalnej bazie nie ma image import joba, więc najpierw
+trzeba wskazać lub utworzyć realny import do weryfikacji.
+`massImportAllowed = true` jest nadal warunkiem rozpoczęcia automatycznej
+ścieżki TASK-0076; ręcznie zweryfikowany ciągły zakres używa D-086.
 TASK-0041/TASK-0042 oraz G3 pozostają równolegle zablokowane na fizycznych
 raportach Pixela i Samsunga.
 
@@ -1440,7 +1542,7 @@ raportach Pixela i Samsunga.
 - etykietowania symboli i treningu na `board-cell-crops-v1` albo
   detektorowym `board-cell-crops-v2` lub wycofanym
   `board-cell-crops-v2-calibrated-v1`,
-- finalnego wyboru OCR/ML,
+- finalnego wyboru OCR,
 - Celery/Redis, mikroserwisów i chmury,
 - synchronizacji danych mobilnych,
 - zdalnego linku, kodu i bindingu poza loopback przed TASK-0112 oraz G8.1,

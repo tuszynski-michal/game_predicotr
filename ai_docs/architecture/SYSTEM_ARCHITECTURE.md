@@ -780,6 +780,16 @@ checkpointu. Wynik benchmarku jest rekomendacją do osobnego
 productionization/ONNX/calibration, a nie bezpośrednim przełączeniem aktywnego
 modelu ani `massImportAllowed`.
 
+TASK-0105 promuje dokładnie wybrany checkpoint do checksum-bound wydania
+`production-spatial-symbol-cnn-v1`. Jeden manifest wiąże checkpoint,
+`spatial-symbol-cnn-onnx-v1`, preprocessing, kolejność klas, scalar
+temperature, confidence policy, parity i dynamiczny vertical slice. Test nie
+uczestniczy w doborze temperatury ani progu. Adapter zwraca top-one oraz
+maksymalnie cztery alternatywy uporządkowane przez confidence malejąco, a przy
+remisie przez `symbolCode`. Przejście symbol confidence gate nie zmienia
+niezależnej dojrzałości OCR: `symbolAutoAcceptEnabled = true` może współistnieć
+z globalnym `massImportAllowed = false`.
+
 Granica persistence M6.3 przyjmuje wyłącznie kompletny, checksum-bound raport
 active-learning. Warstwa domenowa waliduje katalog symboli, 15 komórek
 row-major, źródła, ścieżki i provenance przed jakimkolwiek zapisem.
@@ -831,6 +841,13 @@ eventy pozostają w audycie; nie ma automatycznej migracji etykiety na nowe
 bajty cropu. Zbiór korekt geometrii może wejść do późniejszego benchmarku
 profilu, ale nie zmienia aktywnego pipeline'u bez nowego fingerprintu.
 
+Adapter `manual-review-geometry-v1` przyjmuje wyłącznie uporządkowany quad
+źródłowy, ponownie używa kontraktu logicznych slotów v2 (500 × 300, siatka
+5 × 3, inset 5 px) i zapisuje artefakty content-addressed. Endpoint preview
+wykonuje identyczne prostowanie w pamięci bez mutacji storage. Dopiero komenda
+zapisu, chroniona expected geometry/resolution revision i UUID idempotencji,
+materializuje pliki, zmienia bieżącą projekcję i dodaje event `reopened`.
+
 Zamrożenie zweryfikowanej kohorty jest osobną operacją od treningu. Niezmienny
 eksport wskazuje dokładne rewizje plansz, geometrii, cropów, numerów i symboli.
 Nowy model może wygenerować sugestie jedynie dla unresolved items.
@@ -838,6 +855,13 @@ Accepted/corrected nigdy nie są nadpisywane. Ręcznie rozwiązany, ciągły zak
 może przejść standardową walidację stagingu przy
 `massImportAllowed = false`; ta flaga nadal blokuje automatyczną ścieżkę
 publikacji bez kompletnego nadzoru człowieka.
+
+TASK-0110 materializuje eksport jako kanoniczny JSON
+`verified-image-review-cohort-v1` pod `<artifact-root>/data/cohorts`. Baza
+przechowuje wyłącznie checksumy, względną ścieżkę, liczniki i audyt. Stan jest
+blokowany w jednej transakcji per import job, a istniejący artefakt jest
+ponownie sprawdzany po SHA-256 przed idempotentną odpowiedzią. Endpoint nie ma
+parametru treningu ani publikacji.
 
 TASK-0067 składa te granice w bounded pion odbioru, ale nie tworzy nowego
 runtime ani magazynu decyzji. Runner ponownie buduje

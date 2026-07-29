@@ -3991,3 +3991,1009 @@ div.imageJobInlineError {
     text-align: left;
   }
 }
+
+.operationalReviewSection {
+  scroll-margin-top: 20px;
+}
+
+.operationalReviewPageHeader {
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.operationalReviewPageHeader .eyebrow {
+  margin-bottom: 6px;
+}
+
+.operationalReviewPageHeader h1 {
+  margin-bottom: 7px;
+  font-size: clamp(30px, 4vw, 42px);
+}
+
+.operationalReviewPageHeader .lead {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.operationalReviewContext {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.8fr) minmax(330px, 1.4fr) 180px;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(14, 26, 44, 0.7);
+}
+
+.operationalReviewContext label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.operationalReviewContext select {
+  width: 100%;
+  min-height: 36px;
+}
+
+.operationalReviewContextStatus {
+  display: grid;
+  min-height: 36px;
+  grid-template-columns: 1fr auto;
+  align-content: center;
+  gap: 2px 10px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.36);
+}
+
+.operationalReviewContextStatus span {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.operationalReviewContextStatus strong,
+.operationalReviewContextStatus small {
+  font-size: 9px;
+}
+
+.operationalReviewContextStatus small {
+  color: var(--accent);
+  text-align: right;
+}
+
+.operationalReviewCohortPanel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(260px, 1.2fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin: -2px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid rgba(112, 225, 180, 0.2);
+  border-radius: 11px;
+  background: rgba(112, 225, 180, 0.05);
+}
+
+.operationalReviewCohortPanel > div {
+  display: grid;
+  gap: 2px;
+}
+
+.operationalReviewCohortPanel strong {
+  font-size: 10px;
+}
+
+.operationalReviewCohortPanel span,
+.operationalReviewCohortPanel .linkButton {
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.operationalReviewCohortLatest {
+  min-width: 0;
+}
+
+.operationalReviewCohortLatest span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operationalReviewDialogBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 15, 0.78);
+  backdrop-filter: blur(5px);
+}
+
+.operationalReviewConfirmDialog {
+  width: min(460px, 100%);
+  padding: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+}
+
+.operationalReviewConfirmDialog h2 {
+  margin: 5px 0 9px;
+  font-size: 21px;
+}
+
+.operationalReviewConfirmDialog p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.operationalReviewConfirmDialog .buttonRow {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.operationalReviewStage {
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background:
+    linear-gradient(150deg, rgba(21, 39, 63, 0.97), rgba(10, 21, 36, 0.98)),
+    var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+}
+
+.operationalReviewToolbar {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.operationalReviewIdentity p,
+.operationalReviewIdentity span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.operationalReviewIdentity h2 {
+  margin: 2px 0;
+  font-size: 20px;
+  letter-spacing: -0.025em;
+}
+
+.operationalReviewViewTabs {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.38);
+}
+
+.operationalReviewViewTabs button {
+  min-height: 29px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.operationalReviewViewTabs button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.operationalReviewNavigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.operationalReviewArrow {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.34);
+  color: var(--text);
+}
+
+.operationalReviewApprove {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 9px;
+}
+
+.operationalReviewNotice {
+  margin: 0 0 9px;
+  padding: 8px 11px;
+  border: 1px solid rgba(112, 225, 180, 0.25);
+  border-radius: 9px;
+  background: rgba(112, 225, 180, 0.08);
+  color: var(--accent);
+  font-size: 9px;
+}
+
+.operationalReviewSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 13px;
+  border-bottom: 1px solid var(--line);
+}
+
+.operationalReviewSummary dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(75px, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.operationalReviewSummary dl div {
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(5, 12, 22, 0.28);
+}
+
+.operationalReviewSummary dt {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.operationalReviewSummary dd {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.operationalReviewSummary form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.operationalReviewSummary form label {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.operationalReviewSummary input {
+  width: 86px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(5, 12, 22, 0.4);
+  color: var(--text);
+  font-size: 9px;
+}
+
+.operationalReviewSummary .textButton {
+  min-height: 30px;
+  padding-inline: 7px;
+  font-size: 8px;
+}
+
+.operationalReviewSelection {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  background: rgba(112, 225, 180, 0.055);
+  font-size: 9px;
+}
+
+.operationalReviewSelection span,
+.operationalReviewSelection small {
+  color: var(--muted);
+}
+
+.operationalReviewSelection strong {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.operationalReviewSelection em {
+  margin-left: auto;
+  color: var(--warning);
+  font-size: 8px;
+  font-style: normal;
+}
+
+.operationalReviewSelection label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.operationalReviewSelection input {
+  width: 76px;
+  min-height: 26px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(5, 12, 22, 0.42);
+  color: var(--text);
+  font-size: 8px;
+}
+
+.operationalReviewSelection input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.operationalReviewSuggestions {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 13px;
+  border-top: 1px solid rgba(112, 225, 180, 0.08);
+  border-bottom: 1px solid var(--line);
+  background: rgba(4, 10, 18, 0.28);
+}
+
+.operationalReviewSuggestions > span,
+.operationalReviewSuggestions > small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.operationalReviewSuggestions button {
+  display: flex;
+  min-height: 27px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(14, 26, 44, 0.8);
+  color: var(--text);
+}
+
+.operationalReviewSuggestions button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.operationalReviewSuggestions button strong {
+  font-size: 8px;
+}
+
+.operationalReviewSuggestions button small {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.operationalReviewSaveError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 13px;
+  border-bottom: 1px solid rgba(255, 139, 139, 0.25);
+  background: rgba(255, 139, 139, 0.08);
+  color: var(--danger);
+}
+
+.operationalReviewSaveError p {
+  margin: 0;
+  font-size: 8px;
+}
+
+.operationalReviewSaveConflict {
+  color: var(--warning);
+}
+
+.operationalReviewGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  padding: 9px;
+  background: rgba(3, 8, 15, 0.26);
+}
+
+.operationalReviewCell {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 6px;
+  padding: 5px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.66);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.operationalReviewCellSelected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(112, 225, 180, 0.2);
+}
+
+.operationalReviewCellChanged {
+  border-color: var(--warning);
+}
+
+.operationalReviewCellChanged > span {
+  color: var(--warning);
+}
+
+.operationalReviewCell > img,
+.operationalReviewCell > .operationalReviewImageMissing {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: clamp(66px, 9.5vh, 88px);
+  border-radius: 6px;
+  object-fit: cover;
+  background: #050a12;
+}
+
+.operationalReviewCell > div:not(.operationalReviewImageMissing) {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+
+.operationalReviewCell strong {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+}
+
+.operationalReviewCell small,
+.operationalReviewCell > span {
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.operationalReviewCell > span {
+  grid-column: 1 / -1;
+}
+
+.operationalReviewCellSelected small {
+  color: var(--accent);
+}
+
+.operationalReviewLegend {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  background: rgba(4, 10, 18, 0.35);
+}
+
+.operationalReviewLegend > span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.operationalReviewLegend > div {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 7px;
+}
+
+.operationalReviewLegend kbd,
+.operationalReviewConfirmHint kbd {
+  min-width: 18px;
+  padding: 2px 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: rgba(5, 12, 22, 0.7);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 7px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.operationalReviewSource {
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(14, 26, 44, 0.7);
+}
+
+.operationalReviewSource > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--line);
+}
+
+.operationalReviewSource .eyebrow {
+  margin-bottom: 3px;
+  font-size: 8px;
+}
+
+.operationalReviewSource h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.operationalReviewSource code {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.operationalReviewSource > img,
+.operationalReviewSource > .operationalReviewImageMissing {
+  display: block;
+  width: 100%;
+  max-height: 720px;
+  object-fit: contain;
+  background: #03070d;
+}
+
+.operationalReviewImageMissing {
+  display: grid;
+  min-height: 110px;
+  place-items: center;
+  align-content: center;
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.operationalReviewImageMissing span {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid rgba(255, 139, 139, 0.4);
+  border-radius: 999px;
+  color: var(--danger);
+}
+
+.operationalReviewImageMissing p {
+  max-width: 260px;
+  margin: 6px 0 0;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.operationalReviewShortcutNote {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--warning);
+  background: rgba(242, 198, 109, 0.07);
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.operationalReviewConfirmCard {
+  width: min(480px, calc(100vw - 32px));
+}
+
+.operationalReviewConfirmCard > p {
+  margin: 0;
+  padding: 14px 16px 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.operationalReviewConfirmCard > p strong {
+  color: var(--text);
+}
+
+.operationalReviewConfirmCard .formActions {
+  padding: 14px 16px 16px;
+}
+
+.operationalReviewConfirmHint {
+  color: var(--accent) !important;
+}
+
+.operationalReviewGeometryOpen {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 9px;
+}
+
+.operationalReviewGeometryDialog {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: #0e1a2c;
+  color: var(--text);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.operationalReviewGeometryDialog::backdrop {
+  background: rgba(2, 8, 18, 0.78);
+  backdrop-filter: blur(3px);
+}
+
+.operationalReviewGeometryDialog > header,
+.operationalReviewGeometryDialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.operationalReviewGeometryDialog > header h2,
+.operationalReviewGeometryDialog > header p,
+.operationalReviewGeometryDialog h3 {
+  margin: 0;
+}
+
+.operationalReviewGeometryDialog > header h2 {
+  margin-top: 3px;
+  font-size: 18px;
+}
+
+.operationalReviewGeometryDialog > header p,
+.operationalReviewGeometryDialog > footer > span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.operationalReviewGeometryDialog > header > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.operationalReviewGeometryBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+  gap: 16px;
+  padding: 16px 18px;
+}
+
+.operationalReviewGeometryBody section {
+  min-width: 0;
+}
+
+.operationalReviewGeometryBody h3 {
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.operationalReviewGeometryCanvas {
+  display: block;
+  width: 100%;
+  max-height: 64vh;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: #07111f;
+  cursor: crosshair;
+  object-fit: contain;
+  touch-action: none;
+}
+
+.operationalReviewGeometryPreview > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.operationalReviewGeometryPreview > img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: #07111f;
+}
+
+.operationalReviewGeometryPlaceholder {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.operationalReviewGeometryCrops {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.operationalReviewGeometryCrops > div {
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background-repeat: no-repeat;
+  background-color: #07111f;
+}
+
+.operationalReviewGeometryDialog > .operationalReviewSaveError {
+  margin: 0 18px 12px;
+}
+
+.operationalReviewGeometryDialog > footer {
+  border-top: 1px solid var(--line);
+  border-bottom: 0;
+}
+
+.operationalReviewGeometryDialog > footer > div {
+  display: flex;
+  gap: 8px;
+}
+
+.operationalReviewState,
+.operationalReviewEmpty {
+  display: flex;
+  min-height: 190px;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(14, 26, 44, 0.72);
+  text-align: left;
+}
+
+.operationalReviewState > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--accent);
+}
+
+.operationalReviewState h2,
+.operationalReviewEmpty h2 {
+  margin: 0 0 5px;
+  font-size: 18px;
+}
+
+.operationalReviewState p,
+.operationalReviewEmpty p {
+  max-width: 540px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.operationalReviewState .secondaryButton {
+  margin-left: auto;
+}
+
+.operationalReviewStateError {
+  border-color: rgba(255, 139, 139, 0.3);
+}
+
+.operationalReviewStateError > span {
+  border-color: rgba(255, 139, 139, 0.4);
+  color: var(--danger);
+}
+
+.operationalReviewEmpty {
+  display: grid;
+  justify-items: start;
+}
+
+@media (min-width: 1081px) and (max-height: 800px) {
+  .operationalReviewPageHeader {
+    margin-bottom: 10px;
+  }
+
+  .operationalReviewPageHeader h1 {
+    margin-bottom: 0;
+    font-size: 28px;
+  }
+
+  .operationalReviewPageHeader .lead {
+    display: none;
+  }
+
+  .operationalReviewContext {
+    margin-bottom: 7px;
+    padding-block: 7px;
+  }
+
+  .operationalReviewCohortPanel {
+    margin-bottom: 7px;
+    padding-block: 6px;
+  }
+
+  .operationalReviewToolbar {
+    padding-block: 7px;
+  }
+
+  .operationalReviewSummary {
+    padding-block: 5px;
+  }
+
+  .operationalReviewSelection,
+  .operationalReviewSuggestions {
+    min-height: 30px;
+    padding-block: 3px;
+  }
+
+  .operationalReviewGrid {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .operationalReviewCell {
+    gap: 2px 5px;
+    padding: 3px;
+  }
+
+  .operationalReviewCell > img,
+  .operationalReviewCell > .operationalReviewImageMissing {
+    height: clamp(50px, 7.2vh, 56px);
+  }
+
+  .operationalReviewLegend {
+    min-height: 29px;
+    padding-block: 3px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .operationalReviewCohortPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .operationalReviewGeometryBody {
+    grid-template-columns: 1fr;
+  }
+
+  .operationalReviewContext {
+    grid-template-columns: 1fr 1.4fr;
+  }
+
+  .operationalReviewContextStatus {
+    grid-column: 1 / -1;
+  }
+
+  .operationalReviewToolbar {
+    grid-template-columns: minmax(190px, 1fr) auto;
+  }
+
+  .operationalReviewNavigation {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
+  .operationalReviewPageHeader,
+  .operationalReviewToolbar,
+  .operationalReviewSummary,
+  .operationalReviewSource > header {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .operationalReviewPageHeader,
+  .operationalReviewSource > header {
+    flex-direction: column;
+  }
+
+  .operationalReviewContext {
+    grid-template-columns: 1fr;
+  }
+
+  .operationalReviewContextStatus,
+  .operationalReviewNavigation {
+    grid-column: auto;
+  }
+
+  .operationalReviewViewTabs button {
+    flex: 1;
+  }
+
+  .operationalReviewNavigation {
+    justify-content: flex-start;
+  }
+
+  .operationalReviewSummary dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .operationalReviewSummary form {
+    flex-wrap: wrap;
+  }
+
+  .operationalReviewSelection {
+    flex-wrap: wrap;
+  }
+
+  .operationalReviewSelection em {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .operationalReviewSuggestions {
+    flex-wrap: wrap;
+  }
+
+  .operationalReviewGrid {
+    gap: 3px;
+    padding: 5px;
+  }
+
+  .operationalReviewCell {
+    padding: 3px;
+  }
+
+  .operationalReviewCell > img,
+  .operationalReviewCell > .operationalReviewImageMissing {
+    height: clamp(46px, 12vw, 70px);
+  }
+
+  .operationalReviewCell strong {
+    font-size: 7px;
+  }
+
+  .operationalReviewCell small,
+  .operationalReviewCell > span {
+    font-size: 6px;
+  }
+}

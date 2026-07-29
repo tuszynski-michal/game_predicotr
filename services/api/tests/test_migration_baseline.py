@@ -25,6 +25,8 @@ REVIEW_FEEDBACK_REVISION = "0015_review_feedback"
 IMAGE_ORCHESTRATION_REVISION = "0016_image_orchestration"
 IMAGE_PROCESSING_REVISION = "0017_image_processing"
 IMAGE_FAILURE_RETRY_REVISION = "0018_image_failure_retry"
+IMAGE_REVIEW_GEOMETRY_REVISION = "0019_review_geometry"
+IMAGE_VERIFIED_COHORTS_REVISION = "0020_verified_cohorts"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -36,7 +38,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_image_failure_retry_migration_is_the_only_head() -> None:
+def test_verified_cohorts_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -56,8 +58,10 @@ def test_image_failure_retry_migration_is_the_only_head() -> None:
     image_orchestration = script.get_revision(IMAGE_ORCHESTRATION_REVISION)
     image_processing = script.get_revision(IMAGE_PROCESSING_REVISION)
     image_failure_retry = script.get_revision(IMAGE_FAILURE_RETRY_REVISION)
+    image_review_geometry = script.get_revision(IMAGE_REVIEW_GEOMETRY_REVISION)
+    image_verified_cohorts = script.get_revision(IMAGE_VERIFIED_COHORTS_REVISION)
 
-    assert script.get_heads() == [IMAGE_FAILURE_RETRY_REVISION]
+    assert script.get_heads() == [IMAGE_VERIFIED_COHORTS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -94,6 +98,10 @@ def test_image_failure_retry_migration_is_the_only_head() -> None:
     assert image_processing.down_revision == IMAGE_ORCHESTRATION_REVISION
     assert image_failure_retry is not None
     assert image_failure_retry.down_revision == IMAGE_PROCESSING_REVISION
+    assert image_review_geometry is not None
+    assert image_review_geometry.down_revision == IMAGE_FAILURE_RETRY_REVISION
+    assert image_verified_cohorts is not None
+    assert image_verified_cohorts.down_revision == IMAGE_REVIEW_GEOMETRY_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -259,6 +267,29 @@ def test_dataset_staging_migration_generates_constraints_and_downgrade() -> None
     assert "drop table layouts" in downgrade_sql
     assert "drop table dataset_versions" in downgrade_sql
     assert "drop type dataset_version_status" in downgrade_sql
+
+
+def test_verified_cohort_migration_adds_immutable_context_versions() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_REVIEW_GEOMETRY_REVISION}:{IMAGE_VERIFIED_COHORTS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_VERIFIED_COHORTS_REVISION}:{IMAGE_REVIEW_GEOMETRY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_verified_cohort_exports" in upgrade_sql
+    assert "uq_image_verified_cohort_exports_state" in upgrade_sql
+    assert "sample_count = board_count * 15" in upgrade_sql
+    assert "artifact_relative_path" in upgrade_sql
+    assert "drop table image_verified_cohort_exports" in downgrade_output.getvalue().lower()
 
 
 def test_jobs_migration_generates_enums_constraints_indexes_and_downgrade() -> None:

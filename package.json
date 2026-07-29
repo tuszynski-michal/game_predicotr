@@ -72,6 +72,8 @@
     "m6:symbols:split": ".venv\\Scripts\\python.exe scripts/split_m6_symbol_dataset.py",
     "m6:symbols:suggestions:check": ".venv\\Scripts\\python.exe scripts/evaluate_m6_symbol_suggestions.py --check",
     "m6:symbols:train": ".venv\\Scripts\\python.exe scripts/train_m6_symbol_classifier.py",
+    "m65:workbench:acceptance": ".venv\\Scripts\\python.exe scripts/run_m65_workbench_acceptance.py --max-seconds 120",
+    "m65:workbench:check": ".venv\\Scripts\\python.exe scripts/run_m65_workbench_acceptance.py --check",
     "m7:load:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_m7_load_benchmark.ps1 -Profile smoke -TimeoutSeconds 120",
     "m7:load:full": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_m7_load_benchmark.ps1 -Profile full -TimeoutSeconds 900",
     "m7:load:check": ".venv\\Scripts\\python.exe scripts/run_m7_load_benchmark.py --profile full --check",

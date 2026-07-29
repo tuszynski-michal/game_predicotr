@@ -196,6 +196,10 @@ etapów, domenowe źródła/plansze/komórki, operacyjne review oraz staging
 zaakceptowanych layoutów bez binariów obrazów w PostgreSQL.
 Migracja `0018_image_failure_retry` dodaje trwałe błędy i liczniki retry,
 job-local workflow checkpoint oraz append-only eventy decyzji review.
+Migracja `0019_review_geometry` dodaje bieżący wskaźnik rewizji planszy oraz
+append-only ręczne rewizje geometrii z czterema narożnikami, planszą i
+15 checksum-bound cropami. Binarne PNG pozostają pod zarządzanym
+`<artifact-root>/data`.
 
 ### SQLite — niezmienny snapshot mobile
 

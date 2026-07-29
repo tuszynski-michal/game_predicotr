@@ -1,0 +1,775 @@
+{
+  "alternativeContract": {
+    "deterministicTieBreak": "confidence_desc_then_symbol_code",
+    "maximumAlternatives": 4,
+    "samplePrediction": {
+      "alternatives": [
+        {
+          "confidence": 0.91415662,
+          "symbolCode": "orange"
+        },
+        {
+          "confidence": 0.04368776,
+          "symbolCode": "watermelon"
+        },
+        {
+          "confidence": 0.01635139,
+          "symbolCode": "seven"
+        },
+        {
+          "confidence": 0.01190322,
+          "symbolCode": "grapes"
+        }
+      ],
+      "confidence": 0.91415662,
+      "symbolCode": "orange"
+    }
+  },
+  "classes": [
+    "cherries",
+    "grapes",
+    "lemon",
+    "orange",
+    "plum",
+    "seven",
+    "star",
+    "watermelon"
+  ],
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "modelVersion": "production-spatial-symbol-cnn-v1",
+  "onnxArtifactSha256": "b55180cad5e20168daf278d19198d691f7b9e964578123fb933f41ec82a7668a",
+  "overallMetrics": {
+    "accuracy": 0.97492401,
+    "brierScore": 0.04908836,
+    "ece": 0.03158249,
+    "macroRecall": 0.97196353,
+    "meanConfidence": 0.94385883,
+    "negativeLogLikelihood": 0.14329669,
+    "perClass": [
+      {
+        "meanConfidenceWhenPredicted": 0.98764561,
+        "precision": 0.98734177,
+        "predictedCount": 237,
+        "recall": 0.98734177,
+        "support": 237,
+        "symbolCode": "cherries"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.86075043,
+        "precision": 0.936,
+        "predictedCount": 125,
+        "recall": 0.92125984,
+        "support": 127,
+        "symbolCode": "grapes"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.95122708,
+        "precision": 0.99371069,
+        "predictedCount": 159,
+        "recall": 0.98136646,
+        "support": 161,
+        "symbolCode": "lemon"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.91956374,
+        "precision": 0.98816568,
+        "predictedCount": 169,
+        "recall": 0.98816568,
+        "support": 169,
+        "symbolCode": "orange"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.97396669,
+        "precision": 0.93670886,
+        "predictedCount": 158,
+        "recall": 0.98013245,
+        "support": 151,
+        "symbolCode": "plum"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.93877711,
+        "precision": 0.97196262,
+        "predictedCount": 107,
+        "recall": 0.96296296,
+        "support": 108,
+        "symbolCode": "seven"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.92402813,
+        "precision": 0.97660819,
+        "predictedCount": 171,
+        "recall": 0.95977011,
+        "support": 174,
+        "symbolCode": "star"
+      },
+      {
+        "meanConfidenceWhenPredicted": 0.9550333,
+        "precision": 0.98947368,
+        "predictedCount": 190,
+        "recall": 0.99470899,
+        "support": 189,
+        "symbolCode": "watermelon"
+      }
+    ],
+    "reliabilityBins": [
+      {
+        "accuracy": 0.0,
+        "count": 0,
+        "lowerInclusive": 0.0,
+        "meanConfidence": 0.0,
+        "upperInclusive": false,
+        "upperValue": 0.1
+      },
+      {
+        "accuracy": 0.0,
+        "count": 0,
+        "lowerInclusive": 0.1,
+        "meanConfidence": 0.0,
+        "upperInclusive": false,
+        "upperValue": 0.2
+      },
+      {
+        "accuracy": 0.0,
+        "count": 0,
+        "lowerInclusive": 0.2,
+        "meanConfidence": 0.0,
+        "upperInclusive": false,
+        "upperValue": 0.3
+      },
+      {
+        "accuracy": 1.0,
+        "count": 2,
+        "lowerInclusive": 0.3,
+        "meanConfidence": 0.34704116,
+        "upperInclusive": false,
+        "upperValue": 0.4
+      },
+      {
+        "accuracy": 0.4,
+        "count": 5,
+        "lowerInclusive": 0.4,
+        "meanConfidence": 0.46807784,
+        "upperInclusive": false,
+        "upperValue": 0.5
+      },
+      {
+        "accuracy": 0.76470588,
+        "count": 17,
+        "lowerInclusive": 0.5,
+        "meanConfidence": 0.5502772,
+        "upperInclusive": false,
+        "upperValue": 0.6
+      },
+      {
+        "accuracy": 0.8,
+        "count": 20,
+        "lowerInclusive": 0.6,
+        "meanConfidence": 0.66418764,
+        "upperInclusive": false,
+        "upperValue": 0.7
+      },
+      {
+        "accuracy": 0.86666667,
+        "count": 45,
+        "lowerInclusive": 0.7,
+        "meanConfidence": 0.75110323,
+        "upperInclusive": false,
+        "upperValue": 0.8
+      },
+      {
+        "accuracy": 0.96124031,
+        "count": 129,
+        "lowerInclusive": 0.8,
+        "meanConfidence": 0.86010697,
+        "upperInclusive": false,
+        "upperValue": 0.9
+      },
+      {
+        "accuracy": 0.98998179,
+        "count": 1098,
+        "lowerInclusive": 0.9,
+        "meanConfidence": 0.97603992,
+        "upperInclusive": true,
+        "upperValue": 1.0
+      }
+    ],
+    "sampleCount": 1316
+  },
+  "reviewReplay": {
+    "acceptedBoardCount": 65,
+    "completeBoardCount": 84,
+    "completeBoardIds": [
+      "0158e1a132d56aa621b1bb6334cb22858c9643c5382a831568ee2e56857d7f7e",
+      "0cd9bee6180d36bbe49274144eb6a022cf7a1c9d73db7e1a13efbfd05832b515",
+      "0f57f0e80babd0142b17bba8738950eeca530226afc28bf2dca4802ddba5cf79",
+      "1999e21b4071ea27a28804d6b89e71930c84741bd2a42c9ab1eb36d1b53118c7",
+      "19e344504a352885713f34fea748c319246a772e09069465bec8aa7699967e9c",
+      "1e52546f9ccd77b78d24c3859210c43f483f42ab5bf336d1ffd47d1529637bc7",
+      "284cbdc23a6b26e25ca358bd7041d1add5c24b42706e1464809867ea6b474af5",
+      "28ca420e1cbf6f9e196d38e79ea4a5190331dc9172d531201b863f33877bd7c1",
+      "2cca73022fb87210ac5d1d6e4980885dfc31afaacd353aa7dd67b79e85528cfe",
+      "35eec2b884d1fac3afea2f1a0257e159241ca88d7b11a48ba3a8119d21dafd3f",
+      "38b77a08f357850ff41d68998cd2573c6bc98e85cc5cd10636fdf17f258cfece",
+      "3abc31ff7d784babf08e869142dd0cd72810ab25d148ddb97e362125fbace318",
+      "3f0b6ff67bcaea7742d6a55d91b52320f6b1ce44e114b3f4e59f728b66a0fd27",
+      "4085b36d68d0d7fde537cf82534ab5d075772f68941e28229faaef825bb5e1ac",
+      "4168dfe6b81a21fa3ac5682b63ccf135e663816b459c186edc07f43d8ac17d46",
+      "44c206b6acce58ae55a51cd428c7b2481106edd52b7d29232edeb65bff646b80",
+      "46e12c6d93d429b7f7a52c94d7f1fd87d5bd8a135beb4c44576d0e0e41608d1c",
+      "470dad35bf9fb5327818d875a7930999dee09ed6fe08215caf95300bc05ae4f7",
+      "49d8fac8a2e47157c8b636fa39cb35bc39f91c2688d207ce9b0f344260b19ff5",
+      "503713b0ad5a1de276c66a59b81130147e3afc91e2560d7701192de6673985e9",
+      "538a2c0ecc5fdce02d95fa0f3db0b86ee4db5c37a61a0868121ff1ea7604c059",
+      "56b1e3b824d2ca73c52c6fcef1c7c11d8d8ac9885e0b7df47f04a7898d57bcb4",
+      "5bdb29bd6ada554062d4e935feede3b0b51fbb3bfe2eaac3fa128062606026e6",
+      "5d5e72d37fb20071eceaa49bcf386754dc1fb749086bfa986a15b27530280cbe",
+      "5df3ce56127529d1ba96577905bd190a92e0983c6001b17db224ffdd26da5823",
+      "61b21c9a10ffc4d092abebeae90f7a590304d098be05718ae4299d93a8cf928f",
+      "625bc222c20a624ae5f60ee82be16f9b769698a7940009e412de1d29d793d1d8",
+      "6c9bc671591dfc19083d97fda6ca2622ba27d03c242110d086f176d6565549c6",
+      "6e71aa735b05e9541002fd45b96eb9cada1e3e5111a57b89a4d32624ce3f283d",
+      "731df06208d6f246add6029831983bea7a0ae9aaecdef345aa1433d6d7e65070",
+      "789021b67a710da3bda0d06f24bd7772efe0366772bf81c820bee577c9d0eee1",
+      "7c8ca3b7c87160222fa568cab3bdadc8ed926d8bcc54e64aaa3dccb366fa517f",
+      "830acaf5c8ccac5d320ade2b77b777fcb03a5a9337671053e5c7360fd0b032fe",
+      "84b0a6ee0eecd90be730bb862f1b0ef40ca07591939725aa662019eacfcbf853",
+      "862b111c1fb2fbaf0b6f6b63f77c8e573939523a4ab6558d445b0c3823fdf657",
+      "86c790e275b3e29e7ff52ed87253b83edec873549d2746e09a8966ec70671800",
+      "880ac28e402f0772d16c1d16c69c5c2811ba21bdecc7d2e744a1b56229fa34a6",
+      "8da9db971f2ec9e3f425d3971a5f17b48ace42386483161c6bdf8a6a73b0f9e9",
+      "8eea39e03818f21e80335851e32c7bd1b44e6847a0ee18c7fcbbc0db127cc3d0",
+      "919c78201e2c22c43facab4fbf0d6c8e89e8f5f1d80e648fe703854bef8ca8b4",
+      "944b7571691f4796ae8d23ed0d1b2856303964e6282870486d837920e52538e1",
+      "9596b9826fae49c1ed60e877c9415fb4ab8259fc6a6f35615aac3c11edadd47c",
+      "9609e255c073d28141f2a2796fd6d822b5517602bdffb3a31abe6f4cc22e1bcc",
+      "9ad335693b3053c48dffe286f81e66392f162fbafb3ccffd6ebea596f8a327d3",
+      "9cf5ee622b5c2af8045c2d9c07c5d1b659d6c37f9bb1fcafac3b292242c196d5",
+      "9d47dcf796939f64594033dd883b22ede6bc5301d25e6588d25e8e3fce60ec4f",
+      "9e237f3acfa5f92062f8937f9a4c6dc0a6b24c3bb7a817be402cd7a94ae20dc0",
+      "9f5129bf82e5c9ec83b7fa8084ff3bc963db4a135df29249380677fe43f02d0e",
+      "a57f8efa23be56a2d778e4e9aca40891523a55c1695cc3aab00bbbbd1e063ee1",
+      "a6e9371222c2863a848ecd5b777bf5f3d17440540a5c711a6c2df51c288d53eb",
+      "a8b6abe0592d68d814349a741b0a2cf8aabf87b580d2b4bc12e488765080e74b",
+      "a998895005229644f4c750fc6f0b3cc65de2b570920bbfa1bf7bcd254f95c62d",
+      "ab61320cfe828ee4a86f82e94d87aaa80cbe4b04db3f8aca5a3193061a08f102",
+      "b21aa97f776b5a8baefcc11839af9f4fd530fee0bad3b76bd7f31f2e95eaa8cc",
+      "b49022d21cae4a8dfb32b021c0d17b417869f972a8f4adc549d746152b431613",
+      "b7f942b19677b982aa029834f25c03c4accc90a419272825c8f7fb408aa8044e",
+      "bade6b10c11b55312795e95978eff4b03f000287ab335a3982b6bb87c9e5133b",
+      "bd53c8a7b3bf5ae56e3ad4ff1952735f0cae6845f75b1c8f4917ab8a67fa596d",
+      "bea56880658ba1ea5fd36462c8f3c1f4ffdc53f4493c8f4dace5f349a029b6ca",
+      "bfa8cb9dcf3bf26289a59e390168b873399ca0ef25c174d28604b34ad3dda2d0",
+      "bfc6b0d14296d332c63ab7397877785b890cc662549b5546511f14ab34144f0f",
+      "c0b1d0411a8111fcb803a07f01afec1718dc366f83ad96d4fbed976f5b905611",
+      "c4136dba827a689f69269a6031a0d05afa513f0fa9106e16fbc59eb3f2bb8711",
+      "c8de7bc2b72257ef5bb6b48dd04d7be68503c83882a1921e476bde15eeccd47f",
+      "c98ccae60dac0a3edbce23fd8c75927de82972afa9a2a2781eae88e17e500413",
+      "ca13e1067d921c8e0d66ffb18635ef1ac137eb527bda2a6adac70eeb92c421a3",
+      "ccf548788501088f855f7e40a9c49e915221696602e27ff5f1e5bc3e636ef5d4",
+      "d1b92b411144efd1049042313918b665f2a07fb920bc31d77ada6cf8b989ba4d",
+      "d2719c2ab43c9271e87fa42b7f462ccbc27c95b695b55d42b073c11a4877f44d",
+      "d2d3d33c56abf02e9e70213004904f0c83a0c3f4f339fed32bc3554b7ebfb5f4",
+      "db3c511c3a3f89ef848b1e578465be74b0bd7a9332d2aec63d64d61957c50a14",
+      "dd1ff548b95a54b08b0afc8c8967c294a8004c19b62e588ba2e75b833cde745c",
+      "e30bd9f353790872068be0b8c0d57d515088625ca4638f944e8af7d0157579ec",
+      "e436e2a8670446e05ab887dcfc0c3891f4effbca8459e759d2c2af9beb31139f",
+      "e6c630167445683791a9d777dbb3eb796dab5eb81a20f876eed4ce747dbcbd8c",
+      "e6ca11d60af6dfe9f1a125fb8bb5bec9cda2ccfc573deee74e2fe119f6420c0a",
+      "e7cd26d00225c70ed94b2faf9bc989440e4daa8cbe3665c6d49ec1698aece628",
+      "ed91c8e1a9b8e62bdb42e82526d28e42d8e7c6539db4620ee904b5ffcead6920",
+      "f0b61a4b43d111a7bd4c6569aff910e5332f6baac088e5b72528184717b13367",
+      "f0f2fc6821288ca8ed2b76f91a9b98aedbc01e4444305f8815d8fd5eca73b531",
+      "f3db991d7e00057e4046f410bfc80ceb84df5c9fe20b47d0fcc448426c9239ca",
+      "f3f617cb2a6cd9a4a938255bf380141e5c9df69e97079fd4692f90c923a3062b",
+      "fb1ab91bdcc058fb4e90f5f8ca818efc12cdfda7f644b3890893c83ee9938c96",
+      "fb5398e222219f46f1f255a04eb10daa0b3cc6ffbd24cdbbef892e36fc4f1483"
+    ],
+    "correctedBoardCount": 19,
+    "correctedCellCount": 31,
+    "partialBoardCount": 4,
+    "partialSampleCount": 56,
+    "postReviewAccuracy": 1.0,
+    "postReviewMacroRecall": 1.0,
+    "resolvedSampleCount": 1260
+  },
+  "sampleCount": 1316,
+  "schemaVersion": 1,
+  "splitMetrics": {
+    "test": {
+      "accuracy": 0.96166134,
+      "brierScore": 0.0722366,
+      "ece": 0.03148023,
+      "meanConfidence": 0.94002849,
+      "negativeLogLikelihood": 0.20251306,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.99342655,
+          "precision": 1.0,
+          "predictedCount": 57,
+          "recall": 1.0,
+          "support": 57,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.85684025,
+          "precision": 0.96774194,
+          "predictedCount": 31,
+          "recall": 0.90909091,
+          "support": 33,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.94817572,
+          "precision": 0.97368421,
+          "predictedCount": 38,
+          "recall": 0.97368421,
+          "support": 38,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.90564515,
+          "precision": 0.975,
+          "predictedCount": 40,
+          "recall": 0.975,
+          "support": 40,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.97318188,
+          "precision": 0.93939394,
+          "predictedCount": 33,
+          "recall": 1.0,
+          "support": 31,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.94834869,
+          "precision": 0.92857143,
+          "predictedCount": 28,
+          "recall": 0.86666667,
+          "support": 30,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.8856929,
+          "precision": 0.88888889,
+          "predictedCount": 36,
+          "recall": 0.91428571,
+          "support": 35,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.96462728,
+          "precision": 0.98,
+          "predictedCount": 50,
+          "recall": 1.0,
+          "support": 49,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 1.0,
+          "count": 1,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.3903116,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.0,
+          "count": 2,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.44397622,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 0.75,
+          "count": 4,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.55673489,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 0.77777778,
+          "count": 9,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.6717067,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 1.0,
+          "count": 9,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.75749173,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.96969697,
+          "count": 33,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.85478081,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 0.97647059,
+          "count": 255,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.97903201,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 313
+    },
+    "train": {
+      "accuracy": 0.98008535,
+      "brierScore": 0.0345714,
+      "ece": 0.03370825,
+      "meanConfidence": 0.9463771,
+      "negativeLogLikelihood": 0.08633772,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.98422166,
+          "precision": 0.98275862,
+          "predictedCount": 116,
+          "recall": 1.0,
+          "support": 114,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.87355808,
+          "precision": 0.96666667,
+          "predictedCount": 60,
+          "recall": 0.89230769,
+          "support": 65,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.95925282,
+          "precision": 1.0,
+          "predictedCount": 76,
+          "recall": 0.98701299,
+          "support": 77,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.9151978,
+          "precision": 0.98924731,
+          "predictedCount": 93,
+          "recall": 0.98924731,
+          "support": 93,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.97145311,
+          "precision": 0.93069307,
+          "predictedCount": 101,
+          "recall": 0.98947368,
+          "support": 95,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.93855273,
+          "precision": 0.98,
+          "predictedCount": 50,
+          "recall": 1.0,
+          "support": 49,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.93739949,
+          "precision": 1.0,
+          "predictedCount": 104,
+          "recall": 0.97196262,
+          "support": 107,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.95310043,
+          "precision": 0.99029126,
+          "predictedCount": 103,
+          "recall": 0.99029126,
+          "support": 103,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 1.0,
+          "count": 1,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.30377073,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.66666667,
+          "count": 3,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.48414558,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 0.625,
+          "count": 8,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.55088543,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 0.71428571,
+          "count": 7,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.65087925,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 0.79166667,
+          "count": 24,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.74881842,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.98412698,
+          "count": 63,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.86595416,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 0.99664992,
+          "count": 597,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.97496968,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 703
+    },
+    "validation": {
+      "accuracy": 0.97666667,
+      "brierScore": 0.05895511,
+      "ece": 0.03471267,
+      "meanConfidence": 0.941954,
+      "negativeLogLikelihood": 0.21498811,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.98870288,
+          "precision": 0.984375,
+          "predictedCount": 64,
+          "recall": 0.95454545,
+          "support": 66,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.84171386,
+          "precision": 0.85294118,
+          "predictedCount": 34,
+          "recall": 1.0,
+          "support": 29,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.94024919,
+          "precision": 1.0,
+          "predictedCount": 45,
+          "recall": 0.97826087,
+          "support": 46,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.94630753,
+          "precision": 1.0,
+          "predictedCount": 36,
+          "recall": 1.0,
+          "support": 36,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.98562377,
+          "precision": 0.95833333,
+          "predictedCount": 24,
+          "recall": 0.92,
+          "support": 25,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.92992245,
+          "precision": 1.0,
+          "predictedCount": 29,
+          "recall": 1.0,
+          "support": 29,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.92368769,
+          "precision": 1.0,
+          "predictedCount": 31,
+          "recall": 0.96875,
+          "support": 32,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.94744915,
+          "precision": 1.0,
+          "predictedCount": 37,
+          "recall": 1.0,
+          "support": 37,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 1.0,
+          "count": 5,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.5441379,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 1.0,
+          "count": 4,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.67055942,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 0.91666667,
+          "count": 12,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.75088147,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.90909091,
+          "count": 33,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.85427031,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 0.98780488,
+          "count": 246,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.97553567,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 300
+    }
+  },
+  "splitSampleCounts": {
+    "test": 313,
+    "train": 703,
+    "validation": 300
+  },
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "passed",
+  "verticalSliceVersion": "classifier-review-vertical-slice-v1"
+}

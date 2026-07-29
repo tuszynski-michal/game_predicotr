@@ -2183,6 +2183,96 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza przyszły zakres D-021 i M8.1 bez zmiany domyślnego
   loopback.
 
+## D-088 — Spatial CNN jest produkcyjnym modelem sugestii symboli
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** wydanie `production-spatial-symbol-cnn-v1` z architekturą
+  `spatial-symbol-cnn-v1`, preprocessingiem
+  `rgb-resize64-normalize-half-v1` i ONNX
+  `spatial-symbol-cnn-onnx-v1` staje się wersjonowanym modelem sugestii
+  symboli. Scalar temperature `1.1515684402` i próg auto-accept
+  `0.88850097` pochodzą wyłącznie z zamrożonego validation. Test służy tylko
+  jako końcowy pomiar. Globalne `massImportAllowed` pozostaje `false`, ponieważ
+  OCR numerów nadal działa jako `manual_review_only`.
+- **Context:** TASK-0104 wybrał spatial CNN bez augmentacji na validation.
+  TASK-0105 wyeksportował model do ONNX, uzyskał zero top-one mismatch,
+  maksymalny błąd `0.000002861` oraz odtworzył cały manifest na 1316 próbkach.
+  Validation confidence gate odblokował auto-accept symboli, a zamrożony test
+  przy wybranym progu osiągnął precision `0.97674419` i coverage `0.82428115`.
+- **Reason:** checksum-bound manifest łączy checkpoint, kolejność ośmiu klas,
+  preprocessing, ONNX, kalibrację, vertical slice i decyzję jakościową. Dzięki
+  temu panel może pokazywać stabilne sugestie i maksymalnie cztery alternatywy,
+  nie mieszając jakości symboli z niezależną jakością OCR.
+- **Alternatives:** pozostawienie słabszego bootstrapu, dalszy trening mimo
+  przejścia bramki albo odblokowanie globalnego importu samym wynikiem symboli.
+  Pierwsze pogarsza UX review, drugie nie ma uzasadnienia w bieżących danych,
+  a trzecie łamie niezależną bramkę OCR.
+- **Consequences:** TASK-0106 może budować operacyjny API review na nowym
+  kontrakcie sugestii. Symbol auto-accept jest dozwolony tylko dla predykcji
+  spełniających zamrożony próg; pozostałe wymagają człowieka. D-086 nadal
+  pozwala publikować w pełni ręcznie zweryfikowane ciągłe zakresy, a TASK-0076
+  pozostaje zablokowany do nowej decyzji obejmującej także OCR.
+- **Supersedes:** finalizuje wybór modelu symboli z D-080 i D-084; nie zmienia
+  wymogu ręcznego OCR ani nadrzędności decyzji człowieka z D-086.
+
+## D-089 — Ręczna korekta geometrii tworzy nową projekcję cropów bez migracji etykiet
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** geometria pipeline'u pozostaje rewizją `0`. Każdy zapis
+  czterech narożników tworzy append-only `image_board_geometry_revisions`,
+  niezmienną planszę 500 × 300 i dokładnie 15 content-addressed cropów.
+  `recognized_boards.geometry_revision` wskazuje bieżącą projekcję, natomiast
+  bazowe `cell_observations` zachowują stabilne `observationId`. Nowe bajty,
+  ścieżka i wersja croppera tworzą nowe `cropSampleId`.
+- **Context:** operator musi móc naprawić pojedynczą źle wyciętą planszę przed
+  zatwierdzeniem symboli. Kopiowanie wcześniejszego symbolu człowieka po zmianie
+  pikseli ukrywałoby błąd i zanieczyszczało zweryfikowaną kohortę.
+- **Reason:** rozdzielenie stabilnej obserwacji od wersji próbki zachowuje audyt
+  i umożliwia późniejszą analizę korekt, a jednocześnie atomowe ponowne otwarcie
+  itemu usuwa tylko jego staging i wymusza świadomą decyzję dla nowych cropów.
+  Preview używa tego samego adaptera `manual-review-geometry-v1`, ale nie
+  zapisuje plików.
+- **Alternatives:** nadpisanie istniejących plików, kopiowanie labeli,
+  tworzenie nowej domenowej obserwacji dla każdego cropu albo przechowywanie
+  binariów w PostgreSQL. Pierwsze dwie łamią audyt, trzecia traci stabilną
+  tożsamość komórki, a ostatnia narusza przyjętą granicę storage.
+- **Consequences:** zapis wymaga expected geometry i resolution revision oraz
+  UUID idempotencji, tworzy event `reopened`, czyści bieżące resolved fields i
+  staging, ale nie usuwa poprzedniej geometrii, decyzji ani plików. Korekta
+  jednego itemu nigdy nie propaguje się automatycznie na inne plansze.
+- **Supersedes:** doprecyzowuje technicznie D-086; nie zmienia D-084 ani bramki
+  automatycznego importu.
+
+## D-090 — Zamrożenie kohorty jest niezmiennym eksportem, a nie komendą treningową
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** jawne zamrożenie tworzy wersjonowany
+  `image_verified_cohort_exports` i content-addressed JSON pod zarządzanym
+  storage. Checksum stanu obejmuje wszystkie bieżące statusy oraz rewizje
+  review, natomiast próbki payloadu pochodzą wyłącznie z kompletnych
+  accepted/corrected i wiążą dokładne `cropSampleId`. Identical retry zwraca
+  istniejącą wersję. Operacja nie wywołuje treningu, inferencji ani publikacji.
+- **Context:** właściciel chce zamrażać dane etapami po jawnym poleceniu,
+  przykładowo po 1000 albo 3000 planszach. Próg liczbowy nie może niejawnie
+  uruchomić kosztownej operacji ani zmienić wcześniej zatwierdzonych etykiet.
+- **Reason:** oddzielenie niezmiennego wejścia od ciężkich konsumentów pozwala
+  odtworzyć dokładny dataset, porównać wersje i uruchomić retraining osobno.
+  Uwzględnienie statusów pending/rejected w checksumie sprawia, że każda nowa
+  decyzja tworzy nową wersję dowodu, mimo że rejected nie tworzy próbek.
+- **Alternatives:** trening bezpośrednio z żywych tabel, automatyczny próg,
+  eksport samych symboli albo nadpisywanie jednego pliku. Pierwsze trzy tracą
+  dokładne pochodzenie i granicę decyzji człowieka, a ostatnie łamie audyt.
+- **Consequences:** panel wymaga osobnego potwierdzenia, pokazuje licznik i
+  historię wersji. Późniejszy retraining musi przyjąć checksum-bound eksport i
+  może zmieniać sugestie tylko unresolved. Istniejący staging accepted/corrected
+  pozostaje oddzielny; standardowa walidacja nadal blokuje luki, duplikaty i
+  niekompletny zakres.
+- **Supersedes:** implementuje granicę D-086 i korzysta z tożsamości cropu
+  D-089; nie zmienia D-084 ani `massImportAllowed`.
+
 ## Szablon nowej decyzji
 
 ```text

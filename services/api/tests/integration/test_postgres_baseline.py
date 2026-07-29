@@ -12,7 +12,7 @@ from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0015_review_feedback"
+HEAD_REVISION = "0018_image_failure_retry"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
 
 pytestmark = pytest.mark.skipif(
@@ -76,6 +76,12 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             "dataset_versions",
             "games",
             "jobs",
+            "image_file_executions",
+            "image_import_job_files",
+            "image_layout_staging_rows",
+            "image_pipeline_stage_results",
+            "image_review_items",
+            "image_review_resolution_events",
             "layouts",
             "layout_payouts",
             "layout_import_rows",
@@ -90,6 +96,9 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             "review_feedback_exports",
             "review_items",
             "review_resolutions",
+            "recognized_boards",
+            "cell_observations",
+            "source_images",
             "symbols",
         }
 
@@ -106,6 +115,12 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             "dataset_versions",
             "games",
             "jobs",
+            "image_file_executions",
+            "image_import_job_files",
+            "image_layout_staging_rows",
+            "image_pipeline_stage_results",
+            "image_review_items",
+            "image_review_resolution_events",
             "layouts",
             "layout_payouts",
             "layout_import_rows",
@@ -120,6 +135,9 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             "review_feedback_exports",
             "review_items",
             "review_resolutions",
+            "recognized_boards",
+            "cell_observations",
+            "source_images",
             "symbols",
         }
     finally:

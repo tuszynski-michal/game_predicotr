@@ -459,6 +459,19 @@ class ImageFileExecutionModel(Base):
             "status IN ('processing', 'waiting_for_review', 'completed', 'failed')",
             name="ck_image_file_executions_status",
         ),
+        CheckConstraint(
+            "retry_count >= 0",
+            name="ck_image_file_executions_retry_nonnegative",
+        ),
+        CheckConstraint(
+            "(status = 'failed' AND failed_stage IS NOT NULL "
+            "AND error_code IS NOT NULL AND error_message IS NOT NULL "
+            "AND last_failed_at IS NOT NULL) OR "
+            "(status <> 'failed' AND failed_stage IS NULL "
+            "AND error_code IS NULL AND error_message IS NULL "
+            "AND last_failed_at IS NULL)",
+            name="ck_image_file_executions_failure_state",
+        ),
         UniqueConstraint(
             "source_checksum_sha256",
             "pipeline_fingerprint",
@@ -484,6 +497,17 @@ class ImageFileExecutionModel(Base):
     )
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    failed_stage: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    last_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -515,6 +539,23 @@ class ImageImportJobFileModel(Base):
             "AND source_relative_path !~ '\\\\'",
             name="ck_image_import_job_files_relative_path",
         ),
+        CheckConstraint(
+            "workflow_status IN ('processing', 'waiting_for_review', 'completed', 'failed')",
+            name="ck_image_import_job_files_workflow_status",
+        ),
+        CheckConstraint(
+            "retry_count >= 0",
+            name="ck_image_import_job_files_retry_nonnegative",
+        ),
+        CheckConstraint(
+            "(workflow_status = 'failed' AND failed_stage IS NOT NULL "
+            "AND error_code IS NOT NULL AND error_message IS NOT NULL "
+            "AND last_failed_at IS NOT NULL) OR "
+            "(workflow_status <> 'failed' AND failed_stage IS NULL "
+            "AND error_code IS NULL AND error_message IS NULL "
+            "AND last_failed_at IS NULL)",
+            name="ck_image_import_job_files_failure_state",
+        ),
         UniqueConstraint(
             "job_id",
             "order_index",
@@ -523,6 +564,12 @@ class ImageImportJobFileModel(Base):
         Index(
             "ix_image_import_job_files_execution",
             "file_execution_key",
+        ),
+        Index(
+            "ix_image_import_job_files_job_workflow",
+            "job_id",
+            "workflow_status",
+            "order_index",
         ),
     )
 
@@ -539,6 +586,368 @@ class ImageImportJobFileModel(Base):
     )
     order_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
     source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    workflow_checkpoint_payload: Mapped[dict[str, object]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
+    workflow_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    review_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    failed_stage: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    last_failed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImagePipelineStageResultModel(Base):
+    __tablename__ = "image_pipeline_stage_results"
+    __table_args__ = (
+        CheckConstraint(
+            "stage IN ('discovery', 'normalization', 'board_detection', "
+            "'board_crops', 'sequence_ocr', 'symbol_inference')",
+            name="ck_image_pipeline_stage_results_stage",
+        ),
+        CheckConstraint(
+            "length(btrim(adapter_version)) > 0",
+            name="ck_image_pipeline_stage_results_adapter_version",
+        ),
+    )
+
+    file_execution_key: Mapped[str] = mapped_column(
+        ForeignKey("image_file_executions.file_execution_key", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    stage: Mapped[str] = mapped_column(String(40), primary_key=True)
+    adapter_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    result_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class SourceImageModel(Base):
+    __tablename__ = "source_images"
+    __table_args__ = (
+        CheckConstraint(
+            "checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_source_images_checksum",
+        ),
+        CheckConstraint(
+            "width > 0 AND height > 0",
+            name="ck_source_images_dimensions_positive",
+        ),
+        CheckConstraint(
+            "status IN ('discovered', 'processing', 'waiting_for_review', "
+            "'accepted', 'rejected', 'completed', 'failed')",
+            name="ck_source_images_status",
+        ),
+        CheckConstraint(
+            r"length(btrim(relative_path)) > 0 "
+            r"AND relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_source_images_relative_path",
+        ),
+        UniqueConstraint(
+            "import_job_id",
+            "checksum_sha256",
+            name="uq_source_images_job_checksum",
+        ),
+        UniqueConstraint(
+            "import_job_id",
+            "file_execution_key",
+            name="uq_source_images_job_execution",
+        ),
+        Index("ix_source_images_job_status", "import_job_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    file_execution_key: Mapped[str] = mapped_column(
+        ForeignKey("image_file_executions.file_execution_key", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class RecognizedBoardModel(Base):
+    __tablename__ = "recognized_boards"
+    __table_args__ = (
+        CheckConstraint(
+            "position_index BETWEEN 0 AND 8",
+            name="ck_recognized_boards_position",
+        ),
+        CheckConstraint(
+            "sequence_number IS NULL OR sequence_number > 0",
+            name="ck_recognized_boards_sequence_positive",
+        ),
+        CheckConstraint(
+            "sequence_confidence BETWEEN 0 AND 1 AND board_confidence BETWEEN 0 AND 1",
+            name="ck_recognized_boards_confidence",
+        ),
+        CheckConstraint(
+            "board_checksum_sha256 ~ '^[0-9a-f]{64}$' AND pipeline_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_recognized_boards_sha256",
+        ),
+        CheckConstraint(
+            r"length(btrim(board_relative_path)) > 0 "
+            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_recognized_boards_relative_path",
+        ),
+        CheckConstraint(
+            "status IN ('pending_review', 'accepted', 'corrected', 'rejected')",
+            name="ck_recognized_boards_status",
+        ),
+        UniqueConstraint(
+            "source_image_id",
+            "position_index",
+            name="uq_recognized_boards_source_position",
+        ),
+        Index(
+            "ix_recognized_boards_source_status",
+            "source_image_id",
+            "status",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    position_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    sequence_number_raw: Mapped[str] = mapped_column(String(100), nullable=False)
+    sequence_number: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    sequence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    board_geometry: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    board_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    cells_prediction: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    board_confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class CellObservationModel(Base):
+    __tablename__ = "cell_observations"
+    __table_args__ = (
+        CheckConstraint(
+            "row_index BETWEEN 0 AND 2 AND column_index BETWEEN 0 AND 4",
+            name="ck_cell_observations_coordinates",
+        ),
+        CheckConstraint(
+            "crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_cell_observations_checksum",
+        ),
+        CheckConstraint(
+            r"length(btrim(crop_relative_path)) > 0 "
+            r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_cell_observations_relative_path",
+        ),
+        UniqueConstraint(
+            "recognized_board_id",
+            "row_index",
+            "column_index",
+            name="uq_cell_observations_board_cell",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    row_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    column_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    crop_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    prediction: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageReviewItemModel(Base):
+    __tablename__ = "image_review_items"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'corrected', 'rejected')",
+            name="ck_image_review_items_status",
+        ),
+        CheckConstraint(
+            "(status = 'pending' AND resolved_value IS NULL "
+            "AND resolved_by IS NULL AND resolved_at IS NULL "
+            "AND resolution_revision >= 0) OR "
+            "(status <> 'pending' AND resolved_value IS NOT NULL "
+            "AND resolved_by IS NOT NULL AND resolved_at IS NOT NULL "
+            "AND resolution_revision > 0)",
+            name="ck_image_review_items_resolution_state",
+        ),
+        UniqueConstraint(
+            "recognized_board_id",
+            name="uq_image_review_items_board",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    snapshot: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    resolved_value: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    resolution_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageReviewResolutionEventModel(Base):
+    __tablename__ = "image_review_resolution_events"
+    __table_args__ = (
+        CheckConstraint(
+            "revision > 0",
+            name="ck_image_review_resolution_events_revision",
+        ),
+        CheckConstraint(
+            "action IN ('accepted', 'corrected', 'rejected', 'reopened')",
+            name="ck_image_review_resolution_events_action",
+        ),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_review_resolution_events_command",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "revision",
+            name="uq_image_review_resolution_events_item_revision",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "idempotency_key",
+            name="uq_image_review_resolution_events_item_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    resolved_value: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    resolved_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageLayoutStagingRowModel(Base):
+    __tablename__ = "image_layout_staging_rows"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_layout_staging_sequence_positive",
+        ),
+        CheckConstraint(
+            "cardinality(cells) = 15 AND 1 <= ALL(cells) AND 32767 >= ALL(cells)",
+            name="ck_image_layout_staging_cells",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            name="uq_image_layout_staging_review",
+        ),
+        Index(
+            "ix_image_layout_staging_job_sequence",
+            "import_job_id",
+            "sequence_number",
+        ),
+    )
+
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    cells: Mapped[list[int]] = mapped_column(
+        ARRAY(SmallInteger, dimensions=1),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

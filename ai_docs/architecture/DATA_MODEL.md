@@ -341,6 +341,9 @@ wewnętrzną ochroną zapisu i nie może być zwracany panelowi.
 | review_required | boolean | kumulacyjna informacja o skierowaniu do review |
 | error_code | varchar nullable | stabilny błąd pliku; używany od TASK-0071 |
 | error_message | text nullable | bezpieczny opis |
+| failed_stage | varchar nullable | dokładny `nextStage`, na którym zapisano błąd |
+| retry_count | integer | liczba jawnych ponowień, `>= 0` |
+| last_failed_at | timestamptz nullable | czas ostatniej trwałej awarii |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 | processed_at | timestamptz nullable | ustawiany po completed |
@@ -361,12 +364,21 @@ wyniku.
 | file_execution_key | varchar(64) | FK image_file_executions, część PK |
 | order_index | bigint | deterministyczna kolejność w batchu |
 | source_relative_path | varchar(1000) | diagnostyczna ścieżka POSIX |
+| workflow_checkpoint_payload | JSONB | checkpoint recenzji i walidacji tego joba |
+| workflow_status | varchar | processing/waiting_for_review/completed/failed |
+| review_required | boolean | czy job-local workflow wymagał review |
+| failed_stage/error_code/error_message | nullable | bezpieczny błąd tego powiązania |
+| retry_count/last_failed_at | integer/timestamptz | historia ponowień tego joba |
 | created_at | timestamptz | |
+| updated_at | timestamptz | |
 
 Osobne powiązanie pozwala wielu jobom wskazać jeden content-addressed wynik bez
-kopiowania checkpointu. Unikalne `(job_id, order_index)` zachowuje kolejność, a
-ścieżka nie uczestniczy w tożsamości bajtów. Identyczne źródło przetwarzane
-innym manifestem wskazuje inny `image_file_execution`.
+kopiowania wyników automatycznych. Unikalne `(job_id, order_index)` zachowuje
+kolejność, a ścieżka nie uczestniczy w tożsamości bajtów. Checkpoint
+automatycznych etapów może być globalny, ale manual review i walidacja mają
+job-local checkpoint/status, aby nowy import nie mutował historii wcześniejszej
+decyzji. Identyczne źródło przetwarzane innym manifestem wskazuje inny
+`image_file_execution`.
 
 ### layout_import_rows
 
@@ -443,52 +455,74 @@ pozycji przyszłego datasetu.
 
 ### source_images
 
-```text
-id
-import_job_id
-relative_path
-checksum
-width
-height
-status
-error_code
-created_at
-processed_at
-```
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| import_job_id | UUID | FK jobs |
+| file_execution_key | varchar(64) | FK globalnego wykonania pliku |
+| relative_path | varchar(1000) | bezpieczna ścieżka POSIX |
+| checksum_sha256 | varchar(64) | SHA-256 oryginału |
+| width/height | integer | dodatnie wymiary discovery |
+| status | varchar | discovered/processing/waiting_for_review/accepted/rejected/completed/failed |
+| error_code | varchar nullable | zakres TASK-0071 |
+| created_at/processed_at | timestamptz | |
 
-Unikalność w ramach importu: `(import_job_id, checksum)`.
+Unikalne są `(import_job_id, checksum_sha256)` oraz
+`(import_job_id, file_execution_key)`.
 
 `source_images` i kolejne tabele wyników są zakresem integracji etapów M7.2.
 Nie zastępują rejestru `image_file_executions`: pierwsze opisują domenowe
 pochodzenie i rozpoznanie w konkretnym imporcie, drugie trwałą tożsamość
 wykonania oraz checkpoint współdzielony przez bezpieczne retry.
 
+### image_pipeline_stage_results
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| file_execution_key | varchar(64) | FK execution, część PK |
+| stage | varchar | część PK, jeden z sześciu etapów automatycznych |
+| adapter_version | varchar(150) | dokładna wersja adaptera |
+| result_payload | JSONB | wersjonowany wynik etapu |
+| created_at | timestamptz | |
+
+Wynik jest globalny i niezmienny per `(file_execution_key, stage)`. Zapis pod
+aktywnym lease jest idempotentny tylko dla identycznej wersji i kanonicznego
+payloadu. Manual review pozostaje projekcją konkretnego importu, a nie częścią
+globalnego cache.
+
 ### recognized_boards
 
-```text
-id
-source_image_id
-position_index
-sequence_number_raw
-sequence_number
-sequence_confidence
-board_geometry
-cells_prediction
-board_confidence
-pipeline_version
-status
-```
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| source_image_id | UUID | FK source_images |
+| position_index | smallint | 0..8, row-major |
+| sequence_number_raw | varchar | niezmieniona odpowiedź OCR |
+| sequence_number | bigint nullable | wyłącznie cyfrowa sugestia |
+| sequence_confidence | float | 0..1 |
+| board_geometry | JSONB | quad i provenance geometrii |
+| board_relative_path | varchar | bezpieczna ścieżka artefaktu |
+| board_checksum_sha256 | varchar(64) | |
+| cells_prediction | JSONB | model, 15 predykcji i alternatywy |
+| board_confidence | float | 0..1 |
+| pipeline_fingerprint | varchar(64) | pełne provenance |
+| status | varchar | pending_review/accepted/corrected/rejected |
+
+Unikalne `(source_image_id, position_index)` uniemożliwia ciche przesunięcie
+plansz lub duplikację wyniku row-major.
 
 ### cell_observations
 
-Logiczna obserwacja komórki jest stabilna względem ponownego cropowania:
-
-```text
-id
-recognized_board_id
-row_index
-column_index
-```
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| recognized_board_id | UUID | FK recognized_boards |
+| row_index/column_index | smallint | odpowiednio 0..2 i 0..4 |
+| crop_relative_path | varchar | bezpieczna ścieżka POSIX |
+| crop_checksum_sha256 | varchar(64) | checksum konkretnego cropu |
+| cropper_version | varchar(150) | |
+| prediction | JSONB | symbol, confidence i maks. 3 alternatywy |
+| created_at | timestamptz | |
 
 Unikalność: `(recognized_board_id, row_index, column_index)`. Binarna wersja
 cropu jest osobnym artefaktem wskazującym `cropper_version`,
@@ -501,6 +535,46 @@ W plikowym bootstrapie M6 `observationId` wynika z korpusu, źródła, domenoweg
 cropu. `cropSampleId` dodaje wersję croppera, profil kalibracji i checksumę
 obrazu. `reviewed-cell-labels-v1` wskazuje dokładny `cropSampleId`; zmiana
 geometrii wymaga nowej decyzji albo jawnej migracji w późniejszym zadaniu.
+
+### image_review_items
+
+Każda recognized board ma dokładnie jeden operacyjny element review M7.
+`snapshot` zamraża źródło, planszę, geometrię, OCR, 15 predykcji i pełny
+fingerprint. `resolved_value` dla accepted/corrected zawiera jawnie
+zaakceptowany numer i 15 kodów symboli; rejected zawiera powód. Rewizja rośnie
+po atomowej decyzji całej planszy.
+
+Tabela jest oddzielona od `review_batches/review_items` M6. Tamte rekordy są
+niezmiennym, bounded materiałem active learning; M7 obsługuje operacyjny import
+katalogu i może być znacznie większy.
+
+### image_review_resolution_events
+
+Każda accepted/corrected/rejected decyzja i systemowe ponowne otwarcie konfliktu
+numeracji tworzą append-only event z rewizją, UUID idempotencji, kanonicznym
+SHA-256 komendy, aktorem, wartością i czasem. Unikalne
+`(review_item_id, revision)` zachowuje historię, a
+`(review_item_id, idempotency_key)` sprawia, że exact retry nie dodaje drugiego
+eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
+wcześniejszej decyzji z audytu.
+
+### image_layout_staging_rows
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| import_job_id | UUID | FK jobs, część PK |
+| recognized_board_id | UUID | FK board, część PK |
+| review_item_id | UUID | unikalny FK rozwiązanej decyzji |
+| sequence_number | bigint | zaakceptowany dodatni numer |
+| cells | smallint[15] | aktywne `mobile_code`, row-major |
+| created_at | timestamptz | |
+
+Predykcja automatyczna nigdy nie tworzy wiersza. Materializacja następuje
+wyłącznie z rozwiązania accepted/corrected i jest idempotentna. Duplikat numeru
+nie jest ukrywany constraintem — walidacja ciągłości raportuje go jako blokadę
+bez zmiany wartości. TASK-0071 usuwa wyłącznie nieopublikowane wiersze
+konfliktujących plansz i ponownie otwiera ich review; pozostałe numery nie są
+przesuwane.
 
 ### grid_calibration_profiles
 

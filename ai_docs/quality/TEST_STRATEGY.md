@@ -353,6 +353,27 @@ brak uprawnienia `INTERNET`.
   `waiting_for_review`, a retry rewaliduje każdy najwyżej raz na przebieg,
 - fizyczny test PostgreSQL ponownie sprawdza globalne reuse, nowe wykonanie po
   model drift, lease fencing i odrzucenie starego checkpointu,
+- directory seeder używa prawdziwego discovery, rejestruje unikalne checksumy
+  deterministycznie i odtwarza poświadczony wynik etapu bez ponownego skanu,
+- composer waliduje komplet adapterów i payload każdego z sześciu etapów;
+  pozycje plansz nie mogą zmienić się między geometrią, cropami, OCR i ONNX,
+- projekcja symbol inference wymaga 1–9 plansz row-major oraz dokładnie 15
+  unikalnych komórek każdej planszy,
+- manual-review-only nie materializuje stagingu przed kompletnym rozwiązaniem;
+  accepted/corrected tworzy jeden wiersz, rejected nie tworzy layoutu,
+- continuity raportuje stabilne kody duplikatu i luki bez przepisywania OCR,
+- wyjątek jednego adaptera zapisuje bezpieczny błąd i nie zatrzymuje kolejnych
+  plików; nieoczekiwany wyjątek nie ujawnia ścieżki ani treści modelu,
+- retry akceptuje wyłącznie dokładny checkpoint `nextStage`, zachowuje immutable
+  stage results i zwiększa licznik,
+- completed/waiting execution rehydratuje job-local source/board/cell/review bez
+  wywołania adapterów; model drift nadal tworzy nowy execution,
+- exact retry decyzji review daje jeden append-only event, a konflikt klucza
+  idempotencji jest odrzucany,
+- duplikat/luka numeracji ponownie otwiera wyłącznie plansze konfliktujące lub
+  sąsiadujące z luką i usuwa tylko ich nieopublikowany staging,
+- migracja M7.2 sprawdza constraints checksum, bezpiecznych ścieżek,
+  współrzędnych, dokładnie 15 komórek oraz odwracalny downgrade,
 - golden images z oczekiwanymi narożnikami/bounding boxes,
 - niezależny golden granic komórek obejmuje obie grupy źródłowe i wszystkie
   dziewięć pozycji planszy,

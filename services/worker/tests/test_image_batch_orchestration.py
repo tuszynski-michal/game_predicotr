@@ -30,6 +30,7 @@ from game_predictor_worker.images.pipeline_contract import (
     validate_checkpoint_transition,
     validate_file_checkpoint,
 )
+from game_predictor_worker.jobs.runtime import JobHandlerError
 
 PIPELINE_FINGERPRINT = "a" * 64
 OTHER_PIPELINE_FINGERPRINT = "b" * 64
@@ -192,6 +193,63 @@ class MemoryImageBatchStore:
             waiting=sum(item.status == "waiting_for_review" for item in executions),
         )
 
+    def fail_file(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        expected_checkpoint: Mapping[str, object],
+        failed_stage: str,
+        error_code: str,
+        error_message: str,
+        failed_at: datetime,
+    ) -> ImageFileExecution:
+        del lease_token
+        checkpoint = validate_file_checkpoint(expected_checkpoint)
+        key = cast(str, checkpoint["fileExecutionKey"])
+        assert any(item[1] == key for item in self.associations[job_id])
+        assert checkpoint["nextStage"] == failed_stage
+        current = self.executions[key]
+        updated = replace(
+            current,
+            status="failed",
+            failed_stage=failed_stage,
+            error_code=error_code,
+            error_message=error_message,
+            last_failed_at=failed_at,
+        )
+        self.executions[key] = updated
+        return updated
+
+    def retry_file(
+        self,
+        job_id: UUID,
+        *,
+        file_execution_key: str,
+        expected_stage: str,
+        retried_at: datetime,
+    ) -> ImageFileExecution:
+        del retried_at
+        assert any(item[1] == file_execution_key for item in self.associations[job_id])
+        current = self.executions[file_execution_key]
+        checkpoint = validate_file_checkpoint(current.checkpoint_payload)
+        if current.status != "failed" or checkpoint["nextStage"] != expected_stage:
+            raise JobHandlerError(
+                "IMAGE_FILE_RETRY_STAGE_INVALID",
+                "Retry must target the failed checkpoint nextStage.",
+            )
+        updated = replace(
+            current,
+            status="processing",
+            failed_stage=None,
+            error_code=None,
+            error_message=None,
+            last_failed_at=None,
+            retry_count=current.retry_count + 1,
+        )
+        self.executions[file_execution_key] = updated
+        return updated
+
     def _items(
         self,
         job_id: UUID,
@@ -222,6 +280,26 @@ class ReviewAwareExecutor:
         if stage == "manual_review" and not self.review_resolved:
             return ImageStageExecutionResult.WAITING_FOR_REVIEW
         return ImageStageExecutionResult.COMPLETED
+
+
+class FailOnceExecutor(ReviewAwareExecutor):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed = False
+
+    def execute_stage(
+        self,
+        candidate: ImageBatchCandidate,
+        stage: str,
+    ) -> ImageStageExecutionResult:
+        if (
+            candidate.source_relative_path == "session/page-001.jpg"
+            and stage == "normalization"
+            and not self.failed
+        ):
+            self.failed = True
+            raise RuntimeError(r"secret C:\private\model.onnx")
+        return super().execute_stage(candidate, stage)
 
 
 def _leased_image_job(
@@ -403,3 +481,57 @@ def test_cancellation_stops_after_file_checkpoint_before_next_stage() -> None:
     assert first.checkpoint_payload["completedStages"] == ["discovery"]
     assert second.checkpoint_payload["completedStages"] == []
     assert executor.calls == [("session/page-001.jpg", "discovery")]
+
+
+def test_one_file_failure_is_isolated_and_retry_resumes_exact_stage() -> None:
+    job = _leased_image_job()
+    store = MemoryImageBatchStore()
+    _register_two(store, job)
+    executor = FailOnceExecutor()
+    context = RecordingContext(job)
+
+    with pytest.raises(ExecutionStopped, match="waiting_for_review"):
+        ImageBatchHandler(store, executor)(cast(object, context), job)
+
+    failed_key = file_execution_key("1" * 64, PIPELINE_FINGERPRINT)
+    failed = store.executions[failed_key]
+    assert failed.status == "failed"
+    assert failed.failed_stage == "normalization"
+    assert failed.error_code == "IMAGE_STAGE_EXECUTION_FAILED"
+    assert failed.error_message == "The image stage failed unexpectedly."
+    assert "private" not in failed.error_message
+    assert failed.checkpoint_payload["completedStages"] == ["discovery"]
+    assert store.batch_stats(
+        job.id,
+        pipeline_fingerprint=PIPELINE_FINGERPRINT,
+    ) == ImageBatchStats(total=2, current=2, succeeded=0, failed=1, review=1, waiting=1)
+
+    with pytest.raises(JobHandlerError) as invalid:
+        store.retry_file(
+            job.id,
+            file_execution_key=failed_key,
+            expected_stage="board_detection",
+            retried_at=NOW,
+        )
+    assert invalid.value.code == "IMAGE_FILE_RETRY_STAGE_INVALID"
+
+    retried = store.retry_file(
+        job.id,
+        file_execution_key=failed_key,
+        expected_stage="normalization",
+        retried_at=NOW,
+    )
+    assert retried.status == "processing"
+    assert retried.retry_count == 1
+    assert retried.checkpoint_payload["nextStage"] == "normalization"
+
+    executor.review_resolved = True
+    ImageBatchHandler(store, executor)(cast(object, RecordingContext(job)), job)
+
+    assert (
+        store.batch_stats(
+            job.id,
+            pipeline_fingerprint=PIPELINE_FINGERPRINT,
+        ).succeeded
+        == 2
+    )

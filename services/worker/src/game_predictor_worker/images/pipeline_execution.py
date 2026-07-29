@@ -1,0 +1,638 @@
+"""Composable execution of the versioned image pipeline into review staging."""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Never, Protocol, cast
+from uuid import UUID
+
+from game_predictor_worker.jobs.runtime import JobHandlerError
+
+from .discovery import (
+    DISCOVERY_VERSION,
+    SourceImage,
+    SourceManifest,
+    discover_images,
+)
+from .orchestration import (
+    ImageBatchCandidate,
+    ImageBatchHandler,
+    ImageBatchStore,
+    ImageFileExecution,
+    ImageStageExecutionResult,
+    ImageStageExecutor,
+)
+from .pipeline_contract import PIPELINE_STAGES, canonical_json_bytes
+
+AUTOMATED_IMAGE_STAGES = PIPELINE_STAGES[:6]
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+BOARD_ROWS = 3
+BOARD_COLUMNS = 5
+BOARD_CELL_COUNT = BOARD_ROWS * BOARD_COLUMNS
+
+
+class ImagePipelineExecutionError(JobHandlerError):
+    """Stable integration error raised before persistence."""
+
+
+@dataclass(frozen=True, slots=True)
+class ImageStageContext:
+    job_id: UUID
+    file_execution_key: str
+    source_checksum_sha256: str
+    source_relative_path: str
+    pipeline_fingerprint: str
+    previous_results: Mapping[str, Mapping[str, object]]
+
+
+class VersionedImageStageAdapter(Protocol):
+    """Narrow port implemented by the accepted M5/M6 adapters."""
+
+    stage: str
+    version: str
+
+    def execute(self, context: ImageStageContext) -> Mapping[str, object]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FunctionImageStageAdapter:
+    """Bind an accepted per-image adapter function to a manifest stage."""
+
+    stage: str
+    version: str
+    runner: Callable[[ImageStageContext], Mapping[str, object]]
+
+    def execute(self, context: ImageStageContext) -> Mapping[str, object]:
+        return self.runner(context)
+
+
+class ImageBatchRegistrar(Protocol):
+    def register_file(
+        self,
+        job_id: UUID,
+        *,
+        source_checksum_sha256: str,
+        pipeline_fingerprint: str,
+        source_relative_path: str,
+        order_index: int,
+        registered_at: datetime,
+    ) -> ImageFileExecution: ...
+
+
+class ImageDirectoryBatchSeeder:
+    """Discover one immutable directory manifest and register unique images."""
+
+    def __init__(self, registrar: ImageBatchRegistrar) -> None:
+        self._registrar = registrar
+
+    def seed(
+        self,
+        job_id: UUID,
+        *,
+        source_root: Path,
+        pipeline_fingerprint: str,
+        registered_at: datetime,
+    ) -> SourceManifest:
+        manifest = discover_images(source_root)
+        if manifest.issues:
+            raise ImagePipelineExecutionError(
+                "IMAGE_DISCOVERY_REQUIRES_REVIEW",
+                "Image discovery found unsupported or unreadable image sources.",
+            )
+        if not manifest.images:
+            raise ImagePipelineExecutionError(
+                "IMAGE_BATCH_EMPTY",
+                "The image directory contains no supported source images.",
+            )
+        for order_index, image in enumerate(manifest.images):
+            self._registrar.register_file(
+                job_id,
+                source_checksum_sha256=image.checksum_sha256,
+                pipeline_fingerprint=pipeline_fingerprint,
+                source_relative_path=image.files[0].relative_path,
+                order_index=order_index,
+                registered_at=registered_at,
+            )
+        return manifest
+
+
+class ManifestDiscoveryStageAdapter:
+    """Replay attested discovery metadata without rescanning at every stage."""
+
+    stage = "discovery"
+    version = DISCOVERY_VERSION
+
+    def __init__(self, manifest: SourceManifest) -> None:
+        self._images = {image.checksum_sha256: image for image in manifest.images}
+
+    def execute(self, context: ImageStageContext) -> Mapping[str, object]:
+        image = self._images.get(context.source_checksum_sha256)
+        if image is None:
+            raise ImagePipelineExecutionError(
+                "IMAGE_DISCOVERY_SOURCE_NOT_ATTESTED",
+                "The source checksum is absent from the discovery manifest.",
+            )
+        _require_manifest_path(image, context.source_relative_path)
+        return {
+            "height": image.height,
+            "sourceChecksumSha256": image.checksum_sha256,
+            "sourceRelativePath": context.source_relative_path,
+            "width": image.width,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class StoredImageStageResult:
+    adapter_version: str
+    payload: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuityIssue:
+    code: str
+    sequence_number: int | None
+    occurrence_count: int
+
+
+class ImagePipelineProjectionStore(Protocol):
+    def stage_results(
+        self,
+        file_execution_key: str,
+    ) -> Mapping[str, StoredImageStageResult]: ...
+
+    def save_stage_result(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        stage: str,
+        adapter_version: str,
+        payload: Mapping[str, object],
+    ) -> StoredImageStageResult: ...
+
+    def project_source(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        discovery: Mapping[str, object],
+    ) -> None: ...
+
+    def project_recognition(
+        self,
+        candidate: ImageBatchCandidate,
+        *,
+        stage_results: Mapping[str, StoredImageStageResult],
+    ) -> None: ...
+
+    def pending_review_count(self, candidate: ImageBatchCandidate) -> int: ...
+
+    def materialize_resolved_staging(self, candidate: ImageBatchCandidate) -> int: ...
+
+    def reopen_continuity_conflicts(
+        self,
+        candidate: ImageBatchCandidate,
+    ) -> tuple[ContinuityIssue, ...]: ...
+
+
+class ImagePipelineStageExecutor(ImageStageExecutor):
+    """Run one immutable adapter stage and project review/staging state."""
+
+    def __init__(
+        self,
+        store: ImagePipelineProjectionStore,
+        adapters: Sequence[VersionedImageStageAdapter],
+    ) -> None:
+        self._store = store
+        self._adapters = _adapter_registry(adapters)
+
+    def rehydrate(self, candidate: ImageBatchCandidate) -> None:
+        """Rebuild only job-local projections from immutable shared stage results."""
+
+        results = dict(self._store.stage_results(candidate.execution.file_execution_key))
+        discovery = results.get("discovery")
+        if discovery is not None:
+            self._store.project_source(candidate, discovery=discovery.payload)
+        required = {
+            "board_detection",
+            "board_crops",
+            "sequence_ocr",
+            "symbol_inference",
+        }
+        if required.issubset(results):
+            self._store.project_recognition(candidate, stage_results=results)
+
+    def execute_stage(
+        self,
+        candidate: ImageBatchCandidate,
+        stage: str,
+    ) -> ImageStageExecutionResult:
+        job_id = candidate.job_id
+        if job_id is None or candidate.lease_token is None or candidate.executed_at is None:
+            raise ImagePipelineExecutionError(
+                "IMAGE_PIPELINE_EXECUTION_CONTEXT_MISSING",
+                "A persisted image stage requires job, lease and timestamp context.",
+            )
+        if stage in AUTOMATED_IMAGE_STAGES:
+            return self._execute_automated(candidate, stage, job_id)
+        if stage == "manual_review":
+            if self._store.pending_review_count(candidate):
+                return ImageStageExecutionResult.WAITING_FOR_REVIEW
+            self._store.materialize_resolved_staging(candidate)
+            return ImageStageExecutionResult.COMPLETED
+        if stage == "validation":
+            issues = self._store.reopen_continuity_conflicts(candidate)
+            if issues:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_SEQUENCE_REVIEW_REOPENED",
+                    "Sequence conflicts were returned to operational review.",
+                )
+            return ImageStageExecutionResult.COMPLETED
+        raise ImagePipelineExecutionError(
+            "IMAGE_PIPELINE_STAGE_UNSUPPORTED",
+            f"Image stage {stage!r} is not supported by the pipeline executor.",
+        )
+
+    def _execute_automated(
+        self,
+        candidate: ImageBatchCandidate,
+        stage: str,
+        job_id: UUID,
+    ) -> ImageStageExecutionResult:
+        existing = dict(self._store.stage_results(candidate.execution.file_execution_key))
+        adapter = self._adapters[stage]
+        stored = existing.get(stage)
+        if stored is None:
+            context = ImageStageContext(
+                job_id=job_id,
+                file_execution_key=candidate.execution.file_execution_key,
+                source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                source_relative_path=candidate.source_relative_path,
+                pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
+                previous_results={
+                    key: value.payload
+                    for key, value in existing.items()
+                    if key in AUTOMATED_IMAGE_STAGES
+                },
+            )
+            payload = validate_stage_payload(stage, adapter.execute(context), context)
+            stored = self._store.save_stage_result(
+                candidate,
+                stage=stage,
+                adapter_version=adapter.version,
+                payload=payload,
+            )
+            existing[stage] = stored
+        else:
+            if stored.adapter_version != adapter.version:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_STAGE_ADAPTER_VERSION_CONFLICT",
+                    "Stored image stage uses a different adapter version.",
+                )
+            validate_stage_payload(
+                stage,
+                stored.payload,
+                ImageStageContext(
+                    job_id=job_id,
+                    file_execution_key=candidate.execution.file_execution_key,
+                    source_checksum_sha256=candidate.execution.source_checksum_sha256,
+                    source_relative_path=candidate.source_relative_path,
+                    pipeline_fingerprint=candidate.execution.pipeline_fingerprint,
+                    previous_results={
+                        key: value.payload for key, value in existing.items() if key != stage
+                    },
+                ),
+            )
+        if stage == "discovery":
+            self._store.project_source(candidate, discovery=stored.payload)
+        if stage == "symbol_inference":
+            self._store.project_recognition(candidate, stage_results=existing)
+        return ImageStageExecutionResult.COMPLETED
+
+
+def build_image_pipeline_handler(
+    batch_store: ImageBatchStore,
+    projection_store: ImagePipelineProjectionStore,
+    adapters: Sequence[VersionedImageStageAdapter],
+) -> ImageBatchHandler:
+    """Connect the durable batch orchestrator to the versioned adapter composer."""
+
+    return ImageBatchHandler(
+        batch_store,
+        ImagePipelineStageExecutor(projection_store, adapters),
+    )
+
+
+def validate_stage_payload(
+    stage: str,
+    value: Mapping[str, object],
+    context: ImageStageContext,
+) -> dict[str, object]:
+    payload = dict(value)
+    if stage == "discovery":
+        _positive_integer(payload.get("width"), "discovery.width")
+        _positive_integer(payload.get("height"), "discovery.height")
+        _matching_text(
+            payload.get("sourceChecksumSha256"),
+            context.source_checksum_sha256,
+            "discovery.sourceChecksumSha256",
+        )
+        _matching_text(
+            payload.get("sourceRelativePath"),
+            context.source_relative_path,
+            "discovery.sourceRelativePath",
+        )
+    elif stage == "normalization":
+        _sha256(payload.get("normalizedChecksumSha256"), "normalization checksum")
+        _relative_path(payload.get("normalizedRelativePath"), "normalization path")
+        _positive_integer(payload.get("width"), "normalization.width")
+        _positive_integer(payload.get("height"), "normalization.height")
+    elif stage == "board_detection":
+        _boards(payload, require_cells=False, require_sequence=False, require_symbols=False)
+    elif stage == "board_crops":
+        boards = _boards(
+            payload,
+            require_cells=True,
+            require_sequence=False,
+            require_symbols=False,
+        )
+        _same_positions(context, "board_detection", boards)
+    elif stage == "sequence_ocr":
+        boards = _boards(
+            payload,
+            require_cells=False,
+            require_sequence=True,
+            require_symbols=False,
+        )
+        _same_positions(context, "board_detection", boards)
+    elif stage == "symbol_inference":
+        boards = _boards(
+            payload,
+            require_cells=False,
+            require_sequence=False,
+            require_symbols=True,
+        )
+        _same_positions(context, "board_crops", boards)
+        model_version = payload.get("modelVersion")
+        if not isinstance(model_version, str) or not model_version.strip():
+            _invalid("symbol_inference.modelVersion must be non-empty.")
+    else:
+        _invalid(f"Payload validation is not defined for stage {stage!r}.")
+    canonical_json_bytes(payload)
+    return payload
+
+
+def continuity_issues(sequence_numbers: Sequence[int]) -> tuple[ContinuityIssue, ...]:
+    """Return deterministic duplicate/gap diagnostics without altering numbers."""
+
+    if not sequence_numbers:
+        return (
+            ContinuityIssue(
+                code="IMAGE_SEQUENCE_EMPTY",
+                sequence_number=None,
+                occurrence_count=0,
+            ),
+        )
+    counts: dict[int, int] = {}
+    for value in sequence_numbers:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            _invalid("Accepted sequence numbers must be positive integers.")
+        counts[value] = counts.get(value, 0) + 1
+    issues = [
+        ContinuityIssue(
+            code="IMAGE_SEQUENCE_DUPLICATE",
+            sequence_number=value,
+            occurrence_count=count,
+        )
+        for value, count in sorted(counts.items())
+        if count > 1
+    ]
+    minimum = min(counts)
+    maximum = max(counts)
+    issues.extend(
+        ContinuityIssue(
+            code="IMAGE_SEQUENCE_GAP",
+            sequence_number=value,
+            occurrence_count=0,
+        )
+        for value in range(minimum, maximum + 1)
+        if value not in counts
+    )
+    return tuple(issues)
+
+
+def _adapter_registry(
+    adapters: Sequence[VersionedImageStageAdapter],
+) -> dict[str, VersionedImageStageAdapter]:
+    result: dict[str, VersionedImageStageAdapter] = {}
+    for adapter in adapters:
+        if (
+            adapter.stage not in AUTOMATED_IMAGE_STAGES
+            or not adapter.version.strip()
+            or adapter.stage in result
+        ):
+            raise ImagePipelineExecutionError(
+                "IMAGE_PIPELINE_ADAPTER_REGISTRY_INVALID",
+                "Automated image stages require one unique versioned adapter.",
+            )
+        result[adapter.stage] = adapter
+    missing = [stage for stage in AUTOMATED_IMAGE_STAGES if stage not in result]
+    if missing:
+        raise ImagePipelineExecutionError(
+            "IMAGE_PIPELINE_ADAPTER_MISSING",
+            f"Missing image stage adapters: {', '.join(missing)}.",
+        )
+    return result
+
+
+def _require_manifest_path(image: SourceImage, relative_path: str) -> None:
+    if relative_path not in {item.relative_path for item in image.files}:
+        raise ImagePipelineExecutionError(
+            "IMAGE_DISCOVERY_PATH_NOT_ATTESTED",
+            "The source path is absent from its checksum-bound discovery entry.",
+        )
+
+
+def _boards(
+    payload: Mapping[str, object],
+    *,
+    require_cells: bool,
+    require_sequence: bool,
+    require_symbols: bool,
+) -> tuple[Mapping[str, object], ...]:
+    raw = payload.get("boards")
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes) or not 1 <= len(raw) <= 9:
+        _invalid("Stage payload must contain 1..9 boards.")
+    boards: list[Mapping[str, object]] = []
+    positions: list[int] = []
+    for index, item in enumerate(cast(Sequence[object], raw)):
+        board = _mapping(item, f"boards[{index}]")
+        position = _nonnegative_integer(board.get("positionIndex"), "positionIndex")
+        if position > 8:
+            _invalid("Board positionIndex must be in range 0..8.")
+        positions.append(position)
+        if require_cells:
+            _board_cells(board)
+            _relative_path(board.get("boardRelativePath"), "boardRelativePath")
+            _sha256(board.get("boardChecksumSha256"), "board checksum")
+        elif require_sequence:
+            raw_text = board.get("rawText")
+            if not isinstance(raw_text, str):
+                _invalid("OCR rawText must be a string.")
+            normalized = board.get("normalizedNumber")
+            if normalized is not None:
+                _positive_integer(normalized, "normalizedNumber")
+            _confidence(board.get("confidence"), "sequence confidence")
+            reasons = board.get("reviewReasons", [])
+            if not isinstance(reasons, Sequence) or isinstance(reasons, str | bytes):
+                _invalid("OCR reviewReasons must be an array.")
+        elif require_symbols:
+            _symbol_cells(board)
+        else:
+            _confidence(board.get("confidence"), "board confidence")
+            if not isinstance(board.get("geometry"), Mapping):
+                _invalid("Detected board geometry must be an object.")
+        boards.append(board)
+    if positions != list(range(len(positions))):
+        _invalid("Board positions must be contiguous and row-major from zero.")
+    return tuple(boards)
+
+
+def _board_cells(board: Mapping[str, object]) -> None:
+    raw_cells = board.get("cells")
+    if not isinstance(raw_cells, Sequence) or isinstance(raw_cells, str | bytes):
+        _invalid("Board crop cells must be an array.")
+    cells = cast(Sequence[object], raw_cells)
+    if len(cells) != BOARD_CELL_COUNT:
+        _invalid("Every cropped board must contain exactly 15 cells.")
+    for index, item in enumerate(cells):
+        cell = _mapping(item, f"cells[{index}]")
+        row = _nonnegative_integer(cell.get("rowIndex"), "rowIndex")
+        column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
+        if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
+            _invalid("Board cells must be complete and row-major.")
+        _relative_path(cell.get("cropRelativePath"), "cropRelativePath")
+        _sha256(cell.get("cropChecksumSha256"), "crop checksum")
+    cropper = board.get("cropperVersion")
+    if not isinstance(cropper, str) or not cropper.strip():
+        _invalid("Board cropperVersion must be non-empty.")
+
+
+def _symbol_cells(board: Mapping[str, object]) -> None:
+    raw_cells = board.get("cells")
+    if not isinstance(raw_cells, Sequence) or isinstance(raw_cells, str | bytes):
+        _invalid("Symbol prediction cells must be an array.")
+    cells = cast(Sequence[object], raw_cells)
+    if len(cells) != BOARD_CELL_COUNT:
+        _invalid("Every symbol prediction must contain exactly 15 cells.")
+    for index, item in enumerate(cells):
+        cell = _mapping(item, f"cells[{index}]")
+        row = _nonnegative_integer(cell.get("rowIndex"), "rowIndex")
+        column = _nonnegative_integer(cell.get("columnIndex"), "columnIndex")
+        if row != index // BOARD_COLUMNS or column != index % BOARD_COLUMNS:
+            _invalid("Symbol predictions must be complete and row-major.")
+        code = cell.get("symbolCode")
+        if not isinstance(code, str) or not code.strip():
+            _invalid("Predicted symbolCode must be non-empty.")
+        _confidence(cell.get("confidence"), "symbol confidence")
+        alternatives = cell.get("alternatives")
+        if (
+            not isinstance(alternatives, Sequence)
+            or isinstance(alternatives, str | bytes)
+            or not 1 <= len(alternatives) <= 3
+        ):
+            _invalid("Symbol alternatives must contain one to three values.")
+
+
+def _same_positions(
+    context: ImageStageContext,
+    previous_stage: str,
+    boards: Sequence[Mapping[str, object]],
+) -> None:
+    previous = context.previous_results.get(previous_stage)
+    if previous is None:
+        _invalid(f"{previous_stage} must complete before the current stage.")
+    raw = previous.get("boards")
+    if not isinstance(raw, Sequence) or isinstance(raw, str | bytes):
+        _invalid(f"{previous_stage} has no boards.")
+    previous_positions = [_mapping(item, "previous board").get("positionIndex") for item in raw]
+    current_positions = [item.get("positionIndex") for item in boards]
+    if current_positions != previous_positions:
+        _invalid("Board positions cannot change between pipeline stages.")
+
+
+def _mapping(value: object, label: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        _invalid(f"{label} must be an object.")
+    return cast(Mapping[str, object], value)
+
+
+def _positive_integer(value: object, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        _invalid(f"{label} must be a positive integer.")
+    return value
+
+
+def _nonnegative_integer(value: object, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        _invalid(f"{label} must be a non-negative integer.")
+    return value
+
+
+def _confidence(value: object, label: str) -> float:
+    if (
+        not isinstance(value, int | float)
+        or isinstance(value, bool)
+        or not 0.0 <= float(value) <= 1.0
+    ):
+        _invalid(f"{label} must be between zero and one.")
+    return float(value)
+
+
+def _sha256(value: object, label: str) -> str:
+    if not isinstance(value, str) or not SHA256_PATTERN.fullmatch(value):
+        _invalid(f"{label} must be a lowercase SHA-256.")
+    return value
+
+
+def _relative_path(value: object, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value.startswith("/")
+        or "\\" in value
+        or any(part in {"", ".", ".."} for part in value.split("/"))
+    ):
+        _invalid(f"{label} must be a safe relative POSIX path.")
+    return value
+
+
+def _matching_text(value: object, expected: str, label: str) -> None:
+    if value != expected:
+        _invalid(f"{label} differs from the attested execution.")
+
+
+def _invalid(message: str) -> Never:
+    raise ImagePipelineExecutionError("IMAGE_STAGE_RESULT_INVALID", message)
+
+
+__all__ = [
+    "AUTOMATED_IMAGE_STAGES",
+    "BOARD_CELL_COUNT",
+    "ContinuityIssue",
+    "FunctionImageStageAdapter",
+    "ImageBatchRegistrar",
+    "ImageDirectoryBatchSeeder",
+    "ImagePipelineExecutionError",
+    "ImagePipelineProjectionStore",
+    "ImagePipelineStageExecutor",
+    "ImageStageContext",
+    "ManifestDiscoveryStageAdapter",
+    "StoredImageStageResult",
+    "VersionedImageStageAdapter",
+    "build_image_pipeline_handler",
+    "continuity_issues",
+    "validate_stage_payload",
+]

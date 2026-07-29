@@ -43,6 +43,9 @@ class ImageFileExecution:
     review_required: bool
     error_code: str | None = None
     error_message: str | None = None
+    failed_stage: str | None = None
+    retry_count: int = 0
+    last_failed_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +53,9 @@ class ImageBatchCandidate:
     execution: ImageFileExecution
     order_index: int
     source_relative_path: str
+    job_id: UUID | None = None
+    lease_token: UUID | None = None
+    executed_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +74,10 @@ class ImageStageExecutor(Protocol):
         candidate: ImageBatchCandidate,
         stage: str,
     ) -> ImageStageExecutionResult: ...
+
+
+class ImageResultRehydrator(Protocol):
+    def rehydrate(self, candidate: ImageBatchCandidate) -> None: ...
 
 
 class ImageBatchStore(Protocol):
@@ -98,6 +108,27 @@ class ImageBatchStore(Protocol):
         checkpointed_at: datetime,
     ) -> ImageFileExecution: ...
 
+    def fail_file(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        expected_checkpoint: Mapping[str, object],
+        failed_stage: str,
+        error_code: str,
+        error_message: str,
+        failed_at: datetime,
+    ) -> ImageFileExecution: ...
+
+    def retry_file(
+        self,
+        job_id: UUID,
+        *,
+        file_execution_key: str,
+        expected_stage: str,
+        retried_at: datetime,
+    ) -> ImageFileExecution: ...
+
     def batch_stats(
         self,
         job_id: UUID,
@@ -123,7 +154,7 @@ def initial_file_checkpoint(
         "sourceChecksumSha256": source_checksum_sha256,
         "status": "processing",
     }
-    return cast(dict[str, object], validate_file_checkpoint(checkpoint))
+    return validate_file_checkpoint(checkpoint)
 
 
 def advance_file_checkpoint(
@@ -145,7 +176,7 @@ def advance_file_checkpoint(
                 "IMAGE_REVIEW_STAGE_INVALID",
                 "Only an unresolved manual_review stage may remain waiting.",
             )
-        return cast(dict[str, object], previous)
+        return previous
 
     completed = [*cast(list[str], previous["completedStages"]), next_stage]
     if len(completed) == len(PIPELINE_STAGES):
@@ -164,7 +195,7 @@ def advance_file_checkpoint(
         "status": status,
     }
     validate_checkpoint_transition(previous, current)
-    return cast(dict[str, object], validate_file_checkpoint(current))
+    return validate_file_checkpoint(current)
 
 
 class ImageBatchHandler:
@@ -196,9 +227,10 @@ class ImageBatchHandler:
             job.id,
             pipeline_fingerprint=pipeline_fingerprint,
         )
-        if stats.waiting:
+        if stats.waiting or stats.failed:
             context.wait_for_review()
-        if stats.current != stats.total or stats.failed:
+            return
+        if stats.current != stats.total:
             raise JobHandlerError(
                 "IMAGE_BATCH_INCOMPLETE",
                 "The image batch stopped without a review boundary or complete result.",
@@ -259,7 +291,52 @@ class ImageBatchHandler:
             stage = cast(str | None, checkpoint["nextStage"])
             if stage is None:
                 return
-            result = self._stage_executor.execute_stage(current, stage)
+            execution_candidate = ImageBatchCandidate(
+                execution=current.execution,
+                order_index=current.order_index,
+                source_relative_path=current.source_relative_path,
+                job_id=job.id,
+                lease_token=context.lease_token,
+                executed_at=context.now(),
+            )
+            try:
+                rehydrate = getattr(self._stage_executor, "rehydrate", None)
+                if stage in {"manual_review", "validation"} and callable(rehydrate):
+                    cast(ImageResultRehydrator, self._stage_executor).rehydrate(execution_candidate)
+                result = self._stage_executor.execute_stage(execution_candidate, stage)
+            except Exception as error:
+                if (
+                    isinstance(error, JobHandlerError)
+                    and error.code == "IMAGE_SEQUENCE_REVIEW_REOPENED"
+                ):
+                    return
+                code, message = _safe_stage_failure(error)
+                persisted = self._store.fail_file(
+                    job.id,
+                    lease_token=context.lease_token,
+                    expected_checkpoint=checkpoint,
+                    failed_stage=stage,
+                    error_code=code,
+                    error_message=message,
+                    failed_at=context.now(),
+                )
+                stats = self._store.batch_stats(
+                    job.id,
+                    pipeline_fingerprint=pipeline_fingerprint,
+                )
+                context.checkpoint(
+                    checkpoint_payload=_job_checkpoint(
+                        pipeline_fingerprint,
+                        persisted,
+                    ),
+                    stage=stage,
+                    current=stats.current,
+                    total=total,
+                    success_count=stats.succeeded,
+                    failure_count=stats.failed,
+                    review_count=stats.review,
+                )
+                return
             advanced = advance_file_checkpoint(checkpoint, result)
             persisted = self._store.save_file_checkpoint(
                 job.id,
@@ -290,6 +367,7 @@ class ImageBatchHandler:
                 execution=persisted,
                 order_index=current.order_index,
                 source_relative_path=current.source_relative_path,
+                job_id=job.id,
             )
 
 
@@ -325,6 +403,15 @@ def _job_checkpoint(
     }
 
 
+def _safe_stage_failure(error: Exception) -> tuple[str, str]:
+    if isinstance(error, JobHandlerError):
+        return error.code, error.message
+    return (
+        "IMAGE_STAGE_EXECUTION_FAILED",
+        "The image stage failed unexpectedly.",
+    )
+
+
 __all__ = [
     "IMAGE_BATCH_CHECKPOINT_VERSION",
     "IMAGE_IMPORT_KIND",
@@ -333,6 +420,7 @@ __all__ = [
     "ImageBatchStats",
     "ImageBatchStore",
     "ImageFileExecution",
+    "ImageResultRehydrator",
     "ImageStageExecutionResult",
     "ImageStageExecutor",
     "advance_file_checkpoint",

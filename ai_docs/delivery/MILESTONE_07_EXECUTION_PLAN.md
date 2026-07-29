@@ -85,8 +85,13 @@ przeszły.
 
 ### Zadania
 
-- `TASK-0070 — End-to-end image processing into staging`
-- `TASK-0071 — Failure isolation, retry and idempotency`
+- `TASK-0070 — End-to-end image processing into staging` — done 2026-07-29;
+  wersjonowany composer sześciu adapterów, trwałe source/board/cell/review oraz
+  staging wyłącznie po atomowej decyzji planszy,
+- `TASK-0071 — Failure isolation, retry and idempotency` — done 2026-07-29;
+  błąd izolowany per plik, retry dokładnego etapu, rehydratacja globalnych
+  wyników do job-local review oraz append-only decyzje i ponowne otwarcie
+  konfliktów numeracji,
 
 ### Bramka G7.2
 

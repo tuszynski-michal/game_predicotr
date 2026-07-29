@@ -190,6 +190,12 @@ rekordu albo bezpiecznego błędu.
 Migracja `0012_layout_import_normalization` dodaje osobny, resumowalny staging
 walidacji związany z surową linią, jobem `validate` i opublikowaną wersją reguł
 oraz indeksy numeru sekwencji i nieunikalnej sygnatury.
+Migracja `0016_image_orchestration` dodaje globalne wykonania plików i
+członkostwo w batchu. Migracja `0017_image_processing` dodaje niezmienne wyniki
+etapów, domenowe źródła/plansze/komórki, operacyjne review oraz staging
+zaakceptowanych layoutów bez binariów obrazów w PostgreSQL.
+Migracja `0018_image_failure_retry` dodaje trwałe błędy i liczniki retry,
+job-local workflow checkpoint oraz append-only eventy decyzji review.
 
 ### SQLite — niezmienny snapshot mobile
 
@@ -214,6 +220,12 @@ Osobny lokalny Python worker/CLI wykonuje:
 - generowanie SQLite,
 - przygotowanie artefaktów wydania,
 - wywołanie kontrolowanego skryptu Android build.
+
+M7 używa `ImagePipelineStageExecutor` jako composera portów M5–M6. Adaptery są
+wiązane jawnie przez nazwę etapu i wersję z manifestu; composer nie zależy od
+OpenCV, Paddle ani ONNX bezpośrednio. Dzięki temu istniejące implementacje i
+ich testy pozostają wymienne, a persistence nie kopiuje runnerów
+benchmarkowych.
 
 Administracyjny mock M2 o stałym limicie 1000 layoutów może powstać
 synchronicznie w FastAPI. Wszystkie większe datasety pozostają operacją
@@ -245,10 +257,11 @@ partiami po 1000 względem opublikowanych reguł i zapisuje wynik przed
 checkpointem. Handler build wykonuje rewalidację, payouty, snapshot i kontrolowany
 Android build w jednym jobie, z zagnieżdżonym checkpointem payoutu per gra.
 
-M7.1 dodaje generyczny `ImageBatchHandler` i trwałe file executions, ale
-świadomie nie rejestruje niekompletnego image handlera w `worker-v4`.
-TASK-0070 podłączy discovery i pozostałe adaptery oraz wtedy podniesie wersję
-workera. Orkiestracja korzysta z istniejącego globalnego
+M7.1 dodaje generyczny `ImageBatchHandler` i trwałe file executions. TASK-0070
+dodaje prawdziwy seeder discovery, composer sześciu portów oraz projekcję do
+review/staging. TASK-0071 domyka izolację błędów, selektywny retry, rehydratację
+globalnych wyników i job-local review. Publiczne uruchamianie i retry z panelu
+pozostają zakresem TASK-0072. Orkiestracja korzysta z istniejącego globalnego
 `execution_slot = 1`; nie dodaje kolejki, procesu ani zależności.
 
 Domyślnie zapisuje audyty i niezmienne artefakty w `artifacts/`; alternatywny

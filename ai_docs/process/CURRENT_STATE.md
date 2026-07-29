@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M7.1 completed — G7.1 passed, image adapters connect in M7.2`
+`M7.2 complete — G7.2 ready; next TASK-0072 image job operations and statistics UI`
 
 ## Completed
 
@@ -1207,10 +1207,34 @@ last_updated: 2026-07-29
   `127.0.0.1:5432` nie był dostępny,
 - zaakceptowano D-079 i zaliczono M7.1/G7.1 bez dodawania kolejki ani
   rejestrowania niekompletnego handlera w CLI.
+- ukończono TASK-0070: migracja `0017_image_processing` dodaje niezmienne
+  wyniki sześciu etapów, source images, recognized boards, dokładnie 15 cell
+  observations, operacyjne review M7 i zaakceptowany staging layoutów,
+- `ImageDirectoryBatchSeeder` używa prawdziwego discovery, a wersjonowany
+  composer łączy porty M5–M6 z `ImageBatchHandler` bez zależności od konkretnych
+  bibliotek w warstwie orkiestracji,
+- symbol inference zawsze tworzy pending review; accepted/corrected mapuje 15
+  jawnych symboli na aktywne `mobile_code`, rejected nie tworzy stagingu, a
+  continuity nie poprawia OCR ani zaakceptowanych numerów,
+- 31 focused testów orkiestracji/composera/migracji oraz 61 regresji
+  rzeczywistych adapterów przeszło; zaakceptowano D-080.
+- ukończono TASK-0071: migracja `0018_image_failure_retry` dodaje trwały
+  `failed_stage`, bezpieczny błąd, retry count/czas, job-local workflow
+  checkpoint oraz append-only eventy review,
+- wyjątek pojedynczego zdjęcia nie zatrzymuje kolejnych plików; jawny retry
+  zaczyna od dokładnego `nextStage`, a unexpected error nie ujawnia ścieżki ani
+  treści modelu,
+- completed/waiting execution rehydratuje source/board/cell/review nowego joba
+  z immutable stage results bez ponownej inferencji i bez współdzielenia decyzji,
+- konflikt numeracji ponownie otwiera plansze z duplikatem lub sąsiadujące z
+  luką, zachowuje historię decyzji i usuwa wyłącznie ich nieopublikowany staging,
+- 34 focused testy M7.2, 176 testów API i 411 testów workera przeszły; Ruff oraz
+  focused mypy przeszły. Fizyczny PostgreSQL pozostał nieuruchomiony, ponieważ
+  `127.0.0.1:5432` nie odpowiadał. Zaakceptowano D-081 i zaliczono G7.2.
 
 ## In progress
 
-- brak aktywnego zadania; następny zakres to M7.2/TASK-0070.
+- brak aktywnego zadania; M7.2/G7.2 jest ukończone.
 
 ## Blocked
 
@@ -1281,8 +1305,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po jawnym poleceniu właściciela rozpocząć `TASK-0070 — End-to-end image
-processing into staging`, pierwszy zakres M7.2. TASK-0041/TASK-0042 oraz G3 pozostają
+Po jawnym poleceniu właściciela rozpocząć `TASK-0072 — Image job operations and
+statistics UI`, pierwszy zakres M7.3. TASK-0041/TASK-0042 oraz G3 pozostają
 równolegle zablokowane na fizycznych raportach Pixela i Samsunga. Retraining
 klasyfikatora należy uruchomić dopiero po zebraniu nowej niezmiennej wersji
 feedbacku; nie blokuje to integracji etapów M7.2, ale blokuje auto-accept i

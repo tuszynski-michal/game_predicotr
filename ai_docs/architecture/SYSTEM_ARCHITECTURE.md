@@ -370,6 +370,33 @@ pozostałych źródeł. Orkiestrator nie publikuje datasetu i nie jest jeszcze
 rejestrowany w CLI; rzeczywiste adaptery i seeding z discovery podłącza
 TASK-0070.
 
+TASK-0070 dodaje `ImageDirectoryBatchSeeder`, który uruchamia prawdziwy
+`image-discovery-v1`, deduplikuje wejście po SHA-256 i rejestruje unikalne
+obrazy w kolejności manifestu. `ImagePipelineStageExecutor` łączy
+`ImageBatchHandler` z sześcioma wymiennymi, wersjonowanymi portami M5–M6.
+Każdy port otrzymuje tylko poświadczone provenance i wyniki wcześniejszych
+etapów; wynik jest walidowany przed zapisem.
+
+Automatyczne wyniki są zapisywane globalnie w
+`image_pipeline_stage_results`, natomiast `source_images`,
+`recognized_boards`, 15 `cell_observations` i `image_review_items` są
+projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
+`pending_review`. Dopiero atomowa decyzja całej planszy materializuje
+`image_layout_staging_rows`; rejected nie tworzy layoutu. Walidacja ciągłości
+raportuje luki i duplikaty bez modyfikowania raw OCR ani zaakceptowanego numeru.
+TASK-0071 izoluje wyjątek adaptera do jednego powiązania job–plik. Checkpoint
+pozostaje ostatnim poprawnym prefiksem, a trwały błąd zapisuje dokładny etap,
+stabilny kod, bezpieczny opis i czas. Batch kończy diagnostykę pozostałych
+plików, po czym przechodzi do `waiting_for_review`; jawny retry może wznowić
+wyłącznie dokładny `nextStage`.
+
+Globalne wyniki sześciu automatycznych etapów pozostają współdzielone, natomiast
+`image_import_job_files` przechowuje job-local checkpoint/status review i
+walidacji. Rehydratacja odtwarza source/board/cell/review z immutable stage
+results bez ponownej inferencji. Konflikt numeracji otwiera do review plansze z
+duplikatem albo sąsiadujące z luką, zachowuje wcześniejsze decyzje jako eventy
+i usuwa tylko ich nieopublikowany staging.
+
 Discovery używa kontraktu `image-discovery-v1`. Read-only scanner zapisuje poza
 katalogiem źródłowym deterministyczny manifest ścieżek względnych POSIX,
 SHA-256, rozmiarów, mtime, wymiarów oraz stabilnych problemów. Identyczne bajty

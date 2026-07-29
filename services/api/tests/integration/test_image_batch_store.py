@@ -4,7 +4,7 @@ import os
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from alembic import command
@@ -21,6 +21,10 @@ from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     ImageFileExecutionModel,
     ImageImportJobFileModel,
+    ImageReviewItemModel,
+    ImageReviewResolutionEventModel,
+    RecognizedBoardModel,
+    SourceImageModel,
 )
 from game_predictor_worker.images.orchestration import (
     ImageStageExecutionResult,
@@ -29,6 +33,10 @@ from game_predictor_worker.images.orchestration import (
 from game_predictor_worker.images.orchestration_store import (
     ImageOrchestrationStoreError,
     SqlAlchemyImageBatchStore,
+)
+from game_predictor_worker.images.pipeline_store import (
+    ImagePipelineStoreError,
+    SqlAlchemyImagePipelineStore,
 )
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from sqlalchemy import create_engine, func, select
@@ -130,14 +138,6 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
             order_index=0,
             registered_at=now,
         )
-        reused = image_store.register_file(
-            second_job.id,
-            source_checksum_sha256="1" * 64,
-            pipeline_fingerprint=PIPELINE,
-            source_relative_path="renamed/page.jpg",
-            order_index=0,
-            registered_at=now,
-        )
         changed = image_store.register_file(
             changed_job.id,
             source_checksum_sha256="1" * 64,
@@ -147,7 +147,6 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
             registered_at=now,
         )
 
-        assert reused.file_execution_key == first.file_execution_key
         assert changed.file_execution_key != first.file_execution_key
         assert (
             image_store.count_job_files(
@@ -190,8 +189,117 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
             )
         assert stale.value.code == "IMAGE_FILE_CHECKPOINT_STALE"
 
+        current = persisted
+        while current.checkpoint_payload["nextStage"] is not None:
+            advanced = advance_file_checkpoint(
+                current.checkpoint_payload,
+                ImageStageExecutionResult.COMPLETED,
+            )
+            current = image_store.save_file_checkpoint(
+                first_job.id,
+                lease_token=claimed.lease_token,
+                expected_checkpoint=current.checkpoint_payload,
+                checkpoint_payload=advanced,
+                checkpointed_at=now + timedelta(seconds=5),
+            )
+        assert current.status == "completed"
+
+        reused = image_store.register_file(
+            second_job.id,
+            source_checksum_sha256="1" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="renamed/page.jpg",
+            order_index=0,
+            registered_at=now + timedelta(seconds=6),
+        )
+        assert reused.file_execution_key == first.file_execution_key
+        assert reused.status == "waiting_for_review"
+        assert reused.checkpoint_payload["nextStage"] == "manual_review"
+
+        with Session(engine, expire_on_commit=False) as session:
+            source = SourceImageModel(
+                import_job_id=second_job.id,
+                file_execution_key=reused.file_execution_key,
+                relative_path="renamed/page.jpg",
+                checksum_sha256="1" * 64,
+                width=100,
+                height=100,
+                status="waiting_for_review",
+                created_at=now,
+            )
+            session.add(source)
+            session.flush()
+            board = RecognizedBoardModel(
+                source_image_id=source.id,
+                position_index=0,
+                sequence_number_raw="1",
+                sequence_number=1,
+                sequence_confidence=0.5,
+                board_geometry={"quad": []},
+                board_relative_path="crops/board.png",
+                board_checksum_sha256="9" * 64,
+                cells_prediction={"cells": []},
+                board_confidence=0.5,
+                pipeline_fingerprint=PIPELINE,
+                status="pending_review",
+                created_at=now,
+            )
+            session.add(board)
+            session.flush()
+            review = ImageReviewItemModel(
+                recognized_board_id=board.id,
+                status="pending",
+                snapshot={"sequenceNumber": 1},
+                resolution_revision=0,
+                created_at=now,
+            )
+            session.add(review)
+            session.commit()
+
+        pipeline_store = SqlAlchemyImagePipelineStore(session_factory)
+        idempotency_key = uuid4()
+        pipeline_store.resolve_board(
+            review.id,
+            expected_revision=0,
+            action="rejected",
+            sequence_number=None,
+            symbol_codes=(),
+            resolved_by="local-admin",
+            resolved_at=now,
+            idempotency_key=idempotency_key,
+            reason="unreadable",
+        )
+        pipeline_store.resolve_board(
+            review.id,
+            expected_revision=0,
+            action="rejected",
+            sequence_number=None,
+            symbol_codes=(),
+            resolved_by="local-admin",
+            resolved_at=now,
+            idempotency_key=idempotency_key,
+            reason="unreadable",
+        )
+        with pytest.raises(ImagePipelineStoreError) as idempotency_conflict:
+            pipeline_store.resolve_board(
+                review.id,
+                expected_revision=0,
+                action="rejected",
+                sequence_number=None,
+                symbol_codes=(),
+                resolved_by="local-admin",
+                resolved_at=now,
+                idempotency_key=idempotency_key,
+                reason="another reason",
+            )
+        assert idempotency_conflict.value.code == "IMAGE_REVIEW_IDEMPOTENCY_CONFLICT"
+
         with Session(engine) as session:
             assert session.scalar(select(func.count()).select_from(ImageFileExecutionModel)) == 2
             assert session.scalar(select(func.count()).select_from(ImageImportJobFileModel)) == 3
+            assert (
+                session.scalar(select(func.count()).select_from(ImageReviewResolutionEventModel))
+                == 1
+            )
     finally:
         engine.dispose()

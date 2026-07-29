@@ -1968,6 +1968,58 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   pozostałych plików. Rzeczywiste etapy i tabele rozpoznania pozostają w M7.2.
 - **Supersedes:** brak.
 
+## D-080 — Operacyjne review M7 oddzielone od batchy active learning M6
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** globalne, niezmienne wyniki sześciu etapów automatycznych są
+  zapisane per `fileExecutionKey`, ale source/board/cell, operacyjne review i
+  staging layoutu należą do konkretnego image import joba. M7 używa
+  `image_review_items`, a nie bounded `review_batches/review_items` M6.
+  Staging powstaje wyłącznie z atomowej decyzji accepted/corrected całej
+  planszy.
+- **Context:** review M6 zamraża najwyżej 100 wybranych plansz do active
+  learning i wymaga znanego numeru. Masowy import M7 może zawierać niepewny
+  OCR, odrzucone plansze oraz znacznie większą kolejkę, więc istniejące
+  constraints nie opisują tego lifecycle.
+- **Reason:** oddzielenie zachowuje audyt treningu i pozwala współdzielić
+  kosztowny wynik modeli bez współdzielenia decyzji administratora między
+  niezależnymi importami.
+- **Alternatives:** rozszerzyć historyczne `review_items` o nullable batch i
+  dwa lifecycle albo trzymać całe review w JSONB joba. Pierwsze miesza dwa
+  źródła prawdy, drugie nie skaluje się i utrudnia idempotencję.
+- **Consequences:** binaria pozostają w storage, PostgreSQL przechowuje
+  checksumy i ścieżki. Duplikat lub luka numeru pozostaje jawną blokadą
+  walidacji; system nigdy nie poprawia OCR ani nie przesuwa sekwencji po cichu.
+  TASK-0071 rozszerzy ten model o trwałe błędy i retry per plik.
+- **Supersedes:** brak.
+
+## D-081 — Globalny cache automatyczny, job-local workflow review
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** immutable wyniki sześciu automatycznych etapów nadal należą do
+  globalnego `image_file_execution`, ale checkpoint, status, błąd i retry
+  manual review/walidacji należą do `image_import_job_files`. Każda decyzja
+  operacyjnego review jest append-only eventem z kluczem idempotencji.
+- **Context:** completed execution może zostać użyte w nowym imporcie bez
+  ponownej inferencji, lecz nowy import musi utworzyć własne source/board/cell
+  i własną decyzję administratora. Wspólny checkpoint po manual review
+  mutowałby historię pierwszego joba albo pozwalał pominąć review w drugim.
+- **Reason:** granica odpowiada rzeczywistej własności danych: kosztowny,
+  deterministyczny wynik modelu jest content-addressed, a decyzja i ciągłość
+  datasetu zależą od konkretnego importu. Oddzielny workflow umożliwia retry
+  bez duplikacji i bez zmiany zakończonego joba.
+- **Alternatives:** pełny execution per job, współdzielony status przez cały
+  pipeline albo kopiowanie stage results. Pierwsze i trzecie duplikują dane i
+  obliczenia, a drugie miesza niezależne decyzje review.
+- **Consequences:** rehydratacja odtwarza job-local projekcje z globalnych stage
+  results bez wywołania adapterów. Błąd jednego pliku nie zatrzymuje batcha,
+  retry może wskazać wyłącznie `nextStage`, a konflikty numeracji wracają do
+  review bez przesuwania wartości. Publiczne operacje UI pozostają w
+  TASK-0072.
+- **Supersedes:** doprecyzowuje D-079 i D-080, nie unieważnia ich.
+
 ## Szablon nowej decyzji
 
 ```text

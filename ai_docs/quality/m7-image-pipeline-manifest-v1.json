@@ -1,0 +1,131 @@
+{
+  "contractVersion": "image-pipeline-manifest-envelope-v1",
+  "manifest": {
+    "components": {
+      "board_crops": {
+        "adapterVersion": "board-cell-crops-v16-reviewed-v14-merge-v1",
+        "artifacts": [
+          {
+            "relativePath": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
+            "role": "accepted-crop-inventory",
+            "sha256": "55a10739391843f0bc7b17814a209a3fca69ba93ff7fc4a68702008a521d77c1"
+          }
+        ],
+        "maturity": "deterministic"
+      },
+      "board_detection": {
+        "adapterVersion": "page-board-detector-v2",
+        "artifacts": [
+          {
+            "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
+            "role": "geometry-benchmark",
+            "sha256": "0c2904331a764c5ed3bd5e122afe1380ca83665bfb9441c6d0bb1ea3d7792011"
+          }
+        ],
+        "maturity": "deterministic"
+      },
+      "discovery": {
+        "adapterVersion": "image-discovery-v1",
+        "artifacts": [],
+        "maturity": "deterministic"
+      },
+      "manual_review": {
+        "adapterVersion": "revisioned-whole-board-review-v1",
+        "artifacts": [],
+        "maturity": "deterministic"
+      },
+      "normalization": {
+        "adapterVersion": "image-normalization-v1",
+        "artifacts": [],
+        "maturity": "deterministic"
+      },
+      "sequence_ocr": {
+        "adapterVersion": "sequence-number-ocr-v1",
+        "artifacts": [
+          {
+            "relativePath": "artifacts/m5-models/sequence-number-ocr-v1/inference.json",
+            "role": "ocr-model-config",
+            "sha256": "fd1b6ec722ea841a72d3ba43e527df1d1066d5d7808e0503ee3eec7265188753"
+          },
+          {
+            "relativePath": "artifacts/m5-models/sequence-number-ocr-v1/inference.pdiparams",
+            "role": "ocr-model-parameters",
+            "sha256": "3ec8a97ed6cefe8568d3e2ee90bb193299b566a7661aa4fd52d224b96b59f66b"
+          },
+          {
+            "relativePath": "artifacts/m5-models/sequence-number-ocr-v1/inference.yml",
+            "role": "ocr-model-metadata",
+            "sha256": "27e91d0582f40168aa218303c76e184bc78fa7a5d105aad0cfbad8458b441067"
+          },
+          {
+            "relativePath": "ai_docs/quality/m5-sequence-ocr-report.json",
+            "role": "ocr-benchmark",
+            "sha256": "6c5e17ca1aea9074be60547559e73c137c64e46969e265a079889827b232cd43"
+          }
+        ],
+        "maturity": "manual_review_only",
+        "modelVersion": "en_PP-OCRv5_mobile_rec",
+        "preprocessingVersion": "bright-component-tight-v1",
+        "runtimeVersion": "paddlepaddle-cpu-3.3.1"
+      },
+      "symbol_inference": {
+        "adapterVersion": "local-symbol-onnx-runtime-v1",
+        "artifacts": [
+          {
+            "relativePath": "artifacts/m6-symbol-classifier-onnx/bootstrap-symbol-cnn-v1.onnx",
+            "role": "symbol-onnx-model",
+            "sha256": "e03f66f2ab092b6049920fee6fb2839900a95eb94af42fbd5ef7e35c473b5fb8"
+          },
+          {
+            "relativePath": "ai_docs/quality/m6-symbol-classifier-onnx-report.json",
+            "role": "symbol-onnx-report",
+            "sha256": "6f4596ae8ae938b7e9e89dac05e1a888ac4e53fe1d780dcc9325abfac33ad98c"
+          },
+          {
+            "relativePath": "ai_docs/quality/m6-symbol-confidence-calibration-report.json",
+            "role": "symbol-confidence-calibration",
+            "sha256": "a2359efed1e2dc2d73fc383d9e260c88f4a19838a74af3dd165362692601bff7"
+          }
+        ],
+        "calibrationVersion": "symbol-temperature-calibration-v1",
+        "confidencePolicyVersion": "symbol-confidence-policy-v1",
+        "maturity": "bootstrap_manual_review_only",
+        "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
+        "preprocessingVersion": "rgb-resize64-normalize-half-v1",
+        "runtimeVersion": "onnxruntime-cpu-1.28.0"
+      },
+      "validation": {
+        "adapterVersion": "image-pipeline-validation-v1",
+        "artifacts": [],
+        "maturity": "deterministic"
+      }
+    },
+    "contractVersion": "image-pipeline-manifest-v1",
+    "fileExecutionKeyAlgorithm": "image-file-execution-v1",
+    "fingerprintAlgorithm": "sha256-canonical-json-v1",
+    "policies": {
+      "reviewBoundary": {
+        "autoAcceptEnabled": false,
+        "autoRejectEnabled": false,
+        "policyVersion": "image-pipeline-review-boundary-v1",
+        "required": true,
+        "resumeStage": "validation",
+        "stage": "manual_review",
+        "waitingStatus": "waiting_for_review"
+      }
+    },
+    "schemaVersion": 1,
+    "stages": [
+      "discovery",
+      "normalization",
+      "board_detection",
+      "board_crops",
+      "sequence_ocr",
+      "symbol_inference",
+      "manual_review",
+      "validation"
+    ]
+  },
+  "pipelineFingerprint": "16f601f7fae76ccc79e23a47869a0e695a5592dbf2e0639af1b3f37a3a925d96",
+  "schemaVersion": 1
+}

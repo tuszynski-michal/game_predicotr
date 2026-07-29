@@ -323,6 +323,33 @@ mogą równolegle usunąć oraz skopiować stagingu.
 6. Worker wykonuje walidację ciągłości.
 7. Zatwierdzony staging tworzy nową wersję datasetu.
 
+TASK-0068 scala wersje etapów w kanoniczny
+`image-pipeline-manifest-v1`. Manifest nie jest konfigurowalnym skrótem typu
+„latest”: zawiera komplet adapterów, modele i ich SHA-256, preprocessing,
+kalibrację, confidence policy oraz stałą kolejność ośmiu etapów.
+`pipelineFingerprint` jest wyprowadzany z sortowanego kanonicznego JSON bez
+envelope, timestampów i danych hosta. Envelope przechowuje fingerprint obok
+manifestu i jest odrzucany, gdy oba elementy nie są zgodne.
+
+Tożsamość wykonania pojedynczego pliku ma kontrakt
+`image-file-execution-v1`:
+
+```text
+SHA-256("image-file-execution-v1\0" + sourceSha256 + "\0" + pipelineFingerprint)
+```
+
+Ten sam plik i identyczny pipeline mają jeden klucz idempotencji. Zmiana
+adaptera, modelu, checksumy, kalibracji albo polityki tworzy nowy klucz i nowy
+namespace wyniku. Persistence, lease i transakcje zostają w TASK-0069, ale
+muszą utrwalać ten klucz bez zmiany jego semantyki.
+
+Checkpoint per plik używa kontraktu `image-pipeline-file-checkpoint-v1`.
+`completedStages` jest unikalnym uporządkowanym prefiksem manifestu, a
+`nextStage` jest dokładnie następnym elementem. Przejście jest idempotentne albo
+kończy jeden kolejny etap. Ponieważ aktualne OCR i symbol ONNX są
+`manual_review_only`, checkpoint po `symbol_inference` musi mieć
+`waiting_for_review`; nie wolno przejść bezpośrednio do walidacji.
+
 Discovery używa kontraktu `image-discovery-v1`. Read-only scanner zapisuje poza
 katalogiem źródłowym deterministyczny manifest ścieżek względnych POSIX,
 SHA-256, rozmiarów, mtime, wymiarów oraz stabilnych problemów. Identyczne bajty
@@ -654,6 +681,22 @@ zamraża current-state checksum. Odrzucone plansze są dowodem audytowym, ale ni
 próbkami treningowymi. Każdy inny stan otrzymuje kolejną wersję i osobny
 checksum payloadu; pojedyncza decyzja ani eksport nie uruchamia treningu i nie
 zmienia działającego modelu.
+
+TASK-0067 składa te granice w bounded pion odbioru, ale nie tworzy nowego
+runtime ani magazynu decyzji. Runner ponownie buduje
+`symbol-crop-inventory-v3` z zaakceptowanego v16 i porównuje bajty, weryfikuje
+dataset, source-aware split, ONNX, kalibrację oraz raport active-learning, a
+następnie uruchamia checksum-bound ONNX na 416 oznaczonych próbkach. Dla 24
+kompletnych plansz ground truth jest przepuszczany przez ten sam domenowy
+kontrakt accept/correct, którego używa Admin API. Cztery częściowe plansze z
+historycznego bootstrapu pozostają jawnie wyłączone z whole-board resolution.
+
+Raport `classifier-review-vertical-slice-v1` oddziela deterministyczną treść od
+pomiaru ściennego czasu. `--check` ponownie liczy predykcje, metryki i
+provenance, zachowuje zamrożoną obserwację czasu i wymaga identycznych bajtów
+raportu. Przejście pionu nie oznacza promocji modelu: manifest modelu,
+datasetu, splitu, ONNX, kalibracji i raportu odbioru jest promowany albo
+wycofywany jako całość. Historyczne artefakty i batche nie są nadpisywane.
 
 Manual review nie może ufać samemu confidence OCR. Dopóki osobny held-out
 benchmark nie wyznaczy zaakceptowanych progów, każdy numer wymaga potwierdzenia

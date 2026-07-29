@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M6.3 — TASK-0066 review corrections and feedback export completed`
+`M7.1 in progress — versioned image pipeline contract completed`
 
 ## Completed
 
@@ -1163,10 +1163,40 @@ last_updated: 2026-07-29
   domeny/aplikacji, OpenAPI/client drift, ESLint i produkcyjny build przeszły,
   a browser smoke potwierdził kontrolowany error/retry, brak błędów konsoli i
   brak overflow przy 390 px.
+- ukończono TASK-0067: bounded runner odtworzył zaakceptowany v16 z 387
+  planszami i 5805 cropami, zweryfikował dataset/split/ONNX/kalibrację/batch
+  review oraz przeliczył lokalnie wszystkie 416 oznaczonych próbek,
+- automatyczna jakość całego oznaczonego korpusu wynosi `68.509615%` accuracy i
+  `70.14904%` macro recall; 24 kompletne plansze przeszły ten sam kontrakt
+  accept/correct co Admin API, z czego 23 wymagały łącznie 114 korekt,
+- cztery historyczne częściowe plansze z 56 etykietami pozostały jawnie
+  wyłączone z whole-board resolution; nie zostały przedstawione jako kompletny
+  feedback,
+- mediana lokalnej inferencji 416 próbek wyniosła `115.9566 ms`, czyli
+  `0.278742 ms` na próbkę; pełna weryfikacja inventory trwała `9514.6743 ms`,
+- drugi przebieg `--check --require-pass` odtworzył raport TASK-0067 o SHA-256
+  `552a54e55b93ad05e6016a2807987066dd781251ab61583096686f452d1533a1`,
+- zaakceptowano D-077 i procedurę retrainingu/rollbacku: pion techniczny
+  przechodzi, ale model pozostaje `manual-review-only`, auto-accept,
+  auto-reject i masowy import są wyłączone do nowej wersji danych/modelu,
+- zaliczono M6.4 oraz G6 ze statusem `passed_with_retraining_required`.
+- ukończono TASK-0068: `image-pipeline-manifest-v1` scala osiem etapów,
+  adaptery, modele, preprocessing, kalibrację, confidence policy i checksumy
+  artefaktów w jeden kanoniczny kontrakt,
+- golden manifest ma deterministyczny `pipelineFingerprint`; tożsamość wyniku
+  per plik używa SHA-256 źródła i fingerprintu zgodnie z
+  `image-file-execution-v1`,
+- kontrakt checkpointu dopuszcza tylko uporządkowany prefiks i przejście
+  idempotentne albo o jeden etap; obecne modele wymuszają
+  `waiting_for_review` po `symbol_inference`,
+- generator w trybie `--check` zweryfikował zgodność wszystkich lokalnych
+  artefaktów, a 18 testów kontraktu przeszło,
+- zaakceptowano D-078 definiującą fingerprint całego pipeline'u oraz
+  niezmienną tożsamość wyniku per plik.
 
 ## In progress
 
-- brak aktywnego zadania; następny pion to TASK-0067.
+- brak aktywnego zadania; M7.1 wymaga jeszcze TASK-0069.
 
 ## Blocked
 
@@ -1194,7 +1224,7 @@ last_updated: 2026-07-29
 - finalne modele OCR/ML po benchmarku,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują TASK-0097.
+Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują kontynuacji M7.1.
 
 ## M1 execution structure
 
@@ -1237,11 +1267,12 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć TASK-0067: zintegrować pełny przebieg obraz → zaakceptowana geometria
-→ cropy → ONNX → manual review, zebrać raport jakości i czasu oraz opisać
-retraining/rollback modelu. Równolegle
-TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
-Pixela i Samsunga.
+Po jawnym poleceniu właściciela rozpocząć `TASK-0069 — Batch orchestration,
+checkpoints and cancellation`, drugi zakres M7.1. TASK-0041/TASK-0042 oraz G3 pozostają
+równolegle zablokowane na fizycznych raportach Pixela i Samsunga. Retraining
+klasyfikatora należy uruchomić dopiero po zebraniu nowej niezmiennej wersji
+feedbacku; nie blokuje to orkiestracji M7, ale blokuje auto-accept i masowy
+import.
 
 ## Do not start yet
 

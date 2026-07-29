@@ -1881,6 +1881,65 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   pozostają poza PostgreSQL, a retraining wymaga osobnego jawnego zadania.
 - **Supersedes:** brak.
 
+## D-077 — Techniczny odbiór pionu oddzielony od promocji modelu
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** G6 używa checksumowanego raportu
+  `classifier-review-vertical-slice-v1`, który ponownie weryfikuje zaakceptowaną
+  geometrię v16, inventory, dataset i split, uruchamia lokalny ONNX na całym
+  oznaczonym korpusie oraz odtwarza atomowe accept/correct dla kompletnych
+  plansz. Przejście technicznego pionu nie promuje automatycznie modelu.
+  Aktualny bootstrap pozostaje `manual-review-only`, wymaga retrainingu przed
+  auto-accept i nie zezwala na masowy import. Retraining i rollback zawsze
+  wybierają nowy albo wcześniejszy kompletny manifest; nie nadpisują wag,
+  raportów ani historycznych batchy.
+- **Context:** istniejące 416 etykiet pozwala uczciwie zmierzyć ONNX, ale model
+  ma tylko `68.509615%` accuracy i `70.14904%` macro recall na całym oznaczonym
+  korpusie. Spośród 24 kompletnych plansz tylko jedna nie wymaga korekty;
+  polityka confidence poprawnie kieruje 100% predykcji do człowieka.
+- **Reason:** bramka integracyjna ma potwierdzić działanie granic technicznych,
+  a nie ukrywać słabość modelu przez wynik po ręcznej korekcie. Oddzielny
+  manifest promocji daje jednoznaczny rollback bez mutacji danych audytowych.
+- **Alternatives:** uznać poprawność po review za jakość automatyczną, obniżyć
+  progi albo podmieniać jeden aktywny plik ONNX. Pierwsze dwie opcje fałszują
+  gotowość, a ostatnia usuwa odtwarzalność i bezpieczny rollback.
+- **Consequences:** TASK-0067 może zaliczyć pion M6 przy decyzji
+  `retraining_required_before_auto_accept`. Kolejna iteracja modelu wymaga
+  nowego feedback exportu, datasetu, source-aware splitu, checkpointu, ONNX,
+  kalibracji i ponownego raportu pionu. Masowy import pozostaje niedozwolony.
+- **Supersedes:** brak.
+
+## D-078 — Fingerprint całego pipeline'u i tożsamość wyniku per plik
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** pełny import obrazów używa kanonicznego
+  `image-pipeline-manifest-v1`, który zawiera stałą kolejność etapów, wersje
+  adapterów, modeli, preprocessingu, kalibracji i polityk oraz względne ścieżki
+  POSIX i SHA-256 artefaktów. `pipelineFingerprint` jest SHA-256 kanonicznych
+  bajtów manifestu bez envelope. Wynik per plik identyfikuje
+  `fileExecutionKey = SHA-256(image-file-execution-v1, source SHA-256,
+  pipelineFingerprint)`. Checkpoint przechowuje tylko uporządkowany prefiks
+  etapów i nie może ominąć wymaganej granicy manual review.
+- **Context:** M5–M6 wersjonowały komponenty osobno. Sam ogólny
+  `pipeline_version`, nazwa pliku albo nazwa modelu nie chroniły przed
+  nadpisaniem wyniku po zmianie checksumy wag, kalibracji lub confidence
+  policy.
+- **Reason:** fingerprint pełnego wejścia wykonawczego daje deterministyczną
+  idempotencję i audytowalne współistnienie wyników wielu wersji bez zależności
+  od hosta, czasu i lokalnej ścieżki.
+- **Alternatives:** mutable alias `latest`, klucz tylko z nazwy/mtime pliku albo
+  osobne, niepowiązane kolumny wersji. Alias i mtime nie są odtwarzalne, a
+  luźne kolumny pozwalają pominąć istotny składnik przy deduplikacji.
+- **Consequences:** zmiana dowolnego składnika manifestu tworzy nowy
+  fingerprint oraz wynik. Identyczny plik i manifest mają ten sam klucz.
+  Aktualne OCR i klasyfikator `manual_review_only` wymuszają
+  `waiting_for_review`, wyłączone auto-accept/auto-reject i etap
+  `manual_review` przed walidacją. TASK-0069 utrwali kontrakt bez zmiany jego
+  semantyki.
+- **Supersedes:** brak.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -52,7 +52,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M7.
 
 ### Zadania
 
-- `TASK-0068 — Versioned image pipeline contract`
+- `TASK-0068 — Versioned image pipeline contract` — done 2026-07-29;
+  kanoniczny manifest, fingerprint całego pipeline'u, idempotency key per plik
+  oraz persistence-neutral checkpoint wymuszający manual review,
 - `TASK-0069 — Batch orchestration, checkpoints and cancellation`
 
 ### Bramka G7.1

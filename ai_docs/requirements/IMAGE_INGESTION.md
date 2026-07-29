@@ -56,6 +56,27 @@ Na początku nie wprowadzamy:
 
 ## Etapy pipeline'u
 
+Pełny pipeline M7 używa kontraktu `image-pipeline-manifest-v1` i dokładnie
+uporządkowanych etapów:
+
+```text
+discovery → normalization → board_detection → board_crops → sequence_ocr
+→ symbol_inference → manual_review → validation
+```
+
+Manifest zapisuje wersję każdego adaptera, modelu, preprocessingu, kalibracji
+i confidence policy oraz względne ścieżki POSIX i SHA-256 wszystkich artefaktów
+modelowych i raportów dowodowych. `pipelineFingerprint` jest SHA-256
+kanonicznych bajtów samego manifestu — bez timestampu, ścieżek absolutnych i
+danych hosta. Wynik jednego pliku identyfikuje `fileExecutionKey` wyprowadzony z
+SHA-256 źródła i `pipelineFingerprint`. Zmiana modelu, checksumy albo dowolnej
+wersji pipeline'u tworzy nową tożsamość wyniku i nie nadpisuje poprzedniej.
+
+Obecny OCR i klasyfikator symboli są `manual_review_only`. Dlatego manifest v1
+wymusza etap `manual_review`, wyłączone auto-accept/auto-reject oraz stan
+`waiting_for_review` po `symbol_inference`. Dopiero kompletna atomowa decyzja
+planszy pozwala przejść do `validation`.
+
 ### 1. Discovery
 
 - skanowanie wskazanego folderu,
@@ -357,7 +378,8 @@ Dane są najpierw zapisywane do tabel stagingowych. Utworzenie wersji datasetu w
 
 ```text
 status: created | processing | waiting_for_review | completed | failed | cancelled
-stage: scanning | processing_images | validating
+stage: discovery | normalization | board_detection | board_crops | sequence_ocr
+     | symbol_inference | manual_review | validation
 ```
 
 Status należy do wspólnego automatu jobs. Etap opisuje wyłącznie aktualną część
@@ -368,7 +390,10 @@ pipeline'u importu i może zostać rozszerzony bez zmiany cyklu życia.
 - postęp jest zapisywany co plik lub małą partię,
 - błąd jednego zdjęcia nie przerywa całego importu,
 - ponowne uruchomienie nie tworzy duplikatów,
-- wersja pipeline'u, OCR i klasyfikatora jest zapisywana z wynikiem,
+- `pipelineFingerprint`, SHA-256 źródła i `fileExecutionKey` są zapisywane z
+  checkpointem i wynikiem,
+- `completedStages` jest wyłącznie uporządkowanym prefiksem manifestu; retry
+  może powtórzyć ten sam checkpoint albo ukończyć jeden następny etap,
 - początkowo wykonywane jest najwyżej jedno ciężkie zadanie naraz.
 
 ## Przechowywanie plików

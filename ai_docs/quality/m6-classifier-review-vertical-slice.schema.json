@@ -1,0 +1,217 @@
+{
+  "$id": "m6-classifier-review-vertical-slice.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "automaticQuality": {
+      "additionalProperties": false,
+      "properties": {
+        "overall": { "$ref": "#/$defs/metrics" },
+        "splits": {
+          "additionalProperties": false,
+          "properties": {
+            "test": { "$ref": "#/$defs/metrics" },
+            "train": { "$ref": "#/$defs/metrics" },
+            "validation": { "$ref": "#/$defs/metrics" }
+          },
+          "required": ["test", "train", "validation"],
+          "type": "object"
+        }
+      },
+      "required": ["overall", "splits"],
+      "type": "object"
+    },
+    "geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptedBoardCount": { "const": 387 },
+        "acceptedCellCount": { "const": 5805 },
+        "cropperVersion": { "type": "string" },
+        "inventoryVersion": { "const": "symbol-crop-inventory-v3" },
+        "trainingAllowed": { "const": true }
+      },
+      "required": [
+        "acceptedBoardCount",
+        "acceptedCellCount",
+        "cropperVersion",
+        "inventoryVersion",
+        "trainingAllowed"
+      ],
+      "type": "object"
+    },
+    "goldenCorpus": {
+      "additionalProperties": true,
+      "properties": {
+        "inferredSampleCount": { "const": 416 },
+        "sourceImageCount": { "minimum": 2, "type": "integer" }
+      },
+      "required": ["inferredSampleCount", "sourceImageCount", "splitCounts"],
+      "type": "object"
+    },
+    "manualReview": {
+      "additionalProperties": true,
+      "properties": {
+        "completeBoardCount": { "minimum": 1, "type": "integer" },
+        "manualReviewShare": { "const": 1.0 },
+        "postReviewAccuracy": { "const": 1.0 },
+        "postReviewMacroRecall": { "const": 1.0 },
+        "validatedResolutionCount": { "minimum": 1, "type": "integer" }
+      },
+      "required": [
+        "completeBoardCount",
+        "manualReviewShare",
+        "postReviewAccuracy",
+        "postReviewMacroRecall",
+        "validatedResolutionCount"
+      ],
+      "type": "object"
+    },
+    "model": {
+      "additionalProperties": true,
+      "properties": {
+        "autoAcceptEnabled": { "const": false },
+        "automaticRejectEnabled": { "const": false },
+        "modelVersion": { "type": "string" },
+        "readiness": { "const": "retraining_required_before_auto_accept" },
+        "temperature": { "exclusiveMinimum": 0, "type": "number" }
+      },
+      "required": [
+        "autoAcceptEnabled",
+        "automaticRejectEnabled",
+        "modelVersion",
+        "readiness",
+        "temperature"
+      ],
+      "type": "object"
+    },
+    "predictions": {
+      "items": { "$ref": "#/$defs/prediction" },
+      "maxItems": 416,
+      "minItems": 416,
+      "type": "array"
+    },
+    "provenance": {
+      "additionalProperties": { "$ref": "#/$defs/sha256" },
+      "minProperties": 9,
+      "type": "object"
+    },
+    "qualityGate": {
+      "additionalProperties": false,
+      "properties": {
+        "autoAcceptQualityPassed": { "const": false },
+        "massImportAllowed": { "const": false },
+        "nextAction": { "const": "collect_review_feedback_and_retrain" },
+        "reviewBatchContractPassed": { "const": true },
+        "verticalSlicePassed": { "const": true }
+      },
+      "required": [
+        "autoAcceptQualityPassed",
+        "massImportAllowed",
+        "nextAction",
+        "reviewBatchContractPassed",
+        "verticalSlicePassed"
+      ],
+      "type": "object"
+    },
+    "reviewBatch": {
+      "additionalProperties": true,
+      "properties": {
+        "selectedBoardCount": { "minimum": 1, "type": "integer" },
+        "status": { "const": "ready_for_manual_review" }
+      },
+      "required": ["activeLearningVersion", "selectedBoardCount", "status"],
+      "type": "object"
+    },
+    "runtimeObservation": {
+      "additionalProperties": true,
+      "properties": {
+        "inferenceMedianMilliseconds": { "minimum": 0, "type": "number" },
+        "inferenceMedianMillisecondsPerSample": { "minimum": 0, "type": "number" },
+        "sampleCount": { "const": 416 },
+        "timingRuns": { "minimum": 1, "type": "integer" }
+      },
+      "required": [
+        "inferenceMedianMilliseconds",
+        "inferenceMedianMillisecondsPerSample",
+        "sampleCount",
+        "timingRuns"
+      ],
+      "type": "object"
+    },
+    "schemaVersion": { "const": 1 },
+    "status": { "const": "passed" },
+    "verticalSliceVersion": { "const": "classifier-review-vertical-slice-v1" }
+  },
+  "required": [
+    "automaticQuality",
+    "geometry",
+    "goldenCorpus",
+    "manualReview",
+    "model",
+    "predictions",
+    "provenance",
+    "qualityGate",
+    "reviewBatch",
+    "runtimeObservation",
+    "schemaVersion",
+    "status",
+    "verticalSliceVersion"
+  ],
+  "title": "M6 classifier and review vertical-slice acceptance",
+  "type": "object",
+  "$defs": {
+    "metrics": {
+      "additionalProperties": true,
+      "properties": {
+        "accuracy": { "maximum": 1, "minimum": 0, "type": "number" },
+        "macroRecall": { "maximum": 1, "minimum": 0, "type": "number" },
+        "sampleCount": { "minimum": 1, "type": "integer" }
+      },
+      "required": ["accuracy", "macroRecall", "perClass", "sampleCount"],
+      "type": "object"
+    },
+    "prediction": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "confidence": { "maximum": 1, "minimum": 0, "type": "number" },
+              "symbolCode": { "type": "string" }
+            },
+            "required": ["confidence", "symbolCode"],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "type": "array"
+        },
+        "boardId": { "$ref": "#/$defs/sha256" },
+        "cellIndex": { "maximum": 14, "minimum": 0, "type": "integer" },
+        "confidence": { "maximum": 1, "minimum": 0, "type": "number" },
+        "expectedSymbolCode": { "type": "string" },
+        "modelVersion": { "type": "string" },
+        "predictedSymbolCode": { "type": "string" },
+        "sampleId": { "$ref": "#/$defs/sha256" },
+        "split": { "enum": ["train", "validation", "test"] }
+      },
+      "required": [
+        "alternatives",
+        "boardId",
+        "cellIndex",
+        "confidence",
+        "expectedSymbolCode",
+        "modelVersion",
+        "predictedSymbolCode",
+        "sampleId",
+        "split"
+      ],
+      "type": "object"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    }
+  }
+}

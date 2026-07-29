@@ -330,6 +330,18 @@ brak uprawnienia `INTERNET`.
 
 ## Image pipeline tests
 
+- golden `image-pipeline-manifest-v1` ponownie weryfikuje checksumy wszystkich
+  lokalnych modeli i raportów dowodowych,
+- canonical JSON daje ten sam `pipelineFingerprint` niezależnie od kolejności
+  kluczy, bez ścieżek absolutnych i timestampów,
+- zmiana adaptera, modelu, checksumy, kalibracji albo confidence policy zmienia
+  `pipelineFingerprint` oraz `fileExecutionKey`,
+- ten sam SHA-256 źródła i pipeline daje dokładnie jeden klucz idempotencji,
+- niepełna/zdublowana kolejność etapów, niebezpieczna ścieżka, zła checksum lub
+  niespójny envelope kończą się stabilnym kodem,
+- checkpoint dopuszcza tylko uporządkowany prefiks i przejście idempotentne lub
+  o jeden etap; `manual_review_only` wymusza `waiting_for_review` przed
+  `manual_review`,
 - golden images z oczekiwanymi narożnikami/bounding boxes,
 - niezależny golden granic komórek obejmuje obie grupy źródłowe i wszystkie
   dziewięć pozycji planszy,
@@ -395,6 +407,18 @@ brak uprawnienia `INTERNET`.
 - import batcha review sprawdza canonical SHA-256, aktywny katalog symboli,
   bezpieczne ścieżki, unikalność źródeł/rankingu i dokładnie 15 komórek
   row-major,
+- odbiór pionu ponownie materializuje inventory z zaakceptowanego v16 i wymaga
+  byte-for-byte zgodności wszystkich 387 plansz oraz 5805 cropów,
+- wszystkie 416 oznaczonych próbek przechodzą ten sam checksum-bound ONNX,
+  temperaturę i kolejność klas; raport zapisuje `modelVersion`, confidence,
+  top-3 i metryki per symbol dla train/validation/test oraz całości,
+- replay manual review używa wyłącznie kompletnych plansz 15/15 i tego samego
+  kontraktu accept/correct co Admin API; częściowe plansze pozostają jawnie
+  wyłączone zamiast tworzyć niepełny feedback,
+- `--check --require-pass` ponownie liczy logiczny raport pionu i wymaga
+  identycznych bajtów; obserwacja czasu jest zamrożona i walidowana osobno,
+- techniczny pass nie może zmienić `manual-review-only`, auto-accept ani
+  zezwolenia na masowy import bez spełnienia progów per symbol,
 - ponowienie identycznego importu zwraca ten sam batch bez dodatkowych rekordów,
   a konflikt gry lub payloadu dla tego samego checksumu jest odrzucany,
 - testy kontraktu OpenAPI pilnują list/detail, bounded cursor pagination,

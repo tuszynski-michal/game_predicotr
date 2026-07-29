@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "relativePath": {
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)[^/]+(?:/[^/]+)*$",
+          "type": "string"
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "relativePath",
+        "role",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "component": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "artifacts": {
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "type": "array"
+        },
+        "calibrationVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "confidencePolicyVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "maturity": {
+          "enum": [
+            "deterministic",
+            "manual_review_only",
+            "bootstrap_manual_review_only"
+          ]
+        },
+        "modelVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "preprocessingVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "runtimeVersion": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "adapterVersion",
+        "artifacts",
+        "maturity"
+      ],
+      "type": "object"
+    },
+    "manifest": {
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "additionalProperties": false,
+          "properties": {
+            "board_crops": {
+              "$ref": "#/$defs/component"
+            },
+            "board_detection": {
+              "$ref": "#/$defs/component"
+            },
+            "discovery": {
+              "$ref": "#/$defs/component"
+            },
+            "manual_review": {
+              "$ref": "#/$defs/component"
+            },
+            "normalization": {
+              "$ref": "#/$defs/component"
+            },
+            "sequence_ocr": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/component"
+                },
+                {
+                  "properties": {
+                    "artifacts": {
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "modelVersion"
+                  ]
+                }
+              ]
+            },
+            "symbol_inference": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/component"
+                },
+                {
+                  "properties": {
+                    "artifacts": {
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "calibrationVersion",
+                    "confidencePolicyVersion",
+                    "modelVersion",
+                    "preprocessingVersion"
+                  ]
+                }
+              ]
+            },
+            "validation": {
+              "$ref": "#/$defs/component"
+            }
+          },
+          "required": [
+            "board_crops",
+            "board_detection",
+            "discovery",
+            "manual_review",
+            "normalization",
+            "sequence_ocr",
+            "symbol_inference",
+            "validation"
+          ],
+          "type": "object"
+        },
+        "contractVersion": {
+          "const": "image-pipeline-manifest-v1"
+        },
+        "fileExecutionKeyAlgorithm": {
+          "const": "image-file-execution-v1"
+        },
+        "fingerprintAlgorithm": {
+          "const": "sha256-canonical-json-v1"
+        },
+        "policies": {
+          "additionalProperties": false,
+          "properties": {
+            "reviewBoundary": {
+              "additionalProperties": false,
+              "properties": {
+                "autoAcceptEnabled": {
+                  "const": false
+                },
+                "autoRejectEnabled": {
+                  "const": false
+                },
+                "policyVersion": {
+                  "const": "image-pipeline-review-boundary-v1"
+                },
+                "required": {
+                  "const": true
+                },
+                "resumeStage": {
+                  "const": "validation"
+                },
+                "stage": {
+                  "const": "manual_review"
+                },
+                "waitingStatus": {
+                  "const": "waiting_for_review"
+                }
+              },
+              "required": [
+                "autoAcceptEnabled",
+                "autoRejectEnabled",
+                "policyVersion",
+                "required",
+                "resumeStage",
+                "stage",
+                "waitingStatus"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "reviewBoundary"
+          ],
+          "type": "object"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "stages": {
+          "maxItems": 8,
+          "minItems": 8,
+          "prefixItems": [
+            {
+              "const": "discovery"
+            },
+            {
+              "const": "normalization"
+            },
+            {
+              "const": "board_detection"
+            },
+            {
+              "const": "board_crops"
+            },
+            {
+              "const": "sequence_ocr"
+            },
+            {
+              "const": "symbol_inference"
+            },
+            {
+              "const": "manual_review"
+            },
+            {
+              "const": "validation"
+            }
+          ],
+          "type": "array"
+        }
+      },
+      "required": [
+        "components",
+        "contractVersion",
+        "fileExecutionKeyAlgorithm",
+        "fingerprintAlgorithm",
+        "policies",
+        "schemaVersion",
+        "stages"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://game-predictor.local/schemas/image-pipeline-manifest-v1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "const": "image-pipeline-manifest-envelope-v1"
+    },
+    "manifest": {
+      "$ref": "#/$defs/manifest"
+    },
+    "pipelineFingerprint": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "const": 1
+    }
+  },
+  "required": [
+    "contractVersion",
+    "manifest",
+    "pipelineFingerprint",
+    "schemaVersion"
+  ],
+  "title": "Game Predictor image pipeline manifest envelope v1",
+  "type": "object"
+}

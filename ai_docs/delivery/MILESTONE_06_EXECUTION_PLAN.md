@@ -225,6 +225,10 @@ wersjonowane i egzekwowane, a nie że auto-accept został włączony.
 
 ## M6.4 — Zintegrowany odbiór klasyfikacji
 
+Status: `completed` 2026-07-29. Pion techniczny przeszedł, lecz model pozostaje
+`manual-review-only` i wymaga retrainingu przed auto-accept oraz masowym
+importem.
+
 ### Zakres
 
 - obraz → zaakceptowana geometria → cell crops → ONNX → review,
@@ -234,9 +238,18 @@ wersjonowane i egzekwowane, a nie że auto-accept został włączony.
 
 ### Zadanie
 
-- `TASK-0067 — Classifier and review vertical slice acceptance`
+- `TASK-0067 — Classifier and review vertical slice acceptance` — done
+  2026-07-29; zaakceptowany v16 odtworzył 387 plansz i 5805 cropów, ONNX
+  przeliczył 416 oznaczonych próbek, a 24 kompletne plansze przeszły domenowy
+  replay accept/correct. Raport SHA-256 to
+  `552a54e55b93ad05e6016a2807987066dd781251ab61583096686f452d1533a1`.
 
 ### Bramka G6
+
+Status: `passed_with_retraining_required` 2026-07-29. Granice techniczne,
+provenance, lokalna inferencja i manual review przechodzą. Progi automatyczne
+nie są osiągnięte, dlatego zgodnie z bramką etap wraca do batchowego
+retrainingu, auto-accept i masowy import pozostają wyłączone.
 
 - pełny golden corpus przechodzi wersjonowaną inferencję,
 - osiągnięte są zaakceptowane progi per symbol albo etap wraca do treningu,

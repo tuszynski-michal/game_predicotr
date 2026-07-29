@@ -59,6 +59,13 @@ class ImageBatchCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageFileRegistration:
+    source_checksum_sha256: str
+    source_relative_path: str
+    order_index: int
+
+
+@dataclass(frozen=True, slots=True)
 class ImageBatchStats:
     total: int
     current: int
@@ -420,6 +427,7 @@ __all__ = [
     "ImageBatchStats",
     "ImageBatchStore",
     "ImageFileExecution",
+    "ImageFileRegistration",
     "ImageResultRehydrator",
     "ImageStageExecutionResult",
     "ImageStageExecutor",

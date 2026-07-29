@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ import pytest
 from game_predictor_worker.images.orchestration import (
     ImageBatchCandidate,
     ImageFileExecution,
+    ImageFileRegistration,
     ImageStageExecutionResult,
     initial_file_checkpoint,
 )
@@ -121,6 +123,26 @@ class FakeRegistrar:
             status="processing",
             review_required=False,
         )
+
+    def register_files(
+        self,
+        job_id: UUID,
+        *,
+        registrations: Sequence[ImageFileRegistration],
+        pipeline_fingerprint: str,
+        registered_at: datetime,
+    ) -> None:
+        for registration in registrations:
+            self.registered.append(
+                {
+                    "job_id": job_id,
+                    "order_index": registration.order_index,
+                    "pipeline_fingerprint": pipeline_fingerprint,
+                    "registered_at": registered_at,
+                    "source_checksum_sha256": registration.source_checksum_sha256,
+                    "source_relative_path": registration.source_relative_path,
+                }
+            )
 
 
 def _board_cells() -> list[dict[str, object]]:

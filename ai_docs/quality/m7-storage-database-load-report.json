@@ -1,0 +1,104 @@
+{
+  "capturedAt": "2026-07-29T13:41:34.981518+00:00",
+  "database": {
+    "databaseSizeBytes": 132896447,
+    "migrationElapsedSeconds": 1.0816,
+    "postgresVersion": "18.4",
+    "queries": {
+      "batchStats": {
+        "firstMs": 64.2483,
+        "iterations": 20,
+        "maxMs": 102.7925,
+        "minMs": 52.4312,
+        "p50Ms": 63.3553,
+        "p95Ms": 94.2885
+      },
+      "countJobFiles": {
+        "firstMs": 50.1607,
+        "iterations": 20,
+        "maxMs": 62.1341,
+        "minMs": 44.0071,
+        "p50Ms": 48.9741,
+        "p95Ms": 57.9233
+      },
+      "nextProcessingFile": {
+        "firstMs": 7.7323,
+        "iterations": 20,
+        "maxMs": 10.13,
+        "minMs": 6.0125,
+        "p50Ms": 6.8864,
+        "p95Ms": 8.4742
+      }
+    },
+    "registration": {
+      "clientCpuSeconds": 276.6875,
+      "clientCpuToWallRatio": 0.918,
+      "elapsedSeconds": 301.4176,
+      "memory": {
+        "baselineRssBytes": 134692864,
+        "peakRssBytes": 211660800,
+        "peakRssDeltaBytes": 76967936,
+        "peakTracedPythonBytes": 45428488
+      },
+      "throughputPerSecond": 184.32
+    },
+    "registrationBatchSize": 500,
+    "relations": {
+      "image_file_executions": {
+        "indexSizeBytes": 19447808,
+        "rowCount": 55556,
+        "totalSizeBytes": 60874752
+      },
+      "image_import_job_files": {
+        "indexSizeBytes": 20791296,
+        "rowCount": 55556,
+        "totalSizeBytes": 62218240
+      }
+    }
+  },
+  "environment": {
+    "machine": "AMD64",
+    "operatingSystem": "Windows-11-10.0.26200-SP0",
+    "processBits": 64,
+    "python": "3.12.13"
+  },
+  "profile": {
+    "fileCount": 55556,
+    "layoutsPerImage": 9,
+    "name": "full",
+    "queryIterations": 20,
+    "representedLayoutCapacity": 500004,
+    "shardCount": 256
+  },
+  "schemaVersion": "m7-storage-database-load-v1",
+  "scope": "PostgreSQL image-file registration and managed filesystem metadata load only; image decoding, OCR, ONNX, review and publication are excluded.",
+  "storage": {
+    "automaticDeletion": false,
+    "inventory": {
+      "firstMs": 426.5939,
+      "iterations": 20,
+      "maxMs": 441.5534,
+      "minMs": 239.783,
+      "p50Ms": 350.6965,
+      "p95Ms": 441.0665
+    },
+    "materialization": {
+      "clientCpuSeconds": 71.875,
+      "clientCpuToWallRatio": 0.5578,
+      "elapsedSeconds": 128.844,
+      "memory": {
+        "baselineRssBytes": 112422912,
+        "peakRssBytes": 137756672,
+        "peakRssDeltaBytes": 25333760,
+        "peakTracedPythonBytes": 17740463
+      },
+      "throughputPerSecond": 431.19
+    },
+    "placeholderSizeBytes": 32,
+    "totalFileCount": 55556,
+    "totalSizeBytes": 1777792,
+    "workingFileCount": 55556,
+    "workingIgnoredSymlinkCount": 0,
+    "workingSizeBytes": 1777792
+  }
+}

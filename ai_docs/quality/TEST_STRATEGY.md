@@ -383,6 +383,23 @@ brak uprawnienia `INTERNET`.
   download odrzucają drift checksumy lub niekanoniczny manifest,
 - testy UI obejmują loading/empty/error, blokadę podwójnej mutacji, politykę
   bez usuwania oraz pobieranie diagnostyki jako niezmieniony `Blob`,
+- benchmark `m7-storage-database-load-v1` ma profile 1 000 i 55 556 plików,
+  używa produkcyjnego repozytorium, unikalnej tymczasowej bazy i sharded
+  managed storage; raportuje throughput, peak RSS, rozmiary relacji oraz p95
+  operacyjnych zapytań bez URL bazy i ścieżek absolutnych,
+- pełny profil reprezentuje co najmniej 500 000 layoutów, ma deadline 900 s i
+  nie może zastąpić TASK-0075 mierzącego dekodowanie, OCR/ONNX, recovery oraz
+  review throughput,
+- benchmark `m7-import-operations-benchmark-v1` wiąże checksumami raporty M5/M6,
+  odróżnia synthetic persistence fixture od jakości ML, wymusza crash po
+  checkpointcie, awarię każdego etapu, exact retry, 387 decyzji review i ciągły
+  staging 1–387,
+- przejście recovery nie może zmienić `massImportAllowed = false`; jakościowy
+  wynik manual-review-only jest jawną blokadą TASK-0076,
+- raport `m7-queue-architecture-decision-v1` weryfikuje checksumy i walidatory
+  obu raportów M7.4, wymusza single worker/PostgreSQL lease, odrzuca ukryte
+  włączenie Redis/Celery/mikroserwisów i przechowuje mierzalne warunki
+  ponownego otwarcia decyzji,
 - completed/waiting execution rehydratuje job-local source/board/cell/review bez
   wywołania adapterów; model drift nadal tworzy nowy execution,
 - exact retry decyzji review daje jeden append-only event, a konflikt klucza

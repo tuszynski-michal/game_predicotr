@@ -1,0 +1,92 @@
+{
+  "constraints": {
+    "deployment": "single_local_windows_workstation",
+    "heavyJobConcurrency": 1,
+    "internetRuntime": false,
+    "massImportAllowed": false,
+    "operatorModel": "private_local_admin"
+  },
+  "decision": {
+    "adoptCelery": false,
+    "adoptMicroservices": false,
+    "adoptRedis": false,
+    "executionSlotCount": 1,
+    "pipelineExecutionModel": "single_local_worker",
+    "schedulingSource": "postgresql_jobs_with_fenced_lease",
+    "status": "retain_current_architecture"
+  },
+  "evidence": {
+    "databaseRegistrationThroughputPerSecond": 184.32,
+    "fullProfileFileCount": 55556,
+    "fullProfileLayoutCapacity": 500004,
+    "operationsRecoveryPassed": true,
+    "reviewPersistenceThroughputPerSecond": 26.16,
+    "storageMaterializationThroughputPerSecond": 431.19
+  },
+  "nonGoals": [
+    "This decision does not enable mass import or publication.",
+    "This decision does not weaken OCR or classifier quality gates.",
+    "This decision does not treat synthetic operations timing as ML accuracy."
+  ],
+  "rationale": [
+    {
+      "code": "DATABASE_STORAGE_CAPACITY_PASSED",
+      "detail": "The physical 500004-layout capacity profile completed within its controlled deadline using bounded memory."
+    },
+    {
+      "code": "RECOVERY_AND_FENCING_PASSED",
+      "detail": "Checkpoint restart, six isolated stage failures and exact retry completed without another coordinator."
+    },
+    {
+      "code": "QUALITY_IS_CURRENT_BOTTLENECK",
+      "detail": "Mass import remains disabled and manual review share is 1.0; a broker cannot improve prediction quality."
+    },
+    {
+      "code": "LOCAL_SINGLE_OPERATOR_SCOPE",
+      "detail": "The product runs on one private Windows workstation and does not require distributed scheduling."
+    }
+  ],
+  "reopenConditions": [
+    {
+      "code": "SUSTAINED_HEAVY_JOB_BACKLOG",
+      "measurement": "created heavy jobs waiting while one healthy job runs",
+      "threshold": "at least 3 jobs continuously for at least 30 minutes"
+    },
+    {
+      "code": "ACCEPTED_IMPORT_SLA_MISSED",
+      "measurement": "real-image end-to-end import elapsed time",
+      "threshold": "two repeatable runs exceed the explicitly accepted TASK-0076 SLA"
+    },
+    {
+      "code": "MULTI_ADMIN_CONCURRENCY_REQUIRED",
+      "measurement": "simultaneous administrators requiring heavy jobs",
+      "threshold": "at least 2 concurrent operators after Q-019 is resolved"
+    },
+    {
+      "code": "SINGLE_PROCESS_RECOVERY_REGRESSION",
+      "measurement": "controlled restart/fencing benchmark",
+      "threshold": "any lost checkpoint, duplicate side effect or stale write"
+    },
+    {
+      "code": "DEPLOYMENT_BOUNDARY_CHANGED",
+      "measurement": "runtime topology",
+      "threshold": "worker moves beyond one local workstation or requires remote nodes"
+    }
+  ],
+  "requiredActionOnReopen": "Create a new measured architecture task and Decision Log entry; do not install or migrate queue infrastructure automatically.",
+  "schemaVersion": "m7-queue-architecture-decision-v1",
+  "sourceReports": [
+    {
+      "name": "databaseStorage",
+      "relativePath": "ai_docs/quality/m7-storage-database-load-report.json",
+      "schemaVersion": "m7-storage-database-load-v1",
+      "sha256": "2c26008f7ef72ce165cfccee00672e854d868299f0f808060efa037f822251e7"
+    },
+    {
+      "name": "operationsQuality",
+      "relativePath": "ai_docs/quality/m7-import-operations-benchmark-report.json",
+      "schemaVersion": "m7-import-operations-benchmark-v1",
+      "sha256": "a372b46d02aed3b26f37a96e7dafd103602e066350415461cb5d8d61b9ef08f5"
+    }
+  ]
+}

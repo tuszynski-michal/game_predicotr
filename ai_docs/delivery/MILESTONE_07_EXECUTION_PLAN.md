@@ -151,6 +151,23 @@ wydajność skanowania i dużych eksportów przechodzi do TASK-0074.
 - `TASK-0074 — Large import database and storage load tests`
 - `TASK-0075 — Import quality, recovery and review throughput benchmark`
 
+TASK-0074 zakończono 2026-07-29. Profil 55 556 plików reprezentujący 500 004
+layouty przeszedł na PostgreSQL 18.4 i lokalnym sharded storage w limicie
+900 s. D-083 zachowuje pojedynczy worker oraz bounded rejestrację po 500;
+końcowa ocena kolejki nastąpi dopiero po TASK-0075.
+
+TASK-0075 zakończono 2026-07-29. Recovery, izolacja sześciu awarii, exact retry
+i zapis 387 decyzji review przeszły, więc G7.4 ma status
+`passed_manual_review_only`. D-084 zachowuje jednak `massImportAllowed = false`;
+M7.5 nie rozpoczyna publikacji przed nowym feedbackiem, retrainingiem i
+checksum-bound kalibracją.
+
+TASK-0077 zakończono poza kolejnością 2026-07-29, ponieważ nie zależy od
+zablokowanej publikacji TASK-0076. D-085 i checksum-bound raport zachowują
+single worker, PostgreSQL jobs oraz `execution_slot = 1`; Redis/Celery i
+mikroserwisy nie mają uzasadnienia pomiarowego. G7 pozostaje niezaliczone do
+czasu wykonania TASK-0076.
+
 ### Bramka G7.4
 
 - pipeline nie ładuje całego katalogu do pamięci,

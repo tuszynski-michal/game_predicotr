@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import PurePosixPath
 from typing import cast
@@ -16,6 +16,7 @@ from game_predictor_api.storage.models import (
     JobModel,
 )
 from sqlalchemy import case, func, select
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -26,6 +27,7 @@ from .orchestration import (
     ImageBatchCandidate,
     ImageBatchStats,
     ImageFileExecution,
+    ImageFileRegistration,
     initial_file_checkpoint,
 )
 from .pipeline_contract import (
@@ -154,6 +156,183 @@ class SqlAlchemyImageBatchStore:
                             "The image execution is already linked with different metadata.",
                         )
                     return _execution_from_records(execution, association)
+            except IntegrityError as error:
+                session.rollback()
+                raise ImageOrchestrationStoreError(
+                    "IMAGE_BATCH_PERSISTENCE_CONFLICT",
+                    "Image batch data conflicts with an existing order or execution.",
+                ) from error
+
+    def register_files(
+        self,
+        job_id: UUID,
+        *,
+        registrations: Sequence[ImageFileRegistration],
+        pipeline_fingerprint: str,
+        registered_at: datetime,
+    ) -> None:
+        if not registrations:
+            return
+        prepared: list[tuple[ImageFileRegistration, str, str, dict[str, object]]] = []
+        order_indexes: set[int] = set()
+        execution_keys: set[str] = set()
+        for registration in registrations:
+            if registration.order_index < 0:
+                raise ImageOrchestrationStoreError(
+                    "IMAGE_BATCH_ORDER_INVALID",
+                    "Image batch orderIndex must be non-negative.",
+                )
+            relative_path = _relative_posix_path(registration.source_relative_path)
+            checkpoint = initial_file_checkpoint(
+                registration.source_checksum_sha256,
+                pipeline_fingerprint,
+            )
+            execution_key = file_execution_key(
+                registration.source_checksum_sha256,
+                pipeline_fingerprint,
+            )
+            if registration.order_index in order_indexes or execution_key in execution_keys:
+                raise ImageOrchestrationStoreError(
+                    "IMAGE_BATCH_REGISTRATION_DUPLICATE",
+                    "A registration batch contains duplicate order or execution keys.",
+                )
+            order_indexes.add(registration.order_index)
+            execution_keys.add(execution_key)
+            prepared.append((registration, relative_path, execution_key, checkpoint))
+
+        with self._session_factory() as session:
+            try:
+                with session.begin():
+                    job = _locked_job(session, job_id)
+                    _require_image_job(job, pipeline_fingerprint)
+                    session.execute(
+                        postgresql_insert(ImageFileExecutionModel)
+                        .values(
+                            [
+                                {
+                                    "checkpoint_payload": checkpoint,
+                                    "created_at": registered_at,
+                                    "file_execution_key": execution_key,
+                                    "pipeline_fingerprint": pipeline_fingerprint,
+                                    "review_required": False,
+                                    "source_checksum_sha256": (registration.source_checksum_sha256),
+                                    "status": "processing",
+                                    "updated_at": registered_at,
+                                }
+                                for (
+                                    registration,
+                                    _relative_path,
+                                    execution_key,
+                                    checkpoint,
+                                ) in prepared
+                            ]
+                        )
+                        .on_conflict_do_nothing(index_elements=["file_execution_key"])
+                    )
+                    executions = session.scalars(
+                        select(ImageFileExecutionModel).where(
+                            ImageFileExecutionModel.file_execution_key.in_(execution_keys)
+                        )
+                    ).all()
+                    if len(executions) != len(prepared):
+                        raise ImageOrchestrationStoreError(
+                            "IMAGE_BATCH_PERSISTENCE_CONFLICT",
+                            "Image batch execution registration is incomplete.",
+                        )
+                    executions_by_key = {
+                        execution.file_execution_key: execution for execution in executions
+                    }
+                    for registration, _path, execution_key, _checkpoint in prepared:
+                        _require_execution_provenance(
+                            executions_by_key[execution_key],
+                            registration.source_checksum_sha256,
+                            pipeline_fingerprint,
+                        )
+
+                    association_values: list[dict[str, object]] = []
+                    for (
+                        registration,
+                        relative_path,
+                        execution_key,
+                        _checkpoint,
+                    ) in prepared:
+                        execution = executions_by_key[execution_key]
+                        workflow_checkpoint = _initial_job_workflow_checkpoint(
+                            execution.checkpoint_payload
+                        )
+                        workflow_status = (
+                            "failed"
+                            if execution.status == "failed"
+                            else cast(str, workflow_checkpoint["status"])
+                        )
+                        association_values.append(
+                            {
+                                "created_at": registered_at,
+                                "error_code": (
+                                    execution.error_code if workflow_status == "failed" else None
+                                ),
+                                "error_message": (
+                                    execution.error_message if workflow_status == "failed" else None
+                                ),
+                                "failed_stage": (
+                                    execution.failed_stage if workflow_status == "failed" else None
+                                ),
+                                "file_execution_key": execution_key,
+                                "job_id": job_id,
+                                "last_failed_at": (
+                                    execution.last_failed_at
+                                    if workflow_status == "failed"
+                                    else None
+                                ),
+                                "order_index": registration.order_index,
+                                "retry_count": execution.retry_count,
+                                "review_required": (
+                                    execution.review_required
+                                    or workflow_status == "waiting_for_review"
+                                ),
+                                "source_relative_path": relative_path,
+                                "updated_at": registered_at,
+                                "workflow_checkpoint_payload": workflow_checkpoint,
+                                "workflow_status": workflow_status,
+                            }
+                        )
+                    session.execute(
+                        postgresql_insert(ImageImportJobFileModel)
+                        .values(association_values)
+                        .on_conflict_do_nothing(index_elements=["job_id", "file_execution_key"])
+                    )
+                    associations = session.scalars(
+                        select(ImageImportJobFileModel).where(
+                            ImageImportJobFileModel.job_id == job_id,
+                            ImageImportJobFileModel.file_execution_key.in_(execution_keys),
+                        )
+                    ).all()
+                    if len(associations) != len(prepared):
+                        raise ImageOrchestrationStoreError(
+                            "IMAGE_BATCH_PERSISTENCE_CONFLICT",
+                            "Image batch association registration is incomplete.",
+                        )
+                    prepared_by_key = {
+                        execution_key: (registration, relative_path)
+                        for (
+                            registration,
+                            relative_path,
+                            execution_key,
+                            _checkpoint,
+                        ) in prepared
+                    }
+                    for association in associations:
+                        registration, relative_path = prepared_by_key[
+                            association.file_execution_key
+                        ]
+                        if (
+                            association.order_index != registration.order_index
+                            or association.source_relative_path != relative_path
+                        ):
+                            raise ImageOrchestrationStoreError(
+                                "IMAGE_BATCH_ASSOCIATION_CONFLICT",
+                                "The image execution is already linked with different metadata.",
+                            )
             except IntegrityError as error:
                 session.rollback()
                 raise ImageOrchestrationStoreError(

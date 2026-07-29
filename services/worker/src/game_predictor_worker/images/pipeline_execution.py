@@ -23,6 +23,7 @@ from .orchestration import (
     ImageBatchHandler,
     ImageBatchStore,
     ImageFileExecution,
+    ImageFileRegistration,
     ImageStageExecutionResult,
     ImageStageExecutor,
 )
@@ -33,6 +34,7 @@ SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 BOARD_ROWS = 3
 BOARD_COLUMNS = 5
 BOARD_CELL_COUNT = BOARD_ROWS * BOARD_COLUMNS
+IMAGE_REGISTRATION_BATCH_SIZE = 500
 
 
 class ImagePipelineExecutionError(JobHandlerError):
@@ -82,6 +84,15 @@ class ImageBatchRegistrar(Protocol):
         registered_at: datetime,
     ) -> ImageFileExecution: ...
 
+    def register_files(
+        self,
+        job_id: UUID,
+        *,
+        registrations: Sequence[ImageFileRegistration],
+        pipeline_fingerprint: str,
+        registered_at: datetime,
+    ) -> None: ...
+
 
 class ImageDirectoryBatchSeeder:
     """Discover one immutable directory manifest and register unique images."""
@@ -108,13 +119,28 @@ class ImageDirectoryBatchSeeder:
                 "IMAGE_BATCH_EMPTY",
                 "The image directory contains no supported source images.",
             )
+        registrations: list[ImageFileRegistration] = []
         for order_index, image in enumerate(manifest.images):
-            self._registrar.register_file(
+            registrations.append(
+                ImageFileRegistration(
+                    source_checksum_sha256=image.checksum_sha256,
+                    source_relative_path=image.files[0].relative_path,
+                    order_index=order_index,
+                )
+            )
+            if len(registrations) == IMAGE_REGISTRATION_BATCH_SIZE:
+                self._registrar.register_files(
+                    job_id,
+                    registrations=registrations,
+                    pipeline_fingerprint=pipeline_fingerprint,
+                    registered_at=registered_at,
+                )
+                registrations = []
+        if registrations:
+            self._registrar.register_files(
                 job_id,
-                source_checksum_sha256=image.checksum_sha256,
+                registrations=registrations,
                 pipeline_fingerprint=pipeline_fingerprint,
-                source_relative_path=image.files[0].relative_path,
-                order_index=order_index,
                 registered_at=registered_at,
             )
         return manifest
@@ -625,6 +651,7 @@ __all__ = [
     "FunctionImageStageAdapter",
     "ImageBatchRegistrar",
     "ImageDirectoryBatchSeeder",
+    "IMAGE_REGISTRATION_BATCH_SIZE",
     "ImagePipelineExecutionError",
     "ImagePipelineProjectionStore",
     "ImagePipelineStageExecutor",

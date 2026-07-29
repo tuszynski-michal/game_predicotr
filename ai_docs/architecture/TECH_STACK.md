@@ -271,6 +271,24 @@ TASK-0073 używa wyłącznie standardowych `pathlib`, `os`, `hashlib`, `json` i
 podąża za symlinkami, a eksporty diagnostyczne publikuje atomowo przez
 tymczasowy plik i hard link bez nadpisania istniejącego celu.
 
+TASK-0074 nie dodaje technologii runtime. Benchmark wykorzystuje istniejące
+SQLAlchemy/Alembic/PostgreSQL oraz lokalny filesystem, tworzy wyłącznie
+unikalną tymczasową bazę i ma wewnętrzny deadline oraz zewnętrzny timeout
+PowerShell. Rejestracja wsadowa po 500 jest optymalizacją istniejącego
+repozytorium, a nie nowym systemem kolejkowym.
+
+TASK-0075 również nie dodaje zależności ani procesu. Kontrolowane awarie,
+restart i review throughput są mierzone na istniejących
+`ImageBatchHandler`, repozytoriach SQLAlchemy i PostgreSQL. Raport jakości
+odczytuje checksum-bound artefakty M5/M6; synthetic fixture służy wyłącznie do
+pomiaru persistence i nie zastępuje ONNX/held-out quality gate.
+
+TASK-0077 utrwala istniejący stos jako decyzję finalną M7: PostgreSQL jest
+trwałą kolejką lokalnych jobów, a Python worker pozostaje pojedynczym
+wykonawcą. Redis, Celery, broker i mikroserwisy nadal znajdują się w sekcji
+świadomie odłożonych technologii. Zmiana wymaga spełnienia mierzalnego warunku
+D-085, nowego benchmarku i osobnego ADR.
+
 Domyślnie zapisuje audyty i niezmienne artefakty w `artifacts/`; alternatywny
 katalog można wskazać:
 

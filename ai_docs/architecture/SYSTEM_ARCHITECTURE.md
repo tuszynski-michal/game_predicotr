@@ -404,6 +404,28 @@ Read-only scanner nie wychodzi poza ten root ani nie podąża za symlinkami.
 Warstwa application nie oferuje delete/GC; inwentarz udostępnia politykę,
 rozmiar i liczbę plików, a `automaticDeletion` zawsze ma wartość `false`.
 
+TASK-0074 utrzymuje streaming discovery, ale rejestruje lekkie rekordy plików
+deterministycznie w transakcjach po najwyżej 500 elementów. Partia zachowuje
+unikalny `order_index`, idempotentny `fileExecutionKey` i walidację provenance;
+nie zmienia granicy retry ani checkpointu pojedynczego pliku. Fizyczny pomiar
+55 556 plików nie wykazał potrzeby dodania kolejki dla samego PostgreSQL lub
+storage. Pełna decyzja pozostaje odłożona do pomiaru pipeline/recovery w
+TASK-0075.
+
+TASK-0075 potwierdza fizycznie, że checkpoint zapisany przed crashem jest
+wznawiany bez powtórzenia zakończonego etapu, a awaria każdego z sześciu
+adapterów jest izolowana i retry zaczyna się od dokładnego `nextStage`.
+Persistence/recovery i jakość ML pozostają osobnymi bramkami: ciągły staging
+387 plansz nie osłabia `manual-review-only` ani nie zezwala na masową
+publikację.
+
+TASK-0077 domyka decyzję kolejki: jeden lokalny worker, globalny
+`execution_slot = 1` i PostgreSQL `jobs` z fenced lease pozostają docelową
+architekturą M7. Redis/Celery, mikroserwisy i zdalne workery nie są dodawane.
+Warunki ponownej oceny są częścią D-085 i raportu
+`m7-queue-architecture-decision-v1`; ich spełnienie otwiera nowe zadanie, ale
+nie uruchamia automatycznej migracji.
+
 Eksport diagnostyczny pobiera trwały snapshot joba z PostgreSQL, serializuje
 kanoniczny `image-job-diagnostics-v1`, ogranicza uporządkowaną listę błędów do
 10 000 i zapisuje dokładne bajty content-addressed pod

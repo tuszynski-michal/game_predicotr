@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M7.3 complete — G7.3 passed; next TASK-0074`
+`M7.4 complete — M7.5 publication blocked by manual-review-only quality gate`
 
 ## Completed
 
@@ -1255,10 +1255,35 @@ last_updated: 2026-07-29
   symlinków. Przeszło także 77 testów admin UI, 14 testów klienta, typecheck
   obu pakietów, ESLint, Ruff, focused mypy oraz kontrola OpenAPI. Zaakceptowano
   D-082 i zaliczono G7.3.
+- ukończono TASK-0074: fizyczny profil PostgreSQL/storage zarejestrował 55 556
+  plików reprezentujących 500 004 layouty; produkcyjna rejestracja wsadowa po
+  500 osiągnęła `184.32 plików/s`, a baza miała `132 896 447 B`,
+- materializacja 55 556 sharded placeholderów osiągnęła `431.19 plików/s`,
+  peak RSS pozostał bounded, p95 zapytań count/stats/next wyniosło odpowiednio
+  `57.9233/94.2885/8.4742 ms`, a p95 inventory `441.0665 ms`,
+- raport `m7-storage-database-load-v1` ma SHA-256
+  `2c26008f7ef72ce165cfccee00672e854d868299f0f808060efa037f822251e7`;
+  zaakceptowano D-083 i sama warstwa database/storage nie uzasadnia kolejki.
+- ukończono TASK-0075: fizyczny PostgreSQL potwierdził restart bez powtórzenia
+  zakończonego etapu, izolację awarii wszystkich sześciu etapów, exact retry i
+  ciągły staging 387 layoutów/5805 komórek,
+- zapis 387 decyzji review osiągnął `26.16 decyzji/s`; raport
+  `m7-import-operations-benchmark-v1` ma SHA-256
+  `a372b46d02aed3b26f37a96e7dafd103602e066350415461cb5d8d61b9ef08f5`,
+- zaakceptowano D-084: G7.4 przechodzi jako `passed_manual_review_only`, ale
+  classifier accuracy `0.68509615`, `manualReviewShare = 1.0` i
+  `massImportAllowed = false` blokują dużą publikację M7.5.
+- ukończono TASK-0077 poza kolejnością: checksum-bound decyzja zachowuje jeden
+  lokalny worker, PostgreSQL jobs z fenced lease i `execution_slot = 1`;
+  Redis, Celery i mikroserwisy pozostają odłożone,
+- raport `m7-queue-architecture-decision-v1` ma SHA-256
+  `c511da766e7276666cbd62413a1128540aa00b930357fe77736d9a1dfce8cf09`;
+  zaakceptowano D-085 i zapisano pięć mierzalnych warunków ponownej oceny.
 
 ## In progress
 
-- brak aktywnego zadania; TASK-0074 nie został jeszcze rozpoczęty.
+- brak aktywnego zadania; TASK-0076 pozostaje nieutworzony do usunięcia blokady
+  jakości. TASK-0077 jest ukończony poza kolejnością.
 
 ## Blocked
 
@@ -1278,6 +1303,9 @@ last_updated: 2026-07-29
   benchmarkowego APK zachowała cztery kontrole `passed`, pięć `missing`, a
   `--require-pass` poprawnie zwróciło kod `1`. Nie ma podstaw do zmiany adaptera
   ani do zaliczenia G3.
+- `TASK-0076 — Large image dataset publication and mobile release`: nie może
+  zostać rozpoczęty przy `massImportAllowed = false`; wymagane są dodatkowe
+  review feedback, retraining i nowy checksum-bound raport jakości.
 
 ## Open questions
 
@@ -1329,12 +1357,11 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po jawnym poleceniu właściciela rozpocząć `TASK-0074 — Large import database
-and storage load tests`, pierwszy zakres M7.4. TASK-0041/TASK-0042 oraz G3 pozostają
-równolegle zablokowane na fizycznych raportach Pixela i Samsunga. Retraining
-klasyfikatora należy uruchomić dopiero po zebraniu nowej niezmiennej wersji
-feedbacku; nie blokuje to integracji etapów M7.2, ale blokuje auto-accept i
-masowy import.
+Zebrać nową niezmienną wersję review feedbacku, wykonać retraining i ponownie
+przejść checksum-bound kalibrację jakości. Dopiero `massImportAllowed = true`
+pozwoli utworzyć TASK-0076. TASK-0077 i decyzja o kolejce są już zamknięte.
+TASK-0041/TASK-0042 oraz G3 pozostają równolegle zablokowane na fizycznych
+raportach Pixela i Samsunga.
 
 ## Do not start yet
 

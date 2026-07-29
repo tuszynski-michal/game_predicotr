@@ -2047,6 +2047,84 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   lub opublikowanej wersji. M7.4 może mierzyć sześć stabilnych przestrzeni.
 - **Supersedes:** brak.
 
+## D-083 — Ograniczona rejestracja wsadowa bez dodatkowej kolejki
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** odkryte pliki image importu są rejestrowane przez produkcyjne
+  repozytorium w deterministycznych partiach po najwyżej 500 rekordów.
+  Operacje retry, checkpoint i wykonanie pojedynczego pliku pozostają niezależne.
+  Na podstawie pomiaru storage/database nie dodajemy Redis, Celery ani osobnego
+  workera.
+- **Context:** pierwszy smoke dla 1 000 plików osiągnął tylko
+  `41.13 plików/s`, ponieważ każdy plik otwierał osobną transakcję. Rejestracja
+  wsadowa osiągnęła `184.32 plików/s` dla 55 556 plików i zakończyła pełny
+  pomiar w limicie 900 sekund.
+- **Reason:** bounded batch usuwa koszt transakcji per plik bez ładowania całego
+  katalogu do pamięci, zachowuje kolejność `orderIndex`, content-addressed
+  idempotencję i istniejącą granicę pojedynczego procesu.
+- **Alternatives:** transakcja per plik przekraczała budżet czasu; jeden
+  nieograniczony insert zwiększa ryzyko pamięci i rollbacku; zewnętrzna kolejka
+  nie rozwiązuje kosztu rejestracji i nie ma jeszcze uzasadnienia pomiarowego.
+- **Consequences:** importer może utrzymywać najwyżej 500 lekkich rekordów
+  rejestracji w pamięci. Konflikt kolejności, ścieżki lub provenance odrzuca
+  całą bieżącą partię. TASK-0075 nadal musi zmierzyć właściwy pipeline,
+  recovery i review throughput przed końcową decyzją o kolejce.
+- **Supersedes:** brak.
+
+## D-084 — G7.4 przechodzi wyłącznie w trybie manual-review-only
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** odporność i persistence image importu zaliczają G7.4, ale nie
+  zmieniają decyzji jakości M6. OCR i classifier auto-accept pozostają
+  wyłączone, `manualReviewShare = 1.0`, a duży masowy import i publikacja są
+  zablokowane do zebrania review feedbacku, retrainingu i nowej kalibracji.
+- **Context:** fizyczny benchmark odtworzył restart po checkpointcie, po jednej
+  awarii każdego etapu, exact retry, 387 zapisów review oraz ciągły staging.
+  Jednocześnie checksum-bound raport M6 nadal podaje accuracy `0.68509615` i
+  `massImportAllowed = false`.
+- **Reason:** jakość predykcji i niezawodność orkiestracji są niezależnymi
+  bramkami. Dobry wynik PostgreSQL/recovery nie może zastąpić dowodu held-out
+  ani automatycznie zaakceptować błędnych symboli lub numerów.
+- **Alternatives:** odblokowanie importu na podstawie poprawnego recovery
+  mieszałoby dwie bramki; obniżenie progów jakości łamałoby zaakceptowany
+  kontrakt; ręczne review całych 500 000 layoutów nie jest akceptowalnym
+  pipeline'em publikacyjnym.
+- **Consequences:** TASK-0075 jest zakończony, ale TASK-0076 nie może opublikować
+  dużego datasetu. Następny krok produktowy to zebranie dodatkowego feedbacku i
+  retraining; TASK-0077 może osobno zamknąć decyzję o kolejce na podstawie obu
+  benchmarków.
+- **Supersedes:** brak.
+
+## D-085 — Jeden lokalny worker i PostgreSQL pozostają docelową kolejką M7
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** zachowujemy jeden lokalny Python worker, globalny
+  `execution_slot = 1` oraz rekordy `jobs` w PostgreSQL jako trwały mechanizm
+  kolejkowania z fenced lease. Nie dodajemy Redis, Celery, brokera,
+  mikroserwisów ani zdalnych workerów.
+- **Context:** pełny profil 55 556 plików osiągnął `184.32 plików/s` rejestracji
+  i `431.19 plików/s` materializacji storage. Restart, izolacja sześciu awarii
+  i exact retry przeszły, a zapis review osiągnął `26.16 decyzji/s`. Aktualną
+  blokadą pozostaje `massImportAllowed = false` i 100% manual review.
+- **Reason:** obecna architektura spełnia lokalny, prywatny model wdrożenia i
+  zapewnia trwałość, idempotencję oraz recovery. Zewnętrzny broker zwiększyłby
+  złożoność instalacji i failure surface, ale nie poprawiłby jakości OCR/ML.
+- **Alternatives:** Redis/Celery, wiele lokalnych workerów, mikroserwisy albo
+  kolejka in-memory. Pierwsze trzy nie mają uzasadnienia pomiarowego; ostatnia
+  traci trwałość i fencing dostępne już w PostgreSQL.
+- **Consequences:** ciężkie joby nadal wykonują się sekwencyjnie i
+  `waiting_for_review` zwalnia slot. Decyzję wolno ponownie otworzyć po
+  zmierzonym trwałym backlogu co najmniej 3 jobów przez 30 minut, dwukrotnym
+  przekroczeniu zaakceptowanego SLA TASK-0076, wymaganiu co najmniej dwóch
+  równoczesnych operatorów, regresji recovery/fencingu albo zmianie topologii
+  poza jeden komputer. Ponowna ocena wymaga nowego zadania i ADR; nie uruchamia
+  migracji automatycznie.
+- **Supersedes:** domyka pomiarowo D-006, D-029, D-033 i D-083 bez zmiany ich
+  kontraktów.
+
 ## Szablon nowej decyzji
 
 ```text

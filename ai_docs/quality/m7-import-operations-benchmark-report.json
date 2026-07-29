@@ -1,0 +1,113 @@
+{
+  "capturedAt": "2026-07-29T13:59:56.114800+00:00",
+  "decision": {
+    "additionalQueueRequired": false,
+    "autoAcceptEnabled": false,
+    "g7_4Status": "passed_manual_review_only",
+    "massImportAllowed": false,
+    "nextAction": "collect_review_feedback_and_retrain"
+  },
+  "operationalFixture": {
+    "boardsPerSource": 9,
+    "cellCount": 5805,
+    "purpose": "PostgreSQL orchestration, recovery and review persistence only; synthetic predictions are not ML quality evidence.",
+    "sourceFileCount": 43,
+    "totalBoardCount": 387
+  },
+  "operations": {
+    "allChecksPassed": true,
+    "automatedPass": {
+      "clientCpuSeconds": 67.7969,
+      "clientCpuToWallRatio": 0.5745,
+      "elapsedSeconds": 118.0086,
+      "memory": {
+        "baselineRssBytes": 119222272,
+        "peakRssBytes": 146280448,
+        "peakRssDeltaBytes": 27058176,
+        "peakTracedPythonBytes": 15757304
+      },
+      "throughputPerSecond": 0.36
+    },
+    "checkpointCrashCount": 1,
+    "failedStageCount": 6,
+    "failureStages": [
+      "discovery",
+      "normalization",
+      "board_detection",
+      "board_crops",
+      "sequence_ocr",
+      "symbol_inference"
+    ],
+    "finalStats": {
+      "current": 43,
+      "failed": 0,
+      "review": 43,
+      "succeeded": 43,
+      "total": 43,
+      "waiting": 0
+    },
+    "recoveryPass": {
+      "clientCpuSeconds": 30.4844,
+      "clientCpuToWallRatio": 0.5619,
+      "elapsedSeconds": 54.2549,
+      "memory": {
+        "baselineRssBytes": 135188480,
+        "peakRssBytes": 147116032,
+        "peakRssDeltaBytes": 11927552,
+        "peakTracedPythonBytes": 7534609
+      },
+      "throughputPerSecond": 0.11
+    },
+    "restartRepeatedCompletedStage": false,
+    "retryStartedAtExactStage": true,
+    "reviewDecisionCount": 387,
+    "reviewPersistence": {
+      "clientCpuSeconds": 8.1406,
+      "clientCpuToWallRatio": 0.5503,
+      "elapsedSeconds": 14.7937,
+      "memory": {
+        "baselineRssBytes": 154652672,
+        "peakRssBytes": 156270592,
+        "peakRssDeltaBytes": 1617920,
+        "peakTracedPythonBytes": 2372134
+      },
+      "throughputPerSecond": 26.16
+    },
+    "stagingCellCount": 5805,
+    "stagingLayoutCount": 387,
+    "stagingPass": {
+      "clientCpuSeconds": 56.4062,
+      "clientCpuToWallRatio": 0.6596,
+      "elapsedSeconds": 85.5109,
+      "memory": {
+        "baselineRssBytes": 156250112,
+        "peakRssBytes": 201162752,
+        "peakRssDeltaBytes": 44912640,
+        "peakTracedPythonBytes": 22334724
+      },
+      "throughputPerSecond": 0.5
+    }
+  },
+  "qualityEvidence": {
+    "autoAcceptEnabled": false,
+    "classifierAccuracy": 0.68509615,
+    "geometryAcceptedBoardCount": 387,
+    "geometryAcceptedCellCount": 5805,
+    "manualReviewShare": 1.0,
+    "massImportAllowed": false,
+    "ocrAutoAcceptEnabled": false,
+    "sources": [
+      {
+        "name": "m5Image",
+        "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
+        "sha256": "0c2904331a764c5ed3bd5e122afe1380ca83665bfb9441c6d0bb1ea3d7792011"
+      },
+      {
+        "name": "m6VerticalSlice",
+        "relativePath": "ai_docs/quality/m6-classifier-review-vertical-slice-report.json",
+        "sha256": "552a54e55b93ad05e6016a2807987066dd781251ab61583096686f452d1533a1"
+      }
+    ]
+  },
+  "schemaVersion": "m7-import-operations-benchmark-v1"
+}

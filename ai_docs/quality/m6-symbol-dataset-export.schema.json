@@ -17,9 +17,6 @@
     "goldenAnnotationsSha256",
     "cropReportSha256",
     "cropperVersion",
-    "calibrationProfileSetSha256",
-    "calibrationProfileSetVersion",
-    "qualityReportSha256",
     "labelSourceVersion",
     "labelSourceSha256",
     "reviewRevision",
@@ -40,17 +37,26 @@
     "corpusId": { "type": "string", "minLength": 1 },
     "gameId": { "type": "string", "minLength": 1 },
     "gameCode": { "type": "string", "minLength": 1 },
-    "inventoryVersion": { "const": "symbol-crop-inventory-v2" },
+    "inventoryVersion": {
+      "enum": ["symbol-crop-inventory-v2", "symbol-crop-inventory-v3"]
+    },
     "inventorySha256": { "$ref": "#/$defs/sha256" },
     "corpusManifestSha256": { "$ref": "#/$defs/sha256" },
     "goldenAnnotationsSha256": { "$ref": "#/$defs/sha256" },
     "cropReportSha256": { "$ref": "#/$defs/sha256" },
-    "cropperVersion": { "const": "board-cell-crops-v2-calibrated-v1" },
+    "cropperVersion": {
+      "enum": [
+        "board-cell-crops-v2-calibrated-v1",
+        "board-cell-crops-v16-reviewed-v14-merge-v1"
+      ]
+    },
     "calibrationProfileSetSha256": { "$ref": "#/$defs/sha256" },
     "calibrationProfileSetVersion": {
       "const": "grid-calibration-profiles-v1"
     },
     "qualityReportSha256": { "$ref": "#/$defs/sha256" },
+    "geometryReportSha256": { "$ref": "#/$defs/sha256" },
+    "ownerAcceptanceSha256": { "$ref": "#/$defs/sha256" },
     "labelSourceVersion": { "const": "reviewed-cell-labels-v1" },
     "labelSourceSha256": { "$ref": "#/$defs/sha256" },
     "reviewRevision": { "type": "integer", "minimum": 1 },
@@ -139,6 +145,28 @@
       }
     }
   },
+  "oneOf": [
+    {
+      "required": [
+        "calibrationProfileSetSha256",
+        "calibrationProfileSetVersion",
+        "qualityReportSha256"
+      ],
+      "properties": {
+        "inventoryVersion": { "const": "symbol-crop-inventory-v2" },
+        "cropperVersion": { "const": "board-cell-crops-v2-calibrated-v1" }
+      }
+    },
+    {
+      "required": ["geometryReportSha256", "ownerAcceptanceSha256"],
+      "properties": {
+        "inventoryVersion": { "const": "symbol-crop-inventory-v3" },
+        "cropperVersion": {
+          "const": "board-cell-crops-v16-reviewed-v14-merge-v1"
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha256": {
       "type": "string",

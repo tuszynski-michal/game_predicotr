@@ -1588,6 +1588,65 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   i `11`. Globalne przypisanie, source-aware fixed padding, niezmienione guardy,
   niezmienność artefaktów i fail-closed pozostają w mocy.
 
+## D-067 — Exact-observation override dla fallbacków pełnego preflightu v14
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** dokładnie 14 plansz odrzuconych przez pełny preflight v14 trafia
+  do osobnej kolejki ręcznej geometrii. Dla każdej obserwacji właściciel ustawia
+  cztery narożniki kompletnej siatki symboli 5 × 3 na oryginalnym zdjęciu i
+  zatwierdza podgląd wszystkich 15 komórek. Override jest wiązany przez checksum
+  obrazu źródłowego i `position_index`; nie może być przeniesiony na inną
+  planszę ani zmienić `sequence_number`.
+- **Context:** v14 automatycznie utworzyło poprawne cropy dla 373/387 plansz,
+  natomiast 14 plansz pozostało fail-closed w pięciu rodzinach błędów. Właściciel
+  zaakceptował rozmieszczenie grafik w diagnostyce i wybrał szybką ręczną
+  korektę pozostałych 14 zamiast kolejnego globalnego strojenia progów.
+- **Reason:** 14 jawnych korekt jest małym, audytowalnym wyjątkiem. Pozwala
+  zachować niezmienione guardy automatyczne i nie naraża 373 poprawnych plansz
+  na regresję.
+- **Alternatives:** dalsze strojenie globalnego lokalizatora, obniżenie progów
+  RANSAC albo ręczna korekta całego korpusu. Pierwsze dwie opcje zwiększają
+  ryzyko false accept, a trzecia niepotrzebnie powtarza 373 poprawne wyniki.
+- **Consequences:** powstaje niezależny dokument
+  `v14-projective-fallback-review-v1` obejmujący wyłącznie sekwencje `33`, `38`,
+  `123`, `163`, `203`, `237`, `254`, `255`, `325`, `333`, `334`, `335`, `346`
+  i `379`. Dopiero `14/14` zaakceptowanych korekt może zasilić nową wersję
+  croppera oraz ponowny pełny preflight `387/387`. Sam dokument review nie
+  zezwala na trening. Po akceptacji korekt v16 zachowuje bajtowo 373 poprawne
+  wyniki v14 i generuje tylko 14 ręcznych obserwacji. Dwa przebiegi v16 dały
+  identyczny raport SHA-256
+  `c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9`,
+  `387/387` plansz, `5805/5805` komórek i zero fallbacków. Końcowy page-level
+  review nadal blokuje trening.
+- **Supersedes:** D-066 wyłącznie dla 14 plansz odrzuconych przez pełny preflight.
+  Automatyczna ścieżka v14, niezmienne artefakty i fail-closed pozostają w mocy.
+
+## D-068 — Zaakceptowany v16 jako jedyne źródło dalszego etykietowania
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** właściciel zaakceptował kompletny wynik v16 i zezwolił na
+  przejście dalej. Dalsze review oraz eksport używają
+  `symbol-crop-inventory-v3`, który wiąże dokładny raport v16, dokument
+  akceptacji właściciela i checksumy wszystkich 387 plansz oraz 5805 komórek.
+  Historyczne 56 decyzji z v2 nie jest migrowane automatycznie, ponieważ
+  `cropSampleId` identyfikuje również wersję geometrii i bajty cropu.
+- **Context:** v16 przeszedł dwa identyczne przebiegi techniczne, a właściciel
+  zakończył kontrolę 14 ręcznych korekt i zaakceptował dalszą pracę.
+- **Reason:** jawne rozdzielenie inwentarzy zapobiega przypisaniu starej etykiety
+  do zmienionego obrazu, a jednocześnie zachowuje stabilne `observationId` do
+  porównań i audytu.
+- **Alternatives:** dalsze użycie wycofanego v2 albo automatyczna migracja po
+  pozycji komórki. Obie opcje omijają kontrolę dokładnej wersji obrazu.
+- **Consequences:** v2 i jego 56 decyzji pozostają historycznym dowodem.
+  Nowy plik decyzji v16 startuje z tą samą konfiguracją ośmiu symboli, lecz z
+  zerem decyzji. TASK-0097 jest ponownie aktywny; trening nadal czeka na jawne
+  etykiety.
+- **Supersedes:** D-061 w zakresie produkcyjnego źródła cropów do review.
+  Kontrakty stabilnej obserwacji, jawnej decyzji i braku auto-accept pozostają
+  w mocy.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -532,21 +532,36 @@ guardy. Czternaście wyników fail-closed nie jest pomijanych ani zastępowanych
 geometrią v7; blokują one publikację całego namespace'u i trening. Dalsza
 korekta może rozszerzać wyłącznie jawne ścieżki analizy tych przypadków.
 
+Zgodnie z D-067 te 14 przypadków może skonsumować osobny, zaakceptowany zbiór
+ręcznych override'ów. Klucz override'u to checksum obrazu źródłowego oraz
+`position_index`. Ścieżka ręczna omija lokalizator symboli tylko dla tej jednej
+obserwacji, ale nadal wykonuje source-aware fixed padding, kontrolę wszystkich
+narożników, support fraction `1.0` i pełny page-level gate.
+
+Implementacja v16 zachowuje 373 zaakceptowane artefakty v14 bajtowo: każdy
+plik jest ponownie odczytywany i sprawdzany względem zapisanej checksumy przed
+materializacją nowego namespace'u. Tylko 14 ręcznych quadów przechodzi ponowną
+rectyfikację i fixed padding. Dzięki temu merge nie uruchamia ponownie RANSAC
+dla poprawnych plansz i nie wprowadza niedeterministycznej regresji między
+dwoma przebiegami pełnego preflightu.
+
 Zgodnie z D-058 bootstrap M6 nie łączy cropów z fikcyjnymi rekordami layoutów.
-Historyczne zachowanie po D-061 pozostaje audytowalne:
-`symbol-crop-inventory-v2` ponownie sprawdza cały łańcuch M5,
-`cell-grid-golden-v1`, opublikowany profil kalibracji, skalibrowany raport oraz rzeczywiste pliki
-RGB 90 × 90, checksumy i pozycje row-major, a następnie nadaje stabilne
+Historyczne zachowanie v2 po D-061 pozostaje audytowalne, ale produkcyjny
+`symbol-crop-inventory-v3` ponownie sprawdza manifest korpusu, reviewed
+sequences, dokładny raport v16, osobną akceptację właściciela oraz rzeczywiste
+pliki plansz RGB 500 × 300 i komórek RGB 90 × 90, checksumy i pozycje
+row-major, a następnie nadaje stabilne
 `observationId` niezależne od bajtów cropu oraz wersjonowane `cropSampleId`
-zależne od croppera i checksumy. Osobny kontrakt decyzji wiąże obserwację i
+zależne od croppera, proweniencji geometrii i checksumy. Osobny kontrakt decyzji wiąże obserwację i
 dokładną wersję cropu z symbolem dopiero po
 jawnej decyzji człowieka. Eksporter `labeled-symbol-dataset-v1` materializuje
 jeden content-addressed asset na checksumę, zachowując osobne wystąpienia i
 pochodzenie. Brak decyzji nie jest błędem danych, lecz stanem `pending`;
 konflikt dwóch zatwierdzonych klas dla identycznych bajtów jest błędem
 blokującym. Eksporter jawnie odrzuca inwentarz v1 i przenosi do manifestu
-checksumy całego łańcucha kalibracji oraz identyfikatory obserwacji, cropu,
-planszy i profilu.
+checksumy całego zaakceptowanego łańcucha oraz identyfikatory obserwacji,
+cropu, planszy i geometrii. Stare decyzje v2 nie przechodzą automatycznie do
+v3; pozostają powiązane z historycznym `cropSampleId`.
 
 TASK-0097 dodatkowo grupuje obserwacje według stabilnego `boardId`, ponownie
 weryfikuje kanoniczny obraz planszy RGB 500 × 300 i udostępnia wyłącznie

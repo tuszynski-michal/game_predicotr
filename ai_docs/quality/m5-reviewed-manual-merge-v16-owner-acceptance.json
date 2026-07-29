@@ -1,0 +1,15 @@
+{
+  "acceptedBy": "owner",
+  "acceptedOn": "2026-07-29",
+  "boardCount": 387,
+  "cellCount": 5805,
+  "fallbackCount": 0,
+  "fullReportSha256": "c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9",
+  "galleryRelativePath": "artifacts/m5-reviewed-manual-merge-v16-full-preflight/index.html",
+  "manualOverrideCount": 14,
+  "ownerDecision": "continue_with_complete_v16_corpus",
+  "reusedV14BoardCount": 373,
+  "schemaVersion": "m5-reviewed-manual-merge-v16-owner-acceptance-v1",
+  "status": "accepted",
+  "trainingAllowed": true
+}

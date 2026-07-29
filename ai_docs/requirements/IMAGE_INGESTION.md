@@ -253,11 +253,24 @@ fallbackami nie jest częściowym sukcesem produkcyjnym: zapisane artefakty
 pozostają diagnostyczne, a publikacja i trening są zablokowane do usunięcia
 wszystkich 14 blokad oraz końcowego page-level review.
 
+Zgodnie z D-067 te 14 fallbacków można naprawić jako exact-observation:
+właściciel ustawia cztery narożniki pełnej siatki symboli 5 × 3 i potwierdza
+podgląd wszystkich 15 komórek. Korekta jest przypisana do checksum obrazu oraz
+pozycji planszy, nie zmienia numeru sekwencji i nie obniża progów automatycznych.
+Trening pozostaje zablokowany do ponownego pełnego wyniku `387/387`.
+
+Końcowy merge nie przelicza ponownie zaakceptowanych wyników automatycznych.
+Weryfikuje checksumy i ponownie wykorzystuje 373 niezmienne plansze v14, a
+generuje wyłącznie 14 zaakceptowanych exact-observation override'ów. Wynik
+techniczny musi mieć `387/387`, `5805/5805`, `0` fallbacków i przejść drugi
+przebieg reprodukowalności przed końcowym przeglądem stron.
+
 ### 7. Klasyfikacja symbolu
 
-1. `symbol-crop-inventory-v2` weryfikuje wyłącznie zaakceptowane skalibrowane
-   cropy v2, profil oraz pełny łańcuch checksum i tworzy stabilną tożsamość
-   obserwacji bez przypisywania klasy,
+1. produkcyjny `symbol-crop-inventory-v3` weryfikuje zaakceptowany raport v16,
+   osobną akceptację właściciela, pełny łańcuch checksum oraz wszystkie
+   materializowane plansze i komórki; tworzy stabilną tożsamość obserwacji bez
+   przypisywania klasy,
 2. administrator dostarcza jawnie przejrzane decyzje
    `reviewed-cell-labels-v1` dla symboli tej samej gry,
 3. `labeled-symbol-dataset-v1` eksportuje tylko decyzje `accepted`, deduplikuje
@@ -275,7 +288,7 @@ fixture M1/M4 nie mogą ich zastąpić.
 
 Pierwszy bootstrap obejmuje ręczne zatwierdzenie pełnych layoutów z różnych
 zdjęć i pozycji, orientacyjnie 15–30 layoutów, a nie 5805 osobnych ekranów.
-Lokalne narzędzie TASK-0097 grupuje `symbol-crop-inventory-v2` po stabilnym
+Lokalne narzędzie TASK-0097 grupuje `symbol-crop-inventory-v3` po stabilnym
 `boardId`, pokazuje kanoniczną planszę i wszystkie piętnaście cropów row-major.
 Decyzja pojedynczej komórki zapisuje się atomowo w
 `reviewed-cell-labels-v1`; częściowa plansza pozostaje `pending` i wznawia się

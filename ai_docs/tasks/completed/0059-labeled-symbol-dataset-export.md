@@ -1,14 +1,14 @@
 ---
 title: TASK-0059 Labeled symbol dataset export
-status: in_progress
-last_updated: 2026-07-28
+status: done
+last_updated: 2026-07-29
 ---
 
 # TASK-0059 — Labeled symbol dataset export
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -39,9 +39,10 @@ zdjęciom. Dane fixture M1/M4 nie mogą być użyte jako etykiety. Pierwsza czę
 zadania tworzy więc kompletny inwentarz cropów, a eksport datasetu przyjmuje
 wyłącznie osobne, przejrzane decyzje komórek.
 
-Implementacja kontraktów i eksportera pozostaje użyteczna. Po TASK-0094–0096
-wejściem będzie `symbol-crop-inventory-v2`; TASK-0097 dostarczy decyzje na
-poziomie pełnego layoutu.
+Implementacja kontraktów i eksportera używa obecnie
+`symbol-crop-inventory-v3`, związanego z zaakceptowanym raportem v16 i
+akceptacją właściciela. TASK-0097 dostarczył decyzje na poziomie pełnego
+layoutu.
 
 ## Relevant docs
 
@@ -84,7 +85,7 @@ poziomie pełnego layoutu.
 
 ## Acceptance criteria
 
-- [x] Inwentarz v2 obejmuje wszystkie zweryfikowane cropy i nie przypisuje im
+- [x] Inwentarz v3 obejmuje wszystkie zweryfikowane cropy i nie przypisuje im
       automatycznych etykiet.
 - [x] Eksporter przyjmuje wyłącznie przejrzane numery oraz jawne decyzje
       `accepted` z `reviewed-cell-labels-v1`.
@@ -100,7 +101,7 @@ poziomie pełnego layoutu.
 - [x] Oryginały, cropy M5 i opublikowane rekordy pozostają niezmienione.
 - [x] Testy, format, lint i typecheck zmienionych części przechodzą.
 - [x] Dokumentacja i `CURRENT_STATE.md` opisują rzeczywisty wynik.
-- [ ] Powstało pierwsze źródło przejrzanych etykiet i rzeczywisty eksport ma
+- [x] Powstało pierwsze źródło przejrzanych etykiet i rzeczywisty eksport ma
       co najmniej jeden zaakceptowany sample.
 
 ## Expected files
@@ -157,5 +158,22 @@ odrzuconych przykładów. Nie utworzono fikcyjnych etykiet ani binariów dataset
 
 Dwanaście testów eksportera i pełny powiązany pion 31 testów przechodzą.
 Ruff, mypy, oba tryby `--check` oraz walidacja trzech JSON Schema przechodzą.
-Finalizacja pozostaje zależna od ręcznych decyzji TASK-0097; dopiero niepusty
-eksport spełni ostatnie kryterium akceptacji.
+Na etapie kontrolnego raportu finalizacja pozostawała zależna od ręcznych
+decyzji TASK-0097; warunek został później spełniony przez poniższy niepusty
+eksport.
+
+Finalny eksport wykonano 2026-07-29 z zaakceptowanego
+`symbol-crop-inventory-v3`:
+
+- źródło review ma 416 jawnych decyzji `accepted`, obejmuje 24 kompletne
+  plansze, 18 zdjęć źródłowych, oba source sessions i wszystkie osiem symboli;
+- raport `m6-symbol-dataset-export-report.json` ma status `ready`, 416 próbek,
+  416 content-addressed assetów, 5389 pozycji pending i zero odrzuconych;
+- checksum źródła decyzji to
+  `2be1a4171aeee7bc75165c6f993b3aeb3cb3155163ac60f36e1a4a0a2047a61c`;
+- dataset SHA-256 to
+  `ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a`;
+- drugi przebieg `--check --require-samples` odtworzył dokładnie ten sam raport.
+
+TASK-0059 jest ukończony. Minimalna liczność klas i source-aware split pozostają
+zakresem TASK-0060.

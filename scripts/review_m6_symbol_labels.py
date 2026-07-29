@@ -17,9 +17,13 @@ from game_predictor_worker.images.symbol_review_http import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_INVENTORY = ROOT / "ai_docs" / "quality" / "m6-symbol-crop-inventory-v2.json"
-DEFAULT_CROP_ROOT = ROOT / "artifacts" / "m5-board-crops"
-DEFAULT_LABEL_OUTPUT = ROOT / "artifacts" / "m6-symbol-review" / "reviewed-labels.json"
+DEFAULT_INVENTORY = ROOT / "ai_docs" / "quality" / "m6-symbol-crop-inventory-v3.json"
+DEFAULT_CROP_ROOT = (
+    ROOT / "artifacts" / "m5-reviewed-manual-merge-v16-full-preflight"
+)
+DEFAULT_LABEL_OUTPUT = (
+    ROOT / "artifacts" / "m6-symbol-review-v16" / "reviewed-labels.json"
+)
 STATIC_ROOT = ROOT / "scripts" / "m6_symbol_review"
 
 

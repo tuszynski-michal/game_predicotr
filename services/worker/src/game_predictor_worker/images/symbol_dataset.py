@@ -24,6 +24,8 @@ from .rectification import (
 
 INVENTORY_VERSION = "symbol-crop-inventory-v1"
 CALIBRATED_INVENTORY_VERSION = "symbol-crop-inventory-v2"
+REVIEWED_INVENTORY_VERSION = "symbol-crop-inventory-v3"
+REVIEWED_CROPPER_VERSION = "board-cell-crops-v16-reviewed-v14-merge-v1"
 LABEL_SOURCE_VERSION = "reviewed-cell-labels-v1"
 DATASET_VERSION = "labeled-symbol-dataset-v1"
 
@@ -101,6 +103,8 @@ class SymbolCropInventory:
     calibration_profile_set_sha256: str | None = None
     calibration_profile_set_version: str | None = None
     quality_report_sha256: str | None = None
+    geometry_report_sha256: str | None = None
+    owner_acceptance_sha256: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         source_groups = sorted({sample.source_group for sample in self.samples})
@@ -127,6 +131,14 @@ class SymbolCropInventory:
                     "calibrationProfileSetSha256": self.calibration_profile_set_sha256,
                     "calibrationProfileSetVersion": self.calibration_profile_set_version,
                     "qualityReportSha256": self.quality_report_sha256,
+                    "trainingAllowed": True,
+                }
+            )
+        elif self.inventory_version == REVIEWED_INVENTORY_VERSION:
+            value.update(
+                {
+                    "geometryReportSha256": self.geometry_report_sha256,
+                    "ownerAcceptanceSha256": self.owner_acceptance_sha256,
                     "trainingAllowed": True,
                 }
             )
@@ -191,9 +203,11 @@ class SymbolDatasetExport:
     golden_annotations_sha256: str
     crop_report_sha256: str
     cropper_version: str
-    calibration_profile_set_sha256: str
-    calibration_profile_set_version: str
-    quality_report_sha256: str
+    calibration_profile_set_sha256: str | None
+    calibration_profile_set_version: str | None
+    quality_report_sha256: str | None
+    geometry_report_sha256: str | None
+    owner_acceptance_sha256: str | None
     label_source_sha256: str
     review_revision: int
     reviewed_by: str
@@ -220,7 +234,7 @@ class SymbolDatasetExport:
             for code in sorted(occurrences)
         ]
         status = "ready" if self.samples else "waiting_for_labels"
-        return {
+        value: dict[str, object] = {
             "assetCount": len({sample.sample.crop_checksum_sha256 for sample in self.samples}),
             "corpusId": self.corpus_id,
             "corpusManifestSha256": self.corpus_manifest_sha256,
@@ -232,8 +246,6 @@ class SymbolDatasetExport:
             "goldenAnnotationsSha256": self.golden_annotations_sha256,
             "inventoryVersion": self.inventory_version,
             "inventorySha256": self.inventory_sha256,
-            "calibrationProfileSetSha256": self.calibration_profile_set_sha256,
-            "calibrationProfileSetVersion": self.calibration_profile_set_version,
             "labelSourceSha256": self.label_source_sha256,
             "labelSourceVersion": LABEL_SOURCE_VERSION,
             "pendingCount": len(self.pending_sample_ids),
@@ -242,13 +254,28 @@ class SymbolDatasetExport:
             "rejectedSampleIds": list(self.rejected_sample_ids),
             "reviewRevision": self.review_revision,
             "reviewedBy": self.reviewed_by,
-            "qualityReportSha256": self.quality_report_sha256,
             "sampleCount": len(self.samples),
             "samples": [sample.to_dict() for sample in self.samples],
             "schemaVersion": 1,
             "status": status,
             "symbols": symbols,
         }
+        if self.inventory_version == CALIBRATED_INVENTORY_VERSION:
+            value.update(
+                {
+                    "calibrationProfileSetSha256": self.calibration_profile_set_sha256,
+                    "calibrationProfileSetVersion": self.calibration_profile_set_version,
+                    "qualityReportSha256": self.quality_report_sha256,
+                }
+            )
+        elif self.inventory_version == REVIEWED_INVENTORY_VERSION:
+            value.update(
+                {
+                    "geometryReportSha256": self.geometry_report_sha256,
+                    "ownerAcceptanceSha256": self.owner_acceptance_sha256,
+                }
+            )
+        return value
 
     def to_json_bytes(self) -> bytes:
         return _json_bytes(self.to_dict())
@@ -455,6 +482,27 @@ def calibrated_crop_sample_id(
             cropper_version,
             profile_id,
             str(profile_version),
+            crop_checksum,
+        )
+    )
+    return hashlib.sha256(logical_key.encode()).hexdigest()
+
+
+def reviewed_crop_sample_id(
+    *,
+    observation_id: str,
+    cropper_version: str,
+    geometry_provenance_id: str,
+    geometry_provenance_version: int,
+    crop_checksum: str,
+) -> str:
+    logical_key = "\0".join(
+        (
+            REVIEWED_INVENTORY_VERSION,
+            observation_id,
+            cropper_version,
+            geometry_provenance_id,
+            str(geometry_provenance_version),
             crop_checksum,
         )
     )
@@ -734,7 +782,12 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
     inventory_version = value.get("inventoryVersion")
     if (
         value.get("schemaVersion") != 1
-        or inventory_version not in {INVENTORY_VERSION, CALIBRATED_INVENTORY_VERSION}
+        or inventory_version
+        not in {
+            INVENTORY_VERSION,
+            CALIBRATED_INVENTORY_VERSION,
+            REVIEWED_INVENTORY_VERSION,
+        }
         or value.get("status") != "ready"
     ):
         raise SymbolDatasetError(
@@ -751,6 +804,22 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
             "SYMBOL_DATASET_CALIBRATED_INVENTORY_REQUIRED",
             "A training-approved calibrated symbol crop inventory is required.",
         )
+    if inventory_version == REVIEWED_INVENTORY_VERSION and (
+        value.get("trainingAllowed") is not True
+        or value.get("cropperVersion") != REVIEWED_CROPPER_VERSION
+        or value.get("cellWidth") != CELL_WIDTH
+        or value.get("cellHeight") != CELL_HEIGHT
+        or not value.get("geometryReportSha256")
+        or not value.get("ownerAcceptanceSha256")
+    ):
+        raise SymbolDatasetError(
+            "SYMBOL_DATASET_REVIEWED_INVENTORY_REQUIRED",
+            "An owner-accepted v16 symbol crop inventory is required.",
+        )
+    versioned_inventory = inventory_version in {
+        CALIBRATED_INVENTORY_VERSION,
+        REVIEWED_INVENTORY_VERSION,
+    }
     samples: list[SymbolCropSample] = []
     for index, sample_value in enumerate(_sequence(value.get("samples"), "samples")):
         sample = _mapping(sample_value, f"samples[{index}]")
@@ -784,50 +853,60 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
             ),
             observation_id=(
                 _sha256(sample.get("observationId"), "observationId")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
             crop_sample_id=(
                 _sha256(sample.get("cropSampleId"), "cropSampleId")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
             board_id=(
                 _sha256(sample.get("boardId"), "boardId")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
             board_relative_path=(
                 _text(sample.get("boardRelativePath"), "boardRelativePath")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
             board_checksum_sha256=(
                 _sha256(sample.get("boardChecksumSha256"), "boardChecksumSha256")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
             calibration_profile_id=(
                 _sha256(sample.get("calibrationProfileId"), "calibrationProfileId")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
             calibration_profile_version=(
                 _integer(sample.get("calibrationProfileVersion"), "calibrationProfileVersion")
-                if inventory_version == CALIBRATED_INVENTORY_VERSION
+                if versioned_inventory
                 else None
             ),
         )
-        expected_sample_id = (
-            calibrated_crop_sample_id(
+        if inventory_version == CALIBRATED_INVENTORY_VERSION:
+            expected_sample_id = calibrated_crop_sample_id(
                 observation_id=cast(str, parsed.observation_id),
                 cropper_version=_text(value.get("cropperVersion"), "cropperVersion"),
                 profile_id=cast(str, parsed.calibration_profile_id),
                 profile_version=cast(int, parsed.calibration_profile_version),
                 crop_checksum=parsed.crop_checksum_sha256,
             )
-            if inventory_version == CALIBRATED_INVENTORY_VERSION
-            else _sample_id(
+        elif inventory_version == REVIEWED_INVENTORY_VERSION:
+            expected_sample_id = reviewed_crop_sample_id(
+                observation_id=cast(str, parsed.observation_id),
+                cropper_version=_text(value.get("cropperVersion"), "cropperVersion"),
+                geometry_provenance_id=cast(str, parsed.calibration_profile_id),
+                geometry_provenance_version=cast(
+                    int, parsed.calibration_profile_version
+                ),
+                crop_checksum=parsed.crop_checksum_sha256,
+            )
+        else:
+            expected_sample_id = _sample_id(
                 corpus_id=_text(value.get("corpusId"), "corpusId"),
                 source_checksum=parsed.source_image_checksum_sha256,
                 sequence_number=parsed.sequence_number,
@@ -836,7 +915,6 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 column_index=parsed.column_index,
                 crop_checksum=parsed.crop_checksum_sha256,
             )
-        )
         if (
             parsed.sequence_number <= 0
             or not 0 <= parsed.board_index <= 8
@@ -846,7 +924,7 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
             or parsed.sample_id != expected_sample_id
             or parsed.crop_sample_id not in {None, parsed.sample_id}
             or (
-                inventory_version == CALIBRATED_INVENTORY_VERSION
+                versioned_inventory
                 and parsed.observation_id
                 != calibrated_observation_id(
                     corpus_id=_text(value.get("corpusId"), "corpusId"),
@@ -858,7 +936,7 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 )
             )
             or (
-                inventory_version == CALIBRATED_INVENTORY_VERSION
+                versioned_inventory
                 and parsed.board_id
                 != calibrated_board_id(
                     corpus_id=_text(value.get("corpusId"), "corpusId"),
@@ -868,7 +946,7 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                 )
             )
             or (
-                inventory_version == CALIBRATED_INVENTORY_VERSION
+                versioned_inventory
                 and sample.get("geometryStatus") != "accepted"
             )
         ):
@@ -912,7 +990,7 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
         or value.get("sourceGroupCount") != len(source_groups)
         or value.get("sourceGroups") != source_groups
         or (
-            inventory_version == CALIBRATED_INVENTORY_VERSION
+            versioned_inventory
             and (
                 sequence_numbers != list(range(1, len(board_details) + 1))
                 or any(
@@ -956,6 +1034,16 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
         quality_report_sha256=(
             _sha256(value.get("qualityReportSha256"), "qualityReportSha256")
             if inventory_version == CALIBRATED_INVENTORY_VERSION
+            else None
+        ),
+        geometry_report_sha256=(
+            _sha256(value.get("geometryReportSha256"), "geometryReportSha256")
+            if inventory_version == REVIEWED_INVENTORY_VERSION
+            else None
+        ),
+        owner_acceptance_sha256=(
+            _sha256(value.get("ownerAcceptanceSha256"), "ownerAcceptanceSha256")
+            if inventory_version == REVIEWED_INVENTORY_VERSION
             else None
         ),
     )
@@ -1099,14 +1187,14 @@ def export_reviewed_symbol_dataset(
     """Export accepted labels and one immutable binary per unique crop checksum."""
 
     inventory_bytes, inventory = load_symbol_crop_inventory(inventory_path)
-    if inventory.inventory_version != CALIBRATED_INVENTORY_VERSION:
+    if inventory.inventory_version not in {
+        CALIBRATED_INVENTORY_VERSION,
+        REVIEWED_INVENTORY_VERSION,
+    }:
         raise SymbolDatasetError(
             "SYMBOL_DATASET_CALIBRATED_INVENTORY_REQUIRED",
-            "Dataset export accepts only training-approved calibrated crops.",
+            "Dataset export accepts only training-approved versioned crops.",
         )
-    assert inventory.calibration_profile_set_sha256 is not None
-    assert inventory.calibration_profile_set_version is not None
-    assert inventory.quality_report_sha256 is not None
     label_bytes, label_source = load_reviewed_label_source(label_source_path)
     if label_source.corpus_id != inventory.corpus_id:
         raise SymbolDatasetError(
@@ -1198,6 +1286,8 @@ def export_reviewed_symbol_dataset(
         calibration_profile_set_sha256=inventory.calibration_profile_set_sha256,
         calibration_profile_set_version=inventory.calibration_profile_set_version,
         quality_report_sha256=inventory.quality_report_sha256,
+        geometry_report_sha256=inventory.geometry_report_sha256,
+        owner_acceptance_sha256=inventory.owner_acceptance_sha256,
         label_source_sha256=hashlib.sha256(label_bytes).hexdigest(),
         review_revision=label_source.review_revision,
         reviewed_by=label_source.reviewed_by,

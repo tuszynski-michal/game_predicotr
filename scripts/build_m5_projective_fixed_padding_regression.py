@@ -39,8 +39,12 @@ from game_predictor_worker.images.safe_context_crops import (  # noqa: E402
 from game_predictor_worker.images.source_projective_lattice_crops import (  # noqa: E402
     BOUNDING_FALLBACK_CROPPER_VERSION,
     BOUNDING_FALLBACK_GRID_VERSION,
+    REVIEWED_SOURCE_QUAD_CROPPER_VERSION,
+    REVIEWED_SOURCE_QUAD_GRID_VERSION,
+    REVIEWED_SOURCE_QUAD_HOMOGRAPHY_VERSION,
     SourceProjectiveLatticeCropResult,
     build_bounding_fallback_source_projective_lattice_crops,
+    build_reviewed_source_quad_crops,
     build_source_projective_lattice_crops,
 )
 from game_predictor_worker.images.source_projective_lattice_crops import (  # noqa: E402
@@ -56,6 +60,10 @@ from game_predictor_worker.images.symbol_lattice_homography import (  # noqa: E4
     GLOBAL_HOMOGRAPHY_VERSION,
     HOMOGRAPHY_VERSION,
 )
+from game_predictor_worker.images.v14_projective_overrides import (  # noqa: E402
+    ReviewedV14ProjectiveOverrides,
+    V14ProjectiveOverrideError,
+)
 
 DEFAULT_MANIFEST = ROOT / "ai_docs" / "quality" / "m5-corpus-manifest.json"
 DEFAULT_DETECTION_REPORT = ROOT / "ai_docs" / "quality" / "m5-page-board-detection-report.json"
@@ -67,14 +75,23 @@ DEFAULT_NORMALIZATION_ROOT = ROOT / "artifacts" / "m5-normalization"
 DEFAULT_CROP_ROOT = ROOT / "artifacts" / "m5-board-crops"
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "m5-projective-fixed-padding-v12-regression"
 DEFAULT_REPORT_ROOT = ROOT / "ai_docs" / "quality"
+DEFAULT_FULL_V14_REPORT = (
+    DEFAULT_REPORT_ROOT / "m5-global-bbox-fallback-v14-full-preflight-report.json"
+)
+DEFAULT_FULL_V14_ARTIFACT_ROOT = ROOT / "artifacts" / "m5-global-bbox-fallback-v14-full-preflight"
+DEFAULT_V14_REVIEW = (
+    ROOT / "artifacts" / "m5-v14-projective-fallback-review" / "reviewed-geometry.json"
+)
 PRIMARY_SEQUENCE = 29
 REPORTED_FAILURE_SEQUENCES = (4, 6, 7, 26, 30)
 V7_NAMESPACE = "board-cell-crops-v7-reviewed-symbol-aware-affine-v1"
 PANEL_WIDTH = 500
 PANEL_HEIGHT = 300
 HEADER_HEIGHT = 48
-Phase = Literal["seq29", "bounded", "full"]
-Candidate = Literal["v12", "v13-source", "v14-bbox"]
+Phase = Literal["seq29", "bounded", "full", "failures"]
+REVIEWED_MERGE_CROPPER_VERSION = "board-cell-crops-v16-reviewed-v14-merge-v1"
+REVIEWED_MERGE_GRID_VERSION = "reviewed-source-quad-plus-immutable-v14-grid-v1"
+Candidate = Literal["v12", "v13-source", "v14-bbox", "v16-reviewed"]
 
 
 class RegressionGateError(ValueError):
@@ -303,7 +320,11 @@ def _full_card(
     frame = (
         "bbox retry"
         if result.analysis_frame_source == "detector-bounding-box-fallback"
-        else "projective"
+        else (
+            "manual override"
+            if result.analysis_frame_source == "human-reviewed-source-quad"
+            else "projective"
+        )
     )
     label = (
         f"seq {sequence_number} | {frame} | 15 cells | support 100%"
@@ -353,6 +374,49 @@ def _full_failure_card(*, sequence_number: int, reason: str) -> bytes:
     )
 
 
+def _expansion_failure_card(
+    baseline_cells: Sequence[NDArray[np.uint8]],
+    detector_board_rgb: NDArray[np.uint8],
+    *,
+    sequence_number: int,
+    reason: str,
+) -> bytes:
+    panels = [
+        _cell_sheet(baseline_cells),
+        detector_board_rgb,
+        _placeholder(reason),
+        _placeholder("No v14 cells"),
+    ]
+    header = np.full(
+        (HEADER_HEIGHT, PANEL_WIDTH * len(panels), 3),
+        (7, 14, 22),
+        dtype=np.uint8,
+    )
+    labels = (
+        f"seq {sequence_number} | full_failure | historical v7",
+        "raw detector quad | diagnostic only",
+        f"FAIL-CLOSED | {reason}",
+        "no v14 fixed-padding result",
+    )
+    for index, label in enumerate(labels):
+        cv2.putText(
+            header,
+            label[:64],
+            (index * PANEL_WIDTH + 12, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.50,
+            (235, 247, 255),
+            1,
+            cv2.LINE_AA,
+        )
+    return _encode_png(
+        cast(
+            NDArray[np.uint8],
+            np.concatenate((header, np.concatenate(panels, axis=1)), axis=0),
+        )
+    )
+
+
 def _write_or_check(path: Path, content: bytes, *, check: bool) -> None:
     if check:
         if path.resolve(strict=True).read_bytes() != content:
@@ -387,6 +451,70 @@ def _write_immutable_or_check(path: Path, content: bytes, *, check: bool) -> Non
             temporary.unlink()
 
 
+def _relative_artifact(root: Path, relative_value: object, label: str) -> Path:
+    relative = PurePosixPath(_text(relative_value, label))
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise RegressionGateError(f"{label} is not a safe relative path.")
+    path = (root / Path(*relative.parts)).resolve()
+    if not path.is_relative_to(root):
+        raise RegressionGateError(f"{label} escapes its artifact root.")
+    return path
+
+
+def _reuse_v14_entry(
+    entry: Mapping[str, object],
+    *,
+    source_root: Path,
+    output_root: Path,
+    check: bool,
+) -> dict[str, object]:
+    reused = cast(dict[str, object], json.loads(json.dumps(entry)))
+    assets: list[tuple[object, object, str]] = [
+        (
+            entry.get("cardRelativePath"),
+            entry.get("cardChecksumSha256"),
+            "entry.card",
+        ),
+        (
+            entry.get("boardRelativePath"),
+            entry.get("boardChecksumSha256"),
+            "entry.board",
+        ),
+        (
+            entry.get("overlayRelativePath"),
+            entry.get("overlayChecksumSha256"),
+            "entry.overlay",
+        ),
+    ]
+    for index, raw in enumerate(_sequence(entry.get("cells"), "entry.cells")):
+        cell = _mapping(raw, f"entry.cells[{index}]")
+        assets.append(
+            (
+                cell.get("relativePath"),
+                cell.get("checksumSha256"),
+                f"entry.cells[{index}]",
+            )
+        )
+    for relative_value, checksum_value, label in assets:
+        if relative_value is None and checksum_value is None:
+            continue
+        expected = _text(checksum_value, f"{label}.checksumSha256")
+        source_path = _relative_artifact(source_root, relative_value, f"{label}.relativePath")
+        try:
+            content = source_path.resolve(strict=True).read_bytes()
+        except OSError as error:
+            raise RegressionGateError(f"Cannot read immutable v14 asset {source_path}.") from error
+        if _sha256(content) != expected:
+            raise RegressionGateError(f"Immutable v14 checksum drift for {source_path}.")
+        _write_immutable_or_check(
+            _relative_artifact(output_root, relative_value, f"{label}.relativePath"),
+            content,
+            check=check,
+        )
+    reused["geometryRoute"] = "immutable-v14-reuse"
+    return reused
+
+
 def _html_page(entries: Sequence[Mapping[str, object]], *, phase: Phase) -> bytes:
     if phase == "full":
         groups: list[str] = []
@@ -406,7 +534,7 @@ def _html_page(entries: Sequence[Mapping[str, object]], *, phase: Phase) -> byte
                 f"<p>{html.escape(str(entry.get('primaryFallbackReason') or 'projective'))}</p>"
                 f'<a href="{html.escape(_text(entry.get("cardRelativePath"), "cardPath"))}">'
                 f'<img src="{html.escape(_text(entry.get("cardRelativePath"), "cardPath"))}" '
-                f"alt=\"Final crops seq {entry.get('sequenceNumber')}\"></a>"
+                f'alt="Final crops seq {entry.get("sequenceNumber")}"></a>'
                 "</article>"
                 for entry in image_entries
             )
@@ -419,7 +547,7 @@ def _html_page(entries: Sequence[Mapping[str, object]], *, phase: Phase) -> byte
         return (
             "<!doctype html><html lang='pl'><head><meta charset='utf-8'>"
             "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-            "<title>M5 v14 full-corpus preflight</title><style>"
+            "<title>M5 full-corpus crop preflight</title><style>"
             "body{margin:24px;background:#07111b;color:#edf7ff;font-family:system-ui}"
             "p{color:#b9cbd6}.page-grid{display:grid;grid-template-columns:"
             "repeat(3,minmax(0,1fr));gap:12px}section{margin:36px 0;padding:16px;"
@@ -427,12 +555,21 @@ def _html_page(entries: Sequence[Mapping[str, object]], *, phase: Phase) -> byte
             "article{background:#0c1b27;border-radius:10px;overflow:hidden}"
             "h3,p{padding:0 10px}img{width:100%;display:block}"
             "@media(max-width:900px){.page-grid{grid-template-columns:1fr}}</style>"
-            "</head><body><h1>M5 v14 — pełny preflight 43 stron</h1>"
+            "</head><body><h1>M5 — pełny preflight 43 stron</h1>"
             "<p>Każda karta pokazuje finalne 15 wycinków. Kliknij kartę, aby "
             "otworzyć ją w pełnej rozdzielczości. Wynik techniczny nie jest "
             "zgodą na trening.</p>"
             f"{''.join(groups)}</body></html>"
         ).encode()
+    phase_description = (
+        "Odrzucone sekwencje pełnego preflightu i ich bezpośrednie sąsiednie "
+        "kontrole. Wynik służy wyłącznie do diagnostyki."
+        if phase == "failures"
+        else (
+            "Kolejność: seq 29, zgłoszone błędy, niezatwierdzone kontrole. "
+            "Wynik techniczny nie jest akceptacją wizualną ani zgodą na trening."
+        )
+    )
     cards = "".join(
         "<article>"
         f"<h2>Seq {_integer(entry.get('sequenceNumber'), 'sequenceNumber')} — "
@@ -453,8 +590,7 @@ def _html_page(entries: Sequence[Mapping[str, object]], *, phase: Phase) -> byte
         "border:1px solid #1e4055;border-radius:12px;overflow:hidden}"
         "h2,p{padding:0 16px}img{width:100%;display:block}</style></head><body>"
         f"<h1>Projective fixed-padding regression — {phase}</h1>"
-        "<p>Kolejność: seq 29, zgłoszone błędy, niezatwierdzone kontrole. "
-        "Wynik techniczny nie jest akceptacją wizualną ani zgodą na trening.</p>"
+        f"<p>{html.escape(phase_description)}</p>"
         f"{cards}</body></html>"
     ).encode()
 
@@ -469,6 +605,7 @@ def _phase_paths(
         "v12": "m5-projective-fixed-padding-v12",
         "v13-source": "m5-global-source-aware-v13",
         "v14-bbox": "m5-global-bbox-fallback-v14",
+        "v16-reviewed": "m5-reviewed-manual-merge-v16",
     }[candidate]
     resolved_output = (
         output_root.resolve()
@@ -478,11 +615,15 @@ def _phase_paths(
         / (
             f"{version_label}-full-preflight"
             if phase == "full"
-            else f"{version_label}-regression"
+            else (
+                f"{version_label}-full-failure-diagnostics-v3"
+                if phase == "failures"
+                else f"{version_label}-regression"
+            )
         )
         / (
             ""
-            if phase == "full"
+            if phase in {"full", "failures"}
             else ("seq29-gate" if phase == "seq29" else "bounded")
         )
     )
@@ -494,9 +635,13 @@ def _phase_paths(
             f"{version_label}-full-preflight-report.json"
             if phase == "full"
             else (
-                f"{version_label}-seq29-gate-report.json"
-                if phase == "seq29"
-                else f"{version_label}-bounded-regression-report.json"
+                f"{version_label}-full-failure-diagnostics-v3-report.json"
+                if phase == "failures"
+                else (
+                    f"{version_label}-seq29-gate-report.json"
+                    if phase == "seq29"
+                    else f"{version_label}-bounded-regression-report.json"
+                )
             )
         )
     )
@@ -507,12 +652,12 @@ def _args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--phase",
-        choices=("seq29", "bounded", "full"),
+        choices=("seq29", "bounded", "full", "failures"),
         default="bounded",
     )
     parser.add_argument(
         "--candidate",
-        choices=("v12", "v13-source", "v14-bbox"),
+        choices=("v12", "v13-source", "v14-bbox", "v16-reviewed"),
         default="v12",
     )
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -531,6 +676,16 @@ def _args() -> argparse.Namespace:
     parser.add_argument("--crop-root", type=Path, default=DEFAULT_CROP_ROOT)
     parser.add_argument("--output-root", type=Path)
     parser.add_argument("--report-output", type=Path)
+    parser.add_argument(
+        "--full-report",
+        type=Path,
+        default=DEFAULT_FULL_V14_REPORT,
+    )
+    parser.add_argument(
+        "--reviewed-overrides",
+        type=Path,
+        default=DEFAULT_V14_REVIEW,
+    )
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--require-pass", action="store_true")
     return parser.parse_args()
@@ -547,6 +702,11 @@ def main() -> int:
         controls_path = args.controls.resolve(strict=True)
         normalization_root = args.normalization_root.resolve(strict=True)
         crop_root = args.crop_root.resolve(strict=True)
+        full_report_path = (
+            args.full_report.resolve(strict=True)
+            if phase == "failures" or candidate == "v16-reviewed"
+            else None
+        )
         output_root, report_output = _phase_paths(
             phase,
             candidate,
@@ -557,6 +717,17 @@ def main() -> int:
         detection = _load_json(detection_path)
         v7 = _load_json(v7_path)
         controls = _load_json(controls_path)
+        full_report = (
+            _load_json(cast(Path, full_report_path)) if full_report_path is not None else None
+        )
+        reviewed_overrides = (
+            ReviewedV14ProjectiveOverrides.from_files(
+                args.reviewed_overrides.resolve(strict=True),
+                cast(Path, full_report_path),
+            )
+            if candidate == "v16-reviewed"
+            else None
+        )
         manifest_images = tuple(
             _mapping(value, "manifest.image")
             for value in _sequence(manifest.get("images"), "manifest.images")
@@ -568,6 +739,30 @@ def main() -> int:
                 "controls.listedSequenceNumbers",
             )
         )
+        failure_sequences: tuple[int, ...] = ()
+        full_entry_by_sequence: dict[int, Mapping[str, object]] = {}
+        if full_report is not None:
+            if (
+                full_report.get("phase") != "full"
+                or full_report.get("candidate") != "v14-bbox"
+                or full_report.get("processedCount") != 387
+            ):
+                raise RegressionGateError(
+                    "Failure diagnostics require the complete v14 full report."
+                )
+            failure_sequences = tuple(
+                _integer(entry.get("sequenceNumber"), "entry.sequenceNumber")
+                for value in _sequence(full_report.get("entries"), "fullReport.entries")
+                for entry in (_mapping(value, "fullReport.entry"),)
+                if entry.get("status") != "cropped"
+            )
+            if not failure_sequences:
+                raise RegressionGateError("The full report contains no failed sequences.")
+            full_entry_by_sequence = {
+                _integer(entry.get("sequenceNumber"), "entry.sequenceNumber"): entry
+                for value in _sequence(full_report.get("entries"), "fullReport.entries")
+                for entry in (_mapping(value, "fullReport.entry"),)
+            }
         sequence_numbers = (
             (PRIMARY_SEQUENCE,)
             if phase == "seq29"
@@ -589,16 +784,31 @@ def main() -> int:
                 )
                 if phase == "full"
                 else (
-                    PRIMARY_SEQUENCE,
-                    *REPORTED_FAILURE_SEQUENCES,
-                    *control_sequences,
+                    tuple(
+                        dict.fromkeys(
+                            sequence_number
+                            for failed in failure_sequences
+                            for sequence_number in (failed, failed - 1, failed + 1)
+                            if 1 <= sequence_number <= 387
+                        )
+                    )
+                    if phase == "failures"
+                    else (
+                        PRIMARY_SEQUENCE,
+                        *REPORTED_FAILURE_SEQUENCES,
+                        *control_sequences,
+                    )
                 )
             )
         )
         if len(sequence_numbers) != len(set(sequence_numbers)):
             raise RegressionGateError("Regression sequence list contains duplicates.")
-        if phase == "full" and candidate != "v14-bbox":
-            raise RegressionGateError("Full preflight is supported only for v14-bbox.")
+        if phase == "full" and candidate not in {"v14-bbox", "v16-reviewed"}:
+            raise RegressionGateError(
+                "Full preflight is supported only for v14-bbox and v16-reviewed."
+            )
+        if phase == "failures" and candidate != "v14-bbox":
+            raise RegressionGateError("Failure diagnostics are supported only for v14-bbox.")
         detection_by_source = {
             _text(item.get("sourceChecksumSha256"), "sourceChecksumSha256"): item
             for value in _sequence(
@@ -655,72 +865,29 @@ def main() -> int:
                 for board in (_mapping(value, "detection.board"),)
                 if _integer(board.get("positionIndex"), "positionIndex") == position
             )
-            page_geometry = PageGeometry(
-                status="detected",
-                image_width=_integer(
-                    detection_result.get("imageWidth"),
-                    "imageWidth",
-                ),
-                image_height=_integer(
-                    detection_result.get("imageHeight"),
-                    "imageHeight",
-                ),
-                boards=(
-                    BoardGeometry(
-                        position_index=position,
-                        quad=_quad(detector_board.get("quad"), "detector.quad"),
-                        bounding_box=_bounding_box(
-                            detector_board.get("boundingBox"),
-                            "detector.boundingBox",
-                        ),
-                    ),
-                ),
+            manual_override = (
+                reviewed_overrides.get(source, position) if reviewed_overrides is not None else None
             )
-            expanded = calibrator.calibrate(source, page_geometry)
-            if expanded.status != "detected" or not expanded.boards:
-                if phase == "full":
-                    reason = (
-                        expanded.review_reasons[0]
-                        if expanded.review_reasons
-                        else "PROJECTIVE_FRAME_EXPANSION_INVALID"
+            if candidate == "v16-reviewed" and manual_override is None:
+                source_entry = full_entry_by_sequence.get(sequence_number)
+                if (
+                    source_entry is None
+                    or source_entry.get("status") != "cropped"
+                    or source_entry.get("sourceChecksumSha256") != source
+                    or source_entry.get("positionIndex") != position
+                ):
+                    raise RegressionGateError(
+                        f"Sequence {sequence_number} cannot reuse one immutable v14 result."
                     )
-                    card_bytes = _full_failure_card(
-                        sequence_number=sequence_number,
-                        reason=reason,
-                    )
-                    card_relative = f"cards/seq-{sequence_number:03d}.png"
-                    _write_immutable_or_check(
-                        output_root / Path(*PurePosixPath(card_relative).parts),
-                        card_bytes,
+                entries.append(
+                    _reuse_v14_entry(
+                        source_entry,
+                        source_root=DEFAULT_FULL_V14_ARTIFACT_ROOT.resolve(strict=True),
+                        output_root=output_root,
                         check=args.check,
                     )
-                    entries.append(
-                        {
-                            "analysisFrameSource": "none",
-                            "cardChecksumSha256": _sha256(card_bytes),
-                            "cardRelativePath": card_relative,
-                            "cells": [],
-                            "fallbackReason": reason,
-                            "group": "full_corpus",
-                            "homography": None,
-                            "minimumSupportFraction": None,
-                            "positionIndex": position,
-                            "primaryFallbackReason": None,
-                            "projectiveExpandedQuad": [],
-                            "sequenceNumber": sequence_number,
-                            "sourceChecksumSha256": source,
-                            "sourceImageId": _text(
-                                manifest_image.get("id"),
-                                "manifest.id",
-                            ),
-                            "status": "fallback",
-                        }
-                    )
-                    continue
-                raise RegressionGateError(
-                    f"Sequence {sequence_number} failed projective expansion: "
-                    f"{expanded.review_reasons}"
                 )
+                continue
             normalized_path = _safe_artifact_path(
                 normalization_root,
                 detection_entry.get("normalizedRelativePath"),
@@ -728,29 +895,6 @@ def main() -> int:
                 label="normalizedRelativePath",
             )
             normalized_rgb = _decode_rgb(normalized_path)
-            expanded_board, _ = rectify_board(
-                normalized_rgb,
-                expanded.boards[0].quad,
-            )
-            crop_result: (
-                ProjectiveLatticeCropResult | SourceProjectiveLatticeCropResult
-            )
-            if candidate == "v14-bbox":
-                crop_result = build_bounding_fallback_source_projective_lattice_crops(
-                    normalized_rgb,
-                    expanded.boards[0].quad,
-                    _bounding_box(
-                        detector_board.get("boundingBox"),
-                        "detector.boundingBox",
-                    ),
-                )
-            elif candidate == "v13-source":
-                crop_result = build_source_projective_lattice_crops(
-                    normalized_rgb,
-                    expanded.boards[0].quad,
-                )
-            else:
-                crop_result = build_projective_lattice_crops(expanded_board)
             baseline_cells: list[NDArray[np.uint8]] = []
             if phase != "full":
                 v7_image = v7_by_source[source]
@@ -781,16 +925,131 @@ def main() -> int:
                     )
                     for cell in v7_cells
                 ]
+            page_geometry = PageGeometry(
+                status="detected",
+                image_width=_integer(
+                    detection_result.get("imageWidth"),
+                    "imageWidth",
+                ),
+                image_height=_integer(
+                    detection_result.get("imageHeight"),
+                    "imageHeight",
+                ),
+                boards=(
+                    BoardGeometry(
+                        position_index=position,
+                        quad=_quad(detector_board.get("quad"), "detector.quad"),
+                        bounding_box=_bounding_box(
+                            detector_board.get("boundingBox"),
+                            "detector.boundingBox",
+                        ),
+                    ),
+                ),
+            )
+            expanded_quad: Quad
+            if manual_override is not None:
+                expanded_quad = manual_override.source_quad
+                expanded_board, _ = rectify_board(normalized_rgb, expanded_quad)
+            else:
+                expanded = calibrator.calibrate(source, page_geometry)
+                if expanded.status != "detected" or not expanded.boards:
+                    if phase in {"full", "failures"}:
+                        reason = (
+                            expanded.review_reasons[0]
+                            if expanded.review_reasons
+                            else "PROJECTIVE_FRAME_EXPANSION_INVALID"
+                        )
+                        card_bytes = (
+                            _expansion_failure_card(
+                                baseline_cells,
+                                rectify_board(
+                                    normalized_rgb,
+                                    _quad(detector_board.get("quad"), "detector.quad"),
+                                )[0],
+                                sequence_number=sequence_number,
+                                reason=reason,
+                            )
+                            if phase == "failures"
+                            else _full_failure_card(
+                                sequence_number=sequence_number,
+                                reason=reason,
+                            )
+                        )
+                        card_relative = f"cards/seq-{sequence_number:03d}.png"
+                        _write_immutable_or_check(
+                            output_root / Path(*PurePosixPath(card_relative).parts),
+                            card_bytes,
+                            check=args.check,
+                        )
+                        entries.append(
+                            {
+                                "analysisFrameSource": "none",
+                                "cardChecksumSha256": _sha256(card_bytes),
+                                "cardRelativePath": card_relative,
+                                "cells": [],
+                                "fallbackReason": reason,
+                                "group": ("full_failure" if phase == "failures" else "full_corpus"),
+                                "homography": None,
+                                "minimumSupportFraction": None,
+                                "positionIndex": position,
+                                "primaryFallbackReason": None,
+                                "projectiveExpandedQuad": [],
+                                "sequenceNumber": sequence_number,
+                                "sourceChecksumSha256": source,
+                                "sourceImageId": _text(
+                                    manifest_image.get("id"),
+                                    "manifest.id",
+                                ),
+                                "status": "fallback",
+                            }
+                        )
+                        continue
+                    raise RegressionGateError(
+                        f"Sequence {sequence_number} failed projective expansion: "
+                        f"{expanded.review_reasons}"
+                    )
+                expanded_quad = expanded.boards[0].quad
+                expanded_board, _ = rectify_board(
+                    normalized_rgb,
+                    expanded_quad,
+                )
+            crop_result: ProjectiveLatticeCropResult | SourceProjectiveLatticeCropResult
+            if manual_override is not None:
+                crop_result = build_reviewed_source_quad_crops(
+                    normalized_rgb,
+                    manual_override.source_quad,
+                    primary_fallback_reason=manual_override.fallback_reason,
+                )
+            elif candidate in {"v14-bbox", "v16-reviewed"}:
+                crop_result = build_bounding_fallback_source_projective_lattice_crops(
+                    normalized_rgb,
+                    expanded_quad,
+                    _bounding_box(
+                        detector_board.get("boundingBox"),
+                        "detector.boundingBox",
+                    ),
+                )
+            elif candidate == "v13-source":
+                crop_result = build_source_projective_lattice_crops(
+                    normalized_rgb,
+                    expanded_quad,
+                )
+            else:
+                crop_result = build_projective_lattice_crops(expanded_board)
             group = (
                 "full_corpus"
                 if phase == "full"
                 else (
-                    "primary"
-                    if sequence_number == PRIMARY_SEQUENCE
+                    ("full_failure" if sequence_number in failure_sequences else "neighbor_control")
+                    if phase == "failures"
                     else (
-                        "reported_failure"
-                        if sequence_number in REPORTED_FAILURE_SEQUENCES
-                        else "control_not_owner_approved"
+                        "primary"
+                        if sequence_number == PRIMARY_SEQUENCE
+                        else (
+                            "reported_failure"
+                            if sequence_number in REPORTED_FAILURE_SEQUENCES
+                            else "control_not_owner_approved"
+                        )
                     )
                 )
             )
@@ -809,7 +1068,7 @@ def main() -> int:
             )
             card_relative = f"cards/seq-{sequence_number:03d}.png"
             write_artifact = (
-                _write_immutable_or_check if phase == "full" else _write_or_check
+                _write_immutable_or_check if phase in {"full", "failures"} else _write_or_check
             )
             write_artifact(
                 output_root / Path(*PurePosixPath(card_relative).parts),
@@ -845,9 +1104,7 @@ def main() -> int:
                 "minimumSupportFraction": (crop_result.minimum_support_fraction),
                 "normalizedImageSha256": _sha256(normalized_path.read_bytes()),
                 "positionIndex": position,
-                "projectiveExpandedQuad": [
-                    point.to_dict() for point in expanded.boards[0].quad
-                ],
+                "projectiveExpandedQuad": [point.to_dict() for point in expanded_quad],
                 "sequenceNumber": sequence_number,
                 "sourceChecksumSha256": source,
                 "sourceImageId": _text(
@@ -871,9 +1128,7 @@ def main() -> int:
                     entry["boardChecksumSha256"] = _sha256(board_bytes)
                     entry["boardRelativePath"] = board_relative
                 if crop_result.grid_overlay_rgb is not None:
-                    overlay_relative = (
-                        f"boards/seq-{sequence_number:03d}/grid-overlay.png"
-                    )
+                    overlay_relative = f"boards/seq-{sequence_number:03d}/grid-overlay.png"
                     overlay_bytes = _encode_png(crop_result.grid_overlay_rgb)
                     write_artifact(
                         output_root / Path(*PurePosixPath(overlay_relative).parts),
@@ -882,44 +1137,39 @@ def main() -> int:
                     )
                     entry["overlayChecksumSha256"] = _sha256(overlay_bytes)
                     entry["overlayRelativePath"] = overlay_relative
-            if (
-                candidate == "v14-bbox"
-                and isinstance(crop_result, SourceProjectiveLatticeCropResult)
-            ):
+            if isinstance(crop_result, SourceProjectiveLatticeCropResult):
                 entry.update(
                     {
                         "analysisFrameSource": crop_result.analysis_frame_source,
-                        "primaryFallbackReason": (
-                            crop_result.primary_fallback_reason
-                        ),
+                        "primaryFallbackReason": (crop_result.primary_fallback_reason),
                     }
                 )
+            if manual_override is not None:
+                entry["manualOverrideObservationId"] = manual_override.observation_id
             entries.append(entry)
             if (
-                phase != "full"
+                phase not in {"full", "failures"}
                 and sequence_number == PRIMARY_SEQUENCE
                 and crop_result.status != "cropped"
             ):
                 break
         fallback_count = sum(entry["status"] != "cropped" for entry in entries)
-        cell_count = sum(
-            len(_sequence(entry.get("cells"), "entry.cells")) for entry in entries
-        )
-        image_count = len(
-            {_text(entry.get("sourceImageId"), "sourceImageId") for entry in entries}
-        )
+        cell_count = sum(len(_sequence(entry.get("cells"), "entry.cells")) for entry in entries)
+        image_count = len({_text(entry.get("sourceImageId"), "sourceImageId") for entry in entries})
         expected_cell_count = len(sequence_numbers) * BOARD_ROWS * BOARD_COLUMNS
         technical_passed = (
             len(entries) == len(sequence_numbers)
-            and fallback_count == 0
-            and cell_count == expected_cell_count
+            if phase == "failures"
+            else (
+                len(entries) == len(sequence_numbers)
+                and fallback_count == 0
+                and cell_count == expected_cell_count
+            )
         )
         page_bytes = _html_page(entries, phase=phase)
-        (
-            _write_immutable_or_check
-            if phase == "full"
-            else _write_or_check
-        )(output_root / "index.html", page_bytes, check=args.check)
+        (_write_immutable_or_check if phase in {"full", "failures"} else _write_or_check)(
+            output_root / "index.html", page_bytes, check=args.check
+        )
         report: dict[str, object] = {
             "controlDefinitionSha256": _sha256(controls_path.read_bytes()),
             "controlOwnerApproved": phase == "full",
@@ -952,6 +1202,13 @@ def main() -> int:
                     "imageCount": image_count,
                 }
             )
+        elif phase == "failures":
+            report.update(
+                {
+                    "diagnosticFailureSequenceNumbers": list(failure_sequences),
+                    "sourceFullReportSha256": _sha256(cast(Path, full_report_path).read_bytes()),
+                }
+            )
         if candidate == "v13-source":
             report.update(
                 {
@@ -972,18 +1229,56 @@ def main() -> int:
                     "schemaVersion": (
                         "m5-projective-fixed-padding-full-preflight-v1"
                         if phase == "full"
-                        else "m5-projective-fixed-padding-regression-v2"
+                        else (
+                            "m5-projective-fixed-padding-failure-diagnostics-v3"
+                            if phase == "failures"
+                            else "m5-projective-fixed-padding-regression-v2"
+                        )
                     ),
+                }
+            )
+        elif candidate == "v16-reviewed":
+            if reviewed_overrides is None:
+                raise RegressionGateError("Reviewed v16 overrides are unavailable.")
+            manual_override_count = sum(
+                entry.get("analysisFrameSource") == "human-reviewed-source-quad"
+                for entry in entries
+            )
+            reused_v14_count = sum(
+                entry.get("geometryRoute") == "immutable-v14-reuse" for entry in entries
+            )
+            if manual_override_count != reviewed_overrides.override_count:
+                raise RegressionGateError(
+                    "The full run did not consume every reviewed override exactly once."
+                )
+            if reused_v14_count != 387 - manual_override_count:
+                raise RegressionGateError(
+                    "The full run did not preserve every accepted v14 result."
+                )
+            report.update(
+                {
+                    "candidate": candidate,
+                    "cropperVersion": REVIEWED_MERGE_CROPPER_VERSION,
+                    "gridVersion": REVIEWED_MERGE_GRID_VERSION,
+                    "homographyVersion": (
+                        f"{GLOBAL_HOMOGRAPHY_VERSION}+{REVIEWED_SOURCE_QUAD_HOMOGRAPHY_VERSION}"
+                    ),
+                    "manualOverrideCount": manual_override_count,
+                    "manualOverrideCropperVersion": (REVIEWED_SOURCE_QUAD_CROPPER_VERSION),
+                    "manualOverrideGridVersion": REVIEWED_SOURCE_QUAD_GRID_VERSION,
+                    "reviewedOverrideSetVersion": reviewed_overrides.version,
+                    "reviewedOverrideSha256": reviewed_overrides.review_sha256,
+                    "reusedV14BoardCount": reused_v14_count,
+                    "schemaVersion": "m5-reviewed-manual-merge-v16-full-preflight-v1",
+                    "sourceV14FullReportSha256": (reviewed_overrides.source_report_sha256),
                 }
             )
         report_bytes = (
             json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         ).encode()
-        (
-            _write_immutable_or_check
-            if phase == "full"
-            else _write_or_check
-        )(report_output, report_bytes, check=args.check)
+        (_write_immutable_or_check if phase in {"full", "failures"} else _write_or_check)(
+            report_output, report_bytes, check=args.check
+        )
         print(
             json.dumps(
                 {
@@ -1007,6 +1302,7 @@ def main() -> int:
         OSError,
         RegressionGateError,
         StopIteration,
+        V14ProjectiveOverrideError,
         json.JSONDecodeError,
     ) as error:
         print(

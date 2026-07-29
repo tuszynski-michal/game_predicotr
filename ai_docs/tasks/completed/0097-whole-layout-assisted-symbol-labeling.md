@@ -1,17 +1,16 @@
 ---
 title: TASK-0097 — Whole-layout assisted symbol labeling
-status: blocked
-last_updated: 2026-07-28
+status: done
+last_updated: 2026-07-29
 ---
 
 # TASK-0097 — Whole-layout assisted symbol labeling
 
 ## Goal
 
-Replace the quarantined single-crop bootstrap with a resumable, loopback-only
-5 × 3 board workflow backed exclusively by accepted
-`board-cell-crops-v2-calibrated-v1`, and produce the first reviewed decisions
-needed by TASK-0059.
+Keep the resumable, loopback-only 5 × 3 board workflow, replace its quarantined
+v2 inventory with the accepted v16 crop chain, and produce the first reviewed
+decisions needed by TASK-0059.
 
 ## Context
 
@@ -21,8 +20,10 @@ the local review contract and HTTP safety, but its one-crop-at-a-time inventory
 uses quarantined v1 artifacts.
 
 The existing `reviewed-cell-labels-v1` decision contract remains valid. This
-task changes the verified inventory and the unit of interaction, not the
-meaning of an accepted or rejected cell label.
+task now changes the verified inventory to
+`board-cell-crops-v16-reviewed-v14-merge-v1`. The 56 historical decisions stay
+bound to their old `cropSampleId`; they may be shown as prior-label context but
+cannot become v16 decisions without a new explicit owner action.
 
 ## Relevant docs
 
@@ -38,6 +39,7 @@ meaning of an accepted or rejected cell label.
 - D-058–D-061 in `ai_docs/process/DECISION_LOG.md`
 - `ai_docs/process/DEFINITION_OF_DONE.md`
 - `ai_docs/tasks/0059-labeled-symbol-dataset-export.md`
+- `ai_docs/tasks/completed/0101-production-symbol-aware-crops.md`
 - `ai_docs/tasks/completed/0093-bootstrap-symbol-label-review-tool.md`
 - `ai_docs/tasks/completed/0096-grid-calibration-profiles-line-editor.md`
 
@@ -47,9 +49,10 @@ meaning of an accepted or rejected cell label.
   no saved cell decisions and refers to the same corpus.
 - A board is complete when all 15 cells have an explicit accepted or rejected
   decision. Partial cell decisions are persisted and resume on the same board.
-- Geometry is immutable in this workflow. Only boards from the passed
-  calibrated quality report are admitted; any geometry/profile/checksum drift
-  blocks inventory generation before review.
+- Geometry is immutable in this workflow. Only boards from the accepted v16
+  report plus owner-acceptance checksum chain are admitted; any geometry,
+  report, acceptance or file checksum drift blocks inventory generation before
+  review.
 - `observationId` is independent of crop bytes. `cropSampleId` includes the
   cropper/profile identity and checksum; it remains the `sampleId` referenced by
   `reviewed-cell-labels-v1`.
@@ -59,14 +62,14 @@ rule.
 
 ## Scope
 
-### 1. Calibrated inventory v2
+### 1. Owner-accepted inventory v3
 
-- verify corpus, reviewed sequences, calibrated crop report, calibration
-  profiles and passed quality report as one checksum chain,
+- verify corpus, reviewed sequences, the complete v16 report, owner acceptance
+  and every materialized board/cell file as one checksum chain,
 - create stable `observationId`, `cropSampleId` and board identity,
-- retain board image/overlay paths, profile provenance and 15 row-major cells,
+- retain board image paths, immutable geometry provenance and 15 row-major cells,
 - reject quarantined cropper versions, incomplete boards and any drift,
-- emit deterministic `symbol-crop-inventory-v2` plus JSON Schema.
+- emit deterministic `symbol-crop-inventory-v3` plus JSON Schema.
 
 ### 2. Whole-layout review domain
 
@@ -74,7 +77,7 @@ rule.
 - expose board/cell progress and filters,
 - persist one or more cell decisions atomically,
 - preserve partial boards across restart,
-- prevent decisions for geometry not accepted by inventory v2,
+- prevent decisions for geometry not accepted by inventory v3,
 - retain identical-byte conflict checks and optional propagation.
 
 ### 3. Loopback UI
@@ -103,7 +106,7 @@ rule.
 
 ## Acceptance criteria
 
-- [x] Inventory v2 covers exactly 43 images, 387 boards and 5805 calibrated cells.
+- [x] Inventory v3 covers exactly 43 images, 387 boards and 5805 accepted cells.
 - [x] Every sample has stable observation/crop identities and calibration
       provenance; v1 and detector-only v2 are rejected.
 - [x] The UI presents one complete 5 × 3 board in row-major order.
@@ -118,6 +121,8 @@ rule.
 - [x] Ruff, mypy, full relevant tests, schemas and format checks pass.
 - [x] Requirements, architecture, M6 plan, `CURRENT_STATE.md` and Outcome are
       updated.
+- [x] Owner completes the first representative v16 board batch so TASK-0059
+      can produce a non-empty reviewed dataset.
 
 ## Expected files
 
@@ -129,6 +134,7 @@ rule.
 - `scripts/export_m6_symbol_dataset.py`
 - `scripts/m6_symbol_review/`
 - `ai_docs/quality/m6-symbol-crop-inventory-v2*.json`
+- `ai_docs/quality/m6-symbol-crop-inventory-v3*.json`
 - `ai_docs/process/CURRENT_STATE.md`
 
 ## Verification
@@ -181,3 +187,41 @@ owner labeling the first representative board batch.
 The local review server is ready for the owner to label 15–30 representative
 boards. After that, TASK-0059 can materialize the first non-empty reviewed
 dataset.
+
+Reactivation completed 2026-07-29 after owner acceptance of the complete v16
+corpus:
+
+- added deterministic `symbol-crop-inventory-v3`, bound to report SHA-256
+  `c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9`
+  and the separate owner-acceptance checksum;
+- verified all 387 boards and 5805 RGB crops, exact reviewed sequence order,
+  full source-image coverage, row-major positions and support fraction `1.0`;
+- reopened review in a separate `m6-symbol-review-v16` state with the same
+  eight symbol definitions and zero decisions;
+- preserved the historical v2 file and its 56 decisions byte-for-byte;
+- proved that `labeled-symbol-dataset-v1` consumes v3 and correctly returns
+  `waiting_for_labels` with 5805 pending samples.
+- resumed the loopback UI on `127.0.0.1:8892`; the real-v16 smoke shows
+  `387` pending boards, `5805` pending cells, 15 row-major cells for sequence 1
+  and 15 cells plus the canonical board for sequence 387. No decision was
+  written during the smoke test.
+
+At reactivation time the remaining acceptance item was an explicit
+owner-reviewed representative v16 batch; software completion could not
+substitute those symbol decisions.
+
+Owner handoff completed 2026-07-29:
+
+- 24 complete boards cover 18 source images and both source sessions;
+- 416 explicit accepted decisions cover all eight configured symbols;
+- sequences `200`, `240`, `270` and `300` retain safe resumable partial state
+  at 14/15 decisions and do not enter the complete-board count;
+- the immutable label-source checksum used by the export is
+  `2be1a4171aeee7bc75165c6f993b3aeb3cb3155163ac60f36e1a4a0a2047a61c`;
+- the non-empty TASK-0059 export is `ready`, contains 416 reviewed samples and
+  416 content-addressed assets, and reproduces byte-for-byte with dataset
+  SHA-256
+  `ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a`.
+
+TASK-0097 is complete. The review server was stopped after freezing the label
+source used by the export.

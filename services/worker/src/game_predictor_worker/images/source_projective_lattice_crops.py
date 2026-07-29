@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from .geometry import Point, Quad
 from .projective_lattice_crops import ProjectiveLatticeCell
 from .rectification import BOARD_COLUMNS, BOARD_HEIGHT, BOARD_ROWS, BOARD_WIDTH
-from .symbol_grid_refinement import rectify_board
+from .symbol_grid_refinement import SymbolCenter, rectify_board
 from .symbol_lattice_homography import (
     FloatPoint,
     Matrix3x3,
@@ -21,16 +21,15 @@ from .symbol_lattice_homography import (
     project_points,
 )
 
-CROPPER_VERSION = (
-    "board-cell-crops-v13-global-lattice-source-aware-fixed-padding-preflight-v1"
-)
+CROPPER_VERSION = "board-cell-crops-v13-global-lattice-source-aware-fixed-padding-preflight-v1"
 GRID_VERSION = "global-lattice-source-aware-fixed-padding-grid-v1"
 BOUNDING_FALLBACK_CROPPER_VERSION = (
     "board-cell-crops-v14-global-lattice-source-aware-bbox-analysis-fallback-v1"
 )
-BOUNDING_FALLBACK_GRID_VERSION = (
-    "global-lattice-source-aware-bbox-analysis-fallback-grid-v1"
-)
+BOUNDING_FALLBACK_GRID_VERSION = "global-lattice-source-aware-bbox-analysis-fallback-grid-v1"
+REVIEWED_SOURCE_QUAD_CROPPER_VERSION = "board-cell-crops-v15-reviewed-source-quad-fixed-padding-v1"
+REVIEWED_SOURCE_QUAD_GRID_VERSION = "reviewed-source-quad-fixed-padding-grid-v1"
+REVIEWED_SOURCE_QUAD_HOMOGRAPHY_VERSION = "human-reviewed-source-quad-v1"
 BOUNDING_FALLBACK_PAD_X_RATIO = 0.06
 BOUNDING_FALLBACK_PAD_Y_RATIO = 0.04
 FIXED_PADDING_PX = 10
@@ -196,10 +195,7 @@ def _quad_is_inside_source(
     source_width: int,
     source_height: int,
 ) -> bool:
-    return all(
-        0.0 <= x <= source_width - 1 and 0.0 <= y <= source_height - 1
-        for x, y in quad
-    )
+    return all(0.0 <= x <= source_width - 1 and 0.0 <= y <= source_height - 1 for x, y in quad)
 
 
 def _fallback(
@@ -219,9 +215,7 @@ def _fallback(
         board_rgb=board_rgb,
         grid_overlay_rgb=None,
         observed_overlay_rgb=(
-            analysis_board_rgb.copy()
-            if observed_overlay is None
-            else observed_overlay
+            analysis_board_rgb.copy() if observed_overlay is None else observed_overlay
         ),
         support_mask=support_mask,
         cells=cells,
@@ -375,6 +369,168 @@ def build_source_projective_lattice_crops(
     )
 
 
+def build_reviewed_source_quad_crops(
+    source_rgb: NDArray[np.uint8],
+    source_quad: Quad,
+    *,
+    primary_fallback_reason: str,
+) -> SourceProjectiveLatticeCropResult:
+    """Sample fixed-padding cells from one explicitly reviewed source quad."""
+
+    if source_rgb.ndim != 3 or source_rgb.shape[2] != 3 or source_rgb.dtype != np.uint8:
+        raise ValueError("Source must be an RGB uint8 image.")
+    rectified, source_to_ideal = rectify_board(source_rgb, source_quad)
+    try:
+        ideal_to_source_array = cast(
+            NDArray[np.float64],
+            np.linalg.inv(source_to_ideal),
+        )
+    except np.linalg.LinAlgError as error:
+        raise ValueError("Reviewed source quad transform is singular.") from error
+    ideal_to_source = _matrix_tuple(ideal_to_source_array)
+    identity: Matrix3x3 = (
+        (1.0, 0.0, 0.0),
+        (0.0, 1.0, 0.0),
+        (0.0, 0.0, 1.0),
+    )
+    centers = tuple(
+        SymbolCenter(
+            row_index=row,
+            column_index=column,
+            x=(column + 0.5) * 100.0,
+            y=(row + 0.5) * 100.0,
+            confidence=1.0,
+        )
+        for row in range(BOARD_ROWS)
+        for column in range(BOARD_COLUMNS)
+    )
+    homography = SymbolLatticeHomography(
+        status="fitted",
+        centers=centers,
+        reliable_center_count=len(centers),
+        inlier_slots=tuple(
+            (row, column) for row in range(BOARD_ROWS) for column in range(BOARD_COLUMNS)
+        ),
+        row_coverage=BOARD_ROWS,
+        column_coverage=BOARD_COLUMNS,
+        inlier_median_residual_px=0.0,
+        inlier_p95_residual_px=0.0,
+        all_center_p95_residual_px=0.0,
+        ideal_to_observed_matrix=identity,
+        virtual_grid_quad=(
+            (0.0, 0.0),
+            (float(BOARD_WIDTH), 0.0),
+            (float(BOARD_WIDTH), float(BOARD_HEIGHT)),
+            (0.0, float(BOARD_HEIGHT)),
+        ),
+        fallback_reason=None,
+        homography_version=REVIEWED_SOURCE_QUAD_HOMOGRAPHY_VERSION,
+    )
+    source_height, source_width = source_rgb.shape[:2]
+    source_support = np.full((source_height, source_width), 255, dtype=np.uint8)
+    support_mask = cast(
+        NDArray[np.uint8],
+        cv2.warpPerspective(
+            source_support,
+            source_to_ideal,
+            (BOARD_WIDTH, BOARD_HEIGHT),
+            flags=cv2.INTER_NEAREST,
+            borderMode=cv2.BORDER_CONSTANT,
+            borderValue=0,
+        ),
+    )
+    cells: list[ProjectiveLatticeCell] = []
+    minimum_support = 1.0
+    for row in range(BOARD_ROWS):
+        for column in range(BOARD_COLUMNS):
+            bounds = _canonical_bounds(row, column)
+            observed_quad = _source_cell_quad(bounds, ideal_to_source)
+            if not _quad_is_inside_source(
+                observed_quad,
+                source_width=source_width,
+                source_height=source_height,
+            ):
+                return replace(
+                    _fallback(
+                        rectified,
+                        homography,
+                        "REVIEWED_SOURCE_QUAD_CELL_OUTSIDE_SOURCE",
+                        board_rgb=rectified,
+                        support_mask=support_mask,
+                        cells=tuple(cells),
+                        minimum_support_fraction=minimum_support,
+                    ),
+                    cropper_version=REVIEWED_SOURCE_QUAD_CROPPER_VERSION,
+                    grid_version=REVIEWED_SOURCE_QUAD_GRID_VERSION,
+                    analysis_frame_source="human-reviewed-source-quad",
+                    primary_fallback_reason=primary_fallback_reason,
+                )
+            left, top, right, bottom = bounds
+            support = support_mask[top:bottom, left:right]
+            support_fraction = float(np.count_nonzero(support) / support.size)
+            minimum_support = min(minimum_support, support_fraction)
+            if support_fraction < REQUIRED_SUPPORT_FRACTION:
+                return replace(
+                    _fallback(
+                        rectified,
+                        homography,
+                        "REVIEWED_SOURCE_QUAD_CELL_SUPPORT_INCOMPLETE",
+                        board_rgb=rectified,
+                        support_mask=support_mask,
+                        cells=tuple(cells),
+                        minimum_support_fraction=minimum_support,
+                    ),
+                    cropper_version=REVIEWED_SOURCE_QUAD_CROPPER_VERSION,
+                    grid_version=REVIEWED_SOURCE_QUAD_GRID_VERSION,
+                    analysis_frame_source="human-reviewed-source-quad",
+                    primary_fallback_reason=primary_fallback_reason,
+                )
+            crop = rectified[top:bottom, left:right]
+            cells.append(
+                ProjectiveLatticeCell(
+                    row_index=row,
+                    column_index=column,
+                    canonical_bounds=bounds,
+                    observed_quad=observed_quad,
+                    support_fraction=support_fraction,
+                    rgb=cast(
+                        NDArray[np.uint8],
+                        cv2.resize(
+                            crop,
+                            (CELL_OUTPUT_SIZE, CELL_OUTPUT_SIZE),
+                            interpolation=cv2.INTER_AREA,
+                        ),
+                    ),
+                )
+            )
+    grid_overlay = rectified.copy()
+    for cell in cells:
+        left, top, right, bottom = cell.canonical_bounds
+        cv2.rectangle(
+            grid_overlay,
+            (left, top),
+            (right - 1, bottom - 1),
+            (30, 235, 90),
+            2,
+            cv2.LINE_AA,
+        )
+    return SourceProjectiveLatticeCropResult(
+        status="cropped",
+        homography=homography,
+        board_rgb=rectified,
+        grid_overlay_rgb=grid_overlay,
+        observed_overlay_rgb=_draw_analysis_grid(rectified, homography),
+        support_mask=support_mask,
+        cells=tuple(cells),
+        minimum_support_fraction=minimum_support,
+        fallback_reason=None,
+        cropper_version=REVIEWED_SOURCE_QUAD_CROPPER_VERSION,
+        grid_version=REVIEWED_SOURCE_QUAD_GRID_VERSION,
+        analysis_frame_source="human-reviewed-source-quad",
+        primary_fallback_reason=primary_fallback_reason,
+    )
+
+
 def _bounding_box_analysis_quad(
     bounding_box: tuple[int, int, int, int],
     *,
@@ -454,7 +610,11 @@ __all__ = [
     "FIXED_PADDING_PX",
     "GRID_VERSION",
     "REQUIRED_SUPPORT_FRACTION",
+    "REVIEWED_SOURCE_QUAD_CROPPER_VERSION",
+    "REVIEWED_SOURCE_QUAD_GRID_VERSION",
+    "REVIEWED_SOURCE_QUAD_HOMOGRAPHY_VERSION",
     "SourceProjectiveLatticeCropResult",
     "build_bounding_fallback_source_projective_lattice_crops",
+    "build_reviewed_source_quad_crops",
     "build_source_projective_lattice_crops",
 ]

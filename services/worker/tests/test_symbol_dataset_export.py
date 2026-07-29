@@ -11,12 +11,16 @@ from game_predictor_worker.images.symbol_dataset import (
     DATASET_VERSION,
     INVENTORY_VERSION,
     LABEL_SOURCE_VERSION,
+    REVIEWED_CROPPER_VERSION,
+    REVIEWED_INVENTORY_VERSION,
     SymbolDatasetError,
     build_symbol_crop_inventory,
     calibrated_board_id,
     calibrated_crop_sample_id,
     calibrated_observation_id,
     export_reviewed_symbol_dataset,
+    load_symbol_crop_inventory,
+    reviewed_crop_sample_id,
 )
 from PIL import Image
 
@@ -205,6 +209,48 @@ def _label_source(
             {"symbolCode": "S2", "symbolId": "symbol-2"},
         ],
     }
+
+
+def _reviewed_inventory(
+    tmp_path: Path,
+) -> tuple[Path, dict[str, Path], dict[str, object]]:
+    path, fixture, inventory = _calibrated_inventory(tmp_path)
+    geometry_id = "f" * 64
+    samples = inventory["samples"]
+    assert isinstance(samples, list)
+    for sample in samples:
+        assert isinstance(sample, dict)
+        sample_id = reviewed_crop_sample_id(
+            observation_id=str(sample["observationId"]),
+            cropper_version=REVIEWED_CROPPER_VERSION,
+            geometry_provenance_id=geometry_id,
+            geometry_provenance_version=16,
+            crop_checksum=str(sample["cropChecksumSha256"]),
+        )
+        sample.update(
+            {
+                "calibrationProfileId": geometry_id,
+                "calibrationProfileVersion": 16,
+                "cropSampleId": sample_id,
+                "sampleId": sample_id,
+            }
+        )
+    for key in (
+        "calibrationProfileSetSha256",
+        "calibrationProfileSetVersion",
+        "qualityReportSha256",
+    ):
+        inventory.pop(key)
+    inventory.update(
+        {
+            "cropperVersion": REVIEWED_CROPPER_VERSION,
+            "geometryReportSha256": "1" * 64,
+            "inventoryVersion": REVIEWED_INVENTORY_VERSION,
+            "ownerAcceptanceSha256": "2" * 64,
+        }
+    )
+    _write_json(path, inventory)
+    return path, fixture, inventory
 
 
 def test_inventory_verifies_all_cells_and_is_deterministic(tmp_path: Path) -> None:
@@ -507,3 +553,41 @@ def test_export_rejects_incomplete_calibrated_board(tmp_path: Path) -> None:
         )
 
     assert error.value.code == "SYMBOL_DATASET_INVENTORY_DRIFT"
+
+
+def test_reviewed_v16_inventory_loads_with_geometry_acceptance_chain(
+    tmp_path: Path,
+) -> None:
+    inventory_path, _, expected = _reviewed_inventory(tmp_path)
+
+    _, loaded = load_symbol_crop_inventory(inventory_path)
+
+    assert loaded.inventory_version == REVIEWED_INVENTORY_VERSION
+    assert loaded.geometry_report_sha256 == expected["geometryReportSha256"]
+    assert loaded.owner_acceptance_sha256 == expected["ownerAcceptanceSha256"]
+    assert len(loaded.samples) == 15
+    assert all(
+        sample.calibration_profile_version == 16 for sample in loaded.samples
+    )
+
+
+def test_reviewed_v16_inventory_is_consumed_by_dataset_export(
+    tmp_path: Path,
+) -> None:
+    inventory_path, fixture, inventory = _reviewed_inventory(tmp_path)
+    labels_path = tmp_path / "labels.json"
+    _write_json(labels_path, _label_source(inventory, decisions=[]))
+
+    result = export_reviewed_symbol_dataset(
+        inventory_path,
+        labels_path,
+        fixture["crop_root"],
+        tmp_path / "dataset",
+    )
+    payload = result.to_dict()
+
+    assert payload["inventoryVersion"] == REVIEWED_INVENTORY_VERSION
+    assert payload["geometryReportSha256"] == inventory["geometryReportSha256"]
+    assert payload["ownerAcceptanceSha256"] == inventory["ownerAcceptanceSha256"]
+    assert payload["pendingCount"] == 15
+    assert payload["status"] == "waiting_for_labels"

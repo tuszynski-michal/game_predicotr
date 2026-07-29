@@ -9,7 +9,9 @@ from game_predictor_worker.images.source_projective_lattice_crops import (
     BOUNDING_FALLBACK_CROPPER_VERSION,
     CELL_OUTPUT_SIZE,
     CROPPER_VERSION,
+    REVIEWED_SOURCE_QUAD_CROPPER_VERSION,
     build_bounding_fallback_source_projective_lattice_crops,
+    build_reviewed_source_quad_crops,
     build_source_projective_lattice_crops,
 )
 
@@ -52,10 +54,7 @@ def test_source_aware_crop_recovers_real_pixels_beyond_analysis_plane() -> None:
     assert result.minimum_support_fraction == 1.0
     assert len(result.cells) == 15
     assert all(cell.support_fraction == 1.0 for cell in result.cells)
-    assert all(
-        cell.rgb.shape == (CELL_OUTPUT_SIZE, CELL_OUTPUT_SIZE, 3)
-        for cell in result.cells
-    )
+    assert all(cell.rgb.shape == (CELL_OUTPUT_SIZE, CELL_OUTPUT_SIZE, 3) for cell in result.cells)
     assert result.homography.virtual_grid_quad is not None
     assert result.homography.virtual_grid_quad[3][1] > 299
     assert result.to_dict()["cropperVersion"] == CROPPER_VERSION
@@ -122,3 +121,24 @@ def test_sequence_3_uses_bounded_analysis_fallback_after_locator_failure() -> No
     assert result.analysis_frame_source == "detector-bounding-box-fallback"
     assert result.primary_fallback_reason == primary.fallback_reason
     assert result.to_dict()["cropperVersion"] == BOUNDING_FALLBACK_CROPPER_VERSION
+
+
+def test_reviewed_source_quad_creates_supported_fixed_padding_cells() -> None:
+    source = _source_with_lattice_beyond_analysis_plane()[:300, :]
+    result = build_reviewed_source_quad_crops(
+        source,
+        (
+            Point(0, 0),
+            Point(499, 0),
+            Point(499, 299),
+            Point(0, 299),
+        ),
+        primary_fallback_reason="TEST_FALLBACK",
+    )
+
+    assert result.status == "cropped"
+    assert result.minimum_support_fraction == 1.0
+    assert len(result.cells) == 15
+    assert result.analysis_frame_source == "human-reviewed-source-quad"
+    assert result.primary_fallback_reason == "TEST_FALLBACK"
+    assert result.cropper_version == REVIEWED_SOURCE_QUAD_CROPPER_VERSION

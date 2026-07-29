@@ -50,6 +50,26 @@ zadanie odwołuje się do nich jawnie.
 - Oddzielaj logikę domenową od transportu HTTP, UI i ORM.
 - Dla algorytmów używaj czystych funkcji z deterministycznymi wejściami i wyjściami.
 
+### Limity czasu i procesy długotrwałe
+
+- Każda komenda skończona musi mieć jawny timeout proporcjonalny do oczekiwanego
+  czasu wykonania. Nie uruchamiaj komendy bez limitu czasu.
+- Domyślny timeout pojedynczego kroku wynosi maksymalnie 120 sekund. Dłuższy
+  limit jest dozwolony wyłącznie dla znanego builda lub benchmarku, po
+  wcześniejszym poinformowaniu użytkownika o przewidywanym czasie.
+- Serwerów developerskich, watcherów i innych procesów bez naturalnego końca
+  nie uruchamiaj jako blokującej komendy foreground. Uruchom je jako osobny,
+  kontrolowany proces, zapisz PID i sprawdzaj gotowość krótkim pollingiem z
+  limitem maksymalnie 10 sekund.
+- Jeżeli komenda nie zwraca nowego wyniku przez 60 sekund i nie jest
+  kontrolowanym buildem albo benchmarkiem, przerwij ją, sprawdź stan procesu i
+  zgłoś przyczynę przed ponowieniem inną metodą.
+- Nie używaj nieograniczonego oczekiwania na port, proces, job ani urządzenie.
+  Każdy polling musi mieć limit prób i krótkie timeouty pojedynczych odczytów.
+- Po przerwaniu albo timeoutcie sprawdź, czy nie pozostał osierocony proces.
+  Nie uruchamiaj drugiej kopii tej samej usługi, dopóki nie ustalisz stanu
+  pierwszej.
+
 ### Po kodowaniu
 
 1. Uruchom formatowanie, lint, testy i kontrolę typów dla zmienionych części.

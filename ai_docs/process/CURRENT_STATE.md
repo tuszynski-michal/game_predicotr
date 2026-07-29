@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M5.3 corrective gate — TASK-0101 production symbol-aware crops`
+`M6.1 — TASK-0059/TASK-0097 completed; TASK-0060 next`
 
 ## Completed
 
@@ -1016,18 +1016,56 @@ last_updated: 2026-07-29
   `026e12ac32802c1561552b338ddb80df51a00088a7e6c1cd57b2652a756d97a5`
   i status `failed`; pełny korpus, publikacja oraz trening pozostają
   zablokowane, a `trainingAllowed = false`,
+- właściciel przejrzał pierwsze kilkadziesiąt poprawnie poprowadzonych kart
+  pełnego preflightu i ocenił je jako poprawne; nie jest to jeszcze odbiór
+  wszystkich 373 plansz,
+- diagnostyka v3 grupuje 14 odrzuconych sekwencji i 22 unikalne sąsiednie
+  kontrole w 36 kartach; raport o SHA-256
+  `2aeb17991e7b7fc207de097db4d893e69a093ccfc759b1ec25eb251c1526f256`
+  odtwarza się byte-for-byte,
+- właściciel zaakceptował `14/14` exact-observation quadów dla fallbacków v14,
+- pierwszy pełny v15 został odrzucony, ponieważ kontrola reprodukowalności
+  wykryła immutable collision na automatycznej sekwencji `49`; nie jest
+  źródłem danych i jego wygenerowane artefakty zostały usunięte,
+- v16 weryfikuje i zachowuje bajtowo 373 zaakceptowane plansze v14, a
+  materializuje ponownie tylko 14 zaakceptowanych ręcznych quadów,
+- pełny v16 ma 43 obrazy, `387/387` plansz, `5805/5805` komórek, support
+  fraction `1.0`, 14 manual overrides i zero fallbacków,
+- natychmiastowy `--check --require-pass` odtworzył każdy artefakt oraz raport
+  v16 o SHA-256
+  `c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9`,
 - TASK-0099 jest zarezerwowane na bezpieczne top-3 sugestie po zaakceptowaniu
   nowej geometrii,
-- TASK-0059 i TASK-0097 zachowują implementację, ale nie mogą eksportować ani
-  przyjmować dalszych decyzji na wycofanym inwentarzu v2.
+- TASK-0059 i TASK-0097 zachowują historyczną implementację v2, ale dalsze
+  decyzje i eksport zostały przepięte na osobny inwentarz v3,
+- właściciel zaakceptował kompletny v16 i zezwolił na przejście dalej;
+  `m5-reviewed-manual-merge-v16-owner-acceptance.json` wiąże decyzję z dokładnym
+  raportem SHA-256
+  `c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9`,
+- TASK-0101 jest zakończony; `symbol-crop-inventory-v3` zweryfikował 43 obrazy,
+  387 plansz i 5805 komórek, ma SHA-256
+  `55a10739391843f0bc7b17814a209a3fca69ba93ff7fc4a68702008a521d77c1`,
+- TASK-0097 został wznowiony na osobnym stanie `m6-symbol-review-v16`: zachowuje
+  osiem symboli i startuje z zerem decyzji; historyczny plik v2 z 56 decyzjami
+  pozostał niezmieniony, SHA-256
+  `55b8edecb0dc90da6b49d181f9ecaa91b9c5abc96131352fd384fa79f9d9a10c`,
+- kontrolny eksport v3 ma status `waiting_for_labels`, 5805 pozycji pending i
+  zero zaakceptowanych próbek; nie uruchomiono treningu.
+- właściciel oznaczył 416 komórek na v16: 24 plansze są kompletne, materiał
+  obejmuje 18 zdjęć źródłowych, oba source sessions i wszystkie osiem symboli;
+  cztery dodatkowe plansze zachowują wznawialny stan 14/15,
+- TASK-0097 jest ukończony; serwer review zatrzymano po zamrożeniu źródła
+  decyzji o SHA-256
+  `2be1a4171aeee7bc75165c6f993b3aeb3cb3155163ac60f36e1a4a0a2047a61c`,
+- TASK-0059 jest ukończony; rzeczywisty eksport ma status `ready`, 416 próbek,
+  416 content-addressed assetów, 5389 pozycji pending, zero odrzuconych i
+  SHA-256
+  `ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a`,
+- drugi przebieg eksportu z `--check --require-samples` przeszedł byte-for-byte;
+  trening nie został jeszcze uruchomiony.
 
 ## Blocked
 
-- `TASK-0097`: zapisano 56 decyzji, ale review jest wstrzymane do czasu
-  zakończenia TASK-0098; stare decyzje pozostają związane z dokładnym
-  `cropSampleId` i nie są automatycznie migrowane,
-- finalizacja `TASK-0059`: techniczny eksport jest gotowy, ale wycofany
-  inwentarz `board-cell-crops-v2-calibrated-v1` nie może już zasilać datasetu,
 - `TASK-0039 — Release failure and immutability integration tests`: automatyczna
   macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
   workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie
@@ -1095,13 +1133,12 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-W tym samym TASK-0101 należy przygotować małą galerię diagnostyczną wyłącznie
-dla sekwencji `33`, `38`, `123`, `163`, `203`, `237`, `254`, `255`, `325`,
-`333`, `334`, `335`, `346`, `379` wraz z sąsiednimi poprawnymi kontrolami.
-Najpierw trzeba rozdzielić błąd ramy wejściowej od błędu przypisania i guardów
-homografii; nie wolno obniżać progów globalnie. Po przejściu tej bramki powstaje
-nowa wersja croppera i ponowny pełny preflight `387/387` oraz page-level review.
-Równolegle
+Rozpocząć TASK-0060: utworzyć source-aware train/validation/test split,
+zweryfikować liczności per symbol i wydać raport jakości pierwszego
+rzeczywistego datasetu. Jeżeli liczność lub pokrycie held-out okaże się
+niewystarczające, wrócić do wznawialnego review v16 bez kopiowania historycznych
+decyzji v2. TASK-0099 z top-3 sugestiami pozostaje po pierwszym modelu i bez
+auto-accept. Równolegle
 TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
 Pixela i Samsunga.
 

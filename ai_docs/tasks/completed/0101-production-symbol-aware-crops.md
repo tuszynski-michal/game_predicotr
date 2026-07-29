@@ -1,6 +1,6 @@
 ---
 title: TASK-0101 — Production symbol-aware crops and geometry gate
-status: in_progress
+status: done
 last_updated: 2026-07-29
 ---
 
@@ -30,7 +30,7 @@ cannot overwrite v1–v5 artifacts or migrate the existing 56 labels.
 - `ai_docs/architecture/DATA_MODEL.md`
 - `ai_docs/delivery/MILESTONE_06_EXECUTION_PLAN.md`
 - `ai_docs/quality/TEST_STRATEGY.md`
-- D-058–D-066 in `ai_docs/process/DECISION_LOG.md`
+- D-058–D-067 in `ai_docs/process/DECISION_LOG.md`
 - `ai_docs/process/DEFINITION_OF_DONE.md`
 - `ai_docs/tasks/0098-local-image-grid-calibration-held-out-gate.md`
 - `ai_docs/tasks/completed/0100-symbol-aware-grid-refinement-spike.md`
@@ -61,10 +61,10 @@ cannot overwrite v1–v5 artifacts or migrate the existing 56 labels.
 - [x] Any failed guard makes the source image `needs_review`.
 - [x] Strict full-corpus benchmark routes 381/387 boards automatically and
       exactly 6 fallbacks to manual review.
-- [ ] Production-eligible complete corpus is regenerated with 43 images,
+- [x] Production-eligible complete corpus is regenerated with 43 images,
       387 boards and 5805 cells after the bounded visual gate.
 - [x] Old crop artifacts and 56 decisions remain unchanged.
-- [ ] Full-page visual review must pass before training is allowed; the first
+- [x] Full-page visual review must pass before training is allowed; the first
       v7 review was rejected with 92 explicit bad sequences across 36 images
       plus additional lighter cuts.
 - [x] Schemas, tests, Ruff, mypy and deterministic checks pass.
@@ -462,3 +462,52 @@ The full v14 report is intentionally `failed`; `5805/5805` is required before
 the production corpus can be declared complete. The next correction is bounded
 to a diagnostic gallery and explicit geometry path for these 14 sequences.
 Existing 373 boards remain immutable evidence but are not training-eligible.
+
+The owner reviewed the first several dozen successful full-preflight cards and
+reported that they look correct. This is positive partial page-level evidence,
+not acceptance of all 373 routed boards.
+
+Failure diagnostics v3 contains the 14 rejected sequences and 22 unique direct
+neighbours. Each regular card compares historical v7 crops, the current
+analysis plane, the rectified result and the fail-closed state. Sequence 33
+uses a dedicated comparison with the raw detector quad because projective
+expansion fails before homography estimation. The gallery contains 36 cards,
+reproduces byte for byte and has report SHA-256
+`2aeb17991e7b7fc207de097db4d893e69a093ccfc759b1ec25eb251c1526f256`.
+It remains review-only and does not authorise training.
+
+The owner chose exact-observation correction for all 14 remaining fallbacks.
+`v14-projective-fallback-review-v1` reuses the perspective editor but selects
+only those immutable source-image/position identities. It starts from each
+board's detector quad, stores decisions separately from the six historical v7
+overrides and requires inspection of all 15 live crop previews before
+acceptance. The prepared queue has `0/14` accepted and sequences `33`, `38`,
+`123`, `163`, `203`, `237`, `254`, `255`, `325`, `333`, `334`, `335`, `346`,
+`379`. One focused test, Ruff format/check and mypy pass. Training remains
+blocked until the queue reaches `14/14` and the accepted quads pass a new full
+preflight.
+
+The owner accepted all 14 exact-observation quads. The first recomputed v15
+namespace reached `387/387`, but its immediate reproducibility check detected
+an immutable card collision on automatically routed sequence `49`; v15 was
+rejected and its generated namespace/report were removed. The correction does
+not rerun stochastic geometry for already accepted boards. V16 verifies and
+reuses the exact immutable v14 bytes for 373 accepted boards, then generates
+only the 14 manually reviewed boards with source-aware fixed padding and
+support fraction `1.0`.
+
+`board-cell-crops-v16-reviewed-v14-merge-v1` now contains 43 images, 387
+boards and 5805 cells with 373 checksum-verified v14 routes, 14 reviewed source
+quads and zero fallbacks. The immediate `--check --require-pass` rerun
+reproduced every artifact and report byte. Report SHA-256 is
+`c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9`.
+Nine focused tests, Ruff and mypy pass. The technical corpus gate is complete;
+`trainingAllowed` remains `false` until the owner accepts the final full-page
+gallery.
+
+The owner authorised continuation with the complete v16 corpus on 2026-07-29.
+The separate owner-acceptance record binds that decision to the exact full
+report SHA-256, `387/387` boards, `5805/5805` cells, 14 reviewed overrides and
+zero fallbacks. TASK-0101 is complete. Downstream training data may use v16
+only through that accepted checksum chain; no old label is migrated
+automatically.

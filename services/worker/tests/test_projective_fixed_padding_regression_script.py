@@ -44,6 +44,28 @@ def test_full_preflight_paths_use_separate_immutable_namespace() -> None:
     assert output.name == "m5-global-bbox-fallback-v14-full-preflight"
     assert report.name == "m5-global-bbox-fallback-v14-full-preflight-report.json"
 
+    diagnostic_output, diagnostic_report = phase_paths(
+        "failures",
+        "v14-bbox",
+        None,
+        None,
+    )
+
+    assert diagnostic_output.name == ("m5-global-bbox-fallback-v14-full-failure-diagnostics-v3")
+    assert diagnostic_report.name == (
+        "m5-global-bbox-fallback-v14-full-failure-diagnostics-v3-report.json"
+    )
+
+    reviewed_output, reviewed_report = phase_paths(
+        "full",
+        "v16-reviewed",
+        None,
+        None,
+    )
+
+    assert reviewed_output.name == "m5-reviewed-manual-merge-v16-full-preflight"
+    assert reviewed_report.name == ("m5-reviewed-manual-merge-v16-full-preflight-report.json")
+
 
 def test_full_artifacts_are_reused_but_never_overwritten(tmp_path: Path) -> None:
     write = cast(

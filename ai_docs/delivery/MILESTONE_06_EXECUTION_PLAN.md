@@ -34,7 +34,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M6.
 
 ### Bieżący status
 
-`corrective_geometry_gate` — rzeczywiste etykietowanie obaliło generalizację
+`reviewed_v16_label_bootstrap` — rzeczywiste etykietowanie obaliło generalizację
 D-061. P95 `1.8337 px` mierzył dopasowanie na 27 anchorach użytych do budowy
 profili, a nie pozostałe plansze. `board-cell-crops-v2-calibrated-v1` jest
 wycofane z treningu.
@@ -49,9 +49,12 @@ nie każdą komórkę da się odzyskać geometrią: poszerzenie może wprowadzi�
 sąsiedni symbol albo kontrolkę interfejsu. Następna bramka klasyfikuje jakość
 per komórka; tylko pełny i izolowany symbol jest training-eligible, a
 clipped/occluded/interface-contaminated trafia do pełnolayoutowego review.
-Właściciel ma 56 zachowanych decyzji związanych ze starym `cropSampleId`. Po
-pełnej akceptacji geometrii TASK-0099 doda top-3 sugestie bez auto-accept, a
-TASK-0097/TASK-0059 zostaną wznowione na nowym inwentarzu.
+Właściciel zaakceptował pełny v16: 387 plansz, 5805 komórek i zero fallbacków.
+TASK-0097 zakończył się reprezentatywną partią 416 etykiet z 24 kompletnych
+plansz, 18 zdjęć i obu source sessions. TASK-0059 wydał niepusty dataset
+`ready`. Zachowanych 56 decyzji v2 nie jest automatycznie migrowanych.
+Następny TASK-0060 tworzy source-aware split i raport jakości; TASK-0099 doda
+top-3 sugestie dopiero po pierwszym modelu i bez auto-accept.
 
 ## Zasady realizacji
 
@@ -79,18 +82,18 @@ TASK-0097/TASK-0059 zostaną wznowione na nowym inwentarzu.
 
 ### Zadania
 
-- `TASK-0059 — Labeled symbol dataset export` — in progress; calibrated v2
-  integration and empty checkpoint report complete, final non-empty export
-  waits for reviewed labels from TASK-0097
+- `TASK-0059 — Labeled symbol dataset export` — done 2026-07-29; accepted v16
+  export contains 416 reviewed samples and 416 content-addressed assets
 - `TASK-0093 — Bootstrap symbol label review tool` — done 2026-07-28;
   technical spike retained, single-crop UX will be replaced
-- `TASK-0097 — Whole-layout assisted symbol labeling` — blocked; software
-  ready, 56 old-crop decisions preserved; waits for TASK-0098/TASK-0099
+- `TASK-0097 — Whole-layout assisted symbol labeling` — done 2026-07-29;
+  24 complete boards across 18 source images and both sessions produced 416
+  explicit accepted decisions; 56 v2 decisions remain preserved as history
 - `TASK-0098 — Local image grid calibration and held-out gate` — superseded in
   production geometry by D-063; its immutable review evidence remains retained
 - `TASK-0100 — Symbol-aware grid refinement spike` — done; owner accepted the
   25-board visual comparison
-- `TASK-0101 — Production symbol-aware crops and geometry gate` — in progress;
+- `TASK-0101 — Production symbol-aware crops and geometry gate` — done;
   deterministic v7, v4 and experimental v5–v8 crops were rejected; a
   pixel-only v1 gate still produced 14 false accepts on the exact v4 feedback,
   and candidate v9 was rejected on sequence 29 because an axis-aligned wide

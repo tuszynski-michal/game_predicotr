@@ -18,6 +18,7 @@ from .rectification import BOARD_HEIGHT, BOARD_WIDTH, CELL_HEIGHT, CELL_WIDTH
 from .symbol_dataset import (
     CALIBRATED_INVENTORY_VERSION,
     LABEL_SOURCE_VERSION,
+    REVIEWED_INVENTORY_VERSION,
     ReviewedLabel,
     ReviewedLabelSource,
     ReviewedSymbol,
@@ -117,10 +118,13 @@ class BootstrapSymbolReview:
             )
         self.inventory_path = inventory_path.resolve(strict=True)
         self.inventory = inventory
-        if require_calibrated and inventory.inventory_version != CALIBRATED_INVENTORY_VERSION:
+        if require_calibrated and inventory.inventory_version not in {
+            CALIBRATED_INVENTORY_VERSION,
+            REVIEWED_INVENTORY_VERSION,
+        }:
             raise SymbolReviewError(
                 "SYMBOL_REVIEW_CALIBRATED_INVENTORY_REQUIRED",
-                "Whole-layout review requires symbol-crop-inventory-v2.",
+                "Whole-layout review requires an accepted versioned inventory.",
             )
         self.crop_root = resolved_crop_root
         self.label_output_path = output
@@ -149,7 +153,7 @@ class BootstrapSymbolReview:
         ):
             raise SymbolReviewError(
                 "SYMBOL_REVIEW_BOARD_GROUP_INVALID",
-                "Calibrated inventory must contain complete 5 x 3 boards.",
+                "Accepted inventory must contain complete 5 x 3 boards.",
             )
         self._lock = threading.RLock()
         self._game_id: str | None = None

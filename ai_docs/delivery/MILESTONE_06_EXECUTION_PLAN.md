@@ -1,7 +1,7 @@
 ---
 title: Milestone 06 execution plan
 status: in_progress
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Plan wykonania Milestone 06 — Symbol classifier and review workflow
@@ -41,9 +41,16 @@ wycofane z treningu.
 
 TASK-0098 zbudował lokalne profile per source image, ale ręczna bramka `25/25`
 ujawniła przecięcia symboli na 18 planszach, w tym na wszystkich 9 held-out.
-TASK-0100 mierzy teraz korektę siatki na podstawie 15 środków symboli.
+TASK-0101 odrzucił produkcyjne v7 po pełnej kontroli właściciela. Kandydat
+`expanded-frame-centered-symbol-mesh-spike-v4` przeszedł techniczny preflight
+dla `385/387` plansz, ale właściciel wskazał dalsze błędy już w pierwszych 30
+sekwencjach i przerwał kosztowny pełny przegląd. Spiki v5–v8 potwierdziły, że
+nie każdą komórkę da się odzyskać geometrią: poszerzenie może wprowadzić
+sąsiedni symbol albo kontrolkę interfejsu. Następna bramka klasyfikuje jakość
+per komórka; tylko pełny i izolowany symbol jest training-eligible, a
+clipped/occluded/interface-contaminated trafia do pełnolayoutowego review.
 Właściciel ma 56 zachowanych decyzji związanych ze starym `cropSampleId`. Po
-przejściu geometrii TASK-0099 doda top-3 sugestie bez auto-accept, a
+pełnej akceptacji geometrii TASK-0099 doda top-3 sugestie bez auto-accept, a
 TASK-0097/TASK-0059 zostaną wznowione na nowym inwentarzu.
 
 ## Zasady realizacji
@@ -84,7 +91,35 @@ TASK-0097/TASK-0059 zostaną wznowione na nowym inwentarzu.
 - `TASK-0100 — Symbol-aware grid refinement spike` — done; owner accepted the
   25-board visual comparison
 - `TASK-0101 — Production symbol-aware crops and geometry gate` — in progress;
-  381/387 boards pass strict refinement and six exact observations await review
+  deterministic v7, v4 and experimental v5–v8 crops were rejected; a
+  pixel-only v1 gate still produced 14 false accepts on the exact v4 feedback,
+  and candidate v9 was rejected on sequence 29 because an axis-aligned wide
+  frame discarded detector perspective. The accepted corrective sequence is:
+  perspective-preserving detector-quad expansion, guarded 5 × 3 symbol-lattice
+  homography, then a fixed-padding regression gate on selected failures and
+  controls before any full-corpus run. Step 1 passes the sequence-29
+  regression under immutable v11. Step 2 is implemented as
+  `symbol-lattice-homography-ransac-v1`: sequence 29 has `14/15` reliable
+  candidates, 13 inliers spanning 3 × 5 and P95 `7.6869 px`. It derives
+  virtual corners from all inliers. Step 3 rectifies with a fixed `10 px`
+  canonical inset and proves source-pixel support. Sequence 29 passed first,
+  but the bounded gate passed only `13/20`: `7`, `30`, `3`, `11`, `16`, `17`,
+  `28` stopped fail-closed, while visual inspection still rejects routed
+  sequences `4` and `26`. The gate is rejected. The next correction replaces
+  slot-local centre proposals with global candidates and explicit robust
+  assignment to 5 × 3. V13 implements that assignment and composes the final
+  warp back to the normalized source rather than treating the 500 × 300
+  analysis plane as a pixel boundary. The required regression now passes
+  `18/20`; `29` and all reported `4`, `6`, `7`, `26`, `30` pass with support
+  `1.0`, while controls `3` and `11` remain fail-closed. V14 adds one bounded
+  `boundingBox` analysis retry only for three global-locator failures; it does
+  not use the rectangle as final cell geometry and keeps all homography and
+  real-source support guards. The bounded gate now passes technically `20/20`,
+  only `3` and `11` use the retry, and the other 18 cards are unchanged from
+  v13. The owner accepted that gallery on 2026-07-29. The subsequent full
+  preflight processed `387/387`, produced supported cells for `373` boards and
+  failed closed on 14 sequences. Those 14 cases require a bounded correction
+  before the required `5805/5805` production corpus and page-level review
 - `TASK-0099 — Safe bootstrap symbol suggestions` — todo after TASK-0098
 - `TASK-0060 — Dataset split, manifest and quality validation`
 

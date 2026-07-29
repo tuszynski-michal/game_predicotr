@@ -1,0 +1,160 @@
+{
+  "artifact": {
+    "relativePath": "artifacts/m5-symbol-lattice-homography-v12-step2/seq-029.png",
+    "sha256": "4e4d1f56f13e24458bca6e86c4a05810d30e39c242bc2543c8b196acc76585d4"
+  },
+  "detectorBoundingBox": {
+    "height": 145,
+    "width": 267,
+    "x": 390,
+    "y": 310
+  },
+  "detectorQuad": [
+    {
+      "x": 402,
+      "y": 336
+    },
+    {
+      "x": 652,
+      "y": 328
+    },
+    {
+      "x": 645,
+      "y": 448
+    },
+    {
+      "x": 410,
+      "y": 430
+    }
+  ],
+  "fullCorpusGenerated": false,
+  "homography": {
+    "allCenterP95ResidualPx": 14.0563,
+    "columnCoverage": 5,
+    "fallbackReason": null,
+    "homographyVersion": "symbol-lattice-homography-ransac-v1",
+    "idealToObservedMatrix": [
+      [
+        1.1004410756,
+        0.1060224446,
+        1.512660992
+      ],
+      [
+        0.0434774552,
+        1.1021461075,
+        4.1742905342
+      ],
+      [
+        0.0003157643,
+        0.0002707437,
+        1.0
+      ]
+    ],
+    "inlierCount": 13,
+    "inlierMedianResidualPx": 4.6077,
+    "inlierP95ResidualPx": 7.6869,
+    "inlierSlots": [
+      {
+        "columnIndex": 1,
+        "rowIndex": 0
+      },
+      {
+        "columnIndex": 3,
+        "rowIndex": 0
+      },
+      {
+        "columnIndex": 4,
+        "rowIndex": 0
+      },
+      {
+        "columnIndex": 0,
+        "rowIndex": 1
+      },
+      {
+        "columnIndex": 1,
+        "rowIndex": 1
+      },
+      {
+        "columnIndex": 2,
+        "rowIndex": 1
+      },
+      {
+        "columnIndex": 3,
+        "rowIndex": 1
+      },
+      {
+        "columnIndex": 4,
+        "rowIndex": 1
+      },
+      {
+        "columnIndex": 0,
+        "rowIndex": 2
+      },
+      {
+        "columnIndex": 1,
+        "rowIndex": 2
+      },
+      {
+        "columnIndex": 2,
+        "rowIndex": 2
+      },
+      {
+        "columnIndex": 3,
+        "rowIndex": 2
+      },
+      {
+        "columnIndex": 4,
+        "rowIndex": 2
+      }
+    ],
+    "reliableCenterCount": 14,
+    "rowCoverage": 3,
+    "status": "fitted",
+    "virtualGridQuad": [
+      {
+        "x": 1.5127,
+        "y": 4.1743
+      },
+      {
+        "x": 476.502,
+        "y": 22.3797
+      },
+      {
+        "x": 470.9365,
+        "y": 287.7535
+      },
+      {
+        "x": 30.8164,
+        "y": 309.6661
+      }
+    ]
+  },
+  "numpyVersion": "2.4.6",
+  "opencvVersion": "4.13.0",
+  "productionCellsGenerated": false,
+  "projectiveExpandedQuad": [
+    {
+      "x": 386,
+      "y": 329
+    },
+    {
+      "x": 679,
+      "y": 317
+    },
+    {
+      "x": 669,
+      "y": 459
+    },
+    {
+      "x": 396,
+      "y": 436
+    }
+  ],
+  "projectiveFrameProfileVersion": "expanded-detector-projective-quad-v1",
+  "schemaVersion": "m5-symbol-lattice-homography-step2-report-v1",
+  "sequenceNumber": 29,
+  "sourceImageRelativePath": "5983122166590934320.jpg",
+  "sourceImageSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+  "status": "passed",
+  "trainingAllowed": false
+}

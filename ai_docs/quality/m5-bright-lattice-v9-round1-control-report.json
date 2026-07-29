@@ -1,0 +1,3323 @@
+{
+  "entries": [
+    {
+      "cardChecksumSha256": "dd4385d365f40f0f3f372956805d829b6a311451e1a4ac4b6641d6f91f53bbaa",
+      "cardRelativePath": "cards/seq-001.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.587471,
+          "centerOffsetRatio": 0.1752,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.274938,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.617462,
+          "centerOffsetRatio": 0.078366,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.055432,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.227284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.694548,
+          "centerOffsetRatio": 0.085043,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.115062,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.202346,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.372549,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.616458,
+          "centerOffsetRatio": 0.101368,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.085556,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.23358,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.366647,
+          "centerOffsetRatio": 0.051897,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.322099,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.635864,
+          "centerOffsetRatio": 0.181934,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.041852,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.275926,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.730444,
+          "centerOffsetRatio": 0.061071,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.290864,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.691382,
+          "centerOffsetRatio": 0.102619,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.315926,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.652738,
+          "centerOffsetRatio": 0.078899,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.315802,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.656821,
+          "centerOffsetRatio": 0.064221,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.322346,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.621503,
+          "centerOffsetRatio": 0.080629,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.014321,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.301235,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.748746,
+          "centerOffsetRatio": 0.077851,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.282963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.712949,
+          "centerOffsetRatio": 0.02742,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321852,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.64109,
+          "centerOffsetRatio": 0.055631,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.320247,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.631834,
+          "centerOffsetRatio": 0.050868,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.324198,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 1,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "8505a9ed01a61172d87ac76a58969f4b25ddbeda3460eca616fe24e66cda75e4",
+      "cardRelativePath": "cards/seq-002.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.55374,
+          "centerOffsetRatio": 0.079511,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321852,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.518158,
+          "centerOffsetRatio": 0.099537,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.072716,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.145926,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.684943,
+          "centerOffsetRatio": 0.098126,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.010864,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.313951,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.401961,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.414587,
+          "centerOffsetRatio": 0.14379,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.109753,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.215432,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.076923,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.706809,
+          "centerOffsetRatio": 0.160495,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.285802,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.422462,
+          "centerOffsetRatio": 0.093048,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.319753,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.644869,
+          "centerOffsetRatio": 0.082467,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.219877,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.734641,
+          "centerOffsetRatio": 0.152034,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.003086,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.306296,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.076923,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.627451,
+          "centerOffsetRatio": 0.155673,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.024321,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.30037,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.707681,
+          "centerOffsetRatio": 0.179521,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.036049,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.28679,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.430406,
+          "centerOffsetRatio": 0.02682,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.309877,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.751838,
+          "centerOffsetRatio": 0.031656,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.006049,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.225062,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.80556,
+          "centerOffsetRatio": 0.046761,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.319753,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.057692,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.751561,
+          "centerOffsetRatio": 0.040512,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.039383,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.255309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.260391,
+          "centerOffsetRatio": 0.070714,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.025185,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.299506,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 14,
+      "sequenceNumber": 2,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "f601e738d706765a752fbd7b4d08ff8938a2a31c7b33219e6ba1e649df99307d",
+      "cardRelativePath": "cards/seq-003.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.211163,
+          "centerOffsetRatio": 0.125752,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.319753,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.516039,
+          "centerOffsetRatio": 0.184576,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.008765,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.258395,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.140523,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.579108,
+          "centerOffsetRatio": 0.182408,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.01642,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.297284,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.532051,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.636412,
+          "centerOffsetRatio": 0.230092,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.252099,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.004444,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.068627,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.59287,
+          "centerOffsetRatio": 0.131957,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.021111,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.297037,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.624183,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.30274,
+          "centerOffsetRatio": 0.041099,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321975,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.782684,
+          "centerOffsetRatio": 0.083388,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.011975,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.262099,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.654936,
+          "centerOffsetRatio": 0.134885,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.072222,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.21358,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.720919,
+          "centerOffsetRatio": 0.146134,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.034938,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.286543,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.69981,
+          "centerOffsetRatio": 0.238225,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.171235,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.154074,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_EXTRA_FOREGROUND"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "interface_contaminated",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.544429,
+          "centerOffsetRatio": 0.138055,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.245802,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.587103,
+          "centerOffsetRatio": 0.086373,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.238642,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.620946,
+          "centerOffsetRatio": 0.044702,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.010864,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.21642,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.792801,
+          "centerOffsetRatio": 0.034165,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.32358,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.720558,
+          "centerOffsetRatio": 0.099213,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.052346,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.269136,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 13,
+      "sequenceNumber": 3,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "ca330a13abc17902036c0f38a6fc54c63a5ac06dfa5d65b8b3f4263b76e8fbb4",
+      "cardRelativePath": "cards/seq-005.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.561637,
+          "centerOffsetRatio": 0.105375,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.323951,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.557018,
+          "centerOffsetRatio": 0.109756,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.319506,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.565131,
+          "centerOffsetRatio": 0.052007,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.14679,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.186543,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.235294,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.677518,
+          "centerOffsetRatio": 0.101528,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.271605,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.04,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.441176,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.487032,
+          "centerOffsetRatio": 0.113387,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.030988,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.310988,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.068627,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.599393,
+          "centerOffsetRatio": 0.174415,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.009012,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.318765,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.597043,
+          "centerOffsetRatio": 0.113644,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.003827,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.315432,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.682461,
+          "centerOffsetRatio": 0.111319,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.322963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.671775,
+          "centerOffsetRatio": 0.103265,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.324321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.687838,
+          "centerOffsetRatio": 0.147191,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.011728,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.325062,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.067308,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.64855,
+          "centerOffsetRatio": 0.065172,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.330864,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.778677,
+          "centerOffsetRatio": 0.033542,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.329136,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.761654,
+          "centerOffsetRatio": 0.019112,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.006173,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.287778,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.127451,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.720082,
+          "centerOffsetRatio": 0.01671,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321235,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.455314,
+          "centerOffsetRatio": 0.062106,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.318395,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 5,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "7d323648e67c8a3e67a7a245b19501ec4b98cd5832034812eb3210537f6b789d",
+      "cardRelativePath": "cards/seq-011.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.612003,
+          "centerOffsetRatio": 0.154214,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.241728,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.502871,
+          "centerOffsetRatio": 0.064221,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.097407,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.228889,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.019231,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.564578,
+          "centerOffsetRatio": 0.291998,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.110494,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.153457,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.696078,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.551823,
+          "centerOffsetRatio": 0.140585,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.317407,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.005556,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.176471,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.522966,
+          "centerOffsetRatio": 0.206672,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.247037,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.620523,
+          "centerOffsetRatio": 0.110564,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.014691,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.266049,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.713499,
+          "centerOffsetRatio": 0.112968,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.010494,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.259383,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.089744,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.705357,
+          "centerOffsetRatio": 0.121009,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.294815,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.590378,
+          "centerOffsetRatio": 0.184365,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.05358,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.274938,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.750118,
+          "centerOffsetRatio": 0.226883,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.081481,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.245926,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.606576,
+          "centerOffsetRatio": 0.036321,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.232593,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.706405,
+          "centerOffsetRatio": 0.053407,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.243333,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.801058,
+          "centerOffsetRatio": 0.034936,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.014568,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.255309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.817284,
+          "centerOffsetRatio": 0.032063,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.235926,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.542912,
+          "centerOffsetRatio": 0.054927,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.026914,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.275432,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 11,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "b1e1912794cd47a8e6f5a5426d770c9217b2f8c0a020e537064bdb243272c440",
+      "cardRelativePath": "cards/seq-013.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.575445,
+          "centerOffsetRatio": 0.137408,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321235,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.71459,
+          "centerOffsetRatio": 0.169835,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.223951,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.607916,
+          "centerOffsetRatio": 0.092113,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.055926,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.258272,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.563478,
+          "centerOffsetRatio": 0.067589,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.316543,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.382359,
+          "centerOffsetRatio": 0.087441,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.317778,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.544757,
+          "centerOffsetRatio": 0.137389,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.04642,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.275679,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.618984,
+          "centerOffsetRatio": 0.192393,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.033827,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.253333,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.659912,
+          "centerOffsetRatio": 0.103465,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.318025,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.622711,
+          "centerOffsetRatio": 0.081889,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.320123,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.615201,
+          "centerOffsetRatio": 0.156973,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.323827,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.205882,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.652519,
+          "centerOffsetRatio": 0.053819,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.04284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.279136,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.160131,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.769942,
+          "centerOffsetRatio": 0.07527,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.004938,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.289877,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.728552,
+          "centerOffsetRatio": 0.056391,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.31963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.66751,
+          "centerOffsetRatio": 0.043474,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.320247,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.52877,
+          "centerOffsetRatio": 0.089285,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.326543,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.156863,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 13,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "ab6c1908eb6ac06f717d8ab0a4088fbc2afb2f3ebd6b24a32d8dca683878e8cc",
+      "cardRelativePath": "cards/seq-014.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.580222,
+          "centerOffsetRatio": 0.150688,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.331481,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.067308,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.575831,
+          "centerOffsetRatio": 0.142096,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.010864,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.345926,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.54902,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.591393,
+          "centerOffsetRatio": 0.103457,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.068148,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.25679,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.205882,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.652582,
+          "centerOffsetRatio": 0.174708,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.010247,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.309753,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.598318,
+          "centerOffsetRatio": 0.169998,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.006296,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.311852,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.57022,
+          "centerOffsetRatio": 0.144412,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.019877,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.310123,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.63258,
+          "centerOffsetRatio": 0.180475,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.040247,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.293704,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.689584,
+          "centerOffsetRatio": 0.107029,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.004198,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.313333,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.563536,
+          "centerOffsetRatio": 0.110927,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.028642,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.290494,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.125,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.560681,
+          "centerOffsetRatio": 0.162978,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.028519,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.286543,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.557719,
+          "centerOffsetRatio": 0.040396,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.003086,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.32284,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.695499,
+          "centerOffsetRatio": 0.066916,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.015556,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.31358,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.795039,
+          "centerOffsetRatio": 0.025238,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.31284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.704185,
+          "centerOffsetRatio": 0.021761,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.319877,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.174885,
+          "centerOffsetRatio": 0.041093,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.005926,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.305926,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 14,
+      "sequenceNumber": 14,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "efa822f5a9fe4da98e296adae5c73ab037598ee22aceb35abe3b7502b73cd4ee",
+      "cardRelativePath": "cards/seq-016.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.567958,
+          "centerOffsetRatio": 0.082329,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.329136,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.508279,
+          "centerOffsetRatio": 0.167371,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.336173,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.542294,
+          "centerOffsetRatio": 0.127811,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.24284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.062963,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.333333,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.590567,
+          "centerOffsetRatio": 0.137126,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.010494,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.32037,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.605472,
+          "centerOffsetRatio": 0.141647,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.326296,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.182692,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.636984,
+          "centerOffsetRatio": 0.157158,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321111,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.485744,
+          "centerOffsetRatio": 0.113937,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.004074,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.312963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.613504,
+          "centerOffsetRatio": 0.147992,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.333086,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.678197,
+          "centerOffsetRatio": 0.049801,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.008642,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.326173,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.508584,
+          "centerOffsetRatio": 0.136447,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.00358,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.317284,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.156863,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.653254,
+          "centerOffsetRatio": 0.084353,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.320494,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.029412,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.616291,
+          "centerOffsetRatio": 0.109781,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.330617,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.107843,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.738775,
+          "centerOffsetRatio": 0.134067,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.327037,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.127451,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.668945,
+          "centerOffsetRatio": 0.063182,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.034444,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.298765,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.600626,
+          "centerOffsetRatio": 0.076893,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.322346,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 16,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "c33f0b88a195c8621a9163ff9feb006fba10fa503b5f6ce4e9135940f60a3bf4",
+      "cardRelativePath": "cards/seq-017.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.614544,
+          "centerOffsetRatio": 0.122998,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.002963,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.325062,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.343137,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.603267,
+          "centerOffsetRatio": 0.243322,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.082222,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.202222,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.303922,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.50465,
+          "centerOffsetRatio": 0.141911,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.07679,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.24321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.539552,
+          "centerOffsetRatio": 0.119626,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.359259,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.196078,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.581026,
+          "centerOffsetRatio": 0.122903,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.313704,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.604014,
+          "centerOffsetRatio": 0.179904,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.01037,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.289506,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.613208,
+          "centerOffsetRatio": 0.107217,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.017531,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.268642,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.655901,
+          "centerOffsetRatio": 0.099868,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.051358,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.288765,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.626187,
+          "centerOffsetRatio": 0.106005,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.009012,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.30321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.028846,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.14152,
+          "centerOffsetRatio": 0.131461,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.00716,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.315309,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.614608,
+          "centerOffsetRatio": 0.090411,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.305556,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.663554,
+          "centerOffsetRatio": 0.014489,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.003704,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.26679,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.091503,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.732954,
+          "centerOffsetRatio": 0.038771,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.032469,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.172469,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.114379,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.703179,
+          "centerOffsetRatio": 0.012827,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.05284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.272099,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.388889,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.634709,
+          "centerOffsetRatio": 0.042642,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.033457,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.275679,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.04902,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 14,
+      "sequenceNumber": 17,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "0c15986f24d828aa99f0b063a0bc7d0a39c0a2e3a7a5d48f0509e7c51377a3f3",
+      "cardRelativePath": "cards/seq-019.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.641659,
+          "centerOffsetRatio": 0.161751,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.212716,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.003827,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.614589,
+          "centerOffsetRatio": 0.218145,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.193333,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.708999,
+          "centerOffsetRatio": 0.198399,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.327901,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.352941,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.466702,
+          "centerOffsetRatio": 0.165772,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.269012,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.006049,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.589761,
+          "centerOffsetRatio": 0.166249,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.321235,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.682269,
+          "centerOffsetRatio": 0.207532,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.08963,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.229383,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.764285,
+          "centerOffsetRatio": 0.170392,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.02358,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.261481,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.622048,
+          "centerOffsetRatio": 0.121539,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.014198,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.305062,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.472946,
+          "centerOffsetRatio": 0.115222,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.00716,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.314691,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.167253,
+          "centerOffsetRatio": 0.102029,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.317901,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.680113,
+          "centerOffsetRatio": 0.089899,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.028148,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.277778,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.04902,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.785728,
+          "centerOffsetRatio": 0.022076,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.274815,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.695645,
+          "centerOffsetRatio": 0.042693,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.302963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.696809,
+          "centerOffsetRatio": 0.039182,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.272469,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.214059,
+          "centerOffsetRatio": 0.028771,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.315679,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 13,
+      "sequenceNumber": 19,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "85ef5ea2dc034dfba552febcce4cb0c571007cc227fcf13500d5c4af77472146",
+      "cardRelativePath": "cards/seq-020.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.620722,
+          "centerOffsetRatio": 0.13608,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.291728,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.374244,
+          "centerOffsetRatio": 0.153714,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.073704,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.244321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.062092,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.626423,
+          "centerOffsetRatio": 0.062513,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.299259,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.003457,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.455128,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.578471,
+          "centerOffsetRatio": 0.266876,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.217284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.110494,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.137255,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.555146,
+          "centerOffsetRatio": 0.220164,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.230494,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.726725,
+          "centerOffsetRatio": 0.166823,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.031111,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.292593,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.608382,
+          "centerOffsetRatio": 0.091327,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.022716,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.299012,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.749031,
+          "centerOffsetRatio": 0.107195,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.024691,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.273827,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.680089,
+          "centerOffsetRatio": 0.202038,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.079753,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.248148,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.710362,
+          "centerOffsetRatio": 0.182647,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.094074,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.227407,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.591457,
+          "centerOffsetRatio": 0.026771,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.273086,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.714352,
+          "centerOffsetRatio": 0.073577,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.008889,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.194444,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.757985,
+          "centerOffsetRatio": 0.076419,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.032346,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.238395,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.66884,
+          "centerOffsetRatio": 0.02882,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.005062,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.246296,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.551737,
+          "centerOffsetRatio": 0.028508,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.007284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.308025,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 20,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "6af99e834b51bc2b97f95633b551977d00c4af9c225e89efd1423fc71cb58720",
+      "cardRelativePath": "cards/seq-023.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.593786,
+          "centerOffsetRatio": 0.198506,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.016049,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.259753,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.622641,
+          "centerOffsetRatio": 0.149095,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.275432,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.003827,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.294118,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.648043,
+          "centerOffsetRatio": 0.140735,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.346667,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.029412,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.702292,
+          "centerOffsetRatio": 0.146613,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.26963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.585052,
+          "centerOffsetRatio": 0.169478,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.086296,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.253333,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.55324,
+          "centerOffsetRatio": 0.150568,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.32,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.595984,
+          "centerOffsetRatio": 0.13503,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.03037,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.315309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.722866,
+          "centerOffsetRatio": 0.118927,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.038272,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.260123,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.088235,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.672982,
+          "centerOffsetRatio": 0.118262,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.027531,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.270864,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.580168,
+          "centerOffsetRatio": 0.159113,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.038025,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.286173,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.593559,
+          "centerOffsetRatio": 0.01823,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.322346,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.73444,
+          "centerOffsetRatio": 0.07758,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.277654,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.788254,
+          "centerOffsetRatio": 0.037372,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.240494,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.756664,
+          "centerOffsetRatio": 0.035617,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.260988,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.331352,
+          "centerOffsetRatio": 0.012316,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.327037,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 14,
+      "sequenceNumber": 23,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "70b3c0a5501a04b05f265db81625a5fb008af31800d84f67dbe38a7e02bd71a8",
+      "cardRelativePath": "cards/seq-025.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.582197,
+          "centerOffsetRatio": 0.186474,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.281975,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.648175,
+          "centerOffsetRatio": 0.226707,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.227407,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.581614,
+          "centerOffsetRatio": 0.161654,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.01284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.300741,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.534314,
+          "centerOffsetRatio": 0.181489,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.318519,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.633581,
+          "centerOffsetRatio": 0.178336,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.334938,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.608033,
+          "centerOffsetRatio": 0.1834,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.049506,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.275309,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.594429,
+          "centerOffsetRatio": 0.211097,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.094198,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.224691,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.665056,
+          "centerOffsetRatio": 0.102628,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.007778,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.312346,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.700317,
+          "centerOffsetRatio": 0.131701,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.026543,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.296049,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.503975,
+          "centerOffsetRatio": 0.119504,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.024198,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.329753,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.645694,
+          "centerOffsetRatio": 0.120036,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.320617,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.313725,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.704904,
+          "centerOffsetRatio": 0.111418,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.03,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.270988,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.333333,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.744803,
+          "centerOffsetRatio": 0.080551,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.320123,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.658978,
+          "centerOffsetRatio": 0.036841,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.05716,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.270247,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.64189,
+          "centerOffsetRatio": 0.049555,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.324568,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 15,
+      "sequenceNumber": 25,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "f51b6ee07b85b6122095ece1ee4442face089d340163be0ccc7b354dc3099956",
+      "cardRelativePath": "cards/seq-028.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.572175,
+          "centerOffsetRatio": 0.276397,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.014815,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.176296,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.150327,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.603391,
+          "centerOffsetRatio": 0.265417,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.19716,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.04902,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.661049,
+          "centerOffsetRatio": 0.232263,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.323333,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.186275,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.537967,
+          "centerOffsetRatio": 0.178583,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.057778,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.256667,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.640972,
+          "centerOffsetRatio": 0.151898,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.325432,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.107843,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.667078,
+          "centerOffsetRatio": 0.20957,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.054938,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.222963,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.713092,
+          "centerOffsetRatio": 0.144773,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.031481,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.277037,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.544226,
+          "centerOffsetRatio": 0.100944,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.014321,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.306049,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.769548,
+          "centerOffsetRatio": 0.098003,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.01284,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.306914,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.66739,
+          "centerOffsetRatio": 0.077872,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.319383,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.637821,
+          "centerOffsetRatio": 0.059771,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.277901,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_COLUMN_BOOTSTRAP_QUARANTINE"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.801112,
+          "centerOffsetRatio": 0.020608,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.304198,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.637988,
+          "centerOffsetRatio": 0.09275,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.002963,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.308272,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.098039,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.634159,
+          "centerOffsetRatio": 0.069909,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.323827,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.267363,
+          "centerOffsetRatio": 0.078535,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+          "primaryAreaFraction": 0.281235,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        }
+      ],
+      "columnCenterSource": "bright-component-lattice",
+      "reliableCenterCount": 14,
+      "sequenceNumber": 28,
+      "status": "meshed"
+    }
+  ],
+  "fallbackCount": 0,
+  "meshVersion": "expanded-wide-frame-bright-lattice-symbol-mesh-spike-v9",
+  "meshedCount": 14,
+  "qualityCounts": {
+    "clipped": 30,
+    "eligible": 99,
+    "interface_contaminated": 1,
+    "occluded": 6,
+    "uncertain": 74
+  },
+  "qualityGateVersion": "cell-crop-quality-gate-v2-inner-columns-bootstrap",
+  "quarantinedCellCount": 111,
+  "schemaVersion": 1,
+  "scope": "rejected_v7_sequences",
+  "status": "waiting_for_owner_review",
+  "trainingEligibleCellCount": 99
+}

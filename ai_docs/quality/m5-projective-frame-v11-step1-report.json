@@ -1,0 +1,27 @@
+{
+  "candidateVersion": "board-cell-crops-v11-projective-frame-preflight-v1",
+  "cardChecksumSha256": "e7ce5f70f86fc159d65c38df4f833e60741a87997e946bf9c81d5cfbfd72d2b1",
+  "cardRelativePath": "m5-projective-frame-v11-step1/seq-029.png",
+  "detectorQuad": [
+    {"x": 402, "y": 336},
+    {"x": 652, "y": 328},
+    {"x": 645, "y": 448},
+    {"x": 410, "y": 430}
+  ],
+  "fullCorpusAllowed": false,
+  "perspectivePreserved": true,
+  "profileVersion": "expanded-detector-projective-quad-v1",
+  "projectiveExpandedQuad": [
+    {"x": 386, "y": 329},
+    {"x": 679, "y": 317},
+    {"x": 669, "y": 459},
+    {"x": 396, "y": 436}
+  ],
+  "schemaVersion": 1,
+  "scope": {
+    "sequenceNumbers": [29],
+    "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df"
+  },
+  "status": "step1_passed_geometry_expansion_only",
+  "trainingAllowed": false
+}

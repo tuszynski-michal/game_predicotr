@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Current State
@@ -849,12 +849,173 @@ last_updated: 2026-07-28
   inne pozycje tej samej strony został odrzucony po kontroli wizualnej,
 - ścisły wariant detector-per-board wyznaczył `381/387` plansz, a dokładnie
   sześć sekwencji `11`, `33`, `123`, `172`, `266`, `337` skierował do
-  fail-closed review; pozostałe 37 stron ma przygotowaną galerię kontrolną.
+  fail-closed review; właściciel poprawił i zaakceptował wszystkie sześć,
+- finalny namespace
+  `board-cell-crops-v7-reviewed-symbol-aware-affine-v1` zawiera 43/43 strony,
+  387 plansz i 5805 komórek: 381 wyników automatycznych, 6 jawnych ręcznych
+  override i 0 stron `needs_review`; raport ma SHA-256
+  `0950ac493af010d198cace691f78f3aa454100acaff246845a2fca2c5f8d0a55`,
+- deterministyczny rerun odtworzył ten sam raport; schema, Ruff, mypy i 28
+  właściwych testów workera przeszły, ale właściciel odrzucił końcową galerię:
+  wskazał 92 unikalne złe sekwencje na 36 obrazach i dodatkowe lżejsze
+  przecięcia; v7 pozostaje w kwarantannie z `trainingAllowed = false`,
+- sekwencja 316 potwierdziła błąd założenia: pełny detector `boundingBox`
+  zawiera symbole, lecz quad z ekstremów czerwonej maski zwęża planszę, a
+  per-slot refiner dopasowuje już ucięte fragmenty. Kolejna korekta ma użyć
+  pełnej lokalnej ramki oraz siatki lokalnych środków/per-cell crops, nie
+  następnej wspólnej transformacji afinicznej,
+- spike `local-symbol-mesh-spike-v1` zbudował lokalne, lekko nakładające się
+  komórki dla 92 jawnie odrzuconych sekwencji, ale właściciel zgłosił dalsze
+  słabe przypadki i nie zaakceptował tego wariantu,
+- diagnostyczne szerokie wycinki z rozszerzonej ramki zachowały symbole, lecz
+  wpuszczały fragmenty sąsiednich komórek, dlatego nie mogą zasilać treningu,
+- `expanded-frame-centered-symbol-mesh-spike-v4` używa rozszerzonej lokalnej
+  ramki, stałego kontekstu wokół środka i wyznacza pierwszy rząd z dwóch
+  stabilniejszych dolnych rzędów,
+- preflight odrzuconych przypadków przeszedł automatycznie dla `91/92`, a
+  pełny preflight dla `385/387`; sekwencje `192` i `235` zatrzymały się
+  fail-closed z powodu niewiarygodnej skrajnej kolumny,
+- raport pełnego preflightu ma SHA-256
+  `6d91b5bec672794c89929d3fb9509ce395c4eb9e88adb3b91dd623d101edc8be`;
+  drugi przebieg odtworzył identyczny raport, 17 testów, Ruff, mypy i diff
+  check przechodzą; inżynierski przegląd próbek jest pozytywny, lecz pełna
+  bramka właściciela nadal czeka i `trainingAllowed = false`,
+- właściciel przerwał dalszy przegląd v4 po sekwencji 30 i wskazał 16 błędnych
+  layoutów: `4`, `6`, `7`, `8`, `9`, `10`, `12`, `15`, `18`, `21`, `22`,
+  `24`, `26`, `27`, `29`, `30`; lista komórek jest zapisana w
+  `m5-v4-owner-visual-feedback-round1.json`,
+- follow-up v5–v8 potwierdził, że samo poszerzanie cropu wymienia ucięcie na
+  wyciek sąsiedniego symbolu albo elementu interfejsu; w sekwencji 4 strzałka
+  nawigacyjna styka się z symbolem skrajnej kolumny,
+- wycinek zawierający około 30% symbolu nie jest dopuszczalny do treningu ani
+  auto-accept; potrzebna jest bramka jakości per komórka i kwarantanna
+  clipped/occluded/interface-contaminated zamiast dalszego ręcznego oglądania
+  wszystkich 5805 cropów.
 
 ## In progress
 
-- aktywny TASK-0101 czeka na korektę i akceptację sześciu odrzuconych plansz,
-  regenerację kompletnego namespace 43/387/5805 oraz końcową bramkę stron,
+- aktywny TASK-0101 ma odrzucone v4 oraz eksperymentalne v5–v8; następnym
+  pionem jest automatyczna jakość per komórka, która dopuści wyłącznie pełne
+  symbole i ograniczy ręczne review do kwarantanny,
+- kalibracja pierwszej bramki pikselowej na dokładnych cropach v4 wykryła
+  `41/55` jawnie wskazanych błędnych komórek, ale przepuściła 14; dodatkowo
+  odrzuciła `82/185` komórek niewskazanych w tych samych layoutach, dlatego
+  sama regulacja progów nie jest bezpiecznym rozwiązaniem produkcyjnym,
+- kandydat `expanded-wide-frame-bright-lattice-symbol-mesh-spike-v9`
+  wyznacza pięć kolumn wspólnie z kompaktowych jasnych komponentów całej
+  planszy zamiast ufać pięciu niezależnym slotom; bez fallbacku przetworzył
+  16 problematycznych i 14 kontrolnych layoutów round 1,
+- bootstrapowa bramka
+  `cell-crop-quality-gate-v2-inner-columns-bootstrap` zawsze kwarantannuje
+  kolumny skrajne z powodu sąsiednich kontrolek interfejsu, a niezależną
+  analizę pikselową stosuje do kolumn 2–4; w dwóch małych zestawach dopuściła
+  odpowiednio `108/240` i `99/210` komórek,
+- właściciel odrzucił v9 na sekwencji 29: detektor zachował nachylony quad,
+  lecz v10 zamieniło go na osiowy rozszerzony bounding box, a mesh syntetycznie
+  wyliczył pierwszy rząd; problem jest strukturalny i nie będzie naprawiany
+  dalszym strojeniem progów,
+- zaakceptowany plan korekty ma trzy kroki: projektowe rozszerzenie quadu
+  detektora, homografię RANSAC dopasowaną do globalnej siatki 15 symboli oraz
+  fixed-padding gate na `29`, `4`, `6`, `7`, `26`, `30` i kontrolach,
+- krok 1 jest zaimplementowany jako
+  `expanded-detector-projective-quad-v1` /
+  `board-cell-crops-v11-projective-frame-preflight-v1`; sekwencja 29 zachowuje
+  nachylenie i rozszerza quad detektora z
+  `[(402,336),(652,328),(645,448),(410,430)]` do
+  `[(386,329),(679,317),(669,459),(396,436)]`,
+- diagnostyka kroku 1 ma SHA-256
+  `e7ce5f70f86fc159d65c38df4f833e60741a87997e946bf9c81d5cfbfd72d2b1`;
+  10 testów, Ruff, mypy i diff check przechodzą, a widoczna na niej
+  prowizoryczna siatka logiczna została zastąpiona w kroku 2,
+- krok 2 jest zaimplementowany jako niezależny
+  `symbol-lattice-homography-ransac-v1`; dopasowuje jedną projektową
+  homografię do całego zbioru wiarygodnych środków, wymaga co najmniej
+  10 kandydatów, 9 inlierów, pokrycia 3 × 5, P95 najwyżej `10 px` oraz
+  wypukłej, ograniczonej i prawdopodobnie rozstawionej wirtualnej siatki,
+- sekwencja 29 ma `14/15` wiarygodnych kandydatów i 13 inlierów obejmujących
+  wszystkie rzędy i kolumny; P95 wynosi `7.6869 px`, a błędny środek pierwszego
+  rzędu nie steruje czterema wirtualnymi narożnikami,
+- deterministyczna diagnostyka kroku 2 ma SHA-256
+  `4e4d1f56f13e24458bca6e86c4a05810d30e39c242bc2543c8b196acc76585d4`;
+  jej raport odtwarza się byte-for-byte, 4 nowe testy pokrywają realną regresję,
+  uszkodzone narożniki oraz fail-closed coverage i granice,
+- krok 2 nie prostuje ani nie publikuje komórek; dolny lewy wirtualny narożnik
+  sekwencji 29 wykracza o około `10.7 px` poza diagnostyczną ramkę, dlatego
+  krok 3 musiał dowieść, że stały padding korzysta wyłącznie z dostępnych pikseli,
+- krok 3 powstał jako nieprodukcyjny
+  `board-cell-crops-v12-projective-lattice-fixed-padding-preflight-v1`;
+  rectyfikuje przez homografię, stosuje stały inset `10 px` w kanonicznej
+  komórce i wymaga support fraction `1.0` bez replikacji obramowania,
+- sekwencja 29 została uruchomiona osobno jako pierwsza i przeszła dla 15/15
+  komórek; raport ma SHA-256
+  `3593ffabd587db86c58a251f3bbf0567a6149a86c746f22ac04e82a3c173a579`,
+- dopiero potem uruchomiono `4`, `6`, `7`, `26`, `30` oraz 14 kontroli;
+  technicznie powstały cropy dla `13/20`, a fail-closed zatrzymał sekwencje
+  `7`, `30`, `3`, `11`, `16`, `17`, `28`,
+- raport ograniczonej regresji ma SHA-256
+  `57fc69a64a4223fe5815978a1c803024217a96c2879f68fe3b69d9545d56b378`;
+  `--check` odtworzył bajty, a `--require-pass` poprawnie zwrócił kod `1`,
+- inżynierska kontrola kart odrzuca również technicznie przepuszczone `4`
+  i `26`, ponieważ symbole pierwszej kolumny nadal są przecięte; support mask
+  dowodzi obecności pikseli, ale nie poprawności środka symbolu,
+- bramka v12 ujawniła, że obecny lokalizator nadal proponuje środki
+  per przybliżony slot i może spójnie wybrać ramę albo fragment w całej
+  kolumnie; homografia nie naprawia błędnego przypisania wejściowych punktów,
+- korekta v13 dodaje
+  `global-bright-component-lattice-assignment-v1`: komponenty powstają na
+  całej planszy, pięć baz kolumn i trzy bazy rzędów są ustalane wspólnie,
+  a dopiero potem najwyżej jeden kandydat jest przypisywany do slotu 5 × 3;
+  brak globalnego wsparcia obniża confidence i nie pozwala lokalnej czerwonej
+  ramce sterować homografią,
+- homografia
+  `symbol-lattice-homography-ransac-v2-global-assignment-v1` zachowuje progi
+  liczby punktów, inlierów, coverage i residualu; rozszerzony guard dotyczy
+  wyłącznie sztucznej płaszczyzny analizy, ponieważ finalne komórki są
+  projektowane i weryfikowane na prawdziwym obrazie źródłowym,
+- cropper
+  `board-cell-crops-v13-global-lattice-source-aware-fixed-padding-preflight-v1`
+  składa transform `ideal -> analysis -> normalized source`, stosuje niezmienny
+  inset `10 px` i wymaga `1.0` support fraction z realnego źródła bez
+  border replication,
+- sekwencja 29 przeszła osobną bramkę `15/15`; deterministyczny raport ma
+  SHA-256
+  `22ac9ab8d31a355e4b5b36f39c2b33f777a5efe258e1c042ed77b5273ce17ea1`,
+- ograniczona regresja v13 utworzyła w pełni wspierane cropy dla `18/20`;
+  wszystkie zgłoszone `4`, `6`, `7`, `26`, `30` przeszły i ich karty zostały
+  sprawdzone inżyniersko, natomiast kontrole `3` i `11` pozostały fail-closed
+  odpowiednio z `GLOBAL_SYMBOL_LATTICE_AXIS_ASSIGNMENT_FAILED` oraz
+  `GLOBAL_SYMBOL_LATTICE_INSUFFICIENT_ASSIGNMENTS`,
+- raport v13 ma SHA-256
+  `210b8d93c254be6c14d7bafcf7869ee1806f51ec92cabc7c11f66234ac2540f7`;
+  oba raporty v13 odtwarzają się byte-for-byte, a historyczne raporty v12
+  zachowały oryginalne checksumy,
+- szerszy drugi wycinek analityczny nie odzyskał bezpiecznie `3` ani `11`;
+  dlatego v13 pozostaje niezmiennym dowodem `18/20`,
+- v14 dodaje bounding-box analysis fallback z paddingiem `6% × 4%`, ale
+  wyłącznie po trzech błędach globalnego locatora; prostokąt służy tylko do
+  ponownego znalezienia symboli, a nie jako finalna geometria komórek,
+- kontrola `3` po fallbacku ma 12 inlierów i P95 `4.3133 px`, kontrola `11`
+  ma 12 inlierów i P95 `4.3328 px`; obie tworzą 15 komórek z support fraction
+  `1.0`,
+- ograniczona bramka v14 przechodzi technicznie `20/20`; tylko `3` i `11`
+  użyły fallbacku, a pozostałe 18 kart ma dokładnie te same checksumy co v13,
+- raport seq29 v14 ma SHA-256
+  `545b81c00224aa59f263c17da6ff633ad59e2381048592f875f87a587ba29682`,
+  raport bounded v14 ma SHA-256
+  `13dfac7e47a200f3a7aec237f4b71ed0032d0a3e969698e6e68239fb20baf1cb`;
+  oba przechodzą `--check --require-pass`,
+- właściciel zaakceptował ograniczoną galerię v14 2026-07-29; część cropów jest
+  lekko przycięta, ale wszystkie ocenione symbole pozostały czytelne,
+- pełny preflight v14 sprawdził 43 zdjęcia i 387 plansz w `5 min 13 s`;
+  `373/387` plansz utworzyło `5595/5805` niezmiennych komórek z support
+  fraction `1.0`, a 14 plansz pozostało fail-closed,
+- odrzucone sekwencje to `33`, `38`, `123`, `163`, `203`, `237`, `254`, `255`,
+  `325`, `333`, `334`, `335`, `346`, `379`; nie obniżono progów i nie
+  wprowadzono syntetycznych pikseli,
+- pełny raport v14 ma SHA-256
+  `026e12ac32802c1561552b338ddb80df51a00088a7e6c1cd57b2652a756d97a5`
+  i status `failed`; pełny korpus, publikacja oraz trening pozostają
+  zablokowane, a `trainingAllowed = false`,
 - TASK-0099 jest zarezerwowane na bezpieczne top-3 sugestie po zaakceptowaniu
   nowej geometrii,
 - TASK-0059 i TASK-0097 zachowują implementację, ale nie mogą eksportować ani
@@ -934,10 +1095,12 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-W TASK-0101 przejrzeć i skorygować sześć fail-closed plansz w lokalnym
-edytorze, wygenerować kompletny namespace 43/387/5805 i przeprowadzić końcową
-kontrolę stron. Dopiero potem uruchomić TASK-0099, wznowić pełnolayoutowe
-etykietowanie z sugestiami oraz ponowić TASK-0059 z `--require-samples`.
+W tym samym TASK-0101 należy przygotować małą galerię diagnostyczną wyłącznie
+dla sekwencji `33`, `38`, `123`, `163`, `203`, `237`, `254`, `255`, `325`,
+`333`, `334`, `335`, `346`, `379` wraz z sąsiednimi poprawnymi kontrolami.
+Najpierw trzeba rozdzielić błąd ramy wejściowej od błędu przypisania i guardów
+homografii; nie wolno obniżać progów globalnie. Po przejściu tej bramki powstaje
+nowa wersja croppera i ponowny pełny preflight `387/387` oraz page-level review.
 Równolegle
 TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
 Pixela i Samsunga.

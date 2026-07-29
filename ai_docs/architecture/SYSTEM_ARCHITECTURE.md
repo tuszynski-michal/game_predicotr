@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Architektura systemu
@@ -460,6 +460,77 @@ coverage, inliery, residual i źródło geometrii. Niespełnienie któregokolwie
 guardu zatrzymuje całą stronę jako `needs_review`; odrzucona plansza trafia do
 exact-observation review bez poluzowania progów globalnych. Dopiero kompletna
 regeneracja i przegląd pełnych stron mogą ustawić `trainingAllowed = true`.
+
+Po odrzuceniu osiowego v9 D-064 zastępuje transform afiniczny nowym kandydatem
+projektowym, bez modyfikowania historycznych artefaktów. Quad detektora jest
+rozszerzany w kanonicznych współrzędnych tej samej płaszczyzny, więc nie traci
+nachylenia. `symbol-lattice-homography-ransac-v1` następnie dopasowuje jedną
+homografię ideal-to-observed do wszystkich wiarygodnych środków znanej siatki
+5 × 3. RANSAC odrzuca lokalne błędy, a cztery wirtualne narożniki są projekcją
+kanonicznych granic wyznaczoną ze wszystkich inlierów. Guardy wymagają pełnego
+pokrycia wierszy i kolumn, liczby punktów, residualu, wypukłości, pola,
+marginesu i prawdopodobnych odstępów. Krok estymacji nie tworzy cropów.
+Osobny kolejny etap prostuje planszę przez zaakceptowaną homografię, stosuje
+stały padding w kanonicznej komórce i przechodzi małą bramkę regresji przed
+uruchomieniem pełnego korpusu.
+
+Pierwsza implementacja tego etapu,
+`board-cell-crops-v12-projective-lattice-fixed-padding-preflight-v1`,
+stosuje inset `10 px`, support mask i projekcję czterech narożników każdego
+cropu. Zapobiega to użyciu pikseli spoza rozszerzonej ramki, ale ograniczona
+bramka odrzuciła rozwiązanie. Przyczyną nie jest warp ani padding: wejściowy
+lokalizator nadal szuka jednego środka wewnątrz każdego przybliżonego slotu i
+może wybrać fragment ramy lub już przeciętego symbolu. Spójnie błędna kolumna
+może przejść przez RANSAC. Następny wariant musi najpierw utworzyć globalny
+zbiór kandydatów symboli na całej planszy, a następnie jawnie przypisać go do
+5 × 3 przed użyciem niezmienionych guardów homografii i fixed padding.
+
+Wariant v13 realizuje tę granicę jako
+`global-bright-component-lattice-assignment-v1`. Kompaktowe komponenty są
+wykrywane na całej płaszczyźnie analizy, wspólnie wyznaczają pięć kolumn i trzy
+rzędy, a każdy komponent może wspierać najwyżej jeden slot. Refinement lokalny
+następuje dopiero wokół przypisanej bazy; slot bez globalnego komponentu nie
+może zostać wiarygodnym punktem tylko na podstawie fragmentu ramy.
+`symbol-lattice-homography-ransac-v2-global-assignment-v1` nadal wymaga tej
+samej liczby kandydatów i inlierów, pełnego coverage oraz P95 residualu.
+
+Rozszerzona plansza 500 × 300 jest wyłącznie płaszczyzną analizy, a nie
+fizycznym źródłem pikseli. Dlatego
+`board-cell-crops-v13-global-lattice-source-aware-fixed-padding-preflight-v1`
+składa homografię `ideal -> analysis -> normalized source` i prostuje komórki
+bezpośrednio z oryginalnego znormalizowanego zdjęcia. Wirtualna siatka może
+wyjść w ograniczonym zakresie poza płaszczyznę analizy, ale każdy narożnik
+padded cropu musi pozostać wewnątrz realnego źródła, a osobna maska musi dać
+support fraction `1.0`. To usuwa sztuczne ograniczenie błędnego quadu
+pośredniego bez dopuszczania border replication, czarnych pikseli ani
+poluzowania progów RANSAC.
+
+Ograniczona regresja v13 odzyskała `29`, wszystkie zgłoszone `4`, `6`, `7`,
+`26`, `30` oraz 12 z 14 kontroli. Kontrole `3` i `11` pozostają bezpiecznie
+odrzucone z powodu braku kompletnego globalnego przypisania. Z tego powodu v13
+jest nadal kandydatem preflight, nie produkcyjnym źródłem datasetu; pełny
+korpus i trening pozostają zatrzymane.
+
+Wariant v14 dodaje pojedynczy, kontrolowany retry na szerszej płaszczyźnie
+analizy wyprowadzonej z `boundingBox` detektora. Retry wolno uruchomić wyłącznie
+po braku komponentów, nieudanym przypisaniu osi albo zbyt małej liczbie
+przypisań globalnego locatora. Prostokąt z paddingiem `6%` w poziomie i `4%`
+w pionie nie jest geometrią komórek: służy tylko do ponownego zebrania punktów,
+po czym obowiązują te same globalne przypisanie, RANSAC, pełne coverage,
+residual, kompozycja do źródła i support fraction `1.0`. Inne błędy pozostają
+fail-closed.
+
+Ograniczona regresja v14 przechodzi technicznie `20/20`. Tylko kontrole `3`
+i `11` użyły retry; pozostałe 18 kart jest bajtowo zgodne z v13. V14 pozostaje
+kandydatem preflight do czasu jawnej akceptacji galerii przez właściciela.
+Pełny korpus i trening nadal są zatrzymane.
+
+Po akceptacji galerii pełny runner zachowuje wynik każdej planszy i komórki
+w osobnym, niezmiennym artefakcie oraz grupuje review po obrazie źródłowym.
+Pierwszy przebieg v14 przetworzył wszystkie 387 plansz, ale tylko 373 przeszły
+guardy. Czternaście wyników fail-closed nie jest pomijanych ani zastępowanych
+geometrią v7; blokują one publikację całego namespace'u i trening. Dalsza
+korekta może rozszerzać wyłącznie jawne ścieżki analizy tych przypadków.
 
 Zgodnie z D-058 bootstrap M6 nie łączy cropów z fikcyjnymi rekordami layoutów.
 Historyczne zachowanie po D-061 pozostaje audytowalne:

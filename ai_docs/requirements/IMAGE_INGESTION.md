@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -216,6 +216,42 @@ Niezależny golden i kalibracja:
 - tylko odrzucone obserwacje są korygowane ręcznie; benchmark TASK-0101
   skierował do tej kolejki 6 z 387 plansz,
 - automatyczne zastosowanie wymaga zaakceptowanego przeglądu kompletnej strony.
+
+Po odrzuceniu osiowego wariantu v9 kandydat korekcyjny musi zachować
+perspektywę quadu detektora i wyznaczać homografię z całej znanej siatki
+symboli 5 × 3. Cztery wirtualne narożniki wynikają ze wszystkich inlierów
+RANSAC, nie tylko z czterech skrajnych symboli. Brak pełnego pokrycia rzędów
+lub kolumn, przekroczenie residualu, nieprawdopodobna siatka albo brak
+źródłowych pikseli wymaganych przez finalny padding blokują automatyczne
+cięcie. Przed pełnym korpusem obowiązuje mała bramka regresji na wskazanych
+błędach i czystych kontrolach.
+
+W aktualnym kandydacie globalne komponenty symboli muszą zostać przypisane do
+5 × 3 przed refinementem lokalnym. Płaszczyzna 500 × 300 służy do detekcji i
+estymacji, ale nie ogranicza dostępnych pikseli zdjęcia źródłowego. Finalny
+fixed padding jest projektowany bezpośrednio na znormalizowane źródło i może
+zostać przyjęty tylko wtedy, gdy wszystkie cztery narożniki każdej komórki są
+w jego granicach oraz support fraction wynosi dokładnie `1.0`.
+
+Regresja v13 przechodzi dla `29`, `4`, `6`, `7`, `26`, `30` i 12 kontroli.
+Brak kompletnego przypisania na kontrolach `3` i `11` nadal blokuje pełny
+korpus, publikację cropów i trening. Nie wolno zastępować tej blokady
+obniżeniem progów homografii ani syntetycznym uzupełnianiem pikseli.
+
+V14 może ponowić analizę na `boundingBox` z paddingiem `6% × 4%` wyłącznie po
+jednym z trzech błędów globalnego locatora: braku komponentów, nieudanym
+przypisaniu osi albo zbyt małej liczbie przypisań. Bounding box nie może stać
+się finalną geometrią komórek; retry musi ponownie przejść pełne globalne
+przypisanie, guardy homografii i preflight realnego źródła. Ograniczona bramka
+v14 przechodzi technicznie `20/20`, lecz pełny korpus, publikacja cropów i
+trening pozostają zablokowane do jawnej akceptacji wizualnej galerii przez
+właściciela.
+
+Po akceptacji ograniczonej galerii pełny preflight musi nadal przejść
+`387/387` plansz i `5805/5805` komórek. Wynik `373/387` z 14 kontrolowanymi
+fallbackami nie jest częściowym sukcesem produkcyjnym: zapisane artefakty
+pozostają diagnostyczne, a publikacja i trening są zablokowane do usunięcia
+wszystkich 14 blokad oraz końcowego page-level review.
 
 ### 7. Klasyfikacja symbolu
 

@@ -1,0 +1,3778 @@
+{
+  "entries": [
+    {
+      "cardChecksumSha256": "a0769712248afa9bd05c50ec6b429def2aeb4c52e5031c4256d0757565867c89",
+      "cardRelativePath": "cards/seq-004.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.687134,
+          "centerOffsetRatio": 0.090775,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.031975,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.294938,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.557692,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.628026,
+          "centerOffsetRatio": 0.143185,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.250988,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.030864,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.382353,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.58786,
+          "centerOffsetRatio": 0.142907,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.193827,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.103333,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.22549,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.547257,
+          "centerOffsetRatio": 0.071638,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.265556,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.014938,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.313725,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.511658,
+          "centerOffsetRatio": 0.165815,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.327037,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.384615,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.632448,
+          "centerOffsetRatio": 0.230014,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.101975,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.217407,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.323942,
+          "centerOffsetRatio": 0.121412,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.324198,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.018642,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.633507,
+          "centerOffsetRatio": 0.119324,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.325309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.644185,
+          "centerOffsetRatio": 0.112893,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.654701,
+          "centerOffsetRatio": 0.109255,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324074,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.659966,
+          "centerOffsetRatio": 0.117759,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.01358,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.30037,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.698269,
+          "centerOffsetRatio": 0.086227,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.04642,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.283827,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.215686,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.71554,
+          "centerOffsetRatio": 0.024437,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.708275,
+          "centerOffsetRatio": 0.05142,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.658556,
+          "centerOffsetRatio": 0.095343,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.316667,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 14,
+      "sequenceNumber": 4,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "c6b1bb8e9b4257f8af2dcc2c1928331ebd42c7fa33d0999ede163ce346fe5408",
+      "cardRelativePath": "cards/seq-006.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.406005,
+          "centerOffsetRatio": 0.169258,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.331852,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.411765,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.563393,
+          "centerOffsetRatio": 0.227883,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.132099,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.195802,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.980392,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.663498,
+          "centerOffsetRatio": 0.133949,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.005679,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.261358,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.125,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.669405,
+          "centerOffsetRatio": 0.108989,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.122222,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.198395,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.490196,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.455811,
+          "centerOffsetRatio": 0.182218,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.307284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.567358,
+          "centerOffsetRatio": 0.125371,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324691,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.179487,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.72163,
+          "centerOffsetRatio": 0.205065,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.067037,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.258642,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.761438,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.575102,
+          "centerOffsetRatio": 0.100835,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32321,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.147059,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.693289,
+          "centerOffsetRatio": 0.10929,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.003951,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.31679,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.610168,
+          "centerOffsetRatio": 0.170478,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.050617,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.26963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.489824,
+          "centerOffsetRatio": 0.141001,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.321605,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.117647,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.603592,
+          "centerOffsetRatio": 0.208257,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.017778,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.300864,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.392157,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.616607,
+          "centerOffsetRatio": 0.056403,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32642,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.125,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.746067,
+          "centerOffsetRatio": 0.018345,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.320617,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.585921,
+          "centerOffsetRatio": 0.064221,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.062593,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.254691,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.211538,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 6,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "c058183135f29cf1a9a981840490991097e83f5d6d9dc3be8e6d3c60e8284a79",
+      "cardRelativePath": "cards/seq-007.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.592453,
+          "centerOffsetRatio": 0.135975,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318519,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.163462,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.753376,
+          "centerOffsetRatio": 0.04459,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.263827,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.578897,
+          "centerOffsetRatio": 0.035221,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318395,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.569758,
+          "centerOffsetRatio": 0.077049,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.007778,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.338395,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.27451,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.546385,
+          "centerOffsetRatio": 0.181247,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.33642,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.657495,
+          "centerOffsetRatio": 0.076267,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.002963,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.316667,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.065359,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.623004,
+          "centerOffsetRatio": 0.093596,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.306914,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.667946,
+          "centerOffsetRatio": 0.080872,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.319012,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.657662,
+          "centerOffsetRatio": 0.08669,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.344074,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.606694,
+          "centerOffsetRatio": 0.170501,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.344074,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.237179,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.72235,
+          "centerOffsetRatio": 0.023344,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.017037,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.3,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.099359,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.670596,
+          "centerOffsetRatio": 0.070901,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318889,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.771471,
+          "centerOffsetRatio": 0.021197,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.317778,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.682562,
+          "centerOffsetRatio": 0.040542,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.339012,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.599083,
+          "centerOffsetRatio": 0.140275,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.334198,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.303922,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 7,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "70dd9789ed6647fe3be0a4880880425d147036a8caed6a49497d9c507e18ea0c",
+      "cardRelativePath": "cards/seq-008.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.481805,
+          "centerOffsetRatio": 0.213779,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.297778,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.53139,
+          "centerOffsetRatio": 0.181924,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.081852,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.247778,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.683007,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.557652,
+          "centerOffsetRatio": 0.128624,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.320741,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.545054,
+          "centerOffsetRatio": 0.046394,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.006296,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.298519,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.601399,
+          "centerOffsetRatio": 0.074346,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.238025,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.002963,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.098039,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.651217,
+          "centerOffsetRatio": 0.231007,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.295309,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.480392,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.535288,
+          "centerOffsetRatio": 0.188428,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.085802,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.249136,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.627451,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.697975,
+          "centerOffsetRatio": 0.083775,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.011235,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.315309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.667731,
+          "centerOffsetRatio": 0.078269,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.334321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.659483,
+          "centerOffsetRatio": 0.175502,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.161605,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.03037,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.195513,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.581692,
+          "centerOffsetRatio": 0.201226,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.319877,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.716801,
+          "centerOffsetRatio": 0.193317,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.086296,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.268148,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.980769,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.75007,
+          "centerOffsetRatio": 0.027825,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.311852,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.682332,
+          "centerOffsetRatio": 0.032328,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318025,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.656249,
+          "centerOffsetRatio": 0.135579,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.3,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.013086,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.336538,
+          "status": "occluded",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 8,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "c7b0f25d0c223e34a14a116dcf5b97410252d958bea7178f6ca4297bb9dd6620",
+      "cardRelativePath": "cards/seq-009.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.440016,
+          "centerOffsetRatio": 0.243414,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.211235,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.547916,
+          "centerOffsetRatio": 0.242331,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.116914,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.175926,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.95098,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.58849,
+          "centerOffsetRatio": 0.141385,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.005679,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.28642,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.281046,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.711838,
+          "centerOffsetRatio": 0.120263,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.322593,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.518355,
+          "centerOffsetRatio": 0.13813,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.278642,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.629348,
+          "centerOffsetRatio": 0.214447,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.314691,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.616601,
+          "centerOffsetRatio": 0.214005,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.052222,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.267037,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.568627,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.582281,
+          "centerOffsetRatio": 0.099302,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324444,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.694144,
+          "centerOffsetRatio": 0.113845,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.322469,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.65265,
+          "centerOffsetRatio": 0.170994,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.325309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.573803,
+          "centerOffsetRatio": 0.191426,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.328642,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.653701,
+          "centerOffsetRatio": 0.173512,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.314938,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.413462,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.696299,
+          "centerOffsetRatio": 0.016293,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.015062,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.221975,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.719616,
+          "centerOffsetRatio": 0.042851,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.596732,
+          "centerOffsetRatio": 0.151787,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.328765,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.317308,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 9,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "ceeb12e90dcdd440d71d662cdddcf8209c0f190dab7b523f40925ff7a0cf5085",
+      "cardRelativePath": "cards/seq-010.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.56037,
+          "centerOffsetRatio": 0.169022,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.301111,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.629688,
+          "centerOffsetRatio": 0.045052,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.271481,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.054074,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.545752,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.658614,
+          "centerOffsetRatio": 0.183977,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.030988,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.292963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.196078,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.600253,
+          "centerOffsetRatio": 0.196099,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.113704,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.208025,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.269231,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.661401,
+          "centerOffsetRatio": 0.187961,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.296543,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.278846,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.733657,
+          "centerOffsetRatio": 0.155436,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.027284,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.291728,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.683378,
+          "centerOffsetRatio": 0.190076,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.030741,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.272963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.683111,
+          "centerOffsetRatio": 0.172319,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.013333,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.30716,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.524198,
+          "centerOffsetRatio": 0.124157,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.317284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.637311,
+          "centerOffsetRatio": 0.168269,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.325556,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.215686,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.75551,
+          "centerOffsetRatio": 0.060352,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.321111,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.746068,
+          "centerOffsetRatio": 0.035065,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.321975,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.661104,
+          "centerOffsetRatio": 0.071002,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.325432,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.675182,
+          "centerOffsetRatio": 0.087547,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.320247,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.632147,
+          "centerOffsetRatio": 0.112367,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.325062,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.25,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 10,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "1d22e7ddfdb182b2de37688595b1b11c9b9c60b8a5dfe2833c4fe04f550df884",
+      "cardRelativePath": "cards/seq-012.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.463012,
+          "centerOffsetRatio": 0.284748,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.169012,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.346154,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.425388,
+          "centerOffsetRatio": 0.237055,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.193827,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.264706,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.552371,
+          "centerOffsetRatio": 0.167847,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.338889,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.22549,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.632472,
+          "centerOffsetRatio": 0.194407,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.01037,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324198,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.137255,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.577555,
+          "centerOffsetRatio": 0.272663,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.095802,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.09037,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.598039,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.211514,
+          "centerOffsetRatio": 0.187937,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.274444,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.45098,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.817842,
+          "centerOffsetRatio": 0.278056,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.009136,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.095926,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.490196,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.564352,
+          "centerOffsetRatio": 0.126989,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.025802,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.295679,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.096154,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.688215,
+          "centerOffsetRatio": 0.180528,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.069012,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.250617,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.739756,
+          "centerOffsetRatio": 0.21999,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.112222,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.211481,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.309213,
+          "centerOffsetRatio": 0.211923,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.254074,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.278846,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.505118,
+          "centerOffsetRatio": 0.281271,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.094198,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.156049,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.647059,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.693413,
+          "centerOffsetRatio": 0.184996,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.071235,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.249506,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.068627,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.717119,
+          "centerOffsetRatio": 0.044387,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.776025,
+          "centerOffsetRatio": 0.106179,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.03358,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.288148,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 13,
+      "sequenceNumber": 12,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "b82b91178415bbf905de3f81d976d6b8ec7ee6698921662908c91357c8fecae6",
+      "cardRelativePath": "cards/seq-015.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.593271,
+          "centerOffsetRatio": 0.173527,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.315926,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.009506,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.300654,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.574291,
+          "centerOffsetRatio": 0.133309,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.351235,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.173077,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.70694,
+          "centerOffsetRatio": 0.138315,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.341235,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.27451,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.537116,
+          "centerOffsetRatio": 0.135091,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.095432,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.198025,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.287582,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.549612,
+          "centerOffsetRatio": 0.177613,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.104198,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.205926,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.455128,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.588295,
+          "centerOffsetRatio": 0.122934,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.305679,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.757762,
+          "centerOffsetRatio": 0.076275,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.067654,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.259259,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.735294,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.725368,
+          "centerOffsetRatio": 0.123685,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.067901,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.252469,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.388889,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.622875,
+          "centerOffsetRatio": 0.132649,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.067654,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.254568,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.362745,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.591094,
+          "centerOffsetRatio": 0.102322,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.330494,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.574128,
+          "centerOffsetRatio": 0.198263,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.299136,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.678461,
+          "centerOffsetRatio": 0.044082,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.301605,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.005926,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.444444,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.680225,
+          "centerOffsetRatio": 0.238275,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.162099,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.159012,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.25,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.596553,
+          "centerOffsetRatio": 0.154467,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.121605,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.137901,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.189103,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.506029,
+          "centerOffsetRatio": 0.27262,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.225556,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.431373,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 15,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "864ce48e2fe5fdd50e60d5e201575297e729f51fe332b7081d87720129c3690f",
+      "cardRelativePath": "cards/seq-018.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.691989,
+          "centerOffsetRatio": 0.270051,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.041975,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.179136,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.932692,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.562287,
+          "centerOffsetRatio": 0.133119,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.33679,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.007531,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.441176,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.610425,
+          "centerOffsetRatio": 0.10389,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.179136,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.144074,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.548077,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.804948,
+          "centerOffsetRatio": 0.153618,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.006667,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.307654,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.469478,
+          "centerOffsetRatio": 0.184761,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.311111,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.686973,
+          "centerOffsetRatio": 0.240954,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.255185,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.458333,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.687913,
+          "centerOffsetRatio": 0.215178,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.222593,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.099506,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.856209,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.552951,
+          "centerOffsetRatio": 0.13079,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.328519,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.710887,
+          "centerOffsetRatio": 0.121484,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.020494,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.30037,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.672603,
+          "centerOffsetRatio": 0.214253,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.032469,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.293827,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.127451,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.608797,
+          "centerOffsetRatio": 0.104748,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.297284,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.004938,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.67875,
+          "centerOffsetRatio": 0.230821,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.141358,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.180617,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.852941,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.630131,
+          "centerOffsetRatio": 0.084461,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.021235,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.261605,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.698797,
+          "centerOffsetRatio": 0.0617,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.581246,
+          "centerOffsetRatio": 0.173902,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.312963,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.411765,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 18,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "73e4c9e3f89a9fefa2e9288c821b81eb319ebb012e0de571a499c5bec3769da9",
+      "cardRelativePath": "cards/seq-021.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.303041,
+          "centerOffsetRatio": 0.221218,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.252593,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.432692,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.519461,
+          "centerOffsetRatio": 0.275708,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.041481,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.127778,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.767974,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.577724,
+          "centerOffsetRatio": 0.186293,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.072963,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.253333,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.245098,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.611467,
+          "centerOffsetRatio": 0.139516,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.224568,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.10716,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.182692,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.591463,
+          "centerOffsetRatio": 0.177393,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.015185,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.23963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.117647,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.293052,
+          "centerOffsetRatio": 0.168497,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.316914,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.401961,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.686492,
+          "centerOffsetRatio": 0.21047,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.008148,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.308519,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.624183,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.655904,
+          "centerOffsetRatio": 0.081369,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.017284,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.306914,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.173077,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.754792,
+          "centerOffsetRatio": 0.187626,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.035802,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.287654,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.683284,
+          "centerOffsetRatio": 0.187967,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.046296,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.278889,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.25998,
+          "centerOffsetRatio": 0.171063,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.314198,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.45098,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.583703,
+          "centerOffsetRatio": 0.215797,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.04037,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.27963,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.588235,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.669567,
+          "centerOffsetRatio": 0.120033,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324938,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.182692,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.796786,
+          "centerOffsetRatio": 0.01576,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.321111,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.714279,
+          "centerOffsetRatio": 0.052706,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318765,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 12,
+      "sequenceNumber": 21,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "7a46d4d3d2a87afea00acc8421a23c185070f79ba442cc953b2cf1df70fde8ea",
+      "cardRelativePath": "cards/seq-022.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.619193,
+          "centerOffsetRatio": 0.264164,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.271975,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.020247,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.147059,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.60425,
+          "centerOffsetRatio": 0.11445,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.13321,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.105185,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.424837,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.689571,
+          "centerOffsetRatio": 0.113381,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.007037,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.304815,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.621387,
+          "centerOffsetRatio": 0.115191,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.290123,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.096154,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.488437,
+          "centerOffsetRatio": 0.165488,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.009506,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.326049,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.355769,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.656074,
+          "centerOffsetRatio": 0.131573,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.22679,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.033086,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.240385,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.55082,
+          "centerOffsetRatio": 0.097239,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324198,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.678783,
+          "centerOffsetRatio": 0.11336,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.329259,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.663485,
+          "centerOffsetRatio": 0.101237,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.323457,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.63748,
+          "centerOffsetRatio": 0.139378,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.348148,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.355769,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.712738,
+          "centerOffsetRatio": 0.188766,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.041111,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.278148,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.240385,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.675565,
+          "centerOffsetRatio": 0.048047,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.31716,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.780746,
+          "centerOffsetRatio": 0.009298,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318765,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.683099,
+          "centerOffsetRatio": 0.078739,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324938,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.638411,
+          "centerOffsetRatio": 0.105887,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.318025,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 22,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "0eafbc9aa5afc2d387bff0df3f65c947e14de5c42e59de09534ad21731398095",
+      "cardRelativePath": "cards/seq-024.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.666671,
+          "centerOffsetRatio": 0.057513,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.081852,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.069506,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_EXTRA_FOREGROUND"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.101307,
+          "status": "interface_contaminated",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.544695,
+          "centerOffsetRatio": 0.018129,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.313827,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.017407,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.432692,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.6878,
+          "centerOffsetRatio": 0.16775,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.061975,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.265679,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.176471,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.61209,
+          "centerOffsetRatio": 0.233232,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.159506,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.577063,
+          "centerOffsetRatio": 0.253814,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.004938,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.158642,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.603781,
+          "centerOffsetRatio": 0.056065,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.196667,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.004198,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.460784,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.726281,
+          "centerOffsetRatio": 0.189965,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.064074,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.264444,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.735294,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.614556,
+          "centerOffsetRatio": 0.134473,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.019506,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.301728,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.737434,
+          "centerOffsetRatio": 0.158787,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.054321,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.268642,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.615109,
+          "centerOffsetRatio": 0.229678,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.108642,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.209383,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.376898,
+          "centerOffsetRatio": 0.246644,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.201481,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.372549,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.664682,
+          "centerOffsetRatio": 0.221404,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.053704,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.251852,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.653846,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.642574,
+          "centerOffsetRatio": 0.095398,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.319136,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.754741,
+          "centerOffsetRatio": 0.029735,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.323951,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.622012,
+          "centerOffsetRatio": 0.129517,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.115802,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.201975,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_EDGE_EXTRA_FOREGROUND"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.215686,
+          "status": "interface_contaminated",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 24,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "85b5899342267f7b25a4ae9edb8972937a4a06fa6cb27a5a593b51b6df20774e",
+      "cardRelativePath": "cards/seq-026.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.670046,
+          "centerOffsetRatio": 0.050744,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.010741,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.310617,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.561086,
+          "centerOffsetRatio": 0.162175,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.321235,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.326923,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.543381,
+          "centerOffsetRatio": 0.107478,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.314321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.55604,
+          "centerOffsetRatio": 0.091253,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.005679,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.323457,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.479914,
+          "centerOffsetRatio": 0.14926,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.322593,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.731328,
+          "centerOffsetRatio": 0.077256,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.041975,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.277284,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.055556,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.584782,
+          "centerOffsetRatio": 0.158929,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.328642,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.201923,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.66853,
+          "centerOffsetRatio": 0.095945,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.212593,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.652064,
+          "centerOffsetRatio": 0.108972,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.005062,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.324198,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.656189,
+          "centerOffsetRatio": 0.181971,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.323704,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.105769,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.751113,
+          "centerOffsetRatio": 0.049408,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.075432,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.244568,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.067308,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.663584,
+          "centerOffsetRatio": 0.126642,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.011605,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.309259,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.395425,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.72898,
+          "centerOffsetRatio": 0.023191,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.268272,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.659158,
+          "centerOffsetRatio": 0.028275,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.334321,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.596059,
+          "centerOffsetRatio": 0.154899,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32358,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.313725,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 26,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "33688b8080b0da2253f91f049aef47626047e716af6efe36fe0ce0bc032265cd",
+      "cardRelativePath": "cards/seq-027.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.465705,
+          "centerOffsetRatio": 0.247297,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.022222,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.239136,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.833333,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.572292,
+          "centerOffsetRatio": 0.242606,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.109506,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.228519,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.892157,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.700392,
+          "centerOffsetRatio": 0.131374,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.294118,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.671509,
+          "centerOffsetRatio": 0.144266,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.315309,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.547252,
+          "centerOffsetRatio": 0.153677,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.024198,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.305802,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.326923,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.697916,
+          "centerOffsetRatio": 0.242041,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.263827,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.470588,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.59601,
+          "centerOffsetRatio": 0.251469,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.287531,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.04,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_MULTIPLE_FOREGROUND_REGIONS"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.814103,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.604614,
+          "centerOffsetRatio": 0.077964,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.319136,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.62628,
+          "centerOffsetRatio": 0.100326,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.325062,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.642204,
+          "centerOffsetRatio": 0.204879,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.321728,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.25,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.589708,
+          "centerOffsetRatio": 0.086335,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.296667,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.023951,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_PRIMARY_FOREGROUND_TOO_SMALL"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "occluded",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.652735,
+          "centerOffsetRatio": 0.227383,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.134444,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.196914,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.745098,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.689333,
+          "centerOffsetRatio": 0.039719,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.313704,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.639853,
+          "centerOffsetRatio": 0.058296,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.328765,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.575554,
+          "centerOffsetRatio": 0.18778,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.32037,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.451923,
+          "status": "clipped",
+          "trainingEligible": false
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 27,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "cdf55c791f938b59260f2390a8e15309f5d5a7c89ff3e5d967ec4ee7e1fb0cb8",
+      "cardRelativePath": "cards/seq-029.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.644333,
+          "centerOffsetRatio": 0.299306,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.165309,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.211538,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.522875,
+          "centerOffsetRatio": 0.158552,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.069753,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.249753,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.698908,
+          "centerOffsetRatio": 0.168203,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.327901,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.094771,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.595075,
+          "centerOffsetRatio": 0.113449,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.05284,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.264568,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.689497,
+          "centerOffsetRatio": 0.174848,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.279012,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.343817,
+          "centerOffsetRatio": 0.329847,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.117778,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.10321,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.088235,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.675697,
+          "centerOffsetRatio": 0.127558,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.02716,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.293086,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.098039,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.728178,
+          "centerOffsetRatio": 0.124042,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.028272,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.23716,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.70065,
+          "centerOffsetRatio": 0.108691,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.315062,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.559512,
+          "centerOffsetRatio": 0.167771,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.316049,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.107843,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.444706,
+          "centerOffsetRatio": 0.28306,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.025802,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.15284,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.375,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.680964,
+          "centerOffsetRatio": 0.090909,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.326173,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.772577,
+          "centerOffsetRatio": 0.039697,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.013704,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.266049,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.736031,
+          "centerOffsetRatio": 0.028075,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.313827,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.438914,
+          "centerOffsetRatio": 0.109521,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.259136,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 15,
+      "sequenceNumber": 29,
+      "status": "meshed"
+    },
+    {
+      "cardChecksumSha256": "ee4d374179238ddecc91354643a3af8eb919f872b5c45147f9870a11c69ac74c",
+      "cardRelativePath": "cards/seq-030.png",
+      "cellQualities": [
+        {
+          "centerConfidence": 0.594744,
+          "centerOffsetRatio": 0.291148,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.104074,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.325106,
+          "centerOffsetRatio": 0.063811,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.298395,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.021605,
+          "primaryTouchesBorder": false,
+          "reasons": [
+            "CELL_CENTER_CONFIDENCE_LOW"
+          ],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "uncertain",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.549978,
+          "centerOffsetRatio": 0.158285,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.059012,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.258148,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.647631,
+          "centerOffsetRatio": 0.066876,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.085062,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.243827,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.532794,
+          "centerOffsetRatio": 0.190558,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.236049,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 0,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.58907,
+          "centerOffsetRatio": 0.283505,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.112346,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.5,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.684167,
+          "centerOffsetRatio": 0.195231,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.008395,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.315432,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.663462,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.620215,
+          "centerOffsetRatio": 0.137628,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.003333,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.31716,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.048077,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.68751,
+          "centerOffsetRatio": 0.1178,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.323086,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.733976,
+          "centerOffsetRatio": 0.18599,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.071481,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.24963,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 1,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.548012,
+          "centerOffsetRatio": 0.330153,
+          "columnIndex": 0,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.107284,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER",
+            "CELL_PRIMARY_CENTER_DISPLACED"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.400641,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.732341,
+          "centerOffsetRatio": 0.234869,
+          "columnIndex": 1,
+          "extraAreaFraction": 0.032099,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.292593,
+          "primaryTouchesBorder": true,
+          "reasons": [
+            "CELL_PRIMARY_TOUCHES_BORDER"
+          ],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.676471,
+          "status": "clipped",
+          "trainingEligible": false
+        },
+        {
+          "centerConfidence": 0.682992,
+          "centerOffsetRatio": 0.105381,
+          "columnIndex": 2,
+          "extraAreaFraction": 0.015679,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.302593,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.198718,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.759844,
+          "centerOffsetRatio": 0.017734,
+          "columnIndex": 3,
+          "extraAreaFraction": 0.0,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.317654,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        },
+        {
+          "centerConfidence": 0.71299,
+          "centerOffsetRatio": 0.098026,
+          "columnIndex": 4,
+          "extraAreaFraction": 0.003086,
+          "gateVersion": "cell-crop-quality-gate-v1",
+          "primaryAreaFraction": 0.314074,
+          "primaryTouchesBorder": false,
+          "reasons": [],
+          "rowIndex": 2,
+          "sideBorderForegroundFraction": 0.0,
+          "status": "eligible",
+          "trainingEligible": true
+        }
+      ],
+      "reliableCenterCount": 14,
+      "sequenceNumber": 30,
+      "status": "meshed"
+    }
+  ],
+  "fallbackCount": 0,
+  "meshVersion": "expanded-frame-centered-symbol-mesh-spike-v4",
+  "meshedCount": 16,
+  "qualityCounts": {
+    "clipped": 92,
+    "eligible": 117,
+    "interface_contaminated": 2,
+    "occluded": 14,
+    "uncertain": 15
+  },
+  "qualityGateVersion": "cell-crop-quality-gate-v1",
+  "quarantinedCellCount": 123,
+  "schemaVersion": 1,
+  "scope": "rejected_v7_sequences",
+  "status": "waiting_for_owner_review",
+  "trainingEligibleCellCount": 117
+}

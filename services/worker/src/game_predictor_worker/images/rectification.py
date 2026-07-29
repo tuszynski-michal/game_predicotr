@@ -22,6 +22,11 @@ LOCAL_CALIBRATED_CROPPER_VERSION = "board-cell-crops-v3-local-calibrated-v1"
 SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v4-symbol-aware-v1"
 SYMBOL_AWARE_AFFINE_CROPPER_VERSION = "board-cell-crops-v5-symbol-aware-affine-v1"
 DETECTOR_SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v6-detector-symbol-aware-affine-v1"
+REVIEWED_SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v7-reviewed-symbol-aware-affine-v1"
+SAFE_CONTEXT_CROPPER_VERSION = "board-cell-crops-v10-wide-frame-preflight-v1"
+PROJECTIVE_SAFE_CONTEXT_CROPPER_VERSION = (
+    "board-cell-crops-v11-projective-frame-preflight-v1"
+)
 BOARD_WIDTH = 500
 BOARD_HEIGHT = 300
 BOARD_ROWS = 3
@@ -49,25 +54,36 @@ class SymbolRefinementMetadata:
     refiner_version: str
     reliable_center_count: int
     inlier_count: int
-    baseline_median_residual_px: float
-    refined_median_residual_px: float
-    refined_p95_residual_px: float
+    baseline_median_residual_px: float | None
+    refined_median_residual_px: float | None
+    refined_p95_residual_px: float | None
+    status: Literal["refined", "manual_override"] = "refined"
+    fallback_reason: str | None = None
 
-    def to_dict(self) -> dict[str, int | float | str]:
-        return {
-            "baselineMedianResidualPx": round(
-                self.baseline_median_residual_px,
-                4,
+    def to_dict(self) -> dict[str, int | float | str | None]:
+        value: dict[str, int | float | str | None] = {
+            "baselineMedianResidualPx": (
+                None
+                if self.baseline_median_residual_px is None
+                else round(self.baseline_median_residual_px, 4)
             ),
+            "fallbackReason": self.fallback_reason,
             "inlierCount": self.inlier_count,
-            "refinedMedianResidualPx": round(
-                self.refined_median_residual_px,
-                4,
+            "refinedMedianResidualPx": (
+                None
+                if self.refined_median_residual_px is None
+                else round(self.refined_median_residual_px, 4)
             ),
-            "refinedP95ResidualPx": round(self.refined_p95_residual_px, 4),
+            "refinedP95ResidualPx": (
+                None
+                if self.refined_p95_residual_px is None
+                else round(self.refined_p95_residual_px, 4)
+            ),
             "refinerVersion": self.refiner_version,
             "reliableCenterCount": self.reliable_center_count,
+            "status": self.status,
         }
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,6 +126,8 @@ class GridContract:
     logical_slot_width: int | None = None
     logical_slot_height: int | None = None
     inset_px: int | None = None
+    overlap_px: int | None = None
+    offset_y_px: int | None = None
 
     def to_dict(self) -> dict[str, int]:
         value = {
@@ -129,6 +147,10 @@ class GridContract:
             value["insetPx"] = self.inset_px
             value["logicalSlotHeight"] = self.logical_slot_height
             value["logicalSlotWidth"] = self.logical_slot_width
+        if self.overlap_px is not None:
+            value["overlapPx"] = self.overlap_px
+        if self.offset_y_px is not None:
+            value["offsetYPx"] = self.offset_y_px
         return value
 
 

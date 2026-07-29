@@ -120,7 +120,8 @@ def _tile(
     *,
     sequence_number: int,
     position: int,
-    residual: float,
+    residual: float | None,
+    refinement_status: str,
 ) -> NDArray[np.uint8]:
     resized = cv2.resize(
         overlay,
@@ -128,9 +129,16 @@ def _tile(
         interpolation=cv2.INTER_AREA,
     )
     header = np.full((TILE_HEADER, TILE_WIDTH, 3), (8, 15, 24), dtype=np.uint8)
+    metric = (
+        "manual override"
+        if refinement_status == "manual_override"
+        else f"p95 {residual:.2f}px"
+        if residual is not None
+        else "p95 unavailable"
+    )
     cv2.putText(
         header,
-        f"seq {sequence_number} | pos {position} | p95 {residual:.2f}px",
+        f"seq {sequence_number} | pos {position} | {metric}",
         (8, 19),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.45,
@@ -154,11 +162,15 @@ def _contact_sheet(
         board = _mapping(raw, "image.board")
         position = _integer(board.get("positionIndex"), "positionIndex")
         refinement = _mapping(board.get("symbolRefinement"), "symbolRefinement")
+        refinement_status = _text(refinement.get("status", "refined"), "status")
         residual_value = refinement.get("refinedP95ResidualPx")
-        if not isinstance(residual_value, int | float) or isinstance(residual_value, bool):
+        if residual_value is None and refinement_status == "manual_override":
+            residual = None
+        elif not isinstance(residual_value, int | float) or isinstance(residual_value, bool):
             raise GalleryError("Board residual is invalid.")
-        residual = float(residual_value)
-        max_residual = max(max_residual, residual)
+        else:
+            residual = float(residual_value)
+            max_residual = max(max_residual, residual)
         tiles.append(
             _tile(
                 _decode_rgb(
@@ -171,6 +183,7 @@ def _contact_sheet(
                 sequence_number=start + position,
                 position=position,
                 residual=residual,
+                refinement_status=refinement_status,
             )
         )
     blank = np.full(
@@ -270,6 +283,7 @@ def build_gallery(
     if cropper_version not in {
         "board-cell-crops-v5-symbol-aware-affine-v1",
         "board-cell-crops-v6-detector-symbol-aware-affine-v1",
+        "board-cell-crops-v7-reviewed-symbol-aware-affine-v1",
     } or report.get("status") not in {"cropped", "needs_review"}:
         raise GalleryError("A supported symbol-aware crop report is required.")
     manifest_by_source = {

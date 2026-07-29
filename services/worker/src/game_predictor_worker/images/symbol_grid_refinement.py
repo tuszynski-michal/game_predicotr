@@ -17,6 +17,7 @@ from .rectification import (
     BOARD_ROWS,
     BOARD_WIDTH,
     DETECTOR_SYMBOL_AWARE_CROPPER_VERSION,
+    REVIEWED_SYMBOL_AWARE_CROPPER_VERSION,
     SYMBOL_AWARE_AFFINE_CROPPER_VERSION,
     BoardCropResult,
     BoardGeometry,
@@ -33,6 +34,7 @@ MAX_RANSAC_RESIDUAL_PX = 12.0
 MAX_REFINED_P95_PX = 12.5
 MAX_CORNER_SHIFT_PX = 70.0
 SOURCE_QUAD_SOURCE = "symbol-aware-projective-grid"
+MANUAL_SOURCE_QUAD_SOURCE = "human-reviewed-symbol-grid-fallback"
 
 
 class SymbolGridRefinementError(ValueError):
@@ -481,6 +483,7 @@ class PerspectiveBoardCellCropperV5SymbolAwareAffine(PerspectiveBoardCellCropper
     """Fail-closed logical-slot cropper refined by the visible symbol lattice."""
 
     version = SYMBOL_AWARE_AFFINE_CROPPER_VERSION
+    accept_manual_overrides = False
 
     def crop(
         self,
@@ -491,6 +494,14 @@ class PerspectiveBoardCellCropperV5SymbolAwareAffine(PerspectiveBoardCellCropper
             return super().crop(rgb_image, geometry)
         refined_boards: list[BoardGeometry] = []
         for board in geometry.boards:
+            if (
+                self.accept_manual_overrides
+                and board.source_quad_source == MANUAL_SOURCE_QUAD_SOURCE
+                and board.symbol_refinement is not None
+                and board.symbol_refinement.status == "manual_override"
+            ):
+                refined_boards.append(board)
+                continue
             refinement = refine_symbol_grid(rgb_image, board.quad)
             if (
                 refinement.status != "refined"
@@ -546,11 +557,22 @@ class PerspectiveBoardCellCropperV6DetectorSymbolAwareAffine(
     version = DETECTOR_SYMBOL_AWARE_CROPPER_VERSION
 
 
+class PerspectiveBoardCellCropperV7ReviewedSymbolAwareAffine(
+    PerspectiveBoardCellCropperV5SymbolAwareAffine
+):
+    """Detector-start refiner with accepted exact-observation overrides."""
+
+    version = REVIEWED_SYMBOL_AWARE_CROPPER_VERSION
+    accept_manual_overrides = True
+
+
 __all__ = [
     "REFINER_VERSION",
+    "MANUAL_SOURCE_QUAD_SOURCE",
     "SOURCE_QUAD_SOURCE",
     "PerspectiveBoardCellCropperV5SymbolAwareAffine",
     "PerspectiveBoardCellCropperV6DetectorSymbolAwareAffine",
+    "PerspectiveBoardCellCropperV7ReviewedSymbolAwareAffine",
     "SymbolCenter",
     "SymbolGridRefinement",
     "SymbolGridRefinementError",

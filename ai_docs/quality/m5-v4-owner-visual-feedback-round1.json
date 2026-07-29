@@ -1,0 +1,194 @@
+{
+  "candidateVersion": "expanded-frame-centered-symbol-mesh-spike-v4",
+  "feedbackScope": "partial_review_sequences_1_to_30",
+  "issues": [
+    {
+      "affectedCells": [
+        {"columnIndex": 0, "rowIndex": 0},
+        {"columnIndex": 0, "rowIndex": 1},
+        {"columnIndex": 0, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 1",
+      "description": "slightly shifted and clipped",
+      "sequenceNumber": 4
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 2",
+      "description": "slightly shifted and clipped",
+      "sequenceNumber": 6
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 0, "rowIndex": 0},
+        {"columnIndex": 0, "rowIndex": 1},
+        {"columnIndex": 0, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 1",
+      "description": "shifted and clipped by approximately half",
+      "sequenceNumber": 7
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 2",
+      "description": "shifted and clipped",
+      "sequenceNumber": 8
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 2",
+      "description": "shifted and clipped",
+      "sequenceNumber": 9
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 0, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 1}
+      ],
+      "cells": "row 2, columns 1 and 2",
+      "description": "slightly clipped",
+      "sequenceNumber": 10
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2},
+        {"columnIndex": 2, "rowIndex": 0},
+        {"columnIndex": 2, "rowIndex": 1},
+        {"columnIndex": 2, "rowIndex": 2}
+      ],
+      "cells": "all rows, columns 2 and 3",
+      "description": "shifted and clipped",
+      "sequenceNumber": 12
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 3, "rowIndex": 0},
+        {"columnIndex": 3, "rowIndex": 1},
+        {"columnIndex": 3, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 4",
+      "description": "shifted and clipped",
+      "sequenceNumber": 15
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 2",
+      "description": "shifted and clipped",
+      "sequenceNumber": 18
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 2",
+      "description": "shifted and clipped",
+      "sequenceNumber": 21
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 0, "rowIndex": 0},
+        {"columnIndex": 0, "rowIndex": 1},
+        {"columnIndex": 0, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 1",
+      "description": "shifted and clipped",
+      "sequenceNumber": 22
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2},
+        {"columnIndex": 4, "rowIndex": 1}
+      ],
+      "cells": "all rows, column 2; row 2, column 5",
+      "description": "shifted and clipped",
+      "sequenceNumber": 24
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 0, "rowIndex": 0},
+        {"columnIndex": 0, "rowIndex": 1},
+        {"columnIndex": 0, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 1",
+      "description": "shifted and clipped",
+      "sequenceNumber": 26
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2},
+        {"columnIndex": 4, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 2; row 3, column 5",
+      "description": "shifted and clipped",
+      "sequenceNumber": 27
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 0, "rowIndex": 0},
+        {"columnIndex": 0, "rowIndex": 1},
+        {"columnIndex": 0, "rowIndex": 2}
+      ],
+      "cells": "all rows, column 1",
+      "description": "shifted and clipped",
+      "sequenceNumber": 29
+    },
+    {
+      "affectedCells": [
+        {"columnIndex": 1, "rowIndex": 0},
+        {"columnIndex": 1, "rowIndex": 1},
+        {"columnIndex": 1, "rowIndex": 2},
+        {"columnIndex": 4, "rowIndex": 0},
+        {"columnIndex": 4, "rowIndex": 1},
+        {"columnIndex": 4, "rowIndex": 2}
+      ],
+      "cells": "all rows, columns 2 and 5",
+      "description": "column 2 nearly invisible; column 5 requires correction",
+      "sequenceNumber": 30
+    }
+  ],
+  "listedSequenceNumbers": [
+    4,
+    6,
+    7,
+    8,
+    9,
+    10,
+    12,
+    15,
+    18,
+    21,
+    22,
+    24,
+    26,
+    27,
+    29,
+    30
+  ],
+  "ownerConclusion": "rejected_partial_review",
+  "schemaVersion": 1,
+  "trainingAllowed": false
+}

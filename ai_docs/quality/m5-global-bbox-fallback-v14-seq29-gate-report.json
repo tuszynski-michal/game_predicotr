@@ -1,0 +1,626 @@
+{
+  "candidate": "v14-bbox",
+  "controlDefinitionSha256": "7be41f0f700cabd757a0308d28b9f2b15e89ba6f68c597cc5a55b6a30f149009",
+  "controlOwnerApproved": false,
+  "cropperVersion": "board-cell-crops-v14-global-lattice-source-aware-bbox-analysis-fallback-v1",
+  "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
+  "entries": [
+    {
+      "analysisFrameSource": "projective-expanded-quad",
+      "cardChecksumSha256": "83393b1a5256563c13aca853d0f9a1d34539f69ecbe96d5d9e0f57b189fb552e",
+      "cardRelativePath": "cards/seq-029.png",
+      "cells": [
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 10,
+            "rightExclusive": 90,
+            "top": 10
+          },
+          "checksumSha256": "d76b53c1785c30346b65a660adee12994e35d4024214bf694a2563c13a5e5818",
+          "columnIndex": 0,
+          "observedQuad": [
+            {
+              "x": 415.2962,
+              "y": 345.7379
+            },
+            {
+              "x": 449.9632,
+              "y": 345.1668
+            },
+            {
+              "x": 450.9444,
+              "y": 373.6635
+            },
+            {
+              "x": 416.3938,
+              "y": 373.8701
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 110,
+            "rightExclusive": 190,
+            "top": 10
+          },
+          "checksumSha256": "b08dbbcfdb6cbe9d6090d517cbd018b45180735a757027c37a4201a72c4baf96",
+          "columnIndex": 1,
+          "observedQuad": [
+            {
+              "x": 459.3299,
+              "y": 345.0125
+            },
+            {
+              "x": 495.1527,
+              "y": 344.4224
+            },
+            {
+              "x": 495.9771,
+              "y": 373.3944
+            },
+            {
+              "x": 460.2791,
+              "y": 373.6077
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 210,
+            "rightExclusive": 290,
+            "top": 10
+          },
+          "checksumSha256": "41d3fa70a57b8b5fc37d128502732bc36e02d1ec7bcdf088cab578f1f9bd79d1",
+          "columnIndex": 2,
+          "observedQuad": [
+            {
+              "x": 504.8342,
+              "y": 344.2629
+            },
+            {
+              "x": 541.8716,
+              "y": 343.6528
+            },
+            {
+              "x": 542.528,
+              "y": 373.1161
+            },
+            {
+              "x": 505.6244,
+              "y": 373.3367
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 310,
+            "rightExclusive": 390,
+            "top": 10
+          },
+          "checksumSha256": "d350c82adc7d612021b51f75c01406696d45a45a56e797777570c1c2f28727df",
+          "columnIndex": 3,
+          "observedQuad": [
+            {
+              "x": 551.8841,
+              "y": 343.4878
+            },
+            {
+              "x": 590.1988,
+              "y": 342.8566
+            },
+            {
+              "x": 590.6752,
+              "y": 372.8283
+            },
+            {
+              "x": 552.5038,
+              "y": 373.0565
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 410,
+            "rightExclusive": 490,
+            "top": 10
+          },
+          "checksumSha256": "83c1b9a8bcc9ba0e760403148c10d6d2b9cec83ec75708243f756ba8edb34991",
+          "columnIndex": 4,
+          "observedQuad": [
+            {
+              "x": 600.5597,
+              "y": 342.686
+            },
+            {
+              "x": 640.219,
+              "y": 342.0326
+            },
+            {
+              "x": 640.5021,
+              "y": 372.5304
+            },
+            {
+              "x": 600.9966,
+              "y": 372.7666
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 10,
+            "rightExclusive": 90,
+            "top": 110
+          },
+          "checksumSha256": "bbe6687126e37304d02c6daeab89e55e7c8f2df5afe1f730a7e4cfb840905f8a",
+          "columnIndex": 0,
+          "observedQuad": [
+            {
+              "x": 416.6842,
+              "y": 381.3131
+            },
+            {
+              "x": 451.204,
+              "y": 381.2026
+            },
+            {
+              "x": 452.1759,
+              "y": 409.429
+            },
+            {
+              "x": 417.7715,
+              "y": 409.1818
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 110,
+            "rightExclusive": 190,
+            "top": 110
+          },
+          "checksumSha256": "78fe5530fef868461c7bd58cf69d3c1697b22f0adc20aac68676bd852ef9c2a6",
+          "columnIndex": 1,
+          "observedQuad": [
+            {
+              "x": 460.5302,
+              "y": 381.1727
+            },
+            {
+              "x": 496.1952,
+              "y": 381.0585
+            },
+            {
+              "x": 497.0117,
+              "y": 409.7512
+            },
+            {
+              "x": 461.4703,
+              "y": 409.4958
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 210,
+            "rightExclusive": 290,
+            "top": 110
+          },
+          "checksumSha256": "5af0cdb6843165eb94397f4938b3183b71ae85a116fadfbec291065b60df7fb1",
+          "columnIndex": 2,
+          "observedQuad": [
+            {
+              "x": 505.8334,
+              "y": 381.0276
+            },
+            {
+              "x": 542.7017,
+              "y": 380.9096
+            },
+            {
+              "x": 543.3517,
+              "y": 410.0841
+            },
+            {
+              "x": 506.6159,
+              "y": 409.8202
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 310,
+            "rightExclusive": 390,
+            "top": 110
+          },
+          "checksumSha256": "1112c1f903b86f2dd90b9b568c6c774090c6f5645980d6cf6633df8ead667c8d",
+          "columnIndex": 3,
+          "observedQuad": [
+            {
+              "x": 552.6677,
+              "y": 380.8776
+            },
+            {
+              "x": 590.8012,
+              "y": 380.7555
+            },
+            {
+              "x": 591.2728,
+              "y": 410.4284
+            },
+            {
+              "x": 553.2813,
+              "y": 410.1554
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 410,
+            "rightExclusive": 490,
+            "top": 110
+          },
+          "checksumSha256": "7d43c041fe72129a0f242ca51d1c5fafeec1d9b193775bd08435435895723106",
+          "columnIndex": 4,
+          "observedQuad": [
+            {
+              "x": 601.1122,
+              "y": 380.7225
+            },
+            {
+              "x": 640.577,
+              "y": 380.5962
+            },
+            {
+              "x": 640.8573,
+              "y": 410.7846
+            },
+            {
+              "x": 601.5447,
+              "y": 410.5022
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 10,
+            "rightExclusive": 90,
+            "top": 210
+          },
+          "checksumSha256": "cf1337b57e176db9d4b3dd3a1588b20f123847d63c19a8d5a1d4459e908f9fcd",
+          "columnIndex": 0,
+          "observedQuad": [
+            {
+              "x": 418.0592,
+              "y": 416.5553
+            },
+            {
+              "x": 452.433,
+              "y": 416.8967
+            },
+            {
+              "x": 453.3957,
+              "y": 444.8567
+            },
+            {
+              "x": 419.1364,
+              "y": 444.1643
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 110,
+            "rightExclusive": 190,
+            "top": 210
+          },
+          "checksumSha256": "28d65dd65c6542bd54997d61001ddec2ec4ef2c72a417b9505f917f319a1c0bc",
+          "columnIndex": 1,
+          "observedQuad": [
+            {
+              "x": 461.719,
+              "y": 416.9889
+            },
+            {
+              "x": 497.2277,
+              "y": 417.3416
+            },
+            {
+              "x": 498.0364,
+              "y": 445.759
+            },
+            {
+              "x": 462.6502,
+              "y": 445.0438
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 210,
+            "rightExclusive": 290,
+            "top": 210
+          },
+          "checksumSha256": "b58c60b907e1653762477061e9405125c8fd1fe2bcb282f5c783c11499b4b181",
+          "columnIndex": 2,
+          "observedQuad": [
+            {
+              "x": 506.8229,
+              "y": 417.4369
+            },
+            {
+              "x": 543.5237,
+              "y": 417.8014
+            },
+            {
+              "x": 544.1674,
+              "y": 446.6913
+            },
+            {
+              "x": 507.5978,
+              "y": 445.9522
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 310,
+            "rightExclusive": 390,
+            "top": 210
+          },
+          "checksumSha256": "6b275f1c3d56d6c13c9c201b878ec91a0caad3adf80cfbee29080911717b8d68",
+          "columnIndex": 3,
+          "observedQuad": [
+            {
+              "x": 553.4436,
+              "y": 417.8999
+            },
+            {
+              "x": 591.3975,
+              "y": 418.2768
+            },
+            {
+              "x": 591.8645,
+              "y": 447.6553
+            },
+            {
+              "x": 554.0512,
+              "y": 446.8911
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 410,
+            "rightExclusive": 490,
+            "top": 210
+          },
+          "checksumSha256": "04085cac98b179dc48b38c9f1ae3c45bf27bc051951a401e38dd1dffba34dbbe",
+          "columnIndex": 4,
+          "observedQuad": [
+            {
+              "x": 601.6591,
+              "y": 418.3787
+            },
+            {
+              "x": 640.9314,
+              "y": 418.7688
+            },
+            {
+              "x": 641.2089,
+              "y": 448.6526
+            },
+            {
+              "x": 602.0874,
+              "y": 447.8619
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        }
+      ],
+      "fallbackReason": null,
+      "group": "primary",
+      "homography": {
+        "allCenterP95ResidualPx": 7.533,
+        "columnCoverage": 5,
+        "fallbackReason": null,
+        "globalAssignedCandidateCount": 12,
+        "globalCandidateCount": 12,
+        "globalColumnBases": [
+          94.0818,
+          185.835,
+          272.459,
+          354.599,
+          425.1109
+        ],
+        "globalRowBases": [
+          84.8563,
+          166.4053,
+          262.8574
+        ],
+        "homographyVersion": "symbol-lattice-homography-ransac-v2-global-assignment-v1",
+        "idealToObservedMatrix": [
+          [
+            0.96019,
+            -0.04058,
+            52.81491
+          ],
+          [
+            0.01975,
+            0.91975,
+            36.5801
+          ],
+          [
+            0.00033,
+            -0.00017,
+            1.0
+          ]
+        ],
+        "inlierCount": 12,
+        "inlierMedianResidualPx": 3.4771,
+        "inlierP95ResidualPx": 7.533,
+        "inlierSlots": [
+          {
+            "columnIndex": 0,
+            "rowIndex": 0
+          },
+          {
+            "columnIndex": 4,
+            "rowIndex": 0
+          },
+          {
+            "columnIndex": 0,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 1,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 2,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 3,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 4,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 0,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 1,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 2,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 3,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 4,
+            "rowIndex": 2
+          }
+        ],
+        "locatorVersion": "global-bright-component-lattice-assignment-v1",
+        "reliableCenterCount": 12,
+        "rowCoverage": 3,
+        "status": "fitted",
+        "virtualGridQuad": [
+          {
+            "x": 52.8149,
+            "y": 36.5801
+          },
+          {
+            "x": 457.1042,
+            "y": 39.8489
+          },
+          {
+            "x": 467.224,
+            "y": 289.2535
+          },
+          {
+            "x": 42.8378,
+            "y": 329.4067
+          }
+        ]
+      },
+      "minimumSupportFraction": 1.0,
+      "normalizedImageSha256": "526c022925ff9ed3dee27ac61214cc8deabae9785e699da2602bb6c984a712f1",
+      "positionIndex": 1,
+      "primaryFallbackReason": null,
+      "projectiveExpandedQuad": [
+        {
+          "x": 386,
+          "y": 329
+        },
+        {
+          "x": 679,
+          "y": 317
+        },
+        {
+          "x": 669,
+          "y": 459
+        },
+        {
+          "x": 396,
+          "y": 436
+        }
+      ],
+      "sequenceNumber": 29,
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "sourceImageId": "m5-img-004",
+      "status": "cropped"
+    }
+  ],
+  "executionOrder": [
+    29
+  ],
+  "fallbackCount": 0,
+  "fixedPaddingPx": 10,
+  "fullCorpusGenerated": false,
+  "gridVersion": "global-lattice-source-aware-bbox-analysis-fallback-grid-v1",
+  "homographyVersion": "symbol-lattice-homography-ransac-v2-global-assignment-v1",
+  "manifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "numpyVersion": "2.4.6",
+  "opencvVersion": "4.13.0",
+  "ownerReviewRequired": true,
+  "phase": "seq29",
+  "processedCount": 1,
+  "projectiveFrameProfileVersion": "expanded-detector-projective-quad-v1",
+  "schemaVersion": "m5-projective-fixed-padding-regression-v2",
+  "status": "waiting_for_owner_review",
+  "technicalPassed": true,
+  "trainingAllowed": false,
+  "v7ReportSha256": "0950ac493af010d198cace691f78f3aa454100acaff246845a2fca2c5f8d0a55"
+}

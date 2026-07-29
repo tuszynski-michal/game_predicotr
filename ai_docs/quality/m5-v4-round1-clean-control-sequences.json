@@ -1,0 +1,24 @@
+{
+  "candidateVersion": "expanded-frame-centered-symbol-mesh-spike-v4",
+  "feedbackScope": "round1_unreported_sequences_1_to_30",
+  "inference": "The owner listed visible problems through sequence 30 and did not report these sequences. They are a calibration control, not an owner-approved golden.",
+  "listedSequenceNumbers": [
+    1,
+    2,
+    3,
+    5,
+    11,
+    13,
+    14,
+    16,
+    17,
+    19,
+    20,
+    23,
+    25,
+    28
+  ],
+  "ownerApproved": false,
+  "schemaVersion": 1,
+  "trainingAllowed": false
+}

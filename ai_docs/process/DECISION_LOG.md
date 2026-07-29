@@ -1470,6 +1470,124 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   wystarcza do wyznaczenia finalnych granic komórek. Exact-source scope,
   rozłączny held-out, fail-closed i niezmienność artefaktów pozostają w mocy.
 
+## D-064 — Guarded projective transform from the complete symbol lattice
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** nowy kandydat geometrii najpierw rozszerza quad detektora w jego
+  własnym układzie projektowym, a następnie traktuje środki symboli z całej
+  planszy jako jeden przypisany zbiór siatki 5 × 3. Homografia
+  ideal-to-observed jest dopasowywana przez RANSAC i ponownie liczona na
+  inlierach. Cztery wirtualne narożniki siatki wynikają z tego transformu, a
+  nie z czterech potencjalnie zasłoniętych symboli skrajnych. Wynik wymaga co
+  najmniej 10 wiarygodnych kandydatów, 9 inlierów, pokrycia wszystkich 3 rzędów
+  i 5 kolumn, P95 residualu inlierów najwyżej `10 px` oraz jawnych guardów
+  wypukłości, pola, marginesu ramki i odstępów. Niespełnienie dowolnego warunku
+  daje kontrolowany fallback.
+- **Context:** właściciel odrzucił v9 na sekwencji 29, ponieważ osiowy szeroki
+  bounding box usunął widoczne nachylenie planszy. Projektowe rozszerzenie v11
+  zachowało perspektywę. Na jego wyniku estymator
+  `symbol-lattice-homography-ransac-v1` znalazł `14/15` wiarygodnych kandydatów,
+  13 inlierów obejmujących 3 × 5 i P95 `7.6869 px`; błędny środek górnego rzędu
+  nie steruje narożnikami.
+- **Reason:** homografia modeluje perspektywę, której transform afiniczny ani
+  osiowy mesh nie mogą odtworzyć. Użycie wszystkich inlierów ogranicza wpływ
+  zasłoniętej kontrolką komórki, nietypowego symbolu lub lokalnego szumu.
+- **Alternatives:** dalsze strojenie odrzuconego osiowego v9, homografia z
+  samych czterech symboli narożnych, zewnętrzne ręczne linie per plansza albo
+  natychmiastowa zmiana biblioteki. OpenCV 4.13 zapewnia już wymagany,
+  zweryfikowany prymityw.
+- **Consequences:** affine v7–v9 i ich artefakty pozostają niezmienną historią,
+  ale nie mogą zasilać treningu. Krok 2 publikuje tylko estymator i diagnostykę;
+  nie publikuje cropów. Rectyfikacja, stały padding i mała bramka regresji na
+  `29`, `4`, `6`, `7`, `26`, `30` oraz kontrolach są obowiązkowym krokiem 3
+  przed jakimkolwiek pełnym przebiegiem 387 plansz. `trainingAllowed` pozostaje
+  `false`.
+- **Supersedes:** D-063 w zakresie transformu afinicznego jako docelowego
+  kandydata granic komórek. Per-board scope, wykorzystanie wielu środków,
+  fail-closed, rozłączny held-out i niezmienność artefaktów pozostają w mocy.
+
+## D-065 — Globalne przypisanie symboli i source-aware fixed padding
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** kandydat produkcyjnej geometrii nie może proponować niezależnego
+  środka w każdym przybliżonym slocie. Najpierw tworzy globalny zbiór
+  komponentów symboli, wspólnie wyznacza pięć kolumn i trzy rzędy, a następnie
+  przypisuje najwyżej jeden komponent do slotu 5 × 3. Dopiero przypisany slot
+  może być wiarygodną obserwacją homografii. Rozszerzona plansza 500 × 300 jest
+  płaszczyzną analizy, nie granicą dostępnych pikseli. Finalny transform składa
+  `ideal -> analysis -> normalized source`, a stały padding jest pobierany
+  bezpośrednio z realnego źródła. Każdy padded crop nadal wymaga wszystkich
+  narożników w granicach źródła i support fraction `1.0`.
+- **Context:** v12 technicznie przepuściło `4` i `26`, ale ich pierwsze kolumny
+  były przecięte, ponieważ slot-local locator wybrał czerwoną ramę około
+  `x = 55` zamiast globalnej kolumny symboli około `x = 99`. Na sekwencji 29
+  poprawny dolny lewy narożnik siatki wypada około `(42.84, 329.41)` w
+  płaszczyźnie analizy, mimo że wymagane piksele istnieją w oryginalnym
+  zdjęciu. Ograniczanie go do `y <= 300` odtwarzało przycięcie.
+- **Reason:** globalne przypisanie usuwa systematyczny błąd całej kolumny,
+  którego RANSAC nie może odróżnić od poprawnego modelu. Kompozycja do źródła
+  oddziela obszar użyty do detekcji od fizycznego dowodu dostępności pikseli.
+  Zachowuje to fail-closed bez wymuszania błędnych środków i bez syntetycznego
+  uzupełniania obrazu.
+- **Alternatives:** dalsze strojenie slot-local saliency, obniżenie progów
+  RANSAC, zwiększenie statycznego quadu wszystkich plansz, border replication
+  albo zmiana biblioteki. Statyczne poszerzenie nie odzyskało bezpiecznie
+  kontroli `3` i `11`, a OpenCV zapewnia wystarczające prymitywy.
+- **Consequences:** powstają wersje
+  `global-bright-component-lattice-assignment-v1`,
+  `symbol-lattice-homography-ransac-v2-global-assignment-v1` i
+  `board-cell-crops-v13-global-lattice-source-aware-fixed-padding-preflight-v1`.
+  Progi liczby punktów, inlierów, coverage i residualu pozostają bez zmian.
+  Guard pola i marginesu dotyczy teraz bounded ekstrapolacji w sztucznej
+  płaszczyźnie analizy; ostateczną granicą jest ścisły preflight realnego
+  źródła. Regresja poprawia wynik z `13/20` do `18/20` i odzyskuje wszystkie
+  zgłoszone sekwencje, lecz `3` i `11` pozostają fail-closed. Pełny korpus,
+  publikacja datasetu i trening nadal są zabronione.
+- **Supersedes:** D-064 w zakresie slot-local źródła kandydatów i traktowania
+  expanded 500 × 300 jako finalnej granicy pikseli. Guarded RANSAC, pełne
+  coverage, stały padding, niezmienność artefaktów i fail-closed pozostają w
+  mocy.
+
+## D-066 — Bounding box wyłącznie jako awaryjna płaszczyzna analizy
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** po błędzie
+  `GLOBAL_SYMBOL_LATTICE_INSUFFICIENT_COMPONENTS`,
+  `GLOBAL_SYMBOL_LATTICE_AXIS_ASSIGNMENT_FAILED` albo
+  `GLOBAL_SYMBOL_LATTICE_INSUFFICIENT_ASSIGNMENTS` kandydat v14 może wykonać
+  dokładnie jeden retry na płaszczyźnie analizy wyprowadzonej z `boundingBox`
+  detektora z paddingiem `6%` w poziomie i `4%` w pionie. Bounding box nie jest
+  finalną geometrią komórek. Retry musi ponownie wykonać globalne przypisanie
+  5 × 3, guarded RANSAC, kompozycję do znormalizowanego źródła i preflight
+  support fraction `1.0`. Każdy inny błąd pozostaje fail-closed.
+- **Context:** v13 odzyskało wszystkie sekwencje zgłoszone przez właściciela,
+  ale kontrola `3` miała zniekształcony projektowy quad detektora, który
+  odcinał część siatki, a kontrola `11` dostarczała tylko osiem przypisań.
+  Dalsze rozszerzanie tego samego quadu nie odzyskało kompletnej siatki.
+  Szersza prostokątna płaszczyzna analizy odzyskała odpowiednio 13 i 12
+  przypisań, po czym finalna homografia zachowała po 12 inlierów oraz P95
+  `4.3133 px` i `4.3328 px`.
+- **Reason:** lokalizator potrzebuje zobaczyć całą siatkę, ale rama detektora
+  nie powinna sterować granicami cropów. Rozdzielenie awaryjnego obszaru
+  wyszukiwania od finalnej homografii zachowuje perspektywę, pełne coverage
+  i dowód realnych pikseli bez obniżania progów.
+- **Alternatives:** obniżenie progów RANSAC, bezwarunkowe używanie bounding boxu,
+  ręczny override dwóch kontroli, syntetyczne piksele albo natychmiastowa
+  zmiana biblioteki. Żadna z tych opcji nie daje równie małego i audytowalnego
+  rozszerzenia istniejącego kontraktu OpenCV.
+- **Consequences:** powstaje
+  `board-cell-crops-v14-global-lattice-source-aware-bbox-analysis-fallback-v1`.
+  Ograniczona regresja przechodzi technicznie `20/20`; tylko `3` i `11`
+  korzystają z retry, a pozostałe 18 kart ma te same checksumy co v13. Status
+  pozostaje `waiting_for_owner_review`, a pełny korpus i trening są zabronione
+  do jawnej akceptacji galerii.
+- **Supersedes:** D-065 wyłącznie w zakresie braku ścieżki dla kontroli `3`
+  i `11`. Globalne przypisanie, source-aware fixed padding, niezmienione guardy,
+  niezmienność artefaktów i fail-closed pozostają w mocy.
+
 ## Szablon nowej decyzji
 
 ```text

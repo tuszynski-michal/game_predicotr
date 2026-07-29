@@ -1,0 +1,611 @@
+{
+  "controlDefinitionSha256": "7be41f0f700cabd757a0308d28b9f2b15e89ba6f68c597cc5a55b6a30f149009",
+  "controlOwnerApproved": false,
+  "cropperVersion": "board-cell-crops-v12-projective-lattice-fixed-padding-preflight-v1",
+  "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
+  "entries": [
+    {
+      "cardChecksumSha256": "47c6214a291e7c65599851e659dbb6e3ab2a9c3881a76339a17a39718bdb7d25",
+      "cardRelativePath": "cards/seq-029.png",
+      "cells": [
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 10,
+            "rightExclusive": 90,
+            "top": 10
+          },
+          "checksumSha256": "f6cb95729629b3ff630a9088704394a10f87591be860f159361db73fe83c88f3",
+          "columnIndex": 0,
+          "observedQuad": [
+            {
+              "x": 13.4981,
+              "y": 15.5394
+            },
+            {
+              "x": 97.5079,
+              "y": 18.4954
+            },
+            {
+              "x": 103.486,
+              "y": 100.8695
+            },
+            {
+              "x": 21.3706,
+              "y": 99.9754
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 110,
+            "rightExclusive": 190,
+            "top": 10
+          },
+          "checksumSha256": "116f67b31097f4eb167fa045ffdd51e096945ad6548322cb2e40851d028dd67e",
+          "columnIndex": 1,
+          "observedQuad": [
+            {
+              "x": 119.1599,
+              "y": 19.2573
+            },
+            {
+              "x": 198.1917,
+              "y": 22.0381
+            },
+            {
+              "x": 202.0086,
+              "y": 101.9423
+            },
+            {
+              "x": 124.6632,
+              "y": 101.1001
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 210,
+            "rightExclusive": 290,
+            "top": 10
+          },
+          "checksumSha256": "681a5241daaee9a2ddbfb5e40a5debab70bcb4dd6464bfd0df15e366a4d48d91",
+          "columnIndex": 2,
+          "observedQuad": [
+            {
+              "x": 218.5796,
+              "y": 22.7555
+            },
+            {
+              "x": 293.0632,
+              "y": 25.3763
+            },
+            {
+              "x": 294.9527,
+              "y": 102.9543
+            },
+            {
+              "x": 221.9734,
+              "y": 102.1596
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 310,
+            "rightExclusive": 390,
+            "top": 10
+          },
+          "checksumSha256": "6bf648c9391d3ac2caa35a046550a2a2db03e18ebcd543e19f60c81491e2796b",
+          "columnIndex": 3,
+          "observedQuad": [
+            {
+              "x": 312.2945,
+              "y": 26.053
+            },
+            {
+              "x": 382.6115,
+              "y": 28.5272
+            },
+            {
+              "x": 382.7791,
+              "y": 103.9106
+            },
+            {
+              "x": 313.8063,
+              "y": 103.1596
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 90,
+            "left": 410,
+            "rightExclusive": 490,
+            "top": 10
+          },
+          "checksumSha256": "ce362af933c1dcafe1d1c6762596e672d2bd9d0e68cea80c07c785c2752c0ee4",
+          "columnIndex": 4,
+          "observedQuad": [
+            {
+              "x": 400.782,
+              "y": 29.1665
+            },
+            {
+              "x": 467.2725,
+              "y": 31.5061
+            },
+            {
+              "x": 465.8991,
+              "y": 104.8157
+            },
+            {
+              "x": 400.6117,
+              "y": 104.1048
+            }
+          ],
+          "rowIndex": 0,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 10,
+            "rightExclusive": 90,
+            "top": 110
+          },
+          "checksumSha256": "361e5e3d37e0841380afbfbbb53f808c299311b0f7635ce56998a474ac8722a9",
+          "columnIndex": 0,
+          "observedQuad": [
+            {
+              "x": 23.4085,
+              "y": 121.8321
+            },
+            {
+              "x": 105.0345,
+              "y": 122.206
+            },
+            {
+              "x": 110.7135,
+              "y": 200.4583
+            },
+            {
+              "x": 30.8778,
+              "y": 201.9435
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 110,
+            "rightExclusive": 190,
+            "top": 110
+          },
+          "checksumSha256": "0c0462316bb271f6571449942d284a1a2d75e046265d34fa4a5934e0e4f1e818",
+          "columnIndex": 1,
+          "observedQuad": [
+            {
+              "x": 126.0889,
+              "y": 122.3024
+            },
+            {
+              "x": 202.998,
+              "y": 122.6548
+            },
+            {
+              "x": 206.6294,
+              "y": 198.6741
+            },
+            {
+              "x": 131.3185,
+              "y": 200.0751
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 210,
+            "rightExclusive": 290,
+            "top": 110
+          },
+          "checksumSha256": "6c4b861e01ed1335fb70972be7d618464e4da13bb31148d5cc1374945e65bf44",
+          "columnIndex": 2,
+          "observedQuad": [
+            {
+              "x": 222.8533,
+              "y": 122.7457
+            },
+            {
+              "x": 295.4429,
+              "y": 123.0782
+            },
+            {
+              "x": 297.2431,
+              "y": 196.9885
+            },
+            {
+              "x": 226.0831,
+              "y": 198.3122
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 310,
+            "rightExclusive": 390,
+            "top": 110
+          },
+          "checksumSha256": "92dc91ef35e7936532f774eeda2cfd575e599c0cddd84490885ef6f5cee11680",
+          "columnIndex": 3,
+          "observedQuad": [
+            {
+              "x": 314.1985,
+              "y": 123.1642
+            },
+            {
+              "x": 382.8226,
+              "y": 123.4785
+            },
+            {
+              "x": 382.9824,
+              "y": 195.3936
+            },
+            {
+              "x": 315.6392,
+              "y": 196.6463
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 190,
+            "left": 410,
+            "rightExclusive": 490,
+            "top": 110
+          },
+          "checksumSha256": "b8c706d2a4abdc6adc74e9246acfb2c4a8ea4b127fd5797c4354fee724945274",
+          "columnIndex": 4,
+          "observedQuad": [
+            {
+              "x": 400.5675,
+              "y": 123.5598
+            },
+            {
+              "x": 465.5423,
+              "y": 123.8575
+            },
+            {
+              "x": 464.2304,
+              "y": 193.8822
+            },
+            {
+              "x": 400.405,
+              "y": 195.0695
+            }
+          ],
+          "rowIndex": 1,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 10,
+            "rightExclusive": 90,
+            "top": 210
+          },
+          "checksumSha256": "78223829d9a080b455eb91b621a3fc71e00c6507c251dc33718ccde8348b8912",
+          "columnIndex": 0,
+          "observedQuad": [
+            {
+              "x": 32.8126,
+              "y": 222.695
+            },
+            {
+              "x": 112.1854,
+              "y": 220.7405
+            },
+            {
+              "x": 117.5872,
+              "y": 295.173
+            },
+            {
+              "x": 39.9089,
+              "y": 298.8057
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 110,
+            "rightExclusive": 190,
+            "top": 210
+          },
+          "checksumSha256": "f5e68ea5f6be5885f71af040a8f53fdab816fe000570cd1f53100b70c926532f",
+          "columnIndex": 1,
+          "observedQuad": [
+            {
+              "x": 132.6742,
+              "y": 220.236
+            },
+            {
+              "x": 207.5713,
+              "y": 218.3918
+            },
+            {
+              "x": 211.0303,
+              "y": 290.8029
+            },
+            {
+              "x": 137.6501,
+              "y": 294.2347
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 210,
+            "rightExclusive": 290,
+            "top": 210
+          },
+          "checksumSha256": "781cf98dcc13ff3dbd90d3132a8e3370ac589d78eb73429cf508e46a0df7afa1",
+          "columnIndex": 2,
+          "observedQuad": [
+            {
+              "x": 226.9209,
+              "y": 217.9153
+            },
+            {
+              "x": 297.7104,
+              "y": 216.1722
+            },
+            {
+              "x": 299.4274,
+              "y": 286.6689
+            },
+            {
+              "x": 229.9983,
+              "y": 289.9159
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 310,
+            "rightExclusive": 390,
+            "top": 210
+          },
+          "checksumSha256": "51cac67da76d5f90aa26e225b354f521558f42729b3aa99a2ef2c0abfb2853b4",
+          "columnIndex": 3,
+          "observedQuad": [
+            {
+              "x": 316.0132,
+              "y": 215.7216
+            },
+            {
+              "x": 383.024,
+              "y": 214.0715
+            },
+            {
+              "x": 383.1766,
+              "y": 282.7522
+            },
+            {
+              "x": 317.3878,
+              "y": 285.8289
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        },
+        {
+          "canonicalBounds": {
+            "bottomExclusive": 290,
+            "left": 410,
+            "rightExclusive": 490,
+            "top": 210
+          },
+          "checksumSha256": "779a410b52e8987d2c1faa22f6818bf44b2ccbd648823a8009f4654f796fedbd",
+          "columnIndex": 4,
+          "observedQuad": [
+            {
+              "x": 400.3628,
+              "y": 213.6446
+            },
+            {
+              "x": 463.8895,
+              "y": 212.0803
+            },
+            {
+              "x": 462.6351,
+              "y": 279.0362
+            },
+            {
+              "x": 400.2076,
+              "y": 281.9557
+            }
+          ],
+          "rowIndex": 2,
+          "supportFraction": 1.0
+        }
+      ],
+      "fallbackReason": null,
+      "group": "primary",
+      "homography": {
+        "allCenterP95ResidualPx": 14.0563,
+        "columnCoverage": 5,
+        "fallbackReason": null,
+        "homographyVersion": "symbol-lattice-homography-ransac-v1",
+        "idealToObservedMatrix": [
+          [
+            1.1004410756,
+            0.1060224446,
+            1.512660992
+          ],
+          [
+            0.0434774552,
+            1.1021461075,
+            4.1742905342
+          ],
+          [
+            0.0003157643,
+            0.0002707437,
+            1.0
+          ]
+        ],
+        "inlierCount": 13,
+        "inlierMedianResidualPx": 4.6077,
+        "inlierP95ResidualPx": 7.6869,
+        "inlierSlots": [
+          {
+            "columnIndex": 1,
+            "rowIndex": 0
+          },
+          {
+            "columnIndex": 3,
+            "rowIndex": 0
+          },
+          {
+            "columnIndex": 4,
+            "rowIndex": 0
+          },
+          {
+            "columnIndex": 0,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 1,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 2,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 3,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 4,
+            "rowIndex": 1
+          },
+          {
+            "columnIndex": 0,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 1,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 2,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 3,
+            "rowIndex": 2
+          },
+          {
+            "columnIndex": 4,
+            "rowIndex": 2
+          }
+        ],
+        "reliableCenterCount": 14,
+        "rowCoverage": 3,
+        "status": "fitted",
+        "virtualGridQuad": [
+          {
+            "x": 1.5127,
+            "y": 4.1743
+          },
+          {
+            "x": 476.502,
+            "y": 22.3797
+          },
+          {
+            "x": 470.9365,
+            "y": 287.7535
+          },
+          {
+            "x": 30.8164,
+            "y": 309.6661
+          }
+        ]
+      },
+      "minimumSupportFraction": 1.0,
+      "normalizedImageSha256": "526c022925ff9ed3dee27ac61214cc8deabae9785e699da2602bb6c984a712f1",
+      "positionIndex": 1,
+      "projectiveExpandedQuad": [
+        {
+          "x": 386,
+          "y": 329
+        },
+        {
+          "x": 679,
+          "y": 317
+        },
+        {
+          "x": 669,
+          "y": 459
+        },
+        {
+          "x": 396,
+          "y": 436
+        }
+      ],
+      "sequenceNumber": 29,
+      "sourceChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "sourceImageId": "m5-img-004",
+      "status": "cropped"
+    }
+  ],
+  "executionOrder": [
+    29
+  ],
+  "fallbackCount": 0,
+  "fixedPaddingPx": 10,
+  "fullCorpusGenerated": false,
+  "homographyVersion": "symbol-lattice-homography-ransac-v1",
+  "manifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "numpyVersion": "2.4.6",
+  "opencvVersion": "4.13.0",
+  "ownerReviewRequired": true,
+  "phase": "seq29",
+  "processedCount": 1,
+  "projectiveFrameProfileVersion": "expanded-detector-projective-quad-v1",
+  "schemaVersion": "m5-projective-fixed-padding-regression-v1",
+  "status": "waiting_for_owner_review",
+  "technicalPassed": true,
+  "trainingAllowed": false,
+  "v7ReportSha256": "0950ac493af010d198cace691f78f3aa454100acaff246845a2fca2c5f8d0a55"
+}

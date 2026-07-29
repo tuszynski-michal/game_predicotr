@@ -867,6 +867,58 @@ Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
 `null` poza `processing`. Wewnętrzne `leaseToken`, `leaseOwner` oraz
 `checkpointPayload` nigdy nie są zwracane przez Admin API.
 
+Job `import` z `importKind = image_directory` zwraca w `inputPayload` także
+poświadczony `pipelineFingerprint`. Szczegóły operacyjne takiego joba mają
+osobny kontrakt:
+
+### GET `/api/v1/admin/image-jobs/{jobId}/operations`
+
+Zwraca trwałe aggregate `total`, `current`, `succeeded`, `failed`, `review`
+i `waiting`, czas od `startedAt` do `finishedAt` albo ostatniej trwałej
+aktualizacji oraz `filesPerMinute = current * 60 / elapsedSeconds`. Parametr
+`file_limit` jest ograniczony do 1–200, domyślnie 100. Lista plików zachowuje
+`orderIndex` i zawiera `fileExecutionKey`, względną ścieżkę, status,
+`nextStage`, `failedStage`, bezpieczny błąd, `retryCount` oraz znacznik review.
+`hasMoreFiles` jawnie informuje o obcięciu listy.
+
+### POST `/api/v1/admin/image-jobs/{jobId}/files/{fileExecutionKey}/retry`
+
+Body ma postać `{"expectedStage":"normalization"}`. Endpoint akceptuje tylko
+failed job-local checkpoint, którego `failedStage` i `nextStage` są równe
+`expectedStage`. Czyści błąd tego powiązania, zwiększa licznik retry i zachowuje
+ten sam file key, wcześniejsze immutable stage results oraz checkpoint. Job
+`failed` albo `waiting_for_review` jest wznawiany jako ten sam rekord
+`created`; aktywny lub terminalny job zwraca konflikt. Odpowiedzią jest
+odświeżony kontrakt operations.
+
+### GET `/api/v1/admin/image-storage`
+
+Zwraca read-only inwentarz dokładnie sześciu przestrzeni pod zarządzanym rootem
+`data`: nazwę, `retentionPolicy`, `protected`, `exists`, `fileCount`,
+`sizeBytes` i `ignoredSymlinkCount`. Odpowiedź zawiera sumy oraz
+`automaticDeletion = false`. Endpoint nie przyjmuje ścieżki i nie wykonuje
+operacji destrukcyjnej.
+
+### POST `/api/v1/admin/image-jobs/{jobId}/diagnostic-exports`
+
+Tworzy kanoniczny manifest `image-job-diagnostics-v1` z dokładnymi agregatami
+i najwyżej 10 000 uporządkowanych błędów. Odpowiedź `201` zawiera `created`
+oraz metadane eksportu: job, SHA-256, względną ścieżkę, rozmiar, czas źródłowego
+stanu, dokładny i wyeksportowany licznik błędów oraz `truncated`. Identyczny
+stan zwraca ten sam plik i `created = false`.
+
+### GET `/api/v1/admin/image-jobs/{jobId}/diagnostic-exports`
+
+Zwraca historyczne, poprawne checksumowo manifesty najpierw od najnowszego
+stanu źródłowego. Uszkodzony manifest kończy żądanie stabilnym konfliktem,
+zamiast być pominięty albo pobrany.
+
+### GET `/api/v1/admin/image-jobs/{jobId}/diagnostic-exports/{checksumSha256}/download`
+
+Ponownie sprawdza, czy ścieżka pozostaje w zarządzanym root, czy manifest jest
+kanoniczny i czy pełny SHA-256 odpowiada wersji. Zwraca niezmienione bajty jako
+`application/octet-stream` z nazwą pliku `.json`; panel pobiera je jako `Blob`.
+
 Wspólny automat:
 
 ```text

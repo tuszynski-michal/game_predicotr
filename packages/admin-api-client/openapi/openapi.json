@@ -594,6 +594,417 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "ImageDiagnosticExportCreationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "export": {
+            "$ref": "#/components/schemas/ImageDiagnosticExportResponse"
+          }
+        },
+        "required": [
+          "created",
+          "export"
+        ],
+        "title": "ImageDiagnosticExportCreationResponse",
+        "type": "object"
+      },
+      "ImageDiagnosticExportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "errorCount": {
+            "title": "Errorcount",
+            "type": "integer"
+          },
+          "exportedErrorCount": {
+            "title": "Exportederrorcount",
+            "type": "integer"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "sourceUpdatedAt": {
+            "format": "date-time",
+            "title": "Sourceupdatedat",
+            "type": "string"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jobId",
+          "checksumSha256",
+          "relativePath",
+          "sizeBytes",
+          "sourceUpdatedAt",
+          "errorCount",
+          "exportedErrorCount",
+          "truncated"
+        ],
+        "title": "ImageDiagnosticExportResponse",
+        "type": "object"
+      },
+      "ImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "importKind",
+          "pipelineFingerprint"
+        ],
+        "title": "ImageImportJobPayload",
+        "type": "object"
+      },
+      "ImageJobFileErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ImageJobFileErrorResponse",
+        "type": "object"
+      },
+      "ImageJobFileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageJobFileErrorResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "failedStage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failedstage"
+          },
+          "fileExecutionKey": {
+            "title": "Fileexecutionkey",
+            "type": "string"
+          },
+          "nextStage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextstage"
+          },
+          "orderIndex": {
+            "title": "Orderindex",
+            "type": "integer"
+          },
+          "retryCount": {
+            "title": "Retrycount",
+            "type": "integer"
+          },
+          "reviewRequired": {
+            "title": "Reviewrequired",
+            "type": "boolean"
+          },
+          "sourceRelativePath": {
+            "title": "Sourcerelativepath",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileExecutionKey",
+          "orderIndex",
+          "sourceRelativePath",
+          "status",
+          "nextStage",
+          "failedStage",
+          "error",
+          "retryCount",
+          "reviewRequired",
+          "updatedAt"
+        ],
+        "title": "ImageJobFileResponse",
+        "type": "object"
+      },
+      "ImageJobFileRetryRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedStage": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Expectedstage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedStage"
+        ],
+        "title": "ImageJobFileRetryRequest",
+        "type": "object"
+      },
+      "ImageJobOperationsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "title": "Current",
+            "type": "integer"
+          },
+          "elapsedSeconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsedseconds"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "fileLimit": {
+            "title": "Filelimit",
+            "type": "integer"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ImageJobFileResponse"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "filesPerMinute": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filesperminute"
+          },
+          "hasMoreFiles": {
+            "title": "Hasmorefiles",
+            "type": "boolean"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "review": {
+            "title": "Review",
+            "type": "integer"
+          },
+          "stageCounts": {
+            "items": {
+              "$ref": "#/components/schemas/ImageJobStageCountResponse"
+            },
+            "title": "Stagecounts",
+            "type": "array"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobId",
+          "pipelineFingerprint",
+          "total",
+          "current",
+          "succeeded",
+          "failed",
+          "review",
+          "waiting",
+          "elapsedSeconds",
+          "filesPerMinute",
+          "stageCounts",
+          "files",
+          "fileLimit",
+          "hasMoreFiles"
+        ],
+        "title": "ImageJobOperationsResponse",
+        "type": "object"
+      },
+      "ImageJobStageCountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "count"
+        ],
+        "title": "ImageJobStageCountResponse",
+        "type": "object"
+      },
+      "ImageStorageInventoryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticDeletion": {
+            "title": "Automaticdeletion",
+            "type": "boolean"
+          },
+          "namespaces": {
+            "items": {
+              "$ref": "#/components/schemas/ImageStorageNamespaceResponse"
+            },
+            "title": "Namespaces",
+            "type": "array"
+          },
+          "rootName": {
+            "title": "Rootname",
+            "type": "string"
+          },
+          "totalFileCount": {
+            "title": "Totalfilecount",
+            "type": "integer"
+          },
+          "totalSizeBytes": {
+            "title": "Totalsizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rootName",
+          "automaticDeletion",
+          "totalFileCount",
+          "totalSizeBytes",
+          "namespaces"
+        ],
+        "title": "ImageStorageInventoryResponse",
+        "type": "object"
+      },
+      "ImageStorageNamespaceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "exists": {
+            "title": "Exists",
+            "type": "boolean"
+          },
+          "fileCount": {
+            "title": "Filecount",
+            "type": "integer"
+          },
+          "ignoredSymlinkCount": {
+            "title": "Ignoredsymlinkcount",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protected": {
+            "title": "Protected",
+            "type": "boolean"
+          },
+          "retentionPolicy": {
+            "title": "Retentionpolicy",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "retentionPolicy",
+          "protected",
+          "exists",
+          "fileCount",
+          "sizeBytes",
+          "ignoredSymlinkCount"
+        ],
+        "title": "ImageStorageNamespaceResponse",
+        "type": "object"
+      },
       "ImportJobCreate": {
         "additionalProperties": false,
         "properties": {
@@ -853,6 +1264,9 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/ImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ImageImportJobPayload"
               },
               {
                 "$ref": "#/components/schemas/ValidateJobPayload"
@@ -4901,6 +5315,401 @@
         "summary": "Update game symbol",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/admin/image-jobs/{job_id}/diagnostic-exports": {
+      "get": {
+        "operationId": "listImageDiagnosticExports",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ImageDiagnosticExportResponse"
+                  },
+                  "title": "Response Listimagediagnosticexports",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job or file not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List immutable diagnostic exports for an image job",
+        "tags": [
+          "image-jobs"
+        ]
+      },
+      "post": {
+        "operationId": "createImageDiagnosticExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageDiagnosticExportCreationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job or file not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create or reuse an immutable image-job diagnostic export",
+        "tags": [
+          "image-jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/image-jobs/{job_id}/diagnostic-exports/{checksum_sha256}/download": {
+      "get": {
+        "operationId": "downloadImageDiagnosticExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "checksum_sha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "Checksum Sha256",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job or file not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Download a checksum-verified image-job diagnostic export",
+        "tags": [
+          "image-jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/image-jobs/{job_id}/files/{file_execution_key}/retry": {
+      "post": {
+        "operationId": "retryImageJobFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_execution_key",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{64}$",
+              "title": "File Execution Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "file_limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "File Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageJobFileRetryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageJobOperationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job or file not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Retry exactly one failed image stage",
+        "tags": [
+          "image-jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/image-jobs/{job_id}/operations": {
+      "get": {
+        "operationId": "getImageJobOperations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "file_limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "File Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageJobOperationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job or file not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image job operation conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get durable image-job stage and file statistics",
+        "tags": [
+          "image-jobs"
+        ]
+      }
+    },
+    "/api/v1/admin/image-storage": {
+      "get": {
+        "operationId": "getImageStorageInventory",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageStorageInventoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Managed storage conflict"
+          }
+        },
+        "summary": "Get read-only managed image storage inventory",
+        "tags": [
+          "image-storage"
         ]
       }
     },

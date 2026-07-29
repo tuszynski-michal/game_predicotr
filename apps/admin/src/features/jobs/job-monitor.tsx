@@ -1,6 +1,9 @@
 'use client';
 
 import type {
+  ImageDiagnosticExportResponse,
+  ImageJobOperationsResponse,
+  ImageStorageInventoryResponse,
   JobResponse,
   JobStatus,
   JobType,
@@ -11,7 +14,13 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import {
   type JobsClient,
   cancelJob,
+  createImageDiagnosticExport,
+  downloadImageDiagnosticExport,
+  loadImageDiagnosticExports,
+  loadImageJobOperations,
+  loadImageStorageInventory,
   loadJobs,
+  retryImageJobFile,
   retryJob,
 } from '@/features/jobs/job-actions';
 import {
@@ -20,7 +29,11 @@ import {
   canCancelJob,
   canRetryJob,
   formatJobTimestamp,
+  formatElapsedSeconds,
+  formatImageThroughput,
+  formatStorageBytes,
   isActiveJob,
+  isImageImportJob,
   jobProgressLabel,
   jobProgressPercent,
   jobStageLabel,
@@ -244,6 +257,7 @@ export function JobMonitor({
         <div className="jobList" aria-label="Lista zadań">
           {jobs.map((job) => (
             <JobCard
+              api={api}
               cancelConfirmation={cancelCandidateId === job.id}
               job={job}
               key={job.id}
@@ -261,6 +275,7 @@ export function JobMonitor({
 }
 
 function JobCard({
+  api,
   cancelConfirmation,
   job,
   mutating,
@@ -269,6 +284,7 @@ function JobCard({
   onCancelConfirmationClose,
   onRetry,
 }: {
+  readonly api: JobsClient;
   readonly cancelConfirmation: boolean;
   readonly job: JobResponse;
   readonly mutating: boolean;
@@ -414,7 +430,410 @@ function JobCard({
           <dd>{job.workerVersion ?? '—'}</dd>
         </div>
       </dl>
+      {isImageImportJob(job) ? (
+        <ImageJobOperationsPanel api={api} job={job} />
+      ) : null}
     </article>
+  );
+}
+
+function ImageJobOperationsPanel({
+  api,
+  job,
+}: {
+  readonly api: JobsClient;
+  readonly job: JobResponse;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [operations, setOperations] =
+    useState<ImageJobOperationsResponse | null>(null);
+  const [storage, setStorage] = useState<ImageStorageInventoryResponse | null>(
+    null,
+  );
+  const [diagnosticExports, setDiagnosticExports] = useState<
+    readonly ImageDiagnosticExportResponse[]
+  >([]);
+  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>(
+    'idle',
+  );
+  const [error, setError] = useState('');
+  const [retryingFileKey, setRetryingFileKey] = useState<string | null>(null);
+  const [creatingExport, setCreatingExport] = useState(false);
+  const [downloadingChecksum, setDownloadingChecksum] = useState<string | null>(
+    null,
+  );
+  const [feedback, setFeedback] = useState('');
+  const requestInProgress = useRef(false);
+  const pipelineFingerprint =
+    'pipelineFingerprint' in job.inputPayload
+      ? job.inputPayload.pipelineFingerprint
+      : '—';
+
+  const refresh = useCallback(async () => {
+    if (requestInProgress.current) return;
+    requestInProgress.current = true;
+    setState((current) => (current === 'ready' ? 'ready' : 'loading'));
+    setError('');
+    const [result, storageResult, exportsResult] = await Promise.all([
+      loadImageJobOperations(api, job.id),
+      loadImageStorageInventory(api),
+      loadImageDiagnosticExports(api, job.id),
+    ]);
+    requestInProgress.current = false;
+    if (!result.ok) {
+      setError(result.error);
+      setState((current) => (current === 'ready' ? 'ready' : 'error'));
+      return;
+    }
+    if (!storageResult.ok) {
+      setError(storageResult.error);
+      setState((current) => (current === 'ready' ? 'ready' : 'error'));
+      return;
+    }
+    if (!exportsResult.ok) {
+      setError(exportsResult.error);
+      setState((current) => (current === 'ready' ? 'ready' : 'error'));
+      return;
+    }
+    setOperations(result.operations);
+    setStorage(storageResult.inventory);
+    setDiagnosticExports(exportsResult.exports);
+    setState('ready');
+  }, [api, job.id]);
+
+  useEffect(() => {
+    if (expanded) queueMicrotask(() => void refresh());
+  }, [expanded, job.updatedAt, refresh]);
+
+  async function retryFile(
+    fileExecutionKey: string,
+    failedStage: string | null,
+  ) {
+    if (retryingFileKey !== null || failedStage === null) return;
+    setRetryingFileKey(fileExecutionKey);
+    setError('');
+    const result = await retryImageJobFile(
+      api,
+      job.id,
+      fileExecutionKey,
+      failedStage,
+    );
+    setRetryingFileKey(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setOperations(result.operations);
+    setState('ready');
+  }
+
+  async function createDiagnosticExport() {
+    if (creatingExport) return;
+    setCreatingExport(true);
+    setError('');
+    setFeedback('');
+    const result = await createImageDiagnosticExport(api, job.id);
+    setCreatingExport(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    const exported = result.creation.export;
+    setDiagnosticExports((current) => [
+      exported,
+      ...current.filter(
+        (item) => item.checksumSha256 !== exported.checksumSha256,
+      ),
+    ]);
+    setFeedback(
+      result.creation.created
+        ? 'Utworzono niezmienny eksport diagnostyczny.'
+        : 'Stan joba się nie zmienił — użyto istniejącego eksportu.',
+    );
+  }
+
+  async function downloadDiagnosticExport(
+    diagnosticExport: ImageDiagnosticExportResponse,
+  ) {
+    if (downloadingChecksum !== null) return;
+    setDownloadingChecksum(diagnosticExport.checksumSha256);
+    setError('');
+    setFeedback('');
+    const result = await downloadImageDiagnosticExport(
+      api,
+      job.id,
+      diagnosticExport.checksumSha256,
+    );
+    setDownloadingChecksum(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    const url = URL.createObjectURL(result.artifact);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `image-job-${job.id}-diagnostics-${diagnosticExport.checksumSha256.slice(0, 12)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setFeedback('Pobrano eksport zweryfikowany sumą SHA-256.');
+  }
+
+  return (
+    <section className="imageJobOperations">
+      <div className="imageJobOperationsHeader">
+        <div>
+          <h3>Import zdjęć</h3>
+          <p>
+            Pipeline <code>{pipelineFingerprint}</code>
+          </p>
+        </div>
+        <button
+          aria-expanded={expanded}
+          className="secondaryButton"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          {expanded ? 'Ukryj szczegóły' : 'Pokaż szczegóły'}
+        </button>
+      </div>
+
+      {expanded ? (
+        state === 'loading' ? (
+          <p className="imageJobInlineState" role="status">
+            Pobieram statystyki plików…
+          </p>
+        ) : state === 'error' ? (
+          <div className="imageJobInlineError" role="alert">
+            <p>{error}</p>
+            <button
+              className="secondaryButton"
+              onClick={() => void refresh()}
+              type="button"
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
+        ) : operations === null ? null : (
+          <>
+            {error ? (
+              <p className="imageJobInlineError" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <dl className="imageJobSummary">
+              <div>
+                <dt>Poprawne</dt>
+                <dd>{operations.succeeded.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div>
+                <dt>Błędy</dt>
+                <dd>{operations.failed.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div>
+                <dt>Review</dt>
+                <dd>{operations.review.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div>
+                <dt>Oczekujące</dt>
+                <dd>{operations.waiting.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div>
+                <dt>Czas</dt>
+                <dd>{formatElapsedSeconds(operations.elapsedSeconds)}</dd>
+              </div>
+              <div>
+                <dt>Przepustowość</dt>
+                <dd>{formatImageThroughput(operations.filesPerMinute)}</dd>
+              </div>
+            </dl>
+
+            <div className="imageJobStages" aria-label="Pliki według etapu">
+              {operations.stageCounts.map((item) => (
+                <span key={item.stage}>
+                  {jobStageLabel(item.stage)}: <strong>{item.count}</strong>
+                </span>
+              ))}
+            </div>
+
+            {storage === null ? null : (
+              <section className="imageStorageSummary">
+                <div className="imageStorageHeader">
+                  <div>
+                    <h4>Magazyn plików</h4>
+                    <p>
+                      Zarządzany katalog <code>{storage.rootName}</code> ·{' '}
+                      {storage.totalFileCount.toLocaleString('pl-PL')} plików ·{' '}
+                      {formatStorageBytes(storage.totalSizeBytes)}
+                    </p>
+                  </div>
+                  <strong>Automatyczne usuwanie: wyłączone</strong>
+                </div>
+                <p className="imageStoragePolicy">
+                  Panel pokazuje retencję, ale niczego nie usuwa. Oryginały,
+                  dane treningowe, modele i eksporty są chronione.
+                </p>
+                <div
+                  aria-label="Przestrzenie magazynu obrazów"
+                  className="imageStorageNamespaces"
+                >
+                  {storage.namespaces.map((namespace) => (
+                    <div key={namespace.name}>
+                      <strong>{namespace.name}</strong>
+                      <span>
+                        {namespace.fileCount.toLocaleString('pl-PL')} plików ·{' '}
+                        {formatStorageBytes(namespace.sizeBytes)}
+                      </span>
+                      <small>{namespace.retentionPolicy}</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="imageDiagnosticExports">
+              <div className="imageDiagnosticExportsHeader">
+                <div>
+                  <h4>Eksporty diagnostyczne</h4>
+                  <p>
+                    Tylko metadane i błędy; bez obrazów, sekretów i ścieżek
+                    bezwzględnych.
+                  </p>
+                </div>
+                <button
+                  className="secondaryButton"
+                  disabled={creatingExport}
+                  onClick={() => void createDiagnosticExport()}
+                  type="button"
+                >
+                  {creatingExport ? 'Tworzenie…' : 'Utwórz eksport'}
+                </button>
+              </div>
+              {feedback ? (
+                <p className="imageJobInlineFeedback" role="status">
+                  {feedback}
+                </p>
+              ) : null}
+              {diagnosticExports.length === 0 ? (
+                <p className="imageJobInlineState">
+                  Nie utworzono jeszcze eksportu dla tego joba.
+                </p>
+              ) : (
+                <div className="imageDiagnosticExportList">
+                  {diagnosticExports.map((diagnosticExport) => (
+                    <article key={diagnosticExport.checksumSha256}>
+                      <div>
+                        <strong>
+                          {formatJobTimestamp(diagnosticExport.sourceUpdatedAt)}
+                        </strong>
+                        <code title={diagnosticExport.checksumSha256}>
+                          {diagnosticExport.checksumSha256.slice(0, 16)}…
+                        </code>
+                        <small>
+                          {diagnosticExport.exportedErrorCount.toLocaleString(
+                            'pl-PL',
+                          )}{' '}
+                          z{' '}
+                          {diagnosticExport.errorCount.toLocaleString('pl-PL')}{' '}
+                          błędów ·{' '}
+                          {formatStorageBytes(diagnosticExport.sizeBytes)}
+                          {diagnosticExport.truncated
+                            ? ' · wynik ograniczony'
+                            : ''}
+                        </small>
+                      </div>
+                      <button
+                        className="secondaryButton"
+                        disabled={downloadingChecksum !== null}
+                        onClick={() =>
+                          void downloadDiagnosticExport(diagnosticExport)
+                        }
+                        type="button"
+                      >
+                        {downloadingChecksum === diagnosticExport.checksumSha256
+                          ? 'Pobieranie…'
+                          : 'Pobierz JSON'}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {operations.files.length === 0 ? (
+              <p className="imageJobInlineState">
+                Job nie ma jeszcze zarejestrowanych plików.
+              </p>
+            ) : (
+              <div className="imageJobFileTableWrap">
+                <table className="imageJobFileTable">
+                  <thead>
+                    <tr>
+                      <th scope="col">#</th>
+                      <th scope="col">Plik</th>
+                      <th scope="col">Stan / etap</th>
+                      <th scope="col">Retry</th>
+                      <th scope="col">Operacja</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {operations.files.map((file) => (
+                      <tr key={file.fileExecutionKey}>
+                        <td>{file.orderIndex + 1}</td>
+                        <td>
+                          <span title={file.sourceRelativePath}>
+                            {file.sourceRelativePath}
+                          </span>
+                          {file.error ? (
+                            <small className="imageJobFileError">
+                              {file.error.code}: {file.error.message}
+                            </small>
+                          ) : null}
+                        </td>
+                        <td>
+                          <strong>{file.status.replaceAll('_', ' ')}</strong>
+                          <small>
+                            {jobStageLabel(file.failedStage ?? file.nextStage)}
+                          </small>
+                        </td>
+                        <td>{file.retryCount}</td>
+                        <td>
+                          {file.status === 'failed' &&
+                          file.failedStage !== null ? (
+                            <button
+                              className="primaryButton"
+                              disabled={retryingFileKey !== null}
+                              onClick={() =>
+                                void retryFile(
+                                  file.fileExecutionKey,
+                                  file.failedStage,
+                                )
+                              }
+                              type="button"
+                            >
+                              {retryingFileKey === file.fileExecutionKey
+                                ? 'Ponawianie…'
+                                : `Ponów ${jobStageLabel(file.failedStage)}`}
+                            </button>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {operations.hasMoreFiles ? (
+                  <p className="imageJobInlineState">
+                    Pokazano pierwsze {operations.fileLimit} plików z{' '}
+                    {operations.total.toLocaleString('pl-PL')}.
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </>
+        )
+      ) : null}
+    </section>
   );
 }
 

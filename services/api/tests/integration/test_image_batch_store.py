@@ -12,17 +12,21 @@ from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
-from game_predictor_api.domain.jobs import Job, JobType, create_job
+from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
 from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.image_job_repository import (
+    SqlAlchemyImageJobOperationsRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     ImageReviewItemModel,
     ImageReviewResolutionEventModel,
+    JobModel,
     RecognizedBoardModel,
     SourceImageModel,
 )
@@ -301,5 +305,98 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 session.scalar(select(func.count()).select_from(ImageReviewResolutionEventModel))
                 == 1
             )
+    finally:
+        engine.dispose()
+
+
+def test_image_job_operations_aggregate_and_retry_failed_stage(
+    isolated_image_batch_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    worker_store = SqlAlchemyWorkerJobStore(session_factory)
+    now = datetime(2026, 7, 29, 21, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="image-operations-game",
+                name="Image operations game",
+                status=GameStatus.ACTIVE,
+            )
+            job = SqlAlchemyJobRepository(session).add_job(_image_job(game.id, PIPELINE, now))
+            session.commit()
+
+        registered = image_store.register_file(
+            job.id,
+            source_checksum_sha256="4" * 64,
+            pipeline_fingerprint=PIPELINE,
+            source_relative_path="batch/page-004.jpg",
+            order_index=0,
+            registered_at=now,
+        )
+        claimed = worker_store.claim_next(
+            worker_id="image-operations-worker",
+            worker_version="worker-v7",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now + timedelta(seconds=1),
+        )
+        assert claimed is not None
+        assert claimed.lease_token is not None
+
+        failed_at = now + timedelta(seconds=11)
+        image_store.fail_file(
+            job.id,
+            lease_token=claimed.lease_token,
+            expected_checkpoint=registered.checkpoint_payload,
+            failed_stage="discovery",
+            error_code="IMAGE_DISCOVERY_FAILED",
+            error_message="Discovery failed.",
+            failed_at=failed_at,
+        )
+        worker_store.fail(
+            job.id,
+            lease_token=claimed.lease_token,
+            error_code="IMAGE_BATCH_FAILED",
+            error_message="One file failed.",
+            failed_at=failed_at,
+        )
+
+        with Session(engine, expire_on_commit=False) as session, session.begin():
+            repository = SqlAlchemyImageJobOperationsRepository(session)
+            before = repository.get_operations(job.id, file_limit=10)
+            assert before.total == 1
+            assert before.failed == 1
+            assert before.elapsed_seconds == 10
+            assert before.files_per_minute == 6
+            assert before.stage_counts[0].stage == "discovery"
+            assert before.files[0].file_execution_key == registered.file_execution_key
+
+            diagnostic = repository.diagnostic_snapshot(job.id, error_limit=10)
+            assert diagnostic.error_count == 1
+            assert diagnostic.truncated is False
+            assert diagnostic.failures[0].file_execution_key == (registered.file_execution_key)
+            assert diagnostic.failures[0].source_relative_path == ("batch/page-004.jpg")
+            assert diagnostic.failures[0].error_code == "IMAGE_DISCOVERY_FAILED"
+
+            after = repository.retry_file(
+                job.id,
+                file_execution_key=registered.file_execution_key,
+                expected_stage="discovery",
+                retried_at=now + timedelta(seconds=12),
+                file_limit=10,
+            )
+            assert after.failed == 0
+            assert after.files[0].file_execution_key == registered.file_execution_key
+            assert after.files[0].status == "processing"
+            assert after.files[0].next_stage == "discovery"
+            assert after.files[0].retry_count == 1
+            refreshed_job = session.get(JobModel, job.id)
+            assert refreshed_job is not None
+            assert refreshed_job.status is JobStatus.CREATED
+            assert refreshed_job.error_code is None
+            assert refreshed_job.finished_at is None
     finally:
         engine.dispose()

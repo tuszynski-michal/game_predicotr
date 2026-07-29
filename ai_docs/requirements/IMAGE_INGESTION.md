@@ -412,6 +412,20 @@ data/
 
 Baza przechowuje ścieżki względne, checksumy i metadane. Nie przechowuje dużych zdjęć w głównych tabelach domenowych ani w mobilnym SQLite.
 
+Od M7.3 katalog `data/` jest jedynym zarządzanym rootem image storage.
+Inwentarz może odczytywać wyłącznie sześć powyższych przestrzeni, nie podąża
+za dowiązaniami symbolicznymi i raportuje liczbę pominiętych dowiązań.
+Automatyczne usuwanie jest wyłączone dla każdej przestrzeni. `originals` i
+`models` mają politykę `preserve`; pozostałe dane są wersjonowane, ale również
+nie mogą zostać usunięte przez TASK-0073.
+
+Diagnostyka joba może zostać wyeksportowana jako kanoniczny JSON bez obrazów,
+sekretów, stack trace i ścieżek absolutnych. Eksport zawiera dokładne agregaty
+oraz uporządkowaną próbkę najwyżej 10 000 błędnych plików z jawnym znacznikiem
+obcięcia. Jest zapisywany content-addressed pod
+`data/exports/image-jobs/<jobId>/<sha256>/diagnostics.json`, nie jest
+nadpisywany, a pobranie ponownie sprawdza SHA-256.
+
 ## Metryki jakości
 
 - skuteczność detekcji strony,

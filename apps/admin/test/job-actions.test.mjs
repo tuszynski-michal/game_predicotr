@@ -3,7 +3,13 @@ import test from 'node:test';
 
 import {
   cancelJob,
+  createImageDiagnosticExport,
+  downloadImageDiagnosticExport,
+  loadImageDiagnosticExports,
+  loadImageJobOperations,
+  loadImageStorageInventory,
   loadJobs,
+  retryImageJobFile,
   retryJob,
 } from '../src/features/jobs/job-actions.ts';
 
@@ -116,5 +122,106 @@ test('preserves stable API errors and hides transport exceptions', async () => {
   assert.deepEqual(transport, {
     error: 'Połączenie z lokalnym Admin API zostało przerwane.',
     ok: false,
+  });
+});
+
+test('loads image operations and retries the exact failed file stage', async () => {
+  const operations = {
+    elapsedSeconds: 120,
+    failed: 1,
+    fileLimit: 100,
+    files: [],
+    filesPerMinute: 10,
+    hasMoreFiles: false,
+    jobId: job.id,
+    review: 0,
+    stageCounts: [],
+    succeeded: 19,
+    total: 20,
+    waiting: 0,
+  };
+  let receivedRetry;
+
+  const loaded = await loadImageJobOperations(
+    {
+      getImageJobOperations: async (jobId, limit) => {
+        assert.equal(jobId, job.id);
+        assert.equal(limit, 100);
+        return { data: operations };
+      },
+    },
+    job.id,
+  );
+  assert.deepEqual(loaded, { ok: true, operations });
+
+  const retried = await retryImageJobFile(
+    {
+      retryImageJobFile: async (jobId, fileExecutionKey, body, limit) => {
+        receivedRetry = { body, fileExecutionKey, jobId, limit };
+        return { data: { ...operations, failed: 0, waiting: 1 } };
+      },
+    },
+    job.id,
+    'b'.repeat(64),
+    'manual_review',
+  );
+
+  assert.deepEqual(receivedRetry, {
+    body: { expectedStage: 'manual_review' },
+    fileExecutionKey: 'b'.repeat(64),
+    jobId: job.id,
+    limit: 100,
+  });
+  assert.equal(retried.ok, true);
+  assert.equal(retried.operations.failed, 0);
+  assert.equal(retried.operations.waiting, 1);
+});
+
+test('loads storage and creates, lists and downloads diagnostic exports', async () => {
+  const checksum = 'c'.repeat(64);
+  const diagnosticExport = {
+    checksumSha256: checksum,
+    errorCount: 1,
+    exportedErrorCount: 1,
+    jobId: job.id,
+    relativePath: `data/exports/image-jobs/${job.id}/${checksum}/diagnostics.json`,
+    sizeBytes: 100,
+    sourceUpdatedAt: '2026-07-29T12:00:00Z',
+    truncated: false,
+  };
+  const inventory = {
+    automaticDeletion: false,
+    namespaces: [],
+    rootName: 'data',
+    totalFileCount: 0,
+    totalSizeBytes: 0,
+  };
+  const artifact = new Blob(['{}\n'], {
+    type: 'application/octet-stream',
+  });
+  const api = {
+    createImageDiagnosticExport: async () => ({
+      data: { created: true, export: diagnosticExport },
+    }),
+    downloadImageDiagnosticExport: async () => ({ data: artifact }),
+    getImageStorageInventory: async () => ({ data: inventory }),
+    listImageDiagnosticExports: async () => ({ data: [diagnosticExport] }),
+  };
+
+  assert.deepEqual(await loadImageStorageInventory(api), {
+    inventory,
+    ok: true,
+  });
+  assert.deepEqual(await loadImageDiagnosticExports(api, job.id), {
+    exports: [diagnosticExport],
+    ok: true,
+  });
+  assert.deepEqual(await createImageDiagnosticExport(api, job.id), {
+    creation: { created: true, export: diagnosticExport },
+    ok: true,
+  });
+  assert.deepEqual(await downloadImageDiagnosticExport(api, job.id, checksum), {
+    artifact,
+    ok: true,
   });
 });

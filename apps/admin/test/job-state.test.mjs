@@ -4,8 +4,12 @@ import test from 'node:test';
 import {
   canCancelJob,
   canRetryJob,
+  formatElapsedSeconds,
+  formatImageThroughput,
   formatJobTimestamp,
+  formatStorageBytes,
   isActiveJob,
+  isImageImportJob,
   jobProgressLabel,
   jobProgressPercent,
   jobStageLabel,
@@ -109,4 +113,25 @@ test('replaces a mutated job without reordering the server list', () => {
   );
   assert.equal(formatJobTimestamp(null), '—');
   assert.equal(formatJobTimestamp('not-a-date'), 'Nieprawidłowa data');
+});
+
+test('recognizes image imports and formats operational metrics', () => {
+  const imageImport = job({
+    inputPayload: {
+      schemaVersion: 1,
+      importKind: 'image_directory',
+      pipelineFingerprint: 'a'.repeat(64),
+    },
+    jobType: 'import',
+  });
+
+  assert.equal(isImageImportJob(imageImport), true);
+  assert.equal(isImageImportJob(job()), false);
+  assert.equal(formatElapsedSeconds(null), 'Nie rozpoczęto');
+  assert.equal(formatElapsedSeconds(42.4), '42 s');
+  assert.equal(formatElapsedSeconds(125), '2 min 5 s');
+  assert.equal(formatImageThroughput(null), 'Brak pomiaru');
+  assert.match(formatImageThroughput(12.5), /12,5 plików\/min/);
+  assert.equal(formatStorageBytes(512), '512 B');
+  assert.match(formatStorageBytes(1536), /1,5 KB/);
 });

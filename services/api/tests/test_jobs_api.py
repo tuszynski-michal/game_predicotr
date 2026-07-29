@@ -12,9 +12,10 @@ from game_predictor_api.application.jobs import (
 )
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.jobs import Job, JobStatus, JobType
+from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.main import create_app
+from game_predictor_api.schemas.jobs import JobResponse
 from test_jobs_domain import MemoryJobRepository
 
 
@@ -57,6 +58,27 @@ def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]
     )
     assert response.status_code == 201
     return cast(dict[str, object], response.json())
+
+
+def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "pipeline_fingerprint": "a" * 64,
+        },
+        created_at=datetime(2026, 7, 29, tzinfo=UTC),
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["inputPayload"] == {
+        "schemaVersion": 1,
+        "importKind": "image_directory",
+        "pipelineFingerprint": "a" * 64,
+    }
 
 
 def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:

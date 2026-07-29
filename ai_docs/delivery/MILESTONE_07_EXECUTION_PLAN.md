@@ -115,8 +115,14 @@ przeszły.
 
 ### Zadania
 
-- `TASK-0072 — Image job operations and statistics UI`
-- `TASK-0073 — File storage lifecycle and diagnostic exports`
+- `TASK-0072 — Image job operations and statistics UI` — done 2026-07-29;
+  trwałe aggregate i etapy, bounded lista plików, czas/throughput, retry
+  dokładnego failed etapu oraz szczegóły image importu w istniejącym ekranie
+  Jobs,
+- `TASK-0073 — File storage lifecycle and diagnostic exports` — done
+  2026-07-29; bounded read-only inventory bez symlink traversal i auto-delete,
+  content-addressed kanoniczny eksport JSON, checksum-verified download oraz
+  obsługa w szczegółach image joba.
 
 ### Bramka G7.3
 
@@ -125,6 +131,9 @@ przeszły.
 - ścieżki są względne i pozostają w dozwolonych katalogach,
 - żaden oryginał ani zaakceptowana wersja nie jest usuwana bez jawnej operacji,
 - eksport diagnostyczny nie zawiera sekretów ani niełamanych ścieżek.
+
+G7.3 zaliczona 2026-07-29. Fizyczne usuwanie pozostaje poza zakresem, a
+wydajność skanowania i dużych eksportów przechodzi do TASK-0074.
 
 ## M7.4 — Testy obciążeniowe i jakość operacyjna
 

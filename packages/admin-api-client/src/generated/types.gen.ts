@@ -364,6 +364,276 @@ export type HealthResponse = {
 };
 
 /**
+ * ImageDiagnosticExportCreationResponse
+ */
+export type ImageDiagnosticExportCreationResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  export: ImageDiagnosticExportResponse;
+};
+
+/**
+ * ImageDiagnosticExportResponse
+ */
+export type ImageDiagnosticExportResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Errorcount
+   */
+  errorCount: number;
+  /**
+   * Exportederrorcount
+   */
+  exportedErrorCount: number;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  /**
+   * Sourceupdatedat
+   */
+  sourceUpdatedAt: string;
+  /**
+   * Truncated
+   */
+  truncated: boolean;
+};
+
+/**
+ * ImageImportJobPayload
+ */
+export type ImageImportJobPayload = {
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
+ * ImageJobFileErrorResponse
+ */
+export type ImageJobFileErrorResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Message
+   */
+  message: string;
+};
+
+/**
+ * ImageJobFileResponse
+ */
+export type ImageJobFileResponse = {
+  error: ImageJobFileErrorResponse | null;
+  /**
+   * Failedstage
+   */
+  failedStage: string | null;
+  /**
+   * Fileexecutionkey
+   */
+  fileExecutionKey: string;
+  /**
+   * Nextstage
+   */
+  nextStage: string | null;
+  /**
+   * Orderindex
+   */
+  orderIndex: number;
+  /**
+   * Retrycount
+   */
+  retryCount: number;
+  /**
+   * Reviewrequired
+   */
+  reviewRequired: boolean;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * ImageJobFileRetryRequest
+ */
+export type ImageJobFileRetryRequest = {
+  /**
+   * Expectedstage
+   */
+  expectedStage: string;
+};
+
+/**
+ * ImageJobOperationsResponse
+ */
+export type ImageJobOperationsResponse = {
+  /**
+   * Current
+   */
+  current: number;
+  /**
+   * Elapsedseconds
+   */
+  elapsedSeconds: number | null;
+  /**
+   * Failed
+   */
+  failed: number;
+  /**
+   * Filelimit
+   */
+  fileLimit: number;
+  /**
+   * Files
+   */
+  files: Array<ImageJobFileResponse>;
+  /**
+   * Filesperminute
+   */
+  filesPerMinute: number | null;
+  /**
+   * Hasmorefiles
+   */
+  hasMoreFiles: boolean;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Review
+   */
+  review: number;
+  /**
+   * Stagecounts
+   */
+  stageCounts: Array<ImageJobStageCountResponse>;
+  /**
+   * Succeeded
+   */
+  succeeded: number;
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Waiting
+   */
+  waiting: number;
+};
+
+/**
+ * ImageJobStageCountResponse
+ */
+export type ImageJobStageCountResponse = {
+  /**
+   * Count
+   */
+  count: number;
+  /**
+   * Stage
+   */
+  stage: string;
+};
+
+/**
+ * ImageStorageInventoryResponse
+ */
+export type ImageStorageInventoryResponse = {
+  /**
+   * Automaticdeletion
+   */
+  automaticDeletion: boolean;
+  /**
+   * Namespaces
+   */
+  namespaces: Array<ImageStorageNamespaceResponse>;
+  /**
+   * Rootname
+   */
+  rootName: string;
+  /**
+   * Totalfilecount
+   */
+  totalFileCount: number;
+  /**
+   * Totalsizebytes
+   */
+  totalSizeBytes: number;
+};
+
+/**
+ * ImageStorageNamespaceResponse
+ */
+export type ImageStorageNamespaceResponse = {
+  /**
+   * Exists
+   */
+  exists: boolean;
+  /**
+   * Filecount
+   */
+  fileCount: number;
+  /**
+   * Ignoredsymlinkcount
+   */
+  ignoredSymlinkCount: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Protected
+   */
+  protected: boolean;
+  /**
+   * Retentionpolicy
+   */
+  retentionPolicy: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+};
+
+/**
  * ImportJobCreate
  */
 export type ImportJobCreate = {
@@ -512,6 +782,7 @@ export type JobResponse = {
    */
   inputPayload:
     | ImportJobPayload
+    | ImageImportJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PayoutJobPayload
@@ -2906,6 +3177,250 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type ListImageDiagnosticExportsData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports';
+};
+
+export type ListImageDiagnosticExportsErrors = {
+  /**
+   * Image job or file not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image job operation conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListImageDiagnosticExportsError =
+  ListImageDiagnosticExportsErrors[keyof ListImageDiagnosticExportsErrors];
+
+export type ListImageDiagnosticExportsResponses = {
+  /**
+   * Response Listimagediagnosticexports
+   *
+   * Successful Response
+   */
+  200: Array<ImageDiagnosticExportResponse>;
+};
+
+export type ListImageDiagnosticExportsResponse =
+  ListImageDiagnosticExportsResponses[keyof ListImageDiagnosticExportsResponses];
+
+export type CreateImageDiagnosticExportData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports';
+};
+
+export type CreateImageDiagnosticExportErrors = {
+  /**
+   * Image job or file not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image job operation conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateImageDiagnosticExportError =
+  CreateImageDiagnosticExportErrors[keyof CreateImageDiagnosticExportErrors];
+
+export type CreateImageDiagnosticExportResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageDiagnosticExportCreationResponse;
+};
+
+export type CreateImageDiagnosticExportResponse =
+  CreateImageDiagnosticExportResponses[keyof CreateImageDiagnosticExportResponses];
+
+export type DownloadImageDiagnosticExportData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+    /**
+     * Checksum Sha256
+     */
+    checksum_sha256: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports/{checksum_sha256}/download';
+};
+
+export type DownloadImageDiagnosticExportErrors = {
+  /**
+   * Image job or file not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image job operation conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DownloadImageDiagnosticExportError =
+  DownloadImageDiagnosticExportErrors[keyof DownloadImageDiagnosticExportErrors];
+
+export type DownloadImageDiagnosticExportResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type RetryImageJobFileData = {
+  body: ImageJobFileRetryRequest;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+    /**
+     * File Execution Key
+     */
+    file_execution_key: string;
+  };
+  query?: {
+    /**
+     * File Limit
+     */
+    file_limit?: number;
+  };
+  url: '/api/v1/admin/image-jobs/{job_id}/files/{file_execution_key}/retry';
+};
+
+export type RetryImageJobFileErrors = {
+  /**
+   * Image job or file not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image job operation conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RetryImageJobFileError =
+  RetryImageJobFileErrors[keyof RetryImageJobFileErrors];
+
+export type RetryImageJobFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageJobOperationsResponse;
+};
+
+export type RetryImageJobFileResponse =
+  RetryImageJobFileResponses[keyof RetryImageJobFileResponses];
+
+export type GetImageJobOperationsData = {
+  body?: never;
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: {
+    /**
+     * File Limit
+     */
+    file_limit?: number;
+  };
+  url: '/api/v1/admin/image-jobs/{job_id}/operations';
+};
+
+export type GetImageJobOperationsErrors = {
+  /**
+   * Image job or file not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image job operation conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageJobOperationsError =
+  GetImageJobOperationsErrors[keyof GetImageJobOperationsErrors];
+
+export type GetImageJobOperationsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageJobOperationsResponse;
+};
+
+export type GetImageJobOperationsResponse =
+  GetImageJobOperationsResponses[keyof GetImageJobOperationsResponses];
+
+export type GetImageStorageInventoryData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-storage';
+};
+
+export type GetImageStorageInventoryErrors = {
+  /**
+   * Managed storage conflict
+   */
+  409: ErrorResponse;
+};
+
+export type GetImageStorageInventoryError =
+  GetImageStorageInventoryErrors[keyof GetImageStorageInventoryErrors];
+
+export type GetImageStorageInventoryResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageStorageInventoryResponse;
+};
+
+export type GetImageStorageInventoryResponse =
+  GetImageStorageInventoryResponses[keyof GetImageStorageInventoryResponses];
 
 export type ListJobsData = {
   body?: never;

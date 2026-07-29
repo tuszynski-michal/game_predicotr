@@ -2020,6 +2020,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   TASK-0072.
 - **Supersedes:** doprecyzowuje D-079 i D-080, nie unieważnia ich.
 
+## D-082 — Zarządzany storage bez automatycznej destrukcji
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** artefakty M7 mają jeden zarządzany root
+  `<artifact-root>/data` z przestrzeniami `originals`, `working`, `crops`,
+  `training`, `models` i `exports`. TASK-0073 udostępnia wyłącznie read-only
+  inwentarz i polityki z `automaticDeletion = false`; nie implementuje
+  fizycznego usuwania. Diagnostyka joba jest niezmiennym, content-addressed
+  JSON pod `exports/image-jobs/<jobId>/<sha256>/diagnostics.json`.
+- **Context:** obecne prototypy tworzą wiele historycznych katalogów, a baza
+  przechowuje tylko ścieżki względne i checksumy. Automatyczne czyszczenie bez
+  kompletnego grafu referencji mogłoby usunąć oryginał, zaakceptowany crop,
+  model albo dowód wymagany do odtworzenia wyniku.
+- **Reason:** jawny inwentarz daje pomiar storage przed M7.4, natomiast brak
+  destrukcji zachowuje bezpieczną granicę. Content-addressed eksport jest
+  idempotentny, możliwy do niezależnej weryfikacji i nie wymaga zapisywania
+  binariów w PostgreSQL.
+- **Alternatives:** automatyczny TTL, ręczne kasowanie namespace albo ZIP z
+  obrazami. TTL i kasowanie są niebezpieczne bez pełnego lineage; ZIP zwiększa
+  rozmiar i ryzyko ujawnienia danych, choć do diagnozy błędu wystarcza manifest.
+- **Consequences:** M7.3 nie odzyskuje jeszcze miejsca. Każda przyszła akcja
+  delete/garbage collection wymaga osobnego zadania, jawnego potwierdzenia,
+  dry-run oraz dowodu, że plik nie jest oryginałem ani referencją zaakceptowanej
+  lub opublikowanej wersji. M7.4 może mierzyć sześć stabilnych przestrzeni.
+- **Supersedes:** brak.
+
 ## Szablon nowej decyzji
 
 ```text

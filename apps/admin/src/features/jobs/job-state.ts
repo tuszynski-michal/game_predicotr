@@ -64,6 +64,43 @@ export function canRetryJob(job: JobResponse): boolean {
   return job.status === 'failed' || job.status === 'waiting_for_review';
 }
 
+export function isImageImportJob(job: JobResponse): boolean {
+  return (
+    job.jobType === 'import' &&
+    'importKind' in job.inputPayload &&
+    job.inputPayload.importKind === 'image_directory'
+  );
+}
+
+export function formatImageThroughput(filesPerMinute: number | null): string {
+  if (filesPerMinute === null) return 'Brak pomiaru';
+  return `${filesPerMinute.toLocaleString('pl-PL', {
+    maximumFractionDigits: 2,
+  })} plików/min`;
+}
+
+export function formatElapsedSeconds(value: number | null): string {
+  if (value === null) return 'Nie rozpoczęto';
+  if (value < 60) return `${Math.round(value)} s`;
+  const minutes = Math.floor(value / 60);
+  const seconds = Math.round(value % 60);
+  return `${minutes} min ${seconds} s`;
+}
+
+export function formatStorageBytes(value: number): string {
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'] as const;
+  let amount = value / 1024;
+  let unitIndex = 0;
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024;
+    unitIndex += 1;
+  }
+  return `${amount.toLocaleString('pl-PL', {
+    maximumFractionDigits: 1,
+  })} ${units[unitIndex]}`;
+}
+
 export function jobProgressPercent(job: JobResponse): number | null {
   const { current, total } = job.progress;
   if (total === null || total <= 0) return null;

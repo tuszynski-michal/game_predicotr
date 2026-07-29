@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M7.2 complete — G7.2 ready; next TASK-0072 image job operations and statistics UI`
+`M7.3 complete — G7.3 passed; next TASK-0074`
 
 ## Completed
 
@@ -1231,10 +1231,34 @@ last_updated: 2026-07-29
 - 34 focused testy M7.2, 176 testów API i 411 testów workera przeszły; Ruff oraz
   focused mypy przeszły. Fizyczny PostgreSQL pozostał nieuruchomiony, ponieważ
   `127.0.0.1:5432` nie odpowiadał. Zaakceptowano D-081 i zaliczono G7.2.
+- ukończono TASK-0072: `image_directory` jest jawnym wariantem payloadu Jobs,
+  a osobny kontrakt operations zwraca trwałe correct/error/review/waiting,
+  grupowanie etapów, czas, throughput i bounded listę plików,
+- retry z panelu wymaga dokładnego failed `nextStage`, zachowuje
+  `fileExecutionKey`, immutable stage results i checkpoint oraz wznawia ten sam
+  zatrzymany job bez tworzenia duplikatu,
+- ekran Jobs pokazuje szczegóły image importu, bezpieczne błędy i retry jednego
+  pliku; OpenAPI i klient TypeScript są zsynchronizowane,
+- 19 focused testów API przeszło, 2 testy PostgreSQL są przygotowane jako
+  opt-in, 76 testów admin UI, 13 testów klienta, typecheck obu pakietów, Ruff,
+  focused mypy i kontrola aktualności klienta OpenAPI przeszły.
+- ukończono TASK-0073: zarządzany root `data` ma read-only inwentarz sześciu
+  przestrzeni, jawne polityki oraz wyłączone automatyczne usuwanie; scanner nie
+  wychodzi poza root i nie podąża za symlinkami,
+- kanoniczny `image-job-diagnostics-v1` zapisuje dokładne aggregate i najwyżej
+  10 000 uporządkowanych błędów content-addressed, bez obrazów, sekretów i
+  ścieżek absolutnych; exact retry używa tych samych bajtów i ścieżki,
+- API i panel udostępniają create/list/checksum-verified download eksportów;
+  UI pokazuje storage policy, empty/loading/error i blokuje podwójne mutacje,
+- 22 focused testy API oraz pełne API `182 passed, 16 skipped` przeszły; skipy
+  dotyczą wyłączonych testów PostgreSQL i braku uprawnienia Windows do
+  symlinków. Przeszło także 77 testów admin UI, 14 testów klienta, typecheck
+  obu pakietów, ESLint, Ruff, focused mypy oraz kontrola OpenAPI. Zaakceptowano
+  D-082 i zaliczono G7.3.
 
 ## In progress
 
-- brak aktywnego zadania; M7.2/G7.2 jest ukończone.
+- brak aktywnego zadania; TASK-0074 nie został jeszcze rozpoczęty.
 
 ## Blocked
 
@@ -1262,7 +1286,7 @@ last_updated: 2026-07-29
 - finalne modele OCR/ML po benchmarku,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują rozpoczęcia M7.2.
+Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują kontynuacji M7.4.
 
 ## M1 execution structure
 
@@ -1305,8 +1329,8 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po jawnym poleceniu właściciela rozpocząć `TASK-0072 — Image job operations and
-statistics UI`, pierwszy zakres M7.3. TASK-0041/TASK-0042 oraz G3 pozostają
+Po jawnym poleceniu właściciela rozpocząć `TASK-0074 — Large import database
+and storage load tests`, pierwszy zakres M7.4. TASK-0041/TASK-0042 oraz G3 pozostają
 równolegle zablokowane na fizycznych raportach Pixela i Samsunga. Retraining
 klasyfikatora należy uruchomić dopiero po zebraniu nowej niezmiennej wersji
 feedbacku; nie blokuje to integracji etapów M7.2, ale blokuje auto-accept i

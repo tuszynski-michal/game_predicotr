@@ -211,6 +211,19 @@ wymaga potwierdzenia, a processing z `cancelRequestedAt` pokazuje tekstowo
 oczekiwanie na bezpieczny checkpoint. Retry jest dostępne dla `failed` i
 `waiting_for_review` i aktualizuje ten sam rekord na liście.
 
+Dla importu `image_directory` rozwinięte szczegóły pokazują dokładne agregaty
+plików, grupowanie etapów, czas, throughput i ograniczoną listę plików.
+Administrator może ponowić dokładnie nieudany etap jednego pliku.
+
+Ten sam widok pokazuje read-only inwentarz przestrzeni
+`originals/working/crops/training/models/exports`, liczbę plików i rozmiar oraz
+jednoznaczny komunikat, że automatyczne usuwanie jest wyłączone. Panel nie ma
+akcji kasowania. Administrator może utworzyć lub ponownie wykorzystać
+niezmienny eksport diagnostyczny joba, zobaczyć jego SHA-256, rozmiar, liczbę
+wyeksportowanych błędów i znacznik obcięcia oraz pobrać plik po ponownej
+weryfikacji checksumy. Loading, pusty stan, błąd i blokada podwójnego submitu
+są jawne.
+
 ### Manual review
 
 Dla niepewnego elementu administrator otrzymuje:

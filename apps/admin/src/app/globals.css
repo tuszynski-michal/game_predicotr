@@ -1173,6 +1173,269 @@ a:focus-visible {
   font-size: 11px;
 }
 
+.imageJobOperations {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(5, 12, 22, 0.28);
+}
+
+.imageJobOperationsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.imageJobOperationsHeader h3,
+.imageJobOperationsHeader p {
+  margin: 0;
+}
+
+.imageJobOperationsHeader h3 {
+  font-size: 14px;
+}
+
+.imageJobOperationsHeader p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.imageJobOperationsHeader code {
+  overflow-wrap: anywhere;
+  color: #b9c9da;
+}
+
+.imageJobSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.imageJobSummary > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(12, 22, 35, 0.42);
+}
+
+.imageJobSummary dt {
+  color: #758aa3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.imageJobSummary dd {
+  margin: 5px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.imageJobStages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.imageJobStages span {
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.imageJobStages strong {
+  color: var(--text);
+}
+
+.imageJobInlineState,
+.imageJobInlineError {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.imageJobInlineError {
+  color: var(--danger);
+}
+
+.imageJobInlineFeedback {
+  margin: 0;
+  color: var(--success);
+  font-size: 11px;
+}
+
+div.imageJobInlineError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.imageStorageSummary,
+.imageDiagnosticExports {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(12, 22, 35, 0.42);
+}
+
+.imageStorageHeader,
+.imageDiagnosticExportsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.imageStorageHeader h4,
+.imageStorageHeader p,
+.imageDiagnosticExportsHeader h4,
+.imageDiagnosticExportsHeader p {
+  margin: 0;
+}
+
+.imageStorageHeader h4,
+.imageDiagnosticExportsHeader h4 {
+  font-size: 12px;
+}
+
+.imageStorageHeader p,
+.imageDiagnosticExportsHeader p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.imageStorageHeader > strong {
+  color: var(--warning);
+  font-size: 10px;
+  text-align: right;
+}
+
+.imageStoragePolicy {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--warning);
+  color: var(--muted);
+  background: rgba(243, 190, 82, 0.06);
+  font-size: 10px;
+}
+
+.imageStorageNamespaces {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.imageStorageNamespaces > div {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.imageStorageNamespaces strong {
+  font-size: 10px;
+}
+
+.imageStorageNamespaces span,
+.imageStorageNamespaces small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.imageDiagnosticExportList {
+  display: grid;
+  gap: 7px;
+}
+
+.imageDiagnosticExportList article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.imageDiagnosticExportList article > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.imageDiagnosticExportList strong,
+.imageDiagnosticExportList code,
+.imageDiagnosticExportList small {
+  overflow-wrap: anywhere;
+  font-size: 9px;
+}
+
+.imageDiagnosticExportList code,
+.imageDiagnosticExportList small {
+  color: var(--muted);
+}
+
+.imageJobFileTableWrap {
+  overflow-x: auto;
+}
+
+.imageJobFileTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.imageJobFileTable th,
+.imageJobFileTable td {
+  padding: 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.imageJobFileTable th {
+  color: #758aa3;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.imageJobFileTable td:nth-child(2) {
+  min-width: 190px;
+  overflow-wrap: anywhere;
+}
+
+.imageJobFileTable td small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.imageJobFileTable .imageJobFileError {
+  color: var(--danger);
+}
+
+.imageJobFileTable .primaryButton {
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
 .paylineDialog {
   position: fixed;
   z-index: 100;
@@ -1978,6 +2241,9 @@ a:focus-visible {
 @media (max-width: 680px) {
   .pageHeader,
   .jobCardHeader,
+  .imageJobOperationsHeader,
+  .imageStorageHeader,
+  .imageDiagnosticExportsHeader,
   .listHeader,
   .datasetHistoryHeader,
   .datasetValidationHeader,
@@ -2023,7 +2289,9 @@ a:focus-visible {
 
   .jobFilters,
   .jobCounters,
-  .jobMetadata {
+  .jobMetadata,
+  .imageJobSummary,
+  .imageStorageNamespaces {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -2147,8 +2415,15 @@ a:focus-visible {
 @media (max-width: 440px) {
   .jobFilters,
   .jobCounters,
-  .jobMetadata {
+  .jobMetadata,
+  .imageJobSummary,
+  .imageStorageNamespaces {
     grid-template-columns: 1fr;
+  }
+
+  .imageDiagnosticExportList article {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .jobFilters p {

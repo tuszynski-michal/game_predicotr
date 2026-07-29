@@ -10,9 +10,11 @@ import {
   cancelJob as cancelGeneratedJob,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
+  createImageDiagnosticExport as createGeneratedImageDiagnosticExport,
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
+  downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
   createRulesVersion as createGeneratedRulesVersion,
@@ -22,6 +24,8 @@ import {
   getDatasetVersion as getGeneratedDatasetVersion,
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
+  getImageJobOperations as getGeneratedImageJobOperations,
+  getImageStorageInventory as getGeneratedImageStorageInventory,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
   getMobileRelease as getGeneratedMobileRelease,
@@ -33,6 +37,7 @@ import {
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
+  listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
   listJobs as listGeneratedJobs,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
   listMobileReleases as listGeneratedMobileReleases,
@@ -52,6 +57,7 @@ import {
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  retryImageJobFile as retryGeneratedImageJobFile,
   resolveReviewItem as resolveGeneratedReviewItem,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
@@ -62,6 +68,7 @@ import {
 } from './generated/sdk.gen';
 import type {
   CreateJobData,
+  ImageJobFileRetryRequest,
   JobStatus,
   JobType,
   LayoutImportRowStatus,
@@ -102,6 +109,16 @@ export type {
   HealthResponse,
   ImportJobCreate,
   ImportJobPayload,
+  ImageImportJobPayload,
+  ImageDiagnosticExportCreationResponse,
+  ImageDiagnosticExportResponse,
+  ImageJobFileErrorResponse,
+  ImageJobFileResponse,
+  ImageJobFileRetryRequest,
+  ImageJobOperationsResponse,
+  ImageJobStageCountResponse,
+  ImageStorageInventoryResponse,
+  ImageStorageNamespaceResponse,
   JobErrorResponse,
   JobProgressResponse,
   JobResponse,
@@ -222,6 +239,47 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       cancelGeneratedJob({ client, path: { job_id: jobId } }),
     retryJob: (jobId: string) =>
       retryGeneratedJob({ client, path: { job_id: jobId } }),
+    getImageJobOperations: (jobId: string, fileLimit = 100) =>
+      getGeneratedImageJobOperations({
+        client,
+        path: { job_id: jobId },
+        query: { file_limit: fileLimit },
+      }),
+    retryImageJobFile: (
+      jobId: string,
+      fileExecutionKey: string,
+      body: ImageJobFileRetryRequest,
+      fileLimit = 100,
+    ) =>
+      retryGeneratedImageJobFile({
+        body,
+        client,
+        path: {
+          file_execution_key: fileExecutionKey,
+          job_id: jobId,
+        },
+        query: { file_limit: fileLimit },
+      }),
+    getImageStorageInventory: () =>
+      getGeneratedImageStorageInventory({ client }),
+    createImageDiagnosticExport: (jobId: string) =>
+      createGeneratedImageDiagnosticExport({
+        client,
+        path: { job_id: jobId },
+      }),
+    listImageDiagnosticExports: (jobId: string) =>
+      listGeneratedImageDiagnosticExports({
+        client,
+        path: { job_id: jobId },
+      }),
+    downloadImageDiagnosticExport: (jobId: string, checksumSha256: string) =>
+      downloadGeneratedImageDiagnosticExport({
+        client,
+        path: {
+          checksum_sha256: checksumSha256,
+          job_id: jobId,
+        },
+      }),
     getLayoutImportIntegrityReport: (validationJobId: string) =>
       getGeneratedLayoutImportIntegrityReport({
         client,

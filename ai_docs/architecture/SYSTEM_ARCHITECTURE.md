@@ -390,6 +390,28 @@ stabilny kod, bezpieczny opis i czas. Batch kończy diagnostykę pozostałych
 plików, po czym przechodzi do `waiting_for_review`; jawny retry może wznowić
 wyłącznie dokładny `nextStage`.
 
+TASK-0072 wystawia job-local projekcję operacyjną bez czytania logów. API
+agreguje liczniki i etapy bezpośrednio z `image_import_job_files`, oblicza czas
+i throughput z trwałych timestampów oraz zwraca deterministyczną, bounded listę
+plików. Retry z panelu blokuje job i wskazane powiązanie, wymaga dokładnego
+failed `nextStage`, zachowuje globalne wyniki etapów i ponownie kolejkuje ten
+sam zatrzymany job. Wspólny cancel/retry lifecycle jobs nie został
+zduplikowany.
+
+TASK-0073 ogranicza zarządzany image storage do `<artifact-root>/data` i
+przestrzeni `originals`, `working`, `crops`, `training`, `models`, `exports`.
+Read-only scanner nie wychodzi poza ten root ani nie podąża za symlinkami.
+Warstwa application nie oferuje delete/GC; inwentarz udostępnia politykę,
+rozmiar i liczbę plików, a `automaticDeletion` zawsze ma wartość `false`.
+
+Eksport diagnostyczny pobiera trwały snapshot joba z PostgreSQL, serializuje
+kanoniczny `image-job-diagnostics-v1`, ogranicza uporządkowaną listę błędów do
+10 000 i zapisuje dokładne bajty content-addressed pod
+`data/exports/image-jobs/<jobId>/<sha256>/diagnostics.json`. System plików jest
+źródłem niezmiennych artefaktów, dlatego nie dodano tabeli eksportów. Lista
+ponownie odczytuje i waliduje manifesty, a download sprawdza bezpieczną ścieżkę,
+kanoniczność i pełny SHA-256 przed zwróceniem pliku.
+
 Globalne wyniki sześciu automatycznych etapów pozostają współdzielone, natomiast
 `image_import_job_files` przechowuje job-local checkpoint/status review i
 walidacji. Rehydratacja odtwarza source/board/cell/review z immutable stage

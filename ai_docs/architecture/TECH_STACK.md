@@ -260,9 +260,16 @@ Android build w jednym jobie, z zagnieżdżonym checkpointem payoutu per gra.
 M7.1 dodaje generyczny `ImageBatchHandler` i trwałe file executions. TASK-0070
 dodaje prawdziwy seeder discovery, composer sześciu portów oraz projekcję do
 review/staging. TASK-0071 domyka izolację błędów, selektywny retry, rehydratację
-globalnych wyników i job-local review. Publiczne uruchamianie i retry z panelu
-pozostają zakresem TASK-0072. Orkiestracja korzysta z istniejącego globalnego
+globalnych wyników i job-local review. TASK-0072 dodaje typowane endpointy
+statystyk i retry pliku, wygenerowany klient OpenAPI oraz szczegóły image joba
+w istniejącym ekranie Jobs. Orkiestracja korzysta z istniejącego globalnego
 `execution_slot = 1`; nie dodaje kolejki, procesu ani zależności.
+
+TASK-0073 używa wyłącznie standardowych `pathlib`, `os`, `hashlib`, `json` i
+`tempfile`. Nie dodaje object storage ani zależności. Admin API skanuje tylko
+`<artifact-root>/data/{originals,working,crops,training,models,exports}`, nie
+podąża za symlinkami, a eksporty diagnostyczne publikuje atomowo przez
+tymczasowy plik i hard link bez nadpisania istniejącego celu.
 
 Domyślnie zapisuje audyty i niezmienne artefakty w `artifacts/`; alternatywny
 katalog można wskazać:

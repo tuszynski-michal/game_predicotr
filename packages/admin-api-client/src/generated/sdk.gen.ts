@@ -36,6 +36,9 @@ import type {
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
+  CreateImageDiagnosticExportData,
+  CreateImageDiagnosticExportErrors,
+  CreateImageDiagnosticExportResponses,
   CreateJobData,
   CreateJobErrors,
   CreateJobResponses,
@@ -57,6 +60,9 @@ import type {
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  DownloadImageDiagnosticExportData,
+  DownloadImageDiagnosticExportErrors,
+  DownloadImageDiagnosticExportResponses,
   DownloadMobileReleaseApkData,
   DownloadMobileReleaseApkErrors,
   DownloadMobileReleaseApkResponses,
@@ -74,6 +80,12 @@ import type {
   GetGameResponses,
   GetHealthData,
   GetHealthResponses,
+  GetImageJobOperationsData,
+  GetImageJobOperationsErrors,
+  GetImageJobOperationsResponses,
+  GetImageStorageInventoryData,
+  GetImageStorageInventoryErrors,
+  GetImageStorageInventoryResponses,
   GetJobData,
   GetJobErrors,
   GetJobResponses,
@@ -127,6 +139,9 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListImageDiagnosticExportsData,
+  ListImageDiagnosticExportsErrors,
+  ListImageDiagnosticExportsResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -178,6 +193,9 @@ import type {
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
+  RetryImageJobFileData,
+  RetryImageJobFileErrors,
+  RetryImageJobFileResponses,
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
@@ -532,6 +550,124 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * List immutable diagnostic exports for an image job
+ */
+export const listImageDiagnosticExports = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListImageDiagnosticExportsData, ThrowOnError>,
+): RequestResult<
+  ListImageDiagnosticExportsResponses,
+  ListImageDiagnosticExportsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageDiagnosticExportsResponses,
+    ListImageDiagnosticExportsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports',
+    ...options,
+  });
+
+/**
+ * Create or reuse an immutable image-job diagnostic export
+ */
+export const createImageDiagnosticExport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateImageDiagnosticExportData, ThrowOnError>,
+): RequestResult<
+  CreateImageDiagnosticExportResponses,
+  CreateImageDiagnosticExportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageDiagnosticExportResponses,
+    CreateImageDiagnosticExportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports',
+    ...options,
+  });
+
+/**
+ * Download a checksum-verified image-job diagnostic export
+ */
+export const downloadImageDiagnosticExport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DownloadImageDiagnosticExportData, ThrowOnError>,
+): RequestResult<
+  DownloadImageDiagnosticExportResponses,
+  DownloadImageDiagnosticExportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    DownloadImageDiagnosticExportResponses,
+    DownloadImageDiagnosticExportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports/{checksum_sha256}/download',
+    ...options,
+  });
+
+/**
+ * Retry exactly one failed image stage
+ */
+export const retryImageJobFile = <ThrowOnError extends boolean = false>(
+  options: Options<RetryImageJobFileData, ThrowOnError>,
+): RequestResult<
+  RetryImageJobFileResponses,
+  RetryImageJobFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RetryImageJobFileResponses,
+    RetryImageJobFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-jobs/{job_id}/files/{file_execution_key}/retry',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get durable image-job stage and file statistics
+ */
+export const getImageJobOperations = <ThrowOnError extends boolean = false>(
+  options: Options<GetImageJobOperationsData, ThrowOnError>,
+): RequestResult<
+  GetImageJobOperationsResponses,
+  GetImageJobOperationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageJobOperationsResponses,
+    GetImageJobOperationsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-jobs/{job_id}/operations', ...options });
+
+/**
+ * Get read-only managed image storage inventory
+ */
+export const getImageStorageInventory = <ThrowOnError extends boolean = false>(
+  options?: Options<GetImageStorageInventoryData, ThrowOnError>,
+): RequestResult<
+  GetImageStorageInventoryResponses,
+  GetImageStorageInventoryErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetImageStorageInventoryResponses,
+    GetImageStorageInventoryErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-storage', ...options });
 
 /**
  * List a bounded set of newest jobs

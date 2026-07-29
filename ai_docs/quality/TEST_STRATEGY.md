@@ -366,6 +366,23 @@ brak uprawnienia `INTERNET`.
   plików; nieoczekiwany wyjątek nie ujawnia ścieżki ani treści modelu,
 - retry akceptuje wyłącznie dokładny checkpoint `nextStage`, zachowuje immutable
   stage results i zwiększa licznik,
+- kontrakt operations agreguje trwałe correct/error/review/waiting, grupuje
+  etapy, liczy czas/throughput i ogranicza deterministyczną listę plików,
+- endpoint retry pliku zachowuje `fileExecutionKey`, wymaga dokładnego
+  `expectedStage`, czyści tylko wskazany błąd i wznawia ten sam zatrzymany job,
+- testy UI mapują image import, format czasu/throughput, wywołanie bounded
+  details oraz retry dokładnego pliku; klient TypeScript jest generowany
+  ponownie z OpenAPI,
+- inwentarz storage liczy wyłącznie sześć zarządzanych przestrzeni, nie czyta
+  plików spoza `data`, nie podąża za symlinkami i zawsze raportuje wyłączone
+  automatyczne usuwanie,
+- eksport diagnostyczny ma kanoniczne, deterministyczne bajty, content-addressed
+  SHA-256, dokładne aggregate i jawny limit próbki; nie zawiera ścieżek
+  absolutnych ani binariów,
+- powtórne utworzenie tego samego stanu nie tworzy drugiej wersji, a lista i
+  download odrzucają drift checksumy lub niekanoniczny manifest,
+- testy UI obejmują loading/empty/error, blokadę podwójnej mutacji, politykę
+  bez usuwania oraz pobieranie diagnostyki jako niezmieniony `Blob`,
 - completed/waiting execution rehydratuje job-local source/board/cell/review bez
   wywołania adapterów; model drift nadal tworzy nowy execution,
 - exact retry decyzji review daje jeden append-only event, a konflikt klucza

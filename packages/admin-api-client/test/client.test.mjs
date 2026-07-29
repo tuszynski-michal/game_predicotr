@@ -187,6 +187,136 @@ test('generated client sends typed job, filters, details, cancel and retry reque
   );
 });
 
+test('generated client reads image operations and retries one exact failed stage', async () => {
+  const requests = [];
+  const jobId = '77777777-7777-4777-8777-777777777777';
+  const fileExecutionKey = 'a'.repeat(64);
+  const responseBody = {
+    jobId,
+    pipelineFingerprint: 'b'.repeat(64),
+    total: 1,
+    current: 1,
+    succeeded: 0,
+    failed: 1,
+    review: 0,
+    waiting: 0,
+    elapsedSeconds: 10,
+    filesPerMinute: 6,
+    stageCounts: [{ stage: 'normalization', count: 1 }],
+    files: [],
+    fileLimit: 25,
+    hasMoreFiles: false,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json(responseBody);
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.getImageJobOperations(jobId, 25);
+  await client.retryImageJobFile(
+    jobId,
+    fileExecutionKey,
+    { expectedStage: 'normalization' },
+    25,
+  );
+
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/image-jobs/${jobId}/operations`,
+  );
+  assert.equal(new URL(requests[0].url).search, '?file_limit=25');
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/image-jobs/${jobId}/files/${fileExecutionKey}/retry`,
+  );
+  assert.equal(new URL(requests[1].url).search, '?file_limit=25');
+  assert.deepEqual(await requests[1].clone().json(), {
+    expectedStage: 'normalization',
+  });
+});
+
+test('generated client inventories storage and manages immutable diagnostic exports', async () => {
+  const requests = [];
+  const jobId = '88888888-8888-4888-8888-888888888888';
+  const checksum = 'c'.repeat(64);
+  const diagnosticExport = {
+    checksumSha256: checksum,
+    errorCount: 2,
+    exportedErrorCount: 2,
+    jobId,
+    relativePath: `data/exports/image-jobs/${jobId}/${checksum}/diagnostics.json`,
+    sizeBytes: 128,
+    sourceUpdatedAt: '2026-07-29T12:00:00Z',
+    truncated: false,
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const url = new URL(request.url);
+    if (url.pathname === '/api/v1/admin/image-storage') {
+      return Response.json({
+        automaticDeletion: false,
+        namespaces: [],
+        rootName: 'data',
+        totalFileCount: 0,
+        totalSizeBytes: 0,
+      });
+    }
+    if (url.pathname.endsWith('/download')) {
+      return new Response('{"schema":"image-job-diagnostics-v1"}\n', {
+        headers: { 'content-type': 'application/octet-stream' },
+      });
+    }
+    return Response.json(
+      request.method === 'POST'
+        ? { created: true, export: diagnosticExport }
+        : [diagnosticExport],
+      { status: request.method === 'POST' ? 201 : 200 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  const inventory = await client.getImageStorageInventory();
+  const created = await client.createImageDiagnosticExport(jobId);
+  const listed = await client.listImageDiagnosticExports(jobId);
+  const downloaded = await client.downloadImageDiagnosticExport(
+    jobId,
+    checksum,
+  );
+
+  assert.equal(inventory.data?.automaticDeletion, false);
+  assert.equal(created.data?.export.checksumSha256, checksum);
+  assert.equal(listed.data?.[0]?.jobId, jobId);
+  assert.equal(downloaded.data instanceof Blob, true);
+  assert.deepEqual(
+    requests.map((request) => ({
+      method: request.method,
+      path: new URL(request.url).pathname,
+    })),
+    [
+      { method: 'GET', path: '/api/v1/admin/image-storage' },
+      {
+        method: 'POST',
+        path: `/api/v1/admin/image-jobs/${jobId}/diagnostic-exports`,
+      },
+      {
+        method: 'GET',
+        path: `/api/v1/admin/image-jobs/${jobId}/diagnostic-exports`,
+      },
+      {
+        method: 'GET',
+        path: `/api/v1/admin/image-jobs/${jobId}/diagnostic-exports/${checksum}/download`,
+      },
+    ],
+  );
+});
+
 test('generated client sends only the trusted layout import source request', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

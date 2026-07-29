@@ -10,6 +10,11 @@ from fastapi.responses import JSONResponse
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.image_jobs import ImageJobOperationsService
+from game_predictor_api.application.image_storage import (
+    ImageArtifactStore,
+    ImageStorageService,
+)
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.layout_import_reports import (
     LayoutImportReportService,
@@ -63,6 +68,9 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.image_job_repository import (
+    SqlAlchemyImageJobOperationsRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.layout_import_report_repository import (
     SqlAlchemyLayoutImportReportRepository,
@@ -83,6 +91,8 @@ def create_app(
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
+    image_job_service_dependency: Callable[..., object] | None = None,
+    image_storage_service_dependency: Callable[..., object] | None = None,
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
     review_service_dependency: Callable[..., object] | None = None,
@@ -141,22 +151,46 @@ def create_app(
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency
 
-    def default_layout_import_report_service_dependency() -> (
-        Iterator[LayoutImportReportService]
-    ):
+    def default_image_job_service_dependency() -> Iterator[ImageJobOperationsService]:
         with session_factory() as session:
             try:
-                yield LayoutImportReportService(
-                    SqlAlchemyLayoutImportReportRepository(session)
+                yield ImageJobOperationsService(SqlAlchemyImageJobOperationsRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_job_dependency = (
+        image_job_service_dependency or default_image_job_service_dependency
+    )
+
+    def default_image_storage_service_dependency() -> Iterator[ImageStorageService]:
+        with session_factory() as session:
+            try:
+                yield ImageStorageService(
+                    SqlAlchemyImageJobOperationsRepository(session),
+                    ImageArtifactStore(resolved_settings.artifact_root),
                 )
                 session.commit()
             except BaseException:
                 session.rollback()
                 raise
 
+    resolved_image_storage_dependency = (
+        image_storage_service_dependency or default_image_storage_service_dependency
+    )
+
+    def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
+        with session_factory() as session:
+            try:
+                yield LayoutImportReportService(SqlAlchemyLayoutImportReportRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
     resolved_layout_import_report_dependency = (
-        layout_import_report_service_dependency
-        or default_layout_import_report_service_dependency
+        layout_import_report_service_dependency or default_layout_import_report_service_dependency
     )
 
     def default_mobile_release_service_dependency() -> Iterator[MobileReleaseService]:
@@ -210,6 +244,8 @@ def create_app(
             resolved_rules_dependency,
             resolved_dataset_dependency,
             resolved_job_dependency,
+            resolved_image_job_dependency,
+            resolved_image_storage_dependency,
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
             resolved_review_dependency,

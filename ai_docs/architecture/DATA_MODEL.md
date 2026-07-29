@@ -380,6 +380,18 @@ job-local checkpoint/status, aby nowy import nie mutował historii wcześniejsze
 decyzji. Identyczne źródło przetwarzane innym manifestem wskazuje inny
 `image_file_execution`.
 
+### Diagnostic exports bez tabeli domenowej
+
+TASK-0073 nie dodaje tabeli eksportów diagnostycznych. Trwały stan `jobs`,
+`image_import_job_files` i `image_file_executions` jest źródłem snapshotu, a
+kanoniczny manifest JSON jest niezmiennym artefaktem systemu plików. Jego
+tożsamością jest SHA-256 dokładnych bajtów, a ścieżka ma postać
+`data/exports/image-jobs/<jobId>/<sha256>/diagnostics.json`.
+
+Lista historyczna jest odtwarzana wyłącznie z checksumowanych manifestów w
+zarządzanym root. Brak osobnej tabeli eliminuje ryzyko rozjazdu metadanych z
+plikiem; koszt skanowania i ewentualny indeks są przedmiotem pomiaru TASK-0074.
+
 ### layout_import_rows
 
 | Pole | Typ | Uwagi |

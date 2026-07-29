@@ -16,6 +16,7 @@ from PIL import Image, UnidentifiedImageError
 from .rectification import (
     BOARD_COLUMNS,
     BOARD_ROWS,
+    CALIBRATED_CROPPER_VERSION,
     CELL_HEIGHT,
     CELL_WIDTH,
     CROPPER_VERSION,
@@ -184,7 +185,15 @@ class SymbolDatasetExport:
     corpus_id: str
     game_id: str
     game_code: str
+    inventory_version: str
     inventory_sha256: str
+    corpus_manifest_sha256: str
+    golden_annotations_sha256: str
+    crop_report_sha256: str
+    cropper_version: str
+    calibration_profile_set_sha256: str
+    calibration_profile_set_version: str
+    quality_report_sha256: str
     label_source_sha256: str
     review_revision: int
     reviewed_by: str
@@ -214,10 +223,17 @@ class SymbolDatasetExport:
         return {
             "assetCount": len({sample.sample.crop_checksum_sha256 for sample in self.samples}),
             "corpusId": self.corpus_id,
+            "corpusManifestSha256": self.corpus_manifest_sha256,
+            "cropReportSha256": self.crop_report_sha256,
+            "cropperVersion": self.cropper_version,
             "datasetVersion": DATASET_VERSION,
             "gameCode": self.game_code,
             "gameId": self.game_id,
+            "goldenAnnotationsSha256": self.golden_annotations_sha256,
+            "inventoryVersion": self.inventory_version,
             "inventorySha256": self.inventory_sha256,
+            "calibrationProfileSetSha256": self.calibration_profile_set_sha256,
+            "calibrationProfileSetVersion": self.calibration_profile_set_version,
             "labelSourceSha256": self.label_source_sha256,
             "labelSourceVersion": LABEL_SOURCE_VERSION,
             "pendingCount": len(self.pending_sample_ids),
@@ -226,6 +242,7 @@ class SymbolDatasetExport:
             "rejectedSampleIds": list(self.rejected_sample_ids),
             "reviewRevision": self.review_revision,
             "reviewedBy": self.reviewed_by,
+            "qualityReportSha256": self.quality_report_sha256,
             "sampleCount": len(self.samples),
             "samples": [sample.to_dict() for sample in self.samples],
             "schemaVersion": 1,
@@ -716,12 +733,23 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
     content, value = _load_json(path, "SYMBOL_DATASET_INVENTORY_INVALID")
     inventory_version = value.get("inventoryVersion")
     if (
-        inventory_version not in {INVENTORY_VERSION, CALIBRATED_INVENTORY_VERSION}
+        value.get("schemaVersion") != 1
+        or inventory_version not in {INVENTORY_VERSION, CALIBRATED_INVENTORY_VERSION}
         or value.get("status") != "ready"
     ):
         raise SymbolDatasetError(
             "SYMBOL_DATASET_INVENTORY_UNSUPPORTED",
             "A ready supported symbol crop inventory is required.",
+        )
+    if inventory_version == CALIBRATED_INVENTORY_VERSION and (
+        value.get("trainingAllowed") is not True
+        or value.get("cropperVersion") != CALIBRATED_CROPPER_VERSION
+        or value.get("cellWidth") != CELL_WIDTH
+        or value.get("cellHeight") != CELL_HEIGHT
+    ):
+        raise SymbolDatasetError(
+            "SYMBOL_DATASET_CALIBRATED_INVENTORY_REQUIRED",
+            "A training-approved calibrated symbol crop inventory is required.",
         )
     samples: list[SymbolCropSample] = []
     for index, sample_value in enumerate(_sequence(value.get("samples"), "samples")):
@@ -839,6 +867,10 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
                     board_index=parsed.board_index,
                 )
             )
+            or (
+                inventory_version == CALIBRATED_INVENTORY_VERSION
+                and sample.get("geometryStatus") != "accepted"
+            )
         ):
             raise SymbolDatasetError(
                 "SYMBOL_DATASET_INVENTORY_DRIFT",
@@ -849,6 +881,50 @@ def load_symbol_crop_inventory(path: Path) -> tuple[bytes, SymbolCropInventory]:
         raise SymbolDatasetError(
             "SYMBOL_DATASET_SAMPLE_DUPLICATE",
             "Inventory sample IDs must be unique.",
+        )
+    source_groups = sorted({sample.source_group for sample in samples})
+    board_cells: dict[tuple[str, int], list[int]] = {}
+    board_details: dict[tuple[str, int], tuple[object, ...]] = {}
+    for inventory_sample in samples:
+        board_key = (
+            inventory_sample.source_image_checksum_sha256,
+            inventory_sample.board_index,
+        )
+        board_cells.setdefault(board_key, []).append(inventory_sample.cell_index)
+        details = (
+            inventory_sample.sequence_number,
+            inventory_sample.board_id,
+            inventory_sample.board_relative_path,
+            inventory_sample.board_checksum_sha256,
+            inventory_sample.calibration_profile_id,
+            inventory_sample.calibration_profile_version,
+        )
+        previous_details = board_details.setdefault(board_key, details)
+        if previous_details != details:
+            raise SymbolDatasetError(
+                "SYMBOL_DATASET_INVENTORY_DRIFT",
+                "Cells of one board have inconsistent provenance.",
+            )
+    sequence_numbers = sorted(cast(int, details[0]) for details in board_details.values())
+    if (
+        value.get("sampleCount") != len(samples)
+        or value.get("boardCount") != len(board_details)
+        or value.get("sourceGroupCount") != len(source_groups)
+        or value.get("sourceGroups") != source_groups
+        or (
+            inventory_version == CALIBRATED_INVENTORY_VERSION
+            and (
+                sequence_numbers != list(range(1, len(board_details) + 1))
+                or any(
+                    sorted(cells) != list(range(BOARD_ROWS * BOARD_COLUMNS))
+                    for cells in board_cells.values()
+                )
+            )
+        )
+    ):
+        raise SymbolDatasetError(
+            "SYMBOL_DATASET_INVENTORY_DRIFT",
+            "Inventory counts, source groups or board completeness are invalid.",
         )
     return content, SymbolCropInventory(
         corpus_id=_text(value.get("corpusId"), "corpusId"),
@@ -1023,6 +1099,14 @@ def export_reviewed_symbol_dataset(
     """Export accepted labels and one immutable binary per unique crop checksum."""
 
     inventory_bytes, inventory = load_symbol_crop_inventory(inventory_path)
+    if inventory.inventory_version != CALIBRATED_INVENTORY_VERSION:
+        raise SymbolDatasetError(
+            "SYMBOL_DATASET_CALIBRATED_INVENTORY_REQUIRED",
+            "Dataset export accepts only training-approved calibrated crops.",
+        )
+    assert inventory.calibration_profile_set_sha256 is not None
+    assert inventory.calibration_profile_set_version is not None
+    assert inventory.quality_report_sha256 is not None
     label_bytes, label_source = load_reviewed_label_source(label_source_path)
     if label_source.corpus_id != inventory.corpus_id:
         raise SymbolDatasetError(
@@ -1105,7 +1189,15 @@ def export_reviewed_symbol_dataset(
         corpus_id=inventory.corpus_id,
         game_id=label_source.game_id,
         game_code=label_source.game_code,
+        inventory_version=inventory.inventory_version,
         inventory_sha256=hashlib.sha256(inventory_bytes).hexdigest(),
+        corpus_manifest_sha256=inventory.corpus_manifest_sha256,
+        golden_annotations_sha256=inventory.golden_annotations_sha256,
+        crop_report_sha256=inventory.crop_report_sha256,
+        cropper_version=inventory.cropper_version,
+        calibration_profile_set_sha256=inventory.calibration_profile_set_sha256,
+        calibration_profile_set_version=inventory.calibration_profile_set_version,
+        quality_report_sha256=inventory.quality_report_sha256,
         label_source_sha256=hashlib.sha256(label_bytes).hexdigest(),
         review_revision=label_source.review_revision,
         reviewed_by=label_source.reviewed_by,

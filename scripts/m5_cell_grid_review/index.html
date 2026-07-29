@@ -73,7 +73,7 @@
           <section class="calibration-summary" aria-label="Profil kalibracji">
             <div class="panel-heading">
               <div>
-                <p class="eyebrow">TASK-0096 · profil kalibracji</p>
+                <p class="eyebrow">Profil kalibracji geometrii</p>
                 <h3 id="profileStatus">Ładowanie profilu…</h3>
               </div>
               <span id="profileVersion" class="badge">—</span>
@@ -153,10 +153,10 @@
           <hr />
 
           <fieldset>
-            <legend>Czy historyczne v1 przecina główny symbol?</legend>
+            <legend>Czy proponowana geometria przecina główny symbol?</legend>
             <p class="help">
-              Zaznacz komórki, w których dawne cięcie przecina symbol. Czerwone
-              obramowanie podglądu odpowiada zaznaczeniu poniżej.
+              Zaznacz komórki, w których proponowana geometria przecina symbol.
+              Czerwone obramowanie podglądu odpowiada zaznaczeniu poniżej.
             </p>
             <div class="compact-actions">
               <button id="selectAllCellsButton" class="secondary" type="button">
@@ -170,11 +170,12 @@
               id="impactCells"
               class="impact-grid"
               role="group"
-              aria-label="Komórki przecięte przez v1"
+              aria-label="Komórki przecięte przez proponowaną geometrię"
             ></div>
             <label class="confirmation">
               <input id="impactReviewed" type="checkbox" />
-              Sprawdziłem wpływ historycznego cięcia v1 na wszystkie 15 komórek.
+              Sprawdziłem, czy wynik zachowuje symbole we wszystkich 15
+              komórkach.
             </label>
           </fieldset>
 

@@ -451,8 +451,19 @@ nie nadpisuje wcześniejszych artefaktów; skalibrowany cropper materializuje
 osobny namespace `board-cell-crops-v2-calibrated-v1` z identyfikatorem profilu,
 wersją i pochodzeniem anchorów w każdym rekordzie planszy.
 
+Po D-063 również profile exact source-image z D-062 są historyczne jako
+produkcjne źródło finalnych granic komórek: jedna korekta ramy nie może być
+przenoszona między pozycjami tej samej strony. Produkcyjny cropper rozpoczyna
+od quadu detektora każdej planszy osobno, lokalizuje 15 środków symboli i
+dopasowuje odporną korektę afiniczną. Każdy rekord zachowuje wersję refinera,
+coverage, inliery, residual i źródło geometrii. Niespełnienie któregokolwiek
+guardu zatrzymuje całą stronę jako `needs_review`; odrzucona plansza trafia do
+exact-observation review bez poluzowania progów globalnych. Dopiero kompletna
+regeneracja i przegląd pełnych stron mogą ustawić `trainingAllowed = true`.
+
 Zgodnie z D-058 bootstrap M6 nie łączy cropów z fikcyjnymi rekordami layoutów.
-Po D-061 `symbol-crop-inventory-v2` ponownie sprawdza cały łańcuch M5,
+Historyczne zachowanie po D-061 pozostaje audytowalne:
+`symbol-crop-inventory-v2` ponownie sprawdza cały łańcuch M5,
 `cell-grid-golden-v1`, opublikowany profil kalibracji, skalibrowany raport oraz rzeczywiste pliki
 RGB 90 × 90, checksumy i pozycje row-major, a następnie nadaje stabilne
 `observationId` niezależne od bajtów cropu oraz wersjonowane `cropSampleId`
@@ -462,7 +473,9 @@ jawnej decyzji człowieka. Eksporter `labeled-symbol-dataset-v1` materializuje
 jeden content-addressed asset na checksumę, zachowując osobne wystąpienia i
 pochodzenie. Brak decyzji nie jest błędem danych, lecz stanem `pending`;
 konflikt dwóch zatwierdzonych klas dla identycznych bajtów jest błędem
-blokującym.
+blokującym. Eksporter jawnie odrzuca inwentarz v1 i przenosi do manifestu
+checksumy całego łańcucha kalibracji oraz identyfikatory obserwacji, cropu,
+planszy i profilu.
 
 TASK-0097 dodatkowo grupuje obserwacje według stabilnego `boardId`, ponownie
 weryfikuje kanoniczny obraz planszy RGB 500 × 300 i udostępnia wyłącznie

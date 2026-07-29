@@ -34,18 +34,17 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M6.
 
 ### Bieżący status
 
-`active_whole_layout_bootstrap` — Q-017 pozostaje zamknięte, a OCR nadal działa
-jako `manual_review_only`. Historyczne `board-cell-crops-v1` oraz detektorowy
-wariant v2 pozostają w kwarantannie. TASK-0094–0096 zakończyły korektę M5.3:
-skalibrowany korpus ma 5805 komórek, pełne pochodzenie profili,
-`trainingAllowed = true` i P95 linii `1.8337 px`.
+`corrective_geometry_gate` — rzeczywiste etykietowanie obaliło generalizację
+D-061. P95 `1.8337 px` mierzył dopasowanie na 27 anchorach użytych do budowy
+profili, a nie pozostałe plansze. `board-cell-crops-v2-calibrated-v1` jest
+wycofane z treningu.
 
-TASK-0097 zastępuje jednokafelkowy spike pełnolayoutowym review 5 × 3 i tworzy
-pierwsze rzeczywiste decyzje potrzebne do dokończenia TASK-0059.
-Warstwa techniczna TASK-0097 jest gotowa: deterministyczny inwentarz v2 ma
-5805 skalibrowanych komórek, a loopback UI obsługuje 387 plansz. Zadanie
-pozostaje aktywne do ręcznego oznaczenia pierwszej reprezentatywnej partii
-15–30 plansz przez właściciela.
+TASK-0098 zbudował lokalne profile per source image, ale ręczna bramka `25/25`
+ujawniła przecięcia symboli na 18 planszach, w tym na wszystkich 9 held-out.
+TASK-0100 mierzy teraz korektę siatki na podstawie 15 środków symboli.
+Właściciel ma 56 zachowanych decyzji związanych ze starym `cropSampleId`. Po
+przejściu geometrii TASK-0099 doda top-3 sugestie bez auto-accept, a
+TASK-0097/TASK-0059 zostaną wznowione na nowym inwentarzu.
 
 ## Zasady realizacji
 
@@ -73,12 +72,20 @@ pozostaje aktywne do ręcznego oznaczenia pierwszej reprezentatywnej partii
 
 ### Zadania
 
-- `TASK-0059 — Labeled symbol dataset export` — calibrated crops accepted;
-  blocked only on reviewed labels from TASK-0097
+- `TASK-0059 — Labeled symbol dataset export` — in progress; calibrated v2
+  integration and empty checkpoint report complete, final non-empty export
+  waits for reviewed labels from TASK-0097
 - `TASK-0093 — Bootstrap symbol label review tool` — done 2026-07-28;
   technical spike retained, single-crop UX will be replaced
-- `TASK-0097 — Whole-layout assisted symbol labeling` — in progress; software
-  ready, awaiting the first owner-reviewed 15–30 boards
+- `TASK-0097 — Whole-layout assisted symbol labeling` — blocked; software
+  ready, 56 old-crop decisions preserved; waits for TASK-0098/TASK-0099
+- `TASK-0098 — Local image grid calibration and held-out gate` — superseded in
+  production geometry by D-063; its immutable review evidence remains retained
+- `TASK-0100 — Symbol-aware grid refinement spike` — done; owner accepted the
+  25-board visual comparison
+- `TASK-0101 — Production symbol-aware crops and geometry gate` — in progress;
+  381/387 boards pass strict refinement and six exact observations await review
+- `TASK-0099 — Safe bootstrap symbol suggestions` — todo after TASK-0098
 - `TASK-0060 — Dataset split, manifest and quality validation`
 
 ### Bramka G6.1
@@ -178,11 +185,11 @@ pozostaje aktywne do ręcznego oznaczenia pierwszej reprezentatywnej partii
 
 | Podetap | Zadania | Liczba |
 |---|---:|---:|
-| M6.1 Dataset symboli | TASK-0059–0060, TASK-0093, TASK-0097 | 4 |
+| M6.1 Dataset symboli | TASK-0059–0060, TASK-0093, TASK-0097–0099 | 6 |
 | M6.2 Model i ONNX | TASK-0061–0063 | 3 |
 | M6.3 Manual review | TASK-0064–0066 | 3 |
 | M6.4 Odbiór klasyfikacji | TASK-0067 | 1 |
-| **Razem M6** | **TASK-0059–0067 + TASK-0093, TASK-0097** | **11** |
+| **Razem M6** | **TASK-0059–0067 + TASK-0093, TASK-0097–0099** | **13** |
 
 ## Następny milestone
 

@@ -161,7 +161,7 @@ Detekcja oczekiwanego zestawu plansz wynosi 100% na 43 zdjęciach. Pełny wynik,
 timing i katalog błędów znajdują się w
 `ai_docs/quality/m5-image-benchmark-report.json`.
 
-### Status prototypu po D-061
+### Status prototypu po D-062
 
 - discovery i normalizacja są zachowywanymi kontraktami,
 - geometria strony i pozycje plansz są zaakceptowane dla wariantu do dziewięciu
@@ -169,9 +169,14 @@ timing i katalog błędów znajdują się w
   kalibracji,
 - podział planszy na komórki v1 i detektorowy wariant v2 pozostają w
   kwarantannie,
-- `board-cell-crops-v2-calibrated-v1` przeszedł niezależną bramkę na 27
-  planszach i 405 komórkach z P95 linii `1.8337 px`; pełny korpus obejmuje
-  43 obrazy, 387 plansz i 5805 komórek,
+- `board-cell-crops-v2-calibrated-v1` jest historyczne i nie może zasilać
+  treningu: P95 `1.8337 px` został policzony na tych samych 27 planszach, które
+  były anchorami profili, a rzeczywiste review wykazało złe cropy kolejnych
+  plansz,
+- następna wersja używa lokalnej ramki każdej planszy oraz korekty wyłącznie z
+  tego samego source image; brak profilu obrazu daje `needs_review`,
+- bramka generalizacji musi używać plansz i pozycji niewykorzystanych do
+  kalibracji oraz osobno raportować anchor fit,
 - kontrakt OCR zostaje wymienny, a bieżący model działa w trybie
   `manual_review_only`,
 - każdy wynik OCR jest sugestią do manual review; nie ma auto-accept,
@@ -182,8 +187,10 @@ timing i katalog błędów znajdują się w
 ### 6. Podział na komórki
 
 - wariant D-059 używa wymiarów 3 × 5,
-- źródłowy quad rzeczywistej ramy planszy przekształć homografią do RGB
-  500 × 300, a następnie podziel na piętnaście logicznych slotów 100 × 100,
+- rozpocznij od quadu detektora wyznaczonego osobno dla każdej planszy,
+  zlokalizuj środki symboli w 15 slotach i zastosuj strzeżoną korektę afiniczną,
+- skorygowany quad przekształć homografią do RGB 500 × 300, a następnie podziel
+  na piętnaście logicznych slotów 100 × 100,
 - wersjonowany inset jest stosowany osobno wewnątrz każdego slotu; bazowy
   kandydat 5 px z każdej strony daje crop RGB 90 × 90,
 - globalny margines zmieniający krok siatki jest zabroniony,
@@ -199,15 +206,16 @@ Niezależny golden i kalibracja:
   15 cropów,
 - korekta zapisuje źródłowy quad w wersjonowanym goldenie lub profilu
   kalibracji i nie nadpisuje historycznego artefaktu,
-- dokładnie 18 profili obejmuje pary grupy źródłowej i pozycji planszy 0–8;
-  27 zaakceptowanych quadów jest niezmiennymi anchorami,
-- profil zapisuje korektę narożników w lokalnej bazie quadu detektora; dla
-  `sequence_number` pomiędzy anchorami stosuje interpolację liniową, a poza
-  zakresem najbliższy anchor bez ekstrapolacji,
-- profil jest stosowany na poziomie grupy źródłowej i pozycji planszy; ręczna
-  korekta każdego z 387 layoutów jest ostatecznym wyjątkiem,
-- automatyczne zastosowanie profilu wymaga przejścia tego samego niezależnego
-  goldenu.
+- historyczne 18 profili `source_group + board_position` nie może być używane
+  produkcyjnie, ponieważ ich clamp po `sequence_number` przenosi perspektywę
+  między różnymi zdjęciami,
+- profile exact source-image z D-062 pozostają dowodem i artefaktem
+  historycznym, ale nie są produkcyjnym źródłem granic pozostałych pozycji,
+- strict symbol-aware refinement działa niezależnie per plansza; brak
+  wymaganej liczby inlierów albo nieprawdopodobny transform blokuje stronę,
+- tylko odrzucone obserwacje są korygowane ręcznie; benchmark TASK-0101
+  skierował do tej kolejki 6 z 387 plansz,
+- automatyczne zastosowanie wymaga zaakceptowanego przeglądu kompletnej strony.
 
 ### 7. Klasyfikacja symbolu
 
@@ -217,7 +225,8 @@ Niezależny golden i kalibracja:
 2. administrator dostarcza jawnie przejrzane decyzje
    `reviewed-cell-labels-v1` dla symboli tej samej gry,
 3. `labeled-symbol-dataset-v1` eksportuje tylko decyzje `accepted`, deduplikuje
-   identyczne binaria i zachowuje wszystkie wystąpienia,
+   identyczne binaria i zachowuje wszystkie wystąpienia; historyczny inwentarz
+   v1 jest odrzucany, a manifest zachowuje pełną proweniencję kalibracji,
 4. trening używa osobnych zdjęć źródłowych dla zbioru treningowego i walidacyjnego,
 5. klasyfikator zwraca `symbol_id`, confidence i kilka alternatyw,
 6. inferencja produkcyjna używa wersjonowanego modelu ONNX,

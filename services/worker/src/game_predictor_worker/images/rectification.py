@@ -18,6 +18,10 @@ from .geometry import DETECTOR_VERSION, Point, Quad
 CROPPER_VERSION = "board-cell-crops-v1"
 V2_CROPPER_VERSION = "board-cell-crops-v2"
 CALIBRATED_CROPPER_VERSION = "board-cell-crops-v2-calibrated-v1"
+LOCAL_CALIBRATED_CROPPER_VERSION = "board-cell-crops-v3-local-calibrated-v1"
+SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v4-symbol-aware-v1"
+SYMBOL_AWARE_AFFINE_CROPPER_VERSION = "board-cell-crops-v5-symbol-aware-affine-v1"
+DETECTOR_SYMBOL_AWARE_CROPPER_VERSION = "board-cell-crops-v6-detector-symbol-aware-affine-v1"
 BOARD_WIDTH = 500
 BOARD_HEIGHT = 300
 BOARD_ROWS = 3
@@ -41,14 +45,42 @@ class BoardCropError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class SymbolRefinementMetadata:
+    refiner_version: str
+    reliable_center_count: int
+    inlier_count: int
+    baseline_median_residual_px: float
+    refined_median_residual_px: float
+    refined_p95_residual_px: float
+
+    def to_dict(self) -> dict[str, int | float | str]:
+        return {
+            "baselineMedianResidualPx": round(
+                self.baseline_median_residual_px,
+                4,
+            ),
+            "inlierCount": self.inlier_count,
+            "refinedMedianResidualPx": round(
+                self.refined_median_residual_px,
+                4,
+            ),
+            "refinedP95ResidualPx": round(self.refined_p95_residual_px, 4),
+            "refinerVersion": self.refiner_version,
+            "reliableCenterCount": self.reliable_center_count,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class BoardGeometry:
     position_index: int
     quad: Quad
+    bounding_box: tuple[int, int, int, int] | None = None
     source_quad_source: str | None = None
     calibration_profile_id: str | None = None
     calibration_profile_version: int | None = None
     calibration_anchor_sequence_numbers: tuple[int, ...] = ()
     calibration_interpolation_weight: float | None = None
+    symbol_refinement: SymbolRefinementMetadata | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +165,7 @@ class RectifiedBoard:
     calibration_profile_version: int | None = None
     calibration_anchor_sequence_numbers: tuple[int, ...] = ()
     calibration_interpolation_weight: float | None = None
+    symbol_refinement: SymbolRefinementMetadata | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +447,7 @@ class PerspectiveBoardCellCropperV2(PerspectiveBoardCellCropper):
                     calibration_interpolation_weight=(
                         source_geometry.calibration_interpolation_weight
                     ),
+                    symbol_refinement=source_geometry.symbol_refinement,
                 )
             )
         return BoardCropResult(
@@ -427,6 +461,12 @@ class PerspectiveBoardCellCropperV2Calibrated(PerspectiveBoardCellCropperV2):
     """V2 logical cell cropper with versioned pre-rectification calibration."""
 
     version = CALIBRATED_CROPPER_VERSION
+
+
+class PerspectiveBoardCellCropperV3LocalCalibrated(PerspectiveBoardCellCropperV2):
+    """Logical-slot cropper using exact-source local-frame calibration."""
+
+    version = LOCAL_CALIBRATED_CROPPER_VERSION
 
 
 @dataclass(frozen=True, slots=True)
@@ -465,6 +505,7 @@ class BoardArtifact:
     calibration_profile_version: int | None
     calibration_anchor_sequence_numbers: tuple[int, ...]
     calibration_interpolation_weight: float | None
+    symbol_refinement: SymbolRefinementMetadata | None
 
     def to_dict(self) -> dict[str, object]:
         value: dict[str, object] = {
@@ -489,6 +530,8 @@ class BoardArtifact:
                 "profileId": self.calibration_profile_id,
                 "profileVersion": self.calibration_profile_version,
             }
+        if self.symbol_refinement is not None:
+            value["symbolRefinement"] = self.symbol_refinement.to_dict()
         return value
 
 
@@ -664,6 +707,36 @@ def _page_geometry(value: Mapping[str, object], label: str) -> PageGeometry:
                 for point_index, point in enumerate(quad_values)
             ),
         )
+        raw_bounding_box = board.get("boundingBox")
+        bounding_box: tuple[int, int, int, int] | None = None
+        if raw_bounding_box is not None:
+            bounding_box_value = _mapping(
+                raw_bounding_box,
+                f"{label}.boards[{index}].boundingBox",
+            )
+            bounding_box = (
+                _integer(
+                    bounding_box_value.get("x"),
+                    f"{label}.boards[{index}].boundingBox.x",
+                ),
+                _integer(
+                    bounding_box_value.get("y"),
+                    f"{label}.boards[{index}].boundingBox.y",
+                ),
+                _integer(
+                    bounding_box_value.get("width"),
+                    f"{label}.boards[{index}].boundingBox.width",
+                ),
+                _integer(
+                    bounding_box_value.get("height"),
+                    f"{label}.boards[{index}].boundingBox.height",
+                ),
+            )
+            if bounding_box[2] < 2 or bounding_box[3] < 2:
+                raise BoardCropError(
+                    "BOARD_CROP_REPORT_INVALID",
+                    f"{label}.boards[{index}].boundingBox is degenerate.",
+                )
         boards.append(
             BoardGeometry(
                 position_index=_integer(
@@ -671,6 +744,7 @@ def _page_geometry(value: Mapping[str, object], label: str) -> PageGeometry:
                     f"{label}.boards[{index}].positionIndex",
                 ),
                 quad=quad,
+                bounding_box=bounding_box,
             )
         )
     reasons = tuple(
@@ -686,6 +760,15 @@ def _page_geometry(value: Mapping[str, object], label: str) -> PageGeometry:
         boards=tuple(boards),
         review_reasons=reasons,
     )
+
+
+def page_geometry_from_report(
+    value: Mapping[str, object],
+    label: str = "pageGeometry",
+) -> PageGeometry:
+    """Parse one detector result through the public crop contract boundary."""
+
+    return _page_geometry(value, label)
 
 
 def _encode_png(rgb: NDArray[np.uint8]) -> bytes:
@@ -953,9 +1036,8 @@ def crop_detected_corpus(
                         calibration_anchor_sequence_numbers=(
                             board.calibration_anchor_sequence_numbers
                         ),
-                        calibration_interpolation_weight=(
-                            board.calibration_interpolation_weight
-                        ),
+                        calibration_interpolation_weight=(board.calibration_interpolation_weight),
+                        symbol_refinement=board.symbol_refinement,
                     )
                 )
         images.append(

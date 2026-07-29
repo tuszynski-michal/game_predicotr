@@ -600,10 +600,8 @@ class GridCalibrationProfiles:
                     LocalOffsets,
                     tuple(
                         (
-                            left_offset[0]
-                            + weight * (right_offset[0] - left_offset[0]),
-                            left_offset[1]
-                            + weight * (right_offset[1] - left_offset[1]),
+                            left_offset[0] + weight * (right_offset[0] - left_offset[0]),
+                            left_offset[1] + weight * (right_offset[1] - left_offset[1]),
                         )
                         for left_offset, right_offset in zip(
                             left.local_corner_offsets,
@@ -654,6 +652,7 @@ class GridCalibrationProfiles:
                 BoardGeometry(
                     position_index=board.position_index,
                     quad=application.calibrated_quad,
+                    bounding_box=board.bounding_box,
                     source_quad_source=SOURCE_QUAD_SOURCE,
                     calibration_profile_id=application.profile_id,
                     calibration_profile_version=PROFILE_VERSION,

@@ -492,6 +492,44 @@ function renderAll() {
 function renderCalibrationProfile() {
   const profiles = state.profileDocument?.profiles || [];
   const sample = state.sample;
+  if (
+    state.profileDocument?.profileSetVersion ===
+    'local-grid-calibration-profiles-v2'
+  ) {
+    const localProfile = profiles.find(
+      (item) =>
+        item.sourceImageChecksumSha256 === sample?.sourceImageChecksumSha256,
+    );
+    if (!sample) {
+      return;
+    }
+    if (!localProfile) {
+      elements.profileStatus.textContent = 'Brak kotwicy tego zdjęcia';
+      elements.profileVersion.textContent = 'review';
+      elements.profileScope.textContent = `${sample.sourceGroup} · dokładne zdjęcie`;
+      elements.profileAnchors.textContent = 'do ustawienia';
+      elements.profileInterpolation.textContent =
+        sample.purpose === 'missing_anchor'
+          ? 'nowa kotwica obrazu'
+          : 'brak profilu';
+      elements.profileId.textContent = '—';
+      return;
+    }
+    const anchor = localProfile.anchor;
+    elements.profileStatus.textContent =
+      sample.purpose === 'heldout'
+        ? 'Niezależna plansza held-out'
+        : 'Lokalny profil zdjęcia';
+    elements.profileVersion.textContent = `v${localProfile.profileVersion}`;
+    elements.profileScope.textContent = `${localProfile.sourceGroup} · exact source image`;
+    elements.profileAnchors.textContent = `${anchor.sequenceNumber} · pozycja ${anchor.boardPosition}`;
+    elements.profileInterpolation.textContent =
+      sample.purpose === 'heldout'
+        ? 'kontrola — nie zmienia profilu'
+        : 'lokalna baza tej planszy';
+    elements.profileId.textContent = localProfile.profileId;
+    return;
+  }
   const profile = profiles.find(
     (item) =>
       item.sourceGroup === sample?.sourceGroup &&
@@ -672,7 +710,7 @@ async function acceptCurrent() {
     return;
   }
   if (!elements.impactReviewed.checked) {
-    showToast('Najpierw potwierdź ocenę wpływu historycznego v1.', true);
+    showToast('Najpierw potwierdź kontrolę wszystkich 15 komórek.', true);
     elements.impactReviewed.focus();
     return;
   }

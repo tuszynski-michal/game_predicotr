@@ -1,0 +1,1847 @@
+{
+  "basisVersion": "detector-bounding-box-v1",
+  "corpusId": "m5-representative-corpus-v2",
+  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "coveredSourceImageCount": 27,
+  "detectorReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
+  "goldenSha256": "a25b1753f8d3c74e13827c6803b82921e36e68f9c3eb3d1bccae88ce6d96c533",
+  "goldenVersion": "cell-grid-golden-v1",
+  "missingSourceImageChecksums": [
+    "03c306b647c7c6a339cdb9b4c6b3e82fb4ac6becdae15cd578a4736df12caee7",
+    "10ba39b8dbd16118c58504d49e02096da241eda62e5cd50b6287d5089483fd97",
+    "1c9a9767b0cd6a78b8fce02946ab944ae709496b18c730426aa1c3c89bcdf285",
+    "30731d42dab0aac59f5a052e79b416759c2bffb17baf348381a5cb16d0f433ee",
+    "388b34f9e97c6fc7f4ad7fd4a60fcff31079ea712385613f174a7e3f2b6e5884",
+    "49f6416bc812df3c6bef3bfb9bf21cf2508151addf1e908ea639223b784708fa",
+    "5a4bf0685189f6c3ae3e7cebff2c679d3e9438ee7f91ddac82691719585ae67a",
+    "683f856663b57e2542f327548647e660d85a518b319486687121186b1630cf4e",
+    "6ebe38feb5422ab73d399fedc0a0af93f2692d69c09ca8c8bcdeede7a28e3580",
+    "6fe281ef6288fb4afc409fe0c1d1b7ce57c4db1c38a79babc5b23d0ad174a911",
+    "7c6c358cf5dfbad70c2b14f2c4a77b5922f1b95e776a7d45a06d2e320275e284",
+    "92cf1df591c082574088fb81ba6150f436f3dd2ebf381c9ad4c1fdeb8e59aec5",
+    "bf20b41068b473c82736b9d4c4ff6fbf65fc9e16892882fa38571fd98acbcf7f",
+    "ea0c457377070ee1113032d28cb0ada828acbfd140b3f3aa59a49c07fe582740",
+    "ec3125fea63772ea3d3eb98e8ec5f9d8619cc6aaeedd6fe89b72e77fd0dc69d6",
+    "fe60473fbf938b72a70b273c7b46853be5e908c683a26d7b785452e604627dd2"
+  ],
+  "profileCount": 27,
+  "profileSetVersion": "local-grid-calibration-profiles-v2",
+  "profiles": [
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 110.6161,
+            "y": 406.8158
+          },
+          {
+            "x": 299.1164,
+            "y": 389.1366
+          },
+          {
+            "x": 303.2552,
+            "y": 495.9641
+          },
+          {
+            "x": 115.1311,
+            "y": 508.0011
+          }
+        ],
+        "boardPosition": 0,
+        "localBaseQuad": [
+          {
+            "x": 116.0,
+            "y": 375.0
+          },
+          {
+            "x": 294.0,
+            "y": 375.0
+          },
+          {
+            "x": 294.0,
+            "y": 502.0
+          },
+          {
+            "x": 116.0,
+            "y": 502.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": -0.0302466292,
+            "v": 0.2505181102
+          },
+          {
+            "u": 0.0287438202,
+            "v": 0.111311811
+          },
+          {
+            "u": 0.0519955056,
+            "v": -0.0475267717
+          },
+          {
+            "u": -0.0048814607,
+            "v": 0.0472527559
+          }
+        ],
+        "observationId": "1b940b5bb7bdee1ac0f6e120981005643d4b53d3d2e40a678c9d7c4bec3538b3",
+        "sequenceNumber": 1
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "40a4e9977e69cec76e5bdb944aca0493f177890d51ab83336cf91081f1d9dd38",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 260.1439,
+            "y": 717.8188
+          },
+          {
+            "x": 400.995,
+            "y": 723.6171
+          },
+          {
+            "x": 400.6539,
+            "y": 790.1278
+          },
+          {
+            "x": 258.0976,
+            "y": 783.3062
+          }
+        ],
+        "boardPosition": 7,
+        "localBaseQuad": [
+          {
+            "x": 250.0,
+            "y": 710.0
+          },
+          {
+            "x": 407.0,
+            "y": 710.0
+          },
+          {
+            "x": 407.0,
+            "y": 787.0
+          },
+          {
+            "x": 250.0,
+            "y": 787.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.064610828,
+            "v": 0.1015428571
+          },
+          {
+            "u": -0.0382484076,
+            "v": 0.1768454545
+          },
+          {
+            "u": -0.0404210191,
+            "v": 0.0406207792
+          },
+          {
+            "u": 0.0515770701,
+            "v": -0.0479714286
+          }
+        ],
+        "observationId": "4042e5ce006c6026dfd1e9f8e4b0e42be191b357b2bd291ab2c980084d97c408",
+        "sequenceNumber": 134
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "c07eeaf86ba24baa5ddeda29f59c46e83463c9196ef16236f385f65eb0dac1a9",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "1db1cb1032deec475afc786a7ecee68cdc7c5f64468e03fdd0985eab737025b9",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 432.8493,
+            "y": 665.791
+          },
+          {
+            "x": 561.6076,
+            "y": 678.0256
+          },
+          {
+            "x": 557.9376,
+            "y": 741.0338
+          },
+          {
+            "x": 427.0384,
+            "y": 729.1051
+          }
+        ],
+        "boardPosition": 8,
+        "localBaseQuad": [
+          {
+            "x": 421.0,
+            "y": 658.0
+          },
+          {
+            "x": 563.0,
+            "y": 658.0
+          },
+          {
+            "x": 563.0,
+            "y": 737.0
+          },
+          {
+            "x": 421.0,
+            "y": 737.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0834457746,
+            "v": 0.0986202532
+          },
+          {
+            "u": -0.0098056338,
+            "v": 0.2534886076
+          },
+          {
+            "u": -0.0356507042,
+            "v": 0.0510607595
+          },
+          {
+            "u": 0.0425239437,
+            "v": -0.099935443
+          }
+        ],
+        "observationId": "6c2c4b34d386fc7d8c1698e611c067c77f23e033b088306b9cfc6245b0f1bd2b",
+        "sequenceNumber": 234
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "bb93ec69b8db4ebc2ac77b2c10df8700c9dbcd7d31fe2b0e25bc4a1d17dec4c2",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "217333e4c699131384b94a3963d5036b48da06eb8727536d526d4f4a50883738",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 367.4727,
+            "y": 438.612
+          },
+          {
+            "x": 556.1117,
+            "y": 449.0671
+          },
+          {
+            "x": 553.0622,
+            "y": 539.6775
+          },
+          {
+            "x": 356.5813,
+            "y": 534.45
+          }
+        ],
+        "boardPosition": 4,
+        "localBaseQuad": [
+          {
+            "x": 352.0,
+            "y": 424.0
+          },
+          {
+            "x": 561.0,
+            "y": 424.0
+          },
+          {
+            "x": 561.0,
+            "y": 534.0
+          },
+          {
+            "x": 352.0,
+            "y": 534.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0740320574,
+            "v": 0.1328363636
+          },
+          {
+            "u": -0.0233889952,
+            "v": 0.2278827273
+          },
+          {
+            "u": -0.0379799043,
+            "v": 0.0516136364
+          },
+          {
+            "u": 0.0219200957,
+            "v": 0.0040909091
+          }
+        ],
+        "observationId": "6382cf25ba5abbfc84ccd9dbd4878e3126b064daf63b319d044e5a0e60251a27",
+        "sequenceNumber": 59
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "d0791e015c7314f8e946f27de2e0e8b3414d475c1ea444d155b309a0c7820ec3",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "243e95123b78798762a6f49c7ea5f2ea121cdc998f6de72812618ac4d0024c89",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 142.4722,
+            "y": 444.6848
+          },
+          {
+            "x": 271.796,
+            "y": 447.1423
+          },
+          {
+            "x": 267.4306,
+            "y": 520.3191
+          },
+          {
+            "x": 143.0178,
+            "y": 518.4077
+          }
+        ],
+        "boardPosition": 0,
+        "localBaseQuad": [
+          {
+            "x": 151.0,
+            "y": 433.0
+          },
+          {
+            "x": 293.0,
+            "y": 433.0
+          },
+          {
+            "x": 293.0,
+            "y": 517.0
+          },
+          {
+            "x": 151.0,
+            "y": 517.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": -0.0600549296,
+            "v": 0.1391047619
+          },
+          {
+            "u": -0.1493239437,
+            "v": 0.1683607143
+          },
+          {
+            "u": -0.1800661972,
+            "v": 0.0395130952
+          },
+          {
+            "u": -0.0562126761,
+            "v": 0.0167583333
+          }
+        ],
+        "observationId": "e437dbf16ec563437b458a7dada2825a42611ca1385cc3dc0565401df94d69fb",
+        "sequenceNumber": 217
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "0ad90e88dfc9b77f4a2c9f127fadc0f6485339241370cb0fe57e2120040b90aa",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "392bc7344ee725c92adf6726886d18ac2180e6e844b6bfc4e5e6404fa104a22a",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 483.5229,
+            "y": 621.2131
+          },
+          {
+            "x": 615.3286,
+            "y": 638.3095
+          },
+          {
+            "x": 611.5266,
+            "y": 700.3629
+          },
+          {
+            "x": 479.0872,
+            "y": 684.8496
+          }
+        ],
+        "boardPosition": 5,
+        "localBaseQuad": [
+          {
+            "x": 476.0,
+            "y": 605.0
+          },
+          {
+            "x": 620.0,
+            "y": 605.0
+          },
+          {
+            "x": 620.0,
+            "y": 686.0
+          },
+          {
+            "x": 476.0,
+            "y": 686.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0522423611,
+            "v": 0.2001617284
+          },
+          {
+            "u": -0.0324402778,
+            "v": 0.4112283951
+          },
+          {
+            "u": -0.0588430556,
+            "v": 0.1773197531
+          },
+          {
+            "u": 0.0214388889,
+            "v": -0.0142024691
+          }
+        ],
+        "observationId": "0e5f57af7f36640822b043eb4c8d350487b378a1c06786290bb39caee343a574",
+        "sequenceNumber": 240
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "53f974611db5393280d31b264ae822a711d19d1bf9652afa7f07de51af8f0418",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "4e8e3c768b44223293ba6b6b5e0644947cc3af59646a9cc72c2ea0bca5f1db5f",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 417.4869,
+            "y": 540.1128
+          },
+          {
+            "x": 641.7396,
+            "y": 533.6469
+          },
+          {
+            "x": 653.5991,
+            "y": 644.1063
+          },
+          {
+            "x": 422.3385,
+            "y": 651.6499
+          }
+        ],
+        "boardPosition": 4,
+        "localBaseQuad": [
+          {
+            "x": 404.0,
+            "y": 516.0
+          },
+          {
+            "x": 655.0,
+            "y": 516.0
+          },
+          {
+            "x": 655.0,
+            "y": 644.0
+          },
+          {
+            "x": 404.0,
+            "y": 644.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0537326693,
+            "v": 0.18838125
+          },
+          {
+            "u": -0.0528302789,
+            "v": 0.1378664062
+          },
+          {
+            "u": -0.0055812749,
+            "v": 0.0008304688
+          },
+          {
+            "u": 0.073061753,
+            "v": 0.0597648438
+          }
+        ],
+        "observationId": "72e89c62418b696208c0ac2c7651ddfe4330e3f6fccdcd9e8845e30f65b2c18d",
+        "sequenceNumber": 32
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "777b50bfb23d19c4c8a8b3f3fce4ca288ccb8b110780848ad8c74cb52e64291d",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "5160eb865b1a4025451f40fc434b44f64484167e92ed2bb3ef356ff7ba4d46df",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 617.8546,
+            "y": 424.315
+          },
+          {
+            "x": 771.4364,
+            "y": 448.4428
+          },
+          {
+            "x": 765.4891,
+            "y": 532.3657
+          },
+          {
+            "x": 613.3066,
+            "y": 515.2314
+          }
+        ],
+        "boardPosition": 2,
+        "localBaseQuad": [
+          {
+            "x": 600.0,
+            "y": 417.0
+          },
+          {
+            "x": 768.0,
+            "y": 417.0
+          },
+          {
+            "x": 768.0,
+            "y": 529.0
+          },
+          {
+            "x": 600.0,
+            "y": 529.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.106277381,
+            "v": 0.0653125
+          },
+          {
+            "u": 0.0204547619,
+            "v": 0.2807392857
+          },
+          {
+            "u": -0.0149458333,
+            "v": 0.0300508929
+          },
+          {
+            "u": 0.0792059524,
+            "v": -0.1229339286
+          }
+        ],
+        "observationId": "d90f4d2968fe4a293f3ad38a7bed41710ab93741d2a4893be6ee576cdaacc0f8",
+        "sequenceNumber": 66
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "3c5dcc8176fcb529e3eb239cfe0509a3e4c91cf6d8c78ebd2f914a46f4de797c",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "536aac0592a92b3f06fc6c89e76e1491a85217b2c658c2ffbd0842ec00d5922c",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 112.0127,
+            "y": 497.7615
+          },
+          {
+            "x": 241.1517,
+            "y": 503.661
+          },
+          {
+            "x": 236.4343,
+            "y": 577.9949
+          },
+          {
+            "x": 107.0005,
+            "y": 567.6708
+          }
+        ],
+        "boardPosition": 3,
+        "localBaseQuad": [
+          {
+            "x": 83.0,
+            "y": 490.0
+          },
+          {
+            "x": 234.0,
+            "y": 490.0
+          },
+          {
+            "x": 234.0,
+            "y": 581.0
+          },
+          {
+            "x": 83.0,
+            "y": 581.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.1921370861,
+            "v": 0.0852912088
+          },
+          {
+            "u": 0.0473622517,
+            "v": 0.1501208791
+          },
+          {
+            "u": 0.0161211921,
+            "v": -0.0330230769
+          },
+          {
+            "u": 0.1589437086,
+            "v": -0.1464747253
+          }
+        ],
+        "observationId": "39e1b0d493dd656730cac333f3a7cdd1852a312e835bcfaa45189c68b36bcec1",
+        "sequenceNumber": 112
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "0e9389c83b856801b5a62575e71cd948d46d6a1f201c28d1a0ea9c695311dabf",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 194.2997,
+            "y": 627.5071
+          },
+          {
+            "x": 354.9577,
+            "y": 618.8564
+          },
+          {
+            "x": 359.849,
+            "y": 703.1067
+          },
+          {
+            "x": 199.191,
+            "y": 703.8589
+          }
+        ],
+        "boardPosition": 6,
+        "localBaseQuad": [
+          {
+            "x": 186.0,
+            "y": 613.0
+          },
+          {
+            "x": 359.0,
+            "y": 613.0
+          },
+          {
+            "x": 359.0,
+            "y": 703.0
+          },
+          {
+            "x": 186.0,
+            "y": 703.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0479751445,
+            "v": 0.16119
+          },
+          {
+            "u": -0.023365896,
+            "v": 0.0650711111
+          },
+          {
+            "u": 0.0049075145,
+            "v": 0.0011855556
+          },
+          {
+            "u": 0.0762485549,
+            "v": 0.0095433333
+          }
+        ],
+        "observationId": "dbfeed20175283e40da3cd8a1921a215d69054262f93430fa45c63c8ec25419f",
+        "sequenceNumber": 16
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "c2b0f003b2fcd04e951767020c46b2c7130db268f69b71f684128571db42f01d",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "5f8905f9e0435ae28ea3c90810816d223def815a94592e9a04e7bb05957d5a0e",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 486.4302,
+            "y": 505.8671
+          },
+          {
+            "x": 618.4471,
+            "y": 525.9499
+          },
+          {
+            "x": 611.0212,
+            "y": 595.8269
+          },
+          {
+            "x": 478.4542,
+            "y": 578.2201
+          }
+        ],
+        "boardPosition": 2,
+        "localBaseQuad": [
+          {
+            "x": 474.0,
+            "y": 499.0
+          },
+          {
+            "x": 613.0,
+            "y": 499.0
+          },
+          {
+            "x": 613.0,
+            "y": 594.0
+          },
+          {
+            "x": 474.0,
+            "y": 594.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0894258993,
+            "v": 0.0722852632
+          },
+          {
+            "u": 0.0391877698,
+            "v": 0.2836831579
+          },
+          {
+            "u": -0.0142359712,
+            "v": 0.0192305263
+          },
+          {
+            "u": 0.0320446043,
+            "v": -0.1661042105
+          }
+        ],
+        "observationId": "ee87a105f1a14268173385bf921b653909782be7463de5f8d23b268a565b19cb",
+        "sequenceNumber": 174
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "5086a9a4c49720063352874f93b1d88a86a9e0e6889f1130d6f3b92be897ca5b",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "6994f551402b852001f0c9ef85ce714c580c641494b4cb45cc94d77c27478886",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 111.9917,
+            "y": 650.5928
+          },
+          {
+            "x": 236.2988,
+            "y": 650.8834
+          },
+          {
+            "x": 237.1701,
+            "y": 718.0253
+          },
+          {
+            "x": 110.8299,
+            "y": 717.7346
+          }
+        ],
+        "boardPosition": 6,
+        "localBaseQuad": [
+          {
+            "x": 106.0,
+            "y": 645.0
+          },
+          {
+            "x": 241.0,
+            "y": 645.0
+          },
+          {
+            "x": 241.0,
+            "y": 726.0
+          },
+          {
+            "x": 106.0,
+            "y": 726.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.044382963,
+            "v": 0.0690469136
+          },
+          {
+            "u": -0.0348237037,
+            "v": 0.0726345679
+          },
+          {
+            "u": -0.0283696296,
+            "v": -0.0984530864
+          },
+          {
+            "u": 0.035777037,
+            "v": -0.1020419753
+          }
+        ],
+        "observationId": "e5a923d926568e1f9e5d8c301b0ab60b6a84e589bf80308c2aaa59a294f4c83b",
+        "sequenceNumber": 295
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "34275d63a581b92e078e8ecb02f8da3859271c944e6555bb0ed0c8b4d10539e0",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "7934727e81d0fa0dfc7bc03285650572c4917ead0bea664576c6815cc95a5d8a",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 657.7501,
+            "y": 657.5887
+          },
+          {
+            "x": 847.6564,
+            "y": 662.677
+          },
+          {
+            "x": 844.422,
+            "y": 758.8907
+          },
+          {
+            "x": 649.8951,
+            "y": 753.34
+          }
+        ],
+        "boardPosition": 8,
+        "localBaseQuad": [
+          {
+            "x": 637.0,
+            "y": 645.0
+          },
+          {
+            "x": 850.0,
+            "y": 645.0
+          },
+          {
+            "x": 850.0,
+            "y": 756.0
+          },
+          {
+            "x": 637.0,
+            "y": 756.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0974183099,
+            "v": 0.1134117117
+          },
+          {
+            "u": -0.0110028169,
+            "v": 0.1592522523
+          },
+          {
+            "u": -0.0261877934,
+            "v": 0.0260423423
+          },
+          {
+            "u": 0.0605403756,
+            "v": -0.023963964
+          }
+        ],
+        "observationId": "e1377e290ada9bdd53ceadf97ac03e26e68ee5fd07fbdf5bf3dedf9bf62daf21",
+        "sequenceNumber": 27
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "96e0047bac4dc2014e66da5bebb665c4331d9d2b3d070a5a67225d1fbef64b3a",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 115.3596,
+            "y": 516.3446
+          },
+          {
+            "x": 239.3961,
+            "y": 520.0354
+          },
+          {
+            "x": 242.8021,
+            "y": 590.7285
+          },
+          {
+            "x": 110.8182,
+            "y": 587.3216
+          }
+        ],
+        "boardPosition": 3,
+        "localBaseQuad": [
+          {
+            "x": 106.0,
+            "y": 506.0
+          },
+          {
+            "x": 247.0,
+            "y": 506.0
+          },
+          {
+            "x": 247.0,
+            "y": 587.0
+          },
+          {
+            "x": 106.0,
+            "y": 587.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0663801418,
+            "v": 0.1277111111
+          },
+          {
+            "u": -0.0539283688,
+            "v": 0.1732765432
+          },
+          {
+            "u": -0.0297723404,
+            "v": 0.0460308642
+          },
+          {
+            "u": 0.0341716312,
+            "v": 0.0039703704
+          }
+        ],
+        "observationId": "ecb4f15343fd5ac10cf9aa4312441df857d5a2210281679bae539bf24e9cb182",
+        "sequenceNumber": 202
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "f0596f031417e58007b37a9b0895ec616fb4070b1856fb4334a3556747731d3b",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "8aa3c1d9584dc54d02e70ab30d95269ab76ec2386998323d36059c7793ebf6a4",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 116.4054,
+            "y": 663.7891
+          },
+          {
+            "x": 233.8477,
+            "y": 666.3251
+          },
+          {
+            "x": 234.4109,
+            "y": 728.0326
+          },
+          {
+            "x": 115.5605,
+            "y": 725.2149
+          }
+        ],
+        "boardPosition": 6,
+        "localBaseQuad": [
+          {
+            "x": 109.0,
+            "y": 656.0
+          },
+          {
+            "x": 240.0,
+            "y": 656.0
+          },
+          {
+            "x": 240.0,
+            "y": 726.0
+          },
+          {
+            "x": 109.0,
+            "y": 726.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.056529771,
+            "v": 0.1112728571
+          },
+          {
+            "u": -0.0469641221,
+            "v": 0.1475014286
+          },
+          {
+            "u": -0.0426648855,
+            "v": 0.0290371429
+          },
+          {
+            "u": 0.0500801527,
+            "v": -0.0112157143
+          }
+        ],
+        "observationId": "fe92c2476614c4cf2582349bf9e06fb3b668c31ae540e1f1771e0b340445b378",
+        "sequenceNumber": 268
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "7ebf5b1fff102a14bb2c0f49284317a83e6aec4c5773dd382849877dda48682e",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "901cafa1bc6afb04fffa199b67f8aae2b058b162f6af8c5e0875c50791bd3661",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 262.2682,
+            "y": 321.4855
+          },
+          {
+            "x": 401.0246,
+            "y": 325.895
+          },
+          {
+            "x": 404.171,
+            "y": 397.0766
+          },
+          {
+            "x": 262.5829,
+            "y": 395.5018
+          }
+        ],
+        "boardPosition": 1,
+        "localBaseQuad": [
+          {
+            "x": 257.0,
+            "y": 312.0
+          },
+          {
+            "x": 400.0,
+            "y": 312.0
+          },
+          {
+            "x": 400.0,
+            "y": 395.0
+          },
+          {
+            "x": 257.0,
+            "y": 395.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0368405594,
+            "v": 0.1142831325
+          },
+          {
+            "u": 0.007165035,
+            "v": 0.1674096386
+          },
+          {
+            "u": 0.0291678322,
+            "v": 0.0250192771
+          },
+          {
+            "u": 0.0390412587,
+            "v": 0.0060457831
+          }
+        ],
+        "observationId": "0e72c013ddcd87b6e209fda6398bd6dfa44bf24a95edb081c1f75df5a746e781",
+        "sequenceNumber": 371
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "56d0f041aebde05e4ce84ad13a87708c33a7e2cc7ddd895efe446b86961f09b1",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "97f056b7ac29bd24156a4a46ae5723da2eb0758882bcb8c60c8c38de3024cb83",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 282.0,
+            "y": 462.0
+          },
+          {
+            "x": 429.0,
+            "y": 467.0
+          },
+          {
+            "x": 421.3203,
+            "y": 536.7845
+          },
+          {
+            "x": 282.2405,
+            "y": 531.9336
+          }
+        ],
+        "boardPosition": 1,
+        "localBaseQuad": [
+          {
+            "x": 276.0,
+            "y": 449.0
+          },
+          {
+            "x": 430.0,
+            "y": 449.0
+          },
+          {
+            "x": 430.0,
+            "y": 536.0
+          },
+          {
+            "x": 276.0,
+            "y": 536.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.038961039,
+            "v": 0.1494252874
+          },
+          {
+            "u": -0.0064935065,
+            "v": 0.2068965517
+          },
+          {
+            "u": -0.0563616883,
+            "v": 0.0090172414
+          },
+          {
+            "u": 0.0405227273,
+            "v": -0.0467402299
+          }
+        ],
+        "observationId": "efb6dbee54e5ae7845b97481a4618620bd28685dcdf3ead24e31315b5510facf",
+        "sequenceNumber": 272
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "7acbcca8b5020f354edc1860486cdc1456abad581e2eae0479d1943d28e68867",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "99f0031c3d42e207017111fc0ad28ba6a77e4cecb2154df8f03fed1410e09a79",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 296.863,
+            "y": 491.465
+          },
+          {
+            "x": 426.9788,
+            "y": 493.2074
+          },
+          {
+            "x": 427.2693,
+            "y": 561.1589
+          },
+          {
+            "x": 294.2491,
+            "y": 555.0607
+          }
+        ],
+        "boardPosition": 4,
+        "localBaseQuad": [
+          {
+            "x": 291.0,
+            "y": 480.0
+          },
+          {
+            "x": 424.0,
+            "y": 480.0
+          },
+          {
+            "x": 424.0,
+            "y": 555.0
+          },
+          {
+            "x": 291.0,
+            "y": 555.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0440827068,
+            "v": 0.1528666667
+          },
+          {
+            "u": 0.0223969925,
+            "v": 0.1760986667
+          },
+          {
+            "u": 0.024581203,
+            "v": 0.0821186667
+          },
+          {
+            "u": 0.0244293233,
+            "v": 0.0008093333
+          }
+        ],
+        "observationId": "0f227df41773f5d11459d25c0dd96ac454f7fda5b06aa572ac1e7d8c1220a801",
+        "sequenceNumber": 356
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "2687c1dca4d81613f01ee47e13ffc8315d12f577011f162996fc75d6d9462e06",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "a10c15ea533fb546307d6bc08fe96e5989fd5d4d1f9db4dfbab3d3046ade6962",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 363.1042,
+            "y": 375.214
+          },
+          {
+            "x": 559.2857,
+            "y": 387.6981
+          },
+          {
+            "x": 557.3671,
+            "y": 489.0118
+          },
+          {
+            "x": 357.3482,
+            "y": 477.9681
+          }
+        ],
+        "boardPosition": 1,
+        "localBaseQuad": [
+          {
+            "x": 344.0,
+            "y": 360.0
+          },
+          {
+            "x": 565.0,
+            "y": 360.0
+          },
+          {
+            "x": 565.0,
+            "y": 484.0
+          },
+          {
+            "x": 344.0,
+            "y": 484.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0864443439,
+            "v": 0.1226935484
+          },
+          {
+            "u": -0.0258565611,
+            "v": 0.2233717742
+          },
+          {
+            "u": -0.034538009,
+            "v": 0.0404177419
+          },
+          {
+            "u": 0.060399095,
+            "v": -0.0486443548
+          }
+        ],
+        "observationId": "ff756f557bfd2faa048a223305fa39f6c8889641767d57624a1edfd9d44d2056",
+        "sequenceNumber": 74
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "abde2d47c6ea5bdde4030f53424be9d975844569ef3bfa7741f89e7c14c398fb",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "be98b6f343af0b22cacf3d28e2b0713beaf668515167dafd7c0f18a99052bdbc",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 492.2931,
+            "y": 673.6092
+          },
+          {
+            "x": 627.5797,
+            "y": 679.855
+          },
+          {
+            "x": 626.0175,
+            "y": 745.4356
+          },
+          {
+            "x": 491.6682,
+            "y": 738.5653
+          }
+        ],
+        "boardPosition": 8,
+        "localBaseQuad": [
+          {
+            "x": 483.0,
+            "y": 673.0
+          },
+          {
+            "x": 625.0,
+            "y": 673.0
+          },
+          {
+            "x": 625.0,
+            "y": 756.0
+          },
+          {
+            "x": 483.0,
+            "y": 756.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0654443662,
+            "v": 0.007339759
+          },
+          {
+            "u": 0.0181669014,
+            "v": 0.0825903614
+          },
+          {
+            "u": 0.007165493,
+            "v": -0.1272819277
+          },
+          {
+            "u": 0.061043662,
+            "v": -0.2100566265
+          }
+        ],
+        "observationId": "f1e3e21d059401ab65c2009def85c40887101f818c407060b6f6c1b60f276488",
+        "sequenceNumber": 306
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "dfed92f659d59b8c73579e77b071437619f34944e17f43e4ac798ca4e0779a46",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "c1b69b0bbc9c2b8937663a9df585d47ddf14ca5c4c71f2701fbf64f2fbe47f0c",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 485.731,
+            "y": 289.7525
+          },
+          {
+            "x": 624.5072,
+            "y": 306.7871
+          },
+          {
+            "x": 623.5435,
+            "y": 385.8534
+          },
+          {
+            "x": 475.7725,
+            "y": 367.5331
+          }
+        ],
+        "boardPosition": 2,
+        "localBaseQuad": [
+          {
+            "x": 472.0,
+            "y": 283.0
+          },
+          {
+            "x": 629.0,
+            "y": 283.0
+          },
+          {
+            "x": 629.0,
+            "y": 374.0
+          },
+          {
+            "x": 472.0,
+            "y": 374.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0874585987,
+            "v": 0.0742032967
+          },
+          {
+            "u": -0.0286165605,
+            "v": 0.2613967033
+          },
+          {
+            "u": -0.0347547771,
+            "v": 0.1302571429
+          },
+          {
+            "u": 0.0240286624,
+            "v": -0.0710648352
+          }
+        ],
+        "observationId": "d2b13af1bb394409e2fd19c97f7b049272f435caa22adb683c7acec046577c92",
+        "sequenceNumber": 309
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "935a8412969c916f49e979f00adf20362212047e6f8fa28a270a2acae2d35a28",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "df0481e000709e97e414c896a8bab495e7abd9c3042669b9b341225a34d97526",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 259.8661,
+            "y": 655.3777
+          },
+          {
+            "x": 402.6556,
+            "y": 662.2461
+          },
+          {
+            "x": 399.9096,
+            "y": 731.2737
+          },
+          {
+            "x": 259.8661,
+            "y": 723.375
+          }
+        ],
+        "boardPosition": 7,
+        "localBaseQuad": [
+          {
+            "x": 250.0,
+            "y": 649.0
+          },
+          {
+            "x": 409.0,
+            "y": 649.0
+          },
+          {
+            "x": 409.0,
+            "y": 727.0
+          },
+          {
+            "x": 250.0,
+            "y": 727.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0620509434,
+            "v": 0.0817653846
+          },
+          {
+            "u": -0.0399018868,
+            "v": 0.1698217949
+          },
+          {
+            "u": -0.057172327,
+            "v": 0.0547910256
+          },
+          {
+            "u": 0.0620509434,
+            "v": -0.046474359
+          }
+        ],
+        "observationId": "0e3a31fa66b01d40b574120e57907fd4efc556b851585c4b244db8b44fd431b2",
+        "sequenceNumber": 287
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "d55ead952b4594db58f24b8aee5b60b28f6fab2e25cb133dc91798d5a5c787e2",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "e619bdb538b2d6336092c584ad555ac17409e9a9aa9d3c28fa49f2ef938762a9",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 616.4594,
+            "y": 584.568
+          },
+          {
+            "x": 772.257,
+            "y": 596.3338
+          },
+          {
+            "x": 769.3174,
+            "y": 675.7534
+          },
+          {
+            "x": 612.4175,
+            "y": 662.8845
+          }
+        ],
+        "boardPosition": 5,
+        "localBaseQuad": [
+          {
+            "x": 607.0,
+            "y": 580.0
+          },
+          {
+            "x": 774.0,
+            "y": 580.0
+          },
+          {
+            "x": 774.0,
+            "y": 679.0
+          },
+          {
+            "x": 607.0,
+            "y": 679.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0566431138,
+            "v": 0.0461414141
+          },
+          {
+            "u": -0.0104371257,
+            "v": 0.1649878788
+          },
+          {
+            "u": -0.028039521,
+            "v": -0.0327939394
+          },
+          {
+            "u": 0.0324401198,
+            "v": -0.1627828283
+          }
+        ],
+        "observationId": "4b4e95479c2d80f50d6f23c55e1fca73faa62a77574b46df8d3f56fd7a8831d8",
+        "sequenceNumber": 96
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "eee143d619b6833e6b41320bdf55d2a6de85cee9360ccb546539e4f3c34df56e",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "ec94aa759be353a30bde472f46e13e4479509890ca76837ff11166842611487e",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 347.8665,
+            "y": 742.0287
+          },
+          {
+            "x": 536.8795,
+            "y": 743.8579
+          },
+          {
+            "x": 537.7948,
+            "y": 830.7471
+          },
+          {
+            "x": 346.0358,
+            "y": 832.1191
+          }
+        ],
+        "boardPosition": 7,
+        "localBaseQuad": [
+          {
+            "x": 336.0,
+            "y": 730.0
+          },
+          {
+            "x": 548.0,
+            "y": 730.0
+          },
+          {
+            "x": 548.0,
+            "y": 827.0
+          },
+          {
+            "x": 336.0,
+            "y": 827.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0559740566,
+            "v": 0.1240072165
+          },
+          {
+            "u": -0.0524551887,
+            "v": 0.1428649485
+          },
+          {
+            "u": -0.0481377358,
+            "v": 0.0386298969
+          },
+          {
+            "u": 0.0473386792,
+            "v": 0.0527742268
+          }
+        ],
+        "observationId": "69163e05c8e690976d958d83f733a0b2c0ced0beecfc756198fd4d1cea69e719",
+        "sequenceNumber": 89
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "39c8ec8cf1c8c40e9da252092491080075328eca9102fa9bab5ffd266aaab64b",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "efd96d7f1b117936955dd70f853fad54cc22152177855bb57cc41b041a63bf23",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 164.3623,
+            "y": 370.6562
+          },
+          {
+            "x": 322.4922,
+            "y": 368.2061
+          },
+          {
+            "x": 326.6903,
+            "y": 456.4075
+          },
+          {
+            "x": 161.9134,
+            "y": 456.0575
+          }
+        ],
+        "boardPosition": 0,
+        "localBaseQuad": [
+          {
+            "x": 166.0,
+            "y": 347.0
+          },
+          {
+            "x": 329.0,
+            "y": 347.0
+          },
+          {
+            "x": 329.0,
+            "y": 453.0
+          },
+          {
+            "x": 166.0,
+            "y": 453.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": -0.0100472393,
+            "v": 0.2231716981
+          },
+          {
+            "u": -0.0399251534,
+            "v": 0.2000575472
+          },
+          {
+            "u": -0.0141699387,
+            "v": 0.0321462264
+          },
+          {
+            "u": -0.0250711656,
+            "v": 0.0288443396
+          }
+        ],
+        "observationId": "9bf6d8356a5c0c666d2084bc6bec4c6fff8d9622f7d320c38972b24df78bae0c",
+        "sequenceNumber": 37
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "a25d30d741f5e27ddce28c4cef4bd7d6759f5f5e8e8d0fac3e97bcda29eb1b85",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "f1cdf8e317a50f6909e0eb5a99ace12196e105b214513a39a20b084b61006352",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 92.3747,
+            "y": 579.0863
+          },
+          {
+            "x": 267.4424,
+            "y": 573.9968
+          },
+          {
+            "x": 273.7088,
+            "y": 660.1272
+          },
+          {
+            "x": 95.1163,
+            "y": 662.8677
+          }
+        ],
+        "boardPosition": 3,
+        "localBaseQuad": [
+          {
+            "x": 87.0,
+            "y": 558.0
+          },
+          {
+            "x": 274.0,
+            "y": 558.0
+          },
+          {
+            "x": 274.0,
+            "y": 661.0
+          },
+          {
+            "x": 87.0,
+            "y": 661.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0287417112,
+            "v": 0.2047213592
+          },
+          {
+            "u": -0.0350673797,
+            "v": 0.1553087379
+          },
+          {
+            "u": -0.0015572193,
+            "v": -0.0084737864
+          },
+          {
+            "u": 0.0434026738,
+            "v": 0.0181330097
+          }
+        ],
+        "observationId": "586a4502af22ac3596b5e81bf39a8845a38e78501001cf0f95c77fcc7346bd73",
+        "sequenceNumber": 103
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "d5b116acb1bcadbd481acaeadefb9ad8f5220b2d041b3cce1bae26c7990c4920",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-1",
+      "sourceImageChecksumSha256": "f455058a829b6bc2bc821455296c95baf9a7496b733c637187869e699299369f",
+      "status": "published"
+    },
+    {
+      "anchor": {
+        "acceptedSourceQuad": [
+          {
+            "x": 486.9867,
+            "y": 610.9142
+          },
+          {
+            "x": 618.5284,
+            "y": 630.4544
+          },
+          {
+            "x": 613.8748,
+            "y": 694.658
+          },
+          {
+            "x": 478.9205,
+            "y": 680.3905
+          }
+        ],
+        "boardPosition": 5,
+        "localBaseQuad": [
+          {
+            "x": 479.0,
+            "y": 597.0
+          },
+          {
+            "x": 620.0,
+            "y": 597.0
+          },
+          {
+            "x": 620.0,
+            "y": 675.0
+          },
+          {
+            "x": 479.0,
+            "y": 675.0
+          }
+        ],
+        "localCornerOffsets": [
+          {
+            "u": 0.0566432624,
+            "v": 0.1783871795
+          },
+          {
+            "u": -0.0104368794,
+            "v": 0.4289025641
+          },
+          {
+            "u": -0.0434411348,
+            "v": 0.252025641
+          },
+          {
+            "u": -0.0005638298,
+            "v": 0.0691089744
+          }
+        ],
+        "observationId": "ebfbc3f44a1ec5a96612d612e5ab00921751ce2e2d347e3b4fd7e0d8806099d3",
+        "sequenceNumber": 258
+      },
+      "basisVersion": "detector-bounding-box-v1",
+      "profileId": "f2041c55926bd3c61d96c16f4219b302dba2d107f04857715db7dcd2d040e62c",
+      "profileVersion": 2,
+      "sourceGroup": "blazing-hot-7-deluxe-session-2",
+      "sourceImageChecksumSha256": "f524ae844edfc456964484037bc68bb651fb183b8eb635da6fca0dcae71c5a4d",
+      "status": "published"
+    }
+  ],
+  "publishedBy": [
+    "owner"
+  ],
+  "schemaVersion": 1,
+  "sourceImageCount": 43,
+  "status": "partial_review_required",
+  "trainingAllowed": false
+}

@@ -5,12 +5,17 @@ import json
 from pathlib import Path
 
 import pytest
+from game_predictor_worker.images.rectification import CALIBRATED_CROPPER_VERSION
 from game_predictor_worker.images.symbol_dataset import (
+    CALIBRATED_INVENTORY_VERSION,
     DATASET_VERSION,
     INVENTORY_VERSION,
     LABEL_SOURCE_VERSION,
     SymbolDatasetError,
     build_symbol_crop_inventory,
+    calibrated_board_id,
+    calibrated_crop_sample_id,
+    calibrated_observation_id,
     export_reviewed_symbol_dataset,
 )
 from PIL import Image
@@ -123,13 +128,71 @@ def _inventory(tmp_path: Path) -> tuple[Path, dict[str, Path], dict[str, object]
     return path, fixture, inventory.to_dict()
 
 
+def _calibrated_inventory(
+    tmp_path: Path,
+) -> tuple[Path, dict[str, Path], dict[str, object]]:
+    path, fixture, inventory = _inventory(tmp_path)
+    profile_id = "b" * 64
+    profile_version = 1
+    corpus_id = str(inventory["corpusId"])
+    samples = inventory["samples"]
+    assert isinstance(samples, list)
+    for sample in samples:
+        assert isinstance(sample, dict)
+        observation_id = calibrated_observation_id(
+            corpus_id=corpus_id,
+            source_checksum=str(sample["sourceImageChecksumSha256"]),
+            sequence_number=int(sample["sequenceNumber"]),
+            board_index=int(sample["boardIndex"]),
+            row_index=int(sample["rowIndex"]),
+            column_index=int(sample["columnIndex"]),
+        )
+        sample_id = calibrated_crop_sample_id(
+            observation_id=observation_id,
+            cropper_version=CALIBRATED_CROPPER_VERSION,
+            profile_id=profile_id,
+            profile_version=profile_version,
+            crop_checksum=str(sample["cropChecksumSha256"]),
+        )
+        sample.update(
+            {
+                "boardChecksumSha256": "c" * 64,
+                "boardId": calibrated_board_id(
+                    corpus_id=corpus_id,
+                    source_checksum=str(sample["sourceImageChecksumSha256"]),
+                    sequence_number=int(sample["sequenceNumber"]),
+                    board_index=int(sample["boardIndex"]),
+                ),
+                "boardRelativePath": "board-cell-crops-v2/fixture/board.png",
+                "calibrationProfileId": profile_id,
+                "calibrationProfileVersion": profile_version,
+                "cropSampleId": sample_id,
+                "geometryStatus": "accepted",
+                "observationId": observation_id,
+                "sampleId": sample_id,
+            }
+        )
+    inventory.update(
+        {
+            "calibrationProfileSetSha256": "d" * 64,
+            "calibrationProfileSetVersion": "grid-calibration-profiles-v1",
+            "cropperVersion": CALIBRATED_CROPPER_VERSION,
+            "inventoryVersion": CALIBRATED_INVENTORY_VERSION,
+            "qualityReportSha256": "e" * 64,
+            "trainingAllowed": True,
+        }
+    )
+    _write_json(path, inventory)
+    return path, fixture, inventory
+
+
 def _label_source(
     inventory: dict[str, object],
     *,
     decisions: list[dict[str, object]],
 ) -> dict[str, object]:
     return {
-        "corpusId": "fixture-corpus",
+        "corpusId": inventory["corpusId"],
         "gameCode": "fixture-game",
         "gameId": "game-1",
         "labelSourceVersion": LABEL_SOURCE_VERSION,
@@ -199,7 +262,7 @@ def test_inventory_rejects_unsafe_crop_path(tmp_path: Path) -> None:
 def test_reviewed_export_deduplicates_assets_and_keeps_occurrences(
     tmp_path: Path,
 ) -> None:
-    inventory_path, fixture, inventory = _inventory(tmp_path)
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
     samples = inventory["samples"]
     assert isinstance(samples, list)
     labels = _label_source(
@@ -244,17 +307,22 @@ def test_reviewed_export_deduplicates_assets_and_keeps_occurrences(
     payload = report.to_dict()
 
     assert payload["datasetVersion"] == DATASET_VERSION
+    assert payload["inventoryVersion"] == CALIBRATED_INVENTORY_VERSION
+    assert payload["cropperVersion"] == CALIBRATED_CROPPER_VERSION
+    assert payload["calibrationProfileSetVersion"] == "grid-calibration-profiles-v1"
     assert payload["status"] == "ready"
     assert payload["sampleCount"] == 3
     assert payload["assetCount"] == 2
     assert payload["pendingCount"] == 12
     assert len({sample["sampleId"] for sample in payload["samples"]}) == 3
+    assert all(sample["geometryStatus"] == "accepted" for sample in payload["samples"])
+    assert all("observationId" in sample for sample in payload["samples"])
     assert repeated.to_json_bytes() == report.to_json_bytes()
     assert len(list(output_root.rglob("*.png"))) == 2
 
 
 def test_empty_review_is_waiting_for_labels(tmp_path: Path) -> None:
-    inventory_path, fixture, inventory = _inventory(tmp_path)
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
     labels_path = tmp_path / "labels.json"
     _write_json(labels_path, _label_source(inventory, decisions=[]))
 
@@ -271,7 +339,7 @@ def test_empty_review_is_waiting_for_labels(tmp_path: Path) -> None:
 
 
 def test_duplicate_review_decision_is_rejected(tmp_path: Path) -> None:
-    inventory_path, fixture, inventory = _inventory(tmp_path)
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
     samples = inventory["samples"]
     assert isinstance(samples, list)
     decision = {
@@ -298,7 +366,7 @@ def test_duplicate_review_decision_is_rejected(tmp_path: Path) -> None:
 
 
 def test_unknown_sample_is_rejected(tmp_path: Path) -> None:
-    inventory_path, fixture, inventory = _inventory(tmp_path)
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
     labels_path = tmp_path / "labels.json"
     _write_json(
         labels_path,
@@ -327,7 +395,7 @@ def test_unknown_sample_is_rejected(tmp_path: Path) -> None:
 
 
 def test_tampered_inventory_identity_is_rejected(tmp_path: Path) -> None:
-    inventory_path, fixture, inventory = _inventory(tmp_path)
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
     samples = inventory["samples"]
     assert isinstance(samples, list)
     samples[0]["cellIndex"] = 14
@@ -347,7 +415,7 @@ def test_tampered_inventory_identity_is_rejected(tmp_path: Path) -> None:
 
 
 def test_identical_crop_cannot_have_conflicting_labels(tmp_path: Path) -> None:
-    inventory_path, fixture, inventory = _inventory(tmp_path)
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
     samples = inventory["samples"]
     assert isinstance(samples, list)
     assert samples[0]["cropChecksumSha256"] == samples[1]["cropChecksumSha256"]
@@ -382,3 +450,60 @@ def test_identical_crop_cannot_have_conflicting_labels(tmp_path: Path) -> None:
         )
 
     assert error.value.code == "SYMBOL_DATASET_ASSET_LABEL_CONFLICT"
+
+
+def test_export_rejects_quarantined_legacy_inventory(tmp_path: Path) -> None:
+    inventory_path, fixture, inventory = _inventory(tmp_path)
+    labels_path = tmp_path / "labels.json"
+    _write_json(labels_path, _label_source(inventory, decisions=[]))
+
+    with pytest.raises(SymbolDatasetError) as error:
+        export_reviewed_symbol_dataset(
+            inventory_path,
+            labels_path,
+            fixture["crop_root"],
+            tmp_path / "dataset",
+        )
+
+    assert error.value.code == "SYMBOL_DATASET_CALIBRATED_INVENTORY_REQUIRED"
+
+
+def test_export_rejects_calibrated_inventory_without_training_gate(
+    tmp_path: Path,
+) -> None:
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
+    inventory["trainingAllowed"] = False
+    _write_json(inventory_path, inventory)
+    labels_path = tmp_path / "labels.json"
+    _write_json(labels_path, _label_source(inventory, decisions=[]))
+
+    with pytest.raises(SymbolDatasetError) as error:
+        export_reviewed_symbol_dataset(
+            inventory_path,
+            labels_path,
+            fixture["crop_root"],
+            tmp_path / "dataset",
+        )
+
+    assert error.value.code == "SYMBOL_DATASET_CALIBRATED_INVENTORY_REQUIRED"
+
+
+def test_export_rejects_incomplete_calibrated_board(tmp_path: Path) -> None:
+    inventory_path, fixture, inventory = _calibrated_inventory(tmp_path)
+    samples = inventory["samples"]
+    assert isinstance(samples, list)
+    samples.pop()
+    inventory["sampleCount"] = len(samples)
+    _write_json(inventory_path, inventory)
+    labels_path = tmp_path / "labels.json"
+    _write_json(labels_path, _label_source(inventory, decisions=[]))
+
+    with pytest.raises(SymbolDatasetError) as error:
+        export_reviewed_symbol_dataset(
+            inventory_path,
+            labels_path,
+            fixture["crop_root"],
+            tmp_path / "dataset",
+        )
+
+    assert error.value.code == "SYMBOL_DATASET_INVENTORY_DRIFT"

@@ -1393,6 +1393,83 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   obecnych dwóch sesji nie jest deklaracją uogólnienia na inne urządzenie,
   automat lub sposób fotografowania.
 
+## D-062 — Per-source local-frame calibration and disjoint geometry gate
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** korekta geometrii planszy jest liczona na lokalnej bazie
+  `boundingBox` tej samej planszy i kalibrowana wyłącznie kotwicą z dokładnie
+  tego samego obrazu źródłowego. Brak kotwicy dla obrazu daje `needs_review`;
+  nie wolno użyć korekty innego zdjęcia, pozycji ani odległego
+  `sequence_number`. Metryki plansz użytych jako kotwice są raportowane jako
+  `anchor fit`, ale bramka generalizacji korzysta wyłącznie z rozłącznych
+  plansz held-out oraz przeglądu kompletnej strony. Zmiana geometrii tworzy
+  nowy `cropSampleId`; istniejąca etykieta nie przechodzi automatycznie na nowy
+  crop.
+- **Context:** podczas rzeczywistego etykietowania plansza 1 była czytelna,
+  natomiast kolejne plansze tego samego zdjęcia zostały przycięte. Sekwencja 2
+  użyła jedynej kotwicy pozycji 1 z sekwencji 74, a sekwencja 3 kotwicy z
+  sekwencji 66. Raport P95 `1.8337 px` sprawdzał te same 27 plansz, które były
+  wejściem profili, więc nie mierzył pozostałych 360 plansz. Diagnostyka na
+  pierwszym zdjęciu potwierdziła, że lokalna baza ramki plus jedna korekta tego
+  zdjęcia zachowuje symbole plansz 1–3.
+- **Reason:** położenie ramki jest obserwacją lokalną dla zdjęcia, podczas gdy
+  numer sekwencji nie opisuje perspektywy aparatu. Rozłączny held-out zapobiega
+  ponownemu zaliczeniu algorytmu na jego danych kalibracyjnych. Jedna kotwica
+  na zdjęcie ogranicza ręczną pracę do maksymalnie 43 korekt zamiast 387.
+- **Alternatives:** dalsze klamrowanie po sekwencji, ręczna korekta wszystkich
+  plansz, trening klasyfikatora na błędnych cropach albo automatyczna migracja
+  56 istniejących etykiet na nowe obrazy.
+- **Consequences:** D-061 i `board-cell-crops-v2-calibrated-v1` pozostają
+  historyczne, ale tracą prawo do zasilania treningu. TASK-0098 przygotowuje
+  profile obrazu, nową wersję cropów i uczciwą bramkę; TASK-0099 dodaje
+  sugestie dopiero po zaakceptowaniu geometrii. Dwadzieścia siedem obrazów ma
+  już po jednej kotwicy, a szesnaście wymaga jej dodania. Istniejące decyzje
+  pozostają audytowalne dla starych `cropSampleId`.
+- **Supersedes:** D-061 w zakresie produkcyjnego użycia profili
+  `source_group + board_position`, interpolacji/clamp po sekwencji oraz
+  zaliczenia G5.3 na anchorach. Niezmienność artefaktów, lokalne współrzędne
+  korekty i zakaz nadpisywania pozostają w mocy.
+
+## D-063 — Symbol-aware per-board grid refinement
+
+- **Status:** accepted
+- **Date:** 2026-07-28
+- **Decision:** produkcyjna geometria komórek rozpoczyna od quadu detektora
+  wyznaczonego osobno dla każdej planszy, a następnie lokalizuje środek symbolu
+  w każdym z 15 przybliżonych slotów. Z wiarygodnych środków dopasowuje
+  odporną korektę afiniczną do logicznej siatki 5 × 3. Transform musi spełnić jawne
+  progi pokrycia, liczby inlierów, residualu, wypukłości, granic obrazu i
+  maksymalnego przesunięcia. Niepowodzenie nie publikuje cropów: cała strona
+  otrzymuje `needs_review`, a odrzucona plansza trafia do małej kolejki ręcznej
+  korekty exact-observation. Progów globalnych nie obniżamy. Quad detektora
+  pozostaje ograniczeniem obszaru wyszukiwania, lecz nie jest samodzielnym
+  źródłem finalnych granic komórek.
+- **Context:** ręczna kolejka TASK-0098 zakończyła się `25/25`, jednak
+  właściciel nadal obserwował przecięcia symboli. Wszystkie 9 plansz held-out
+  miało zgłoszony problem. Spike TASK-0100 używający wszystkich 15 środków
+  obniżył medianę odchylenia na held-out z `6.6964 px` do `2.0441 px`, znalazł
+  komplet środków na 25 planszach i został zaakceptowany wizualnie przez
+  właściciela.
+- **Reason:** sama rama opisuje perspektywę planszy, ale nie gwarantuje
+  położenia wizualnych symboli wewnątrz slotów. Użycie 15 punktów jest
+  odporniejsze od samych czterech narożników na zasłonięcia, nietypowy kształt
+  pojedynczego symbolu i lokalny szum.
+- **Alternatives:** dalsze użycie wyłącznie ramy, dopasowanie tylko czterech
+  symboli narożnych, ręczna korekta 387 plansz albo trening na cropach z
+  przeciętymi symbolami.
+- **Consequences:** powstaje nowy namespace profili i cropów. Każdy rekord
+  planszy zachowuje wersję refinera, coverage, inliery i residual. Wynik nie
+  migruje starych etykiet i nadal wymaga bramki wizualnej stron przed
+  `trainingAllowed = true`. Pełny benchmark wyznaczył automatycznie `381/387`
+  plansz, a 6 plansz (`11`, `33`, `123`, `172`, `266`, `337`) skierował do
+  ręcznej korekty. Próba użycia jednej korekty ramy exact-image jako geometrii
+  startowej została odrzucona po kontroli wizualnej, ponieważ przesuwała dolne
+  rzędy plansz w innych pozycjach tej samej strony.
+- **Supersedes:** D-062 w zakresie założenia, że jedna korekta ramy zdjęcia
+  wystarcza do wyznaczenia finalnych granic komórek. Exact-source scope,
+  rozłączny held-out, fail-closed i niezmienność artefaktów pozostają w mocy.
+
 ## Szablon nowej decyzji
 
 ```text

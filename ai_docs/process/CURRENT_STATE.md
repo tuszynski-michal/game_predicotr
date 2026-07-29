@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Phase
 
-`M6.1 active — TASK-0097 whole-layout labeling is in progress`
+`M5.3 corrective gate — TASK-0101 production symbol-aware crops`
 
 ## Completed
 
@@ -806,21 +806,67 @@ last_updated: 2026-07-28
 - techniczna część TASK-0097 przeszła deterministyczny `inventory --check`,
   296 testów workera, Ruff, mypy dla 146 plików, Prettier, diff check oraz
   rzeczywisty browser smoke; zadanie pozostaje aktywne wyłącznie na ręczne
-  oznaczenie pierwszych 15–30 plansz.
+  oznaczenie pierwszych 15–30 plansz,
+- rozpoczęto TASK-0059 na zaakceptowanym inwentarzu v2: eksporter odrzuca
+  objęte kwarantanną v1 i wymaga `trainingAllowed = true`, kompletnej planszy
+  5 × 3 oraz skalibrowanego croppera,
+- manifest eksportu zachowuje pełne pochodzenie korpusu, adnotacji, cropów,
+  profili i raportu jakości oraz identyfikatory `observationId`,
+  `cropSampleId` i `boardId`,
+- kontrolny eksport ma status `waiting_for_labels`, 5805 pozycji pending,
+  zero zaakceptowanych próbek i SHA-256
+  `e2545da59e34b0ef0a33080579a9b85b39d40c5f00bd22e21731ca8b7f05f865`;
+  nie utworzono fikcyjnych etykiet ani assetów.
+- rzeczywiste etykietowanie ujawniło błąd generalizacji profili D-061:
+  sekwencje 2 i 3 na pierwszym zdjęciu użyły odległych kotwic sekwencji 74 i
+  66, a deklarowany P95 `1.8337 px` został policzony na 27 anchorach użytych do
+  kalibracji zamiast na rozłącznych planszach,
+- właściciel zapisał 56 jawnych decyzji symboli dla sekwencji 1, 7, 8, 9 i 12;
+  plik został zachowany bez zmian i skopiowany do checksumowanej kwarantanny
+  przed zmianą geometrii,
+- zaakceptowano D-062 i rozpoczęto TASK-0098: lokalna baza każdej ramki będzie
+  kalibrowana jedną kotwicą z tego samego zdjęcia, a brak kotwicy nie może
+  korzystać z fallbacku innego obrazu,
+- diagnostyka pierwszego zdjęcia potwierdziła, że lokalny `boundingBox` plus
+  jedna istniejąca korekta zdjęcia zachowuje pełne symbole plansz 1–3; 27 z 43
+  obrazów ma już po jednej kotwicy, 16 wymaga review,
+- TASK-0098 ma działający `board-cell-crops-v3-local-calibrated-v1`: 27
+  zakotwiczonych obrazów wygenerowało 243 plansze i 3645 komórek, a 16
+  pozostałych obrazów zachowało jawny status `needs_review`,
+- deterministyczna kolejka korekcyjna ma 25 plansz: 16 brakujących kotwic
+  obrazu oraz 9 rozłącznych plansz held-out obejmujących pozycje 0–8; edytor
+  pokazuje ukośną siatkę, wynik homografii i 15 komórek bez konieczności
+  ręcznej korekty wszystkich 387 plansz,
+- testy lokalnej kalibracji, istniejących cropów i poprzedniej kalibracji
+  przeszły `23 passed`; Ruff i mypy dla zmienionych modułów również przeszły,
+- właściciel ukończył kolejkę TASK-0098 `25/25`; 18 plansz nadal miało
+  oznaczone przecięcia symboli, łącznie 188 komórek, a problem wystąpił na
+  wszystkich 9 planszach held-out,
+- TASK-0100 zakończył się akceptacją właściciela: symbol-aware refinement
+  obniżył medianę residualu held-out z `6.6964 px` do `2.0441 px`,
+- pełny benchmark TASK-0101 wykazał, że geometria startowa musi pochodzić z
+  detektora każdej planszy osobno; wariant przenoszący jedną korektę ramy na
+  inne pozycje tej samej strony został odrzucony po kontroli wizualnej,
+- ścisły wariant detector-per-board wyznaczył `381/387` plansz, a dokładnie
+  sześć sekwencji `11`, `33`, `123`, `172`, `266`, `337` skierował do
+  fail-closed review; pozostałe 37 stron ma przygotowaną galerię kontrolną.
 
 ## In progress
 
-- M6.1 jest odblokowane; aktywny TASK-0097 używa
-  wyłącznie skalibrowanego korpusu do pełnolayoutowego review 5 × 3 i utworzy
-  pierwsze rzeczywiste decyzje symboli; implementacja jest gotowa, a właściciel
-  musi oznaczyć reprezentatywne 15–30 plansz,
-- cztery zaakceptowane rekomendacje są podzielone na ukończone TASK-0094–0096,
-  następne TASK-0097 oraz doprecyzowane TASK-0061–0063.
+- aktywny TASK-0101 czeka na korektę i akceptację sześciu odrzuconych plansz,
+  regenerację kompletnego namespace 43/387/5805 oraz końcową bramkę stron,
+- TASK-0099 jest zarezerwowane na bezpieczne top-3 sugestie po zaakceptowaniu
+  nowej geometrii,
+- TASK-0059 i TASK-0097 zachowują implementację, ale nie mogą eksportować ani
+  przyjmować dalszych decyzji na wycofanym inwentarzu v2.
 
 ## Blocked
 
-- finalizacja `TASK-0059`: skalibrowane cropy są zaakceptowane, ale eksporter
-  czeka na rzeczywiste decyzje symboli z pełnych layoutów TASK-0097,
+- `TASK-0097`: zapisano 56 decyzji, ale review jest wstrzymane do czasu
+  zakończenia TASK-0098; stare decyzje pozostają związane z dokładnym
+  `cropSampleId` i nie są automatycznie migrowane,
+- finalizacja `TASK-0059`: techniczny eksport jest gotowy, ale wycofany
+  inwentarz `board-cell-crops-v2-calibrated-v1` nie może już zasilać datasetu,
 - `TASK-0039 — Release failure and immutability integration tests`: automatyczna
   macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
   workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie
@@ -888,9 +934,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Kontynuować TASK-0097 w otwartym pełnolayoutowym edytorze: właściciel oznacza
-15–30 reprezentatywnych plansz z
-`board-cell-crops-v2-calibrated-v1`. Po tej ręcznej partii dokończyć TASK-0059.
+W TASK-0101 przejrzeć i skorygować sześć fail-closed plansz w lokalnym
+edytorze, wygenerować kompletny namespace 43/387/5805 i przeprowadzić końcową
+kontrolę stron. Dopiero potem uruchomić TASK-0099, wznowić pełnolayoutowe
+etykietowanie z sugestiami oraz ponowić TASK-0059 z `--require-samples`.
 Równolegle
 TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
 Pixela i Samsunga.
@@ -899,7 +946,8 @@ Pixela i Samsunga.
 
 - masowego przetwarzania zdjęć,
 - etykietowania symboli i treningu na `board-cell-crops-v1` albo
-  detektorowym `board-cell-crops-v2`,
+  detektorowym `board-cell-crops-v2` lub wycofanym
+  `board-cell-crops-v2-calibrated-v1`,
 - finalnego wyboru OCR/ML,
 - Celery/Redis, mikroserwisów i chmury,
 - synchronizacji danych mobilnych,

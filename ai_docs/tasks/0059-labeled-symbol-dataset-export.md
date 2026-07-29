@@ -1,6 +1,6 @@
 ---
 title: TASK-0059 Labeled symbol dataset export
-status: blocked
+status: in_progress
 last_updated: 2026-07-28
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-07-28
 
 ## Status
 
-`blocked`
+`in_progress`
 
 ## Goal
 
@@ -84,7 +84,7 @@ poziomie pełnego layoutu.
 
 ## Acceptance criteria
 
-- [ ] Inwentarz v2 obejmuje wszystkie zweryfikowane cropy i nie przypisuje im
+- [x] Inwentarz v2 obejmuje wszystkie zweryfikowane cropy i nie przypisuje im
       automatycznych etykiet.
 - [x] Eksporter przyjmuje wyłącznie przejrzane numery oraz jawne decyzje
       `accepted` z `reviewed-cell-labels-v1`.
@@ -135,19 +135,27 @@ poziomie pełnego layoutu.
 
 ## Outcome
 
-Zaimplementowano czyste kontrakty `symbol-crop-inventory-v1`,
-`reviewed-cell-labels-v1` i `labeled-symbol-dataset-v1`, CLI z trybem
-deterministycznego `--check`, content-addressed deduplikację oraz blokady
-driftu, niebezpiecznych ścieżek, duplikatów i konfliktów etykiet.
+Techniczna integracja z zaakceptowanym inwentarzem v2 została rozpoczęta
+2026-07-28. Eksporter:
 
-Rzeczywisty inwentarz obejmuje 387 layoutów, 5805/5805 zweryfikowanych cropów
-RGB 90 × 90 i dwie grupy źródłowe. Jego SHA-256 to
-`8c6e0a0459d47df9e685fffc60b91ffa6be4e867aa7f937517af78a17fddb9c6`;
-ponowny przebieg `--check` nie wykazał driftu.
+- przyjmuje wyłącznie `symbol-crop-inventory-v2` z
+  `trainingAllowed = true` i cropperem
+  `board-cell-crops-v2-calibrated-v1`,
+- jawnie odrzuca historyczny inwentarz v1 objęty kwarantanną,
+- przenosi do manifestu wersję inwentarza i croppera, checksumy korpusu,
+  adnotacji, crop reportu, profili i raportu jakości,
+- zachowuje `observationId`, `cropSampleId`, `boardId` oraz pochodzenie profilu
+  kalibracji dla każdego zaakceptowanego przykładu,
+- ponownie sprawdza liczniki, grupy źródłowe, kompletność plansz 5 × 3,
+  geometrię i stabilne identyfikatory.
 
-Dziewięć testów eksportera oraz pełny pion 49 testów M5/M6 przechodzą; Ruff
-nie zgłasza błędów, a mypy przechodzi dla 15 plików źródłowych.
-Inwentarz v1 nie może zostać użyty do treningu: przegląd właściciela ujawnił
-systematycznie błędne granice symboli. Nie powstały rzeczywiste etykiety, więc
-nie ma danych do migracji. Finalizacja czeka na TASK-0094–0097: niezależny
-golden siatki, cropper v2, profile kalibracji i pełnolayoutowy bootstrap.
+Rzeczywisty raport kontrolny
+`ai_docs/quality/m6-symbol-dataset-export-report.json` ma SHA-256
+`e2545da59e34b0ef0a33080579a9b85b39d40c5f00bd22e21731ca8b7f05f865`,
+status `waiting_for_labels`, 5805 pozycji pending oraz zero zaakceptowanych i
+odrzuconych przykładów. Nie utworzono fikcyjnych etykiet ani binariów datasetu.
+
+Dwanaście testów eksportera i pełny powiązany pion 31 testów przechodzą.
+Ruff, mypy, oba tryby `--check` oraz walidacja trzech JSON Schema przechodzą.
+Finalizacja pozostaje zależna od ręcznych decyzji TASK-0097; dopiero niepusty
+eksport spełni ostatnie kryterium akceptacji.

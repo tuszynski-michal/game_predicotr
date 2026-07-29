@@ -1,6 +1,6 @@
 ---
 title: TASK-0097 — Whole-layout assisted symbol labeling
-status: in_progress
+status: blocked
 last_updated: 2026-07-28
 ---
 
@@ -151,8 +151,8 @@ rule.
 
 ## Outcome
 
-Technical implementation completed 2026-07-28; task remains `in_progress`
-until the owner labels the first representative board batch.
+Technical implementation completed 2026-07-28; task is `blocked` only on the
+owner labeling the first representative board batch.
 
 - Added deterministic `symbol-crop-inventory-v2` with 43 images, 387 boards and
   5805 cells. It verifies the corpus, reviewed sequences, cell-grid golden,

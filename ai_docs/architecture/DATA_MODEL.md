@@ -329,6 +329,45 @@ przywraca ten sam rekord do `created`, zachowując checkpoint i liczniki.
 `attempt_count` rośnie przy kolejnym przejęciu. Token lease jest wyłącznie
 wewnętrzną ochroną zapisu i nie może być zwracany panelowi.
 
+### image_file_executions
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| file_execution_key | varchar(64) | PK, `image-file-execution-v1` |
+| source_checksum_sha256 | varchar(64) | SHA-256 bajtów źródła |
+| pipeline_fingerprint | varchar(64) | pełny fingerprint TASK-0068 |
+| checkpoint_payload | JSONB | `image-pipeline-file-checkpoint-v1` |
+| status | varchar | processing/waiting_for_review/completed/failed |
+| review_required | boolean | kumulacyjna informacja o skierowaniu do review |
+| error_code | varchar nullable | stabilny błąd pliku; używany od TASK-0071 |
+| error_message | text nullable | bezpieczny opis |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+| processed_at | timestamptz nullable | ustawiany po completed |
+
+PK jest wyprowadzony wyłącznie z SHA-256 źródła i
+`pipeline_fingerprint`. Dodatkowa unikalność
+`(source_checksum_sha256, pipeline_fingerprint)` chroni ten sam kontrakt także
+na poziomie bazy. Checkpoint zawiera pełne pochodzenie, uporządkowany prefiks
+etapów i następny etap. Zapis jest dozwolony tylko przy aktywnym lease joba i
+zgodnym oczekiwanym checkpointcie; stary worker nie może nadpisać nowszego
+wyniku.
+
+### image_import_job_files
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| job_id | UUID | FK jobs, część PK |
+| file_execution_key | varchar(64) | FK image_file_executions, część PK |
+| order_index | bigint | deterministyczna kolejność w batchu |
+| source_relative_path | varchar(1000) | diagnostyczna ścieżka POSIX |
+| created_at | timestamptz | |
+
+Osobne powiązanie pozwala wielu jobom wskazać jeden content-addressed wynik bez
+kopiowania checkpointu. Unikalne `(job_id, order_index)` zachowuje kolejność, a
+ścieżka nie uczestniczy w tożsamości bajtów. Identyczne źródło przetwarzane
+innym manifestem wskazuje inny `image_file_execution`.
+
 ### layout_import_rows
 
 | Pole | Typ | Uwagi |
@@ -418,6 +457,11 @@ processed_at
 ```
 
 Unikalność w ramach importu: `(import_job_id, checksum)`.
+
+`source_images` i kolejne tabele wyników są zakresem integracji etapów M7.2.
+Nie zastępują rejestru `image_file_executions`: pierwsze opisują domenowe
+pochodzenie i rozpoznanie w konkretnym imporcie, drugie trwałą tożsamość
+wykonania oraz checkpoint współdzielony przez bezpieczne retry.
 
 ### recognized_boards
 

@@ -55,7 +55,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M7.
 - `TASK-0068 — Versioned image pipeline contract` — done 2026-07-29;
   kanoniczny manifest, fingerprint całego pipeline'u, idempotency key per plik
   oraz persistence-neutral checkpoint wymuszający manual review,
-- `TASK-0069 — Batch orchestration, checkpoints and cancellation`
+- `TASK-0069 — Batch orchestration, checkpoints and cancellation` — done
+  2026-07-29; globalne file executions, job associations, fenced checkpoint,
+  restart, cancellation i review-after-diagnostics,
 
 ### Bramka G7.1
 
@@ -64,6 +66,11 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M7.
 - ten sam plik/wariant nie tworzy podwójnych wyników,
 - zmiana modelu tworzy nowy wynik, a nie nadpisuje starego bez śladu,
 - review zatrzymuje publikację, ale nie blokuje diagnostyki pozostałych plików.
+
+Status: `passed` 2026-07-29. Fizyczny test PostgreSQL jest gotowy, lecz przy
+odbiorze pozostał jawnym skipem z powodu niedostępnego lokalnego portu 5432;
+kontrakt, migracja offline, symulacje restart/cancellation i wspólny runtime
+przeszły.
 
 ## M7.2 — Integracja etapów i izolacja błędów
 

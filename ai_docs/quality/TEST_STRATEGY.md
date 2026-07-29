@@ -342,6 +342,17 @@ brak uprawnienia `INTERNET`.
 - checkpoint dopuszcza tylko uporządkowany prefiks i przejście idempotentne lub
   o jeden etap; `manual_review_only` wymusza `waiting_for_review` przed
   `manual_review`,
+- globalny `image_file_execution` jest współdzielony przez identyczny plik i
+  pipeline w wielu jobach, ale zmiana fingerprintu tworzy nowy rekord,
+- migracja wymusza SHA-256, bezpieczną ścieżkę, unikalny order per job,
+  source/pipeline uniqueness i odwracalny downgrade,
+- symulowana śmierć procesu po zapisie pliku, ale przed checkpointem joba,
+  wznawia dokładnie następny etap,
+- cancellation po trwałym file checkpointcie nie uruchamia następnego etapu,
+- dwa pliki skierowane do review kończą diagnostykę obu przed
+  `waiting_for_review`, a retry rewaliduje każdy najwyżej raz na przebieg,
+- fizyczny test PostgreSQL ponownie sprawdza globalne reuse, nowe wykonanie po
+  model drift, lease fencing i odrzucenie starego checkpointu,
 - golden images z oczekiwanymi narożnikami/bounding boxes,
 - niezależny golden granic komórek obejmuje obie grupy źródłowe i wszystkie
   dziewięć pozycji planszy,

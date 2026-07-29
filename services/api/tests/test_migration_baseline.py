@@ -22,6 +22,7 @@ LAYOUT_IMPORT_NORMALIZATION_REVISION = "0012_layout_import_normalization"
 LAYOUT_IMPORT_PUBLICATION_REVISION = "0013_layout_import_publication"
 REVIEW_BATCHES_REVISION = "0014_review_batches"
 REVIEW_FEEDBACK_REVISION = "0015_review_feedback"
+IMAGE_ORCHESTRATION_REVISION = "0016_image_orchestration"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -33,7 +34,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_review_feedback_migration_is_the_only_head() -> None:
+def test_image_orchestration_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -50,8 +51,9 @@ def test_review_feedback_migration_is_the_only_head() -> None:
     layout_import_publication = script.get_revision(LAYOUT_IMPORT_PUBLICATION_REVISION)
     review_batches = script.get_revision(REVIEW_BATCHES_REVISION)
     review_feedback = script.get_revision(REVIEW_FEEDBACK_REVISION)
+    image_orchestration = script.get_revision(IMAGE_ORCHESTRATION_REVISION)
 
-    assert script.get_heads() == [REVIEW_FEEDBACK_REVISION]
+    assert script.get_heads() == [IMAGE_ORCHESTRATION_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -82,6 +84,8 @@ def test_review_feedback_migration_is_the_only_head() -> None:
     assert review_batches.down_revision == LAYOUT_IMPORT_PUBLICATION_REVISION
     assert review_feedback is not None
     assert review_feedback.down_revision == REVIEW_BATCHES_REVISION
+    assert image_orchestration is not None
+    assert image_orchestration.down_revision == REVIEW_FEEDBACK_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

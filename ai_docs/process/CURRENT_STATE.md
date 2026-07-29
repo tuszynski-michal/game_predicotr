@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M7.1 in progress — versioned image pipeline contract completed`
+`M7.1 completed — G7.1 passed, image adapters connect in M7.2`
 
 ## Completed
 
@@ -1190,13 +1190,27 @@ last_updated: 2026-07-29
   idempotentne albo o jeden etap; obecne modele wymuszają
   `waiting_for_review` po `symbol_inference`,
 - generator w trybie `--check` zweryfikował zgodność wszystkich lokalnych
-  artefaktów, a 18 testów kontraktu przeszło,
+  artefaktów, a 20 testów kontraktu przeszło,
 - zaakceptowano D-078 definiującą fingerprint całego pipeline'u oraz
   niezmienną tożsamość wyniku per plik.
+- ukończono TASK-0069: migracja `0016_image_orchestration` dodaje globalne
+  `image_file_executions` i deterministyczne powiązania
+  `image_import_job_files`,
+- handler zapisuje file checkpoint przed checkpointem joba, wznawia od
+  następnego etapu, respektuje cancellation i przetwarza pozostałe pliki przed
+  `waiting_for_review`,
+- identyczny plik/pipeline jest współdzielony między jobami, a model drift
+  tworzy nowy execution bez nadpisania historii,
+- 48 testów kontraktu, orkiestracji, migracji i wspólnego runtime przeszło;
+  fizyczny test
+  PostgreSQL jest gotowy, ale pozostał jawnym skipem, ponieważ lokalny port
+  `127.0.0.1:5432` nie był dostępny,
+- zaakceptowano D-079 i zaliczono M7.1/G7.1 bez dodawania kolejki ani
+  rejestrowania niekompletnego handlera w CLI.
 
 ## In progress
 
-- brak aktywnego zadania; M7.1 wymaga jeszcze TASK-0069.
+- brak aktywnego zadania; następny zakres to M7.2/TASK-0070.
 
 ## Blocked
 
@@ -1224,7 +1238,7 @@ last_updated: 2026-07-29
 - finalne modele OCR/ML po benchmarku,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują kontynuacji M7.1.
+Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują rozpoczęcia M7.2.
 
 ## M1 execution structure
 
@@ -1267,12 +1281,12 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Po jawnym poleceniu właściciela rozpocząć `TASK-0069 — Batch orchestration,
-checkpoints and cancellation`, drugi zakres M7.1. TASK-0041/TASK-0042 oraz G3 pozostają
+Po jawnym poleceniu właściciela rozpocząć `TASK-0070 — End-to-end image
+processing into staging`, pierwszy zakres M7.2. TASK-0041/TASK-0042 oraz G3 pozostają
 równolegle zablokowane na fizycznych raportach Pixela i Samsunga. Retraining
 klasyfikatora należy uruchomić dopiero po zebraniu nowej niezmiennej wersji
-feedbacku; nie blokuje to orkiestracji M7, ale blokuje auto-accept i masowy
-import.
+feedbacku; nie blokuje to integracji etapów M7.2, ale blokuje auto-accept i
+masowy import.
 
 ## Do not start yet
 

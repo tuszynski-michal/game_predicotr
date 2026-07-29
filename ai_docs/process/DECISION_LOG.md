@@ -1940,6 +1940,34 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   semantyki.
 - **Supersedes:** brak.
 
+## D-079 — Globalne wykonanie pliku oddzielone od członkostwa w batchu
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** trwały wynik pipeline'u obrazu jest przechowywany raz w
+  `image_file_executions` pod globalnym `fileExecutionKey`. Członkostwo,
+  kolejność i względna ścieżka konkretnego importu należą do osobnej tabeli
+  `image_import_job_files`. File checkpoint jest zapisywany przed checkpointem
+  joba, w transakcji sprawdzającej aktywny lease/fencing token oraz oczekiwaną
+  poprzednią wersję checkpointu.
+- **Context:** umieszczenie pełnego wyniku bezpośrednio pod jobem duplikowałoby
+  pracę przy bezpiecznym retry lub imporcie tych samych bajtów pod inną nazwą.
+  Sam globalny rekord nie przechowuje natomiast kolejności ani kontekstu batcha.
+- **Reason:** rozdzielenie content-addressed execution od asocjacji joba
+  zapewnia deduplikację, historię model drift i deterministyczny batch bez
+  mutowania wcześniejszego wyniku. Kolejność zapisu file→job daje bezpieczny
+  replay po awarii pomiędzy transakcjami.
+- **Alternatives:** jeden rekord per `(job, source)`, cały stan plików w JSONB
+  joba albo jedna wielka transakcja batcha. Pierwsze duplikuje wyniki, drugie
+  nie skaluje się do dużych katalogów, a trzecie blokuje bazę i utrudnia
+  anulowanie.
+- **Consequences:** wiele jobów może wskazać ten sam wykonany plik, natomiast
+  inny `pipelineFingerprint` zawsze tworzy nowy rekord. File write wymaga
+  aktywnego job lease i zgodnego expected checkpoint. Review jest kumulacyjne,
+  a job przechodzi do `waiting_for_review` dopiero po diagnostycznym przebiegu
+  pozostałych plików. Rzeczywiste etapy i tabele rozpoznania pozostają w M7.2.
+- **Supersedes:** brak.
+
 ## Szablon nowej decyzji
 
 ```text

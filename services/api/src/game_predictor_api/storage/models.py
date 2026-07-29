@@ -440,6 +440,112 @@ class JobModel(Base):
     )
 
 
+class ImageFileExecutionModel(Base):
+    __tablename__ = "image_file_executions"
+    __table_args__ = (
+        CheckConstraint(
+            "file_execution_key ~ '^[0-9a-f]{64}$'",
+            name="ck_image_file_executions_key",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_file_executions_source_checksum",
+        ),
+        CheckConstraint(
+            "pipeline_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_image_file_executions_pipeline_fingerprint",
+        ),
+        CheckConstraint(
+            "status IN ('processing', 'waiting_for_review', 'completed', 'failed')",
+            name="ck_image_file_executions_status",
+        ),
+        UniqueConstraint(
+            "source_checksum_sha256",
+            "pipeline_fingerprint",
+            name="uq_image_file_executions_source_pipeline",
+        ),
+        Index(
+            "ix_image_file_executions_pipeline_status",
+            "pipeline_fingerprint",
+            "status",
+        ),
+    )
+
+    file_execution_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    checkpoint_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    review_required: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class ImageImportJobFileModel(Base):
+    __tablename__ = "image_import_job_files"
+    __table_args__ = (
+        CheckConstraint(
+            "order_index >= 0",
+            name="ck_image_import_job_files_order_nonnegative",
+        ),
+        CheckConstraint(
+            "source_relative_path <> '' "
+            "AND source_relative_path !~ '(^|/)\\.\\.(/|$)' "
+            "AND source_relative_path !~ '^/' "
+            "AND source_relative_path !~ '\\\\'",
+            name="ck_image_import_job_files_relative_path",
+        ),
+        UniqueConstraint(
+            "job_id",
+            "order_index",
+            name="uq_image_import_job_files_job_order",
+        ),
+        Index(
+            "ix_image_import_job_files_execution",
+            "file_execution_key",
+        ),
+    )
+
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    file_execution_key: Mapped[str] = mapped_column(
+        ForeignKey(
+            "image_file_executions.file_execution_key",
+            ondelete="RESTRICT",
+        ),
+        primary_key=True,
+    )
+    order_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class LayoutImportRowModel(Base):
     __tablename__ = "layout_import_rows"
     __table_args__ = (
@@ -1084,8 +1190,7 @@ class ReviewFeedbackExportModel(Base):
     __table_args__ = (
         CheckConstraint("version > 0", name="ck_review_feedback_exports_version_positive"),
         CheckConstraint(
-            "source_state_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND payload_sha256 ~ '^[0-9a-f]{64}$'",
+            "source_state_sha256 ~ '^[0-9a-f]{64}$' AND payload_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_review_feedback_exports_sha256",
         ),
         CheckConstraint(

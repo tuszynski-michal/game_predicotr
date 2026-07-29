@@ -244,6 +244,13 @@ przebiegu. Wariant `validate/layout_import` normalizuje zakończony staging
 partiami po 1000 względem opublikowanych reguł i zapisuje wynik przed
 checkpointem. Handler build wykonuje rewalidację, payouty, snapshot i kontrolowany
 Android build w jednym jobie, z zagnieżdżonym checkpointem payoutu per gra.
+
+M7.1 dodaje generyczny `ImageBatchHandler` i trwałe file executions, ale
+świadomie nie rejestruje niekompletnego image handlera w `worker-v4`.
+TASK-0070 podłączy discovery i pozostałe adaptery oraz wtedy podniesie wersję
+workera. Orkiestracja korzysta z istniejącego globalnego
+`execution_slot = 1`; nie dodaje kolejki, procesu ani zależności.
+
 Domyślnie zapisuje audyty i niezmienne artefakty w `artifacts/`; alternatywny
 katalog można wskazać:
 

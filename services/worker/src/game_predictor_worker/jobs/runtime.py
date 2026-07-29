@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from time import sleep
-from typing import Protocol
+from typing import Protocol, cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import (
@@ -127,13 +127,24 @@ class JobExecutionContext:
             raise ValueError("A claimed job must have a lease token.")
         self._store = store
         self._job = job
-        self._lease_token = job.lease_token
+        self._lease_token = cast(UUID, job.lease_token)
         self._lease_duration = lease_duration
         self._clock = clock
 
     @property
     def job(self) -> Job:
         return self._job
+
+    @property
+    def lease_token(self) -> UUID:
+        """Return the fencing token for same-transaction handler writes."""
+
+        return self._lease_token
+
+    def now(self) -> datetime:
+        """Return the injected worker clock for deterministic handler writes."""
+
+        return self._clock()
 
     def heartbeat(self) -> None:
         self._job = self._store.heartbeat(
@@ -215,9 +226,7 @@ class LocalJobWorker:
                 claimed.id,
                 lease_token=claimed.lease_token,
                 error_code="JOB_HANDLER_NOT_REGISTERED",
-                error_message=(
-                    f"No local handler is registered for {claimed.job_type.value}."
-                ),
+                error_message=(f"No local handler is registered for {claimed.job_type.value}."),
                 failed_at=self._clock(),
             )
             return _result_for_status(failed.status)

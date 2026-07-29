@@ -350,6 +350,26 @@ kończy jeden kolejny etap. Ponieważ aktualne OCR i symbol ONNX są
 `manual_review_only`, checkpoint po `symbol_inference` musi mieć
 `waiting_for_review`; nie wolno przejść bezpośrednio do walidacji.
 
+TASK-0069 utrwala wykonanie w dwóch warstwach. Globalne
+`image_file_executions` ma PK równy `fileExecutionKey`; asocjacja
+`image_import_job_files` dodaje job, deterministyczny `order_index` i
+diagnostyczną ścieżkę. Dwa joby mogą więc wykorzystać ten sam kompletny wynik,
+ale zmiana pipeline'u tworzy nowy rekord bez nadpisania historii.
+
+`ImageBatchHandler` przyjmuje port wykonania jednego etapu. Po każdym etapie
+najpierw, w krótkiej transakcji z blokadą, zapisuje file checkpoint i ponownie
+sprawdza fencing token aktywnego joba. Dopiero potem zapisuje checkpoint i
+liczniki joba. Awaria pomiędzy tymi operacjami pozostawia postęp pliku i
+powtarza najwyżej idempotentny checkpoint joba. Anulowanie jest zauważane przez
+wspólny runtime przy tym drugim zapisie, więc nie rozpoczyna następnego etapu.
+
+Handler najpierw kończy wszystkie pliki `processing`, następnie raz na przebieg
+rewaliduje oczekujące review i dopiero wtedy zwalnia slot przez
+`waiting_for_review`. Nierozwiązana plansza nie blokuje zatem diagnostyki
+pozostałych źródeł. Orkiestrator nie publikuje datasetu i nie jest jeszcze
+rejestrowany w CLI; rzeczywiste adaptery i seeding z discovery podłącza
+TASK-0070.
+
 Discovery używa kontraktu `image-discovery-v1`. Read-only scanner zapisuje poza
 katalogiem źródłowym deterministyczny manifest ścieżek względnych POSIX,
 SHA-256, rozmiarów, mtime, wymiarów oraz stabilnych problemów. Identyczne bajty

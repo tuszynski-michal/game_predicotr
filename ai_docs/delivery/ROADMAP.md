@@ -1,7 +1,7 @@
 ---
 title: Delivery roadmap
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Roadmap
@@ -177,9 +177,10 @@ Nie przechodzimy do masowego importu, dopóki prototyp nie osiągnie zaakceptowa
 
 ## M6 — Symbol classifier and review workflow
 
-Status: `in_progress`; skalibrowane cropy są zaakceptowane, a TASK-0097 jest
-następnym krokiem pełnolayoutowego etykietowania. TASK-0059 zachowuje gotowy
-eksporter i czeka już tylko na rzeczywiste decyzje review.
+Status: `passed_with_retraining_required`; pion manual review działa, a
+TASK-0104 wybrał `spatial-symbol-cnn-v1` z test accuracy `0.96166134` i macro
+recall `0.95484094`. Checkpoint wymaga jeszcze productionization, ONNX i
+kalibracji przed zmianą aktywnego modelu.
 
 Plan wykonania:
 [MILESTONE_06_EXECUTION_PLAN.md](MILESTONE_06_EXECUTION_PLAN.md)
@@ -203,6 +204,39 @@ M6 jest realizowany przez:
 - pełnolayoutowe review 5 × 3,
 - batchowe uczenie i active-learning review selection bez uczenia online,
 - walidacja dzielona według zdjęcia źródłowego.
+
+## M6.5 — Supervised verification workbench
+
+Plan wykonania:
+[MILESTONE_06_5_EXECUTION_PLAN.md](MILESTONE_06_5_EXECUTION_PLAN.md)
+
+M6.5 jest realizowany przez:
+
+1. **M6.5.1** — productionization wybranego modelu,
+2. **M6.5.2** — operacyjną kolejkę review,
+3. **M6.5.3** — minimalistyczne stanowisko jednej planszy,
+4. **M6.5.4** — sterowanie klawiaturą i szybkie korekty,
+5. **M6.5.5** — korektę geometrii i immutable recrop,
+6. **M6.5.6** — zamrożoną kohortę oraz ochronę decyzji człowieka,
+7. **M6.5.7** — odbiór ergonomii i skali.
+
+### Zakres
+
+- pełna siatka 5 × 3 z podpisami nad foldem,
+- oryginalne zdjęcie i 3–4 sugestie dla wybranej komórki,
+- nawigacja strzałkami i skróty `1`–`0`, następnie `QWERTY`,
+- dwustopniowe zatwierdzenie przez `Enter`,
+- ponowna edycja accepted/corrected z historią rewizji,
+- ręczna korekta czterech narożników i wersjonowane cropy,
+- ręcznie zweryfikowane kohorty 1000/3000+ uruchamiane na polecenie właściciela,
+- retraining bez nadpisywania zaakceptowanych plansz.
+
+### Rezultat
+
+Jeden operator może lokalnie i szybko budować kanoniczny, ręcznie
+zweryfikowany zbiór oraz publikować jego ciągłe podzbiory bez czekania na
+perfekcyjny auto-accept. Automatyczny masowy import nadal podlega osobnej
+bramce jakości.
 
 ## M7 — Large-scale resumable image import
 
@@ -239,7 +273,8 @@ M8 jest realizowany przez:
 3. **M8.3** — backup i restore,
 4. **M8.4** — diagnostykę uszkodzonego snapshotu,
 5. **M8.5** — macierz urządzeń i regresję offline,
-6. **M8.6** — prywatną dystrybucję i odbiór końcowy.
+6. **M8.6** — prywatną dystrybucję i odbiór końcowy,
+7. **M8.7** — opcjonalny, zabezpieczony zdalny dostęp do samego review.
 
 ### Zakres
 
@@ -249,9 +284,13 @@ M8 jest realizowany przez:
 - backup lokalnego PostgreSQL i artefaktów,
 - diagnostyka uszkodzonego snapshotu,
 - instrukcja ręcznej aktualizacji APK,
-- decyzja o autoryzacji panelu po Q-019.
+- decyzja o autoryzacji panelu po Q-019,
+- odwoływalna, game-scoped sesja z linkiem i kodem dla zdalnego recenzenta,
+  wdrażana dopiero po lokalnym G6.5 i threat modelu M8.1.
 
-Publiczny backend, synchronizacja, Google Play, chmura i infrastruktura wieloużytkownikowa pozostają poza zakresem bez nowej decyzji właściciela.
+Pełny publiczny backend, synchronizacja, Google Play, chmura i zdalny dostęp do
+funkcji administracyjnych innych niż jawnie ograniczone review pozostają poza
+zakresem bez nowej decyzji właściciela.
 
 ## Zasady przejścia
 

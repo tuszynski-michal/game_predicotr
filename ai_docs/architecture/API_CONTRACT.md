@@ -999,6 +999,55 @@ same export; changed resolutions create the next game-local version. Payload
 and source state have independent SHA-256 checksums, and no image binary is
 stored in PostgreSQL.
 
+## Operational image review workbench
+
+M6.5 używa job-local `image_review_items`, a nie bounded batchy
+active-learning. Planowany kontrakt jest osobną grupą Admin API:
+
+```text
+GET  /api/v1/admin/image-review-items
+GET  /api/v1/admin/image-review-items/{reviewItemId}
+GET  /api/v1/admin/image-review-items/{reviewItemId}/assets/source
+GET  /api/v1/admin/image-review-items/{reviewItemId}/assets/board
+GET  /api/v1/admin/image-review-items/{reviewItemId}/assets/cells/{cellIndex}
+POST /api/v1/admin/image-review-items/{reviewItemId}/resolution
+GET  /api/v1/admin/image-review-items/{reviewItemId}/resolution-events
+POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-revisions
+POST /api/v1/admin/image-review-cohort-exports
+GET  /api/v1/admin/image-review-cohort-exports
+```
+
+Lista wymaga `gameId` i `importJobId`, używa bounded cursor i przyjmuje widok
+`pending | completed`. `completed` obejmuje accepted/corrected, ale elementy
+pozostają edytowalne. Kolejność jest deterministyczna po zaakceptowanym
+`sequenceNumber`, a przed jego akceptacją po stabilnej pozycji źródła i
+planszy. Odpowiedź zawiera cursor poprzedni/następny oraz liczniki, ale nie
+całą kolejkę.
+
+Detail zawiera snapshot źródła, bieżącą geometrię, dokładnie 15 komórek,
+aktualną etykietę oraz predykcję z confidence i maksymalnie czterema
+alternatywami. Binarne obrazy pozostają w item-scoped endpointach i są
+rozwiązywane pod zarządzanymi rootami po checksumie.
+
+Resolution ma UUID idempotencji, expected revision, aktora, zaakceptowany
+numer, dokładną rewizję geometrii i 15 par `cropSampleId/symbolCode`.
+Accepted/corrected tworzy append-only event i idempotentny staging row;
+rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
+tworzy kolejną rewizję.
+
+Geometry revision przyjmuje cztery narożniki w przestrzeni oryginalnego obrazu
+oraz expected revision. Backend/worker generuje nową planszę i cropy, zapisuje
+ścieżki oraz checksumy i ponownie otwiera review item. Klient nie przesyła
+ścieżek systemowych ani gotowych plików wyjściowych.
+
+Cohort export jest checksum-bound. Exact retry zwraca istniejącą wersję, a
+zmiana którejkolwiek decyzji tworzy nową. Sam eksport nie uruchamia treningu
+ani nie zmienia modelu.
+
+Kontrakt zdalnego recenzenta nie jest aliasem powyższego Admin API. M8.7
+zaprojektuje ograniczoną powierzchnię game-scoped po sesji, kodzie i HTTPS;
+pełne endpointy administracyjne pozostaną niedostępne.
+
 ## Mobile release
 
 ### POST `/api/v1/admin/mobile-releases`

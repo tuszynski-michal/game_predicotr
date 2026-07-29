@@ -1,0 +1,114 @@
+{
+  "artifacts": {
+    "calibrationReport": {
+      "path": "ai_docs/quality/m6-symbol-confidence-calibration-v3-report.json",
+      "sha256": "f84d9a2eada2424587876bd30d41278f895c69043ed55cf263df79747144e3f8"
+    },
+    "datasetReport": {
+      "path": "ai_docs/quality/m6-symbol-dataset-export-report-v3.json",
+      "sha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87"
+    },
+    "nextSelectionReport": {
+      "path": "ai_docs/quality/m6-symbol-active-learning-selection-v3.json",
+      "sha256": "27aa4adfd79ce855f4742bd7e981071b5ba0fc8463bd3f7f38a38d3cac192d1b"
+    },
+    "onnxModel": {
+      "bytes": 115133,
+      "path": "artifacts/m6-symbol-classifier-onnx-v3/active-learning-symbol-cnn-v3.onnx",
+      "sha256": "2d841dd7be3675d9176990288f3d6a22c3f1a875d71dd69ae1cb3f97950708aa"
+    },
+    "onnxReport": {
+      "path": "ai_docs/quality/m6-symbol-classifier-onnx-v3-report.json",
+      "sha256": "2fc8b53dbc7dcd5123507cc11a03a6db3ee284ddcd9a05b2b7991cbc5aeaf88e"
+    },
+    "pytorchModel": {
+      "bytes": 100601,
+      "path": "artifacts/m6-symbol-classifier-active-learning-v3/active-learning-symbol-cnn-v3.pt",
+      "sha256": "413dca32d83485af7f32c2e19c6fd466f0f47385ce273ab518778cb16def562f"
+    },
+    "splitReport": {
+      "path": "ai_docs/quality/m6-symbol-dataset-split-report-v3.json",
+      "sha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4"
+    },
+    "trainingReport": {
+      "path": "ai_docs/quality/m6-symbol-classifier-active-learning-v3-report.json",
+      "sha256": "226dd66414c435412001efe9b89d011a1f27358d7e808f5be51f4f3f85573de7"
+    },
+    "verticalSliceReport": {
+      "path": "ai_docs/quality/m6-classifier-review-vertical-slice-v3-report.json",
+      "sha256": "cb150a502fa6eb6b7653e6d60ce52bdac979cb9ba6ce84e91440bbceffeffa4b"
+    }
+  },
+  "dataset": {
+    "acceptedSampleCount": 1316,
+    "activeLearningBoardCount": 30,
+    "activeLearningSampleCount": 450,
+    "bootstrapTargetMet": true,
+    "completeReviewedBoardCount": 84,
+    "partialReviewedBoardCount": 4,
+    "partialReviewedSampleCount": 56,
+    "pendingSampleCount": 4489,
+    "perSymbol": {
+      "cherries": 237,
+      "grapes": 127,
+      "lemon": 161,
+      "orange": 169,
+      "plum": 151,
+      "seven": 108,
+      "star": 174,
+      "watermelon": 189
+    },
+    "sourceImageCount": 40
+  },
+  "inputs": {
+    "labelSource": {
+      "path": "artifacts/m6-symbol-review-v16/reviewed-labels.json",
+      "sha256": "08102dcf502498e24e3c28afd895ecaa2358aabb7ffb7929fd1a9e87c8c58e5d"
+    },
+    "previousIterationManifest": {
+      "path": "ai_docs/quality/m6-active-learning-iteration-v2-manifest.json",
+      "sha256": "f745038a7177f61505b804de5404757bf4e3de711f0f6359b8dde5226905526f"
+    },
+    "selection": {
+      "path": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
+      "sha256": "fda4b76648d7b141ff63ae957bea4cfbc7781ecdd9eb1e9e5e853b3a0be55e62"
+    }
+  },
+  "iterationVersion": "m6-active-learning-iteration-v3",
+  "observedMetrics": {
+    "heldOutTest": {
+      "accuracy": 0.79233227,
+      "macroRecall": 0.80828644,
+      "sampleCount": 313
+    },
+    "validation": {
+      "accuracy": 0.71,
+      "macroRecall": 0.76183103,
+      "sampleCount": 300
+    },
+    "verticalSlice": {
+      "accuracy": 0.7606383,
+      "macroRecall": 0.78106706,
+      "sampleCount": 1316
+    }
+  },
+  "qualityGate": {
+    "autoAcceptEnabled": false,
+    "massImportAllowed": false,
+    "nextAction": "improve_model_before_collecting_more_feedback",
+    "reasonCodes": [
+      "MODEL_NOT_PRODUCTION_CANDIDATE",
+      "VALIDATION_THRESHOLD_GATE_NOT_MET"
+    ],
+    "verticalSlicePassed": true
+  },
+  "schemaVersion": 1,
+  "status": "passed_with_model_improvement_required",
+  "training": {
+    "bestEpoch": 22,
+    "configuredEpochs": 24,
+    "logicalStateSha256": "90966a34fa3d989cfbc15bd78cce9bac6346b33329dc42b91de8fb8821e79052",
+    "splitSeed": "game-predictor-m6-split-v1",
+    "trainingSeed": 61061
+  }
+}

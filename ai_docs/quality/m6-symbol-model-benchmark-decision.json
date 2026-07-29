@@ -1,0 +1,46 @@
+{
+  "benchmarkVersion": "symbol-model-benchmark-v1",
+  "candidates": [
+    {
+      "candidateId": "control_v3",
+      "parameterCount": 24104,
+      "validationAccuracy": 0.71,
+      "validationLoss": 0.80397886,
+      "validationMacroRecall": 0.76183103
+    },
+    {
+      "artifactSha256": "33e75b82c79656228707fc4c993c0b455744827010909fea032edd3cd1c5987a",
+      "candidateId": "spatial",
+      "parameterCount": 171579,
+      "reportSha256": "01c9c3b76dbb29a0a11496e2984a7a4576ae97a3dd1b43fee2731b6699416c6f",
+      "validationAccuracy": 0.97666667,
+      "validationLoss": 0.22006203,
+      "validationMacroRecall": 0.97769454
+    },
+    {
+      "artifactSha256": "00afcd04e44e5102d24c320c60c1afbd677bdefe87ccb6c9afa97b66327cdc01",
+      "candidateId": "spatial_augmented",
+      "parameterCount": 171579,
+      "reportSha256": "836c26c05eeb79e3fee0169e1e9fe1d4ea21d7a149e59f43216761ca594dc301",
+      "validationAccuracy": 0.97666667,
+      "validationLoss": 0.22051564,
+      "validationMacroRecall": 0.97769454
+    }
+  ],
+  "inputs": {
+    "iterationV3ManifestSha256": "de44d94a29e271a73992d0c2490498db561ba4e27847c0942cbba6b3d48181ef"
+  },
+  "massImportAllowed": false,
+  "nextAction": "productionize_selected_spatial_candidate_and_run_calibration",
+  "schemaVersion": 1,
+  "selectedCandidateId": "spatial",
+  "selectionReportSha256": "1c8d2c0ebb38bf84163ac459068e390e52af43e2f079056d1fcec65b00362618",
+  "status": "passed_spatial_candidate_selected",
+  "testBoundary": {
+    "candidateCountTested": 1,
+    "selectedTestReportSha256": "0e0ddcba28880b49aa0c74c246b4ab32576b3fece575994d0e4c2a2787dec60c",
+    "testAccuracy": 0.96166134,
+    "testMacroRecall": 0.95484094,
+    "testSampleCount": 313
+  }
+}

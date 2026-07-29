@@ -1,7 +1,7 @@
 ---
 title: Project brief
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-29
 ---
 
 # Project brief
@@ -42,6 +42,15 @@ Użytkownik zna wizualny układ symboli z gry i chce:
 - przegląda błędy rozpoznawania zdjęć,
 - publikuje wersjonowany snapshot danych,
 - uruchamia przygotowanie instalowalnego wydania Android.
+
+### Recenzent danych
+
+- zatwierdza albo poprawia pełne plansze 5 × 3 wskazanej gry,
+- sprawdza cropy w kontekście oryginalnego zdjęcia,
+- może poprawić geometrię i wrócić do wcześniejszej planszy,
+- nie zarządza regułami, jobami, publikacją ani wydaniami Android,
+- początkowo pracuje lokalnie; opcjonalny zdalny dostęp wymaga ograniczonej
+  sesji M8.7.
 
 ## Główne moduły
 

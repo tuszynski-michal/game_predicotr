@@ -177,6 +177,20 @@ pierwszy model, a TASK-0099 dodał leakage-safe top-3 sugestie bez auto-accept.
   przeszedł parity bez top-one mismatch. Vertical slice przechodzi, lecz
   `bootstrapTargetMet`, auto-accept i `massImportAllowed` pozostają `false`;
   następna iteracja musi zwiększyć wsparcie słabych klas.
+- `TASK-0103 — Targeted active-learning feedback and retraining iteration v3`
+  — done 2026-07-29; kolejne 30 plansz/450 komórek zwiększyło zbiór do 1316
+  etykiet, 40 źródeł i minimum 108 próbek każdej klasy. Model v3 osiągnął na
+  source-disjoint test `0.79233227` accuracy i `0.80828644` macro recall, ONNX
+  przeszedł parity, lecz validation nie znalazło progu spełniającego wymagania
+  precision. Auto-accept i `massImportAllowed` pozostają `false`; następnym
+  krokiem jest bounded benchmark modelu, nie automatycznie trzeci batch review.
+- `TASK-0104 — Bounded symbol model architecture and augmentation benchmark`
+  — done 2026-07-29; oba warianty spatial osiągnęły na validation
+  `0.97666667` accuracy i `0.97769454` macro recall. Wariant bez augmentacji
+  wygrał przez niższy loss, po czym jako jedyny został oceniony na teście:
+  `0.96166134` accuracy i `0.95484094` macro recall. Benchmark rekomenduje
+  osobny etap productionization/ONNX/calibration; sam nie zmienia
+  `massImportAllowed`.
 
 ### Bramka G6.2
 
@@ -268,13 +282,17 @@ retrainingu, auto-accept i masowy import pozostają wyłączone.
 
 | Podetap | Zadania | Liczba |
 |---|---:|---:|
-| M6.1 Dataset symboli | TASK-0059–0060, TASK-0093, TASK-0097–0099 | 6 |
-| M6.2 Model i ONNX | TASK-0061–0063 | 3 |
+| M6.1 Dataset symboli | TASK-0059–0060, TASK-0093, TASK-0097–0101 | 8 |
+| M6.2 Model i ONNX | TASK-0061–0063, TASK-0102–0104 | 6 |
 | M6.3 Manual review | TASK-0064–0066 | 3 |
 | M6.4 Odbiór klasyfikacji | TASK-0067 | 1 |
-| **Razem M6** | **TASK-0059–0067 + TASK-0093, TASK-0097–0099** | **13** |
+| **Razem M6** | **TASK-0059–0067 + TASK-0093, TASK-0097–0104** | **18** |
 
-## Następny milestone
+## Pomost M6.5
 
-Po przejściu G6 i poleceniu właściciela obowiązuje
-`MILESTONE_07_EXECUTION_PLAN.md`.
+Właściciel zaakceptował lokalny, wysokoprzepustowy proces ręcznego
+zatwierdzania jako sposób zebrania kanonicznych danych bez czekania na
+perfekcyjny auto-accept. Productionization wybranego modelu i stanowisko
+operacyjnego review są rozpisane w
+`MILESTONE_06_5_EXECUTION_PLAN.md`. Zdalny link pozostaje odłożonym zakresem
+M8.7.

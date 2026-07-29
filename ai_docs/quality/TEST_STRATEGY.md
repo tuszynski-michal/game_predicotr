@@ -273,6 +273,30 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
   poziomego overflow przy 390 px; produkcyjny build pokrywa pełną kompozycję,
 - test na realnym corpusie potwierdza odnalezienie source, board i cell dla
   pierwszej planszy checksum-bound batcha TASK-0063.
+- operacyjny workbench filtruje zawsze po grze i import jobie, a bounded cursor
+  zachowuje deterministyczne poprzednia/następna dla co najmniej 3000 plansz,
+- pełna siatka 5 × 3, etykiety, kompaktowy header i zatwierdzenie mieszczą się
+  bez przewijania przy 1366 × 768; oryginalne zdjęcie pozostaje poniżej,
+- testy klawiatury obejmują strzałki, `1`–`9`, `0`, kolejne klawisze `QWERTY`,
+  brak przechwycenia input/select/textarea, `Escape` i dwustopniowe `Enter`,
+- jeden `Enter`, key repeat i podwójny event nie zapisują decyzji; drugi
+  świadomy `Enter` tworzy dokładnie jedną rewizję,
+- tooltip wybranej komórki pokazuje 3–4 uporządkowane sugestie, ale każda
+  zmiana etykiety pozostaje jawna przed zapisem,
+- ponowna edycja accepted/corrected dopisuje rewizję i nigdy nie usuwa
+  wcześniejszej decyzji,
+- korekta czterech narożników tworzy nowe checksumy planszy/cropów, ponownie
+  otwiera review i nie przenosi etykiet między różnymi `cropSampleId`,
+- zamrożenie identycznej kohorty jest idempotentne; zmiana dowolnej rewizji
+  tworzy nową wersję, a retraining nie mutuje accepted/corrected,
+- ręcznie zweryfikowany staging może przejść walidację przy
+  `massImportAllowed = false`, natomiast jakikolwiek unresolved item blokuje tę
+  ścieżkę,
+- profil 3000 plansz mierzy p95 lokalnego odczytu i zapisu bez recrop; bramka
+  wymaga wyniku nie większego niż 500 ms oraz bounded pamięci klienta,
+- przyszłe remote review testuje wygasanie, limit prób, unieważnienie,
+  game-scope, brak dostępu do Admin API i konflikt expected revision; bez
+  jawnego remote mode wszystkie adresy inne niż loopback są odrzucane.
 
 ## Mobile tests
 
@@ -481,6 +505,14 @@ brak uprawnienia `INTERNET`.
 - `massImportAllowed` nie może wynikać z samego powodzenia inferencji; jest
   `true` dopiero wtedy, gdy aktualna polityka confidence włączy auto-accept na
   podstawie wymaganych progów precision i support,
+- po osiągnięciu targetu liczności bez przejścia threshold gate kolejne warianty
+  modelu i augmentacji porównuje się na identycznym source-aware
+  train/validation; test pozostaje zamrożony do wyboru wariantu, a status
+  `production_candidate` nie może maskować braku passing threshold candidate,
+- raport kandydata benchmarkowego nie może zawierać `testMetrics` ani
+  `testSampleCount`; selection weryfikuje dataset/split/artifact checksum,
+  wybiera według validation macro recall, accuracy i loss, a osobny raport
+  testowy dopuszcza dokładnie jeden wcześniej zamrożony candidateId,
 - ponowne uruchomienie dla tych samych raportów, modelu i cropów daje
   identyczną temperaturę, politykę oraz kolejność active-learning,
 - import batcha review sprawdza canonical SHA-256, aktywny katalog symboli,

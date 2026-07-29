@@ -1,0 +1,489 @@
+{
+  "benchmarkVersion": "symbol-model-benchmark-v1",
+  "candidates": [
+    {
+      "architectureVersion": "small-symbol-cnn-v1",
+      "artifact": {
+        "parameterCount": 24104,
+        "relativePath": "artifacts/m6-symbol-classifier-active-learning-v3/active-learning-symbol-cnn-v3.pt",
+        "sha256": "413dca32d83485af7f32c2e19c6fd466f0f47385ce273ab518778cb16def562f"
+      },
+      "augmentationVersion": "none",
+      "candidateId": "control_v3",
+      "reportPath": "ai_docs/quality/m6-symbol-classifier-active-learning-v3-report.json",
+      "reportSha256": "226dd66414c435412001efe9b89d011a1f27358d7e808f5be51f4f3f85573de7",
+      "validationMetrics": {
+        "accuracy": 0.71,
+        "confusionMatrix": [
+          [
+            18,
+            3,
+            0,
+            0,
+            0,
+            14,
+            14,
+            17
+          ],
+          [
+            0,
+            29,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            44,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            0,
+            3,
+            33,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            3,
+            0,
+            0,
+            22,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            21,
+            2,
+            6
+          ],
+          [
+            0,
+            0,
+            2,
+            0,
+            1,
+            1,
+            24,
+            4
+          ],
+          [
+            0,
+            0,
+            11,
+            0,
+            0,
+            0,
+            4,
+            22
+          ]
+        ],
+        "loss": 0.80397886,
+        "macroRecall": 0.76183103,
+        "perClass": [
+          {
+            "f1": 0.42857143,
+            "precision": 1.0,
+            "recall": 0.27272727,
+            "support": 66,
+            "symbolCode": "cherries"
+          },
+          {
+            "f1": 0.90625,
+            "precision": 0.82857143,
+            "recall": 1.0,
+            "support": 29,
+            "symbolCode": "grapes"
+          },
+          {
+            "f1": 0.83018868,
+            "precision": 0.73333333,
+            "recall": 0.95652174,
+            "support": 46,
+            "symbolCode": "lemon"
+          },
+          {
+            "f1": 0.94285714,
+            "precision": 0.97058824,
+            "recall": 0.91666667,
+            "support": 36,
+            "symbolCode": "orange"
+          },
+          {
+            "f1": 0.91666667,
+            "precision": 0.95652174,
+            "recall": 0.88,
+            "support": 25,
+            "symbolCode": "plum"
+          },
+          {
+            "f1": 0.64615385,
+            "precision": 0.58333333,
+            "recall": 0.72413793,
+            "support": 29,
+            "symbolCode": "seven"
+          },
+          {
+            "f1": 0.62337662,
+            "precision": 0.53333333,
+            "recall": 0.75,
+            "support": 32,
+            "symbolCode": "star"
+          },
+          {
+            "f1": 0.51162791,
+            "precision": 0.44897959,
+            "recall": 0.59459459,
+            "support": 37,
+            "symbolCode": "watermelon"
+          }
+        ]
+      }
+    },
+    {
+      "architectureVersion": "spatial-symbol-cnn-v1",
+      "artifact": {
+        "parameterCount": 171579,
+        "relativePath": "artifacts/m6-symbol-model-benchmark/spatial-v1.pt",
+        "sha256": "33e75b82c79656228707fc4c993c0b455744827010909fea032edd3cd1c5987a"
+      },
+      "augmentationVersion": "none",
+      "candidateId": "spatial",
+      "reportPath": "ai_docs/quality/m6-symbol-model-benchmark-spatial-report.json",
+      "reportSha256": "01c9c3b76dbb29a0a11496e2984a7a4576ae97a3dd1b43fee2731b6699416c6f",
+      "validationMetrics": {
+        "accuracy": 0.97666667,
+        "confusionMatrix": [
+          [
+            63,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            29,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            45,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            36,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            23,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            29,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            31,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            37
+          ]
+        ],
+        "loss": 0.22006203,
+        "macroRecall": 0.97769454,
+        "perClass": [
+          {
+            "f1": 0.96923077,
+            "precision": 0.984375,
+            "recall": 0.95454545,
+            "support": 66,
+            "symbolCode": "cherries"
+          },
+          {
+            "f1": 0.92063492,
+            "precision": 0.85294118,
+            "recall": 1.0,
+            "support": 29,
+            "symbolCode": "grapes"
+          },
+          {
+            "f1": 0.98901099,
+            "precision": 1.0,
+            "recall": 0.97826087,
+            "support": 46,
+            "symbolCode": "lemon"
+          },
+          {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 36,
+            "symbolCode": "orange"
+          },
+          {
+            "f1": 0.93877551,
+            "precision": 0.95833333,
+            "recall": 0.92,
+            "support": 25,
+            "symbolCode": "plum"
+          },
+          {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 29,
+            "symbolCode": "seven"
+          },
+          {
+            "f1": 0.98412698,
+            "precision": 1.0,
+            "recall": 0.96875,
+            "support": 32,
+            "symbolCode": "star"
+          },
+          {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 37,
+            "symbolCode": "watermelon"
+          }
+        ]
+      }
+    },
+    {
+      "architectureVersion": "spatial-symbol-cnn-v1",
+      "artifact": {
+        "parameterCount": 171579,
+        "relativePath": "artifacts/m6-symbol-model-benchmark/spatial-augmented-v1.pt",
+        "sha256": "00afcd04e44e5102d24c320c60c1afbd677bdefe87ccb6c9afa97b66327cdc01"
+      },
+      "augmentationVersion": "bounded-affine-color-v1",
+      "candidateId": "spatial_augmented",
+      "reportPath": "ai_docs/quality/m6-symbol-model-benchmark-spatial-augmented-report.json",
+      "reportSha256": "836c26c05eeb79e3fee0169e1e9fe1d4ea21d7a149e59f43216761ca594dc301",
+      "validationMetrics": {
+        "accuracy": 0.97666667,
+        "confusionMatrix": [
+          [
+            63,
+            3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            29,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            1,
+            0,
+            45,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            36,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            23,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            29,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            31,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            37
+          ]
+        ],
+        "loss": 0.22051564,
+        "macroRecall": 0.97769454,
+        "perClass": [
+          {
+            "f1": 0.96923077,
+            "precision": 0.984375,
+            "recall": 0.95454545,
+            "support": 66,
+            "symbolCode": "cherries"
+          },
+          {
+            "f1": 0.92063492,
+            "precision": 0.85294118,
+            "recall": 1.0,
+            "support": 29,
+            "symbolCode": "grapes"
+          },
+          {
+            "f1": 0.98901099,
+            "precision": 1.0,
+            "recall": 0.97826087,
+            "support": 46,
+            "symbolCode": "lemon"
+          },
+          {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 36,
+            "symbolCode": "orange"
+          },
+          {
+            "f1": 0.93877551,
+            "precision": 0.95833333,
+            "recall": 0.92,
+            "support": 25,
+            "symbolCode": "plum"
+          },
+          {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 29,
+            "symbolCode": "seven"
+          },
+          {
+            "f1": 0.98412698,
+            "precision": 1.0,
+            "recall": 0.96875,
+            "support": 32,
+            "symbolCode": "star"
+          },
+          {
+            "f1": 1.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "support": 37,
+            "symbolCode": "watermelon"
+          }
+        ]
+      }
+    }
+  ],
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "schemaVersion": 1,
+  "selectedCandidateId": "spatial",
+  "selectionRule": [
+    "maximum_validation_macro_recall",
+    "maximum_validation_accuracy",
+    "minimum_validation_loss",
+    "minimum_parameter_count",
+    "stable_candidate_id"
+  ],
+  "selectionVersion": "symbol-model-validation-selection-v1",
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "selected_test_still_frozen"
+}

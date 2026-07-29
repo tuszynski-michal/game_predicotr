@@ -533,7 +533,7 @@ plansz lub duplikację wyniku row-major.
 | crop_relative_path | varchar | bezpieczna ścieżka POSIX |
 | crop_checksum_sha256 | varchar(64) | checksum konkretnego cropu |
 | cropper_version | varchar(150) | |
-| prediction | JSONB | symbol, confidence i maks. 3 alternatywy |
+| prediction | JSONB | symbol, confidence i maks. 4 alternatywy |
 | created_at | timestamptz | |
 
 Unikalność: `(recognized_board_id, row_index, column_index)`. Binarna wersja
@@ -569,6 +569,40 @@ SHA-256 komendy, aktorem, wartością i czasem. Unikalne
 `(review_item_id, idempotency_key)` sprawia, że exact retry nie dodaje drugiego
 eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
 wcześniejszej decyzji z audytu.
+
+### image_board_geometry_revisions
+
+M6.5 dodaje append-only historię ręcznych korekt geometrii operacyjnej planszy.
+Rekord zawiera:
+
+- `recognized_board_id`,
+- rosnącą `revision`,
+- cztery narożniki w przestrzeni oryginalnego obrazu,
+- wersję croppera, profilu i pipeline fingerprint,
+- względne ścieżki oraz checksumy wyprostowanej planszy i dokładnie 15 cropów,
+- aktora i czas utworzenia.
+
+Unikalne `(recognized_board_id, revision)` zachowuje kolejność. Bieżąca
+projekcja planszy może wskazać najnowszą rewizję, ale stary rekord i pliki nie
+są nadpisywane. Zmiana checksumy cropu tworzy nowy `cropSampleId`; istniejąca
+etykieta nie przechodzi na niego automatycznie.
+
+Accepted/corrected `resolved_value` wskazuje dokładną rewizję geometrii i
+`cropSampleId` każdej z 15 komórek. Dzięki temu późniejsze ulepszenie profilu
+cięcia ani retraining nie zmienia danych, które rzeczywiście zatwierdził
+człowiek.
+
+### image_verified_cohort_exports
+
+Zamrożony materiał z operacyjnego review jest wersjonowany per gra i import
+job. Rekord przechowuje checksumę kanonicznego stanu wejściowego, checksumę
+payloadu, względną ścieżkę artefaktu, liczby plansz/próbek/odrzuceń, autora i
+czas. Exact retry tego samego stanu zwraca istniejący eksport, a nowa rewizja
+planszy tworzy nową wersję.
+
+Payload zawiera wyłącznie kompletne accepted/corrected wraz z numerem,
+15 symbolami, geometrią, cropami, źródłem i pełnym provenance. Nie aktualizuje
+modelu ani datasetu samym utworzeniem.
 
 ### image_layout_staging_rows
 

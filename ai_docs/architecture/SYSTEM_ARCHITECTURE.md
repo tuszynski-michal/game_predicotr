@@ -760,6 +760,26 @@ checksum-bound datasetu zamiast utrzymywać historyczne stałe 416/24/56.
 wsparcia danych albo precision pozostawia wartość `false`, nawet gdy sam pion
 techniczny przechodzi.
 
+Jeżeli każda klasa osiągnęła minimalne wsparcie, ale validation nie ma żadnego
+progu spełniającego jednocześnie precision ogólne i per-class, kolejna iteracja
+nie powinna automatycznie powtarzać etykietowania. Najpierw porównuje się
+checksum-bound warianty architektury, augmentacji i treningu na tym samym
+source-aware split. Test pozostaje zamrożony do wyboru wariantu, a dopiero
+brak poprawy uzasadnia następny batch danych. Status `production_candidate`
+może zostać nadany wyłącznie wybranemu wariantowi po przejściu validation gate;
+nie może służyć do obejścia tego gate.
+
+TASK-0104 porównał control `small-symbol-cnn-v1` z dwoma wariantami
+`spatial-symbol-cnn-v1`. Kandydaci zachowują mapę cech 4 × 4 przed
+klasyfikatorem zamiast globalnego 1 × 1 pooling. Raporty kandydatów zawierają
+wyłącznie validation; historyczne pola testowe control nie uczestniczą w
+rankingu. Oba warianty spatial osiągnęły ten sam validation macro recall i
+accuracy, dlatego deterministyczny tie-break wybrał wariant bez augmentacji po
+niższym loss. Dopiero checksum-bound selection otworzył test dla jednego
+checkpointu. Wynik benchmarku jest rekomendacją do osobnego
+productionization/ONNX/calibration, a nie bezpośrednim przełączeniem aktywnego
+modelu ani `massImportAllowed`.
+
 Granica persistence M6.3 przyjmuje wyłącznie kompletny, checksum-bound raport
 active-learning. Warstwa domenowa waliduje katalog symboli, 15 komórek
 row-major, źródła, ścieżki i provenance przed jakimkolwiek zapisem.
@@ -790,6 +810,34 @@ zamraża current-state checksum. Odrzucone plansze są dowodem audytowym, ale ni
 próbkami treningowymi. Każdy inny stan otrzymuje kolejną wersję i osobny
 checksum payloadu; pojedyncza decyzja ani eksport nie uruchamia treningu i nie
 zmienia działającego modelu.
+
+M6.5 nie rozszerza ograniczonych `review_batches` do tysięcy elementów.
+Minimalistyczne stanowisko operatorskie czyta i zapisuje job-local
+`image_review_items` M7 przez osobny kontrakt kursorowy ograniczony grą i
+import jobem. Sąsiednie elementy mogą być prefetchowane w bounded oknie, ale UI
+nie pobiera całej kolejki. Widoki `Do weryfikacji` i `Plansze kompletne` są
+projekcjami statusów; nie tworzą drugiego magazynu decyzji.
+
+Akceptacja pozostaje atomową komendą całej planszy z expected revision i UUID
+idempotencji. Dwa naciśnięcia `Enter` są wyłącznie mechanizmem potwierdzenia UI:
+pierwsze otwiera dialog, drugie wysyła jedną komendę. Backend nie ufa
+klawiaturze ani stanowi klienta i nadal egzekwuje komplet 15 komórek, aktywny
+katalog symboli, geometrię, rewizję oraz idempotencję.
+
+Korekta siatki działa przed decyzją symbolu. Zapisuje nową immutable rewizję
+geometrii, wyprostowanej planszy i 15 cropów z checksumami, a następnie
+ponownie otwiera operacyjny review item. Stare `cropSampleId`, etykiety i
+eventy pozostają w audycie; nie ma automatycznej migracji etykiety na nowe
+bajty cropu. Zbiór korekt geometrii może wejść do późniejszego benchmarku
+profilu, ale nie zmienia aktywnego pipeline'u bez nowego fingerprintu.
+
+Zamrożenie zweryfikowanej kohorty jest osobną operacją od treningu. Niezmienny
+eksport wskazuje dokładne rewizje plansz, geometrii, cropów, numerów i symboli.
+Nowy model może wygenerować sugestie jedynie dla unresolved items.
+Accepted/corrected nigdy nie są nadpisywane. Ręcznie rozwiązany, ciągły zakres
+może przejść standardową walidację stagingu przy
+`massImportAllowed = false`; ta flaga nadal blokuje automatyczną ścieżkę
+publikacji bez kompletnego nadzoru człowieka.
 
 TASK-0067 składa te granice w bounded pion odbioru, ale nie tworzy nowego
 runtime ani magazynu decyzji. Runner ponownie buduje
@@ -850,7 +898,15 @@ każdym spinie.
 - PostgreSQL w Docker Compose na komputerze Windows,
 - FastAPI, Next.js i worker uruchamiane lokalnie,
 - lokalny system plików dla zdjęć i artefaktów,
-- brak publicznego hostingu i chmury.
+- domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
+- brak publicznego hostingu i chmury w lokalnej bramce M6.5.
+
+Przyszły zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do
+PostgreSQL, workera ani pełnego Admin API. Jawnie włączona brama HTTPS
+udostępnia tylko game-scoped review API po odwoływalnej sesji, kodzie, limicie
+prób i czasie wygaśnięcia. Surowe przekierowanie portu routera nie jest
+wspierane. Domyślny tryb loopback oraz całkowicie offline aplikacja mobilna nie
+zmieniają się.
 
 ## Integralność i bezpieczeństwo publikacji
 

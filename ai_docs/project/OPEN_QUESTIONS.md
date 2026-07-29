@@ -1,7 +1,7 @@
 ---
 title: Open product and architecture questions
 status: active
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Otwarte pytania
@@ -35,7 +35,19 @@ train/validation/test nadal odbywa się według zdjęcia źródłowego.
 
 ### Q-019 — Wielu administratorów
 
-Czy lokalny panel administracyjny będzie używany wyłącznie przez właściciela, czy przez kilka osób? Odpowiedź wpłynie na autoryzację, blokady edycji i audyt zmian, ale nie blokuje M1.
+**Status: closed 2026-07-29.** Lokalny panel początkowo obsługuje właściciela,
+ale docelowo zdalny moduł review ma umożliwić pracę co najmniej jednej innej
+osobie. Każda decyzja musi mieć aktora, sesję, append-only audyt i optimistic
+revision. Zdalny recenzent ma dostęp wyłącznie do wskazanej gry i review, nie do
+pełnej administracji.
+
+### Q-021 — Transport zdalnego review
+
+Który jawnie konfigurowany tunel HTTPS albo VPN będzie używany do połączenia z
+domowym komputerem? Wybór wymaga aktualnego porównania bezpieczeństwa,
+ograniczeń planu bezpłatnego i obsługi Windows. Pytanie nie blokuje lokalnego
+M6.5; rozstrzyga je TASK-0112 przed implementacją M8.7. Surowe przekierowanie
+portu routera nie jest dopuszczonym wariantem.
 
 ### Q-020 — Aplikacja referencyjna
 
@@ -48,7 +60,7 @@ Czy istnieje zgoda właściciela aplikacji Windows na analizę jej zachowania, p
   produktowej, ale muszą zostać zapisane w Decision Log.
 - Q-016/Q-017 są zamknięte. D-057 dopuszcza M6 na przejrzanych goldenach i
   automatycznych cropach, przy OCR pozostającym w trybie manual-review-only.
-- M2 może używać lokalnego panelu jednego właściciela bez finalnej warstwy
-  autoryzacji; produkcyjna autoryzacja i model wielu administratorów w M8
-  wymagają odpowiedzi na Q-019.
+- M2 i lokalny M6.5 mogą używać panelu właściciela na loopback. Q-019 jest
+  zamknięte; zdalna autoryzacja wielu recenzentów należy do M8.7 i wymaga
+  rozstrzygnięcia Q-021.
 - Analiza aplikacji referencyjnej poza obserwacją wymaga odpowiedzi na Q-020.

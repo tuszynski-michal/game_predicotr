@@ -260,7 +260,8 @@ Docelowy ekran `review_items` pozwala administratorowi wybrać niezmienny batch,
 filtrować status i przechodzić
 po kolejce w `selection_rank` i dla każdej planszy widzi oryginał,
 wyprostowaną planszę, wszystkie 15 cropów row-major, przewidywany symbol,
-confidence, entropy i maksymalnie trzy alternatywy. Brak lokalnego obrazu
+confidence, entropy i maksymalnie trzy alternatywy historycznego batcha M6.
+Brak lokalnego obrazu
 pokazuje kontrolowany placeholder, ale nie ukrywa metadanych.
 
 Zapis decyzji obejmuje zawsze całą planszę. Administrator potwierdza geometrię,
@@ -270,6 +271,67 @@ rewizji, pełną historię decyzji i kontrolowany konflikt po zmianie elementu w
 innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
 rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
 a zmieniony stan tworzy nową wersję.
+
+### Minimalistyczne stanowisko zatwierdzania
+
+Operacyjne review dużego importu używa `image_review_items`, a nie ograniczonego
+batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
+pełnych plansz i ma:
+
+- kompaktowy header z grą, `sequence_number`, pozycją w kolejce, statusem,
+  przełącznikiem `Widok planszy` / `Plansze kompletne`, nawigacją i małym
+  przyciskiem `Zatwierdź`,
+- wybór gry oraz import joba; każdy odczyt i zapis pozostaje ograniczony do
+  wybranego kontekstu,
+- siatkę 5 × 3 z cropami i widocznymi etykietami symboli, mieszczącą się bez
+  przewijania w obsługiwanym widoku desktopowym co najmniej 1366 × 768,
+- wybraną komórkę z bieżącą etykietą i tooltipem 3–4 najbardziej
+  prawdopodobnych symboli,
+- oryginalne, niepocięte zdjęcie poniżej głównej siatki,
+- widoczną legendę skrótów symboli.
+
+Strzałki lewo/prawo przechodzą między planszami. Symbole są mapowane według
+stabilnej kolejności katalogu gry: klawisze `1`–`9`, `0` dla dziesiątego, a
+następne pozycje kolejno do klawiszy w wierszach `QWERTY`. Pierwsze `Enter`
+otwiera potwierdzenie całej planszy, drugie `Enter` wykonuje zapis, a `Escape`
+anuluje. Skróty nie działają podczas pisania w polu, w innym dialogu ani
+podczas trwającego zapisu. Idempotency key nadal chroni przed podwójnym
+zdarzeniem.
+
+Plansza accepted/corrected pozostaje dostępna w widoku `Plansze kompletne` i
+może zostać ponownie edytowana. Zmiana tworzy kolejną rewizję append-only;
+wcześniejsza decyzja nie jest usuwana. Późniejsza inferencja albo trening nigdy
+nie nadpisuje decyzji człowieka i może aktualizować sugestie wyłącznie dla
+nierozwiązanych plansz.
+
+Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb czterech
+narożników na oryginalnym obrazie. Podgląd pokazuje ukośną siatkę 5 × 3,
+wyprostowaną planszę oraz nowe cropy. Zapis geometrii tworzy nowe wersje plików
+i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i
+zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć do
+zbudowania nowej wersji profilu cięcia, ale nigdy nie są automatycznie
+propagowane na inne plansze.
+
+Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
+planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie
+uruchamia treningu. Nowy model używa niezmiennego eksportu i nie zmienia
+accepted/corrected. W pełni ręcznie zweryfikowany, ciągły zakres może przejść
+do stagingu i standardowej walidacji także wtedy, gdy automatyczny masowy
+import pozostaje wyłączony.
+
+### Przyszły zdalny dostęp do review
+
+Zdalne review jest odłożonym zakresem M8.7, a nie warunkiem lokalnego ekranu.
+Administrator docelowo wybiera grę i tworzy odwoływalną, ograniczoną czasowo
+sesję. Otrzymuje link oraz osobno przekazywany kod. Recenzent po poprawnej
+weryfikacji ma wyłącznie dostęp do odczytu obrazów i zapisu decyzji wskazanej
+gry; nie otrzymuje CRUD konfiguracji, jobów, eksportów ani wydań Android.
+
+Kod nie może być przechowywany jawnie, ma limit prób i czas ważności. Sesję
+można unieważnić, każda decyzja zapisuje aktora i sesję, a konflikt dwóch
+recenzentów używa istniejącej kontroli rewizji. Zdalny tryb wymaga HTTPS przez
+jawnie wybrany tunel albo VPN. Domyślny loopback pozostaje włączony, a surowe
+przekierowanie portu routera nie jest wspieraną instrukcją.
 
 ### Mobile releases
 

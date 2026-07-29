@@ -1,0 +1,121 @@
+{
+  "adapterVersion": "local-symbol-onnx-runtime-v1",
+  "artifact": {
+    "relativePath": "artifacts/m6-symbol-classifier-onnx-v3/active-learning-symbol-cnn-v3.onnx",
+    "sha256": "2d841dd7be3675d9176990288f3d6a22c3f1a875d71dd69ae1cb3f97950708aa",
+    "sizeBytes": 115133
+  },
+  "classes": [
+    {
+      "classIndex": 0,
+      "symbolCode": "cherries"
+    },
+    {
+      "classIndex": 1,
+      "symbolCode": "grapes"
+    },
+    {
+      "classIndex": 2,
+      "symbolCode": "lemon"
+    },
+    {
+      "classIndex": 3,
+      "symbolCode": "orange"
+    },
+    {
+      "classIndex": 4,
+      "symbolCode": "plum"
+    },
+    {
+      "classIndex": 5,
+      "symbolCode": "seven"
+    },
+    {
+      "classIndex": 6,
+      "symbolCode": "star"
+    },
+    {
+      "classIndex": 7,
+      "symbolCode": "watermelon"
+    }
+  ],
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "graph": {
+    "input": {
+      "dataType": "float32",
+      "name": "images",
+      "shape": [
+        "batch",
+        3,
+        64,
+        64
+      ]
+    },
+    "irVersion": 10,
+    "opsetVersion": 18,
+    "output": {
+      "dataType": "float32",
+      "name": "logits",
+      "shape": [
+        "batch",
+        8
+      ]
+    }
+  },
+  "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
+  "parity": {
+    "maxAbsoluteLogitsError": 5.722e-06,
+    "maxAbsoluteProbabilityError": 7.153e-07,
+    "sampleCount": 1316,
+    "splits": [
+      {
+        "maxAbsoluteLogitsError": 5.722e-06,
+        "maxAbsoluteProbabilityError": 5.364e-07,
+        "name": "train",
+        "sampleCount": 703,
+        "topOneMismatchCount": 0
+      },
+      {
+        "maxAbsoluteLogitsError": 5.722e-06,
+        "maxAbsoluteProbabilityError": 7.153e-07,
+        "name": "validation",
+        "sampleCount": 300,
+        "topOneMismatchCount": 0
+      },
+      {
+        "maxAbsoluteLogitsError": 3.8147e-06,
+        "maxAbsoluteProbabilityError": 4.172e-07,
+        "name": "test",
+        "sampleCount": 313,
+        "topOneMismatchCount": 0
+      }
+    ],
+    "tolerance": 1e-05,
+    "topOneMismatchCount": 0
+  },
+  "preprocessingVersion": "rgb-resize64-normalize-half-v1",
+  "provider": "CPUExecutionProvider",
+  "pytorchSource": {
+    "artifactSha256": "413dca32d83485af7f32c2e19c6fd466f0f47385ce273ab518778cb16def562f",
+    "logicalStateSha256": "90966a34fa3d989cfbc15bd78cce9bac6346b33329dc42b91de8fb8821e79052"
+  },
+  "runtime": {
+    "onnxRuntimeVersion": "1.28.0",
+    "onnxScriptVersion": "0.7.1",
+    "onnxVersion": "1.22.0",
+    "torchVersion": "2.12.1+cpu"
+  },
+  "runtimeObservation": {
+    "batchCount": 42,
+    "batchSize": 32,
+    "medianBatchMs": 11.7787,
+    "observedOnce": true,
+    "p95BatchMs": 14.4069,
+    "sampleCount": 1316,
+    "throughputSamplesPerSecond": 2639.7598,
+    "totalInferenceMs": 498.5302
+  },
+  "schemaVersion": 1,
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "bootstrap"
+}

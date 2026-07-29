@@ -1,0 +1,274 @@
+{
+  "architectureVersion": "spatial-symbol-cnn-v1",
+  "artifact": {
+    "logicalStateSha256": "fa7a437c514300b2d90db3a9973ba509818bddbe5bb1d2fc0c0483561fb18d0f",
+    "parameterCount": 171579,
+    "relativePath": "artifacts/m6-symbol-model-benchmark/spatial-v1.pt",
+    "sha256": "33e75b82c79656228707fc4c993c0b455744827010909fea032edd3cd1c5987a"
+  },
+  "augmentationVersion": "none",
+  "benchmarkVersion": "symbol-model-benchmark-v1",
+  "bestEpoch": 3,
+  "candidateId": "spatial",
+  "classes": [
+    "cherries",
+    "grapes",
+    "lemon",
+    "orange",
+    "plum",
+    "seven",
+    "star",
+    "watermelon"
+  ],
+  "config": {
+    "batch_size": 32,
+    "epochs": 12,
+    "input_size": 64,
+    "learning_rate": 0.001,
+    "seed": 61061,
+    "weight_decay": 0.0001
+  },
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "history": [
+    {
+      "epoch": 1,
+      "trainingLoss": 0.94861234,
+      "validationAccuracy": 0.92666667,
+      "validationLoss": 0.81286208,
+      "validationMacroRecall": 0.92281654
+    },
+    {
+      "epoch": 2,
+      "trainingLoss": 0.2266572,
+      "validationAccuracy": 0.94333333,
+      "validationLoss": 0.28646996,
+      "validationMacroRecall": 0.9461893
+    },
+    {
+      "epoch": 3,
+      "trainingLoss": 0.11483306,
+      "validationAccuracy": 0.97666667,
+      "validationLoss": 0.22006203,
+      "validationMacroRecall": 0.97769454
+    },
+    {
+      "epoch": 4,
+      "trainingLoss": 0.06647706,
+      "validationAccuracy": 0.97333333,
+      "validationLoss": 0.23140508,
+      "validationMacroRecall": 0.97431616
+    },
+    {
+      "epoch": 5,
+      "trainingLoss": 0.042416,
+      "validationAccuracy": 0.97333333,
+      "validationLoss": 0.20940995,
+      "validationMacroRecall": 0.97431616
+    },
+    {
+      "epoch": 6,
+      "trainingLoss": 0.03099821,
+      "validationAccuracy": 0.95333333,
+      "validationLoss": 0.26711255,
+      "validationMacroRecall": 0.95367052
+    },
+    {
+      "epoch": 7,
+      "trainingLoss": 0.03019194,
+      "validationAccuracy": 0.96333333,
+      "validationLoss": 0.24398576,
+      "validationMacroRecall": 0.96418103
+    },
+    {
+      "epoch": 8,
+      "trainingLoss": 0.02812463,
+      "validationAccuracy": 0.97333333,
+      "validationLoss": 0.23066677,
+      "validationMacroRecall": 0.97497715
+    },
+    {
+      "epoch": 9,
+      "trainingLoss": 0.02526781,
+      "validationAccuracy": 0.96,
+      "validationLoss": 0.27903926,
+      "validationMacroRecall": 0.960503
+    },
+    {
+      "epoch": 10,
+      "trainingLoss": 0.02588961,
+      "validationAccuracy": 0.96666667,
+      "validationLoss": 0.27198164,
+      "validationMacroRecall": 0.96659877
+    },
+    {
+      "epoch": 11,
+      "trainingLoss": 0.02329279,
+      "validationAccuracy": 0.97,
+      "validationLoss": 0.24732782,
+      "validationMacroRecall": 0.97159877
+    },
+    {
+      "epoch": 12,
+      "trainingLoss": 0.02480101,
+      "validationAccuracy": 0.97,
+      "validationLoss": 0.22583561,
+      "validationMacroRecall": 0.9706668
+    }
+  ],
+  "runtime": {
+    "device": "cpu",
+    "torchVersion": "2.12.1+cpu",
+    "torchvisionVersion": "0.27.1+cpu"
+  },
+  "schemaVersion": 1,
+  "splitSeed": "game-predictor-m6-split-v1",
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "validation_candidate",
+  "trainingSampleCount": 703,
+  "validationMetrics": {
+    "accuracy": 0.97666667,
+    "confusionMatrix": [
+      [
+        63,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        29,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        45,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        36,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2,
+        0,
+        0,
+        23,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        29,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        31,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        37
+      ]
+    ],
+    "loss": 0.22006203,
+    "macroRecall": 0.97769454,
+    "perClass": [
+      {
+        "f1": 0.96923077,
+        "precision": 0.984375,
+        "recall": 0.95454545,
+        "support": 66,
+        "symbolCode": "cherries"
+      },
+      {
+        "f1": 0.92063492,
+        "precision": 0.85294118,
+        "recall": 1.0,
+        "support": 29,
+        "symbolCode": "grapes"
+      },
+      {
+        "f1": 0.98901099,
+        "precision": 1.0,
+        "recall": 0.97826087,
+        "support": 46,
+        "symbolCode": "lemon"
+      },
+      {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 36,
+        "symbolCode": "orange"
+      },
+      {
+        "f1": 0.93877551,
+        "precision": 0.95833333,
+        "recall": 0.92,
+        "support": 25,
+        "symbolCode": "plum"
+      },
+      {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 29,
+        "symbolCode": "seven"
+      },
+      {
+        "f1": 0.98412698,
+        "precision": 1.0,
+        "recall": 0.96875,
+        "support": 32,
+        "symbolCode": "star"
+      },
+      {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 37,
+        "symbolCode": "watermelon"
+      }
+    ]
+  },
+  "validationSampleCount": 300
+}

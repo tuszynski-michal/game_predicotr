@@ -162,6 +162,11 @@ i zapis 387 decyzji review przeszły, więc G7.4 ma status
 M7.5 nie rozpoczyna publikacji przed nowym feedbackiem, retrainingiem i
 checksum-bound kalibracją.
 
+D-086 rozdziela od tej blokady w pełni nadzorowaną ścieżkę M6.5. Ręcznie
+accepted/corrected, ciągły zakres może utworzyć kontrolowaną wersję datasetu po
+standardowej walidacji nawet przy `massImportAllowed = false`. Nie zalicza to
+M7.5 ani nie zezwala na automatyczne przetworzenie pozostałej kolejki.
+
 TASK-0077 zakończono poza kolejnością 2026-07-29, ponieważ nie zależy od
 zablokowanej publikacji TASK-0076. D-085 i checksum-bound raport zachowują
 single worker, PostgreSQL jobs oraz `execution_slot = 1`; Redis/Celery i
@@ -215,5 +220,6 @@ czasu wykonania TASK-0076.
 
 ## Następny milestone
 
-Po przejściu G7 i zamknięciu Q-019 obowiązuje
+Po przejściu G7; Q-019 jest zamknięte, a Q-021 pozostaje nieblokującym pytaniem
+wyłącznie dla opcjonalnego M8.7. Obowiązuje
 `MILESTONE_08_EXECUTION_PLAN.md`.

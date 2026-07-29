@@ -1,7 +1,7 @@
 ---
 title: Milestone 08 execution plan
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-29
 ---
 
 # Plan wykonania Milestone 08 — Private distribution and hardening
@@ -11,6 +11,8 @@ last_updated: 2026-07-24
 Przygotować system do powtarzalnego, prywatnego użycia na 3–5 urządzeniach:
 stały podpis, backup i restore, diagnostyka, zgodność Android, instrukcje
 aktualizacji oraz adekwatne zabezpieczenie lokalnego panelu.
+Opcjonalny zakres końcowy może udostępnić osobie zdalnej wyłącznie
+game-scoped stanowisko review, bez wystawiania pełnej administracji.
 
 `ROADMAP.md` jest właścicielem granic milestone’u, a ten dokument jest
 właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
@@ -23,13 +25,15 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - `architecture/DATA_MODEL.md`
 - `architecture/API_CONTRACT.md`
 - `quality/TEST_STRATEGY.md`
-- Q-019 w `project/OPEN_QUESTIONS.md`
-- D-003–D-006, D-012–D-014 w `process/DECISION_LOG.md`
+- Q-019 i Q-021 w `project/OPEN_QUESTIONS.md`
+- D-003–D-006, D-012–D-014, D-086 i D-087 w
+  `process/DECISION_LOG.md`
 
 ## Warunki wejścia
 
 - M7 przechodzi G7.
-- Właściciel odpowiada na Q-019.
+- Q-019 jest zamknięte: docelowo decyzje review może zapisywać więcej niż jeden
+  jawnie identyfikowany operator.
 - Dostępna jest lista 3–5 urządzeń i wersji Android do odbioru.
 - Wszystkie artefakty przeznaczone do zachowania mają ustaloną lokalizację.
 
@@ -40,7 +44,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - klucz podpisujący i sekrety nie trafiają do repozytorium ani logów,
 - backup jest uznany za działający dopiero po teście restore,
 - destrukcyjne operacje wymagają jawnego celu i potwierdzenia,
-- publiczna dystrybucja, chmura i Google Play pozostają poza zakresem.
+- publiczna dystrybucja, chmura i Google Play pozostają poza zakresem,
+- zdalne review nie może zmienić domyślnego loopback ani udostępnić pełnego
+  Admin API.
 
 ## M8.1 — Model bezpieczeństwa lokalnej administracji
 
@@ -180,7 +186,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - `TASK-0088 — Private distribution, update and rollback runbook`
 - `TASK-0089 — Disaster recovery and final system acceptance`
 
-### Bramka G8
+### Bramka G8.6
 
 - administrator odtwarza środowisko z backupu,
 - przygotowuje nowe wydanie z panelu,
@@ -189,6 +195,43 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - poprzednie wydania i ich checksumy pozostają audytowalne,
 - dokumentacja umożliwia wykonanie procesu w nowej sesji bez historii czatu,
 - wszystkie błędy krytyczne są zamknięte, a ograniczenia zaakceptowane.
+
+## M8.7 — Opcjonalne zdalne review
+
+### Zakres
+
+- threat model dla domowego komputera wystawiającego ograniczony panel,
+- game-scoped, odwoływalna i wygasająca sesja review,
+- link z nieujawniającym sekretu identyfikatorem oraz osobno przekazywany kod,
+- przechowywanie wyłącznie hasha kodu, limit prób i blokada brute force,
+- reviewer role bez dostępu do konfiguracji, jobów, eksportów i wydań,
+- HTTPS przez jawnie wybrany tunel albo VPN, bez surowego port forwarding,
+- audyt aktora/sesji, optimistic revision i unieważnienie dostępu,
+- instrukcja uruchomienia, zatrzymania i sprawdzenia ekspozycji.
+
+### Zadania
+
+- `TASK-0112 — Remote reviewer threat model and access-session contract`,
+- `TASK-0113 — Revocable game-scoped review link and code gate`,
+- `TASK-0114 — Secure ingress runbook and remote end-to-end acceptance`.
+
+### Bramka G8.7
+
+- bez zdalnego trybu panel i API nadal odrzucają adresy inne niż loopback,
+- link bez poprawnego kodu nie ujawnia obrazów ani metadanych gry,
+- kod wygasa, ma limit prób, nie występuje w bazie, URL ani logach w postaci
+  jawnej,
+- unieważnienie natychmiast blokuje kolejne odczyty i zapisy,
+- reviewer nie może wywołać żadnego endpointu poza zakresem wskazanej gry i
+  review,
+- wszystkie decyzje nadal używają idempotencji i expected revision,
+- połączenie działa przez HTTPS, a test z sieci zewnętrznej nie wymaga
+  otwierania surowego portu routera.
+
+### Bramka G8
+
+M8 może zakończyć się po G8.6 bez opcjonalnego zdalnego review. Jeżeli
+właściciel uruchamia M8.7, końcowy odbiór wymaga również G8.7.
 
 ## Mapa zadań M8
 
@@ -200,10 +243,13 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 | M8.4 Diagnostyka snapshotu | TASK-0084 | 1 |
 | M8.5 Urządzenia | TASK-0085–0087 | 3 |
 | M8.6 Dystrybucja i odbiór | TASK-0088–0089 | 2 |
-| **Razem M8** | **TASK-0078–0089** | **12** |
+| M8.7 Zdalne review (opcjonalne) | TASK-0112–0114 | 3 |
+| **Razem M8 core** | **TASK-0078–0089** | **12** |
+| **Razem z M8.7** | **TASK-0078–0089, TASK-0112–0114** | **15** |
 
 ## Zakończenie roadmapy
 
 Po przejściu G8 system spełnia zaakceptowany zakres prywatnej dystrybucji.
-Publiczny backend, synchronizacja, Google Play, chmura i infrastruktura
-wieloużytkownikowa wymagają nowej decyzji właściciela.
+Publiczny backend ogólnego przeznaczenia, synchronizacja, Google Play, chmura
+i zdalny dostęp do pełnej administracji wymagają nowej decyzji właściciela.
+M8.7 jest wąskim wyjątkiem wyłącznie dla review.

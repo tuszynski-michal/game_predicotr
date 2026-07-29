@@ -298,7 +298,8 @@ przebieg reprodukowalności przed końcowym przeglądem stron.
    identyczne binaria i zachowuje wszystkie wystąpienia; historyczny inwentarz
    v1 jest odrzucany, a manifest zachowuje pełną proweniencję kalibracji,
 4. trening używa osobnych zdjęć źródłowych dla zbioru treningowego i walidacyjnego,
-5. klasyfikator zwraca `symbol_id`, confidence i kilka alternatyw,
+5. klasyfikator zwraca `symbol_id`, confidence i maksymalnie cztery
+   uporządkowane alternatywy,
 6. inferencja produkcyjna używa wersjonowanego modelu ONNX,
 7. niski confidence trafia do manual review.
 
@@ -362,6 +363,18 @@ przypisuje znany symbol, odrzuca ją albo cofa decyzję. Filtry i licznik plansz
 działają na stanach `pending`, `accepted` oraz `rejected`, a skok po
 `sequence_number` nie zmienia decyzji.
 
+Operacyjny import może pozostać w trybie pełnego nadzoru człowieka niezależnie
+od jakości auto-accept. Każda accepted/corrected plansza zamraża zaakceptowany
+numer, geometrię i dokładnie 15 symboli. Kolejna wersja modelu może obliczyć
+nowe sugestie tylko dla elementów nierozwiązanych; nie może nadpisać decyzji
+człowieka ani istniejącego stagingu.
+
+Zmiana geometrii zaakceptowanej albo oczekującej planszy tworzy nowy
+wersjonowany zestaw cropów. Etykiety związane ze starym `cropSampleId` nie są
+przenoszone niejawnie, a plansza wraca do review. Zaakceptowane korekty
+geometrii można później zebrać w osobny, niezmienny materiał do ulepszenia
+profilu, ale zastosowanie nowego profilu wymaga jawnej wersji pipeline'u.
+
 ### 9. Walidacja i commit
 
 Dane są najpierw zapisywane do tabel stagingowych. Utworzenie wersji datasetu wymaga:
@@ -373,6 +386,11 @@ Dane są najpierw zapisywane do tabel stagingowych. Utworzenie wersji datasetu w
 - raportu zduplikowanych sygnatur layoutu,
 - idempotentnego importu,
 - braku nierozwiązanych elementów blokujących.
+
+W pełni ręcznie zweryfikowany, ciągły zakres może zostać opublikowany przy
+`massImportAllowed = false`, ponieważ każdy layout ma decyzję człowieka. Flaga
+nadal blokuje automatyczną publikację nierozwiązanych lub auto-zaakceptowanych
+elementów i nie jest obchodzona przez samą obecność predykcji.
 
 ## Stan i etapy zadania
 

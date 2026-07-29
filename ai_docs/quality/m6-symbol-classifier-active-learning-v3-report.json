@@ -1,0 +1,536 @@
+{
+  "architectureVersion": "small-symbol-cnn-v1",
+  "artifact": {
+    "logicalStateSha256": "90966a34fa3d989cfbc15bd78cce9bac6346b33329dc42b91de8fb8821e79052",
+    "parameterCount": 24104,
+    "relativePath": "artifacts/m6-symbol-classifier-active-learning-v3/active-learning-symbol-cnn-v3.pt",
+    "sha256": "413dca32d83485af7f32c2e19c6fd466f0f47385ce273ab518778cb16def562f"
+  },
+  "bestEpoch": 22,
+  "classes": [
+    {
+      "classIndex": 0,
+      "symbolCode": "cherries",
+      "symbolId": "bootstrap-836328ee3a94a0a4d6c683e845f70f324d30479b1d23676b4f694a12b813d4c6"
+    },
+    {
+      "classIndex": 1,
+      "symbolCode": "grapes",
+      "symbolId": "bootstrap-dc18fece0491114e7f3dad92367a7e7af3be264c4bd2789b4d5bcbb4aa3ffa1a"
+    },
+    {
+      "classIndex": 2,
+      "symbolCode": "lemon",
+      "symbolId": "bootstrap-935d25fc1d1b20d59d0968b13f8cf8d62dcf93ec8fd90d396ab93a150bcc31b9"
+    },
+    {
+      "classIndex": 3,
+      "symbolCode": "orange",
+      "symbolId": "bootstrap-8b9ec33f7b795bbd3e55bf45d2dd81c506a4a64f945acab9f473f4ce51acf9fd"
+    },
+    {
+      "classIndex": 4,
+      "symbolCode": "plum",
+      "symbolId": "bootstrap-55d58f95df896c70686e8874c5c4f28dabe65c2ecc255403da9a96e599ae3efb"
+    },
+    {
+      "classIndex": 5,
+      "symbolCode": "seven",
+      "symbolId": "bootstrap-2b49190138c790558bcd930a1f2da79f8fd7dba651b5c536621b89dfbc022467"
+    },
+    {
+      "classIndex": 6,
+      "symbolCode": "star",
+      "symbolId": "bootstrap-1e11c657f55f7e37f1f48e18fc95be85daf05d8b140ab5a5c94b74e4ef424cca"
+    },
+    {
+      "classIndex": 7,
+      "symbolCode": "watermelon",
+      "symbolId": "bootstrap-133c8869a54a81f4a2f8855fddc74b3220a313f94863fe492b8dcc550fbb658d"
+    }
+  ],
+  "classifierVersion": "bootstrap-symbol-cnn-v1",
+  "config": {
+    "batch_size": 32,
+    "epochs": 24,
+    "input_size": 64,
+    "learning_rate": 0.001,
+    "seed": 61061,
+    "weight_decay": 0.0001
+  },
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "history": [
+    {
+      "epoch": 1,
+      "trainingLoss": 1.96045944,
+      "validationAccuracy": 0.31333333,
+      "validationLoss": 1.72130119,
+      "validationMacroRecall": 0.32131039
+    },
+    {
+      "epoch": 2,
+      "trainingLoss": 1.52794887,
+      "validationAccuracy": 0.53333333,
+      "validationLoss": 1.37957695,
+      "validationMacroRecall": 0.56228827
+    },
+    {
+      "epoch": 3,
+      "trainingLoss": 1.20274871,
+      "validationAccuracy": 0.50333333,
+      "validationLoss": 1.15710569,
+      "validationMacroRecall": 0.53812176
+    },
+    {
+      "epoch": 4,
+      "trainingLoss": 1.00514347,
+      "validationAccuracy": 0.54333333,
+      "validationLoss": 1.02651158,
+      "validationMacroRecall": 0.58971283
+    },
+    {
+      "epoch": 5,
+      "trainingLoss": 0.96618257,
+      "validationAccuracy": 0.59333333,
+      "validationLoss": 1.03946666,
+      "validationMacroRecall": 0.59238508
+    },
+    {
+      "epoch": 6,
+      "trainingLoss": 0.93676641,
+      "validationAccuracy": 0.59,
+      "validationLoss": 0.92552492,
+      "validationMacroRecall": 0.62881841
+    },
+    {
+      "epoch": 7,
+      "trainingLoss": 0.85457148,
+      "validationAccuracy": 0.63,
+      "validationLoss": 0.87552318,
+      "validationMacroRecall": 0.67713465
+    },
+    {
+      "epoch": 8,
+      "trainingLoss": 0.86786045,
+      "validationAccuracy": 0.54,
+      "validationLoss": 0.97853337,
+      "validationMacroRecall": 0.58552335
+    },
+    {
+      "epoch": 9,
+      "trainingLoss": 0.83547168,
+      "validationAccuracy": 0.6,
+      "validationLoss": 0.96513325,
+      "validationMacroRecall": 0.64553971
+    },
+    {
+      "epoch": 10,
+      "trainingLoss": 0.79174016,
+      "validationAccuracy": 0.62666667,
+      "validationLoss": 0.84926722,
+      "validationMacroRecall": 0.65390657
+    },
+    {
+      "epoch": 11,
+      "trainingLoss": 0.79357775,
+      "validationAccuracy": 0.58,
+      "validationLoss": 0.9704569,
+      "validationMacroRecall": 0.60348292
+    },
+    {
+      "epoch": 12,
+      "trainingLoss": 0.76708172,
+      "validationAccuracy": 0.59666667,
+      "validationLoss": 0.94811872,
+      "validationMacroRecall": 0.63661526
+    },
+    {
+      "epoch": 13,
+      "trainingLoss": 0.76696875,
+      "validationAccuracy": 0.61,
+      "validationLoss": 0.90307191,
+      "validationMacroRecall": 0.65266166
+    },
+    {
+      "epoch": 14,
+      "trainingLoss": 0.7468121,
+      "validationAccuracy": 0.67666667,
+      "validationLoss": 0.81745617,
+      "validationMacroRecall": 0.70949962
+    },
+    {
+      "epoch": 15,
+      "trainingLoss": 0.72082368,
+      "validationAccuracy": 0.60333333,
+      "validationLoss": 0.88550042,
+      "validationMacroRecall": 0.6583962
+    },
+    {
+      "epoch": 16,
+      "trainingLoss": 0.69348237,
+      "validationAccuracy": 0.63333333,
+      "validationLoss": 0.83780781,
+      "validationMacroRecall": 0.69359797
+    },
+    {
+      "epoch": 17,
+      "trainingLoss": 0.69281386,
+      "validationAccuracy": 0.66666667,
+      "validationLoss": 0.83832446,
+      "validationMacroRecall": 0.71965399
+    },
+    {
+      "epoch": 18,
+      "trainingLoss": 0.69632998,
+      "validationAccuracy": 0.63333333,
+      "validationLoss": 0.85561665,
+      "validationMacroRecall": 0.69209515
+    },
+    {
+      "epoch": 19,
+      "trainingLoss": 0.68827844,
+      "validationAccuracy": 0.65333333,
+      "validationLoss": 0.86422716,
+      "validationMacroRecall": 0.71487696
+    },
+    {
+      "epoch": 20,
+      "trainingLoss": 0.66013903,
+      "validationAccuracy": 0.66333333,
+      "validationLoss": 0.83850673,
+      "validationMacroRecall": 0.71606265
+    },
+    {
+      "epoch": 21,
+      "trainingLoss": 0.65047153,
+      "validationAccuracy": 0.67,
+      "validationLoss": 0.80816854,
+      "validationMacroRecall": 0.6956302
+    },
+    {
+      "epoch": 22,
+      "trainingLoss": 0.66524411,
+      "validationAccuracy": 0.71,
+      "validationLoss": 0.80397886,
+      "validationMacroRecall": 0.76183103
+    },
+    {
+      "epoch": 23,
+      "trainingLoss": 0.61313451,
+      "validationAccuracy": 0.62333333,
+      "validationLoss": 0.87472102,
+      "validationMacroRecall": 0.68367814
+    },
+    {
+      "epoch": 24,
+      "trainingLoss": 0.6143403,
+      "validationAccuracy": 0.71,
+      "validationLoss": 0.78381112,
+      "validationMacroRecall": 0.75629262
+    }
+  ],
+  "preprocessingVersion": "rgb-resize64-normalize-half-v1",
+  "reportVersion": "symbol-classifier-training-report-v1",
+  "runtime": {
+    "device": "cpu",
+    "torchVersion": "2.12.1+cpu",
+    "torchvisionVersion": "0.27.1+cpu"
+  },
+  "schemaVersion": 1,
+  "splitSeed": "game-predictor-m6-split-v1",
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "bootstrap",
+  "testMetrics": {
+    "accuracy": 0.79233227,
+    "confusionMatrix": [
+      [
+        34,
+        0,
+        0,
+        0,
+        0,
+        0,
+        15,
+        8
+      ],
+      [
+        1,
+        31,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        35,
+        2,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        11,
+        29,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        31,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        22,
+        8,
+        0
+      ],
+      [
+        0,
+        0,
+        2,
+        0,
+        0,
+        2,
+        25,
+        6
+      ],
+      [
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        5,
+        41
+      ]
+    ],
+    "loss": 0.78945847,
+    "macroRecall": 0.80828644,
+    "perClass": [
+      {
+        "f1": 0.73913043,
+        "precision": 0.97142857,
+        "recall": 0.59649123,
+        "support": 57,
+        "symbolCode": "cherries"
+      },
+      {
+        "f1": 0.95384615,
+        "precision": 0.96875,
+        "recall": 0.93939394,
+        "support": 33,
+        "symbolCode": "grapes"
+      },
+      {
+        "f1": 0.78651685,
+        "precision": 0.68627451,
+        "recall": 0.92105263,
+        "support": 38,
+        "symbolCode": "lemon"
+      },
+      {
+        "f1": 0.80555556,
+        "precision": 0.90625,
+        "recall": 0.725,
+        "support": 40,
+        "symbolCode": "orange"
+      },
+      {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 31,
+        "symbolCode": "plum"
+      },
+      {
+        "f1": 0.81481481,
+        "precision": 0.91666667,
+        "recall": 0.73333333,
+        "support": 30,
+        "symbolCode": "seven"
+      },
+      {
+        "f1": 0.56818182,
+        "precision": 0.47169811,
+        "recall": 0.71428571,
+        "support": 35,
+        "symbolCode": "star"
+      },
+      {
+        "f1": 0.78846154,
+        "precision": 0.74545455,
+        "recall": 0.83673469,
+        "support": 49,
+        "symbolCode": "watermelon"
+      }
+    ]
+  },
+  "testSampleCount": 313,
+  "trainingSampleCount": 703,
+  "validationMetrics": {
+    "accuracy": 0.71,
+    "confusionMatrix": [
+      [
+        18,
+        3,
+        0,
+        0,
+        0,
+        14,
+        14,
+        17
+      ],
+      [
+        0,
+        29,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        44,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        3,
+        33,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        3,
+        0,
+        0,
+        22,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        21,
+        2,
+        6
+      ],
+      [
+        0,
+        0,
+        2,
+        0,
+        1,
+        1,
+        24,
+        4
+      ],
+      [
+        0,
+        0,
+        11,
+        0,
+        0,
+        0,
+        4,
+        22
+      ]
+    ],
+    "loss": 0.80397886,
+    "macroRecall": 0.76183103,
+    "perClass": [
+      {
+        "f1": 0.42857143,
+        "precision": 1.0,
+        "recall": 0.27272727,
+        "support": 66,
+        "symbolCode": "cherries"
+      },
+      {
+        "f1": 0.90625,
+        "precision": 0.82857143,
+        "recall": 1.0,
+        "support": 29,
+        "symbolCode": "grapes"
+      },
+      {
+        "f1": 0.83018868,
+        "precision": 0.73333333,
+        "recall": 0.95652174,
+        "support": 46,
+        "symbolCode": "lemon"
+      },
+      {
+        "f1": 0.94285714,
+        "precision": 0.97058824,
+        "recall": 0.91666667,
+        "support": 36,
+        "symbolCode": "orange"
+      },
+      {
+        "f1": 0.91666667,
+        "precision": 0.95652174,
+        "recall": 0.88,
+        "support": 25,
+        "symbolCode": "plum"
+      },
+      {
+        "f1": 0.64615385,
+        "precision": 0.58333333,
+        "recall": 0.72413793,
+        "support": 29,
+        "symbolCode": "seven"
+      },
+      {
+        "f1": 0.62337662,
+        "precision": 0.53333333,
+        "recall": 0.75,
+        "support": 32,
+        "symbolCode": "star"
+      },
+      {
+        "f1": 0.51162791,
+        "precision": 0.44897959,
+        "recall": 0.59459459,
+        "support": 37,
+        "symbolCode": "watermelon"
+      }
+    ]
+  },
+  "validationSampleCount": 300
+}

@@ -1,0 +1,161 @@
+{
+  "benchmarkVersion": "symbol-model-benchmark-v1",
+  "datasetSha256": "3657d8ee5de25ecf79c48b173afa094cead23bfa7e76994b93053235b42f4b87",
+  "schemaVersion": 1,
+  "selectedCandidateId": "spatial",
+  "selectedModel": {
+    "architectureVersion": "spatial-symbol-cnn-v1",
+    "artifactSha256": "33e75b82c79656228707fc4c993c0b455744827010909fea032edd3cd1c5987a",
+    "augmentationVersion": "none"
+  },
+  "selectionReportSha256": "1c8d2c0ebb38bf84163ac459068e390e52af43e2f079056d1fcec65b00362618",
+  "splitSha256": "7b6adb552669ac48831b1c5fb2a3f514079ef0e8beb081cd4ee0eefd3bd273a4",
+  "status": "selected_candidate_tested",
+  "testMetrics": {
+    "accuracy": 0.96166134,
+    "confusionMatrix": [
+      [
+        57,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        30,
+        0,
+        1,
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        37,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        1,
+        39,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        31,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        26,
+        4,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        2,
+        32,
+        1
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        49
+      ]
+    ],
+    "loss": 0.20500773,
+    "macroRecall": 0.95484094,
+    "perClass": [
+      {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 57,
+        "symbolCode": "cherries"
+      },
+      {
+        "f1": 0.9375,
+        "precision": 0.96774194,
+        "recall": 0.90909091,
+        "support": 33,
+        "symbolCode": "grapes"
+      },
+      {
+        "f1": 0.97368421,
+        "precision": 0.97368421,
+        "recall": 0.97368421,
+        "support": 38,
+        "symbolCode": "lemon"
+      },
+      {
+        "f1": 0.975,
+        "precision": 0.975,
+        "recall": 0.975,
+        "support": 40,
+        "symbolCode": "orange"
+      },
+      {
+        "f1": 0.96875,
+        "precision": 0.93939394,
+        "recall": 1.0,
+        "support": 31,
+        "symbolCode": "plum"
+      },
+      {
+        "f1": 0.89655172,
+        "precision": 0.92857143,
+        "recall": 0.86666667,
+        "support": 30,
+        "symbolCode": "seven"
+      },
+      {
+        "f1": 0.90140845,
+        "precision": 0.88888889,
+        "recall": 0.91428571,
+        "support": 35,
+        "symbolCode": "star"
+      },
+      {
+        "f1": 0.98989899,
+        "precision": 0.98,
+        "recall": 1.0,
+        "support": 49,
+        "symbolCode": "watermelon"
+      }
+    ]
+  },
+  "testReportVersion": "symbol-model-selected-test-v1",
+  "testSampleCount": 313
+}

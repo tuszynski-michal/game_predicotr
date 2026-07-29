@@ -1,7 +1,7 @@
 ---
 title: AI documentation index
 status: active
-last_updated: 2026-07-24
+last_updated: 2026-07-29
 ---
 
 # Dokumentacja AI Driven Development
@@ -58,6 +58,7 @@ implementacyjnym.
 - [Milestone 04 execution plan](delivery/MILESTONE_04_EXECUTION_PLAN.md)
 - [Milestone 05 execution plan](delivery/MILESTONE_05_EXECUTION_PLAN.md)
 - [Milestone 06 execution plan](delivery/MILESTONE_06_EXECUTION_PLAN.md)
+- [Milestone 06.5 execution plan](delivery/MILESTONE_06_5_EXECUTION_PLAN.md)
 - [Milestone 07 execution plan](delivery/MILESTONE_07_EXECUTION_PLAN.md)
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 

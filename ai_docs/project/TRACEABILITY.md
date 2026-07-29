@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-07-26
+last_updated: 2026-07-29
 ---
 
 # Mapa śledzenia wymagań
@@ -41,6 +41,12 @@ last_updated: 2026-07-26
 | OCR numeru pod layoutem | `requirements/IMAGE_INGESTION.md` | M5 |
 | Około 100 próbek na symbol | `requirements/IMAGE_INGESTION.md` | M6 |
 | Manual review | `requirements/IMAGE_INGESTION.md`, `requirements/ADMIN_APP.md` | M6 |
+| Minimalistyczne zatwierdzanie całej planszy | `requirements/ADMIN_APP.md`, D-086 | M6.5 |
+| Klawiatura, tooltip sugestii i podwójne Enter | `requirements/ADMIN_APP.md` | M6.5 |
+| Wersjonowana korekta geometrii z recrop | `requirements/IMAGE_INGESTION.md`, `architecture/DATA_MODEL.md` | M6.5 |
+| Ochrona decyzji człowieka przed retrainingiem | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5 |
+| Kontrolowana publikacja ręcznie zweryfikowanego zakresu | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5, M7 |
+| Ograniczony zdalny link i kod review | `requirements/ADMIN_APP.md`, D-087 | M8.7 |
 | Masowy wznawialny import | `requirements/IMAGE_INGESTION.md` | M7 |
 | Skala 500 000 layoutów na grę | `project/PROJECT_BRIEF.md`, `quality/TEST_STRATEGY.md` | M3, M7 |
 | Analiza aplikacji referencyjnej | `reverse_engineering/REFERENCE_APP_ANALYSIS.md`, Q-020 | opcjonalne |
@@ -53,6 +59,7 @@ last_updated: 2026-07-26
 - M4: `delivery/MILESTONE_04_EXECUTION_PLAN.md`,
 - M5: `delivery/MILESTONE_05_EXECUTION_PLAN.md`,
 - M6: `delivery/MILESTONE_06_EXECUTION_PLAN.md`,
+- M6.5: `delivery/MILESTONE_06_5_EXECUTION_PLAN.md`,
 - M7: `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
 - M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`.
 

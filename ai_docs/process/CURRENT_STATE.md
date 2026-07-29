@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M6 retraining iteration complete — next feedback batch required`
+`M6.5 planned — supervised verification workbench`
 
 ## Completed
 
@@ -1298,11 +1298,53 @@ last_updated: 2026-07-29
 - nie wszystkie klasy osiągnęły wymagane wsparcie około 100 próbek, dlatego
   `bootstrapTargetMet = false`, auto-accept i `massImportAllowed` pozostają
   wyłączone; TASK-0076 nadal jest poprawnie zablokowany.
+- ukończono TASK-0103: właściciel jawnie oznaczył kolejne 30 plansz/450
+  komórek, a źródło ma teraz 1316 etykiet o SHA-256
+  `08102dcf502498e24e3c28afd895ecaa2358aabb7ffb7929fd1a9e87c8c58e5d`,
+- wszystkie klasy przekraczają target 100 próbek; `seven` ma 108, `grapes`
+  127, a dataset v3 obejmuje 40 zdjęć źródłowych i ma
+  `bootstrapTargetMet = true`,
+- model v3 po 24 epokach osiągnął na source-disjoint test accuracy
+  `0.79233227` i macro recall `0.80828644`; ONNX ma zero top-one mismatch i
+  SHA-256
+  `2d841dd7be3675d9176990288f3d6a22c3f1a875d71dd69ae1cb3f97950708aa`,
+- calibration, selection i vertical slice v3 są odtwarzalne; bootstrap oraz
+  iteracja v2 nadal przechodzą własne checksum-bound piony,
+- validation nie znalazło żadnego progu spełniającego jednocześnie wymagania
+  precision ogólne i per-class. `massImportAllowed = false` wynika teraz z
+  jakości modelu, nie z braku liczności danych,
+- manifest iteracji v3 ma SHA-256
+  `de44d94a29e271a73992d0c2490498db561ba4e27847c0942cbba6b3d48181ef`.
+- ukończono TASK-0104: control v3 oraz dwa nowe warianty spatial zostały
+  porównane wyłącznie na zamrożonym validation, bez metryk testowych w raportach
+  kandydatów,
+- oba warianty spatial osiągnęły validation accuracy `0.97666667` i macro
+  recall `0.97769454`; wariant bez augmentacji wygrał tie-break przez niższy
+  loss `0.22006203`,
+- checksum-bound selection o SHA-256
+  `1c8d2c0ebb38bf84163ac459068e390e52af43e2f079056d1fcec65b00362618`
+  otworzył test wyłącznie dla `spatial`,
+- wybrany checkpoint osiągnął na 313 test samples accuracy `0.96166134` i macro
+  recall `0.95484094`; raport testowy ma SHA-256
+  `0e0ddcba28880b49aa0c74c246b4ab32576b3fece575994d0e4c2a2787dec60c`,
+- raport decyzji benchmarku ma SHA-256
+  `9f3b1cabe4ab04824a8c93787e426f492191f0b1a8f68062ffb02b6d79ce2a3c`;
+  benchmark nie przełączył modelu i nie zmienił `massImportAllowed`.
+- właściciel zaakceptował kierunek M6.5: minimalistyczny, keyboard-first ekran
+  operacyjnego review z pełną siatką 5 × 3 nad foldem, oryginałem poniżej,
+  maksymalnie czterema sugestiami, dwustopniowym `Enter` i ponowną edycją
+  accepted/corrected,
+- D-086 oddziela w pełni ręcznie zweryfikowaną publikację od automatycznego
+  `massImportAllowed`; decyzje człowieka, geometria i cropy pozostają
+  wersjonowane i nie mogą zostać nadpisane przez retraining,
+- D-087 pozostawia lokalny M6.5 na loopback, zamyka Q-019 jako model wielu
+  jawnych aktorów i odkłada ograniczony link z kodem oraz HTTPS do M8.7,
+- `MILESTONE_06_5_EXECUTION_PLAN.md` rezerwuje TASK-0105–0111 dla lokalnego
+  pionu oraz TASK-0112–0114 dla opcjonalnego zdalnego review.
 
 ## In progress
 
-- brak aktywnego zadania; następna iteracja feedbacku wymaga utworzenia osobnego
-  tasku na podstawie selection v2.
+- brak aktywnego zadania; następnym krokiem jest TASK-0105 z planu M6.5.
 
 ## Blocked
 
@@ -1324,16 +1366,19 @@ last_updated: 2026-07-29
   ani do zaliczenia G3.
 - `TASK-0076 — Large image dataset publication and mobile release`: nie może
   zostać rozpoczęty przy `massImportAllowed = false`; wymagane są dodatkowe
-  review feedback, retraining i nowy checksum-bound raport jakości.
+  review feedback, retraining i nowy checksum-bound raport jakości. D-086
+  pozwala wcześniej publikować wyłącznie całkowicie ręcznie zweryfikowane,
+  ciągłe podzbiory; nie zalicza to TASK-0076 ani automatycznej bramki M7.5.
 
 ## Open questions
 
-- Q-019: jeden czy wielu administratorów,
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
+- Q-021: wybór tunelu HTTPS albo VPN dla opcjonalnego M8.7,
 - finalne modele OCR/ML po benchmarku,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Q-019, Q-020, finalny model OCR/ML i nazwa sekcji nie blokują kontynuacji M7.4.
+Q-019 jest zamknięte. Q-021 nie blokuje lokalnego M6.5; Q-020, finalny OCR i
+nazwa sekcji również nie blokują TASK-0105.
 
 ## M1 execution structure
 
@@ -1358,6 +1403,7 @@ Obowiązują osobne plany:
 - `delivery/MILESTONE_04_EXECUTION_PLAN.md`,
 - `delivery/MILESTONE_05_EXECUTION_PLAN.md`,
 - `delivery/MILESTONE_06_EXECUTION_PLAN.md`,
+- `delivery/MILESTONE_06_5_EXECUTION_PLAN.md`,
 - `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
 - `delivery/MILESTONE_08_EXECUTION_PLAN.md`.
 
@@ -1368,21 +1414,25 @@ Plan zachowuje kolejność roadmapy:
 3. M4 — ręczny import danych,
 4. M5 — prototyp image ingestion,
 5. M6 — klasyfikator symboli i manual review,
-6. M7 — masowy wznawialny import zdjęć,
-7. M8 — prywatna dystrybucja i hardening.
+6. M6.5 — wysokoprzepustowe, nadzorowane zatwierdzanie plansz,
+7. M7 — masowy wznawialny import zdjęć,
+8. M8 — prywatna dystrybucja, hardening i opcjonalne zdalne review.
 
 Rezerwacja numeru zadania nie tworzy aktywnego tasku. Następny plik powstaje
 zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Utworzyć mały kolejny task feedbacku korzystający z
-`m6-symbol-active-learning-selection-v2.json`, ze szczególną kontrolą klas,
-które nadal nie osiągają minimalnego support. Po następnym jawnym batchu
-ponownie wykonać wersjonowany retraining i quality gate. Dopiero
-`massImportAllowed = true` pozwoli rozpocząć TASK-0076. TASK-0077 i decyzja o
-kolejce są zamknięte. TASK-0041/TASK-0042 oraz G3 pozostają równolegle
-zablokowane na fizycznych raportach Pixela i Samsunga.
+Utworzyć `TASK-0105` dla productionization wybranego
+`spatial-symbol-cnn-v1`:
+wersjonowany loader/checkpoint, eksport ONNX, parity, kalibracja confidence i
+dynamiczny vertical slice. Dopiero ten etap może wyliczyć nową wartość
+`massImportAllowed`; sam benchmark jej nie zmienia. Następnie TASK-0106–0111
+budują lokalne stanowisko zgodnie z
+`delivery/MILESTONE_06_5_EXECUTION_PLAN.md`.
+`massImportAllowed = true` jest nadal warunkiem rozpoczęcia TASK-0076.
+TASK-0041/TASK-0042 oraz G3 pozostają równolegle zablokowane na fizycznych
+raportach Pixela i Samsunga.
 
 ## Do not start yet
 
@@ -1393,6 +1443,7 @@ zablokowane na fizycznych raportach Pixela i Samsunga.
 - finalnego wyboru OCR/ML,
 - Celery/Redis, mikroserwisów i chmury,
 - synchronizacji danych mobilnych,
+- zdalnego linku, kodu i bindingu poza loopback przed TASK-0112 oraz G8.1,
 - publicznego deploymentu lub publikacji w Google Play.
 
 ## Handoff notes
@@ -1401,7 +1452,8 @@ Dokumentacja opisuje zaakceptowany model produktu i architektury. M1 nie ma
 pytania produktowego blokującego dalszą implementację. Toolchain M1.1 jest
 opisany w D-013 i `TECH_STACK.md`.
 
-Kolejność, granice i bramki M2–M8 są zapisane w D-014 oraz osobnym planie
+Kolejność, granice i bramki M2–M8 oraz pomostu M6.5 są zapisane w D-014,
+D-086, D-087 i osobnym planie
 wykonania każdego milestone’u, dzięki czemu przyszłe sesje czytają tylko
 właściwy etap i nie muszą odtwarzać podziału z historii rozmowy.
 

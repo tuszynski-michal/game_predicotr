@@ -2125,6 +2125,64 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** domyka pomiarowo D-006, D-029, D-033 i D-083 bez zmiany ich
   kontraktów.
 
+## D-086 — Decyzja człowieka jest nadrzędna, a ręcznie zweryfikowany zakres ma osobną ścieżkę publikacji
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** M6.5 dodaje lokalne, wysokoprzepustowe stanowisko operacyjnego
+  review oparte na `image_review_items`. Accepted/corrected zamraża numer,
+  rewizję geometrii, 15 `cropSampleId` i 15 symboli jako append-only decyzję
+  człowieka. Retraining może zmienić sugestie tylko dla unresolved items.
+  Całkowicie ręcznie rozwiązany, ciągły zakres może przejść do standardowej
+  walidacji i publikacji stagingu przy `massImportAllowed = false`; flaga nadal
+  blokuje automatyczną publikację bez pełnego nadzoru.
+- **Context:** model spatial ma znacznie lepszy wynik niż baseline, ale
+  productionization i kalibracja nie są jeszcze zakończone. Czekanie na
+  perfekcyjny auto-accept blokowałoby zbieranie kanonicznych layoutów, podczas
+  gdy istniejące M7 persistence, idempotencja i audyt obsługują decyzje całych
+  plansz.
+- **Reason:** człowiek może bezpiecznie zatwierdzić 1000/3000+ plansz, zebrać
+  lepszy dataset i kontynuować produkt, o ile UI minimalizuje koszt decyzji, a
+  pipeline nie udaje automatycznej jakości. Rozdzielenie supervised
+  publication od auto-accept zachowuje uczciwość obu bramek.
+- **Alternatives:** dalsze ręczne narzędzia ad hoc, czekanie na idealny model
+  albo obniżenie progów auto-accept. Pierwsze nie skaluje się i rozprasza
+  audyt, drugie zatrzymuje roadmapę, a trzecie zwiększa ryzyko błędnych danych.
+- **Consequences:** powstaje M6.5 i TASK-0105–0111. Geometria i cropy są
+  wersjonowane, wcześniejsze decyzje pozostają edytowalne przez nową rewizję,
+  a zamrożenie kohorty i trening są jawnymi osobnymi operacjami. D-084 nadal
+  blokuje automatyczny masowy import i ręczne review całych 500 000 layoutów
+  nie staje się celem.
+- **Supersedes:** doprecyzowuje D-076, D-080, D-081 i D-084; nie unieważnia ich.
+
+## D-087 — Zdalne review jest odłożoną, ograniczoną granicą bezpieczeństwa
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** lokalny M6.5 pozostaje na loopback. Zdalne review jest
+  opcjonalnym M8.7 i udostępnia wyłącznie game-scoped powierzchnię recenzenta
+  po odwoływalnej, wygasającej sesji, osobno przekazywanym kodzie i HTTPS.
+  Pełny Admin API, PostgreSQL, worker, konfiguracja oraz wydania nie są
+  dostępne zdalnie. Surowe przekierowanie portu routera jest wykluczone.
+- **Context:** właściciel chce później przekazać link osobie pracującej poza
+  domową siecią, a komputer w domu ma pozostać serwerem bez kosztu chmurowego.
+  Obecny stos celowo odrzuca binding inny niż loopback i nie posiada
+  produkcyjnej autoryzacji.
+- **Reason:** oddzielna faza pozwala szybko dostarczyć lokalny panel i nie
+  zamieniać zmiany UX w niekontrolowane wystawienie prywatnych obrazów oraz
+  operacji administracyjnych do Internetu.
+- **Alternatives:** bezpośredni port forwarding, wspólne hasło do całego
+  panelu, publiczny hosting albo brak zdalnego dostępu. Dwie pierwsze mają zbyt
+  szeroki zakres i słabą izolację, hosting rozszerza koszty i operacje, a brak
+  zdalnego dostępu nie realizuje przyszłego sposobu współpracy.
+- **Consequences:** Q-019 jest zamknięte jako model wielu jawnych aktorów.
+  Q-021 i TASK-0112 wybiorą transport po aktualnym porównaniu. M8.7 wymaga
+  hashy kodów, TTL, limitu prób, unieważnienia, audytu sesji, optimistic
+  revision i zewnętrznego testu zakresu. Mobile nadal nie otrzymuje
+  `INTERNET`.
+- **Supersedes:** rozszerza przyszły zakres D-021 i M8.1 bez zmiany domyślnego
+  loopback.
+
 ## Szablon nowej decyzji
 
 ```text

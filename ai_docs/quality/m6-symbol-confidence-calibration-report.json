@@ -1,0 +1,5185 @@
+{
+  "calibrationVersion": "symbol-temperature-calibration-v1",
+  "classes": [
+    "cherries",
+    "grapes",
+    "lemon",
+    "orange",
+    "plum",
+    "seven",
+    "star",
+    "watermelon"
+  ],
+  "fitBoundary": {
+    "fitSampleCount": 74,
+    "fitSplit": "validation",
+    "testMeasuredOnceAfterFit": true,
+    "testSampleCount": 73,
+    "trainUsedForCalibration": false
+  },
+  "inputs": {
+    "datasetSha256": "ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a",
+    "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
+    "onnxArtifactSha256": "e03f66f2ab092b6049920fee6fb2839900a95eb94af42fbd5ef7e35c473b5fb8",
+    "onnxReportSha256": "6f4596ae8ae938b7e9e89dac05e1a888ac4e53fe1d780dcc9325abfac33ad98c",
+    "splitSha256": "214bb9eeddfc996e47a9582c0e582a098b865aff430d14102e28e0c4e5ab2ec0"
+  },
+  "policy": {
+    "autoAccept": {
+      "enabled": false,
+      "minimumClassPrecision": 0.9,
+      "minimumClassSamples": 3,
+      "minimumOverallPrecision": 0.95,
+      "minimumOverallSamples": 20,
+      "reasonCodes": [
+        "MODEL_NOT_PRODUCTION_CANDIDATE",
+        "BOOTSTRAP_SAMPLE_TARGET_NOT_MET",
+        "VALIDATION_THRESHOLD_GATE_NOT_MET"
+      ],
+      "threshold": null
+    },
+    "automaticReject": {
+      "enabled": false,
+      "reasonCodes": [
+        "HUMAN_DECISION_REQUIRED"
+      ],
+      "threshold": null
+    },
+    "manualReview": {
+      "enabled": true,
+      "rule": "all_predictions_not_explicitly_auto_accepted",
+      "threshold": 0.0
+    },
+    "policyVersion": "symbol-confidence-policy-v1"
+  },
+  "schemaVersion": 1,
+  "status": "bootstrap_manual_review_only",
+  "temperature": 1.0338382913,
+  "test": {
+    "after": {
+      "accuracy": 0.63013699,
+      "brierScore": 0.47108282,
+      "ece": 0.12626828,
+      "meanConfidence": 0.65268553,
+      "negativeLogLikelihood": 0.8706502,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.46749577,
+          "precision": 0.9,
+          "predictedCount": 10,
+          "recall": 0.6,
+          "support": 15,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.90428177,
+          "precision": 0.71428571,
+          "predictedCount": 14,
+          "recall": 0.90909091,
+          "support": 11,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.79740383,
+          "precision": 1.0,
+          "predictedCount": 7,
+          "recall": 0.875,
+          "support": 8,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.81005035,
+          "precision": 0.90909091,
+          "predictedCount": 11,
+          "recall": 1.0,
+          "support": 10,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.80042644,
+          "precision": 0.66666667,
+          "predictedCount": 3,
+          "recall": 0.28571429,
+          "support": 7,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.53573796,
+          "precision": 0.38461538,
+          "predictedCount": 13,
+          "recall": 1.0,
+          "support": 5,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.44394165,
+          "precision": 0.09090909,
+          "predictedCount": 11,
+          "recall": 0.125,
+          "support": 8,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.39238244,
+          "precision": 0.5,
+          "predictedCount": 4,
+          "recall": 0.22222222,
+          "support": 9,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 0.16666667,
+          "count": 12,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.35305778,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.41666667,
+          "count": 12,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.45519688,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 0.73333333,
+          "count": 15,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.5372501,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 0.0,
+          "count": 3,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.64961166,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 0.66666667,
+          "count": 3,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.73986336,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.91666667,
+          "count": 12,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.84628984,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 0.9375,
+          "count": 16,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.97277082,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 73
+    },
+    "before": {
+      "accuracy": 0.63013699,
+      "brierScore": 0.47205166,
+      "ece": 0.11243103,
+      "meanConfidence": 0.65963395,
+      "negativeLogLikelihood": 0.87164029,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.47506908,
+          "precision": 0.9,
+          "predictedCount": 10,
+          "recall": 0.6,
+          "support": 15,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.9080828,
+          "precision": 0.71428571,
+          "predictedCount": 14,
+          "recall": 0.90909091,
+          "support": 11,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.80502101,
+          "precision": 1.0,
+          "predictedCount": 7,
+          "recall": 0.875,
+          "support": 8,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.82092481,
+          "precision": 0.90909091,
+          "predictedCount": 11,
+          "recall": 1.0,
+          "support": 10,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.80475531,
+          "precision": 0.66666667,
+          "predictedCount": 3,
+          "recall": 0.28571429,
+          "support": 7,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.5433953,
+          "precision": 0.38461538,
+          "predictedCount": 13,
+          "recall": 1.0,
+          "support": 5,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.45102388,
+          "precision": 0.09090909,
+          "predictedCount": 11,
+          "recall": 0.125,
+          "support": 8,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.39611029,
+          "precision": 0.5,
+          "predictedCount": 4,
+          "recall": 0.22222222,
+          "support": 9,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 0.16666667,
+          "count": 12,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.35740137,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.45454545,
+          "count": 11,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.45834424,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 0.6875,
+          "count": 16,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.54328116,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 0.0,
+          "count": 2,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.6372794,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 0.5,
+          "count": 4,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.73960092,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.91666667,
+          "count": 12,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.85670068,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 0.9375,
+          "count": 16,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.9760504,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 73
+    },
+    "validationSelectedCandidateMeasurement": {
+      "correctCount": 15,
+      "coverage": 0.21917808,
+      "precision": 0.9375,
+      "sampleCount": 16,
+      "thresholdSelectedOnValidation": 0.89329293
+    }
+  },
+  "thresholdRequirements": {
+    "minimumClassPrecision": 0.9,
+    "minimumClassSamples": 3,
+    "minimumOverallPrecision": 0.95,
+    "minimumOverallSamples": 20
+  },
+  "validation": {
+    "after": {
+      "accuracy": 0.59459459,
+      "brierScore": 0.51453357,
+      "ece": 0.0845021,
+      "meanConfidence": 0.61438773,
+      "negativeLogLikelihood": 0.94251763,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.49113303,
+          "precision": 0.88888889,
+          "predictedCount": 9,
+          "recall": 0.53333333,
+          "support": 15,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.82634564,
+          "precision": 0.7,
+          "predictedCount": 10,
+          "recall": 1.0,
+          "support": 7,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.5558585,
+          "precision": 1.0,
+          "predictedCount": 3,
+          "recall": 0.3,
+          "support": 10,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.73096417,
+          "precision": 0.63157895,
+          "predictedCount": 19,
+          "recall": 0.92307692,
+          "support": 13,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.8096621,
+          "precision": 1.0,
+          "predictedCount": 3,
+          "recall": 0.42857143,
+          "support": 7,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.55739293,
+          "precision": 0.4375,
+          "predictedCount": 16,
+          "recall": 1.0,
+          "support": 7,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.41547497,
+          "precision": 0.09090909,
+          "predictedCount": 11,
+          "recall": 0.5,
+          "support": 2,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.43588203,
+          "precision": 1.0,
+          "predictedCount": 3,
+          "recall": 0.23076923,
+          "support": 13,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 1,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.2963879,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 0.42857143,
+          "count": 7,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.37644593,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.36842105,
+          "count": 19,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.44586213,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 0.69230769,
+          "count": 13,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.55347186,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 0.58333333,
+          "count": 12,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.63663636,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 0.5,
+          "count": 4,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.7404678,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.8,
+          "count": 10,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.8489648,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 1.0,
+          "count": 8,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.9719391,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 74
+    },
+    "before": {
+      "accuracy": 0.59459459,
+      "brierScore": 0.51551228,
+      "ece": 0.06960527,
+      "meanConfidence": 0.62220797,
+      "negativeLogLikelihood": 0.94285158,
+      "perClass": [
+        {
+          "meanConfidenceWhenPredicted": 0.50003588,
+          "precision": 0.88888889,
+          "predictedCount": 9,
+          "recall": 0.53333333,
+          "support": 15,
+          "symbolCode": "cherries"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.8307582,
+          "precision": 0.7,
+          "predictedCount": 10,
+          "recall": 1.0,
+          "support": 7,
+          "symbolCode": "grapes"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.56129863,
+          "precision": 1.0,
+          "predictedCount": 3,
+          "recall": 0.3,
+          "support": 10,
+          "symbolCode": "lemon"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.74104551,
+          "precision": 0.63157895,
+          "predictedCount": 19,
+          "recall": 0.92307692,
+          "support": 13,
+          "symbolCode": "orange"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.81685108,
+          "precision": 1.0,
+          "predictedCount": 3,
+          "recall": 0.42857143,
+          "support": 7,
+          "symbolCode": "plum"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.56556357,
+          "precision": 0.4375,
+          "predictedCount": 16,
+          "recall": 1.0,
+          "support": 7,
+          "symbolCode": "seven"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.42249502,
+          "precision": 0.09090909,
+          "predictedCount": 11,
+          "recall": 0.5,
+          "support": 2,
+          "symbolCode": "star"
+        },
+        {
+          "meanConfidenceWhenPredicted": 0.44156958,
+          "precision": 1.0,
+          "predictedCount": 3,
+          "recall": 0.23076923,
+          "support": 13,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "reliabilityBins": [
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.0,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.1
+        },
+        {
+          "accuracy": 0.0,
+          "count": 0,
+          "lowerInclusive": 0.1,
+          "meanConfidence": 0.0,
+          "upperInclusive": false,
+          "upperValue": 0.2
+        },
+        {
+          "accuracy": 0.0,
+          "count": 1,
+          "lowerInclusive": 0.2,
+          "meanConfidence": 0.29932615,
+          "upperInclusive": false,
+          "upperValue": 0.3
+        },
+        {
+          "accuracy": 0.42857143,
+          "count": 7,
+          "lowerInclusive": 0.3,
+          "meanConfidence": 0.38138624,
+          "upperInclusive": false,
+          "upperValue": 0.4
+        },
+        {
+          "accuracy": 0.36842105,
+          "count": 19,
+          "lowerInclusive": 0.4,
+          "meanConfidence": 0.45248463,
+          "upperInclusive": false,
+          "upperValue": 0.5
+        },
+        {
+          "accuracy": 0.63636364,
+          "count": 11,
+          "lowerInclusive": 0.5,
+          "meanConfidence": 0.5556475,
+          "upperInclusive": false,
+          "upperValue": 0.6
+        },
+        {
+          "accuracy": 0.64285714,
+          "count": 14,
+          "lowerInclusive": 0.6,
+          "meanConfidence": 0.64001292,
+          "upperInclusive": false,
+          "upperValue": 0.7
+        },
+        {
+          "accuracy": 0.5,
+          "count": 4,
+          "lowerInclusive": 0.7,
+          "meanConfidence": 0.75300488,
+          "upperInclusive": false,
+          "upperValue": 0.8
+        },
+        {
+          "accuracy": 0.77777778,
+          "count": 9,
+          "lowerInclusive": 0.8,
+          "meanConfidence": 0.85428183,
+          "upperInclusive": false,
+          "upperValue": 0.9
+        },
+        {
+          "accuracy": 1.0,
+          "count": 9,
+          "lowerInclusive": 0.9,
+          "meanConfidence": 0.96714363,
+          "upperInclusive": true,
+          "upperValue": 1.0
+        }
+      ],
+      "sampleCount": 74
+    },
+    "bestMeasuredCandidate": {
+      "classEvidence": [
+        {
+          "correctCount": 0,
+          "precision": 0.0,
+          "sampleCount": 0,
+          "symbolCode": "cherries"
+        },
+        {
+          "correctCount": 7,
+          "precision": 1.0,
+          "sampleCount": 7,
+          "symbolCode": "grapes"
+        },
+        {
+          "correctCount": 0,
+          "precision": 0.0,
+          "sampleCount": 0,
+          "symbolCode": "lemon"
+        },
+        {
+          "correctCount": 1,
+          "precision": 1.0,
+          "sampleCount": 1,
+          "symbolCode": "orange"
+        },
+        {
+          "correctCount": 1,
+          "precision": 1.0,
+          "sampleCount": 1,
+          "symbolCode": "plum"
+        },
+        {
+          "correctCount": 0,
+          "precision": 0.0,
+          "sampleCount": 0,
+          "symbolCode": "seven"
+        },
+        {
+          "correctCount": 0,
+          "precision": 0.0,
+          "sampleCount": 0,
+          "symbolCode": "star"
+        },
+        {
+          "correctCount": 0,
+          "precision": 0.0,
+          "sampleCount": 0,
+          "symbolCode": "watermelon"
+        }
+      ],
+      "correctCount": 9,
+      "coverage": 0.12162162,
+      "precision": 1.0,
+      "qualityGatePassed": false,
+      "sampleCount": 9,
+      "threshold": 0.89329293,
+      "wilson95LowerPrecision": 0.70085495
+    },
+    "thresholdEvidence": [
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 0,
+        "coverage": 0.0,
+        "precision": 0.0,
+        "qualityGatePassed": false,
+        "sampleCount": 0,
+        "threshold": 1.0,
+        "wilson95LowerPrecision": 0.0
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 1,
+        "coverage": 0.01351351,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 1,
+        "threshold": 0.98838015,
+        "wilson95LowerPrecision": 0.20654931
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 2,
+        "coverage": 0.02702703,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 2,
+        "threshold": 0.98507726,
+        "wilson95LowerPrecision": 0.34238023
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 3,
+        "coverage": 0.04054054,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 3,
+        "threshold": 0.98492011,
+        "wilson95LowerPrecision": 0.43850297
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 4,
+            "precision": 1.0,
+            "sampleCount": 4,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 4,
+        "coverage": 0.05405405,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 4,
+        "threshold": 0.97797844,
+        "wilson95LowerPrecision": 0.51010916
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 5,
+            "precision": 1.0,
+            "sampleCount": 5,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 5,
+        "coverage": 0.06756757,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 5,
+        "threshold": 0.96685742,
+        "wilson95LowerPrecision": 0.56551754
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 6,
+            "precision": 1.0,
+            "sampleCount": 6,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 6,
+        "coverage": 0.08108108,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 6,
+        "threshold": 0.9582357,
+        "wilson95LowerPrecision": 0.60966571
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 7,
+        "coverage": 0.09459459,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 7,
+        "threshold": 0.95784009,
+        "wilson95LowerPrecision": 0.64566956
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 8,
+        "coverage": 0.10810811,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 8,
+        "threshold": 0.95622361,
+        "wilson95LowerPrecision": 0.67559244
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 9,
+        "coverage": 0.12162162,
+        "precision": 1.0,
+        "qualityGatePassed": false,
+        "sampleCount": 9,
+        "threshold": 0.89329293,
+        "wilson95LowerPrecision": 0.70085495
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.5,
+            "sampleCount": 2,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 9,
+        "coverage": 0.13513514,
+        "precision": 0.9,
+        "qualityGatePassed": false,
+        "sampleCount": 10,
+        "threshold": 0.88091917,
+        "wilson95LowerPrecision": 0.59584997
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 2,
+            "precision": 0.66666667,
+            "sampleCount": 3,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 10,
+        "coverage": 0.14864865,
+        "precision": 0.90909091,
+        "qualityGatePassed": false,
+        "sampleCount": 11,
+        "threshold": 0.87089202,
+        "wilson95LowerPrecision": 0.62264156
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 3,
+            "precision": 0.75,
+            "sampleCount": 4,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 11,
+        "coverage": 0.16216216,
+        "precision": 0.91666667,
+        "qualityGatePassed": false,
+        "sampleCount": 12,
+        "threshold": 0.87023598,
+        "wilson95LowerPrecision": 0.64612009
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.8,
+            "sampleCount": 5,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 12,
+        "coverage": 0.17567568,
+        "precision": 0.92307692,
+        "qualityGatePassed": false,
+        "sampleCount": 13,
+        "threshold": 0.8560373,
+        "wilson95LowerPrecision": 0.66686049
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 5,
+            "precision": 0.83333333,
+            "sampleCount": 6,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 13,
+        "coverage": 0.18918919,
+        "precision": 0.92857143,
+        "qualityGatePassed": false,
+        "sampleCount": 14,
+        "threshold": 0.843062,
+        "wilson95LowerPrecision": 0.68531296
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 14,
+        "coverage": 0.2027027,
+        "precision": 0.93333333,
+        "qualityGatePassed": false,
+        "sampleCount": 15,
+        "threshold": 0.83009909,
+        "wilson95LowerPrecision": 0.7018347
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 15,
+        "coverage": 0.21621622,
+        "precision": 0.9375,
+        "qualityGatePassed": false,
+        "sampleCount": 16,
+        "threshold": 0.81724908,
+        "wilson95LowerPrecision": 0.71671262
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 16,
+        "coverage": 0.22972973,
+        "precision": 0.94117647,
+        "qualityGatePassed": false,
+        "sampleCount": 17,
+        "threshold": 0.81679064,
+        "wilson95LowerPrecision": 0.73017969
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 16,
+        "coverage": 0.24324324,
+        "precision": 0.88888889,
+        "qualityGatePassed": false,
+        "sampleCount": 18,
+        "threshold": 0.81106984,
+        "wilson95LowerPrecision": 0.67200235
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 8,
+            "precision": 0.8,
+            "sampleCount": 10,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 17,
+        "coverage": 0.25675676,
+        "precision": 0.89473684,
+        "qualityGatePassed": false,
+        "sampleCount": 19,
+        "threshold": 0.77654756,
+        "wilson95LowerPrecision": 0.68605917
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 8,
+            "precision": 0.72727273,
+            "sampleCount": 11,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 17,
+        "coverage": 0.27027027,
+        "precision": 0.85,
+        "qualityGatePassed": false,
+        "sampleCount": 20,
+        "threshold": 0.76498373,
+        "wilson95LowerPrecision": 0.63958114
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 9,
+            "precision": 0.75,
+            "sampleCount": 12,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 18,
+        "coverage": 0.28378378,
+        "precision": 0.85714286,
+        "qualityGatePassed": false,
+        "sampleCount": 21,
+        "threshold": 0.72027702,
+        "wilson95LowerPrecision": 0.6536394
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 9,
+            "precision": 0.69230769,
+            "sampleCount": 13,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 18,
+        "coverage": 0.2972973,
+        "precision": 0.81818182,
+        "qualityGatePassed": false,
+        "sampleCount": 22,
+        "threshold": 0.7000629,
+        "wilson95LowerPrecision": 0.61483393
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 19,
+        "coverage": 0.31081081,
+        "precision": 0.82608696,
+        "qualityGatePassed": false,
+        "sampleCount": 23,
+        "threshold": 0.68486641,
+        "wilson95LowerPrecision": 0.62862352
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 19,
+        "coverage": 0.32432432,
+        "precision": 0.79166667,
+        "qualityGatePassed": false,
+        "sampleCount": 24,
+        "threshold": 0.66487682,
+        "wilson95LowerPrecision": 0.59529547
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 19,
+        "coverage": 0.33783784,
+        "precision": 0.76,
+        "qualityGatePassed": false,
+        "sampleCount": 25,
+        "threshold": 0.66126032,
+        "wilson95LowerPrecision": 0.56570317
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.33333333,
+            "sampleCount": 3,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 20,
+        "coverage": 0.35135135,
+        "precision": 0.76923077,
+        "qualityGatePassed": false,
+        "sampleCount": 26,
+        "threshold": 0.65601818,
+        "wilson95LowerPrecision": 0.57948446
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 1.0,
+            "sampleCount": 7,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.33333333,
+            "sampleCount": 3,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 21,
+        "coverage": 0.36486486,
+        "precision": 0.77777778,
+        "qualityGatePassed": false,
+        "sampleCount": 27,
+        "threshold": 0.65597207,
+        "wilson95LowerPrecision": 0.59243071
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.33333333,
+            "sampleCount": 3,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 21,
+        "coverage": 0.37837838,
+        "precision": 0.75,
+        "qualityGatePassed": false,
+        "sampleCount": 28,
+        "threshold": 0.62976553,
+        "wilson95LowerPrecision": 0.5664433
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 2,
+            "precision": 0.5,
+            "sampleCount": 4,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 22,
+        "coverage": 0.39189189,
+        "precision": 0.75862069,
+        "qualityGatePassed": false,
+        "sampleCount": 29,
+        "threshold": 0.62964266,
+        "wilson95LowerPrecision": 0.57892398
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 3,
+            "precision": 0.6,
+            "sampleCount": 5,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 23,
+        "coverage": 0.40540541,
+        "precision": 0.76666667,
+        "qualityGatePassed": false,
+        "sampleCount": 30,
+        "threshold": 0.61920316,
+        "wilson95LowerPrecision": 0.59071674
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.66666667,
+            "sampleCount": 6,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 24,
+        "coverage": 0.41891892,
+        "precision": 0.77419355,
+        "qualityGatePassed": false,
+        "sampleCount": 31,
+        "threshold": 0.61422606,
+        "wilson95LowerPrecision": 0.60187582
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 24,
+        "coverage": 0.43243243,
+        "precision": 0.75,
+        "qualityGatePassed": false,
+        "sampleCount": 32,
+        "threshold": 0.61123849,
+        "wilson95LowerPrecision": 0.57893441
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 24,
+        "coverage": 0.44594595,
+        "precision": 0.72727273,
+        "qualityGatePassed": false,
+        "sampleCount": 33,
+        "threshold": 0.60961745,
+        "wilson95LowerPrecision": 0.55782441
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 25,
+        "coverage": 0.45945946,
+        "precision": 0.73529412,
+        "qualityGatePassed": false,
+        "sampleCount": 34,
+        "threshold": 0.60294915,
+        "wilson95LowerPrecision": 0.56882859
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 26,
+        "coverage": 0.47297297,
+        "precision": 0.74285714,
+        "qualityGatePassed": false,
+        "sampleCount": 35,
+        "threshold": 0.59338063,
+        "wilson95LowerPrecision": 0.57930693
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 10,
+            "precision": 0.71428571,
+            "sampleCount": 14,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 27,
+        "coverage": 0.48648649,
+        "precision": 0.75,
+        "qualityGatePassed": false,
+        "sampleCount": 36,
+        "threshold": 0.59283287,
+        "wilson95LowerPrecision": 0.58929546
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.73333333,
+            "sampleCount": 15,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 28,
+        "coverage": 0.5,
+        "precision": 0.75675676,
+        "qualityGatePassed": false,
+        "sampleCount": 37,
+        "threshold": 0.58774127,
+        "wilson95LowerPrecision": 0.59882708
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.6875,
+            "sampleCount": 16,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.57142857,
+            "sampleCount": 7,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 28,
+        "coverage": 0.51351351,
+        "precision": 0.73684211,
+        "qualityGatePassed": false,
+        "sampleCount": 38,
+        "threshold": 0.58128174,
+        "wilson95LowerPrecision": 0.57991154
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.6875,
+            "sampleCount": 16,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 4,
+            "precision": 0.5,
+            "sampleCount": 8,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 28,
+        "coverage": 0.52702703,
+        "precision": 0.71794872,
+        "qualityGatePassed": false,
+        "sampleCount": 39,
+        "threshold": 0.58011289,
+        "wilson95LowerPrecision": 0.56224681
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.6875,
+            "sampleCount": 16,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 5,
+            "precision": 0.55555556,
+            "sampleCount": 9,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 29,
+        "coverage": 0.54054054,
+        "precision": 0.725,
+        "qualityGatePassed": false,
+        "sampleCount": 40,
+        "threshold": 0.57973487,
+        "wilson95LowerPrecision": 0.57165044
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 1,
+            "precision": 0.5,
+            "sampleCount": 2,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.6875,
+            "sampleCount": 16,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 5,
+            "precision": 0.55555556,
+            "sampleCount": 9,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 29,
+        "coverage": 0.55405405,
+        "precision": 0.70731707,
+        "qualityGatePassed": false,
+        "sampleCount": 41,
+        "threshold": 0.54334589,
+        "wilson95LowerPrecision": 0.55520532
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 2,
+            "precision": 0.66666667,
+            "sampleCount": 3,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.6875,
+            "sampleCount": 16,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 5,
+            "precision": 0.55555556,
+            "sampleCount": 9,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 30,
+        "coverage": 0.56756757,
+        "precision": 0.71428571,
+        "qualityGatePassed": false,
+        "sampleCount": 42,
+        "threshold": 0.53662032,
+        "wilson95LowerPrecision": 0.56432791
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 2,
+            "precision": 0.66666667,
+            "sampleCount": 3,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.6875,
+            "sampleCount": 16,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 6,
+            "precision": 0.6,
+            "sampleCount": 10,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 31,
+        "coverage": 0.58108108,
+        "precision": 0.72093023,
+        "qualityGatePassed": false,
+        "sampleCount": 43,
+        "threshold": 0.5325906,
+        "wilson95LowerPrecision": 0.57308971
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 2,
+            "precision": 0.66666667,
+            "sampleCount": 3,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 6,
+            "precision": 0.6,
+            "sampleCount": 10,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 31,
+        "coverage": 0.59459459,
+        "precision": 0.70454545,
+        "qualityGatePassed": false,
+        "sampleCount": 44,
+        "threshold": 0.52702738,
+        "wilson95LowerPrecision": 0.557798
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 3,
+            "precision": 0.75,
+            "sampleCount": 4,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 6,
+            "precision": 0.6,
+            "sampleCount": 10,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 32,
+        "coverage": 0.60810811,
+        "precision": 0.71111111,
+        "qualityGatePassed": false,
+        "sampleCount": 45,
+        "threshold": 0.52687963,
+        "wilson95LowerPrecision": 0.56631459
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 4,
+            "precision": 0.8,
+            "sampleCount": 5,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 6,
+            "precision": 0.6,
+            "sampleCount": 10,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 33,
+        "coverage": 0.62162162,
+        "precision": 0.7173913,
+        "qualityGatePassed": false,
+        "sampleCount": 46,
+        "threshold": 0.51316606,
+        "wilson95LowerPrecision": 0.57451439
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 4,
+            "precision": 0.8,
+            "sampleCount": 5,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.63636364,
+            "sampleCount": 11,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 34,
+        "coverage": 0.63513514,
+        "precision": 0.72340426,
+        "qualityGatePassed": false,
+        "sampleCount": 47,
+        "threshold": 0.50042004,
+        "wilson95LowerPrecision": 0.58241436
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 4,
+            "precision": 0.8,
+            "sampleCount": 5,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.58333333,
+            "sampleCount": 12,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 34,
+        "coverage": 0.64864865,
+        "precision": 0.70833333,
+        "qualityGatePassed": false,
+        "sampleCount": 48,
+        "threshold": 0.49055352,
+        "wilson95LowerPrecision": 0.5682074
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 4,
+            "precision": 0.8,
+            "sampleCount": 5,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.58333333,
+            "sampleCount": 12,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 35,
+        "coverage": 0.66216216,
+        "precision": 0.71428571,
+        "qualityGatePassed": false,
+        "sampleCount": 49,
+        "threshold": 0.48136201,
+        "wilson95LowerPrecision": 0.57591116
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 5,
+            "precision": 0.83333333,
+            "sampleCount": 6,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.58333333,
+            "sampleCount": 12,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 0,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 36,
+        "coverage": 0.67567568,
+        "precision": 0.72,
+        "qualityGatePassed": false,
+        "sampleCount": 50,
+        "threshold": 0.47554531,
+        "wilson95LowerPrecision": 0.58334876
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 5,
+            "precision": 0.83333333,
+            "sampleCount": 6,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.58333333,
+            "sampleCount": 12,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 37,
+        "coverage": 0.68918919,
+        "precision": 0.7254902,
+        "qualityGatePassed": false,
+        "sampleCount": 51,
+        "threshold": 0.47397502,
+        "wilson95LowerPrecision": 0.59053349
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 5,
+            "precision": 0.83333333,
+            "sampleCount": 6,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.53846154,
+            "sampleCount": 13,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 1,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 37,
+        "coverage": 0.7027027,
+        "precision": 0.71153846,
+        "qualityGatePassed": false,
+        "sampleCount": 52,
+        "threshold": 0.4616981,
+        "wilson95LowerPrecision": 0.57727212
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 5,
+            "precision": 0.83333333,
+            "sampleCount": 6,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.53846154,
+            "sampleCount": 13,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 37,
+        "coverage": 0.71621622,
+        "precision": 0.69811321,
+        "qualityGatePassed": false,
+        "sampleCount": 53,
+        "threshold": 0.45946158,
+        "wilson95LowerPrecision": 0.56463167
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.53846154,
+            "sampleCount": 13,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 38,
+        "coverage": 0.72972973,
+        "precision": 0.7037037,
+        "qualityGatePassed": false,
+        "sampleCount": 54,
+        "threshold": 0.45469709,
+        "wilson95LowerPrecision": 0.57172427
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 11,
+            "precision": 0.64705882,
+            "sampleCount": 17,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.5,
+            "sampleCount": 14,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 38,
+        "coverage": 0.74324324,
+        "precision": 0.69090909,
+        "qualityGatePassed": false,
+        "sampleCount": 55,
+        "threshold": 0.45057543,
+        "wilson95LowerPrecision": 0.5597141
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.5,
+            "sampleCount": 14,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 1,
+            "precision": 1.0,
+            "sampleCount": 1,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 39,
+        "coverage": 0.75675676,
+        "precision": 0.69642857,
+        "qualityGatePassed": false,
+        "sampleCount": 56,
+        "threshold": 0.44919186,
+        "wilson95LowerPrecision": 0.56664135
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.5,
+            "sampleCount": 14,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.77027027,
+        "precision": 0.70175439,
+        "qualityGatePassed": false,
+        "sampleCount": 57,
+        "threshold": 0.44544589,
+        "wilson95LowerPrecision": 0.5733572
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.5,
+            "sampleCount": 14,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.78378378,
+        "precision": 0.68965517,
+        "qualityGatePassed": false,
+        "sampleCount": 58,
+        "threshold": 0.43958407,
+        "wilson95LowerPrecision": 0.56196936
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.46666667,
+            "sampleCount": 15,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 2,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.7972973,
+        "precision": 0.6779661,
+        "qualityGatePassed": false,
+        "sampleCount": 59,
+        "threshold": 0.43839206,
+        "wilson95LowerPrecision": 0.55105004
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.46666667,
+            "sampleCount": 15,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 3,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.81081081,
+        "precision": 0.66666667,
+        "qualityGatePassed": false,
+        "sampleCount": 60,
+        "threshold": 0.43395727,
+        "wilson95LowerPrecision": 0.54056866
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.46666667,
+            "sampleCount": 15,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 4,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.82432432,
+        "precision": 0.6557377,
+        "qualityGatePassed": false,
+        "sampleCount": 61,
+        "threshold": 0.42890863,
+        "wilson95LowerPrecision": 0.53049749
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 4,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.83783784,
+        "precision": 0.64516129,
+        "qualityGatePassed": false,
+        "sampleCount": 62,
+        "threshold": 0.42774368,
+        "wilson95LowerPrecision": 0.52081131
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.66666667,
+            "sampleCount": 18,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 5,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.85135135,
+        "precision": 0.63492063,
+        "qualityGatePassed": false,
+        "sampleCount": 63,
+        "threshold": 0.42545006,
+        "wilson95LowerPrecision": 0.5114871
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 5,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.86486486,
+        "precision": 0.625,
+        "qualityGatePassed": false,
+        "sampleCount": 64,
+        "threshold": 0.42348195,
+        "wilson95LowerPrecision": 0.50250379
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 0,
+            "precision": 0.0,
+            "sampleCount": 6,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 40,
+        "coverage": 0.87837838,
+        "precision": 0.61538462,
+        "qualityGatePassed": false,
+        "sampleCount": 65,
+        "threshold": 0.40610116,
+        "wilson95LowerPrecision": 0.49384203
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 6,
+            "precision": 0.85714286,
+            "sampleCount": 7,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.14285714,
+            "sampleCount": 7,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 41,
+        "coverage": 0.89189189,
+        "precision": 0.62121212,
+        "qualityGatePassed": false,
+        "sampleCount": 66,
+        "threshold": 0.40525572,
+        "wilson95LowerPrecision": 0.50058476
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.14285714,
+            "sampleCount": 7,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 2,
+            "precision": 1.0,
+            "sampleCount": 2,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 42,
+        "coverage": 0.90540541,
+        "precision": 0.62686567,
+        "qualityGatePassed": false,
+        "sampleCount": 67,
+        "threshold": 0.38984228,
+        "wilson95LowerPrecision": 0.50715407
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.14285714,
+            "sampleCount": 7,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 43,
+        "coverage": 0.91891892,
+        "precision": 0.63235294,
+        "qualityGatePassed": false,
+        "sampleCount": 68,
+        "threshold": 0.38822518,
+        "wilson95LowerPrecision": 0.51355636
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 7,
+            "precision": 0.875,
+            "sampleCount": 8,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.125,
+            "sampleCount": 8,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 43,
+        "coverage": 0.93243243,
+        "precision": 0.62318841,
+        "qualityGatePassed": false,
+        "sampleCount": 69,
+        "threshold": 0.3796661,
+        "wilson95LowerPrecision": 0.50521886
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 8,
+            "precision": 0.88888889,
+            "sampleCount": 9,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.77777778,
+            "sampleCount": 9,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.125,
+            "sampleCount": 8,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 44,
+        "coverage": 0.94594595,
+        "precision": 0.62857143,
+        "qualityGatePassed": false,
+        "sampleCount": 70,
+        "threshold": 0.37715153,
+        "wilson95LowerPrecision": 0.51147201
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 8,
+            "precision": 0.88888889,
+            "sampleCount": 9,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.7,
+            "sampleCount": 10,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.125,
+            "sampleCount": 8,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 44,
+        "coverage": 0.95945946,
+        "precision": 0.61971831,
+        "qualityGatePassed": false,
+        "sampleCount": 71,
+        "threshold": 0.37481765,
+        "wilson95LowerPrecision": 0.50341856
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 8,
+            "precision": 0.88888889,
+            "sampleCount": 9,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.7,
+            "sampleCount": 10,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.11111111,
+            "sampleCount": 9,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 44,
+        "coverage": 0.97297297,
+        "precision": 0.61111111,
+        "qualityGatePassed": false,
+        "sampleCount": 72,
+        "threshold": 0.37212827,
+        "wilson95LowerPrecision": 0.49562355
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 8,
+            "precision": 0.88888889,
+            "sampleCount": 9,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.7,
+            "sampleCount": 10,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.1,
+            "sampleCount": 10,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 44,
+        "coverage": 0.98648649,
+        "precision": 0.60273973,
+        "qualityGatePassed": false,
+        "sampleCount": 73,
+        "threshold": 0.35329052,
+        "wilson95LowerPrecision": 0.48807414
+      },
+      {
+        "classEvidence": [
+          {
+            "correctCount": 8,
+            "precision": 0.88888889,
+            "sampleCount": 9,
+            "symbolCode": "cherries"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.7,
+            "sampleCount": 10,
+            "symbolCode": "grapes"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "lemon"
+          },
+          {
+            "correctCount": 12,
+            "precision": 0.63157895,
+            "sampleCount": 19,
+            "symbolCode": "orange"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "plum"
+          },
+          {
+            "correctCount": 7,
+            "precision": 0.4375,
+            "sampleCount": 16,
+            "symbolCode": "seven"
+          },
+          {
+            "correctCount": 1,
+            "precision": 0.09090909,
+            "sampleCount": 11,
+            "symbolCode": "star"
+          },
+          {
+            "correctCount": 3,
+            "precision": 1.0,
+            "sampleCount": 3,
+            "symbolCode": "watermelon"
+          }
+        ],
+        "correctCount": 44,
+        "coverage": 1.0,
+        "precision": 0.59459459,
+        "qualityGatePassed": false,
+        "sampleCount": 74,
+        "threshold": 0.2963879,
+        "wilson95LowerPrecision": 0.48075839
+      }
+    ]
+  }
+}

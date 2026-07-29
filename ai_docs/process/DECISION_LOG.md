@@ -1647,6 +1647,156 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   Kontrakty stabilnej obserwacji, jawnej decyzji i braku auto-accept pozostają
   w mocy.
 
+## D-069 — Deterministyczny source-aware split rzeczywistego datasetu
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** `labeled-symbol-dataset-v1` jest dzielony w całości po checksumie
+  zdjęcia źródłowego, ze stałym seedem i proporcjami docelowymi `70/15/15`.
+  Każdy z train, validation i test wymaga co najmniej dwóch zdjęć oraz wszystkich
+  symboli. Identyczne bajty cropu nie mogą wystąpić w różnych źródłach ani
+  splitach. Manifest zachowuje przydział źródeł i uporządkowane identyfikatory
+  próbek.
+- **Context:** pierwszy rzeczywisty eksport zawiera 416 zaakceptowanych próbek
+  z 18 zdjęć i wszystkich ośmiu symboli. Losowanie po pojedynczych cropach
+  umieściłoby niemal identyczne warunki tego samego zdjęcia w treningu i
+  ewaluacji.
+- **Reason:** granica zdjęcia źródłowego zapobiega przeciekowi tła, perspektywy,
+  oświetlenia i artefaktów ekranu. Stały seed i raport checksum pozwalają
+  odtworzyć dokładnie ten sam logiczny dataset.
+- **Alternatives:** losowanie per crop albo ręcznie utrzymana lista. Pierwsze
+  przecieka między zbiorami, drugie jest podatne na drift i trudniejsze do
+  odtworzenia.
+- **Consequences:** split ma `269/74/73` próbek i `10/4/4` zdjęć dla
+  train/validation/test. Wszystkie symbole występują w każdym zbiorze, a bramka
+  strukturalna przechodzi. Żaden symbol nie osiąga jeszcze orientacyjnego celu
+  100 zaakceptowanych próbek, co pozostaje jawnym advisory i ogranicza pierwszy
+  model do statusu bootstrapowego.
+- **Supersedes:** brak.
+
+## D-070 — Mały deterministyczny CNN jako bootstrap klasyfikatora symboli
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** pierwszy klasyfikator używa lokalnego PyTorch `2.12.1` CPU i
+  torchvision `0.27.1`, własnego CNN bez pretrained weights, wejścia RGB
+  `64 × 64` oraz stałej normalizacji do `[-1, 1]`. Trening ma stały seed,
+  ważony cross-entropy, Adam, 40 epok i jeden wątek CPU. Checkpoint wybiera
+  wyłącznie validation macro-recall, następnie accuracy, loss i wcześniejsza
+  epoka. Test jest oceniany raz po zamrożeniu checkpointu.
+- **Context:** source-aware split TASK-0060 udostępnia 269 próbek train, 74
+  validation i 73 test. Wszystkie klasy są obecne, ale żadna nie osiąga jeszcze
+  orientacyjnego celu 100 próbek.
+- **Reason:** mały model 24 104 parametrów daje tani, wymienny i odtwarzalny
+  baseline CPU. Brak pretrained weights usuwa pobieranie sieciowe oraz ukrytą
+  zależność od zewnętrznego datasetu.
+- **Alternatives:** transfer learning z ciężkiego modelu, template matching albo
+  model aktualizowany online po każdym review. Pierwsza opcja nie jest potrzebna
+  przed pomiarem baseline, druga słabo generalizuje, a trzecia łamie wersjonowany
+  batch i audyt.
+- **Consequences:** najlepszy checkpoint pochodzi z epoki 22. Validation ma
+  accuracy `59.4595%` i macro-recall `61.4469%`; test ma accuracy `63.0137%`
+  i macro-recall `62.7128%`. `star`, `watermelon` i `plum` są słabymi klasami,
+  więc model pozostaje `bootstrap`, nie definiuje confidence policy i nie może
+  uruchamiać auto-accept. Logiczny checksum stanu to
+  `0edab6bbb738d908c4e902a347c982407549c159829c80fc3010c314a6c1aea2`.
+- **Supersedes:** brak.
+
+## D-071 — Zamrożone, leakage-safe sugestie tylko do ręcznego review
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** TASK-0099 tworzy indeks podobieństwa wyłącznie z 269
+  zaakceptowanych próbek partycji train i embeddingu zamrożonego checkpointu
+  TASK-0061. Każde zapytanie wyklucza własną próbkę oraz wszystkie referencje
+  z tego samego obrazu źródłowego. UI pokazuje najwyżej jedną referencję na
+  symbol i trzy klasy, jeżeli najlepsze podobieństwo cosinusowe osiąga
+  `0,9975`. W przeciwnym razie pokazuje `no_suggestion`. Historyczna etykieta
+  po `observationId` jest wyświetlana osobno i nie uczestniczy w rankingu.
+- **Context:** baseline ma charakter bootstrapowy, a jego validation accuracy
+  wynosi tylko `59,4595%`. Naiwny próg `0,80` dawał sugestię dla całej
+  walidacji, ponieważ embeddingi małego CNN są skupione bardzo blisko siebie.
+  Nie można traktować samego softmax confidence ani podobieństwa jako zgody na
+  automatyczną etykietę.
+- **Reason:** zamrożony train-only indeks zachowuje uczciwą granicę
+  source-aware validation, jest odtwarzalny i nie zmienia się po kliknięciach.
+  Konserwatywny próg jawnie rezygnuje z części pokrycia zamiast zawsze zgadywać.
+- **Alternatives:** użycie wszystkich 416 próbek jako referencji, aktualizacja
+  indeksu po każdym kliknięciu albo auto-accept top-1. Pierwsza opcja
+  zanieczyszcza ocenę validation, druga łamie wersjonowany batch, a trzecia nie
+  jest uzasadniona jakością modelu.
+- **Consequences:** source-disjoint validation ma coverage `75,6757%`, top-1
+  accuracy przy coverage `76,7857%`, top-3 `94,6429%` i zero source leakage.
+  Sugestia nigdy nie mutuje `reviewed-cell-labels-v1`; dopiero kliknięcie albo
+  Q/W/E tworzy zwykłą decyzję właściciela. Kalibracja confidence i jakakolwiek
+  polityka auto-accept pozostają zakresem TASK-0063.
+- **Supersedes:** brak.
+
+## D-072 — ONNX opset 18 jako lokalna granica inferencji symboli
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** dokładny checkpoint TASK-0061 jest eksportowany aktualnym
+  mechanizmem `torch.export` do ONNX opset 18. Graf ma dynamiczny wyłącznie
+  batch i stały kontrakt `N × 3 × 64 × 64 -> N × 8 logits`. Produkcyjny port
+  inferencji używa przypiętych ONNX `1.22.0`, ONNX Script `0.7.1` oraz ONNX
+  Runtime CPU `1.28.0`; adapter dopuszcza wyłącznie `CPUExecutionProvider`,
+  sekwencyjne wykonanie i jeden wątek.
+- **Context:** klasyfikator został wytrenowany w PyTorch, ale wymagania M6
+  wskazują wymienny, lokalny runtime produkcyjny. Pierwsza próba z legacy
+  exporterem przeszła technicznie, lecz PyTorch 2.12 oznaczył ją jako
+  wycofywaną, dlatego nie została przyjęta.
+- **Reason:** aktualny eksporter usuwa zależność od ścieżki przeznaczonej do
+  usunięcia. Jawny kształt, class order, checksum i ONNX checker tworzą wąską,
+  testowalną granicę bez pobierania wag z sieci.
+- **Alternatives:** pozostawienie PyTorch jako runtime produkcyjnego, legacy
+  TorchScript exporter albo dynamiczne wymiary obrazu. Pierwsza opcja nie
+  realizuje zaakceptowanego stosu, druga tworzy dług techniczny, a trzecia
+  rozszerza kontrakt bez potrzeby.
+- **Consequences:** artefakt ma 115133 bajtów i SHA-256
+  `e03f66f2ab092b6049920fee6fb2839900a95eb94af42fbd5ef7e35c473b5fb8`.
+  Na wszystkich 416 próbkach nie zmienił żadnej klasy top-1; maksymalny błąd
+  logits wynosi `2.861e-6`, prawdopodobieństw `4.172e-7`, a tolerancja obu to
+  `1e-5`. Drift checksumy, klasy, kształtu, typu albo wartości niefinitywnej
+  blokuje inferencję stabilnym kodem. Confidence policy pozostaje zakresem
+  TASK-0063.
+- **Supersedes:** brak.
+
+## D-073 — Validation-only kalibracja i fail-closed active learning
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** confidence klasyfikatora symboli jest skalowane jedną dodatnią
+  temperaturą dopasowaną deterministycznie na source-disjoint validation przez
+  minimalizację NLL. Test jest mierzony dopiero po zamrożeniu temperatury.
+  Auto-accept wymaga statusu `production_candidate`, osiągniętego celu próbek,
+  co najmniej 95% precision na 20 próbkach validation i co najmniej 90%
+  precision na 3 próbkach każdej klasy. Automatyczny reject pozostaje
+  wyłączony. Następny batch review wybiera 30 kompletnych pending plansz,
+  łącząc niepewność, różnorodność predykcji, nowe źródło i rzadkie klasy; do
+  pokrycia źródeł wybiera najwyżej jedną planszę z jednego zdjęcia.
+- **Context:** temperatura `1.0338382913` nie zmienia top-1 i nieznacznie
+  poprawia NLL, ale validation ECE rośnie z `0.06960527` do `0.08450210`.
+  Najlepszy próg `0.89329293` ma precision `1.0` tylko na 9 próbkach, a klasy
+  `star`, `watermelon` i `plum` pozostają słabe na teście. Model oraz dataset
+  nadal mają status bootstrapowy.
+- **Reason:** confidence nie może zastąpić dowodu jakości per klasa.
+  Fail-closed policy zapobiega automatycznej mutacji etykiet, a wybór całych
+  plansz zachowuje szybszy workflow użytkownika i różnorodność źródeł.
+- **Alternatives:** niekalibrowany softmax, próg dobrany na teście, auto-accept
+  na podstawie 9 łatwych próbek albo ranking pojedynczych cropów. Pierwsze trzy
+  przeceniają wiarygodność, a ostatnie niszczy whole-layout review.
+- **Consequences:** wszystkie 5389 pending cropów są nadal decyzją człowieka.
+  Z 359 kompletnych pending plansz wybrano odtwarzalny batch 30 plansz z 30
+  źródeł; cztery częściowe plansze nie weszły do batcha. Raport kalibracji ma
+  SHA-256
+  `a2359efed1e2dc2d73fc383d9e260c88f4a19838a74af3dd165362692601bff7`,
+  a raport selekcji
+  `2ab9a79a6d1c81b8d08abe0defc447510f0cfe4df1909c9aa8da77d79e6115d2`.
+  Następna wersja modelu powstaje dopiero z nowego, jawnie zatwierdzonego
+  datasetu.
+- **Supersedes:** brak.
+
 ## Szablon nowej decyzji
 
 ```text

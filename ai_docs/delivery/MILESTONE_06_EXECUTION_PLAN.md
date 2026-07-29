@@ -53,8 +53,8 @@ Właściciel zaakceptował pełny v16: 387 plansz, 5805 komórek i zero fallback
 TASK-0097 zakończył się reprezentatywną partią 416 etykiet z 24 kompletnych
 plansz, 18 zdjęć i obu source sessions. TASK-0059 wydał niepusty dataset
 `ready`. Zachowanych 56 decyzji v2 nie jest automatycznie migrowanych.
-Następny TASK-0060 tworzy source-aware split i raport jakości; TASK-0099 doda
-top-3 sugestie dopiero po pierwszym modelu i bez auto-accept.
+TASK-0060 utworzył source-aware split i raport jakości. TASK-0061 utworzył
+pierwszy model, a TASK-0099 dodał leakage-safe top-3 sugestie bez auto-accept.
 
 ## Zasady realizacji
 
@@ -123,8 +123,15 @@ top-3 sugestie dopiero po pierwszym modelu i bez auto-accept.
   preflight processed `387/387`, produced supported cells for `373` boards and
   failed closed on 14 sequences. Those 14 cases require a bounded correction
   before the required `5805/5805` production corpus and page-level review
-- `TASK-0099 — Safe bootstrap symbol suggestions` — todo after TASK-0098
-- `TASK-0060 — Dataset split, manifest and quality validation`
+- `TASK-0099 — Safe bootstrap symbol suggestions` — done 2026-07-29;
+  frozen train-only reference index, same-source exclusion, explicit
+  `no_suggestion`, separate previous-geometry evidence and no auto-accept;
+  validation coverage `75.6757%`, top-1 `76.7857%` and top-3 `94.6429%`
+- `TASK-0060 — Dataset split, manifest and quality validation` — done
+  2026-07-29; deterministic source-aware split contains `269/74/73` samples
+  from `10/4/4` source images, every split covers all eight symbols and the
+  quality report reproduces byte-for-byte; the approximate 100 samples per
+  symbol target remains unmet and is reported as an advisory
 
 ### Bramka G6.1
 
@@ -152,11 +159,24 @@ top-3 sugestie dopiero po pierwszym modelu i bez auto-accept.
 
 ### Zadania
 
-- `TASK-0061 — Versioned batch symbol classifier baseline`
-- `TASK-0062 — ONNX export and local inference parity`
-- `TASK-0063 — Confidence calibration and active-learning review selection`
+- `TASK-0061 — Versioned batch symbol classifier baseline` — done 2026-07-29;
+  deterministic 24,104-parameter CPU CNN selected epoch 22 by validation only,
+  reached test accuracy `63.0137%` and macro-recall `62.7128%`, and remains
+  explicitly bootstrap-only
+- `TASK-0062 — ONNX export and local inference parity` — done 2026-07-29;
+  reproducible opset 18 artifact, local CPU-only adapter and parity on all
+  416 samples with zero top-one mismatches; maximum logits/probability drift
+  `2.861e-6 / 4.172e-7`
+- `TASK-0063 — Confidence calibration and active-learning review selection` —
+  done 2026-07-29; validation-only temperature `1.0338382913`, explicit
+  fail-closed manual-review policy and a reproducible batch of 30 complete
+  layouts from 30 distinct source images
 
 ### Bramka G6.2
+
+Status: `passed` 2026-07-29. Aktualny model pozostaje bootstrapowy i
+manual-review-only; przejście bramki oznacza, że ograniczenie jest zmierzone,
+wersjonowane i egzekwowane, a nie że auto-accept został włączony.
 
 - wynik treningu wskazuje dataset, kod i konfigurację,
 - metryki nie są liczone na przeciekającym zbiorze,

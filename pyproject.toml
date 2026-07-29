@@ -11,12 +11,17 @@ dependencies = [
   "alembic==1.18.5",
   "fastapi==0.139.2",
   "numpy==2.4.6",
+  "onnx==1.22.0",
+  "onnxruntime==1.28.0",
+  "onnxscript==0.7.1",
   "opencv-python-headless==4.13.0.92",
   "paddlepaddle==3.3.1",
   "Pillow==12.3.0",
   "psycopg[binary]==3.3.4",
   "PyYAML==6.0.3",
   "SQLAlchemy==2.0.51",
+  "torch==2.12.1",
+  "torchvision==0.27.1",
   "uvicorn==0.51.0",
 ]
 
@@ -40,6 +45,21 @@ testpaths = ["services/api/tests", "services/worker/tests"]
 strict = true
 python_version = "3.12"
 mypy_path = "services/api/src;services/worker/src"
+
+[[tool.mypy.overrides]]
+module = [
+  "onnx",
+  "onnx.*",
+  "onnx_ir",
+  "onnx_ir.*",
+  "onnxruntime",
+  "onnxruntime.*",
+  "onnxscript",
+  "onnxscript.*",
+  "torch.onnx",
+  "torch.onnx.*",
+]
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 100

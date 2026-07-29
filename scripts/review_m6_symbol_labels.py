@@ -15,16 +15,26 @@ from game_predictor_worker.images.symbol_review_http import (
     SymbolReviewHttpError,
     create_review_server,
 )
+from game_predictor_worker.images.symbol_suggestions import (
+    SymbolSuggestionError,
+    build_frozen_suggestion_service,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INVENTORY = ROOT / "ai_docs" / "quality" / "m6-symbol-crop-inventory-v3.json"
-DEFAULT_CROP_ROOT = (
-    ROOT / "artifacts" / "m5-reviewed-manual-merge-v16-full-preflight"
-)
-DEFAULT_LABEL_OUTPUT = (
-    ROOT / "artifacts" / "m6-symbol-review-v16" / "reviewed-labels.json"
-)
+DEFAULT_CROP_ROOT = ROOT / "artifacts" / "m5-reviewed-manual-merge-v16-full-preflight"
+DEFAULT_LABEL_OUTPUT = ROOT / "artifacts" / "m6-symbol-review-v16" / "reviewed-labels.json"
 STATIC_ROOT = ROOT / "scripts" / "m6_symbol_review"
+QUALITY_ROOT = ROOT / "ai_docs" / "quality"
+DEFAULT_DATASET = QUALITY_ROOT / "m6-symbol-dataset-export-report.json"
+DEFAULT_SPLIT = QUALITY_ROOT / "m6-symbol-dataset-split-report.json"
+DEFAULT_DATASET_ASSETS = ROOT / "artifacts" / "m6-symbol-dataset-v1"
+DEFAULT_CLASSIFIER = (
+    ROOT / "artifacts" / "m6-symbol-classifier-baseline" / "bootstrap-symbol-cnn-v1.pt"
+)
+DEFAULT_CLASSIFIER_REPORT = QUALITY_ROOT / "m6-symbol-classifier-baseline-report.json"
+DEFAULT_PREVIOUS_INVENTORY = QUALITY_ROOT / "m6-symbol-crop-inventory-v2.json"
+DEFAULT_PREVIOUS_LABELS = ROOT / "artifacts" / "m6-symbol-review" / "reviewed-labels.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,6 +47,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument(
+        "--no-suggestions",
+        action="store_true",
+        help="Run manual review without the frozen bootstrap suggestions.",
+    )
+    parser.add_argument(
         "--no-open",
         action="store_true",
         help="Do not open the default browser automatically.",
@@ -47,11 +62,24 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     try:
+        suggestion_provider = None
+        if not args.no_suggestions:
+            suggestion_provider, _ = build_frozen_suggestion_service(
+                dataset_path=DEFAULT_DATASET,
+                split_path=DEFAULT_SPLIT,
+                asset_root=DEFAULT_DATASET_ASSETS,
+                artifact_path=DEFAULT_CLASSIFIER,
+                classifier_report_path=DEFAULT_CLASSIFIER_REPORT,
+                crop_root=args.crop_root,
+                previous_inventory_path=DEFAULT_PREVIOUS_INVENTORY,
+                previous_labels_path=DEFAULT_PREVIOUS_LABELS,
+            )
         review = BootstrapSymbolReview(
             args.inventory,
             args.crop_root,
             args.output,
             require_calibrated=True,
+            suggestion_provider=suggestion_provider,
         )
         server = create_review_server(
             review,
@@ -59,7 +87,12 @@ def main() -> int:
             host=args.host,
             port=args.port,
         )
-    except (OSError, SymbolReviewError, SymbolReviewHttpError) as error:
+    except (
+        OSError,
+        SymbolReviewError,
+        SymbolReviewHttpError,
+        SymbolSuggestionError,
+    ) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
 

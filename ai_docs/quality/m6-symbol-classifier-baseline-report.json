@@ -1,0 +1,648 @@
+{
+  "architectureVersion": "small-symbol-cnn-v1",
+  "artifact": {
+    "logicalStateSha256": "0edab6bbb738d908c4e902a347c982407549c159829c80fc3010c314a6c1aea2",
+    "parameterCount": 24104,
+    "relativePath": "artifacts/m6-symbol-classifier-baseline/bootstrap-symbol-cnn-v1.pt",
+    "sha256": "27dbbb44301e988d9960d807cef0ad2ac57ae121143ddd0a5fcd1d4e279c0810"
+  },
+  "bestEpoch": 22,
+  "classes": [
+    {
+      "classIndex": 0,
+      "symbolCode": "cherries",
+      "symbolId": "bootstrap-836328ee3a94a0a4d6c683e845f70f324d30479b1d23676b4f694a12b813d4c6"
+    },
+    {
+      "classIndex": 1,
+      "symbolCode": "grapes",
+      "symbolId": "bootstrap-dc18fece0491114e7f3dad92367a7e7af3be264c4bd2789b4d5bcbb4aa3ffa1a"
+    },
+    {
+      "classIndex": 2,
+      "symbolCode": "lemon",
+      "symbolId": "bootstrap-935d25fc1d1b20d59d0968b13f8cf8d62dcf93ec8fd90d396ab93a150bcc31b9"
+    },
+    {
+      "classIndex": 3,
+      "symbolCode": "orange",
+      "symbolId": "bootstrap-8b9ec33f7b795bbd3e55bf45d2dd81c506a4a64f945acab9f473f4ce51acf9fd"
+    },
+    {
+      "classIndex": 4,
+      "symbolCode": "plum",
+      "symbolId": "bootstrap-55d58f95df896c70686e8874c5c4f28dabe65c2ecc255403da9a96e599ae3efb"
+    },
+    {
+      "classIndex": 5,
+      "symbolCode": "seven",
+      "symbolId": "bootstrap-2b49190138c790558bcd930a1f2da79f8fd7dba651b5c536621b89dfbc022467"
+    },
+    {
+      "classIndex": 6,
+      "symbolCode": "star",
+      "symbolId": "bootstrap-1e11c657f55f7e37f1f48e18fc95be85daf05d8b140ab5a5c94b74e4ef424cca"
+    },
+    {
+      "classIndex": 7,
+      "symbolCode": "watermelon",
+      "symbolId": "bootstrap-133c8869a54a81f4a2f8855fddc74b3220a313f94863fe492b8dcc550fbb658d"
+    }
+  ],
+  "classifierVersion": "bootstrap-symbol-cnn-v1",
+  "config": {
+    "batch_size": 32,
+    "epochs": 40,
+    "input_size": 64,
+    "learning_rate": 0.001,
+    "seed": 61061,
+    "weight_decay": 0.0001
+  },
+  "datasetSha256": "ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a",
+  "history": [
+    {
+      "epoch": 1,
+      "trainingLoss": 2.05855928,
+      "validationAccuracy": 0.25675676,
+      "validationLoss": 2.03157021,
+      "validationMacroRecall": 0.225
+    },
+    {
+      "epoch": 2,
+      "trainingLoss": 1.92645962,
+      "validationAccuracy": 0.25675676,
+      "validationLoss": 1.85095949,
+      "validationMacroRecall": 0.24038462
+    },
+    {
+      "epoch": 3,
+      "trainingLoss": 1.68668404,
+      "validationAccuracy": 0.37837838,
+      "validationLoss": 1.64436634,
+      "validationMacroRecall": 0.35288462
+    },
+    {
+      "epoch": 4,
+      "trainingLoss": 1.52190522,
+      "validationAccuracy": 0.40540541,
+      "validationLoss": 1.51990351,
+      "validationMacroRecall": 0.37371795
+    },
+    {
+      "epoch": 5,
+      "trainingLoss": 1.37616859,
+      "validationAccuracy": 0.47297297,
+      "validationLoss": 1.39083424,
+      "validationMacroRecall": 0.44267399
+    },
+    {
+      "epoch": 6,
+      "trainingLoss": 1.25908984,
+      "validationAccuracy": 0.48648649,
+      "validationLoss": 1.24911484,
+      "validationMacroRecall": 0.48621795
+    },
+    {
+      "epoch": 7,
+      "trainingLoss": 1.16481521,
+      "validationAccuracy": 0.41891892,
+      "validationLoss": 1.17352992,
+      "validationMacroRecall": 0.42747253
+    },
+    {
+      "epoch": 8,
+      "trainingLoss": 1.09526688,
+      "validationAccuracy": 0.44594595,
+      "validationLoss": 1.1035787,
+      "validationMacroRecall": 0.46607143
+    },
+    {
+      "epoch": 9,
+      "trainingLoss": 1.01446079,
+      "validationAccuracy": 0.5,
+      "validationLoss": 1.01262555,
+      "validationMacroRecall": 0.49372711
+    },
+    {
+      "epoch": 10,
+      "trainingLoss": 1.00023054,
+      "validationAccuracy": 0.52702703,
+      "validationLoss": 0.97861205,
+      "validationMacroRecall": 0.52119963
+    },
+    {
+      "epoch": 11,
+      "trainingLoss": 0.96439861,
+      "validationAccuracy": 0.43243243,
+      "validationLoss": 1.0818767,
+      "validationMacroRecall": 0.45357143
+    },
+    {
+      "epoch": 12,
+      "trainingLoss": 0.92818078,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 0.93372105,
+      "validationMacroRecall": 0.51753663
+    },
+    {
+      "epoch": 13,
+      "trainingLoss": 0.8920022,
+      "validationAccuracy": 0.48648649,
+      "validationLoss": 1.05175667,
+      "validationMacroRecall": 0.48241758
+    },
+    {
+      "epoch": 14,
+      "trainingLoss": 0.87871537,
+      "validationAccuracy": 0.45945946,
+      "validationLoss": 0.99119547,
+      "validationMacroRecall": 0.46446886
+    },
+    {
+      "epoch": 15,
+      "trainingLoss": 0.89018088,
+      "validationAccuracy": 0.51351351,
+      "validationLoss": 1.07796237,
+      "validationMacroRecall": 0.5003663
+    },
+    {
+      "epoch": 16,
+      "trainingLoss": 0.83372785,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.9809793,
+      "validationMacroRecall": 0.53113553
+    },
+    {
+      "epoch": 17,
+      "trainingLoss": 0.82242908,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 0.91845977,
+      "validationMacroRecall": 0.53232601
+    },
+    {
+      "epoch": 18,
+      "trainingLoss": 0.80155948,
+      "validationAccuracy": 0.52702703,
+      "validationLoss": 1.01661371,
+      "validationMacroRecall": 0.50869963
+    },
+    {
+      "epoch": 19,
+      "trainingLoss": 0.77284571,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 0.99460553,
+      "validationMacroRecall": 0.52408425
+    },
+    {
+      "epoch": 20,
+      "trainingLoss": 0.76311734,
+      "validationAccuracy": 0.51351351,
+      "validationLoss": 0.95871534,
+      "validationMacroRecall": 0.49908425
+    },
+    {
+      "epoch": 21,
+      "trainingLoss": 0.79328991,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 1.08497094,
+      "validationMacroRecall": 0.52408425
+    },
+    {
+      "epoch": 22,
+      "trainingLoss": 0.79317189,
+      "validationAccuracy": 0.59459459,
+      "validationLoss": 0.87428653,
+      "validationMacroRecall": 0.61446886
+    },
+    {
+      "epoch": 23,
+      "trainingLoss": 0.7788086,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 1.06962431,
+      "validationMacroRecall": 0.51456044
+    },
+    {
+      "epoch": 24,
+      "trainingLoss": 0.74571544,
+      "validationAccuracy": 0.59459459,
+      "validationLoss": 0.8926068,
+      "validationMacroRecall": 0.56565934
+    },
+    {
+      "epoch": 25,
+      "trainingLoss": 0.73959042,
+      "validationAccuracy": 0.5,
+      "validationLoss": 1.03236048,
+      "validationMacroRecall": 0.48122711
+    },
+    {
+      "epoch": 26,
+      "trainingLoss": 0.72758259,
+      "validationAccuracy": 0.59459459,
+      "validationLoss": 1.01283962,
+      "validationMacroRecall": 0.54084249
+    },
+    {
+      "epoch": 27,
+      "trainingLoss": 0.71397529,
+      "validationAccuracy": 0.58108108,
+      "validationLoss": 0.92251424,
+      "validationMacroRecall": 0.54908425
+    },
+    {
+      "epoch": 28,
+      "trainingLoss": 0.69833003,
+      "validationAccuracy": 0.52702703,
+      "validationLoss": 1.01124627,
+      "validationMacroRecall": 0.50869963
+    },
+    {
+      "epoch": 29,
+      "trainingLoss": 0.70719578,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.89855098,
+      "validationMacroRecall": 0.53241758
+    },
+    {
+      "epoch": 30,
+      "trainingLoss": 0.68565027,
+      "validationAccuracy": 0.51351351,
+      "validationLoss": 0.99089571,
+      "validationMacroRecall": 0.5003663
+    },
+    {
+      "epoch": 31,
+      "trainingLoss": 0.70089523,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.9179838,
+      "validationMacroRecall": 0.52417582
+    },
+    {
+      "epoch": 32,
+      "trainingLoss": 0.70478953,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 0.91475711,
+      "validationMacroRecall": 0.51456044
+    },
+    {
+      "epoch": 33,
+      "trainingLoss": 0.70873229,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.92051181,
+      "validationMacroRecall": 0.52417582
+    },
+    {
+      "epoch": 34,
+      "trainingLoss": 0.71181392,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.89017717,
+      "validationMacroRecall": 0.53369963
+    },
+    {
+      "epoch": 35,
+      "trainingLoss": 0.67427203,
+      "validationAccuracy": 0.58108108,
+      "validationLoss": 0.87133003,
+      "validationMacroRecall": 0.5217033
+    },
+    {
+      "epoch": 36,
+      "trainingLoss": 0.6409957,
+      "validationAccuracy": 0.59459459,
+      "validationLoss": 0.92747016,
+      "validationMacroRecall": 0.55421245
+    },
+    {
+      "epoch": 37,
+      "trainingLoss": 0.65569273,
+      "validationAccuracy": 0.58108108,
+      "validationLoss": 0.92105037,
+      "validationMacroRecall": 0.5217033
+    },
+    {
+      "epoch": 38,
+      "trainingLoss": 0.67236693,
+      "validationAccuracy": 0.55405405,
+      "validationLoss": 0.90000644,
+      "validationMacroRecall": 0.5253663
+    },
+    {
+      "epoch": 39,
+      "trainingLoss": 0.64788767,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.90928501,
+      "validationMacroRecall": 0.53241758
+    },
+    {
+      "epoch": 40,
+      "trainingLoss": 0.63187617,
+      "validationAccuracy": 0.56756757,
+      "validationLoss": 0.92532765,
+      "validationMacroRecall": 0.52417582
+    }
+  ],
+  "preprocessingVersion": "rgb-resize64-normalize-half-v1",
+  "reportVersion": "symbol-classifier-training-report-v1",
+  "runtime": {
+    "device": "cpu",
+    "torchVersion": "2.12.1+cpu",
+    "torchvisionVersion": "0.27.1+cpu"
+  },
+  "schemaVersion": 1,
+  "splitSeed": "game-predictor-m6-split-v1",
+  "splitSha256": "214bb9eeddfc996e47a9582c0e582a098b865aff430d14102e28e0c4e5ab2ec0",
+  "status": "bootstrap",
+  "testMetrics": {
+    "accuracy": 0.63013699,
+    "confusionMatrix": [
+      [
+        9,
+        0,
+        0,
+        0,
+        0,
+        1,
+        3,
+        2
+      ],
+      [
+        0,
+        10,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        7,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        10,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        4,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        5,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        7,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        7,
+        2
+      ]
+    ],
+    "loss": 0.87164033,
+    "macroRecall": 0.62712843,
+    "perClass": [
+      {
+        "f1": 0.72,
+        "precision": 0.9,
+        "recall": 0.6,
+        "support": 15,
+        "symbolCode": "cherries"
+      },
+      {
+        "f1": 0.8,
+        "precision": 0.71428571,
+        "recall": 0.90909091,
+        "support": 11,
+        "symbolCode": "grapes"
+      },
+      {
+        "f1": 0.93333333,
+        "precision": 1.0,
+        "recall": 0.875,
+        "support": 8,
+        "symbolCode": "lemon"
+      },
+      {
+        "f1": 0.95238095,
+        "precision": 0.90909091,
+        "recall": 1.0,
+        "support": 10,
+        "symbolCode": "orange"
+      },
+      {
+        "f1": 0.4,
+        "precision": 0.66666667,
+        "recall": 0.28571429,
+        "support": 7,
+        "symbolCode": "plum"
+      },
+      {
+        "f1": 0.55555556,
+        "precision": 0.38461538,
+        "recall": 1.0,
+        "support": 5,
+        "symbolCode": "seven"
+      },
+      {
+        "f1": 0.10526316,
+        "precision": 0.09090909,
+        "recall": 0.125,
+        "support": 8,
+        "symbolCode": "star"
+      },
+      {
+        "f1": 0.30769231,
+        "precision": 0.5,
+        "recall": 0.22222222,
+        "support": 9,
+        "symbolCode": "watermelon"
+      }
+    ]
+  },
+  "testSampleCount": 73,
+  "trainingSampleCount": 269,
+  "validationMetrics": {
+    "accuracy": 0.59459459,
+    "confusionMatrix": [
+      [
+        8,
+        0,
+        0,
+        0,
+        0,
+        7,
+        0,
+        0
+      ],
+      [
+        0,
+        7,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        3,
+        7,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        12,
+        0,
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        3,
+        0,
+        0,
+        3,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        7,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        9,
+        3
+      ]
+    ],
+    "loss": 0.87428653,
+    "macroRecall": 0.61446886,
+    "perClass": [
+      {
+        "f1": 0.66666667,
+        "precision": 0.88888889,
+        "recall": 0.53333333,
+        "support": 15,
+        "symbolCode": "cherries"
+      },
+      {
+        "f1": 0.82352941,
+        "precision": 0.7,
+        "recall": 1.0,
+        "support": 7,
+        "symbolCode": "grapes"
+      },
+      {
+        "f1": 0.46153846,
+        "precision": 1.0,
+        "recall": 0.3,
+        "support": 10,
+        "symbolCode": "lemon"
+      },
+      {
+        "f1": 0.75,
+        "precision": 0.63157895,
+        "recall": 0.92307692,
+        "support": 13,
+        "symbolCode": "orange"
+      },
+      {
+        "f1": 0.6,
+        "precision": 1.0,
+        "recall": 0.42857143,
+        "support": 7,
+        "symbolCode": "plum"
+      },
+      {
+        "f1": 0.60869565,
+        "precision": 0.4375,
+        "recall": 1.0,
+        "support": 7,
+        "symbolCode": "seven"
+      },
+      {
+        "f1": 0.15384615,
+        "precision": 0.09090909,
+        "recall": 0.5,
+        "support": 2,
+        "symbolCode": "star"
+      },
+      {
+        "f1": 0.375,
+        "precision": 1.0,
+        "recall": 0.23076923,
+        "support": 13,
+        "symbolCode": "watermelon"
+      }
+    ]
+  },
+  "validationSampleCount": 74
+}

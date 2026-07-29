@@ -299,6 +299,21 @@ dataset, konfigurację, seed, model version i raport held-out. Po pierwszej
 wersji modelu review priorytetyzuje niepewne albo reprezentatywne przypadki.
 Auto-accept pozostaje wyłączone do zaakceptowanej kalibracji confidence.
 
+Kalibracja TASK-0063 dopasowuje jedną temperaturę wyłącznie na source-disjoint
+validation i używa testu tylko do końcowego pomiaru. Próg auto-accept wymaga
+jednocześnie dojrzałego statusu modelu, osiągniętego celu liczności datasetu,
+co najmniej 95% precision na minimum 20 próbkach validation oraz co najmniej
+90% precision na minimum 3 próbkach każdej klasy. Brak dowodu wyłącza
+auto-accept; niskie confidence nigdy nie odrzuca próbki automatycznie.
+Aktualny model bootstrapowy nie spełnia tych bramek, dlatego każda predykcja
+pozostaje decyzją człowieka.
+
+Kolejny batch active-learning zawiera całe pending layouty 5 × 3. Ranking
+łączy niepewność pięciu najbardziej niepewnych komórek, różnorodność rozkładu
+predykcji, nowe zdjęcie źródłowe i niedoreprezentowaną przewidywaną klasę.
+Do wyczerpania źródeł wybiera najwyżej jedną planszę z jednego zdjęcia.
+Kolejka nie zapisuje ani nie zmienia `reviewed-cell-labels-v1`.
+
 ### 8. Manual review
 
 Element trafia do review, jeżeli:

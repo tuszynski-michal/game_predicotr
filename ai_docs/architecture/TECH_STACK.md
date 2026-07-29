@@ -322,8 +322,10 @@ Zaakceptowany stos prototypu:
 - PaddlePaddle CPU `3.3.1` z oficjalnym modelem recognition-only
   `en_PP-OCRv5_mobile_rec`,
 - PyYAML `6.0.3` do odczytu kontraktu lokalnego modelu,
-- PyTorch i torchvision do treningu,
-- ONNX Runtime do inferencji.
+- PyTorch `2.12.1` i torchvision `0.27.1` CPU do treningu,
+- ONNX `1.22.0` i ONNX Script `0.7.1` do aktualnego eksportera
+  `torch.export` z opset 18 oraz ONNX Runtime CPU `1.28.0` do lokalnej
+  inferencji.
 
 Geometria, OCR i klasyfikator implementują osobne porty. Dla prototypu
 geometrii przypięto dojrzałą linię OpenCV 4.13 zamiast świeżego major 5, aby

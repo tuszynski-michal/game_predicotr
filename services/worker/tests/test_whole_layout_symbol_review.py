@@ -117,6 +117,37 @@ def test_board_decisions_are_atomic_idempotent_and_resumable(tmp_path: Path) -> 
     assert resumed_board["cells"][0]["symbolCode"] == "lemon"
 
 
+def test_suggestions_are_payload_only_and_never_create_a_decision(
+    tmp_path: Path,
+) -> None:
+    class Provider:
+        def for_sample(self, sample):
+            return {
+                "suggestionStatus": "suggested",
+                "suggestions": [{"rank": 1, "symbolCode": "lemon"}],
+            }
+
+    review = BootstrapSymbolReview(
+        INVENTORY,
+        CROP_ROOT,
+        tmp_path / "reviewed-labels.json",
+        require_calibrated=True,
+        suggestion_provider=Provider(),
+    )
+    review.configure(
+        game_code="blazing-hot-7-deluxe",
+        reviewed_by="owner",
+        symbol_codes=("cherries", "lemon", "seven"),
+    )
+
+    board = review.board_state()["board"]
+
+    assert isinstance(board, dict)
+    assert board["cells"][0]["suggestions"][0]["symbolCode"] == "lemon"
+    assert board["cells"][0]["decision"] == "pending"
+    assert review.progress()["accepted"] == 0
+
+
 def test_board_update_rejects_foreign_cell_without_partial_write(tmp_path: Path) -> None:
     review = _review(tmp_path)
     first = review.board_state(status="all", offset=0)["board"]

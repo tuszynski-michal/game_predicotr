@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M6.1 — TASK-0059/TASK-0097 completed; TASK-0060 next`
+`M6.2 completed — G6.2 passed; TASK-0064 next`
 
 ## Completed
 
@@ -892,7 +892,7 @@ last_updated: 2026-07-29
   clipped/occluded/interface-contaminated zamiast dalszego ręcznego oglądania
   wszystkich 5805 cropów.
 
-## In progress
+## Recent M5/M6 execution history
 
 - aktywny TASK-0101 ma odrzucone v4 oraz eksperymentalne v5–v8; następnym
   pionem jest automatyczna jakość per komórka, która dopuści wyłącznie pełne
@@ -1063,6 +1063,66 @@ last_updated: 2026-07-29
   `ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a`,
 - drugi przebieg eksportu z `--check --require-samples` przeszedł byte-for-byte;
   trening nie został jeszcze uruchomiony.
+- ukończono TASK-0060: deterministyczny source-aware split ma `269/74/73`
+  próbek z `10/4/4` zdjęć dla train/validation/test, wszystkie osiem symboli
+  występuje w każdym zbiorze, a przeciek źródeł i assetów wynosi zero,
+- raport `m6-symbol-dataset-split-report.json` ma SHA-256
+  `214bb9eeddfc996e47a9582c0e582a098b865aff430d14102e28e0c4e5ab2ec0`
+  i odtwarza się byte-for-byte; wszystkie symbole pozostają poniżej
+  orientacyjnego celu 100 próbek, więc pierwszy model ma charakter bootstrapowy.
+- ukończono TASK-0061: deterministyczny `small-symbol-cnn-v1` ma 24 104
+  parametry, używa PyTorch `2.12.1` CPU, wybrał epokę 22 wyłącznie po validation
+  i odtworzył logiczny checkpoint w drugim pełnym przebiegu,
+- validation accuracy/macro-recall wynosi `59.4595% / 61.4469%`, a test
+  `63.0137% / 62.7128%`; `star`, `watermelon` i `plum` pozostają słabe, dlatego
+  model ma status `bootstrap` i nie zezwala na auto-accept,
+- raport `m6-symbol-classifier-baseline-report.json` ma SHA-256
+  `9098dcbcad4698a9f95910e09f19d05fae9edcad4957a15c56fef9e0efaa4e55`,
+  a logiczny checksum stanu to
+  `0edab6bbb738d908c4e902a347c982407549c159829c80fc3010c314a6c1aea2`.
+- ukończono TASK-0099: loopbackowy whole-layout review pokazuje do trzech
+  jawnych sugestii z dystansem cosinusowym i confidence klasyfikatora, osobno
+  pokazuje historyczną etykietę po `observationId` oraz nigdy nie zapisuje
+  decyzji bez kliknięcia albo skrótu właściciela,
+- indeks referencyjny jest zamrożony na 269 zaakceptowanych próbkach train;
+  self-match i całe to samo zdjęcie źródłowe są zawsze wykluczane, a próg
+  `0,9975` daje `no_suggestion` dla słabszego dopasowania,
+- source-disjoint validation ma coverage `75.6757%`, top-1 accuracy przy tym
+  coverage `76.7857%`, top-3 `94.6429%` i zero source leakage; raport
+  `m6-symbol-suggestion-validation-report.json` ma SHA-256
+  `7bd77eeade0a5fd68d74c0394520aa2063ab6c2d6f21d7944cb52374eb6b290e`.
+- ukończono TASK-0062: aktualny eksporter `torch.export` utworzył lokalny ONNX
+  opset 18 o rozmiarze `115133` bajtów i SHA-256
+  `e03f66f2ab092b6049920fee6fb2839900a95eb94af42fbd5ef7e35c473b5fb8`,
+- adapter wymusza `CPUExecutionProvider`, weryfikuje checksumę oraz kontrakt
+  `N × 3 × 64 × 64 -> N × 8`; inferencja nie korzysta z sieci,
+- parytet wszystkich 416 train/validation/test ma zero zmian top-1, maksymalny
+  błąd logits `2.861e-6` i prawdopodobieństw `4.172e-7` przy tolerancji `1e-5`;
+  drugi eksport i `--check` odtworzyły artefakt oraz raport o SHA-256
+  `6f4596ae8ae938b7e9e89dac05e1a888ac4e53fe1d780dcc9325abfac33ad98c`.
+- ukończono TASK-0063: deterministyczna temperatura `1.0338382913` została
+  dopasowana wyłącznie na 74 próbkach validation; test 73 próbek zmierzono
+  dopiero po zamrożeniu parametru, bez zmiany top-1,
+- validation NLL zmalał z `0.94285158` do `0.94251763`, a test NLL z
+  `0.87164029` do `0.87065020`; ECE nie poprawił się, co pozostaje jawnym
+  dowodem, że skalowanie temperatury nie rozwiązuje słabości modelu,
+- najlepszy obserwowany próg validation `0.89329293` miał precision `1.0`,
+  lecz tylko 9 próbek i nie spełnił bramki minimum 20 oraz pokrycia klas;
+  status bootstrapowy i nieosiągnięty cel danych również blokują auto-accept,
+  a auto-reject jest wyłączony,
+- zweryfikowano checksumy wszystkich 5389 pending cropów; 359 plansz miało
+  pełne 15/15 pending komórek, 4 częściowe plansze wyłączono z selekcji,
+- `whole-layout-active-learning-v1` wybrał 30 plansz z 30 różnych zdjęć;
+  raport kalibracji ma SHA-256
+  `a2359efed1e2dc2d73fc383d9e260c88f4a19838a74af3dd165362692601bff7`,
+  a raport selekcji
+  `2ab9a79a6d1c81b8d08abe0defc447510f0cfe4df1909c9aa8da77d79e6115d2`,
+- drugi pełny przebieg `--check` odtworzył oba raporty bajtowo; G6.2 zaliczono
+  z polityką manual-review-only.
+
+## In progress
+
+- brak aktywnego zadania; następny jest TASK-0064.
 
 ## Blocked
 
@@ -1133,12 +1193,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć TASK-0060: utworzyć source-aware train/validation/test split,
-zweryfikować liczności per symbol i wydać raport jakości pierwszego
-rzeczywistego datasetu. Jeżeli liczność lub pokrycie held-out okaże się
-niewystarczające, wrócić do wznawialnego review v16 bez kopiowania historycznych
-decyzji v2. TASK-0099 z top-3 sugestiami pozostaje po pierwszym modelu i bez
-auto-accept. Równolegle
+Rozpocząć TASK-0064: dodać trwałe `review_item` i Admin API dla pełnego
+manual-review flow, korzystając z niezmiennego raportu selekcji TASK-0063.
+Predykcja, confidence i alternatywy pozostają dowodem pomocniczym, a nie
+decyzją. Równolegle
 TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
 Pixela i Samsunga.
 

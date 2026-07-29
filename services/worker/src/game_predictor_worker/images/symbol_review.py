@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Literal
+from typing import Literal, Protocol
 
 from PIL import Image, UnidentifiedImageError
 
@@ -39,6 +39,10 @@ class SymbolReviewError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+class SymbolSuggestionProvider(Protocol):
+    def for_sample(self, sample: SymbolCropSample) -> dict[str, object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +97,7 @@ class BootstrapSymbolReview:
         label_output_path: Path,
         *,
         require_calibrated: bool = False,
+        suggestion_provider: SymbolSuggestionProvider | None = None,
     ) -> None:
         try:
             _, inventory = load_symbol_crop_inventory(inventory_path)
@@ -128,6 +133,7 @@ class BootstrapSymbolReview:
             )
         self.crop_root = resolved_crop_root
         self.label_output_path = output
+        self._suggestion_provider = suggestion_provider
         self._samples_by_id = {sample.sample_id: sample for sample in inventory.samples}
         self._samples_by_checksum: dict[str, tuple[str, ...]] = {}
         checksum_groups: dict[str, list[str]] = defaultdict(list)
@@ -542,10 +548,7 @@ class BootstrapSymbolReview:
                 board
                 for board in self._boards
                 if (status == "all" or self._board_status(board) == status)
-                and (
-                    sequence_number is None
-                    or board[0].sequence_number == sequence_number
-                )
+                and (sequence_number is None or board[0].sequence_number == sequence_number)
             ]
             board = filtered[offset] if offset < len(filtered) else None
             return {
@@ -748,6 +751,8 @@ class BootstrapSymbolReview:
                 "symbolCode": decision.symbol_code if decision else None,
             }
         )
+        if self._suggestion_provider is not None:
+            value.update(self._suggestion_provider.for_sample(sample))
         return value
 
     def _source(self) -> ReviewedLabelSource:

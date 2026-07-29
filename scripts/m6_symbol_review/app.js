@@ -22,6 +22,7 @@ const ui = {
   perSymbol: $('#per-symbol'),
   position: $('#position'),
   previous: $('#previous'),
+  previousLabel: $('#previous-label'),
   profileVersion: $('#profile-version'),
   reject: $('#reject'),
   reviewPanel: $('#review-panel'),
@@ -32,6 +33,8 @@ const ui = {
   setupForm: $('#setup-form'),
   setupPanel: $('#setup-panel'),
   sourceGroup: $('#source-group'),
+  suggestionButtons: $('#suggestion-buttons'),
+  suggestionStatus: $('#suggestion-status'),
   symbolButtons: $('#symbol-buttons'),
   symbolCodes: $('#symbol-codes'),
 };
@@ -102,6 +105,41 @@ function selectCell(sampleId) {
     node.classList.toggle('active', node.dataset.sampleId === sampleId);
   });
   renderSymbols();
+  renderSuggestions(cell);
+}
+
+function renderSuggestions(cell) {
+  ui.suggestionButtons.replaceChildren();
+  ui.previousLabel.hidden = true;
+  ui.previousLabel.textContent = '';
+  if (!cell) {
+    ui.suggestionStatus.textContent = 'Wybierz komórkę';
+    return;
+  }
+  if (cell.previousGeometryLabel) {
+    ui.previousLabel.textContent = `Poprzednia geometria: ${cell.previousGeometryLabel.symbolCode}`;
+    ui.previousLabel.hidden = false;
+  }
+  const suggestions = cell.suggestions || [];
+  if (!suggestions.length) {
+    ui.suggestionStatus.textContent = 'Brak bezpiecznej sugestii';
+    return;
+  }
+  ui.suggestionStatus.textContent = `Próg podobieństwa ${(
+    cell.suggestionEvidence.minimumCosineSimilarity * 100
+  ).toFixed(1)}%`;
+  const shortcuts = ['Q', 'W', 'E'];
+  suggestions.forEach((suggestion, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'suggestion';
+    button.innerHTML = `<strong>${shortcuts[index]} · ${suggestion.symbolCode}</strong>
+      <small>podobieństwo ${(suggestion.cosineSimilarity * 100).toFixed(1)}% · model ${Math.round(suggestion.classifierConfidence * 100)}%</small>`;
+    button.addEventListener('click', () =>
+      decide('accepted', suggestion.symbolCode),
+    );
+    ui.suggestionButtons.append(button);
+  });
 }
 
 function renderSymbols() {
@@ -291,6 +329,13 @@ window.addEventListener('keydown', (event) => {
   if (/^[1-9]$/.test(event.key)) {
     const symbol = state.symbols[Number(event.key) - 1];
     if (symbol) decide('accepted', symbol.symbolCode);
+  } else if (['q', 'w', 'e'].includes(event.key.toLowerCase())) {
+    const selected = state.board?.cells.find(
+      (cell) => cell.sampleId === state.selectedSampleId,
+    );
+    const index = ['q', 'w', 'e'].indexOf(event.key.toLowerCase());
+    const suggestion = selected?.suggestions?.[index];
+    if (suggestion) decide('accepted', suggestion.symbolCode);
   } else if (event.key.toLowerCase() === 'r') {
     decide('rejected');
   } else if (event.key.toLowerCase() === 'c') {

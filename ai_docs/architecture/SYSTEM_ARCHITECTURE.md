@@ -575,6 +575,55 @@ TASK-0061–TASK-0063 tworzą model, ONNX i skalibrowaną politykę active learn
 która priorytetyzuje niepewne przypadki, ale nie uruchamia auto-accept przed
 przejściem held-out.
 
+Baseline TASK-0061 jest małym, lokalnym CNN bez pretrained weights. Otrzymuje
+deterministycznie znormalizowane RGB 64 × 64, uczy się batchowo wyłącznie na
+train i wybiera checkpoint według validation macro-recall. Test jest oceniany
+dopiero po zamrożeniu checkpointu. Raport wiąże dataset, source-aware split,
+konfigurację, class mapping, wersje PyTorch/torchvision oraz logiczny checksum
+`state_dict`. Model ma status `bootstrap` i nie może auto-akceptować etykiet.
+
+TASK-0099 wykorzystuje zamrożony checkpoint wyłącznie jako pomoc w ręcznym
+review. Indeks najbliższych przykładów zawiera tylko zaakceptowane próbki
+partycji train z zatwierdzoną geometrią. Dla każdej komórki wyklucza self-match
+i wszystkie referencje z tego samego obrazu źródłowego, po czym zwraca najwyżej
+jedną referencję na klasę i deterministyczne top-3. Próg cosinusowy `0,9975`
+jest bramką wyświetlenia, nie confidence policy ani auto-accept. Brak
+wystarczającego podobieństwa daje `no_suggestion`. Historyczna etykieta
+powiązana przez `observationId` jest osobnym dowodem poprzedniej geometrii.
+Żadna sugestia nie zmienia `reviewed-cell-labels-v1`; dopiero kliknięcie albo
+skrót użytkownika tworzy zwykłą decyzję review.
+
+TASK-0062 ustanawia produkcyjną granicę inferencji jako
+`bootstrap-symbol-cnn-onnx-v1`: aktualny eksporter `torch.export` materializuje
+ONNX opset 18 z dynamicznym wyłącznie batchem oraz stałymi wymiarami
+`N × 3 × 64 × 64 -> N × 8 logits`. Artefakt wskazuje dokładny checkpoint
+PyTorch, preprocessing i kolejność klas, przechodzi pełny ONNX checker oraz
+jest ponownie generowany bajtowo w trybie `--check`. Lokalny adapter weryfikuje
+SHA-256 przed utworzeniem sesji, wymusza wyłącznie
+`CPUExecutionProvider`, jeden wątek i sekwencyjne wykonanie oraz odrzuca
+niepoprawny kształt, typ i wartości niefinitywne. Akceptowany limit parytetu
+wynosi `1e-5` osobno dla logits i prawdopodobieństw; zmiana top-1 jest błędem
+blokującym. Adapter nie pobiera modelu ani danych z sieci.
+
+TASK-0063 nakłada na logits jedną dodatnią temperaturę
+`symbol-temperature-calibration-v1`, dopasowaną deterministycznie przez
+ograniczoną optymalizację NLL wyłącznie na validation. Skalowanie nie zmienia
+top-1. Raport przechowuje NLL, Brier, ECE, reliability bins, metryki każdej
+klasy i pełny pomiar progów; test służy wyłącznie jednorazowej ocenie po
+zamrożeniu temperatury. Polityka `symbol-confidence-policy-v1` jest
+fail-closed: status bootstrapowy, nieosiągnięty cel liczności albo brak
+wymaganego precision/support wyłącza auto-accept. Automatyczny reject jest
+zawsze wyłączony, ponieważ niska pewność modelu nie jest dowodem błędnej
+geometrii ani nieważnej obserwacji.
+
+`whole-layout-active-learning-v1` uruchamia ten sam checksum-bound adapter ONNX
+na pending cropach, weryfikując każdy plik przed inferencją. Do kandydatów
+dopuszcza wyłącznie plansze z kompletem 15 pending komórek. Deterministyczny
+greedy ranking waży niepewność, różnorodność w przestrzeni predykcji, nowe
+źródło i rzadko przewidywane klasy; do pokrycia dostępnych źródeł wybiera
+najwyżej jedną planszę na zdjęcie. Wynik jest tylko wersjonowaną kolejką
+manual review i nie mutuje źródła etykiet ani modelu.
+
 Manual review nie może ufać samemu confidence OCR. Dopóki osobny held-out
 benchmark nie wyznaczy zaakceptowanych progów, każdy numer wymaga potwierdzenia
 człowieka. Continuity pozostaje walidatorem i nie jest źródłem zastępczej

@@ -343,8 +343,34 @@ brak uprawnienia `INTERNET`.
   a endpoint planszy nie przyjmuje ścieżki z klienta,
 - trening jest batchowy i wersjonowany; pojedyncza decyzja nie mutuje aktywnego
   modelu,
-- active learning wybiera niepewne przypadki na podstawie zapisanej wersji
-  modelu i nie auto-akceptuje przed kalibracją held-out,
+- indeks sugestii zawiera tylko zaakceptowaną partycję train, a ranking
+  wyklucza self-match i wszystkie referencje z tego samego zdjęcia źródłowego,
+- ranking top-3 jest deterministyczny także przy remisie, zwraca najwyżej jedną
+  referencję na symbol i przechodzi w `no_suggestion` poniżej jawnego progu,
+- historyczna etykieta po `observationId` jest odróżniona od wyniku bieżącej
+  geometrii; samo wyrenderowanie lub wybór komórki nie zapisuje decyzji,
+- testy sugestii obejmują pusty indeks, niski similarity, crop drift,
+  same-source leakage oraz smoke obu stanów UI,
+- ONNX zachowuje wyłącznie dynamiczny batch; stałe kanały i wymiary obrazu
+  oraz stała liczba klas są ponownie walidowane przed utworzeniem sesji,
+- parytet PyTorch–ONNX obejmuje wszystkie train/validation/test, wymaga zera
+  zmian top-1 i osobnego limitu błędu bezwzględnego dla logits oraz
+  prawdopodobieństw,
+- adapter ONNX odrzuca drift checksumy, inną liczbę klas, zły typ/kształt,
+  pusty batch i wartości niefinitywne oraz wymusza lokalny CPU provider,
+- temperatura jest dopasowywana wyłącznie na validation, poprawia albo
+  zachowuje NLL i nie może zmienić top-1; test jest tylko pomiarem po fit,
+- raport kalibracji obejmuje NLL, Brier, ECE, reliability bins, każdą klasę
+  oraz pełne evidence progów, dzięki czemu słaba klasa nie znika w globalnej
+  accuracy,
+- status bootstrapowy, nieosiągnięty cel próbek lub niespełniony
+  precision/support wyłącza auto-accept stabilnym reason code; auto-reject
+  pozostaje wyłączony,
+- active learning odrzuca niekompletną planszę, weryfikuje checksumę każdego
+  pending cropu, wybiera pełne layouty 15/15 i wykorzystuje nowe źródła przed
+  ponownym użyciem zdjęcia,
+- ponowne uruchomienie dla tych samych raportów, modelu i cropów daje
+  identyczną temperaturę, politykę oraz kolejność active-learning,
 - podział train/validation według zdjęcia źródłowego,
 - lokalne wagi bez pobierania w runtime,
 - wznowienie i idempotencja.

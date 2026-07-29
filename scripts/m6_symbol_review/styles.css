@@ -297,6 +297,53 @@ label {
   font-size: 0.75rem;
   text-transform: uppercase;
 }
+.suggestion-panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #384b7a;
+  border-radius: 0.75rem;
+  background: #101a30;
+}
+.suggestion-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.suggestion-heading span {
+  color: #b7c8ff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.suggestion-heading small {
+  color: #8f9bb4;
+  text-align: right;
+}
+.suggestion-buttons {
+  display: grid;
+  gap: 0.4rem;
+}
+.suggestion-buttons button {
+  display: grid;
+  min-height: 0;
+  gap: 0.18rem;
+  padding: 0.55rem 0.65rem;
+  border-color: #546da8;
+  text-align: left;
+}
+.suggestion-buttons small {
+  color: #aab7d5;
+}
+.previous-label {
+  padding: 0.45rem 0.55rem;
+  border: 1px dashed #a47a3d;
+  border-radius: 0.5rem;
+  background: #2d2417;
+  color: #f4d59c;
+  font-size: 0.78rem;
+}
 .symbol-buttons {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

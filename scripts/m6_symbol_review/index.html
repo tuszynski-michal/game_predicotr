@@ -131,6 +131,14 @@
             <aside class="decision-panel">
               <p class="selection-label">Wybrana komórka</p>
               <strong id="selected-cell">Kliknij komórkę</strong>
+              <section class="suggestion-panel" aria-live="polite">
+                <div class="suggestion-heading">
+                  <span>Sugestie modelu</span>
+                  <small id="suggestion-status">Wybierz komórkę</small>
+                </div>
+                <div id="suggestion-buttons" class="suggestion-buttons"></div>
+                <div id="previous-label" class="previous-label" hidden></div>
+              </section>
               <div id="symbol-buttons" class="symbol-buttons"></div>
               <button id="reject" type="button" class="danger">
                 R · Odrzuć komórkę
@@ -141,8 +149,9 @@
                 Zastosuj do identycznych cropów
               </label>
               <p class="hint">
-                Skróty 1–9 przypisują symbol wybranej komórce. Strzałki
-                przechodzą między planszami. Decyzje zapisują się atomowo.
+                Q/W/E akceptują sugestię 1/2/3. Skróty 1–9 przypisują symbol z
+                pełnej listy. Każda z tych akcji tworzy zwykłą, jawną decyzję;
+                sama sugestia niczego nie zapisuje.
               </p>
               <div id="per-symbol" class="per-symbol"></div>
             </aside>

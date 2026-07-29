@@ -1,0 +1,843 @@
+{
+  "artifactSha256": "27dbbb44301e988d9960d807cef0ad2ac57ae121143ddd0a5fcd1d4e279c0810",
+  "datasetSha256": "ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a",
+  "minimumCosineSimilarity": 0.9975,
+  "qualityGate": {
+    "noAutomaticMutation": true,
+    "sourceImageLeakageCount": 0,
+    "status": "passed"
+  },
+  "referencePartition": "train",
+  "schemaVersion": 1,
+  "splitSha256": "214bb9eeddfc996e47a9582c0e582a098b865aff430d14102e28e0c4e5ab2ec0",
+  "status": "bootstrap",
+  "suggestionVersion": "bootstrap-symbol-suggestions-v1",
+  "validationMetrics": {
+    "coverage": 0.75675676,
+    "noSuggestionCount": 18,
+    "referenceCount": 269,
+    "sameSourceLeakageCount": 0,
+    "sampleCount": 74,
+    "suggestedCount": 56,
+    "targets": [
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "0248a6ebf142c3050a84517576fd824bdcf3bc6b289531027d07928c3410c8ae",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "059a9b76622a395e7e3f88f8a0ccb816d0d8001c43457dea2cd475f08e66a9f5",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "seven",
+          "star"
+        ],
+        "topClassifierConfidence": 0.322781,
+        "topCosineSimilarity": 0.997675
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "08097eebfcc9a72c96dcc8cdd9cedbe74a1953e8ef401e1beaa7050e95a395ab",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "0a2503cfd6c80a03267d7d265fc9b83ff209d9b0ec68d86212406364bba70916",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "orange",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.073142,
+        "topCosineSimilarity": 0.999723
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "0bac3ae6e7fe480ba67741e0667584e75fc3942784eeeea879d2e7935cc9d463",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "orange",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.178513,
+        "topCosineSimilarity": 0.998948
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "0cde05a903ed9e7589bbeb7e6cca13f0ecc3ad5842407303edfd4bad06e067f7",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "watermelon",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.45977,
+        "topCosineSimilarity": 0.999289
+      },
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "15462960882f9a52c6420f97aaf8b0e71f391d17e4034aa3cc08b4eda44b4222",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "plum",
+          "grapes",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.824996,
+        "topCosineSimilarity": 0.999097
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "1aa3e1f2cbff6649390a5551cac9c74cb56139593e1fd0d88398cd88b2787739",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "cherries",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.061548,
+        "topCosineSimilarity": 0.997654
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "1db58c923f4b5bc0668983856c6ef1030fe42a31b01dad01dab48e109c07ac1c",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.990242,
+        "topCosineSimilarity": 0.999512
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "1f4a399a7729e79d94fbc59bb29d90d706dd0874b0c6d501929ebf9f54a7fafc",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "star",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.340927,
+        "topCosineSimilarity": 0.999486
+      },
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "2444cf33deb351908af7036b8acd2def98daa9c9be2bc032f6f28e2e958ac7e5",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "26299e952875afc6acc8fc603a65fe551ffecaf7e2efca37a7a2df3bb3a04677",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "26676dc0e76c96f154a1bcd29f8fca39b57016bd3e6a0534cc557857d369d824",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "seven",
+          "cherries",
+          "star"
+        ],
+        "topClassifierConfidence": 0.674473,
+        "topCosineSimilarity": 0.999902
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "2cea8720a2805ee0d499d4b60f9a19455fa7c0a11963800e632d8e00e3e0dc2d",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.840999,
+        "topCosineSimilarity": 0.999838
+      },
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "2fe068c934b2a18b6f059b642e88113832c4da416c759497d6625bf42aa6135a",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "3c71631d0b21ee32c42b9ce0c257ef0d9f21174a89e0b848635a9c3060057561",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "orange",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.483928,
+        "topCosineSimilarity": 0.999514
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "4c3c930f0c9180e5539e0c23467207dbcac37d1f2b13ca2af5945c64831257ac",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.732637,
+        "topCosineSimilarity": 0.998379
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "51a50fdd74bb7a3a63e13f8809912d1987d734cd987f6284b34b4321bb65dc46",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "orange",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.053305,
+        "topCosineSimilarity": 0.999618
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "53313eed92728a4991aad8ff2da4e70b117b20d1af3dec0395ce2711fa4e613f",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.963508,
+        "topCosineSimilarity": 0.998349
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "554c043644a61dc6c2e2c13b41bd9d95f13ee9930d9ad7a8c5c4e2a939da6e57",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "star",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.292277,
+        "topCosineSimilarity": 0.998434
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "5c00550dd4e85019461d0b72bfeffedc14dfb3871589253dee28af322b0fdc80",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "lemon",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.712164,
+        "topCosineSimilarity": 0.999491
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "5cbceca044c27271c322ced11ee8b23acce70cb4b82b2895bdbf52e5c41c0500",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "lemon",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.696965,
+        "topCosineSimilarity": 0.998716
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "5de5dd4c6d40f1a2a53bdcf7ceda755cddcfae2cf66dd8ace70d725897c51c44",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "lemon"
+        ],
+        "topClassifierConfidence": 0.880164,
+        "topCosineSimilarity": 0.9992
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "5f3af2bc298b1d9f501ed18d1a7629497a49fb348e378206bd0063f428fa97f1",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "watermelon",
+          "orange"
+        ],
+        "topClassifierConfidence": 0.320223,
+        "topCosineSimilarity": 0.99927
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "602d4a6bf8335e5f86f232d95a2dbc72f178755f0649bfff56caba90fe800dfe",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "star",
+          "orange"
+        ],
+        "topClassifierConfidence": 0.133438,
+        "topCosineSimilarity": 0.998776
+      },
+      {
+        "expectedSymbolCode": "star",
+        "sampleId": "65ad1a1f4664725e308079da77ebfa8b363f1f853f7d92f6f67fac588629d4ed",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "seven",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.277387,
+        "topCosineSimilarity": 0.997922
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "671bbaad1b5c62bb6faa569645c4c59aa31e695c37246868e04f6ac2e9212fb0",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "67b19ee5bf705d78746860fdc1fc802b40aa22919080cecc3ebd6302c712ec09",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "6a7d6784679eaed9062ef8090d7cc5b620faf5393d550f9222f20a285bfcf52a",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "orange",
+          "star"
+        ],
+        "topClassifierConfidence": 0.188023,
+        "topCosineSimilarity": 0.99909
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "6c267783d5fe17865c025e5861f5d8ea1d1f781efa06d1899d8ba1d1b92e38a9",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "watermelon",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.481967,
+        "topCosineSimilarity": 0.999314
+      },
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "73ee4eee2915314a036b5042a54f43adc2a8e3a1129879d5109650bf73eeeedb",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "7564790b3afbd1957c6f8133981a3761c03362d2d8f4e8c34104eff2c1a06794",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "star",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.394828,
+        "topCosineSimilarity": 0.999252
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "7b4f8d387dee54c737d597ac135f739a637ec59a9f2d8f480591128a5836bf61",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "7dda7744e8911b7ab857781c40c7dd5df94d6cc9e7f78a1398334231c3de37bc",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.90175,
+        "topCosineSimilarity": 0.998587
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "7ebf29129bde3617e7bddcc2df6a0ba6124740282842cd4a83ed8e721fcd5a1e",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "plum"
+        ],
+        "topClassifierConfidence": 0.970547,
+        "topCosineSimilarity": 0.99962
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "7fca95dc2cb512df9546ef348d175037b3f742dd0041c8757945cb271a2478fc",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "lemon",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.587631,
+        "topCosineSimilarity": 0.999793
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "7fdba477fb3b81da5753e20c4700a95d6ed1b1164b945d9059015a360befea0b",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "star",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.457892,
+        "topCosineSimilarity": 0.99804
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "8631aa5950ebdcd890483e6f78bafb4e9949262848a6687f1a941f7c7f38c73e",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "orange",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.166995,
+        "topCosineSimilarity": 0.999204
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "89ca9a747f13fd6aeeaa3af09b0749cd6a72a94913d5e11719b43bd8e3634ffa",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "seven",
+          "cherries",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.496894,
+        "topCosineSimilarity": 0.998295
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "9582152fd74371345ed725962e11780971b6ff37e980f3cee6556b848ff73e00",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "plum"
+        ],
+        "topClassifierConfidence": 0.987224,
+        "topCosineSimilarity": 0.999839
+      },
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "97cf11354e45aa278b4d8b3f7de249851157190664e49faac023c0ded4db48f7",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "plum",
+          "grapes",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.960615,
+        "topCosineSimilarity": 0.99984
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "992ae090a7eeef38f87b68a2ca42b1cf69dcb03f051c66cae0a8f3f0b017d48c",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "lemon",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.53171,
+        "topCosineSimilarity": 0.999941
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "99d79860013c72d7649e210264261a2b585c823eb6683f7f8275f98a00329402",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "star",
+          "watermelon",
+          "lemon"
+        ],
+        "topClassifierConfidence": 0.282417,
+        "topCosineSimilarity": 0.998778
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "9b4ad8d7c61d8509ba630acec3dfa5a246974bfecfdb0e0d0b08ce404f40a13f",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "plum"
+        ],
+        "topClassifierConfidence": 0.962141,
+        "topCosineSimilarity": 0.999647
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "9d4b4f150a65df579cf307932fc253891a79b0f92551168d20b84803b899cffe",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "cherries",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.050416,
+        "topCosineSimilarity": 0.999357
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "a138f08b9a1cc34ef070cbb1e7a7004fa28f5d63de5c6a8265cd4a1cdeb85f9d",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "orange",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.599939,
+        "topCosineSimilarity": 0.999706
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "ac02cf8696f8050bfbfa9d670c490ee3c5ffff65058fabe1e05decd5af462a82",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "adeae04139bab85e22b22583ffe2af0e1f479802b6b9c3617c1390b39b7fa930",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "lemon"
+        ],
+        "topClassifierConfidence": 0.866199,
+        "topCosineSimilarity": 0.999755
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "b27f81f97e360c588ea524e1e531774005b15d2442c9bddc70f14cdba13bc4a7",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "b5d807d8f39582327fad4893dffbdbaa2d18a1d370900d977595681ded77069f",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "plum"
+        ],
+        "topClassifierConfidence": 0.98706,
+        "topCosineSimilarity": 0.999672
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "b7647b299ed07e6ed21122190a4d5c04250787709cc5d725df5126d81345da81",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "bdd76e5db87ff1cfc1c78dd299d1a87cb3ff7a6e5bb5a379f8d7c8ef79f29abb",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "c0e19bb91c8a2fc02793050054476b9986bcafc4134677849a69da02b5c649ba",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.880414,
+        "topCosineSimilarity": 0.998473
+      },
+      {
+        "expectedSymbolCode": "plum",
+        "sampleId": "c12c3c723a21fa851c71ece95fa193385231638f00d09a0ae9189149611787e9",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "c28a81554bbd0520739ae2376ce64b15c4e4779684678ad6d5eda05ebd274a27",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "star",
+        "sampleId": "c8da4cc76a62de7b9e30b2f63d726dd7047c5a9837c9b7ae1072c4ea682f85c5",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "watermelon",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.31447,
+        "topCosineSimilarity": 0.997789
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "c951eee008bf3e6ff7290129e8a8dc7b69280cc12cdfdfc0b9302df0cc452e77",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "c9f30eed2cccaf592ef93ba986c7cf6fee595045ec2489bf922cd890c6959fb0",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.85295,
+        "topCosineSimilarity": 0.999743
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "cbbd50cef28ddb277b6d59cd1fb31e6d8bf7d4b8d82c81fb2cc664e81f69960c",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "star",
+          "orange",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.213697,
+        "topCosineSimilarity": 0.999762
+      },
+      {
+        "expectedSymbolCode": "seven",
+        "sampleId": "cc6a012b37b6789f4c23e51a2cd1873eed34e31d65a664bf87b92a4e4df63482",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "seven",
+          "cherries",
+          "star"
+        ],
+        "topClassifierConfidence": 0.5892,
+        "topCosineSimilarity": 0.997981
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "d1a3b04fe7791c3327ebcc25835de30c15af07b3e8f419c99cfaf635aaec7697",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "star",
+          "watermelon",
+          "lemon"
+        ],
+        "topClassifierConfidence": 0.248084,
+        "topCosineSimilarity": 0.998337
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "d721656b12892e078e4dc65d0424eaca397f54a1772c78113c845240c4acba82",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "watermelon",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.523461,
+        "topCosineSimilarity": 0.997904
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "d78fa0ce1a82c4e4a52cff20ee68eca35fa242aad6be24e6298227428899281f",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "seven",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.414612,
+        "topCosineSimilarity": 0.997771
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "da946cf333187d09ae3488fda2fd704a9024e6e9c5cc80a267b8ea0ac0aadad9",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "star",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.381684,
+        "topCosineSimilarity": 0.99967
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "e06161a22ed5d154d93b936123f677d7215442b19e41d4838db72f732c949920",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "star",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.600072,
+        "topCosineSimilarity": 0.999572
+      },
+      {
+        "expectedSymbolCode": "grapes",
+        "sampleId": "e26638d6a7550d70ad440b9b2f0b45a322bf9ee6a0f11fe513b23a4f7b374b24",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "grapes",
+          "watermelon",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.981207,
+        "topCosineSimilarity": 0.999498
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "e61c0224e8c4c4b6f5ff2d33f89114d88be1515f772e71f3970f83030001dcf5",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "orange",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.116308,
+        "topCosineSimilarity": 0.999717
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "e6f5a1e7ba7e3a6addc94c7b8d9d8b2664ad28e54d055025b876fff50fe0d71c",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "watermelon",
+          "star",
+          "orange"
+        ],
+        "topClassifierConfidence": 0.451048,
+        "topCosineSimilarity": 0.998142
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "e92bf82c25526ee90d49fc705d25020a54aef47f2f84aa134734792860ceef09",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "star",
+          "cherries"
+        ],
+        "topClassifierConfidence": 0.790017,
+        "topCosineSimilarity": 0.99969
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "f480d1b7757ac875167d1fd502bf023fd6597faa792813092fb0cb63a1313e6b",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "cherries",
+        "sampleId": "f805ec5944afe152c87a0b35787aa9421fe96b3664c2135a9b0f91289dec1a6d",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "cherries",
+          "watermelon",
+          "seven"
+        ],
+        "topClassifierConfidence": 0.546533,
+        "topCosineSimilarity": 0.998682
+      },
+      {
+        "expectedSymbolCode": "orange",
+        "sampleId": "fa089abf5fa76ff574f48998293abbddd37971b0198afa0efbdd0adde6a4cac4",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "orange",
+          "cherries",
+          "star"
+        ],
+        "topClassifierConfidence": 0.82925,
+        "topCosineSimilarity": 0.998592
+      },
+      {
+        "expectedSymbolCode": "watermelon",
+        "sampleId": "fa77b8a4a844d37a1d01e4a3f74831f593f898019402d6a8c3bbb2cc616a4e2d",
+        "status": "no_suggestion",
+        "suggestedSymbolCodes": [],
+        "topClassifierConfidence": null,
+        "topCosineSimilarity": null
+      },
+      {
+        "expectedSymbolCode": "lemon",
+        "sampleId": "fb9d84091d209b0840390318ce6a155f1b60dffaa271cd9f2d3c7595c671ebf1",
+        "status": "suggested",
+        "suggestedSymbolCodes": [
+          "lemon",
+          "orange",
+          "watermelon"
+        ],
+        "topClassifierConfidence": 0.600029,
+        "topCosineSimilarity": 0.999616
+      }
+    ],
+    "top1AccuracyAtCoverage": 0.76785714,
+    "top3AccuracyAtCoverage": 0.94642857
+  }
+}

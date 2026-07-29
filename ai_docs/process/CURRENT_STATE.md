@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M6.2 completed — G6.2 passed; TASK-0064 next`
+`M6.3 — TASK-0066 review corrections and feedback export completed`
 
 ## Completed
 
@@ -1119,10 +1119,54 @@ last_updated: 2026-07-29
   `2ab9a79a6d1c81b8d08abe0defc447510f0cfe4df1909c9aa8da77d79e6115d2`,
 - drugi pełny przebieg `--check` odtworzył oba raporty bajtowo; G6.2 zaliczono
   z polityką manual-review-only.
+- ukończono TASK-0064: migracja Alembic `0014` dodaje `review_batches` i
+  `review_items`, zachowując niezmienny raport oraz 30 pełnych snapshotów
+  plansz bez binariów obrazów,
+- import raportu TASK-0063 jest atomowy i idempotentny po canonical SHA-256;
+  backend fail-closed sprawdza grę, aktywne symbole, provenance, ścieżki,
+  unikalność źródeł/rankingu i dokładnie 15 komórek row-major,
+- read-only Admin API udostępnia list/detail batchy i elementów oraz bounded
+  cursor pagination po `selection_rank`; resolution, audyt i feedback nadal
+  należą do TASK-0066,
+- OpenAPI i generowany klient TypeScript są aktualne; 27 testów focused
+  przeszło, 2 fizyczne testy PostgreSQL pozostały jawnymi skipami bez
+  włączonego lokalnego środowiska, Ruff i ścisły typecheck nowych modułów
+  przeszły.
+- ukończono TASK-0065: panel ma osobną sekcję Manual review, wybór batcha,
+  filtr statusu, deterministyczną kolejkę `selection_rank`, nawigację
+  poprzednia/następna i pełny snapshot 5 × 3,
+- każda komórka pokazuje crop, pozycję row/column, symbol, confidence, entropy
+  i maksymalnie trzy alternatywy; predykcja jest tekstowo oznaczona jako
+  sugestia, a wszystkie decyzje pozostają wyłączone do TASK-0066,
+- read-only endpointy source/board/cell nie przyjmują ścieżki klienta;
+  oryginał jest weryfikowany po SHA-256, a wszystkie obrazy pozostają pod
+  skonfigurowanymi lokalnymi rootami,
+- 30 testów API i 72 testy panelu przeszły wraz z Ruff, strict mypy, ESLint,
+  typecheckami, OpenAPI/client drift i produkcyjnym buildem Next.js; browser
+  smoke potwierdził error/retry, brak błędów konsoli i brak overflow przy
+  szerokości 390 px, a realny corpus poprawnie rozwiązał source/board/cell.
+- ukończono TASK-0066: migracja `0015` dodaje rewizję bieżącego elementu,
+  append-only `review_resolutions` i niezmienne `review_feedback_exports`,
+- accepted/corrected wymaga jawnie zaakceptowanej geometrii, kompletu 15
+  etykiet związanych z `sampleId` oraz aktywnych symboli gry; rejected wymaga
+  powodu i nie zapisuje próbek,
+- exact retry resolution i eksportu jest idempotentny, stale revision oraz
+  reuse klucza z innym payloadem fail-closed, a zmiana decyzji pozostawia
+  wcześniejsze rewizje,
+- eksport jest blokowany przez pending, wyklucza rejected i tworzy kolejną
+  game-local wersję tylko po zmianie checksumy stanu,
+- panel udostępnia edytor 15 symboli, potwierdzenie geometrii,
+  approve/correct/reject, historię oraz wersje eksportów przez generowany
+  klient OpenAPI,
+- 50 focused testów API/migracji przeszło, 1 fizyczny test PostgreSQL pozostał
+  jawnym skipem bez uruchomionej bazy; 74 testy panelu, Ruff, typowanie
+  domeny/aplikacji, OpenAPI/client drift, ESLint i produkcyjny build przeszły,
+  a browser smoke potwierdził kontrolowany error/retry, brak błędów konsoli i
+  brak overflow przy 390 px.
 
 ## In progress
 
-- brak aktywnego zadania; następny jest TASK-0064.
+- brak aktywnego zadania; następny pion to TASK-0067.
 
 ## Blocked
 
@@ -1193,10 +1237,9 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć TASK-0064: dodać trwałe `review_item` i Admin API dla pełnego
-manual-review flow, korzystając z niezmiennego raportu selekcji TASK-0063.
-Predykcja, confidence i alternatywy pozostają dowodem pomocniczym, a nie
-decyzją. Równolegle
+Rozpocząć TASK-0067: zintegrować pełny przebieg obraz → zaakceptowana geometria
+→ cropy → ONNX → manual review, zebrać raport jakości i czasu oraz opisać
+retraining/rollback modelu. Równolegle
 TASK-0041/TASK-0042 oraz G3 pozostają zablokowane na fizycznych raportach
 Pixela i Samsunga.
 

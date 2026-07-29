@@ -141,6 +141,24 @@ The panel is available at `http://127.0.0.1:3000`. The health endpoint is
 `http://127.0.0.1:8000/api/v1/health`, and generated FastAPI documentation is
 available locally at `http://127.0.0.1:8000/docs`.
 
+The `Manual review` section reads immutable TASK-0064 batches and writes
+revisioned whole-board decisions plus immutable feedback versions. Image
+endpoints use the local roots below; override them only when the accepted crop
+namespace or source corpus is stored elsewhere:
+
+```powershell
+$env:GAME_PREDICTOR_REVIEW_CROP_ROOT = 'artifacts\m5-reviewed-manual-merge-v16-full-preflight'
+$env:GAME_PREDICTOR_REVIEW_SOURCE_ROOT = 'examples\imgs'
+```
+
+The browser never supplies a filesystem path. Source images are selected by
+the stored SHA-256, while board and cell paths come from the immutable review
+snapshot.
+Accepted/corrected decisions always contain 15 labels and require explicit
+geometry confirmation. Feedback export is available only after every item in
+the selected batch is resolved; rejected boards are retained in audit but
+excluded from training samples.
+
 Game and symbol operations use the `/api/v1/admin/games` resource. `DELETE`
 archives a record and never physically removes it.
 

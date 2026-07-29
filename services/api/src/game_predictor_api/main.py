@@ -20,6 +20,7 @@ from game_predictor_api.application.layout_imports import (
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
 )
+from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
@@ -41,6 +42,11 @@ from game_predictor_api.domain.mobile_releases import (
     MobileReleaseConflictError,
     MobileReleaseError,
     MobileReleaseNotFoundError,
+)
+from game_predictor_api.domain.reviews import (
+    ReviewConflictError,
+    ReviewError,
+    ReviewNotFoundError,
 )
 from game_predictor_api.domain.rules import (
     RulesConflictError,
@@ -64,6 +70,9 @@ from game_predictor_api.storage.layout_import_report_repository import (
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
+from game_predictor_api.storage.review_repository import (
+    SqlAlchemyReviewRepository,
+)
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 
 
@@ -76,6 +85,7 @@ def create_app(
     job_service_dependency: Callable[..., object] | None = None,
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
+    review_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -161,6 +171,17 @@ def create_app(
     resolved_mobile_release_dependency = (
         mobile_release_service_dependency or default_mobile_release_service_dependency
     )
+
+    def default_review_service_dependency() -> Iterator[ReviewService]:
+        with session_factory() as session:
+            try:
+                yield ReviewService(SqlAlchemyReviewRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_review_dependency = review_service_dependency or default_review_service_dependency
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
@@ -191,6 +212,7 @@ def create_app(
             resolved_job_dependency,
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
+            resolved_review_dependency,
         )
     )
 
@@ -279,6 +301,25 @@ def create_app(
         if isinstance(error, MobileReleaseNotFoundError):
             status_code = 404
         elif isinstance(error, MobileReleaseConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(ReviewError)
+    async def handle_review_error(
+        _request: Request,
+        error: ReviewError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, ReviewNotFoundError):
+            status_code = 404
+        elif isinstance(error, ReviewConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

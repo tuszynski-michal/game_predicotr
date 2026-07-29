@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Kontrakty API i danych mobilnych
@@ -51,6 +51,7 @@ Format błędu:
 /jobs
 /import-jobs
 /layout-import-validations
+/review-batches
 /review-items
 /mobile-releases
 ```
@@ -879,6 +880,72 @@ failed/waiting_for_review -> created (explicit retry)
 
 `stage` nie zmienia automatu. Błędne przejście ma kod
 `INVALID_JOB_STATUS_TRANSITION`.
+
+## Review batches and items
+
+TASK-0064 imports the checksum-bound output of
+`whole-layout-active-learning-v1`. Import is atomic and idempotent by the
+canonical SHA-256 of the entire source report. Reusing the checksum for a
+different game or payload fails closed.
+
+```text
+GET  /api/v1/admin/review-batches
+POST /api/v1/admin/review-batches
+GET  /api/v1/admin/review-batches/{reviewBatchId}
+GET  /api/v1/admin/review-batches/{reviewBatchId}/items
+GET  /api/v1/admin/review-items/{reviewItemId}
+GET  /api/v1/admin/review-items/{reviewItemId}/assets/source
+GET  /api/v1/admin/review-items/{reviewItemId}/assets/board
+GET  /api/v1/admin/review-items/{reviewItemId}/assets/cells/{cellIndex}
+POST /api/v1/admin/review-items/{reviewItemId}/resolution
+GET  /api/v1/admin/review-items/{reviewItemId}/resolutions
+POST /api/v1/admin/review-batches/{reviewBatchId}/feedback-exports
+GET  /api/v1/admin/review-batches/{reviewBatchId}/feedback-exports
+GET  /api/v1/admin/review-feedback-exports/{feedbackExportId}
+```
+
+`POST /review-batches` accepts `gameId`, `sourceReportSha256` and the exact
+typed TASK-0063 report. The backend validates its canonical checksum, active
+symbol catalog, relative POSIX paths, provenance hashes, unique board/source
+identity, contiguous selection ranks and exactly 15 row-major cells per
+board. The response contains `created`; a safe retry returns the existing
+batch with `created = false`.
+
+The item list uses the deterministic `selectionRank` cursor:
+`after_selection_rank >= 0`, `1 <= limit <= 100`, with an optional
+`status = pending | accepted | corrected | rejected`. Each item exposes an
+immutable `snapshot` containing the whole 5 × 3 board, source context,
+prediction confidence and up to three alternatives per cell. Image binaries
+are not embedded in JSON and are never stored in PostgreSQL.
+
+TASK-0065 adds three item-scoped read-only image responses. The client never
+submits a path: `source`, `board` and bounded `cellIndex` identify metadata
+already stored on the item. The source file must be found below
+`GAME_PREDICTOR_REVIEW_SOURCE_ROOT` by its exact SHA-256. Board and cell files
+must resolve below `GAME_PREDICTOR_REVIEW_CROP_ROOT` using the validated
+relative POSIX paths from the immutable snapshot. Missing, ambiguous, unsafe
+or unsupported files fail closed with a stable review error. Successful image
+responses are private and immutable.
+
+`POST /resolution` resolves the complete board. The body contains an
+`idempotencyKey`, `expectedRevision`, action `accepted | corrected | rejected`,
+the local administrator identity and explicit geometry confirmation.
+Accepted/corrected commands carry exactly 15 row-major labels bound to the
+immutable `sampleId`; accepted labels must equal predictions, while corrected
+labels must contain at least one change and every symbol must remain active in
+the batch game. Rejection requires a reason and cannot carry labels.
+
+The exact retry returns `created = false`. Reusing a key for another canonical
+payload or submitting a stale revision returns `409`. Every successful change
+increments `resolutionRevision`, updates the current item projection and
+appends an immutable event returned by `GET /resolutions`.
+
+Feedback export is blocked while any item is pending. It excludes rejected
+items and freezes 15 samples per accepted/corrected board with model, source,
+crop and resolution provenance. An unchanged source-state retry returns the
+same export; changed resolutions create the next game-local version. Payload
+and source state have independent SHA-256 checksums, and no image binary is
+stored in PostgreSQL.
 
 ## Mobile release
 

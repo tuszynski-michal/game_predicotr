@@ -2147,6 +2147,956 @@
         "title": "PayoutRuleUpdate",
         "type": "object"
       },
+      "ReviewAlternative": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "symbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confidence",
+          "symbolCode"
+        ],
+        "title": "ReviewAlternative",
+        "type": "object"
+      },
+      "ReviewBatchImport": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ReviewSelectionReport"
+          },
+          "sourceReportSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcereportsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "sourceReportSha256",
+          "report"
+        ],
+        "title": "ReviewBatchImport",
+        "type": "object"
+      },
+      "ReviewBatchImportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/ReviewBatchResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "batch",
+          "created"
+        ],
+        "title": "ReviewBatchImportResponse",
+        "type": "object"
+      },
+      "ReviewBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeLearningVersion": {
+            "title": "Activelearningversion",
+            "type": "string"
+          },
+          "calibrationReportSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Calibrationreportsha256",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "datasetSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Datasetsha256",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inventorySha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Inventorysha256",
+            "type": "string"
+          },
+          "itemCount": {
+            "title": "Itemcount",
+            "type": "integer"
+          },
+          "modelArtifactSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Modelartifactsha256",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "sourceReportSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcereportsha256",
+            "type": "string"
+          },
+          "splitSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Splitsha256",
+            "type": "string"
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "sourceReportSha256",
+          "activeLearningVersion",
+          "modelVersion",
+          "modelArtifactSha256",
+          "calibrationReportSha256",
+          "datasetSha256",
+          "splitSha256",
+          "inventorySha256",
+          "temperature",
+          "itemCount",
+          "createdAt"
+        ],
+        "title": "ReviewBatchResponse",
+        "type": "object"
+      },
+      "ReviewBoardSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "boardId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardid",
+            "type": "string"
+          },
+          "boardRelativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Boardrelativepath",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewCellSnapshot"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cells",
+            "type": "array"
+          },
+          "predictedClassRarityScore": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Predictedclassrarityscore",
+            "type": "number"
+          },
+          "predictionDiversityScore": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Predictiondiversityscore",
+            "type": "number"
+          },
+          "selectionRank": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Selectionrank",
+            "type": "integer"
+          },
+          "selectionScore": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Selectionscore",
+            "type": "number"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceGroup": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Sourcegroup",
+            "type": "string"
+          },
+          "sourceImageChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourceimagechecksumsha256",
+            "type": "string"
+          },
+          "sourceImageId": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "sourceNoveltyScore": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Sourcenoveltyscore",
+            "type": "number"
+          },
+          "uncertaintyScore": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Uncertaintyscore",
+            "type": "number"
+          }
+        },
+        "required": [
+          "boardId",
+          "boardRelativePath",
+          "cells",
+          "predictedClassRarityScore",
+          "predictionDiversityScore",
+          "selectionRank",
+          "selectionScore",
+          "sequenceNumber",
+          "sourceGroup",
+          "sourceImageChecksumSha256",
+          "sourceImageId",
+          "sourceNoveltyScore",
+          "uncertaintyScore"
+        ],
+        "title": "ReviewBoardSnapshot",
+        "type": "object"
+      },
+      "ReviewCellSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewAlternative"
+            },
+            "maxItems": 3,
+            "minItems": 1,
+            "title": "Alternatives",
+            "type": "array"
+          },
+          "cellIndex": {
+            "exclusiveMaximum": 15.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "columnIndex": {
+            "exclusiveMaximum": 5.0,
+            "minimum": 0.0,
+            "title": "Columnindex",
+            "type": "integer"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "cropRelativePath": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Croprelativepath",
+            "type": "string"
+          },
+          "entropy": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Entropy",
+            "type": "number"
+          },
+          "observationId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Observationid",
+            "type": "string"
+          },
+          "predictedSymbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Predictedsymbolcode",
+            "type": "string"
+          },
+          "rowIndex": {
+            "exclusiveMaximum": 3.0,
+            "minimum": 0.0,
+            "title": "Rowindex",
+            "type": "integer"
+          },
+          "sampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sampleid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alternatives",
+          "cellIndex",
+          "columnIndex",
+          "confidence",
+          "cropRelativePath",
+          "entropy",
+          "observationId",
+          "predictedSymbolCode",
+          "rowIndex",
+          "sampleId"
+        ],
+        "title": "ReviewCellSnapshot",
+        "type": "object"
+      },
+      "ReviewFeedbackExportCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "createdBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Createdby",
+            "type": "string"
+          }
+        },
+        "required": [
+          "createdBy"
+        ],
+        "title": "ReviewFeedbackExportCreate",
+        "type": "object"
+      },
+      "ReviewFeedbackExportCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "feedbackExport": {
+            "$ref": "#/components/schemas/ReviewFeedbackExportResponse"
+          }
+        },
+        "required": [
+          "feedbackExport",
+          "created"
+        ],
+        "title": "ReviewFeedbackExportCreateResponse",
+        "type": "object"
+      },
+      "ReviewFeedbackExportResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "title": "Createdby",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "payloadSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Payloadsha256",
+            "type": "string"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "reviewBatchId": {
+            "format": "uuid",
+            "title": "Reviewbatchid",
+            "type": "string"
+          },
+          "sampleCount": {
+            "minimum": 0.0,
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "sourceStateSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcestatesha256",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reviewBatchId",
+          "gameId",
+          "version",
+          "sourceStateSha256",
+          "payloadSha256",
+          "sampleCount",
+          "rejectedItemCount",
+          "payload",
+          "createdBy",
+          "createdAt"
+        ],
+        "title": "ReviewFeedbackExportResponse",
+        "type": "object"
+      },
+      "ReviewItemPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextAfterSelectionRank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextafterselectionrank"
+          },
+          "reviewBatchId": {
+            "format": "uuid",
+            "title": "Reviewbatchid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewBatchId",
+          "items",
+          "nextAfterSelectionRank"
+        ],
+        "title": "ReviewItemPageResponse",
+        "type": "object"
+      },
+      "ReviewItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "resolutionRevision": {
+            "minimum": 0.0,
+            "title": "Resolutionrevision",
+            "type": "integer"
+          },
+          "resolvedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedat"
+          },
+          "resolvedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedby"
+          },
+          "resolvedValue": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvedvalue"
+          },
+          "reviewBatchId": {
+            "format": "uuid",
+            "title": "Reviewbatchid",
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/ReviewBoardSnapshot"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewItemStatus"
+          }
+        },
+        "required": [
+          "id",
+          "reviewBatchId",
+          "status",
+          "snapshot",
+          "createdAt",
+          "resolvedValue",
+          "resolvedBy",
+          "resolvedAt",
+          "resolutionRevision"
+        ],
+        "title": "ReviewItemResponse",
+        "type": "object"
+      },
+      "ReviewItemStatus": {
+        "enum": [
+          "pending",
+          "accepted",
+          "corrected",
+          "rejected"
+        ],
+        "title": "ReviewItemStatus",
+        "type": "string"
+      },
+      "ReviewResolutionAction": {
+        "enum": [
+          "accepted",
+          "corrected",
+          "rejected"
+        ],
+        "title": "ReviewResolutionAction",
+        "type": "string"
+      },
+      "ReviewResolutionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ReviewResolutionAction"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "geometryAccepted": {
+            "title": "Geometryaccepted",
+            "type": "boolean"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "labels": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ReviewResolutionLabel"
+            },
+            "maxItems": 15,
+            "title": "Labels",
+            "type": "array"
+          },
+          "rejectionReason": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejectionreason"
+          },
+          "resolvedBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Resolvedby",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "expectedRevision",
+          "action",
+          "geometryAccepted",
+          "resolvedBy"
+        ],
+        "title": "ReviewResolutionCommand",
+        "type": "object"
+      },
+      "ReviewResolutionCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "item": {
+            "$ref": "#/components/schemas/ReviewItemResponse"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/ReviewResolutionResponse"
+          }
+        },
+        "required": [
+          "item",
+          "resolution",
+          "created"
+        ],
+        "title": "ReviewResolutionCommandResponse",
+        "type": "object"
+      },
+      "ReviewResolutionLabel": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "exclusiveMaximum": 15.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "sampleId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sampleid",
+            "type": "string"
+          },
+          "symbolCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "sampleId",
+          "symbolCode"
+        ],
+        "title": "ReviewResolutionLabel",
+        "type": "object"
+      },
+      "ReviewResolutionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ReviewResolutionAction"
+          },
+          "commandSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Commandsha256",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "resolvedBy": {
+            "title": "Resolvedby",
+            "type": "string"
+          },
+          "resolvedValue": {
+            "additionalProperties": true,
+            "title": "Resolvedvalue",
+            "type": "object"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "reviewItemId",
+          "revision",
+          "idempotencyKey",
+          "action",
+          "commandSha256",
+          "resolvedValue",
+          "resolvedBy",
+          "createdAt"
+        ],
+        "title": "ReviewResolutionResponse",
+        "type": "object"
+      },
+      "ReviewSelectionBoundary": {
+        "additionalProperties": false,
+        "properties": {
+          "completePendingBoardsOnly": {
+            "title": "Completependingboardsonly",
+            "type": "boolean"
+          },
+          "maximumOneBoardPerSourceUntilAllSourcesCovered": {
+            "title": "Maximumoneboardpersourceuntilallsourcescovered",
+            "type": "boolean"
+          },
+          "mutatesReviewedLabels": {
+            "title": "Mutatesreviewedlabels",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "completePendingBoardsOnly",
+          "maximumOneBoardPerSourceUntilAllSourcesCovered",
+          "mutatesReviewedLabels"
+        ],
+        "title": "ReviewSelectionBoundary",
+        "type": "object"
+      },
+      "ReviewSelectionModel": {
+        "additionalProperties": false,
+        "properties": {
+          "modelVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "onnxArtifactSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Onnxartifactsha256",
+            "type": "string"
+          },
+          "temperature": {
+            "exclusiveMinimum": 0.0,
+            "title": "Temperature",
+            "type": "number"
+          }
+        },
+        "required": [
+          "modelVersion",
+          "onnxArtifactSha256",
+          "temperature"
+        ],
+        "title": "ReviewSelectionModel",
+        "type": "object"
+      },
+      "ReviewSelectionReport": {
+        "additionalProperties": false,
+        "properties": {
+          "activeLearningVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Activelearningversion",
+            "type": "string"
+          },
+          "batchSize": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Batchsize",
+            "type": "integer"
+          },
+          "calibrationReportSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Calibrationreportsha256",
+            "type": "string"
+          },
+          "candidateCompletePendingBoardCount": {
+            "minimum": 1.0,
+            "title": "Candidatecompletependingboardcount",
+            "type": "integer"
+          },
+          "classes": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Classes",
+            "type": "array"
+          },
+          "datasetSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Datasetsha256",
+            "type": "string"
+          },
+          "excludedPartialPendingBoardCount": {
+            "minimum": 0.0,
+            "title": "Excludedpartialpendingboardcount",
+            "type": "integer"
+          },
+          "inventorySha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Inventorysha256",
+            "type": "string"
+          },
+          "inventoryVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Inventoryversion",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ReviewSelectionModel"
+          },
+          "pendingCellCount": {
+            "minimum": 1.0,
+            "title": "Pendingcellcount",
+            "type": "integer"
+          },
+          "schemaVersion": {
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "scoreWeights": {
+            "$ref": "#/components/schemas/ReviewSelectionScoreWeights"
+          },
+          "selectedBoardCount": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Selectedboardcount",
+            "type": "integer"
+          },
+          "selectedBoards": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewBoardSnapshot"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Selectedboards",
+            "type": "array"
+          },
+          "selectionBoundary": {
+            "$ref": "#/components/schemas/ReviewSelectionBoundary"
+          },
+          "splitSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Splitsha256",
+            "type": "string"
+          },
+          "status": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activeLearningVersion",
+          "batchSize",
+          "calibrationReportSha256",
+          "candidateCompletePendingBoardCount",
+          "classes",
+          "datasetSha256",
+          "excludedPartialPendingBoardCount",
+          "inventorySha256",
+          "inventoryVersion",
+          "model",
+          "pendingCellCount",
+          "schemaVersion",
+          "scoreWeights",
+          "selectedBoardCount",
+          "selectedBoards",
+          "selectionBoundary",
+          "splitSha256",
+          "status"
+        ],
+        "title": "ReviewSelectionReport",
+        "type": "object"
+      },
+      "ReviewSelectionScoreWeights": {
+        "additionalProperties": false,
+        "properties": {
+          "predictedClassRarity": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Predictedclassrarity",
+            "type": "number"
+          },
+          "predictionDiversity": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Predictiondiversity",
+            "type": "number"
+          },
+          "sourceNovelty": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Sourcenovelty",
+            "type": "number"
+          },
+          "uncertainty": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Uncertainty",
+            "type": "number"
+          }
+        },
+        "required": [
+          "predictedClassRarity",
+          "predictionDiversity",
+          "sourceNovelty",
+          "uncertainty"
+        ],
+        "title": "ReviewSelectionScoreWeights",
+        "type": "object"
+      },
       "RulesPublicationIssueResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4950,6 +5900,866 @@
         "summary": "Start the one controlled release build workflow",
         "tags": [
           "mobile-releases"
+        ]
+      }
+    },
+    "/api/v1/admin/review-batches": {
+      "get": {
+        "operationId": "listReviewBatches",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewBatchResponse"
+                  },
+                  "title": "Response Listreviewbatches",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List immutable manual-review batches",
+        "tags": [
+          "reviews"
+        ]
+      },
+      "post": {
+        "operationId": "importReviewBatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewBatchImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewBatchImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Idempotently import one active-learning selection",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-batches/{review_batch_id}": {
+      "get": {
+        "operationId": "getReviewBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewBatchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get immutable manual-review batch metadata",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-batches/{review_batch_id}/feedback-exports": {
+      "get": {
+        "operationId": "listReviewFeedbackExports",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewFeedbackExportResponse"
+                  },
+                  "title": "Response Listreviewfeedbackexports",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List immutable labeled-feedback exports for one review batch",
+        "tags": [
+          "reviews"
+        ]
+      },
+      "post": {
+        "operationId": "createReviewFeedbackExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFeedbackExportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewFeedbackExportCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Create an immutable versioned labeled-feedback export",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-batches/{review_batch_id}/items": {
+      "get": {
+        "operationId": "listReviewItems",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReviewItemStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after_selection_rank",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After Selection Rank",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List one deterministic page of whole-layout review items",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-feedback-exports/{feedback_export_id}": {
+      "get": {
+        "operationId": "getReviewFeedbackExport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feedback_export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feedback Export Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewFeedbackExportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get one immutable labeled-feedback export",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-items/{review_item_id}": {
+      "get": {
+        "operationId": "getReviewItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get one immutable whole-layout review item",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-items/{review_item_id}/assets/board": {
+      "get": {
+        "operationId": "getReviewBoardAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read the canonical whole-board image for one review item",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-items/{review_item_id}/assets/cells/{cell_index}": {
+      "get": {
+        "operationId": "getReviewCellAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell_index",
+            "required": true,
+            "schema": {
+              "title": "Cell Index",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read one canonical cell crop for a review item",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-items/{review_item_id}/assets/source": {
+      "get": {
+        "operationId": "getReviewSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read the checksum-bound source image for one review item",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-items/{review_item_id}/resolution": {
+      "post": {
+        "operationId": "resolveReviewItem",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewResolutionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResolutionCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Atomically append one idempotent review resolution",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/review-items/{review_item_id}/resolutions": {
+      "get": {
+        "operationId": "listReviewResolutions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewResolutionResponse"
+                  },
+                  "title": "Response Listreviewresolutions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Immutable review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List immutable resolution history for one review item",
+        "tags": [
+          "reviews"
         ]
       }
     },

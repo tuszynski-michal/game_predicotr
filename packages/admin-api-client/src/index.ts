@@ -11,6 +11,7 @@ import {
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
   createMobileRelease as createGeneratedMobileRelease,
+  createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
@@ -28,6 +29,8 @@ import {
   getPayoutRule as getGeneratedPayoutRule,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
+  getReviewItem as getGeneratedReviewItem,
+  getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listJobs as listGeneratedJobs,
@@ -39,12 +42,17 @@ import {
   listPayoutRules as listGeneratedPayoutRules,
   listRulesVersions as listGeneratedRulesVersions,
   listRulesVersionSymbols as listGeneratedRulesVersionSymbols,
+  listReviewBatches as listGeneratedReviewBatches,
+  listReviewFeedbackExports as listGeneratedReviewFeedbackExports,
+  listReviewItems as listGeneratedReviewItems,
+  listReviewResolutions as listGeneratedReviewResolutions,
   listSymbols as listGeneratedSymbols,
   publishRulesVersion as publishGeneratedRulesVersion,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  resolveReviewItem as resolveGeneratedReviewItem,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
   updatePayoutRule as updateGeneratedPayoutRule,
@@ -68,6 +76,9 @@ import type {
   RulesVersionCreate,
   RulesVersionSymbolUpdate,
   RulesVersionUpdate,
+  ReviewItemStatus,
+  ReviewFeedbackExportCreate,
+  ReviewResolutionCommand,
   SymbolCreate,
   SymbolUpdate,
 } from './generated/types.gen';
@@ -133,6 +144,20 @@ export type {
   RulesVersionSymbolResponse,
   RulesVersionSymbolUpdate,
   RulesVersionUpdate,
+  ReviewAlternative,
+  ReviewBatchResponse,
+  ReviewBoardSnapshot,
+  ReviewCellSnapshot,
+  ReviewItemPageResponse,
+  ReviewItemResponse,
+  ReviewItemStatus,
+  ReviewFeedbackExportCreateResponse,
+  ReviewFeedbackExportResponse,
+  ReviewResolutionAction,
+  ReviewResolutionCommand,
+  ReviewResolutionCommandResponse,
+  ReviewResolutionLabel,
+  ReviewResolutionResponse,
   SymbolCreate,
   SymbolResponse,
   SymbolStatus,
@@ -162,6 +187,12 @@ export interface ListLayoutImportRowsOptions {
   readonly limit?: number;
   readonly status?: LayoutImportRowStatus;
   readonly errorCode?: string;
+}
+
+export interface ListReviewItemsOptions {
+  readonly status?: ReviewItemStatus;
+  readonly afterSelectionRank?: number;
+  readonly limit?: number;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -241,6 +272,57 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       buildGeneratedMobileRelease({
         client,
         path: { mobile_release_id: mobileReleaseId },
+      }),
+    listReviewBatches: () => listGeneratedReviewBatches({ client }),
+    listReviewItems: (
+      reviewBatchId: string,
+      options: ListReviewItemsOptions = {},
+    ) =>
+      listGeneratedReviewItems({
+        client,
+        path: { review_batch_id: reviewBatchId },
+        query: {
+          ...(options.status === undefined ? {} : { status: options.status }),
+          ...(options.afterSelectionRank === undefined
+            ? {}
+            : { after_selection_rank: options.afterSelectionRank }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getReviewItem: (reviewItemId: string) =>
+      getGeneratedReviewItem({
+        client,
+        path: { review_item_id: reviewItemId },
+      }),
+    resolveReviewItem: (reviewItemId: string, body: ReviewResolutionCommand) =>
+      resolveGeneratedReviewItem({
+        body,
+        client,
+        path: { review_item_id: reviewItemId },
+      }),
+    listReviewResolutions: (reviewItemId: string) =>
+      listGeneratedReviewResolutions({
+        client,
+        path: { review_item_id: reviewItemId },
+      }),
+    createReviewFeedbackExport: (
+      reviewBatchId: string,
+      body: ReviewFeedbackExportCreate,
+    ) =>
+      createGeneratedReviewFeedbackExport({
+        body,
+        client,
+        path: { review_batch_id: reviewBatchId },
+      }),
+    listReviewFeedbackExports: (reviewBatchId: string) =>
+      listGeneratedReviewFeedbackExports({
+        client,
+        path: { review_batch_id: reviewBatchId },
+      }),
+    getReviewFeedbackExport: (feedbackExportId: string) =>
+      getGeneratedReviewFeedbackExport({
+        client,
+        path: { feedback_export_id: feedbackExportId },
       }),
     listGames: () => listGeneratedGames({ client }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),

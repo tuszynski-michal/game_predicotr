@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Strategia testów
@@ -252,6 +252,27 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
   `importJobId`; podwójny submit jest zablokowany,
 - test przeglądarkowy sprawdza pusty stan, brak błędów konsoli i brak poziomego
   overflow przy szerokości 390 px.
+- workspace manual review zachowuje kolejność `selection_rank`, tekstowo mapuje
+  każdy status i confidence, wybiera dokładnie jedną z 15 komórek row-major
+  oraz buduje wyłącznie item-scoped URL assetu,
+- akcje list/detail używają generowanego klienta, bounded limitu 100 i
+  stabilnych błędów,
+- accept/correct wymaga zaakceptowanej geometrii i dokładnie 15 etykiet
+  powiązanych z `sampleId`; inactive symbol, pusta korekta i etykieta niezgodna
+  z komórką są odrzucane,
+- exact retry resolution nie dopisuje audytu, reuse klucza z innym payloadem i
+  stale revision zwracają stabilny konflikt,
+- zmiana accepted/corrected/rejected dopisuje kolejną rewizję bez usunięcia
+  historii; rejected nie zawiera etykiet,
+- eksport jest blokowany przez pending, wyklucza rejected i daje dokładnie 15
+  próbek na accepted/corrected; retry stanu jest idempotentny, a zmiana stanu
+  tworzy kolejną niezmienną wersję,
+- API assetów odrzuca indeks poza 0–14, unsafe path, brak i niejednoznaczny
+  oryginał, weryfikuje source SHA-256 i zwraca prywatny immutable image,
+- browser smoke sprawdza kontrolowany error/retry, brak błędów konsoli i brak
+  poziomego overflow przy 390 px; produkcyjny build pokrywa pełną kompozycję,
+- test na realnym corpusie potwierdza odnalezienie source, board i cell dla
+  pierwszej planszy checksum-bound batcha TASK-0063.
 
 ## Mobile tests
 
@@ -371,6 +392,16 @@ brak uprawnienia `INTERNET`.
   ponownym użyciem zdjęcia,
 - ponowne uruchomienie dla tych samych raportów, modelu i cropów daje
   identyczną temperaturę, politykę oraz kolejność active-learning,
+- import batcha review sprawdza canonical SHA-256, aktywny katalog symboli,
+  bezpieczne ścieżki, unikalność źródeł/rankingu i dokładnie 15 komórek
+  row-major,
+- ponowienie identycznego importu zwraca ten sam batch bez dodatkowych rekordów,
+  a konflikt gry lub payloadu dla tego samego checksumu jest odrzucany,
+- testy kontraktu OpenAPI pilnują list/detail, bounded cursor pagination,
+  resolution/history oraz create/list/get feedback exports,
+- izolowany test PostgreSQL wykonuje migrację do head, zapisuje 30 plansz,
+  sprawdza idempotencję oraz deterministyczną stronę elementów; bez lokalnej
+  bazy pozostaje jawnym skipem,
 - podział train/validation według zdjęcia źródłowego,
 - lokalne wagi bez pobierania w runtime,
 - wznowienie i idempotencja.

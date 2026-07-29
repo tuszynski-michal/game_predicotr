@@ -203,9 +203,15 @@ wersjonowane i egzekwowane, a nie że auto-accept został włączony.
 
 ### Zadania
 
-- `TASK-0064 — Review storage and Admin API`
-- `TASK-0065 — Manual review administration UI`
-- `TASK-0066 — Review corrections and labeled feedback export`
+- `TASK-0064 — Review storage and Admin API` — done 2026-07-29; migration
+  `0014`, immutable/idempotent report import, read-only list/detail API and
+  generated TypeScript client are complete
+- `TASK-0065 — Manual review administration UI` — done 2026-07-29; read-only
+  batch/queue/item workspace, item-scoped local images and responsive 5 × 3
+  inspection are complete
+- `TASK-0066 — Review corrections and labeled feedback export` — done
+  2026-07-29; full-board revisioned decisions, append-only audit, active-symbol
+  corrections and immutable versioned feedback exports are complete
 
 ### Bramka G6.3
 

@@ -48,6 +48,9 @@ import type {
   CreatePayoutRuleData,
   CreatePayoutRuleErrors,
   CreatePayoutRuleResponses,
+  CreateReviewFeedbackExportData,
+  CreateReviewFeedbackExportErrors,
+  CreateReviewFeedbackExportResponses,
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
@@ -86,6 +89,24 @@ import type {
   GetPayoutRuleData,
   GetPayoutRuleErrors,
   GetPayoutRuleResponses,
+  GetReviewBatchData,
+  GetReviewBatchErrors,
+  GetReviewBatchResponses,
+  GetReviewBoardAssetData,
+  GetReviewBoardAssetErrors,
+  GetReviewBoardAssetResponses,
+  GetReviewCellAssetData,
+  GetReviewCellAssetErrors,
+  GetReviewCellAssetResponses,
+  GetReviewFeedbackExportData,
+  GetReviewFeedbackExportErrors,
+  GetReviewFeedbackExportResponses,
+  GetReviewItemData,
+  GetReviewItemErrors,
+  GetReviewItemResponses,
+  GetReviewSourceAssetData,
+  GetReviewSourceAssetErrors,
+  GetReviewSourceAssetResponses,
   GetRulesPublicationReadinessData,
   GetRulesPublicationReadinessErrors,
   GetRulesPublicationReadinessResponses,
@@ -95,6 +116,9 @@ import type {
   GetSymbolData,
   GetSymbolErrors,
   GetSymbolResponses,
+  ImportReviewBatchData,
+  ImportReviewBatchErrors,
+  ImportReviewBatchResponses,
   ListDatasetLayoutsData,
   ListDatasetLayoutsErrors,
   ListDatasetLayoutsResponses,
@@ -118,6 +142,18 @@ import type {
   ListPayoutRulesData,
   ListPayoutRulesErrors,
   ListPayoutRulesResponses,
+  ListReviewBatchesData,
+  ListReviewBatchesErrors,
+  ListReviewBatchesResponses,
+  ListReviewFeedbackExportsData,
+  ListReviewFeedbackExportsErrors,
+  ListReviewFeedbackExportsResponses,
+  ListReviewItemsData,
+  ListReviewItemsErrors,
+  ListReviewItemsResponses,
+  ListReviewResolutionsData,
+  ListReviewResolutionsErrors,
+  ListReviewResolutionsResponses,
   ListRulesVersionsData,
   ListRulesVersionsErrors,
   ListRulesVersionsResponses,
@@ -139,6 +175,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ResolveReviewItemData,
+  ResolveReviewItemErrors,
+  ResolveReviewItemResponses,
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
@@ -732,6 +771,250 @@ export const buildMobileRelease = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/mobile-releases/{mobile_release_id}/build',
+    ...options,
+  });
+
+/**
+ * List immutable manual-review batches
+ */
+export const listReviewBatches = <ThrowOnError extends boolean = false>(
+  options?: Options<ListReviewBatchesData, ThrowOnError>,
+): RequestResult<
+  ListReviewBatchesResponses,
+  ListReviewBatchesErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListReviewBatchesResponses,
+    ListReviewBatchesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/review-batches', ...options });
+
+/**
+ * Idempotently import one active-learning selection
+ */
+export const importReviewBatch = <ThrowOnError extends boolean = false>(
+  options: Options<ImportReviewBatchData, ThrowOnError>,
+): RequestResult<
+  ImportReviewBatchResponses,
+  ImportReviewBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ImportReviewBatchResponses,
+    ImportReviewBatchErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get immutable manual-review batch metadata
+ */
+export const getReviewBatch = <ThrowOnError extends boolean = false>(
+  options: Options<GetReviewBatchData, ThrowOnError>,
+): RequestResult<GetReviewBatchResponses, GetReviewBatchErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetReviewBatchResponses,
+    GetReviewBatchErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/review-batches/{review_batch_id}', ...options });
+
+/**
+ * List immutable labeled-feedback exports for one review batch
+ */
+export const listReviewFeedbackExports = <ThrowOnError extends boolean = false>(
+  options: Options<ListReviewFeedbackExportsData, ThrowOnError>,
+): RequestResult<
+  ListReviewFeedbackExportsResponses,
+  ListReviewFeedbackExportsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReviewFeedbackExportsResponses,
+    ListReviewFeedbackExportsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-batches/{review_batch_id}/feedback-exports',
+    ...options,
+  });
+
+/**
+ * Create an immutable versioned labeled-feedback export
+ */
+export const createReviewFeedbackExport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateReviewFeedbackExportData, ThrowOnError>,
+): RequestResult<
+  CreateReviewFeedbackExportResponses,
+  CreateReviewFeedbackExportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateReviewFeedbackExportResponses,
+    CreateReviewFeedbackExportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-batches/{review_batch_id}/feedback-exports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List one deterministic page of whole-layout review items
+ */
+export const listReviewItems = <ThrowOnError extends boolean = false>(
+  options: Options<ListReviewItemsData, ThrowOnError>,
+): RequestResult<
+  ListReviewItemsResponses,
+  ListReviewItemsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReviewItemsResponses,
+    ListReviewItemsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-batches/{review_batch_id}/items',
+    ...options,
+  });
+
+/**
+ * Get one immutable labeled-feedback export
+ */
+export const getReviewFeedbackExport = <ThrowOnError extends boolean = false>(
+  options: Options<GetReviewFeedbackExportData, ThrowOnError>,
+): RequestResult<
+  GetReviewFeedbackExportResponses,
+  GetReviewFeedbackExportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetReviewFeedbackExportResponses,
+    GetReviewFeedbackExportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-feedback-exports/{feedback_export_id}',
+    ...options,
+  });
+
+/**
+ * Get one immutable whole-layout review item
+ */
+export const getReviewItem = <ThrowOnError extends boolean = false>(
+  options: Options<GetReviewItemData, ThrowOnError>,
+): RequestResult<GetReviewItemResponses, GetReviewItemErrors, ThrowOnError> =>
+  (options.client ?? client).get<
+    GetReviewItemResponses,
+    GetReviewItemErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/review-items/{review_item_id}', ...options });
+
+/**
+ * Read the canonical whole-board image for one review item
+ */
+export const getReviewBoardAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetReviewBoardAssetData, ThrowOnError>,
+): RequestResult<
+  GetReviewBoardAssetResponses,
+  GetReviewBoardAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetReviewBoardAssetResponses,
+    GetReviewBoardAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-items/{review_item_id}/assets/board',
+    ...options,
+  });
+
+/**
+ * Read one canonical cell crop for a review item
+ */
+export const getReviewCellAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetReviewCellAssetData, ThrowOnError>,
+): RequestResult<
+  GetReviewCellAssetResponses,
+  GetReviewCellAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetReviewCellAssetResponses,
+    GetReviewCellAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-items/{review_item_id}/assets/cells/{cell_index}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound source image for one review item
+ */
+export const getReviewSourceAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetReviewSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetReviewSourceAssetResponses,
+  GetReviewSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetReviewSourceAssetResponses,
+    GetReviewSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-items/{review_item_id}/assets/source',
+    ...options,
+  });
+
+/**
+ * Atomically append one idempotent review resolution
+ */
+export const resolveReviewItem = <ThrowOnError extends boolean = false>(
+  options: Options<ResolveReviewItemData, ThrowOnError>,
+): RequestResult<
+  ResolveReviewItemResponses,
+  ResolveReviewItemErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolveReviewItemResponses,
+    ResolveReviewItemErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-items/{review_item_id}/resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List immutable resolution history for one review item
+ */
+export const listReviewResolutions = <ThrowOnError extends boolean = false>(
+  options: Options<ListReviewResolutionsData, ThrowOnError>,
+): RequestResult<
+  ListReviewResolutionsResponses,
+  ListReviewResolutionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReviewResolutionsResponses,
+    ListReviewResolutionsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/review-items/{review_item_id}/resolutions',
     ...options,
   });
 

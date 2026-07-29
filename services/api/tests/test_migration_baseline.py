@@ -20,6 +20,8 @@ MOBILE_RELEASES_REVISION = "0010_mobile_releases"
 LAYOUT_IMPORT_STAGING_REVISION = "0011_layout_import_staging"
 LAYOUT_IMPORT_NORMALIZATION_REVISION = "0012_layout_import_normalization"
 LAYOUT_IMPORT_PUBLICATION_REVISION = "0013_layout_import_publication"
+REVIEW_BATCHES_REVISION = "0014_review_batches"
+REVIEW_FEEDBACK_REVISION = "0015_review_feedback"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -31,7 +33,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_layout_import_publication_migration_is_the_only_head() -> None:
+def test_review_feedback_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -46,8 +48,10 @@ def test_layout_import_publication_migration_is_the_only_head() -> None:
     layout_import_staging = script.get_revision(LAYOUT_IMPORT_STAGING_REVISION)
     layout_import_normalization = script.get_revision(LAYOUT_IMPORT_NORMALIZATION_REVISION)
     layout_import_publication = script.get_revision(LAYOUT_IMPORT_PUBLICATION_REVISION)
+    review_batches = script.get_revision(REVIEW_BATCHES_REVISION)
+    review_feedback = script.get_revision(REVIEW_FEEDBACK_REVISION)
 
-    assert script.get_heads() == [LAYOUT_IMPORT_PUBLICATION_REVISION]
+    assert script.get_heads() == [REVIEW_FEEDBACK_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -74,6 +78,10 @@ def test_layout_import_publication_migration_is_the_only_head() -> None:
     assert layout_import_normalization.down_revision == LAYOUT_IMPORT_STAGING_REVISION
     assert layout_import_publication is not None
     assert layout_import_publication.down_revision == LAYOUT_IMPORT_NORMALIZATION_REVISION
+    assert review_batches is not None
+    assert review_batches.down_revision == LAYOUT_IMPORT_PUBLICATION_REVISION
+    assert review_feedback is not None
+    assert review_feedback.down_revision == REVIEW_BATCHES_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:
@@ -432,3 +440,63 @@ def test_layout_import_publication_migration_adds_unique_source_job() -> None:
 
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop index uq_dataset_versions_source_job" in downgrade_sql
+
+
+def test_review_batches_migration_adds_immutable_whole_layout_storage() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REVIEW_BATCHES_REVISION}:{LAYOUT_IMPORT_PUBLICATION_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table review_batches" in upgrade_sql
+    assert "create table review_items" in upgrade_sql
+    assert "create type review_item_status" in upgrade_sql
+    assert "uq_review_batches_source_report_sha256" in upgrade_sql
+    assert "uq_review_items_batch_board" in upgrade_sql
+    assert "uq_review_items_batch_rank" in upgrade_sql
+    assert "ck_review_items_resolution_state" in upgrade_sql
+    assert "ix_review_items_batch_status_rank" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table review_items" in downgrade_sql
+    assert "drop table review_batches" in downgrade_sql
+    assert "drop type review_item_status" in downgrade_sql
+
+
+def test_review_feedback_migration_adds_audit_and_immutable_exports() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        "head",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{REVIEW_FEEDBACK_REVISION}:{REVIEW_BATCHES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table review_resolutions" in upgrade_sql
+    assert "create table review_feedback_exports" in upgrade_sql
+    assert "create type review_resolution_action" in upgrade_sql
+    assert "resolution_revision" in upgrade_sql
+    assert "uq_review_resolutions_item_idempotency" in upgrade_sql
+    assert "uq_review_feedback_exports_batch_state" in upgrade_sql
+
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table review_feedback_exports" in downgrade_sql
+    assert "drop table review_resolutions" in downgrade_sql
+    assert "drop type review_resolution_action" in downgrade_sql

@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Model danych
@@ -483,25 +483,92 @@ najbliższego anchora; nie wykonuje ekstrapolacji. Profil jest niezmienny po
 publikacji i fingerprintowany razem ze źródłowym goldenem oraz raportem
 detektora. Korekta tworzy kolejną wersję i osobne artefakty.
 
+### review_batches
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| game_id | UUID | FK do gry |
+| source_report_sha256 | char(64) | globalnie unikalny klucz idempotencji |
+| active_learning_version | varchar | obecnie `whole-layout-active-learning-v1` |
+| model_version | varchar | wersja modelu z raportu |
+| model_artifact_sha256 | char(64) | checksum ONNX |
+| calibration_report_sha256 | char(64) | |
+| dataset_sha256 | char(64) | |
+| split_sha256 | char(64) | |
+| inventory_sha256 | char(64) | |
+| temperature | double | dodatnia temperatura kalibracji |
+| item_count | smallint | 1–100 |
+| source_report | JSONB | dokładna, niezmienna kopia raportu |
+| created_at | timestamptz | |
+
+Batch jest atomowo importowany z raportu TASK-0063. Taki sam
+`source_report_sha256` zwraca istniejący batch tylko wtedy, gdy gra i payload
+są identyczne. Obrazy pozostają w lokalnym artifact store.
+
 ### review_items
 
-```text
-id
-job_id
-source_image_id
-recognized_board_id nullable
-cell_index nullable
-cell_observation_id nullable
-crop_sample_id nullable
-review_type
-predicted_value
-alternatives
-confidence
-status
-resolved_value
-resolved_by nullable
-resolved_at nullable
-```
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| review_batch_id | UUID | FK do `review_batches` |
+| board_id | char(64) | identyfikator całej planszy |
+| selection_rank | smallint | unikalny i ciągły w batchu |
+| sequence_number | bigint | domenowa kolejność układu |
+| source_image_id | varchar | |
+| source_image_checksum_sha256 | char(64) | |
+| source_group | varchar | |
+| board_relative_path | varchar | bezpieczna względna ścieżka POSIX |
+| status | enum | pending/accepted/corrected/rejected |
+| prediction_snapshot | JSONB | dokładnie 15 komórek row-major wraz z confidence i alternatives |
+| resolved_value | JSONB nullable | bieżąca projekcja pełnej decyzji |
+| resolved_by | varchar nullable | lokalna tożsamość administratora |
+| resolved_at | timestamptz nullable | czas bieżącej decyzji |
+| resolution_revision | integer | 0 dla pending, rośnie przy każdej decyzji |
+| created_at | timestamptz | |
+
+Unikalne są `(review_batch_id, board_id)`,
+`(review_batch_id, selection_rank)` oraz
+`(review_batch_id, sequence_number)`. TASK-0064 zapisuje wyłącznie stan
+`pending`. TASK-0066 aktualizuje bieżącą projekcję wyłącznie razem z nowym
+zdarzeniem audytowym.
+
+### review_resolutions
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| review_item_id | UUID | FK do `review_items` |
+| revision | integer | dodatnia, unikalna w elemencie |
+| idempotency_key | UUID | unikalny w elemencie |
+| action | enum | accepted/corrected/rejected |
+| command_sha256 | char(64) | canonical payload decyzji |
+| resolved_value | JSONB | pełna niezmienna decyzja |
+| resolved_by | varchar | lokalny administrator |
+| created_at | timestamptz | |
+
+Tabela jest append-only. Para `(review_item_id, revision)` zachowuje kolejność,
+a `(review_item_id, idempotency_key)` zabezpiecza retry.
+
+### review_feedback_exports
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | |
+| review_batch_id | UUID | FK do `review_batches` |
+| game_id | UUID | FK do gry |
+| version | integer | rosnąca wersja w grze |
+| source_state_sha256 | char(64) | checksum bieżących rewizji |
+| payload_sha256 | char(64) | checksum eksportu |
+| sample_count | integer | liczba wyeksportowanych cropów |
+| rejected_item_count | integer | odrzucone plansze, bez próbek |
+| payload | JSONB | niezmienny manifest etykiet i lokalnych referencji |
+| created_by | varchar | |
+| created_at | timestamptz | |
+
+Unikalne są `(game_id, version)` oraz
+`(review_batch_id, source_state_sha256)`. Nowa decyzja tworzy nową wersję
+eksportu; historyczny payload nie jest aktualizowany.
 
 ### mobile_releases
 

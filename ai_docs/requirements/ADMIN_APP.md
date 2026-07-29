@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Wymagania modułu administracyjnego
@@ -242,6 +242,21 @@ Decyzja użytkownika jest zachowywana jako oznaczony przykład możliwy do
 wykorzystania przy kolejnych wersjach klasyfikatora. Model nie uczy się
 niejawnie po pojedynczym kliknięciu: ponowne uczenie tworzy nową wersję
 datasetu i modelu, a auto-accept wymaga osobno zaakceptowanego progu.
+
+Docelowy ekran `review_items` pozwala administratorowi wybrać niezmienny batch,
+filtrować status i przechodzić
+po kolejce w `selection_rank` i dla każdej planszy widzi oryginał,
+wyprostowaną planszę, wszystkie 15 cropów row-major, przewidywany symbol,
+confidence, entropy i maksymalnie trzy alternatywy. Brak lokalnego obrazu
+pokazuje kontrolowany placeholder, ale nie ukrywa metadanych.
+
+Zapis decyzji obejmuje zawsze całą planszę. Administrator potwierdza geometrię,
+zatwierdza 15 predykcji albo zmienia wybrane symbole z aktywnego katalogu.
+Odrzucenie wymaga powodu i nie tworzy próbek. Panel pokazuje numer bieżącej
+rewizji, pełną historię decyzji i kontrolowany konflikt po zmianie elementu w
+innym żądaniu. Eksport oznaczonego feedbacku jest dostępny dopiero po
+rozwiązaniu całego batcha; ponowienie tego samego stanu nie tworzy duplikatu,
+a zmieniony stan tworzy nową wersję.
 
 ### Mobile releases
 

@@ -48,8 +48,12 @@ export function AdminShell({ apiBaseUrl, children }: AdminShellProps) {
             <span aria-hidden="true">06</span>
             Jobs
           </a>
-          <a className="navItem navItemAvailable" href="#releases">
+          <a className="navItem navItemAvailable" href="#reviews">
             <span aria-hidden="true">07</span>
+            Manual review
+          </a>
+          <a className="navItem navItemAvailable" href="#releases">
+            <span aria-hidden="true">08</span>
             Wydania Android
           </a>
         </nav>

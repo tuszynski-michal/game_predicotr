@@ -7,6 +7,7 @@ import { DatasetCatalog } from '@/features/datasets/dataset-catalog';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ManualImportPanel } from '@/features/imports/manual-import-panel';
 import { ReleasePanel } from '@/features/releases/release-panel';
+import { ReviewWorkspace } from '@/features/reviews/review-workspace';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
 
@@ -31,6 +32,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
       <DatasetCatalog apiBaseUrl={apiBaseUrl} gamesRevision={gamesRevision} />
       <ManualImportPanel apiBaseUrl={apiBaseUrl} />
       <JobMonitor apiBaseUrl={apiBaseUrl} />
+      <ReviewWorkspace apiBaseUrl={apiBaseUrl} />
       <ReleasePanel apiBaseUrl={apiBaseUrl} />
     </>
   );

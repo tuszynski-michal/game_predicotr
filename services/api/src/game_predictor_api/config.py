@@ -12,6 +12,10 @@ _DEFAULT_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
 _DEFAULT_IMPORT_MAX_BYTES = 1024 * 1024 * 1024
+_DEFAULT_REVIEW_CROP_ROOT = Path(
+    "artifacts/m5-reviewed-manual-merge-v16-full-preflight"
+)
+_DEFAULT_REVIEW_SOURCE_ROOT = Path("examples/imgs")
 
 
 class ConfigurationError(ValueError):
@@ -29,6 +33,12 @@ class ApiSettings:
     artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
     import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
+    review_crop_root: Path = field(
+        default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve()
+    )
+    review_source_root: Path = field(
+        default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve()
+    )
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
 
@@ -66,6 +76,20 @@ class ApiSettings:
             ),
             variable_name="GAME_PREDICTOR_IMPORT_MAX_BYTES",
         )
+        review_crop_root = _parse_local_root(
+            source.get(
+                "GAME_PREDICTOR_REVIEW_CROP_ROOT",
+                str(_DEFAULT_REVIEW_CROP_ROOT),
+            ),
+            variable_name="GAME_PREDICTOR_REVIEW_CROP_ROOT",
+        )
+        review_source_root = _parse_local_root(
+            source.get(
+                "GAME_PREDICTOR_REVIEW_SOURCE_ROOT",
+                str(_DEFAULT_REVIEW_SOURCE_ROOT),
+            ),
+            variable_name="GAME_PREDICTOR_REVIEW_SOURCE_ROOT",
+        )
         return cls(
             host=host,
             port=port,
@@ -74,6 +98,8 @@ class ApiSettings:
             artifact_root=artifact_root,
             import_root=import_root,
             import_max_bytes=import_max_bytes,
+            review_crop_root=review_crop_root,
+            review_source_root=review_source_root,
         )
 
 
@@ -96,6 +122,13 @@ def _parse_positive_integer(value: str, *, variable_name: str) -> int:
     if parsed < 1:
         raise ConfigurationError(f"{variable_name} must be positive.")
     return parsed
+
+
+def _parse_local_root(value: str, *, variable_name: str) -> Path:
+    candidate = value.strip()
+    if not candidate:
+        raise ConfigurationError(f"{variable_name} cannot be empty.")
+    return Path(candidate).resolve()
 
 
 def _parse_loopback_origin(value: str) -> str:

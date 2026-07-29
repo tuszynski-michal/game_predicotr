@@ -1261,6 +1261,593 @@ export type PayoutRuleUpdate = {
 };
 
 /**
+ * ReviewAlternative
+ */
+export type ReviewAlternative = {
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
+ * ReviewBatchImport
+ */
+export type ReviewBatchImport = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  report: ReviewSelectionReport;
+  /**
+   * Sourcereportsha256
+   */
+  sourceReportSha256: string;
+};
+
+/**
+ * ReviewBatchImportResponse
+ */
+export type ReviewBatchImportResponse = {
+  batch: ReviewBatchResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+};
+
+/**
+ * ReviewBatchResponse
+ */
+export type ReviewBatchResponse = {
+  /**
+   * Activelearningversion
+   */
+  activeLearningVersion: string;
+  /**
+   * Calibrationreportsha256
+   */
+  calibrationReportSha256: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Datasetsha256
+   */
+  datasetSha256: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Inventorysha256
+   */
+  inventorySha256: string;
+  /**
+   * Itemcount
+   */
+  itemCount: number;
+  /**
+   * Modelartifactsha256
+   */
+  modelArtifactSha256: string;
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Sourcereportsha256
+   */
+  sourceReportSha256: string;
+  /**
+   * Splitsha256
+   */
+  splitSha256: string;
+  /**
+   * Temperature
+   */
+  temperature: number;
+};
+
+/**
+ * ReviewBoardSnapshot
+ */
+export type ReviewBoardSnapshot = {
+  /**
+   * Boardid
+   */
+  boardId: string;
+  /**
+   * Boardrelativepath
+   */
+  boardRelativePath: string;
+  /**
+   * Cells
+   */
+  cells: [
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+    ReviewCellSnapshot,
+  ];
+  /**
+   * Predictedclassrarityscore
+   */
+  predictedClassRarityScore: number;
+  /**
+   * Predictiondiversityscore
+   */
+  predictionDiversityScore: number;
+  /**
+   * Selectionrank
+   */
+  selectionRank: number;
+  /**
+   * Selectionscore
+   */
+  selectionScore: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcegroup
+   */
+  sourceGroup: string;
+  /**
+   * Sourceimagechecksumsha256
+   */
+  sourceImageChecksumSha256: string;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Sourcenoveltyscore
+   */
+  sourceNoveltyScore: number;
+  /**
+   * Uncertaintyscore
+   */
+  uncertaintyScore: number;
+};
+
+/**
+ * ReviewCellSnapshot
+ */
+export type ReviewCellSnapshot = {
+  /**
+   * Alternatives
+   */
+  alternatives: Array<ReviewAlternative>;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Columnindex
+   */
+  columnIndex: number;
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Croprelativepath
+   */
+  cropRelativePath: string;
+  /**
+   * Entropy
+   */
+  entropy: number;
+  /**
+   * Observationid
+   */
+  observationId: string;
+  /**
+   * Predictedsymbolcode
+   */
+  predictedSymbolCode: string;
+  /**
+   * Rowindex
+   */
+  rowIndex: number;
+  /**
+   * Sampleid
+   */
+  sampleId: string;
+};
+
+/**
+ * ReviewFeedbackExportCreate
+ */
+export type ReviewFeedbackExportCreate = {
+  /**
+   * Createdby
+   */
+  createdBy: string;
+};
+
+/**
+ * ReviewFeedbackExportCreateResponse
+ */
+export type ReviewFeedbackExportCreateResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  feedbackExport: ReviewFeedbackExportResponse;
+};
+
+/**
+ * ReviewFeedbackExportResponse
+ */
+export type ReviewFeedbackExportResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Payload
+   */
+  payload: {
+    [key: string]: unknown;
+  };
+  /**
+   * Payloadsha256
+   */
+  payloadSha256: string;
+  /**
+   * Rejecteditemcount
+   */
+  rejectedItemCount: number;
+  /**
+   * Reviewbatchid
+   */
+  reviewBatchId: string;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Sourcestatesha256
+   */
+  sourceStateSha256: string;
+  /**
+   * Version
+   */
+  version: number;
+};
+
+/**
+ * ReviewItemPageResponse
+ */
+export type ReviewItemPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<ReviewItemResponse>;
+  /**
+   * Nextafterselectionrank
+   */
+  nextAfterSelectionRank: number | null;
+  /**
+   * Reviewbatchid
+   */
+  reviewBatchId: string;
+};
+
+/**
+ * ReviewItemResponse
+ */
+export type ReviewItemResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Resolutionrevision
+   */
+  resolutionRevision: number;
+  /**
+   * Resolvedat
+   */
+  resolvedAt: string | null;
+  /**
+   * Resolvedby
+   */
+  resolvedBy: string | null;
+  /**
+   * Resolvedvalue
+   */
+  resolvedValue: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Reviewbatchid
+   */
+  reviewBatchId: string;
+  snapshot: ReviewBoardSnapshot;
+  status: ReviewItemStatus;
+};
+
+/**
+ * ReviewItemStatus
+ */
+export type ReviewItemStatus =
+  'pending' | 'accepted' | 'corrected' | 'rejected';
+
+/**
+ * ReviewResolutionAction
+ */
+export type ReviewResolutionAction = 'accepted' | 'corrected' | 'rejected';
+
+/**
+ * ReviewResolutionCommand
+ */
+export type ReviewResolutionCommand = {
+  action: ReviewResolutionAction;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Geometryaccepted
+   */
+  geometryAccepted: boolean;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Labels
+   */
+  labels?: Array<ReviewResolutionLabel>;
+  /**
+   * Rejectionreason
+   */
+  rejectionReason?: string | null;
+  /**
+   * Resolvedby
+   */
+  resolvedBy: string;
+};
+
+/**
+ * ReviewResolutionCommandResponse
+ */
+export type ReviewResolutionCommandResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  item: ReviewItemResponse;
+  resolution: ReviewResolutionResponse;
+};
+
+/**
+ * ReviewResolutionLabel
+ */
+export type ReviewResolutionLabel = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Sampleid
+   */
+  sampleId: string;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
+ * ReviewResolutionResponse
+ */
+export type ReviewResolutionResponse = {
+  action: ReviewResolutionAction;
+  /**
+   * Commandsha256
+   */
+  commandSha256: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Resolvedby
+   */
+  resolvedBy: string;
+  /**
+   * Resolvedvalue
+   */
+  resolvedValue: {
+    [key: string]: unknown;
+  };
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * ReviewSelectionBoundary
+ */
+export type ReviewSelectionBoundary = {
+  /**
+   * Completependingboardsonly
+   */
+  completePendingBoardsOnly: boolean;
+  /**
+   * Maximumoneboardpersourceuntilallsourcescovered
+   */
+  maximumOneBoardPerSourceUntilAllSourcesCovered: boolean;
+  /**
+   * Mutatesreviewedlabels
+   */
+  mutatesReviewedLabels: boolean;
+};
+
+/**
+ * ReviewSelectionModel
+ */
+export type ReviewSelectionModel = {
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Onnxartifactsha256
+   */
+  onnxArtifactSha256: string;
+  /**
+   * Temperature
+   */
+  temperature: number;
+};
+
+/**
+ * ReviewSelectionReport
+ */
+export type ReviewSelectionReport = {
+  /**
+   * Activelearningversion
+   */
+  activeLearningVersion: string;
+  /**
+   * Batchsize
+   */
+  batchSize: number;
+  /**
+   * Calibrationreportsha256
+   */
+  calibrationReportSha256: string;
+  /**
+   * Candidatecompletependingboardcount
+   */
+  candidateCompletePendingBoardCount: number;
+  /**
+   * Classes
+   */
+  classes: Array<string>;
+  /**
+   * Datasetsha256
+   */
+  datasetSha256: string;
+  /**
+   * Excludedpartialpendingboardcount
+   */
+  excludedPartialPendingBoardCount: number;
+  /**
+   * Inventorysha256
+   */
+  inventorySha256: string;
+  /**
+   * Inventoryversion
+   */
+  inventoryVersion: string;
+  model: ReviewSelectionModel;
+  /**
+   * Pendingcellcount
+   */
+  pendingCellCount: number;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: number;
+  scoreWeights: ReviewSelectionScoreWeights;
+  /**
+   * Selectedboardcount
+   */
+  selectedBoardCount: number;
+  /**
+   * Selectedboards
+   */
+  selectedBoards: Array<ReviewBoardSnapshot>;
+  selectionBoundary: ReviewSelectionBoundary;
+  /**
+   * Splitsha256
+   */
+  splitSha256: string;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * ReviewSelectionScoreWeights
+ */
+export type ReviewSelectionScoreWeights = {
+  /**
+   * Predictedclassrarity
+   */
+  predictedClassRarity: number;
+  /**
+   * Predictiondiversity
+   */
+  predictionDiversity: number;
+  /**
+   * Sourcenovelty
+   */
+  sourceNovelty: number;
+  /**
+   * Uncertainty
+   */
+  uncertainty: number;
+};
+
+/**
  * RulesPublicationIssueResponse
  */
 export type RulesPublicationIssueResponse = {
@@ -2902,6 +3489,529 @@ export type BuildMobileReleaseResponses = {
 
 export type BuildMobileReleaseResponse =
   BuildMobileReleaseResponses[keyof BuildMobileReleaseResponses];
+
+export type ListReviewBatchesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/review-batches';
+};
+
+export type ListReviewBatchesErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListReviewBatchesError =
+  ListReviewBatchesErrors[keyof ListReviewBatchesErrors];
+
+export type ListReviewBatchesResponses = {
+  /**
+   * Response Listreviewbatches
+   *
+   * Successful Response
+   */
+  200: Array<ReviewBatchResponse>;
+};
+
+export type ListReviewBatchesResponse =
+  ListReviewBatchesResponses[keyof ListReviewBatchesResponses];
+
+export type ImportReviewBatchData = {
+  body: ReviewBatchImport;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/review-batches';
+};
+
+export type ImportReviewBatchErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ImportReviewBatchError =
+  ImportReviewBatchErrors[keyof ImportReviewBatchErrors];
+
+export type ImportReviewBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewBatchImportResponse;
+};
+
+export type ImportReviewBatchResponse =
+  ImportReviewBatchResponses[keyof ImportReviewBatchResponses];
+
+export type GetReviewBatchData = {
+  body?: never;
+  path: {
+    /**
+     * Review Batch Id
+     */
+    review_batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-batches/{review_batch_id}';
+};
+
+export type GetReviewBatchErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetReviewBatchError =
+  GetReviewBatchErrors[keyof GetReviewBatchErrors];
+
+export type GetReviewBatchResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewBatchResponse;
+};
+
+export type GetReviewBatchResponse =
+  GetReviewBatchResponses[keyof GetReviewBatchResponses];
+
+export type ListReviewFeedbackExportsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Batch Id
+     */
+    review_batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-batches/{review_batch_id}/feedback-exports';
+};
+
+export type ListReviewFeedbackExportsErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListReviewFeedbackExportsError =
+  ListReviewFeedbackExportsErrors[keyof ListReviewFeedbackExportsErrors];
+
+export type ListReviewFeedbackExportsResponses = {
+  /**
+   * Response Listreviewfeedbackexports
+   *
+   * Successful Response
+   */
+  200: Array<ReviewFeedbackExportResponse>;
+};
+
+export type ListReviewFeedbackExportsResponse =
+  ListReviewFeedbackExportsResponses[keyof ListReviewFeedbackExportsResponses];
+
+export type CreateReviewFeedbackExportData = {
+  body: ReviewFeedbackExportCreate;
+  path: {
+    /**
+     * Review Batch Id
+     */
+    review_batch_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-batches/{review_batch_id}/feedback-exports';
+};
+
+export type CreateReviewFeedbackExportErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateReviewFeedbackExportError =
+  CreateReviewFeedbackExportErrors[keyof CreateReviewFeedbackExportErrors];
+
+export type CreateReviewFeedbackExportResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewFeedbackExportCreateResponse;
+};
+
+export type CreateReviewFeedbackExportResponse =
+  CreateReviewFeedbackExportResponses[keyof CreateReviewFeedbackExportResponses];
+
+export type ListReviewItemsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Batch Id
+     */
+    review_batch_id: string;
+  };
+  query?: {
+    /**
+     * Status
+     */
+    status?: ReviewItemStatus | null;
+    /**
+     * After Selection Rank
+     */
+    after_selection_rank?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/review-batches/{review_batch_id}/items';
+};
+
+export type ListReviewItemsErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListReviewItemsError =
+  ListReviewItemsErrors[keyof ListReviewItemsErrors];
+
+export type ListReviewItemsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewItemPageResponse;
+};
+
+export type ListReviewItemsResponse =
+  ListReviewItemsResponses[keyof ListReviewItemsResponses];
+
+export type GetReviewFeedbackExportData = {
+  body?: never;
+  path: {
+    /**
+     * Feedback Export Id
+     */
+    feedback_export_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-feedback-exports/{feedback_export_id}';
+};
+
+export type GetReviewFeedbackExportErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetReviewFeedbackExportError =
+  GetReviewFeedbackExportErrors[keyof GetReviewFeedbackExportErrors];
+
+export type GetReviewFeedbackExportResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewFeedbackExportResponse;
+};
+
+export type GetReviewFeedbackExportResponse =
+  GetReviewFeedbackExportResponses[keyof GetReviewFeedbackExportResponses];
+
+export type GetReviewItemData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-items/{review_item_id}';
+};
+
+export type GetReviewItemErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetReviewItemError = GetReviewItemErrors[keyof GetReviewItemErrors];
+
+export type GetReviewItemResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewItemResponse;
+};
+
+export type GetReviewItemResponse =
+  GetReviewItemResponses[keyof GetReviewItemResponses];
+
+export type GetReviewBoardAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-items/{review_item_id}/assets/board';
+};
+
+export type GetReviewBoardAssetErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetReviewBoardAssetError =
+  GetReviewBoardAssetErrors[keyof GetReviewBoardAssetErrors];
+
+export type GetReviewBoardAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetReviewCellAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-items/{review_item_id}/assets/cells/{cell_index}';
+};
+
+export type GetReviewCellAssetErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetReviewCellAssetError =
+  GetReviewCellAssetErrors[keyof GetReviewCellAssetErrors];
+
+export type GetReviewCellAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetReviewSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-items/{review_item_id}/assets/source';
+};
+
+export type GetReviewSourceAssetErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetReviewSourceAssetError =
+  GetReviewSourceAssetErrors[keyof GetReviewSourceAssetErrors];
+
+export type GetReviewSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ResolveReviewItemData = {
+  body: ReviewResolutionCommand;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-items/{review_item_id}/resolution';
+};
+
+export type ResolveReviewItemErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResolveReviewItemError =
+  ResolveReviewItemErrors[keyof ResolveReviewItemErrors];
+
+export type ResolveReviewItemResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewResolutionCommandResponse;
+};
+
+export type ResolveReviewItemResponse =
+  ResolveReviewItemResponses[keyof ResolveReviewItemResponses];
+
+export type ListReviewResolutionsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/review-items/{review_item_id}/resolutions';
+};
+
+export type ListReviewResolutionsErrors = {
+  /**
+   * Review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Immutable review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListReviewResolutionsError =
+  ListReviewResolutionsErrors[keyof ListReviewResolutionsErrors];
+
+export type ListReviewResolutionsResponses = {
+  /**
+   * Response Listreviewresolutions
+   *
+   * Successful Response
+   */
+  200: Array<ReviewResolutionResponse>;
+};
+
+export type ListReviewResolutionsResponse =
+  ListReviewResolutionsResponses[keyof ListReviewResolutionsResponses];
 
 export type ArchiveRulesVersionData = {
   body?: never;

@@ -273,6 +273,89 @@ def test_jobs_openapi_exposes_retry_and_public_lease_observability() -> None:
     }.issubset(import_response["required"])
 
 
+def test_reviews_openapi_exposes_immutable_import_and_read_operations() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    expected_operations = {
+        ("/api/v1/admin/review-batches", "get"): "listReviewBatches",
+        ("/api/v1/admin/review-batches", "post"): "importReviewBatch",
+        (
+            "/api/v1/admin/review-batches/{review_batch_id}",
+            "get",
+        ): "getReviewBatch",
+        (
+            "/api/v1/admin/review-batches/{review_batch_id}/items",
+            "get",
+        ): "listReviewItems",
+        ("/api/v1/admin/review-items/{review_item_id}", "get"): "getReviewItem",
+        (
+            "/api/v1/admin/review-items/{review_item_id}/assets/source",
+            "get",
+        ): "getReviewSourceAsset",
+        (
+            "/api/v1/admin/review-items/{review_item_id}/assets/board",
+            "get",
+        ): "getReviewBoardAsset",
+        (
+            "/api/v1/admin/review-items/{review_item_id}/assets/cells/{cell_index}",
+            "get",
+        ): "getReviewCellAsset",
+        (
+            "/api/v1/admin/review-items/{review_item_id}/resolution",
+            "post",
+        ): "resolveReviewItem",
+        (
+            "/api/v1/admin/review-items/{review_item_id}/resolutions",
+            "get",
+        ): "listReviewResolutions",
+        (
+            "/api/v1/admin/review-batches/{review_batch_id}/feedback-exports",
+            "post",
+        ): "createReviewFeedbackExport",
+        (
+            "/api/v1/admin/review-batches/{review_batch_id}/feedback-exports",
+            "get",
+        ): "listReviewFeedbackExports",
+        (
+            "/api/v1/admin/review-feedback-exports/{feedback_export_id}",
+            "get",
+        ): "getReviewFeedbackExport",
+    }
+
+    for (path, method), operation_id in expected_operations.items():
+        operation = schema["paths"][path][method]
+        assert operation["operationId"] == operation_id
+        assert operation["tags"] == ["reviews"]
+
+    import_schema = schema["components"]["schemas"]["ReviewBatchImport"]
+    assert import_schema["required"] == [
+        "gameId",
+        "sourceReportSha256",
+        "report",
+    ]
+    item_schema = schema["components"]["schemas"]["ReviewItemResponse"]
+    assert {"snapshot", "status"}.issubset(item_schema["required"])
+    snapshot_schema = schema["components"]["schemas"]["ReviewBoardSnapshot"]
+    assert {
+        "boardRelativePath",
+        "cells",
+        "sourceImageChecksumSha256",
+    }.issubset(snapshot_schema["required"])
+    page_operation = schema["paths"]["/api/v1/admin/review-batches/{review_batch_id}/items"]["get"]
+    parameters = {parameter["name"]: parameter for parameter in page_operation["parameters"]}
+    assert parameters["after_selection_rank"]["schema"]["minimum"] == 0
+    assert parameters["limit"]["schema"]["maximum"] == 100
+    resolution_schema = schema["components"]["schemas"]["ReviewResolutionCommand"]
+    assert resolution_schema["required"] == [
+        "idempotencyKey",
+        "expectedRevision",
+        "action",
+        "geometryAccepted",
+        "resolvedBy",
+    ]
+    assert resolution_schema["properties"]["labels"]["maxItems"] == 15
+    assert "resolutionRevision" in item_schema["required"]
+
+
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     report_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report"

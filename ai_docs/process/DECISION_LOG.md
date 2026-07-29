@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-28
+last_updated: 2026-07-29
 ---
 
 # Decision Log
@@ -1795,6 +1795,90 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   `2ab9a79a6d1c81b8d08abe0defc447510f0cfe4df1909c9aa8da77d79e6115d2`.
   Następna wersja modelu powstaje dopiero z nowego, jawnie zatwierdzonego
   datasetu.
+- **Supersedes:** brak.
+
+## D-074 — Niezmienny batch review i oddzielona granica zapisu decyzji
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** wynik `whole-layout-active-learning-v1` jest importowany
+  atomowo jako `review_batch` identyfikowany canonical SHA-256 całego raportu.
+  Każda pozycja zachowuje niezmienny snapshot pełnej planszy 5 × 3,
+  provenance, confidence i alternatives. TASK-0064 udostępnia tylko
+  idempotentny import oraz read-only list/detail; przejścia
+  approve/correct/reject, audyt i eksport feedbacku należą do TASK-0066.
+- **Context:** TASK-0063 utworzył odtwarzalny batch 30 kompletnych plansz.
+  Interfejs TASK-0065 potrzebuje stabilnego źródła danych, ale samo
+  wyświetlenie predykcji nie może tworzyć decyzji ani zmieniać etykiet.
+- **Reason:** checksum-bound batch wiąże review z dokładnym modelem, kalibracją,
+  splitem i inventory, a oddzielenie od resolution zmniejsza ryzyko ukrytej
+  mutacji podczas implementacji UI. Deterministyczny `selection_rank` jest
+  bezpiecznym kursorem i zachowuje kolejność rankingu.
+- **Alternatives:** przechowywanie wyłącznie ścieżki do JSON, tworzenie jednego
+  rekordu na komórkę albo jednoczesne dodanie resolution w TASK-0064. Pierwsza
+  opcja nie zapewnia trwałego, transakcyjnego źródła dla panelu, druga niszczy
+  whole-layout workflow, a trzecia łączy odczyt UI z audytowalną mutacją bez
+  gotowego kontraktu korekt.
+- **Consequences:** PostgreSQL przechowuje raport i snapshoty JSONB, lecz nie
+  obrazy. Identyczny retry zwraca ten sam batch; inna gra lub payload pod tym
+  samym checksumem są konfliktem. TASK-0065 może budować UI na generowanym
+  kliencie, a TASK-0066 musi dodać atomowe resolution i historię bez
+  nadpisywania źródłowego snapshotu.
+- **Supersedes:** brak.
+
+## D-075 — Item-scoped streaming lokalnych obrazów review
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** panel manual review pobiera obrazy wyłącznie przez trzy
+  read-only endpointy związane z istniejącym `review_item`: source, board i
+  cell o indeksie 0–14. Klient nie przekazuje ścieżki. Source jest wybierany
+  pod `GAME_PREDICTOR_REVIEW_SOURCE_ROOT` po zapisanym SHA-256; board i cell są
+  rozwiązywane pod `GAME_PREDICTOR_REVIEW_CROP_ROOT` z niezmiennego snapshotu.
+- **Context:** strona HTTP nie może bezpiecznie renderować lokalnego `file://`,
+  a TASK-0064 celowo przechowuje tylko metadane i nie zapisuje obrazów w
+  PostgreSQL. TASK-0065 musi jednocześnie pokazać oryginał, planszę i crop.
+- **Reason:** item-scoped route nie tworzy ogólnego serwera plików, zachowuje
+  granicę loopback i pozwala backendowi ponownie sprawdzić root, typ pliku oraz
+  checksumę oryginału. JSON pozostaje mały i typowany.
+- **Alternatives:** osadzenie obrazów jako base64/JSONB, linki `file://`,
+  publiczny static root albo endpoint przyjmujący ścieżkę. Pierwsza opcja
+  powiększa bazę i odpowiedzi, druga jest blokowana przez przeglądarkę, a dwie
+  ostatnie niepotrzebnie udostępniają szerszy fragment systemu plików.
+- **Consequences:** dwa lokalne rooty są konfigurowalne i domyślnie wskazują
+  zaakceptowany namespace v16 oraz `examples/imgs`. Brak, niejednoznaczność,
+  unsafe path, nieobsługiwany typ lub błędny indeks kończą się stabilnym
+  błędem; UI pokazuje placeholder bez ukrywania predykcji. Endpoint nie zapisuje
+  decyzji i nie zmienia batcha.
+- **Supersedes:** brak.
+
+## D-076 — Revisioned whole-board review and immutable feedback versions
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** manual review zapisuje decyzję dla całej planszy jako atomową
+  parę: bieżąca projekcja `review_items` oraz append-only
+  `review_resolutions`. Każda komenda ma UUID idempotencji i oczekiwaną
+  rewizję. Accepted/corrected wymaga potwierdzonej geometrii i dokładnie 15
+  etykiet związanych z `sampleId`; rejected nie niesie etykiet. Eksport
+  feedbacku jest niezmienny, game-local versioned i identyfikowany checksumą
+  kompletnego bieżącego stanu batcha.
+- **Context:** TASK-0064/0065 zapewniły niezmienny snapshot i bezpieczny odczyt,
+  ale zapis pojedynczych komórek lub nadpisanie jednej decyzji utraciłoby
+  kontekst planszy, umożliwiło częściowy dataset i usunęło historię korekt.
+- **Reason:** optimistic revision chroni przed zapisem na nieaktualnym widoku,
+  idempotency key przed podwójnym kliknięciem, a pełne 15 etykiet pozwala
+  jednoznacznie odtworzyć dane treningowe. Checksum stanu oddziela retry od
+  rzeczywistej nowej wersji feedbacku.
+- **Alternatives:** mutable single-row resolution bez audytu, osobne decyzje
+  per cell, eksport nadpisujący jeden plik albo automatyczny trening po zapisie.
+  Pierwsza opcja usuwa historię, druga dopuszcza częściowe plansze, trzecia
+  łamie wersjonowanie, a ostatnia narusza manual-review-only i rollback modelu.
+- **Consequences:** zmiana decyzji dopisuje rewizję; exact retry nie tworzy
+  zdarzenia, a stale revision lub reuse klucza z innym payloadem kończy się
+  konfliktem. Pending blokuje eksport, rejected jest wykluczony z próbek, a
+  nowy stan tworzy kolejną wersję bez mutacji starego payloadu. Obrazy
+  pozostają poza PostgreSQL, a retraining wymaga osobnego jawnego zadania.
 - **Supersedes:** brak.
 
 ## Szablon nowej decyzji

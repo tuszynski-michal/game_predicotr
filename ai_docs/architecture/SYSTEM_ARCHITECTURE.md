@@ -624,6 +624,37 @@ greedy ranking waży niepewność, różnorodność w przestrzeni predykcji, now
 najwyżej jedną planszę na zdjęcie. Wynik jest tylko wersjonowaną kolejką
 manual review i nie mutuje źródła etykiet ani modelu.
 
+Granica persistence M6.3 przyjmuje wyłącznie kompletny, checksum-bound raport
+active-learning. Warstwa domenowa waliduje katalog symboli, 15 komórek
+row-major, źródła, ścieżki i provenance przed jakimkolwiek zapisem.
+`review_batches` zachowuje niezmienny raport, a `review_items` jego
+deterministycznie uporządkowane snapshoty plansz. Ponowienie importu po tym
+samym SHA-256 jest idempotentne; inny payload lub gra z tym samym kluczem są
+konfliktem. Read-only Admin API jest osobnym pionem od późniejszego zapisu
+decyzji, dzięki czemu samo wyświetlenie sugestii nie może zmienić etykiet,
+datasetu ani modelu.
+
+Przeglądarka nie otrzymuje ścieżki systemu Windows ani nie może wskazać
+dowolnego pliku. Read-only endpoint assetu jest zawsze związany z
+`review_item`: oryginał jest wyszukiwany pod skonfigurowanym lokalnym rootem po
+SHA-256, a plansza i crop po zapisanej względnej ścieżce pod osobnym crop
+rootem. Wyjście poza root, nieobsługiwany typ obrazu, brak pliku lub więcej niż
+jeden oryginał o tej samej checksumie kończą się kontrolowanym błędem. Obraz
+nie przechodzi przez JSON ani PostgreSQL.
+
+Write path TASK-0066 jest osobnym atomowym kontraktem. Domena wiąże pełne 15
+etykiet z niezmiennymi `sampleId`, wymaga zaakceptowanej geometrii i aktywnego
+katalogu symboli. Repozytorium blokuje element, porównuje oczekiwaną rewizję,
+dopisuje `review_resolution` i aktualizuje bieżącą projekcję w jednej
+transakcji. Klucz idempotencji chroni przed podwójnym kliknięciem, a zmiana
+decyzji nigdy nie usuwa poprzedniego zdarzenia.
+
+Eksport feedbacku blokuje batch oraz jego elementy, odrzuca stan z pending i
+zamraża current-state checksum. Odrzucone plansze są dowodem audytowym, ale nie
+próbkami treningowymi. Każdy inny stan otrzymuje kolejną wersję i osobny
+checksum payloadu; pojedyncza decyzja ani eksport nie uruchamia treningu i nie
+zmienia działającego modelu.
+
 Manual review nie może ufać samemu confidence OCR. Dopóki osobny held-out
 benchmark nie wyznaczy zaakceptowanych progów, każdy numer wymaga potwierdzenia
 człowieka. Continuity pozostaje walidatorem i nie jest źródłem zastępczej

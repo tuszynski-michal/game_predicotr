@@ -11,6 +11,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -29,6 +30,10 @@ from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
+from game_predictor_api.domain.reviews import (
+    ReviewItemStatus,
+    ReviewResolutionAction,
+)
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.metadata import Base
 
@@ -40,6 +45,8 @@ def _enum_values(
         | type[JobStatus]
         | type[JobType]
         | type[MobileReleaseStatus]
+        | type[ReviewItemStatus]
+        | type[ReviewResolutionAction]
         | type[SymbolStatus]
         | type[RulesVersionStatus]
     ),
@@ -871,3 +878,250 @@ class MobileReleaseGameModel(Base):
         nullable=False,
     )
     layout_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class ReviewBatchModel(Base):
+    __tablename__ = "review_batches"
+    __table_args__ = (
+        CheckConstraint(
+            "source_report_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_review_batches_source_report_sha256",
+        ),
+        CheckConstraint(
+            "model_artifact_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND calibration_report_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND dataset_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND split_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND inventory_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_review_batches_provenance_sha256",
+        ),
+        CheckConstraint(
+            "temperature > 0",
+            name="ck_review_batches_temperature_positive",
+        ),
+        CheckConstraint(
+            "item_count BETWEEN 1 AND 100",
+            name="ck_review_batches_item_count",
+        ),
+        UniqueConstraint(
+            "source_report_sha256",
+            name="uq_review_batches_source_report_sha256",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_report_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    active_learning_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_artifact_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    calibration_report_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    dataset_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    split_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    inventory_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    temperature: Mapped[float] = mapped_column(Float, nullable=False)
+    item_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    source_report: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ReviewItemModel(Base):
+    __tablename__ = "review_items"
+    __table_args__ = (
+        CheckConstraint(
+            "board_id ~ '^[0-9a-f]{64}$' AND source_image_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_review_items_identity_sha256",
+        ),
+        CheckConstraint(
+            "selection_rank BETWEEN 1 AND 100",
+            name="ck_review_items_selection_rank",
+        ),
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_review_items_sequence_positive",
+        ),
+        CheckConstraint(
+            r"length(btrim(board_relative_path)) > 0 "
+            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_review_items_board_path_safe",
+        ),
+        CheckConstraint(
+            "(status = 'pending' AND resolved_value IS NULL "
+            "AND resolved_by IS NULL AND resolved_at IS NULL "
+            "AND resolution_revision = 0) "
+            "OR (status <> 'pending' AND resolved_by IS NOT NULL "
+            "AND resolved_at IS NOT NULL AND resolution_revision > 0)",
+            name="ck_review_items_resolution_state",
+        ),
+        UniqueConstraint(
+            "review_batch_id",
+            "board_id",
+            name="uq_review_items_batch_board",
+        ),
+        UniqueConstraint(
+            "review_batch_id",
+            "selection_rank",
+            name="uq_review_items_batch_rank",
+        ),
+        UniqueConstraint(
+            "review_batch_id",
+            "sequence_number",
+            name="uq_review_items_batch_sequence",
+        ),
+        Index(
+            "ix_review_items_batch_status_rank",
+            "review_batch_id",
+            "status",
+            "selection_rank",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_batch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("review_batches.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    board_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    selection_rank: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_image_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_image_checksum_sha256: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+    )
+    source_group: Mapped[str] = mapped_column(String(200), nullable=False)
+    board_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[ReviewItemStatus] = mapped_column(
+        Enum(
+            ReviewItemStatus,
+            name="review_item_status",
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=ReviewItemStatus.PENDING,
+    )
+    prediction_snapshot: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    resolved_value: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    resolved_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    resolution_revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=text("0"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ReviewResolutionModel(Base):
+    __tablename__ = "review_resolutions"
+    __table_args__ = (
+        CheckConstraint("revision > 0", name="ck_review_resolutions_revision_positive"),
+        CheckConstraint(
+            "command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_review_resolutions_command_sha256",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "revision",
+            name="uq_review_resolutions_item_revision",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "idempotency_key",
+            name="uq_review_resolutions_item_idempotency",
+        ),
+        Index(
+            "ix_review_resolutions_item_created",
+            "review_item_id",
+            "revision",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("review_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    action: Mapped[ReviewResolutionAction] = mapped_column(
+        Enum(
+            ReviewResolutionAction,
+            name="review_resolution_action",
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    resolved_value: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    resolved_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ReviewFeedbackExportModel(Base):
+    __tablename__ = "review_feedback_exports"
+    __table_args__ = (
+        CheckConstraint("version > 0", name="ck_review_feedback_exports_version_positive"),
+        CheckConstraint(
+            "source_state_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND payload_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_review_feedback_exports_sha256",
+        ),
+        CheckConstraint(
+            "sample_count >= 0 AND rejected_item_count >= 0",
+            name="ck_review_feedback_exports_counts",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "version",
+            name="uq_review_feedback_exports_game_version",
+        ),
+        UniqueConstraint(
+            "review_batch_id",
+            "source_state_sha256",
+            name="uq_review_feedback_exports_batch_state",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    review_batch_id: Mapped[UUID] = mapped_column(
+        ForeignKey("review_batches.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_state_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    rejected_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

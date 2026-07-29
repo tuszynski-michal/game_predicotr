@@ -117,6 +117,98 @@ def test_board_decisions_are_atomic_idempotent_and_resumable(tmp_path: Path) -> 
     assert resumed_board["cells"][0]["symbolCode"] == "lemon"
 
 
+def test_active_learning_priority_is_bounded_ordered_and_resumable(
+    tmp_path: Path,
+) -> None:
+    baseline = _review(tmp_path)
+    first = baseline.board_state(status="all", offset=0)["board"]
+    second = baseline.board_state(status="all", offset=1)["board"]
+    assert isinstance(first, dict) and isinstance(second, dict)
+    priority = (str(second["boardId"]), str(first["boardId"]))
+    output = tmp_path / "priority-labels.json"
+    review = BootstrapSymbolReview(
+        INVENTORY,
+        CROP_ROOT,
+        output,
+        require_calibrated=True,
+        priority_board_ids=priority,
+        priority_only=True,
+    )
+    review.configure(
+        game_code="blazing-hot-7-deluxe",
+        reviewed_by="owner",
+        symbol_codes=("cherries", "lemon", "seven"),
+    )
+
+    payload = review.board_state(status="all")
+    board = payload["board"]
+    assert isinstance(board, dict)
+    assert board["boardId"] == priority[0]
+    assert board["activeLearningPriority"] == {"rank": 1, "total": 2}
+    assert payload["totalFiltered"] == 2
+    assert payload["progress"]["activeLearning"] == {
+        "accepted": 0,
+        "enabled": True,
+        "pending": 2,
+        "priorityOnly": True,
+        "rejected": 0,
+        "total": 2,
+    }
+
+    review.decide_board(
+        board_id=priority[0],
+        decisions=[
+            {
+                "decision": "accepted",
+                "sampleId": board["cells"][0]["sampleId"],
+                "symbolCode": "lemon",
+            }
+        ],
+    )
+    resumed = BootstrapSymbolReview(
+        INVENTORY,
+        CROP_ROOT,
+        output,
+        require_calibrated=True,
+        priority_board_ids=priority,
+        priority_only=True,
+    )
+    resumed_board = resumed.board_state(status="all")["board"]
+    assert isinstance(resumed_board, dict)
+    assert resumed_board["cells"][0]["symbolCode"] == "lemon"
+
+
+def test_active_learning_priority_rejects_duplicate_or_unknown_board(
+    tmp_path: Path,
+) -> None:
+    baseline = _review(tmp_path)
+    board = baseline.board_state(status="all")["board"]
+    assert isinstance(board, dict)
+    board_id = str(board["boardId"])
+
+    with pytest.raises(SymbolReviewError) as duplicate:
+        BootstrapSymbolReview(
+            INVENTORY,
+            CROP_ROOT,
+            tmp_path / "duplicate.json",
+            require_calibrated=True,
+            priority_board_ids=(board_id, board_id),
+            priority_only=True,
+        )
+    assert duplicate.value.code == "SYMBOL_REVIEW_PRIORITY_DUPLICATE"
+
+    with pytest.raises(SymbolReviewError) as unknown:
+        BootstrapSymbolReview(
+            INVENTORY,
+            CROP_ROOT,
+            tmp_path / "unknown.json",
+            require_calibrated=True,
+            priority_board_ids=("0" * 64,),
+            priority_only=True,
+        )
+    assert unknown.value.code == "SYMBOL_REVIEW_PRIORITY_UNKNOWN"
+
+
 def test_suggestions_are_payload_only_and_never_create_a_decision(
     tmp_path: Path,
 ) -> None:

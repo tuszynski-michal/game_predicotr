@@ -742,6 +742,24 @@ greedy ranking waży niepewność, różnorodność w przestrzeni predykcji, now
 najwyżej jedną planszę na zdjęcie. Wynik jest tylko wersjonowaną kolejką
 manual review i nie mutuje źródła etykiet ani modelu.
 
+TASK-0102 przekazuje uporządkowane `selectedBoards` do istniejącego
+whole-layout review jako jawny priorytet. Tryb priority-only ogranicza
+nawigację do wybranego batcha, ale zapis nadal trafia do tego samego
+`reviewed-cell-labels-v1`, dzięki czemu wcześniejsze decyzje pozostają
+niezmienne i wznawialne. Samo otwarcie batcha, sugestia ani zmiana widoku nie
+tworzą etykiety.
+
+Po zamknięciu batcha retraining nie nadpisuje bootstrapu. Iteracja otrzymuje
+osobny root assetów, osobne raporty dataset/split/model/ONNX/kalibracji oraz
+checksum-bound manifest wydania modelu. Wersje kontraktów mogą pozostać `v1`,
+jeżeli ich schema i semantyka się nie zmieniły; tożsamością wytrenowanego
+wydania jest `iterationVersion` wraz z SHA-256 wszystkich wejść i wyników.
+Vertical slice wyprowadza liczby kompletnych i częściowych plansz z
+checksum-bound datasetu zamiast utrzymywać historyczne stałe 416/24/56.
+`massImportAllowed` wynika z aktualnej polityki confidence: brak wymaganego
+wsparcia danych albo precision pozostawia wartość `false`, nawet gdy sam pion
+techniczny przechodzi.
+
 Granica persistence M6.3 przyjmuje wyłącznie kompletny, checksum-bound raport
 active-learning. Warstwa domenowa waliduje katalog symboli, 15 komórek
 row-major, źródła, ścieżki i provenance przed jakimkolwiek zapisem.

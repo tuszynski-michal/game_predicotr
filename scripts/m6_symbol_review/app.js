@@ -40,6 +40,7 @@ const ui = {
 };
 
 const state = {
+  activeLearning: null,
   board: null,
   busy: false,
   offset: 0,
@@ -80,6 +81,7 @@ async function request(path, options = {}) {
 }
 
 function updateProgress(progress) {
+  state.activeLearning = progress.activeLearning || null;
   const completedBoards = progress.boards.accepted + progress.boards.rejected;
   const completedCells = progress.cells.accepted + progress.cells.rejected;
   ui.boardsPending.textContent =
@@ -210,12 +212,16 @@ function renderBoard(payload) {
   ui.sequenceNumber.textContent = board.sequenceNumber;
   ui.boardIndex.textContent = board.boardIndex + 1;
   ui.sourceGroup.textContent = board.sourceGroup;
-  ui.boardStatus.textContent =
+  const reviewStatus =
     board.status === 'pending'
       ? 'Niedokończona'
       : board.status === 'accepted'
         ? 'Zaakceptowana'
         : 'Kompletna z odrzuceniem';
+  const priority = board.activeLearningPriority;
+  ui.boardStatus.textContent = priority
+    ? `${reviewStatus} · Active learning ${priority.rank}/${priority.total}`
+    : reviewStatus;
   ui.profileVersion.textContent = `v${board.calibrationProfileVersion}`;
   renderCells(board.cells);
 }

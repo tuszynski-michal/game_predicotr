@@ -468,6 +468,19 @@ brak uprawnienia `INTERNET`.
 - active learning odrzuca niekompletną planszę, weryfikuje checksumę każdego
   pending cropu, wybiera pełne layouty 15/15 i wykorzystuje nowe źródła przed
   ponownym użyciem zdjęcia,
+- priority-only review ponownie waliduje canonical selection oraz checksum
+  inventory, zachowuje `selectionRank`, odrzuca nieznane i zdublowane boardId,
+  nie zmienia istniejących etykiet przy uruchomieniu i wznawia częściową
+  planszę w tym samym miejscu,
+- po zamknięciu batcha nowy dataset, split, model, ONNX, kalibracja i kolejna
+  selekcja są zapisywane pod nowymi ścieżkami oraz spięte checksum-bound
+  manifestem iteracji; bootstrap pozostaje odtwarzalny,
+- vertical slice nie zakłada historycznej liczby 416 próbek ani 24 kompletnych
+  plansz: wymaga, aby accepted, pending i rejected dokładnie pokrywały
+  inventory, a complete i partial dokładnie pokrywały labeled dataset,
+- `massImportAllowed` nie może wynikać z samego powodzenia inferencji; jest
+  `true` dopiero wtedy, gdy aktualna polityka confidence włączy auto-accept na
+  podstawie wymaganych progów precision i support,
 - ponowne uruchomienie dla tych samych raportów, modelu i cropów daje
   identyczną temperaturę, politykę oraz kolejność active-learning,
 - import batcha review sprawdza canonical SHA-256, aktywny katalog symboli,

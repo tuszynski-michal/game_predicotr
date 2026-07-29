@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import sys
 import webbrowser
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import cast
 
+from game_predictor_api.domain.reviews import (
+    ReviewError,
+    canonical_report_bytes,
+    validate_review_selection,
+)
 from game_predictor_worker.images.symbol_review import (
     BootstrapSymbolReview,
     SymbolReviewError,
@@ -35,6 +44,7 @@ DEFAULT_CLASSIFIER = (
 DEFAULT_CLASSIFIER_REPORT = QUALITY_ROOT / "m6-symbol-classifier-baseline-report.json"
 DEFAULT_PREVIOUS_INVENTORY = QUALITY_ROOT / "m6-symbol-crop-inventory-v2.json"
 DEFAULT_PREVIOUS_LABELS = ROOT / "artifacts" / "m6-symbol-review" / "reviewed-labels.json"
+DEFAULT_SELECTION = QUALITY_ROOT / "m6-symbol-active-learning-selection.json"
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,8 +54,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inventory", type=Path, default=DEFAULT_INVENTORY)
     parser.add_argument("--crop-root", type=Path, default=DEFAULT_CROP_ROOT)
     parser.add_argument("--output", type=Path, default=DEFAULT_LABEL_OUTPUT)
+    parser.add_argument("--selection", type=Path, default=DEFAULT_SELECTION)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--all-boards",
+        action="store_true",
+        help="Keep active-learning boards first, then continue through all boards.",
+    )
     parser.add_argument(
         "--no-suggestions",
         action="store_true",
@@ -59,9 +75,51 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _priority_board_ids(
+    selection_path: Path,
+    inventory_path: Path,
+) -> tuple[str, ...]:
+    content = selection_path.read_bytes()
+    value = json.loads(content)
+    if not isinstance(value, Mapping):
+        raise SymbolReviewError(
+            "SYMBOL_REVIEW_SELECTION_INVALID",
+            "Active-learning selection must be an object.",
+        )
+    report = cast(Mapping[str, object], value)
+    if canonical_report_bytes(report) != content:
+        raise SymbolReviewError(
+            "SYMBOL_REVIEW_SELECTION_NOT_CANONICAL",
+            "Active-learning selection must use canonical JSON.",
+        )
+    raw_classes = report.get("classes")
+    if not isinstance(raw_classes, Sequence) or isinstance(raw_classes, str | bytes):
+        raise SymbolReviewError(
+            "SYMBOL_REVIEW_SELECTION_INVALID",
+            "Active-learning selection classes must be an array.",
+        )
+    classes = tuple(str(value) for value in raw_classes)
+    validated = validate_review_selection(
+        report,
+        source_report_sha256=hashlib.sha256(content).hexdigest(),
+        active_symbol_codes=classes,
+    )
+    inventory_sha256 = hashlib.sha256(inventory_path.read_bytes()).hexdigest()
+    if validated.inventory_sha256 != inventory_sha256:
+        raise SymbolReviewError(
+            "SYMBOL_REVIEW_SELECTION_INVENTORY_DRIFT",
+            "Active-learning selection references another crop inventory.",
+        )
+    return tuple(cast(str, snapshot["boardId"]) for snapshot in validated.item_snapshots)
+
+
 def main() -> int:
     args = parse_args()
     try:
+        priority_board_ids = _priority_board_ids(
+            args.selection,
+            args.inventory,
+        )
         suggestion_provider = None
         if not args.no_suggestions:
             suggestion_provider, _ = build_frozen_suggestion_service(
@@ -80,6 +138,8 @@ def main() -> int:
             args.output,
             require_calibrated=True,
             suggestion_provider=suggestion_provider,
+            priority_board_ids=priority_board_ids,
+            priority_only=not args.all_boards,
         )
         server = create_review_server(
             review,
@@ -89,6 +149,7 @@ def main() -> int:
         )
     except (
         OSError,
+        ReviewError,
         SymbolReviewError,
         SymbolReviewHttpError,
         SymbolSuggestionError,

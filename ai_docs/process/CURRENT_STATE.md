@@ -8,7 +8,7 @@ last_updated: 2026-07-29
 
 ## Phase
 
-`M7.4 complete — M7.5 publication blocked by manual-review-only quality gate`
+`M6 retraining iteration complete — next feedback batch required`
 
 ## Completed
 
@@ -1279,11 +1279,30 @@ last_updated: 2026-07-29
 - raport `m7-queue-architecture-decision-v1` ma SHA-256
   `c511da766e7276666cbd62413a1128540aa00b930357fe77736d9a1dfce8cf09`;
   zaakceptowano D-085 i zapisano pięć mierzalnych warunków ponownej oceny.
+- ukończono TASK-0102: priority-only review zachował kolejność checksum-bound
+  selection, a właściciel jawnie oznaczył wszystkie 30 plansz/450 komórek,
+- źródło etykiet ma teraz 866 decyzji, 54 kompletne plansze i 4 historyczne
+  częściowe plansze; jego SHA-256 to
+  `066e4ed3d184308303d66f0018b7ea23995e37f9e0a74b676179f47c59638e94`,
+- iteracja `m6-active-learning-iteration-v2` utworzyła osobny dataset 866 próbek
+  z 35 zdjęć, source-aware split, 30-epokowy model, ONNX, kalibrację, kolejny
+  wybór 30 plansz i vertical slice bez nadpisania bootstrapu; manifest ma
+  SHA-256
+  `f745038a7177f61505b804de5404757bf4e3de711f0f6359b8dde5226905526f`,
+- ONNX ma SHA-256
+  `3010d89f36f71dde4ffb24e14d030c03ef85b4111642eb4f813942753db4c711`,
+  zero top-one mismatch i maksymalny błąd prawdopodobieństwa `7.749e-7`,
+- vertical slice v2 przeszedł dla 866 próbek z accuracy `0.75057737` i macro
+  recall `0.76365167`; liczby korpusu są wyprowadzane z wersjonowanych danych,
+  a nie z historycznych stałych,
+- nie wszystkie klasy osiągnęły wymagane wsparcie około 100 próbek, dlatego
+  `bootstrapTargetMet = false`, auto-accept i `massImportAllowed` pozostają
+  wyłączone; TASK-0076 nadal jest poprawnie zablokowany.
 
 ## In progress
 
-- brak aktywnego zadania; TASK-0076 pozostaje nieutworzony do usunięcia blokady
-  jakości. TASK-0077 jest ukończony poza kolejnością.
+- brak aktywnego zadania; następna iteracja feedbacku wymaga utworzenia osobnego
+  tasku na podstawie selection v2.
 
 ## Blocked
 
@@ -1357,11 +1376,13 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Zebrać nową niezmienną wersję review feedbacku, wykonać retraining i ponownie
-przejść checksum-bound kalibrację jakości. Dopiero `massImportAllowed = true`
-pozwoli utworzyć TASK-0076. TASK-0077 i decyzja o kolejce są już zamknięte.
-TASK-0041/TASK-0042 oraz G3 pozostają równolegle zablokowane na fizycznych
-raportach Pixela i Samsunga.
+Utworzyć mały kolejny task feedbacku korzystający z
+`m6-symbol-active-learning-selection-v2.json`, ze szczególną kontrolą klas,
+które nadal nie osiągają minimalnego support. Po następnym jawnym batchu
+ponownie wykonać wersjonowany retraining i quality gate. Dopiero
+`massImportAllowed = true` pozwoli rozpocząć TASK-0076. TASK-0077 i decyzja o
+kolejce są zamknięte. TASK-0041/TASK-0042 oraz G3 pozostają równolegle
+zablokowane na fizycznych raportach Pixela i Samsunga.
 
 ## Do not start yet
 

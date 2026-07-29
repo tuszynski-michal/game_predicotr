@@ -7,7 +7,7 @@ import json
 import re
 import threading
 from collections import Counter, defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, Protocol
@@ -98,6 +98,8 @@ class BootstrapSymbolReview:
         *,
         require_calibrated: bool = False,
         suggestion_provider: SymbolSuggestionProvider | None = None,
+        priority_board_ids: Sequence[str] = (),
+        priority_only: bool = False,
     ) -> None:
         try:
             _, inventory = load_symbol_crop_inventory(inventory_path)
@@ -146,7 +148,7 @@ class BootstrapSymbolReview:
         for sample in inventory.samples:
             if sample.board_id is not None:
                 board_groups[sample.board_id].append(sample)
-        self._boards = tuple(
+        boards = tuple(
             tuple(sorted(samples, key=lambda sample: sample.cell_index))
             for _, samples in sorted(
                 board_groups.items(),
@@ -154,13 +156,50 @@ class BootstrapSymbolReview:
             )
         )
         if require_calibrated and (
-            len(self._boards) * 15 != len(inventory.samples)
-            or any(len(board) != 15 for board in self._boards)
+            len(boards) * 15 != len(inventory.samples) or any(len(board) != 15 for board in boards)
         ):
             raise SymbolReviewError(
                 "SYMBOL_REVIEW_BOARD_GROUP_INVALID",
                 "Accepted inventory must contain complete 5 x 3 boards.",
             )
+        normalized_priority = tuple(priority_board_ids)
+        if len(set(normalized_priority)) != len(normalized_priority):
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_PRIORITY_DUPLICATE",
+                "Active-learning board priority cannot contain duplicates.",
+            )
+        boards_by_id = {
+            board[0].board_id: board for board in boards if board[0].board_id is not None
+        }
+        unknown_priority = [
+            board_id for board_id in normalized_priority if board_id not in boards_by_id
+        ]
+        if unknown_priority:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_PRIORITY_UNKNOWN",
+                "Active-learning priority references a board outside the inventory.",
+            )
+        if priority_only and not normalized_priority:
+            raise SymbolReviewError(
+                "SYMBOL_REVIEW_PRIORITY_REQUIRED",
+                "Priority-only review requires at least one selected board.",
+            )
+        self._priority_rank_by_board_id = {
+            board_id: rank for rank, board_id in enumerate(normalized_priority, start=1)
+        }
+        self._priority_only = priority_only
+        self._boards = tuple(
+            sorted(
+                boards,
+                key=lambda board: (
+                    self._priority_rank_by_board_id.get(
+                        board[0].board_id or "",
+                        len(self._priority_rank_by_board_id) + 1,
+                    ),
+                    board[0].sequence_number,
+                ),
+            )
+        )
         self._lock = threading.RLock()
         self._game_id: str | None = None
         self._game_code: str | None = None
@@ -544,9 +583,18 @@ class BootstrapSymbolReview:
                 "Board offset and status filter are invalid.",
             )
         with self._lock:
+            eligible_boards = (
+                [
+                    board
+                    for board in self._boards
+                    if board[0].board_id in self._priority_rank_by_board_id
+                ]
+                if self._priority_only
+                else self._boards
+            )
             filtered = [
                 board
-                for board in self._boards
+                for board in eligible_boards
                 if (status == "all" or self._board_status(board) == status)
                 and (sequence_number is None or board[0].sequence_number == sequence_number)
             ]
@@ -562,8 +610,20 @@ class BootstrapSymbolReview:
 
     def board_progress(self) -> dict[str, object]:
         board_counts = Counter(self._board_status(board) for board in self._boards)
+        priority_boards = [
+            board for board in self._boards if board[0].board_id in self._priority_rank_by_board_id
+        ]
+        priority_counts = Counter(self._board_status(board) for board in priority_boards)
         cell_progress = self.progress()
         return {
+            "activeLearning": {
+                "accepted": priority_counts["accepted"],
+                "enabled": bool(priority_boards),
+                "pending": priority_counts["pending"],
+                "priorityOnly": self._priority_only,
+                "rejected": priority_counts["rejected"],
+                "total": len(priority_boards),
+            },
             "boards": {
                 "accepted": board_counts["accepted"],
                 "pending": board_counts["pending"],
@@ -721,7 +781,16 @@ class BootstrapSymbolReview:
         if board is None:
             return None
         first = board[0]
+        priority_rank = self._priority_rank_by_board_id.get(first.board_id or "")
         return {
+            "activeLearningPriority": (
+                {
+                    "rank": priority_rank,
+                    "total": len(self._priority_rank_by_board_id),
+                }
+                if priority_rank is not None
+                else None
+            ),
             "boardChecksumSha256": first.board_checksum_sha256,
             "boardId": first.board_id,
             "boardIndex": first.board_index,

@@ -1,0 +1,97 @@
+{
+  "artifacts": {
+    "calibrationReport": {
+      "path": "ai_docs/quality/m6-symbol-confidence-calibration-v2-report.json",
+      "sha256": "14cb18d062851d16ac4b9b4adf416f0fdab4fa8b9a790eecc1fefa3fc5fbca02"
+    },
+    "datasetReport": {
+      "path": "ai_docs/quality/m6-symbol-dataset-export-report-v2.json",
+      "sha256": "99d0f943e4646a0e320bb4e5ca792bfbbf66522afad1135614b1753edffb6dc0"
+    },
+    "nextSelectionReport": {
+      "path": "ai_docs/quality/m6-symbol-active-learning-selection-v2.json",
+      "sha256": "fda4b76648d7b141ff63ae957bea4cfbc7781ecdd9eb1e9e5e853b3a0be55e62"
+    },
+    "onnxModel": {
+      "bytes": 115133,
+      "path": "artifacts/m6-symbol-classifier-onnx-v2/active-learning-symbol-cnn-v2.onnx",
+      "sha256": "3010d89f36f71dde4ffb24e14d030c03ef85b4111642eb4f813942753db4c711"
+    },
+    "onnxReport": {
+      "path": "ai_docs/quality/m6-symbol-classifier-onnx-v2-report.json",
+      "sha256": "b8e97bd88e39fd15c6fff6573fffa3b0ff8bf01f0d4a1ce3c76a8255c62b1cd9"
+    },
+    "pytorchModel": {
+      "bytes": 100601,
+      "path": "artifacts/m6-symbol-classifier-active-learning-v2/active-learning-symbol-cnn-v2.pt",
+      "sha256": "caf327713751019c564106ebd1e9f3a0640bb6b923983f2c7a387219fbe1283b"
+    },
+    "splitReport": {
+      "path": "ai_docs/quality/m6-symbol-dataset-split-report-v2.json",
+      "sha256": "4b91e36852d1cd2566be2caf65c27ac720d52aef06a208b1d97e7b23e6b59a99"
+    },
+    "trainingReport": {
+      "path": "ai_docs/quality/m6-symbol-classifier-active-learning-v2-report.json",
+      "sha256": "45c1f160e017e646dda36d3e2695fe0e99da67522ff8a4792fd048ef7ba2019d"
+    },
+    "verticalSliceReport": {
+      "path": "ai_docs/quality/m6-classifier-review-vertical-slice-v2-report.json",
+      "sha256": "525084adf8a7c9aea3bb41d32f8bef21317c61db9b5a92ac334492dd344dc2b0"
+    }
+  },
+  "dataset": {
+    "acceptedSampleCount": 866,
+    "activeLearningBoardCount": 30,
+    "activeLearningSampleCount": 450,
+    "bootstrapTargetMet": false,
+    "completeReviewedBoardCount": 54,
+    "partialReviewedBoardCount": 4,
+    "partialReviewedSampleCount": 56,
+    "pendingSampleCount": 4939,
+    "sourceImageCount": 35
+  },
+  "inputs": {
+    "labelSource": {
+      "path": "artifacts/m6-symbol-review-v16/reviewed-labels.json",
+      "sha256": "066e4ed3d184308303d66f0018b7ea23995e37f9e0a74b676179f47c59638e94"
+    },
+    "selection": {
+      "path": "ai_docs/quality/m6-symbol-active-learning-selection.json",
+      "sha256": "2ab9a79a6d1c81b8d08abe0defc447510f0cfe4df1909c9aa8da77d79e6115d2"
+    }
+  },
+  "iterationVersion": "m6-active-learning-iteration-v2",
+  "observedMetrics": {
+    "comparisonBoundary": "Each iteration uses its own source-aware corpus and split; these values are evidence for the individual iteration, not a common held-out A/B test.",
+    "previousVerticalSlice": {
+      "accuracy": 0.68509615,
+      "macroRecall": 0.7014904,
+      "sampleCount": 416
+    },
+    "v2HeldOutTest": {
+      "accuracy": 0.68715084,
+      "macroRecall": 0.69969465,
+      "sampleCount": 179
+    },
+    "v2VerticalSlice": {
+      "accuracy": 0.75057737,
+      "macroRecall": 0.76365167,
+      "sampleCount": 866
+    }
+  },
+  "qualityGate": {
+    "autoAcceptEnabled": false,
+    "massImportAllowed": false,
+    "nextAction": "collect_review_feedback_and_retrain",
+    "verticalSlicePassed": true
+  },
+  "schemaVersion": 1,
+  "status": "passed_with_more_feedback_required",
+  "training": {
+    "bestEpoch": 28,
+    "configuredEpochs": 30,
+    "logicalStateSha256": "c1bcb952ac346cc600d0ddbe57abea27372df51a8cdcc0d2e7e58b0a189dd9ab",
+    "splitSeed": "game-predictor-m6-split-v1",
+    "trainingSeed": 61061
+  }
+}

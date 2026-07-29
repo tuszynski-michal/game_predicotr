@@ -171,6 +171,12 @@ pierwszy model, a TASK-0099 dodał leakage-safe top-3 sugestie bez auto-accept.
   done 2026-07-29; validation-only temperature `1.0338382913`, explicit
   fail-closed manual-review policy and a reproducible batch of 30 complete
   layouts from 30 distinct source images
+- `TASK-0102 — Active-learning feedback and retraining iteration` — done
+  2026-07-29; właściciel jawnie oznaczył 30 pełnych plansz/450 komórek,
+  utworzono osobne artefakty iteracji v2 dla 866 próbek i 35 źródeł, a ONNX
+  przeszedł parity bez top-one mismatch. Vertical slice przechodzi, lecz
+  `bootstrapTargetMet`, auto-accept i `massImportAllowed` pozostają `false`;
+  następna iteracja musi zwiększyć wsparcie słabych klas.
 
 ### Bramka G6.2
 

@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "services" / "api" / "src"))
 sys.path.insert(0, str(ROOT / "services" / "worker" / "src"))
 
-from game_predictor_api.domain.reviews import (  # type: ignore[import-not-found]  # noqa: E402
+from game_predictor_api.domain.reviews import (  # noqa: E402
     ReviewResolutionAction,
     validate_review_resolution,
     validate_review_selection,
@@ -76,12 +76,6 @@ DEFAULT_CALIBRATION = QUALITY / "m6-symbol-confidence-calibration-report.json"
 DEFAULT_SELECTION = QUALITY / "m6-symbol-active-learning-selection.json"
 DEFAULT_OUTPUT = QUALITY / "m6-classifier-review-vertical-slice-report.json"
 INFERENCE_BATCH_SIZE = 64
-EXPECTED_GOLDEN_SAMPLE_COUNT = 416
-EXPECTED_PENDING_SAMPLE_COUNT = 5389
-EXPECTED_COMPLETE_REVIEW_BOARD_COUNT = 24
-EXPECTED_PARTIAL_REVIEW_SAMPLE_COUNT = 56
-
-
 def _args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
@@ -208,12 +202,15 @@ def _dataset_metadata(
     inventory_bytes: bytes,
     samples: Sequence[ClassifierSample],
 ) -> dict[str, Mapping[str, object]]:
+    sample_count = _integer(dataset.get("sampleCount"), "dataset.sampleCount")
+    pending_count = _integer(dataset.get("pendingCount"), "dataset.pendingCount")
+    rejected_count = _integer(dataset.get("rejectedCount"), "dataset.rejectedCount")
     if (
         dataset.get("status") != "ready"
-        or dataset.get("sampleCount") != EXPECTED_GOLDEN_SAMPLE_COUNT
-        or len(samples) != EXPECTED_GOLDEN_SAMPLE_COUNT
-        or dataset.get("pendingCount") != EXPECTED_PENDING_SAMPLE_COUNT
-        or dataset.get("rejectedCount") != 0
+        or sample_count <= 0
+        or len(samples) != sample_count
+        or rejected_count != 0
+        or sample_count + pending_count + rejected_count != len(inventory.samples)
         or _sha256(dataset.get("inventorySha256"), "dataset.inventorySha256")
         != _digest(inventory_bytes)
     ):
@@ -588,13 +585,18 @@ def _build_report(args: argparse.Namespace) -> dict[str, object]:
         class_codes=prepared.class_codes,
     )
     replay = build_review_replay(evaluated)
-    if (
-        replay.get("completeBoardCount") != EXPECTED_COMPLETE_REVIEW_BOARD_COUNT
-        or replay.get("partialSampleCount") != EXPECTED_PARTIAL_REVIEW_SAMPLE_COUNT
-    ):
+    resolved_sample_count = _integer(
+        replay.get("resolvedSampleCount"),
+        "reviewReplay.resolvedSampleCount",
+    )
+    partial_sample_count = _integer(
+        replay.get("partialSampleCount"),
+        "reviewReplay.partialSampleCount",
+    )
+    if resolved_sample_count + partial_sample_count != len(evaluated):
         raise SymbolVerticalSliceError(
             "SYMBOL_VERTICAL_SLICE_REVIEW_CORPUS_DRIFT",
-            "The accepted complete and partial review corpus differs.",
+            "The complete and partial review corpus does not cover the dataset.",
         )
     validated_resolution_count = _validate_review_replay(evaluated, prepared.class_codes)
     if validated_resolution_count != replay["completeBoardCount"]:
@@ -627,6 +629,7 @@ def _build_report(args: argparse.Namespace) -> dict[str, object]:
         sample.expected_symbol_code for sample in evaluated if sample.board_id in complete_board_ids
     )
     auto_accept = _mapping(policy.get("autoAccept"), "policy.autoAccept")
+    auto_accept_enabled = auto_accept.get("enabled") is True
     return {
         "automaticQuality": {
             "overall": overall_metrics,
@@ -670,7 +673,7 @@ def _build_report(args: argparse.Namespace) -> dict[str, object]:
         },
         "model": {
             "adapterVersion": onnx_report.get("adapterVersion"),
-            "autoAcceptEnabled": auto_accept.get("enabled"),
+            "autoAcceptEnabled": auto_accept_enabled,
             "autoAcceptReasonCodes": auto_accept.get("reasonCodes"),
             "automaticRejectEnabled": _mapping(
                 policy.get("automaticReject"),
@@ -678,7 +681,11 @@ def _build_report(args: argparse.Namespace) -> dict[str, object]:
             ).get("enabled"),
             "confidencePolicyVersion": policy.get("policyVersion"),
             "modelVersion": model_version,
-            "readiness": "retraining_required_before_auto_accept",
+            "readiness": (
+                "auto_accept_ready"
+                if auto_accept_enabled
+                else "retraining_required_before_auto_accept"
+            ),
             "temperature": temperature,
         },
         "predictions": [sample.to_dict(model_version=model_version) for sample in evaluated],
@@ -694,9 +701,13 @@ def _build_report(args: argparse.Namespace) -> dict[str, object]:
             "splitSha256": prepared.split_sha256,
         },
         "qualityGate": {
-            "autoAcceptQualityPassed": False,
-            "massImportAllowed": False,
-            "nextAction": "collect_review_feedback_and_retrain",
+            "autoAcceptQualityPassed": auto_accept_enabled,
+            "massImportAllowed": auto_accept_enabled,
+            "nextAction": (
+                "start_large_dataset_publication"
+                if auto_accept_enabled
+                else "collect_review_feedback_and_retrain"
+            ),
             "reviewBatchContractPassed": True,
             "verticalSlicePassed": True,
         },

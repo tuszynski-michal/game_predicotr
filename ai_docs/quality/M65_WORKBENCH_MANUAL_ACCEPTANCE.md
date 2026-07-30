@@ -1,7 +1,7 @@
 ---
 title: M6.5 workbench manual acceptance
 status: prepared
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # M6.5 — ręczny odbiór stanowiska weryfikacji
@@ -12,41 +12,45 @@ Automatyczny profil 3000 plansz przeszedł. Ten dokument obejmuje wyłącznie
 krótki odbiór operatorski, którego nie wolno zastępować testem jednostkowym ani
 czasem wykonania automatu.
 
-W lokalnej bazie sprawdzonej 2026-07-29 istnieje aktywna gra, ale nie ma import
-joba `image_directory`. Przed odbiorem trzeba wskazać albo utworzyć prawdziwy
-import zdjęć z nierozwiązanymi planszami. Nie należy używać syntetycznego
-profilu PostgreSQL jako dowodu jakości obrazów — jego baza jest zawsze usuwana
-po pomiarze.
+Lokalny import `Blazing Hot 7 Deluxe` zawiera 387 rzeczywistych plansz. Szybki
+odbiór obejmuje pierwszych 50 layoutów; pomiar czasu nadal wymaga co najmniej
+10 kolejnych plansz. Nie należy używać syntetycznego profilu PostgreSQL jako
+dowodu jakości obrazów — jego baza jest zawsze usuwana po pomiarze.
 
 ## Uruchomienie
 
-W trzech oknach PowerShell, z katalogu repozytorium:
+W czterech oknach PowerShell, z katalogu repozytorium:
 
 ```powershell
 npm run db:up
 npm run api:dev
 npm run admin:dev
+npm run reviewer:dev
 ```
 
-Następnie otworzyć `http://127.0.0.1:3000/#operational-reviews`. Rozdzielczość
-okna ustawić na 1366 × 768, zoom przeglądarki na 100%.
+Następnie otworzyć `http://127.0.0.1:3000/#operational-reviews`, utworzyć link i
+kod dla wybranego importu oraz przejść do osobnej aplikacji pod portem 3001.
+Kod należy podać na ekranie wejścia. Rozdzielczość okna Reviewera ustawić na
+1366 × 768, zoom przeglądarki na 100%.
 
 ## Scenariusze
 
 ### 1. Układ i dostępność
 
 - [ ] brak poziomego paska przewijania strony,
+- [ ] wszystkie 15 cropów symboli jest kwadratowych, czytelnych i nie rozciąga
+  się na całą szerokość ekranu,
 - [ ] cały układ 5 × 3, wszystkie etykiety i przycisk `Zatwierdź` są widoczne
   bez przewijania,
-- [ ] oryginalne zdjęcie zaczyna się dopiero poniżej głównej siatki,
+- [ ] obok siatki znajduje się wycięty obraz dokładnie bieżącej planszy, a nie
+  pełne zdjęcie zawierające do dziewięciu layoutów,
 - [ ] fokus klawiatury jest zawsze widoczny,
 - [ ] nazwy gry, importu, widoku, komórek i nawigacji są zrozumiałe bez koloru.
 
 ### 2. Poprawna plansza wyłącznie klawiaturą
 
-- [ ] `Enter` otwiera potwierdzenie i przenosi fokus na `Potwierdź zapis`,
-- [ ] powtórzenie przytrzymanego `Enter` nie zapisuje,
-- [ ] drugi świadomy `Enter` zapisuje dokładnie jedną rewizję,
+- [ ] pojedyncze świadome `Enter` zapisuje dokładnie jedną rewizję bez modala,
+- [ ] powtórzenie przytrzymanego `Enter` nie tworzy kolejnej rewizji,
 - [ ] strzałka w prawo przechodzi do następnej planszy,
 - [ ] po odświeżeniu panel zaczyna od pierwszej nierozwiązanej planszy i nie
   pokazuje zapisanej ponownie w `Do weryfikacji`.

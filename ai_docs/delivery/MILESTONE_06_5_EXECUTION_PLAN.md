@@ -120,25 +120,27 @@ testy operatorskie pozostają odroczone do wspólnego odbioru po TASK-0111.
 - kompaktowy header: gra, sequence, pozycja, status, wybór widoku i mały
   przycisk zatwierdzenia,
 - przełącznik `Widok planszy` / `Plansze kompletne`,
-- pełna siatka 5 × 3 z cropami i podpisanymi symbolami bez przewijania przy
-  wspieranym widoku desktopowym co najmniej 1366 × 768,
+- zwarta siatka 5 × 3 z kwadratowymi cropami i podpisanymi symbolami bez
+  przewijania przy wspieranym widoku desktopowym co najmniej 1366 × 768,
 - wybrana komórka i jej aktualna etykieta widoczne bez otwierania osobnego
   formularza,
-- oryginalne, niepocięte zdjęcie poniżej głównej siatki,
+- wycięty obraz dokładnie jednej bieżącej planszy pokazany obok siatki; pełne
+  zdjęcie źródłowe pozostaje w edytorze geometrii,
 - skróty klawiaturowe opisane pod materiałem,
 - loading, empty, error, brak obrazu i konflikt rewizji jako jawne stany.
 
 ### Bramka G6.5.3
 
 - siatka, etykiety, nagłówek i akcja zatwierdzenia mieszczą się nad foldem,
-- oryginał może znajdować się poniżej i nie zmniejsza czytelności siatki,
+- wycięta plansza i siatka są widoczne równocześnie bez rozciągania cropów,
 - plansze kompletne pozostają edytowalne,
 - UI nie przekazuje statusu ani niepewności wyłącznie kolorem.
 
 ## M6.5.4 — Sterowanie klawiaturą i szybka korekta
 
-Status: `completed` w TASK-0108. Automatyczne testy potwierdzają mapowanie
-klawiszy, dwustopniowy zapis, ochronę przed key repeat i konfliktem rewizji.
+Status: `completed` w TASK-0108, a zachowanie zapisu uproszczono w TASK-0112.
+Automatyczne testy potwierdzają mapowanie klawiszy, pojedynczy zapis, ochronę
+przed key repeat i konfliktem rewizji.
 Ręczny odbiór operatorski pozostaje odroczony do testów po TASK-0111.
 
 ### Zadanie
@@ -154,15 +156,15 @@ Ręczny odbiór operatorski pozostaje odroczony do testów po TASK-0111.
 - widoczna legenda pokazuje faktyczne mapowanie dla wybranej gry,
 - przy wybranej komórce mały tooltip pokazuje 3–4 najbardziej prawdopodobne
   symbole i pozwala je wybrać,
-- pierwsze `Enter` otwiera potwierdzenie całej planszy, drugie `Enter` zapisuje;
-  `Escape` anuluje,
+- pojedyncze `Enter` albo kliknięcie przycisku zapisuje całą planszę bez
+  dodatkowego modala potwierdzającego,
 - skróty są wyłączone podczas pisania w polu, pracy dialogu innego typu albo
   trwającego zapisu.
 
 ### Bramka G6.5.4
 
-- pojedyncze przypadkowe `Enter` nie zapisuje danych,
-- przytrzymany klawisz i podwójny event nie tworzą dwóch rewizji,
+- pojedyncze `Enter` tworzy najwyżej jedną rewizję,
+- przytrzymany klawisz i powtórzony event nie tworzą dwóch rewizji,
 - zmiana symbolu wskazuje konkretną komórkę i jest widoczna przed zapisem,
 - cały poprawny layout można zatwierdzić bez użycia myszy,
 - skróty mają etykiety dostępności i nie przechwytują pól formularza.
@@ -264,6 +266,23 @@ Krótki odbiór operatora i rzeczywisty pomiar co najmniej 10 plansz pozostają 
 wykonania według `quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`; do tego potrzebny
 jest realny import job `image_directory`.
 
+## M6.5.8 — Osobna lokalna aplikacja Reviewer
+
+### Zadanie
+
+- `TASK-0112 — Local reviewer application and access code`
+
+TASK-0112 wydziela stanowisko z panelu administracyjnego do `apps/reviewer`.
+Panel wybiera grę oraz image import job i tworzy wygasającą lokalną sesję.
+Link zawiera wyłącznie losowy identyfikator, a jednorazowo pokazany kod jest
+przekazywany osobno i przechowywany po stronie API wyłącznie jako hash.
+
+Lokalna sesja jest bramą UX działającą na loopback. Nie stanowi zabezpieczenia
+gotowego do wystawienia w Internecie. Po poprawnym kodzie Reviewer otrzymuje
+wyłącznie kontekst gry/importu zapisany w sesji. Zapis planszy używa pojedynczego
+`Enter` lub kliknięcia bez dodatkowego modala, ale nadal zachowuje idempotencję
+i optimistic revision.
+
 ## Zdalne review — odłożony zakres M8.7
 
 Zdalny link nie jest częścią G6.5. Samo uruchomienie panelu na domowym Wi-Fi
@@ -272,9 +291,9 @@ routera bez warstwy TLS, autoryzacji, ograniczenia prób i audytu.
 
 Po odbiorze wersji lokalnej M8.7 może zrealizować:
 
-- `TASK-0112 — Remote reviewer threat model and access-session contract`,
-- `TASK-0113 — Revocable game-scoped review link and code gate`,
-- `TASK-0114 — Secure ingress runbook and remote end-to-end acceptance`.
+- `TASK-0113 — Remote reviewer threat model and session hardening`,
+- `TASK-0114 — Revocable game-scoped authorization and brute-force protection`,
+- `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance`.
 
 Docelowo administrator wybiera grę, tworzy ograniczoną czasowo sesję review i
 otrzymuje link oraz osobno przekazywany kod. Kod nie jest przechowywany jawnie,
@@ -293,10 +312,11 @@ tunel lub VPN; domyślny tryb loopback pozostaje bez zmian.
 | M6.5.5 Geometria | TASK-0109 | TASK-0107 |
 | M6.5.6 Kohorta i retraining | TASK-0110 | TASK-0108, TASK-0109 |
 | M6.5.7 Odbiór | TASK-0111 | TASK-0110 |
-| M8.7 Zdalne review | TASK-0112–0114 | G6.5, G8.1 |
+| M6.5.8 Osobny lokalny Reviewer | TASK-0112 | TASK-0111 |
+| M8.7 Zdalne review | TASK-0113–0115 | G6.5, G8.1 |
 
 ## Następny krok
 
-Rozpocząć TASK-0111 i wykonać odbiór ergonomii, dostępności oraz skali lokalnego
-stanowiska wraz z odroczonymi scenariuszami ręcznymi TASK-0107–0110. Nie
-zaczynać zdalnego dostępu przed lokalnym G6.5 i modelem bezpieczeństwa M8.1.
+Dokończyć ręczny odbiór TASK-0111 w osobnej aplikacji Reviewer dostarczonej
+przez TASK-0112. Nie zaczynać zdalnego dostępu przed lokalnym G6.5 i modelem
+bezpieczeństwa M8.1.

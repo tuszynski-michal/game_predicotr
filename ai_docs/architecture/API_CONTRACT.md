@@ -1068,9 +1068,25 @@ zawiera jednak próbki wyłącznie z kompletnych accepted/corrected. Liczniki
 pending/rejected są utrwalone jako dowód stanu; nierozwiązane elementy, luki
 lub duplikaty nadal blokują późniejszą publikację całego zakresu.
 
-Kontrakt zdalnego recenzenta nie jest aliasem powyższego Admin API. M8.7
-zaprojektuje ograniczoną powierzchnię game-scoped po sesji, kodzie i HTTPS;
-pełne endpointy administracyjne pozostaną niedostępne.
+TASK-0112 dodaje lokalną bramę wejścia do osobnej aplikacji Reviewer:
+
+```text
+POST /api/v1/admin/reviewer-sessions
+POST /api/v1/reviewer/sessions/{sessionId}/unlock
+```
+
+Utworzenie wymaga `gameId`, `importJobId` i ograniczonego czasu życia. Odpowiedź
+zawiera losowy identyfikator sesji, link bez sekretu, osobno kod i czas
+wygaśnięcia. Kod jest ujawniany tylko w tej odpowiedzi; proces API przechowuje
+salt i hash PBKDF2. Unlock zwraca wyłącznie scope gry/importu i odrzuca błędny,
+nieistniejący albo wygasły kod stabilnym błędem.
+
+Sesje TASK-0112 są procesowe i działają wyłącznie na loopback. Restart API je
+unieważnia. Nie mają jeszcze limitu prób, trwałego audytu, odwołania ani tokenu
+autoryzującego każde kolejne żądanie, dlatego nie wolno ich wystawiać w
+Internecie. M8.7 rozszerzy tę granicę w TASK-0113–0115 o trwałą, odwoływalną
+autoryzację, ochronę brute force i HTTPS; pełne endpointy administracyjne
+pozostaną niedostępne.
 
 ## Mobile release
 

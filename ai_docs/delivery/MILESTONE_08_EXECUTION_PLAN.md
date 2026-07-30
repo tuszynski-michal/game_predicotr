@@ -211,9 +211,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 
 ### Zadania
 
-- `TASK-0112 — Remote reviewer threat model and access-session contract`,
-- `TASK-0113 — Revocable game-scoped review link and code gate`,
-- `TASK-0114 — Secure ingress runbook and remote end-to-end acceptance`.
+- `TASK-0113 — Remote reviewer threat model and session hardening`,
+- `TASK-0114 — Revocable game-scoped authorization and brute-force protection`,
+- `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance`.
 
 ### Bramka G8.7
 
@@ -243,9 +243,9 @@ właściciel uruchamia M8.7, końcowy odbiór wymaga również G8.7.
 | M8.4 Diagnostyka snapshotu | TASK-0084 | 1 |
 | M8.5 Urządzenia | TASK-0085–0087 | 3 |
 | M8.6 Dystrybucja i odbiór | TASK-0088–0089 | 2 |
-| M8.7 Zdalne review (opcjonalne) | TASK-0112–0114 | 3 |
+| M8.7 Zdalne review (opcjonalne) | TASK-0113–0115 | 3 |
 | **Razem M8 core** | **TASK-0078–0089** | **12** |
-| **Razem z M8.7** | **TASK-0078–0089, TASK-0112–0114** | **15** |
+| **Razem z M8.7** | **TASK-0078–0089, TASK-0113–0115** | **15** |
 
 ## Zakończenie roadmapy
 

@@ -277,10 +277,10 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
   zachowuje deterministyczne poprzednia/następna dla co najmniej 3000 plansz,
 - pełna siatka 5 × 3, etykiety, kompaktowy header i zatwierdzenie mieszczą się
   bez przewijania przy 1366 × 768; oryginalne zdjęcie pozostaje poniżej,
-- testy klawiatury obejmują strzałki, `1`–`9`, `0`, kolejne klawisze `QWERTY`,
-  brak przechwycenia input/select/textarea, `Escape` i dwustopniowe `Enter`,
-- jeden `Enter`, key repeat i podwójny event nie zapisują decyzji; drugi
-  świadomy `Enter` tworzy dokładnie jedną rewizję,
+- testy klawiatury obejmują strzałki, `1`–`9`, `0`, kolejne klawisze `QWERTY`
+  oraz brak przechwycenia input/select/textarea i dialogów innego typu,
+- jeden świadomy `Enter` tworzy dokładnie jedną rewizję; key repeat i
+  powtórzony event nie tworzą kolejnej,
 - tooltip wybranej komórki pokazuje 3–4 uporządkowane sugestie, ale każda
   zmiana etykiety pozostaje jawna przed zapisem,
 - ponowna edycja accepted/corrected dopisuje rewizję i nigdy nie usuwa

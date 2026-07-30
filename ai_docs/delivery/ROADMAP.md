@@ -225,7 +225,7 @@ M6.5 jest realizowany przez:
 - pełna siatka 5 × 3 z podpisami nad foldem,
 - oryginalne zdjęcie i 3–4 sugestie dla wybranej komórki,
 - nawigacja strzałkami i skróty `1`–`0`, następnie `QWERTY`,
-- dwustopniowe zatwierdzenie przez `Enter`,
+- pojedyncze zatwierdzenie przez `Enter` lub kliknięcie bez dodatkowego modala,
 - ponowna edycja accepted/corrected z historią rewizji,
 - ręczna korekta czterech narożników i wersjonowane cropy,
 - ręcznie zweryfikowane kohorty 1000/3000+ uruchamiane na polecenie właściciela,

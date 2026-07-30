@@ -278,24 +278,36 @@ Operacyjne review dużego importu używa `image_review_items`, a nie ograniczone
 batcha active-learning. Ekran jest zoptymalizowany pod szybkie sprawdzanie
 pełnych plansz i ma:
 
+- działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
+  właściwego panelu administracyjnego,
+- być uruchamiany lokalnie osobną komendą i mieć własny adres; panel admina
+  wybiera grę oraz import, generuje ograniczoną sesję, a następnie pokazuje link
+  i unikalny kod wejścia,
+- przed pokazaniem danych wymagać poprawnego kodu. Lokalna wersja pozostaje
+  dostępna wyłącznie przez loopback; kod lokalny nie jest deklarowany jako
+  zabezpieczenie dostępu internetowego,
+
 - kompaktowy header z grą, `sequence_number`, pozycją w kolejce, statusem,
   przełącznikiem `Widok planszy` / `Plansze kompletne`, nawigacją i małym
   przyciskiem `Zatwierdź`,
 - wybór gry oraz import joba; każdy odczyt i zapis pozostaje ograniczony do
   wybranego kontekstu,
-- siatkę 5 × 3 z cropami i widocznymi etykietami symboli, mieszczącą się bez
-  przewijania w obsługiwanym widoku desktopowym co najmniej 1366 × 768,
+- zwartą siatkę 5 × 3 z kwadratowymi cropami i widocznymi etykietami symboli;
+  siatka nie rozciąga się na całą szerokość i mieści się bez przewijania w
+  obsługiwanym widoku desktopowym co najmniej 1366 × 768,
 - wybraną komórkę z bieżącą etykietą i tooltipem 3–4 najbardziej
   prawdopodobnych symboli,
-- oryginalne, niepocięte zdjęcie poniżej głównej siatki,
+- obok siatki wycięty obraz dokładnie jednej bieżącej planszy 5 × 3; główny
+  ekran nie pokazuje całego zdjęcia źródłowego zawierającego do dziewięciu
+  plansz,
 - widoczną legendę skrótów symboli.
 
 Strzałki lewo/prawo przechodzą między planszami. Symbole są mapowane według
 stabilnej kolejności katalogu gry: klawisze `1`–`9`, `0` dla dziesiątego, a
-następne pozycje kolejno do klawiszy w wierszach `QWERTY`. Pierwsze `Enter`
-otwiera potwierdzenie całej planszy, drugie `Enter` wykonuje zapis, a `Escape`
-anuluje. Skróty nie działają podczas pisania w polu, w innym dialogu ani
-podczas trwającego zapisu. Idempotency key nadal chroni przed podwójnym
+następne pozycje kolejno do klawiszy w wierszach `QWERTY`. Pojedyncze `Enter`
+albo kliknięcie `Zatwierdź` wykonuje zapis bez dodatkowego modala. Skróty nie
+działają podczas pisania w polu, w innym dialogu ani podczas trwającego zapisu.
+Idempotency key i blokada trwającego żądania nadal chronią przed podwójnym
 zdarzeniem.
 
 Plansza accepted/corrected pozostaje dostępna w widoku `Plansze kompletne` i
@@ -304,8 +316,9 @@ wcześniejsza decyzja nie jest usuwana. Późniejsza inferencja albo trening nig
 nie nadpisuje decyzji człowieka i może aktualizować sugestie wyłącznie dla
 nierozwiązanych plansz.
 
-Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb czterech
-narożników na oryginalnym obrazie. Podgląd pokazuje ukośną siatkę 5 × 3,
+Pełne zdjęcie źródłowe pozostaje dostępne wyłącznie w kontekście korekty
+geometrii. Przycisk `Edytuj siatkę` w prawym górnym rogu otwiera osobny tryb
+czterech narożników na oryginalnym obrazie. Podgląd pokazuje ukośną siatkę 5 × 3,
 wyprostowaną planszę oraz nowe cropy. Zapis geometrii tworzy nowe wersje plików
 i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i
 zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć do
@@ -319,7 +332,12 @@ accepted/corrected. W pełni ręcznie zweryfikowany, ciągły zakres może przej
 do stagingu i standardowej walidacji także wtedy, gdy automatyczny masowy
 import pozostaje wyłączony.
 
-### Przyszły zdalny dostęp do review
+### Lokalna sesja i przyszły zdalny dostęp do review
+
+Rozdzielenie aplikacji `Reviewer`, wybór gry/importu, link i kod wejścia są
+częścią lokalnego M6.5. Kod nie znajduje się w linku, a sesja wygasa. Na tym
+etapie API i obie aplikacje pozostają na loopback, dlatego nie wolno udostępniać
+tego linku osobie spoza komputera ani przekierowywać portu routera.
 
 Zdalne review jest odłożonym zakresem M8.7, a nie warunkiem lokalnego ekranu.
 Administrator docelowo wybiera grę i tworzy odwoływalną, ograniczoną czasowo

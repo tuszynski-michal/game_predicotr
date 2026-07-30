@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Current State
@@ -1331,16 +1331,17 @@ last_updated: 2026-07-29
   `9f3b1cabe4ab04824a8c93787e426f492191f0b1a8f68062ffb02b6d79ce2a3c`;
   benchmark nie przełączył modelu i nie zmienił `massImportAllowed`.
 - właściciel zaakceptował kierunek M6.5: minimalistyczny, keyboard-first ekran
-  operacyjnego review z pełną siatką 5 × 3 nad foldem, oryginałem poniżej,
-  maksymalnie czterema sugestiami, dwustopniowym `Enter` i ponowną edycją
-  accepted/corrected,
+  operacyjnego review z pełną siatką 5 × 3 nad foldem, maksymalnie czterema
+  sugestiami i ponowną edycją accepted/corrected; D-092 zastąpiła dwustopniowe
+  potwierdzenie pojedynczym `Enter` bez modala,
 - D-086 oddziela w pełni ręcznie zweryfikowaną publikację od automatycznego
   `massImportAllowed`; decyzje człowieka, geometria i cropy pozostają
   wersjonowane i nie mogą zostać nadpisane przez retraining,
 - D-087 pozostawia lokalny M6.5 na loopback, zamyka Q-019 jako model wielu
   jawnych aktorów i odkłada ograniczony link z kodem oraz HTTPS do M8.7,
-- `MILESTONE_06_5_EXECUTION_PLAN.md` rezerwuje TASK-0105–0111 dla lokalnego
-  pionu oraz TASK-0112–0114 dla opcjonalnego zdalnego review.
+- `MILESTONE_06_5_EXECUTION_PLAN.md` rezerwuje TASK-0105–0111 dla podstawowego
+  pionu, TASK-0112 dla osobnej lokalnej aplikacji Reviewer oraz TASK-0113–0115
+  dla opcjonalnego zdalnego review.
 - ukończono TASK-0105: wybrany checkpoint spatial został skopiowany bajt w bajt
   do wydania `production-spatial-symbol-cnn-v1`, a jeden manifest wiąże model,
   ONNX, osiem klas, preprocessing, kalibrację, vertical slice i decyzję,
@@ -1377,8 +1378,8 @@ last_updated: 2026-07-29
   aktywnej gry i image import joba, widoki pending/completed, dokładne liczniki,
   bounded poprzedni/następny oraz skok do numeru układu,
 - ekran pobiera jedną planszę na stronę, pokazuje kompaktowy header, dokładnie
-  15 checksum-bound cropów row-major z etykietami i confidence, domyślnie
-  wybraną pierwszą komórkę oraz pełne zdjęcie źródłowe poniżej siatki,
+  15 checksum-bound cropów row-major z etykietami i confidence oraz domyślnie
+  wybraną pierwszą komórkę,
 - completed jest jawnie opisane jako edytowalne przez kolejną rewizję; brak
   obrazu, loading, empty, błąd transportu i konflikt kursora mają tekstowe
   stany, a ekran nie zapisuje decyzji samoczynnie,
@@ -1391,6 +1392,9 @@ last_updated: 2026-07-29
 - czysta maszyna klawiatury obsługuje bounded poprzedni/następny, pomija pola
   edycyjne, inny dialog, key repeat i zapis; pierwszy `Enter` tylko otwiera
   potwierdzenie, drugi wysyła jedną komendę, a `Escape` anuluje,
+- zachowanie powyżej zostało następnie jawnie zastąpione w TASK-0112:
+  pojedyncze `Enter` albo kliknięcie zapisuje bez modala, przy zachowaniu
+  idempotencji, blokady key repeat i optimistic revision,
 - accepted/corrected zapisuje cały układ z 15 `cropSampleId`, zaakceptowanym
   numerem, geometry revision, expected resolution revision i UUID idempotencji;
   completed wymaga realnej zmiany przed kolejną rewizją,
@@ -1435,12 +1439,26 @@ last_updated: 2026-07-29
   Ruff, mypy 233 modułów, TypeScript strict, ESLint, Prettier,
   OpenAPI/generated-client check i produkcyjny build Next.js. Ręczny odbiór
   pozostaje odroczony do TASK-0111.
+- ukończono TASK-0112: operacyjne zatwierdzanie przeniesiono z panelu admina do
+  osobnego `apps/reviewer` na porcie 3001, a panel tworzy lokalny link i osobno
+  pokazuje unikalny kod dla wybranej gry/importu,
+- sesja lokalna wygasa, nie umieszcza kodu w URL i przechowuje wyłącznie jego
+  salt/hash; błędny kod nie ujawnia danych, a poprawny otwiera dokładnie scope
+  `Blazing Hot 7 Deluxe` / import `8188e320`,
+- testy TASK-0112 przeszły: 22 testy API, 15 testów Reviewera, TypeScript strict,
+  ESLint zmienionych części oraz produkcyjne buildy Admin i Reviewer; browser
+  smoke potwierdził oddzielne aplikacje, gate kodu i brak stanowiska w panelu.
+- pierwszy odbiór TASK-0111 doprecyzował widok porównawczy: cropy symboli są
+  kwadratowe i tworzą mniejszą siatkę 5 × 3, a obok znajduje się wycięta
+  pojedyncza plansza; pełne zdjęcie z maksymalnie dziewięcioma planszami nie jest
+  pokazywane w głównym ekranie.
 
 ## In progress
 
-- brak aktywnego zadania; następnym krokiem jest TASK-0111 z planu M6.5.
-- zgodnie z decyzją właściciela ręczne testy nowego ekranu odbędą się dopiero
-  po ukończeniu TASK-0111; TASK-0107–0111 muszą nadal mieć testy automatyczne.
+- `TASK-0111 — Verification workbench scale and usability acceptance` czeka na
+  ręczny odbiór właściciela w osobnej aplikacji Reviewer.
+- realny import zawiera obecnie 387 plansz: 87 kompletnych i 300 oczekujących;
+  do szybkiego odbioru właściciel wybrał pierwsze 50 layoutów.
 
 ## Blocked
 
@@ -1520,17 +1538,18 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 ## Next recommended task
 
 Kontynuować aktywny
-`TASK-0111 — Verification workbench scale and usability acceptance`.
+`TASK-0111 — Verification workbench scale and usability acceptance` w osobnej
+aplikacji Reviewer dostarczonej przez ukończony TASK-0112.
 Automatyczna część G6.5 przeszła na fizycznym PostgreSQL dla 3000 plansz:
 p95 odczytu 49,896 ms, p95 zapisu 96,368 ms, bounded page `1`, exact retry,
 konflikt dwóch kart i wznowienie po nowej sesji są potwierdzone. Produkcyjny
 build panelu oraz automatyczne testy klawiatury i fokus dialogu przechodzą.
 
-Do zamknięcia zadania pozostał krótki odbiór operatorski według
-`quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`: realny import `image_directory`,
-widok 1366 × 768, scenariusze TASK-0107–0110 i pomiar co najmniej 10 plansz.
-W aktualnie sprawdzonej lokalnej bazie nie ma image import joba, więc najpierw
-trzeba wskazać lub utworzyć realny import do weryfikacji.
+Do zamknięcia zadania pozostał odbiór operatorski według
+`quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`: pierwsze 50 layoutów realnego
+importu `image_directory`, widok 1366 × 768, scenariusze TASK-0107–0110 i pomiar
+co najmniej 10 plansz. Reviewer działa lokalnie pod `http://127.0.0.1:3001`;
+link i kod tworzy sekcja `Zatwierdzanie` panelu admina.
 `massImportAllowed = true` jest nadal warunkiem rozpoczęcia automatycznej
 ścieżki TASK-0076; ręcznie zweryfikowany ciągły zakres używa D-086.
 TASK-0041/TASK-0042 oraz G3 pozostają równolegle zablokowane na fizycznych
@@ -1545,7 +1564,7 @@ raportach Pixela i Samsunga.
 - finalnego wyboru OCR,
 - Celery/Redis, mikroserwisów i chmury,
 - synchronizacji danych mobilnych,
-- zdalnego linku, kodu i bindingu poza loopback przed TASK-0112 oraz G8.1,
+- bindingu Reviewera poza loopback przed TASK-0113 oraz G8.1,
 - publicznego deploymentu lub publikacji w Google Play.
 
 ## Handoff notes

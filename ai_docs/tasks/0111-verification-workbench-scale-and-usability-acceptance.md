@@ -1,7 +1,7 @@
 ---
 title: Verification workbench scale and usability acceptance
 status: in_progress
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # TASK-0111 — Verification workbench scale and usability acceptance
@@ -35,6 +35,8 @@ metryki pozwalające oszacować ręczną pracę dla kolejnych 1000 i 3000 plansz
 - zmierzyć p95 lokalnego odczytu sąsiada i zapisu bez recropowania,
 - zweryfikować scenariusz keyboard-only, korektę symbolu, geometrii i ponowną
   edycję kompletnej planszy,
+- zweryfikować kwadratowe cropy w zwartej siatce oraz wycięty obraz jednej
+  bieżącej planszy pokazany obok,
 - zweryfikować konflikt dwóch kart oraz exact retry po niejednoznacznym
   przerwaniu odpowiedzi,
 - potwierdzić wznowienie po restarcie bez utraty decyzji i pozycji,
@@ -86,7 +88,7 @@ metryki pozwalające oszacować ręczną pracę dla kolejnych 1000 i 3000 plansz
 ## Expected files
 
 - `services/api/tests/test_operational_image_review_scale.py`
-- `apps/admin/test/operational-review-*.test.mjs`
+- `apps/reviewer/test/operational-review-*.test.mjs`
 - `scripts/run_m65_workbench_acceptance.py`
 - `ai_docs/quality/m65-workbench-acceptance-report.json`
 - dokumentacja procesu i planu M6.5.
@@ -96,7 +98,7 @@ metryki pozwalające oszacować ręczną pracę dla kolejnych 1000 i 3000 plansz
 ```powershell
 .\.venv\Scripts\python.exe -m pytest services/api/tests/test_operational_image_review_scale.py -q
 .\.venv\Scripts\python.exe scripts/run_m65_workbench_acceptance.py
-node --test --experimental-strip-types apps/admin/test/operational-review-*.test.mjs
+node --test --experimental-strip-types apps/reviewer/test/operational-review-*.test.mjs
 ```
 
 ## Risks / open questions
@@ -122,6 +124,11 @@ node --test --experimental-strip-types apps/admin/test/operational-review-*.test
 - Raport operatorski wykorzystuje 84 kompletne ręcznie sprawdzone plansze,
   1260 komórek, 31 korekt etykiet oraz 14/387 korekt geometrii. Czas jest jawnie
   oznaczoną prognozą do zastąpienia próbą minimum 10 plansz.
+- Po pierwszym odbiorze osobnej aplikacji Reviewer zmniejszono główny widok:
+  każda komórka symbolu jest kwadratowa, zwarta siatka nie zajmuje całej
+  szerokości, a obok znajduje się asset `board` jednej bieżącej planszy.
+  Pełne zdjęcie źródłowe z dziewięcioma planszami pozostaje tylko w edytorze
+  geometrii.
 
 ### Verification results
 
@@ -135,13 +142,15 @@ node --test --experimental-strip-types apps/admin/test/operational-review-*.test
 - Ruff, mypy (`235 source files`), ESLint, Prettier i TypeScript strict
   przeszły,
 - produkcyjny build Next.js przeszedł.
+- korekta widoku porównawczego: `15 passed`, TypeScript strict, ukierunkowany
+  ESLint, Prettier, produkcyjny build Reviewera i browser smoke przeszły.
 
 ### Pending manual acceptance
 
-- Osadzona przeglądarka została zablokowana przez politykę URL po wcześniejszej
-  stronie `ERR_CONNECTION_REFUSED`; nie użyto alternatywnego sterowania ani
-  obejścia.
-- Aktualna lokalna baza nie zawiera import joba `image_directory`, dlatego
-  ręczne scenariusze obrazu, geometrii i 1366 × 768 czekają na realny import
-  oraz potwierdzenie właściciela według
-  `ai_docs/quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`.
+- TASK-0112 dostarczył osobną aplikację Reviewer i poprawny lokalny przepływ
+  panel admina → link i kod → gate → stanowisko ograniczone do gry/importu.
+- Realny import zawiera 387 plansz: 87 kompletnych i 300 oczekujących. Właściciel
+  wykona szybki odbiór na pierwszych 50 layoutach.
+- Do zamknięcia pozostają ręczne scenariusze symbolu, geometrii, ponownej edycji,
+  keyboard-only i widoku 1366 × 768 oraz rzeczywisty pomiar minimum 10 plansz
+  według `ai_docs/quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`.

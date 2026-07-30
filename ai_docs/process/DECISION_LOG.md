@@ -2273,6 +2273,54 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** implementuje granicę D-086 i korzysta z tożsamości cropu
   D-089; nie zmienia D-084 ani `massImportAllowed`.
 
+## D-091 — Osobna lokalna aplikacja recenzenta poprzedza bezpieczny dostęp zdalny
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** stanowisko operacyjnego review nie jest częścią nawigacji
+  panelu admina. Działa jako osobne `apps/reviewer` na osobnym porcie.
+  Administrator wybiera grę i image import job, tworzy wygasającą lokalną sesję
+  i otrzymuje link oraz osobny jednorazowo ujawniony kod. Kod nie znajduje się
+  w linku i jest przechowywany wyłącznie jako hash. W lokalnym pionie wszystkie
+  procesy nadal bindują wyłącznie loopback.
+- **Context:** odbiór TASK-0111 wykazał, że użyteczny widok został błędnie
+  osadzony w rozbudowanym panelu admina. Docelowy operator powinien otwierać
+  minimalistyczną aplikację przez przekazany link i kod, zanim wdrożony zostanie
+  transport internetowy.
+- **Reason:** osobny frontend od razu ustanawia właściwą granicę produktu i
+  pozwala iterować UX bez udostępniania CRUD konfiguracji. Lokalny kod umożliwia
+  test przepływu, ale nie jest przedstawiany jako zamiennik HTTPS, limitu prób,
+  odwołania i audytu wymaganych przed dostępem spoza komputera.
+- **Alternatives:** dalsze osadzenie w panelu admina utrwala błędną granicę;
+  natychmiastowe wystawienie portu do Internetu jest niebezpieczne; wspólny kod
+  dla wszystkich gier nie ogranicza kontekstu.
+- **Consequences:** TASK-0112 dostarcza lokalny frontend i sesję scope
+  `(gameId, importJobId)`. M8.7 nadal odpowiada za bezpieczny ingress,
+  persistent/revocable access, rate limiting i audyt aktora. D-087 pozostaje
+  obowiązująca dla transportu zdalnego, ale lokalne wydzielenie UI i code gate
+  nie są już odłożone.
+- **Supersedes:** doprecyzowuje D-087 i zastępuje część D-086/D-087 mówiącą o
+  osadzeniu lokalnego stanowiska w panelu admina.
+
+## D-092 — Zatwierdzenie planszy jest pojedynczą, idempotentną akcją
+
+- **Status:** accepted
+- **Date:** 2026-07-29
+- **Decision:** pojedyncze `Enter` albo kliknięcie przycisku zatwierdzenia od
+  razu wysyła pełną decyzję planszy. Nie jest wyświetlany modal potwierdzenia.
+  Trwający zapis, `KeyboardEvent.repeat`, idempotency key i optimistic revision
+  pozostają obowiązkowymi zabezpieczeniami.
+- **Context:** właściciel po pierwszym kontakcie z ekranem odrzucił
+  dwustopniowe potwierdzenie jako zbędne tarcie w seryjnej pracy.
+- **Reason:** plansze kompletne pozostają edytowalne przez kolejną rewizję, a
+  niezmienny audyt pozwala odtworzyć poprzedni stan. Dodatkowy modal nie daje
+  proporcjonalnej ochrony, a obniża przepustowość operatora.
+- **Alternatives:** podwójny Enter/modal, opóźniony zapis lub batch save.
+- **Consequences:** testy klawiatury i instrukcje odbioru muszą zostać
+  zaktualizowane. Akcje destrukcyjne, takie jak odrzucenie albo zamrożenie
+  kohorty, mogą nadal wymagać osobnego potwierdzenia.
+- **Supersedes:** zastępuje dwustopniowy Enter z TASK-0108 i D-086.
+
 ## Szablon nowej decyzji
 
 ```text

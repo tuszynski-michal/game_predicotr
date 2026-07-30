@@ -35,6 +35,10 @@ from game_predictor_api.application.layout_imports import (
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
 )
+from game_predictor_api.application.reviewer_access import (
+    ReviewerAccessError,
+    ReviewerAccessService,
+)
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings, get_settings
@@ -273,6 +277,7 @@ def create_app(
                 raise
 
     resolved_review_dependency = review_service_dependency or default_review_service_dependency
+    reviewer_access_service = ReviewerAccessService(resolved_settings.reviewer_origin)
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
@@ -288,7 +293,10 @@ def create_app(
     )
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[resolved_settings.admin_origin],
+        allow_origins=[
+            resolved_settings.admin_origin,
+            resolved_settings.reviewer_origin,
+        ],
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Accept", "Content-Type"],
@@ -308,6 +316,7 @@ def create_app(
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
             resolved_review_dependency,
+            reviewer_access_service,
         )
     )
 
@@ -442,6 +451,19 @@ def create_app(
                 "message": error.message,
                 "details": error.details,
             },
+        )
+
+    @application.exception_handler(ReviewerAccessError)
+    async def handle_reviewer_access_error(
+        _request: Request,
+        error: ReviewerAccessError,
+    ) -> JSONResponse:
+        status_code = 401 if error.code == "REVIEWER_ACCESS_CODE_INVALID" else 404
+        if error.code == "REVIEWER_SESSION_LIFETIME_INVALID":
+            status_code = 422
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": {}},
         )
 
     @application.exception_handler(RequestValidationError)

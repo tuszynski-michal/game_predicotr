@@ -42,7 +42,7 @@ last_updated: 2026-07-29
 | Około 100 próbek na symbol | `requirements/IMAGE_INGESTION.md` | M6 |
 | Manual review | `requirements/IMAGE_INGESTION.md`, `requirements/ADMIN_APP.md` | M6 |
 | Minimalistyczne zatwierdzanie całej planszy | `requirements/ADMIN_APP.md`, D-086 | M6.5 |
-| Klawiatura, tooltip sugestii i podwójne Enter | `requirements/ADMIN_APP.md` | M6.5 |
+| Klawiatura, tooltip sugestii i pojedynczy zapis Enter | `requirements/ADMIN_APP.md` | M6.5 |
 | Wersjonowana korekta geometrii z recrop | `requirements/IMAGE_INGESTION.md`, `architecture/DATA_MODEL.md` | M6.5 |
 | Ochrona decyzji człowieka przed retrainingiem | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5 |
 | Kontrolowana publikacja ręcznie zweryfikowanego zakresu | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5, M7 |

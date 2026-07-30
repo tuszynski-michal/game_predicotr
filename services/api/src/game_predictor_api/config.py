@@ -29,6 +29,7 @@ class ApiSettings:
     host: str
     port: int
     admin_origin: str
+    reviewer_origin: str = "http://127.0.0.1:3001"
     database_url: str = field(default=_DEFAULT_DATABASE_URL, repr=False)
     artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
@@ -57,6 +58,10 @@ class ApiSettings:
         port = _parse_port(source.get("GAME_PREDICTOR_API_PORT", "8000"))
         admin_origin = _parse_loopback_origin(
             source.get("GAME_PREDICTOR_ADMIN_ORIGIN", "http://127.0.0.1:3000")
+        )
+        reviewer_origin = _parse_loopback_origin(
+            source.get("GAME_PREDICTOR_REVIEWER_ORIGIN", "http://127.0.0.1:3001"),
+            variable_name="GAME_PREDICTOR_REVIEWER_ORIGIN",
         )
         database_url = _parse_local_database_url(
             source.get("GAME_PREDICTOR_DATABASE_URL", _DEFAULT_DATABASE_URL)
@@ -94,6 +99,7 @@ class ApiSettings:
             host=host,
             port=port,
             admin_origin=admin_origin,
+            reviewer_origin=reviewer_origin,
             database_url=database_url,
             artifact_root=artifact_root,
             import_root=import_root,
@@ -131,11 +137,15 @@ def _parse_local_root(value: str, *, variable_name: str) -> Path:
     return Path(candidate).resolve()
 
 
-def _parse_loopback_origin(value: str) -> str:
+def _parse_loopback_origin(
+    value: str,
+    *,
+    variable_name: str = "GAME_PREDICTOR_ADMIN_ORIGIN",
+) -> str:
     candidate = value.strip()
     parsed = urlsplit(candidate)
     if parsed.scheme != "http" or parsed.hostname not in _LOOPBACK_HOSTS:
-        raise ConfigurationError("GAME_PREDICTOR_ADMIN_ORIGIN must be an http loopback origin.")
+        raise ConfigurationError(f"{variable_name} must be an http loopback origin.")
     if (
         parsed.username
         or parsed.password
@@ -144,13 +154,13 @@ def _parse_loopback_origin(value: str) -> str:
         or parsed.fragment
     ):
         raise ConfigurationError(
-            "GAME_PREDICTOR_ADMIN_ORIGIN cannot contain credentials, a path, query, or fragment."
+            f"{variable_name} cannot contain credentials, a path, query, or fragment."
         )
 
     try:
         port = parsed.port
     except ValueError as error:
-        raise ConfigurationError("GAME_PREDICTOR_ADMIN_ORIGIN contains an invalid port.") from error
+        raise ConfigurationError(f"{variable_name} contains an invalid port.") from error
 
     default_port = 80
     port_suffix = "" if port in {None, default_port} else f":{port}"

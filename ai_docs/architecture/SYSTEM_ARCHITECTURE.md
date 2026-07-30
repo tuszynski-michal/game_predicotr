@@ -16,6 +16,9 @@ flowchart LR
     A["Administrator"] --> W["Local Admin web"]
     W --> API["Local FastAPI Admin API"]
     API --> PG[("PostgreSQL")]
+    A --> LINK["Lokalny link + osobny kod"]
+    LINK --> R["Reviewer web"]
+    R --> API
 
     A --> F["Photo folders"]
     F --> WORKER["Python worker / CLI"]
@@ -51,6 +54,14 @@ Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. 
 - manual review,
 - publikacja wersji datasetów i reguł,
 - zlecenie przygotowania snapshotu i APK.
+
+### Reviewer web
+
+- osobna aplikacja przeglądarkowa uruchamiana na innym porcie niż Admin web,
+- lokalna brama kodu przed pobraniem danych plansz,
+- kontekst ograniczony do gry oraz image import joba zapisanych w sesji,
+- korekta symboli i geometrii, nawigacja oraz ponowna edycja ukończonych plansz,
+- brak ekranów konfiguracji, jobów i wydań Android.
 
 ### Admin API
 
@@ -829,10 +840,10 @@ nie pobiera całej kolejki. Widoki `Do weryfikacji` i `Plansze kompletne` są
 projekcjami statusów; nie tworzą drugiego magazynu decyzji.
 
 Akceptacja pozostaje atomową komendą całej planszy z expected revision i UUID
-idempotencji. Dwa naciśnięcia `Enter` są wyłącznie mechanizmem potwierdzenia UI:
-pierwsze otwiera dialog, drugie wysyła jedną komendę. Backend nie ufa
-klawiaturze ani stanowi klienta i nadal egzekwuje komplet 15 komórek, aktywny
-katalog symboli, geometrię, rewizję oraz idempotencję.
+idempotencji. Pojedyncze `Enter` albo kliknięcie wysyła jedną komendę bez
+dodatkowego modala. Backend nie ufa klawiaturze ani stanowi klienta i nadal
+egzekwuje komplet 15 komórek, aktywny katalog symboli, geometrię, rewizję oraz
+idempotencję.
 
 Korekta siatki działa przed decyzją symbolu. Zapisuje nową immutable rewizję
 geometrii, wyprostowanej planszy i 15 cropów z checksumami, a następnie
@@ -921,9 +932,15 @@ każdym spinie.
 
 - PostgreSQL w Docker Compose na komputerze Windows,
 - FastAPI, Next.js i worker uruchamiane lokalnie,
+- Admin web i Reviewer web są osobnymi procesami Next.js na różnych portach,
 - lokalny system plików dla zdjęć i artefaktów,
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
+
+Admin web tworzy lokalną, wygasającą sesję Reviewera oraz pokazuje link i kod
+osobno. Kod jest zwracany tylko podczas tworzenia i przechowywany w pamięci
+procesu API jako hash. Ta brama porządkuje lokalny przepływ i nie jest jeszcze
+internetowym mechanizmem autoryzacji.
 
 Przyszły zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do
 PostgreSQL, workera ani pełnego Admin API. Jawnie włączona brama HTTPS

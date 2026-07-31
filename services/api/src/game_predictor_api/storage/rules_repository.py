@@ -15,6 +15,7 @@ from game_predictor_api.domain.rules import (
     RulesConflictError,
     RulesSymbolDefinition,
     RulesVersion,
+    RulesVersionStatus,
     RulesVersionSymbol,
 )
 from game_predictor_api.storage.models import (
@@ -115,6 +116,89 @@ class SqlAlchemyRulesRepository(RulesRepository):
         record.published_at = rules_version.published_at
         self._flush_or_raise_conflict()
         return _to_rules_version(record)
+
+    def get_or_clone_current_draft(
+        self,
+        source: RulesVersion,
+    ) -> RulesVersion:
+        game = self._session.scalar(
+            select(GameModel).where(GameModel.id == source.game_id).with_for_update()
+        )
+        if game is None:
+            raise RuntimeError("Rules source game disappeared during cloning.")
+        current = self._session.scalar(
+            select(RulesVersionModel)
+            .where(
+                RulesVersionModel.game_id == source.game_id,
+                RulesVersionModel.status == RulesVersionStatus.DRAFT,
+            )
+            .order_by(RulesVersionModel.version.desc(), RulesVersionModel.id)
+            .limit(1)
+        )
+        if current is not None:
+            return _to_rules_version(current)
+
+        latest = self._session.scalar(
+            select(func.max(RulesVersionModel.version)).where(
+                RulesVersionModel.game_id == source.game_id
+            )
+        )
+        draft = RulesVersionModel(
+            game_id=source.game_id,
+            version=(latest or 0) + 1,
+            rows=source.rows,
+            columns=source.columns,
+            spin_cost=source.spin_cost,
+            status=RulesVersionStatus.DRAFT,
+        )
+        self._session.add(draft)
+        self._flush_or_raise_conflict()
+
+        for payline in self._session.scalars(
+            select(PaylineModel).where(
+                PaylineModel.rules_version_id == source.id
+            )
+        ):
+            self._session.add(
+                PaylineModel(
+                    rules_version_id=draft.id,
+                    code=payline.code,
+                    name=payline.name,
+                    row_path=list(payline.row_path),
+                    display_order=payline.display_order,
+                    is_active=payline.is_active,
+                )
+            )
+        for configuration in self._session.scalars(
+            select(RulesVersionSymbolModel).where(
+                RulesVersionSymbolModel.rules_version_id == source.id
+            )
+        ):
+            self._session.add(
+                RulesVersionSymbolModel(
+                    rules_version_id=draft.id,
+                    symbol_id=configuration.symbol_id,
+                    minimum_match_length=configuration.minimum_match_length,
+                    is_active=configuration.is_active,
+                )
+            )
+        for payout in self._session.scalars(
+            select(PayoutRuleModel).where(
+                PayoutRuleModel.rules_version_id == source.id
+            )
+        ):
+            self._session.add(
+                PayoutRuleModel(
+                    rules_version_id=draft.id,
+                    symbol_id=payout.symbol_id,
+                    match_length=payout.match_length,
+                    payout_credits=payout.payout_credits,
+                    is_active=payout.is_active,
+                )
+            )
+        self._flush_or_raise_conflict()
+        self._session.refresh(draft)
+        return _to_rules_version(draft)
 
     def paylines_fit_dimensions(
         self,

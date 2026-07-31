@@ -107,6 +107,21 @@ def create_rules_router(service_dependency: RulesServiceDependency) -> APIRouter
             )
         )
 
+    @router.post(
+        "/rules-versions/{rules_version_id}/draft",
+        response_model=RulesVersionResponse,
+        operation_id="createRulesDraftFromPublished",
+        summary="Open the one current draft copied from a published version",
+        responses=ERROR_RESPONSES,
+    )
+    def create_rules_draft_from_published(
+        rules_version_id: UUID,
+        service: Annotated[RulesService, service_parameter],
+    ) -> RulesVersionResponse:
+        return RulesVersionResponse.model_validate(
+            service.create_draft_from_published(rules_version_id)
+        )
+
     @router.get(
         "/rules-versions/{rules_version_id}/publication-readiness",
         response_model=RulesPublicationReadinessResponse,

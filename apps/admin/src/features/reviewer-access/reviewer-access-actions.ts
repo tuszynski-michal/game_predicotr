@@ -16,6 +16,12 @@ export type ReviewerAccessClient = Pick<
   | 'stopReviewerIngress'
 >;
 
+export type ReviewerLauncherClient = ReviewerAccessClient &
+  Pick<
+    AdminApiClient,
+    'listGames' | 'listJobs' | 'listOperationalImageReviewItems'
+  >;
+
 export type IngressResult =
   | { readonly ingress: ReviewerIngressStatusResponse; readonly ok: true }
   | {

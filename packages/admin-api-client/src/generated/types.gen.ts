@@ -7280,6 +7280,50 @@ export type UpdateRulesVersionResponses = {
 export type UpdateRulesVersionResponse =
   UpdateRulesVersionResponses[keyof UpdateRulesVersionResponses];
 
+export type CreateRulesDraftFromPublishedData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/draft';
+};
+
+export type CreateRulesDraftFromPublishedErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateRulesDraftFromPublishedError =
+  CreateRulesDraftFromPublishedErrors[keyof CreateRulesDraftFromPublishedErrors];
+
+export type CreateRulesDraftFromPublishedResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesVersionResponse;
+};
+
+export type CreateRulesDraftFromPublishedResponse =
+  CreateRulesDraftFromPublishedResponses[keyof CreateRulesDraftFromPublishedResponses];
+
 export type ListPaylinesData = {
   body?: never;
   path: {

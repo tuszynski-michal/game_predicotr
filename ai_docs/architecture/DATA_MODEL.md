@@ -82,6 +82,14 @@ Walidacja:
 - `(game_id, version)` unique,
 - opublikowany rekord jest niezmienny.
 
+Bieżący workspace reguł jest projekcją istniejących danych, a nie osobną encją:
+wybiera najnowszy `draft`, a przy jego braku najnowszy `published`. Rozpoczęcie
+edycji opublikowanej wersji tworzy najwyżej jeden bieżący draft. Kopiowane są
+wartości `rules_versions` oraz wszystkie powiązane `paylines`,
+`rules_version_symbols` i `payout_rules`; rekordy podrzędne dostają nowe
+identyfikatory, natomiast źródło pozostaje niezmienne. Nie jest potrzebna nowa
+kolumna ani migracja schematu.
+
 ### rules_version_symbols
 
 | Pole | Typ | Uwagi |
@@ -654,6 +662,11 @@ salt i PBKDF2 hash kodu, licznik maksymalnie pięciu prób, `locked_at`,
 `revoked_at`, hash opaque tokenu, jego wygaśnięcie oraz czas ostatniego unlock.
 Kod i token nie występują jawnie. Token wygasa nie później niż sesja i jest
 usuwany przy revoke lub blokadzie.
+
+Nowa sesja może wskazać wyłącznie image import tej samej gry w statusie
+`waiting_for_review` albo `completed`, dla którego istnieje co najmniej jeden
+`image_review_items`. Jest to warunek utworzenia sesji, a nie nowy stan ani
+zdenormalizowany licznik w tabeli.
 
 Append-only `reviewer_access_audit_events` zapisuje `created`,
 `unlock_failed`, `unlocked`, `locked` i `revoked`. Decyzje plansz pozostają w

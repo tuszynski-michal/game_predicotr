@@ -20,6 +20,7 @@ import {
   downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
+  createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createSymbol as createGeneratedSymbol,
@@ -782,6 +783,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         path: { game_id: gameId },
+      }),
+    createRulesDraftFromPublished: (rulesVersionId: string) =>
+      createGeneratedRulesDraftFromPublished({
+        client,
+        path: { rules_version_id: rulesVersionId },
       }),
     getRulesVersion: (rulesVersionId: string) =>
       getGeneratedRulesVersion({

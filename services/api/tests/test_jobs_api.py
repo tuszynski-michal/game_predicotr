@@ -9,9 +9,12 @@ from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
     JobService,
     LayoutImportRulesReference,
+    PayoutDatasetReference,
+    PayoutRulesReference,
 )
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.main import create_app
@@ -169,6 +172,22 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
         newline="\n",
     )
     release_id = uuid4()
+    payout_dataset_id = uuid4()
+    payout_rules_id = uuid4()
+    _repository.payout_datasets[payout_dataset_id] = PayoutDatasetReference(
+        game_id=game_id,
+        status=DatasetVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+        expected_layout_count=50,
+        layout_count=50,
+    )
+    _repository.payout_rules[payout_rules_id] = PayoutRulesReference(
+        game_id=game_id,
+        status=RulesVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+    )
     requests = [
         (
             "import",
@@ -184,8 +203,8 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
             game_id,
             {
                 "schemaVersion": 1,
-                "datasetVersionId": str(uuid4()),
-                "rulesVersionId": str(uuid4()),
+                "datasetVersionId": str(payout_dataset_id),
+                "rulesVersionId": str(payout_rules_id),
                 "algorithmVersion": "payout-v2",
             },
         ),
@@ -219,6 +238,49 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
     )
     assert {job.job_type for job in jobs} == set(JobType)
     assert all(job.status is JobStatus.CREATED for job in jobs)
+
+
+def test_payout_job_rejects_incomplete_dataset_before_queueing(tmp_path: Path) -> None:
+    client, game_id, _service, repository = _client(tmp_path)
+    dataset_id = uuid4()
+    rules_id = uuid4()
+    repository.payout_datasets[dataset_id] = PayoutDatasetReference(
+        game_id=game_id,
+        status=DatasetVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+        expected_layout_count=50,
+        layout_count=48,
+    )
+    repository.payout_rules[rules_id] = PayoutRulesReference(
+        game_id=game_id,
+        status=RulesVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+    )
+
+    with client:
+        response = client.post(
+            "/api/v1/admin/jobs",
+            json={
+                "jobType": "payout",
+                "gameId": str(game_id),
+                "inputPayload": {
+                    "schemaVersion": 1,
+                    "datasetVersionId": str(dataset_id),
+                    "rulesVersionId": str(rules_id),
+                    "algorithmVersion": "payout-v2",
+                },
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "PAYOUT_DATASET_INCOMPLETE",
+        "message": "The selected dataset has missing or excess layouts.",
+        "details": {"expectedLayoutCount": 50, "layoutCount": 48},
+    }
+    assert repository.items == {}
 
 
 def test_import_job_attests_source_and_is_idempotent_by_content(

@@ -2779,6 +2779,25 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   trwały. TASK-0123 wprowadza ten kontrakt bez migracji bazy.
 - **Supersedes:** uszczegóławia D-105 bez zmiany decyzji użytkownika.
 
+## D-114 — Reguły mają jeden bieżący workspace nad niezmiennymi wersjami
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** Admin wybiera najnowszy draft, a gdy go nie ma — najnowszą
+  opublikowaną wersję. Rozpoczęcie edycji wersji opublikowanej tworzy pełny
+  draft-kopię wraz z paylines, konfiguracją symboli i payoutami. Ponowienie
+  zwraca istniejący draft. Historia pozostaje wewnętrzna i nie zajmuje głównego
+  ekranu.
+- **Context:** dotychczasowy ekran wymagał ręcznego zarządzania listą wersji, a
+  nowy draft był pusty, przez co prosta korekta reguł wymagała odtwarzania całej
+  konfiguracji.
+- **Reason:** użytkownik pracuje nad jedną konfiguracją, a backend nadal
+  zachowuje dokładne, niezmienne źródła snapshotów i wydań Android.
+- **Alternatives:** edycja opublikowanej wersji w miejscu albo pusty draft
+  tworzony ręcznie dla każdej korekty.
+- **Consequences:** TASK-0127 dodaje jawną operację kopiowania wersji; nie
+  usuwa historii ani nie zmienia kontraktu istniejących mutacji draftu.
+
 ## Szablon nowej decyzji
 
 ```text

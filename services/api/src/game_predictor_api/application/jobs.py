@@ -9,6 +9,7 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
+from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -22,11 +23,31 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
 
+PAYOUT_ALGORITHM_VERSION = "payout-v2"
+
 
 @dataclass(frozen=True, slots=True)
 class LayoutImportRulesReference:
     game_id: UUID
     status: RulesVersionStatus
+
+
+@dataclass(frozen=True, slots=True)
+class PayoutDatasetReference:
+    game_id: UUID
+    status: DatasetVersionStatus
+    rows: int
+    columns: int
+    expected_layout_count: int
+    layout_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class PayoutRulesReference:
+    game_id: UUID
+    status: RulesVersionStatus
+    rows: int
+    columns: int
 
 
 class JobRepository(Protocol):
@@ -36,6 +57,16 @@ class JobRepository(Protocol):
         self,
         rules_version_id: UUID,
     ) -> LayoutImportRulesReference | None: ...
+
+    def get_payout_dataset_reference(
+        self,
+        dataset_version_id: UUID,
+    ) -> PayoutDatasetReference | None: ...
+
+    def get_payout_rules_reference(
+        self,
+        rules_version_id: UUID,
+    ) -> PayoutRulesReference | None: ...
 
     def add_job(self, job: Job) -> Job: ...
 
@@ -217,6 +248,94 @@ class JobService:
                 "validation_kind": "layout_import",
                 "import_job_id": str(import_job_id),
                 "rules_version_id": str(rules_version_id),
+            },
+            game_already_validated=True,
+        )
+
+    def create_payout_job(
+        self,
+        *,
+        game_id: UUID,
+        dataset_version_id: UUID,
+        rules_version_id: UUID,
+        algorithm_version: str,
+    ) -> Job:
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        if algorithm_version != PAYOUT_ALGORITHM_VERSION:
+            raise JobError(
+                "UNSUPPORTED_PAYOUT_ALGORITHM",
+                f"Only {PAYOUT_ALGORITHM_VERSION} is supported.",
+                details={"algorithmVersion": algorithm_version},
+            )
+
+        dataset = self._repository.get_payout_dataset_reference(dataset_version_id)
+        if dataset is None:
+            raise JobNotFoundError(
+                "DATASET_VERSION_NOT_FOUND",
+                "Dataset version does not exist.",
+                details={"datasetVersionId": str(dataset_version_id)},
+            )
+        rules = self._repository.get_payout_rules_reference(rules_version_id)
+        if rules is None:
+            raise JobNotFoundError(
+                "RULES_VERSION_NOT_FOUND",
+                "Rules version does not exist.",
+                details={"rulesVersionId": str(rules_version_id)},
+            )
+        if dataset.game_id != game_id or rules.game_id != game_id:
+            raise JobConflictError(
+                "PAYOUT_GAME_MISMATCH",
+                "Dataset, rules and job must belong to the same game.",
+            )
+        if dataset.status is not DatasetVersionStatus.PUBLISHED:
+            raise JobConflictError(
+                "PAYOUT_DATASET_NOT_PUBLISHED",
+                "The selected dataset must be published.",
+            )
+        if rules.status is not RulesVersionStatus.PUBLISHED:
+            raise JobConflictError(
+                "PAYOUT_RULES_NOT_PUBLISHED",
+                "The selected rules version must be published.",
+            )
+        if (dataset.rows, dataset.columns) != (rules.rows, rules.columns):
+            raise JobConflictError(
+                "PAYOUT_DIMENSIONS_MISMATCH",
+                "Dataset and rules dimensions must match.",
+                details={
+                    "datasetRows": dataset.rows,
+                    "datasetColumns": dataset.columns,
+                    "rulesRows": rules.rows,
+                    "rulesColumns": rules.columns,
+                },
+            )
+        if dataset.layout_count == 0:
+            raise JobConflictError(
+                "PAYOUT_DATASET_EMPTY",
+                "The selected dataset does not contain layouts.",
+            )
+        if dataset.layout_count != dataset.expected_layout_count:
+            raise JobConflictError(
+                "PAYOUT_DATASET_INCOMPLETE",
+                "The selected dataset has missing or excess layouts.",
+                details={
+                    "expectedLayoutCount": dataset.expected_layout_count,
+                    "layoutCount": dataset.layout_count,
+                },
+            )
+
+        return self._persist_job(
+            JobType.PAYOUT,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "dataset_version_id": str(dataset_version_id),
+                "rules_version_id": str(rules_version_id),
+                "algorithm_version": algorithm_version,
             },
             game_already_validated=True,
         )

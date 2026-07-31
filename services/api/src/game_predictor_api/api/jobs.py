@@ -14,6 +14,7 @@ from game_predictor_api.schemas.jobs import (
     JobCreateRequest,
     JobResponse,
     LayoutImportValidateJobPayload,
+    PayoutJobCreate,
     ValidateJobCreate,
 )
 
@@ -55,6 +56,13 @@ def create_jobs_router(service_dependency: JobServiceDependency) -> APIRouter:
                 game_id=payload.game_id,
                 import_job_id=payload.input_payload.import_job_id,
                 rules_version_id=payload.input_payload.rules_version_id,
+            )
+        elif isinstance(payload, PayoutJobCreate):
+            job = service.create_payout_job(
+                game_id=payload.game_id,
+                dataset_version_id=payload.input_payload.dataset_version_id,
+                rules_version_id=payload.input_payload.rules_version_id,
+                algorithm_version=payload.input_payload.algorithm_version,
             )
         else:
             job = service.create_job(

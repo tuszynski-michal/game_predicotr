@@ -6,7 +6,10 @@ from game_predictor_api.application.jobs import (
     JobRepository,
     JobService,
     LayoutImportRulesReference,
+    PayoutDatasetReference,
+    PayoutRulesReference,
 )
+from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -26,6 +29,7 @@ from game_predictor_api.domain.jobs import (
     update_job_progress,
     wait_for_review,
 )
+from game_predictor_api.domain.rules import RulesVersionStatus
 
 
 class MemoryJobRepository(JobRepository):
@@ -33,6 +37,8 @@ class MemoryJobRepository(JobRepository):
         self.game_id = game_id
         self.items: dict[UUID, Job] = {}
         self.rules: dict[UUID, LayoutImportRulesReference] = {}
+        self.payout_datasets: dict[UUID, PayoutDatasetReference] = {}
+        self.payout_rules: dict[UUID, PayoutRulesReference] = {}
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -42,6 +48,18 @@ class MemoryJobRepository(JobRepository):
         rules_version_id: UUID,
     ) -> LayoutImportRulesReference | None:
         return self.rules.get(rules_version_id)
+
+    def get_payout_dataset_reference(
+        self,
+        dataset_version_id: UUID,
+    ) -> PayoutDatasetReference | None:
+        return self.payout_datasets.get(dataset_version_id)
+
+    def get_payout_rules_reference(
+        self,
+        rules_version_id: UUID,
+    ) -> PayoutRulesReference | None:
+        return self.payout_rules.get(rules_version_id)
 
     def add_job(self, job: Job) -> Job:
         self.items[job.id] = job
@@ -297,6 +315,60 @@ def test_service_rejects_import_without_server_source_attestation() -> None:
         )
 
     assert captured.value.code == "IMPORT_SOURCE_NOT_ATTESTED"
+
+
+def test_payout_job_requires_complete_published_matching_sources() -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    service = JobService(repository)
+    dataset_id = uuid4()
+    rules_id = uuid4()
+    repository.payout_datasets[dataset_id] = PayoutDatasetReference(
+        game_id=game_id,
+        status=DatasetVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+        expected_layout_count=50,
+        layout_count=49,
+    )
+    repository.payout_rules[rules_id] = PayoutRulesReference(
+        game_id=game_id,
+        status=RulesVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+    )
+
+    with pytest.raises(JobConflictError) as incomplete:
+        service.create_payout_job(
+            game_id=game_id,
+            dataset_version_id=dataset_id,
+            rules_version_id=rules_id,
+            algorithm_version="payout-v2",
+        )
+    assert incomplete.value.code == "PAYOUT_DATASET_INCOMPLETE"
+
+    repository.payout_datasets[dataset_id] = PayoutDatasetReference(
+        game_id=game_id,
+        status=DatasetVersionStatus.PUBLISHED,
+        rows=3,
+        columns=5,
+        expected_layout_count=50,
+        layout_count=50,
+    )
+    created = service.create_payout_job(
+        game_id=game_id,
+        dataset_version_id=dataset_id,
+        rules_version_id=rules_id,
+        algorithm_version="payout-v2",
+    )
+
+    assert created.job_type is JobType.PAYOUT
+    assert created.input_payload == {
+        "schema_version": 1,
+        "dataset_version_id": str(dataset_id),
+        "rules_version_id": str(rules_id),
+        "algorithm_version": "payout-v2",
+    }
 
 
 def test_lease_token_heartbeat_checkpoint_and_expiry_are_fenced() -> None:

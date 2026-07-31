@@ -15,4 +15,8 @@ test('launcher exposes explicit online start and stop controls', async () => {
   assert.match(source, /Utwórz link i wystaw online/);
   assert.match(source, /Zatrzymaj udostępnianie/);
   assert.match(source, /session\?\.sessionId/);
+  assert.match(source, /listOperationalImageReviewItems/);
+  assert.match(source, /Przejdź do Import layoutów/);
+  assert.match(source, /reviewCounts\?\.total === 0/);
+  assert.match(source, /reviewReadyImports/);
 });

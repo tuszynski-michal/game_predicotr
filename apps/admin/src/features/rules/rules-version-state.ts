@@ -98,6 +98,20 @@ export function upsertRulesVersion(
   );
 }
 
+export function selectCurrentRulesVersion(
+  rulesVersions: readonly RulesVersionResponse[],
+): RulesVersionResponse | null {
+  const ordered = [...rulesVersions].sort(
+    (left, right) =>
+      right.version - left.version || left.id.localeCompare(right.id),
+  );
+  return (
+    ordered.find((item) => item.status === 'draft') ??
+    ordered.find((item) => item.status === 'published') ??
+    null
+  );
+}
+
 function parseInteger(value: string): number | null {
   const normalized = value.trim();
   if (!/^\d+$/.test(normalized)) {

@@ -172,7 +172,8 @@ class ReviewerAccessService:
         if not self._repository.scope_exists(game_id, import_job_id):
             raise ReviewerAccessError(
                 "REVIEWER_SCOPE_INVALID",
-                "The import job does not belong to the selected game.",
+                "The import must belong to the selected game, be ready for "
+                "review, and contain boards.",
             )
         now = self._now()
         code = "-".join("".join(secrets.choice(_CODE_ALPHABET) for _ in range(4)) for _ in range(2))

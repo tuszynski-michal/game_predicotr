@@ -25,3 +25,11 @@ test('uses a single controlled game context for dependent sections', () => {
   assert.doesNotMatch(shellSource, /href="#symbols"/);
   assert.doesNotMatch(shellSource, /href="#jobs"/);
 });
+
+test('does not expose duplicate Dataset or Manual Review workspaces', () => {
+  assert.doesNotMatch(workspaceSource, /DatasetCatalog/);
+  assert.doesNotMatch(workspaceSource, /ReviewWorkspace/);
+  assert.doesNotMatch(workspaceSource, /Manual Review/i);
+  assert.match(workspaceSource, /ImageFolderImportPanel/);
+  assert.match(workspaceSource, /ReviewerAccessLauncher/);
+});

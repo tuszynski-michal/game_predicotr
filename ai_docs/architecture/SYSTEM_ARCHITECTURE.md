@@ -194,6 +194,12 @@ częściowa awaria pozostaje widoczna i możliwa do bezpiecznego ponowienia.
 
 ### Batch payout precomputation
 
+Przed zapisaniem payout joba Admin API wykonuje lekki preflight referencji:
+sprawdza status, kompletność, grę, wymiary i jawną wersję algorytmu. Nie czyta
+przy tym layoutów i nie wykonuje obliczeń. Dzięki temu oczywiście błędna
+kombinacja nie trafia do kolejki, natomiast właściwa walidacja partii i
+resumowalne wykonanie pozostają odpowiedzialnością workera.
+
 Handler `payout-v2` odczytuje wyłącznie opublikowany dataset i opublikowane
 reguły tej samej gry o zgodnych wymiarach. Źródło jest mapowane do czystych
 kontraktów engine, a layouty są pobierane rosnąco po `sequence_number` w

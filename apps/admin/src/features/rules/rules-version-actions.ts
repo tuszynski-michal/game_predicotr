@@ -12,18 +12,24 @@ import type { ValidatedRulesVersionDraft } from './rules-version-state.ts';
 export type RulesVersionsClient = Pick<
   AdminApiClient,
   | 'createRulesVersion'
+  | 'createRulesDraftFromPublished'
+  | 'createJob'
   | 'archiveRulesVersion'
   | 'archivePayline'
   | 'createPayline'
   | 'createPayoutRule'
   | 'listGames'
+  | 'listDatasetVersions'
+  | 'listJobs'
   | 'listPaylines'
   | 'listPayoutRules'
   | 'listRulesVersions'
   | 'listRulesVersionSymbols'
   | 'listSymbols'
+  | 'getJob'
   | 'getRulesPublicationReadiness'
   | 'publishRulesVersion'
+  | 'retryJob'
   | 'updatePayline'
   | 'updatePayoutRule'
   | 'updateRulesVersion'
@@ -48,6 +54,32 @@ export type PublicationReadinessResult =
 export type RulesVersionTransitionResult =
   | { readonly ok: true; readonly rulesVersion: RulesVersionResponse }
   | { readonly error: string; readonly ok: false };
+
+export async function createEditableRulesDraft(
+  api: RulesVersionsClient,
+  publishedRulesVersionId: string,
+): Promise<RulesVersionTransitionResult> {
+  try {
+    const result = await api.createRulesDraftFromPublished(
+      publishedRulesVersionId,
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przygotować reguł do edycji.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, rulesVersion: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
 
 export async function saveRulesVersion(
   api: RulesVersionsClient,

@@ -618,6 +618,7 @@ a:focus-visible {
 .gamesPanel,
 .symbolsPanel,
 .rulesPanel,
+.rulesWorkspacePanel,
 .statePanel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1193,6 +1194,136 @@ a:focus-visible {
   margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.rulesWorkspacePanel {
+  overflow: hidden;
+}
+
+.rulesWorkspaceHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rulesWorkspaceHeader h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.rulesInternalVersion {
+  margin: 0;
+  color: #71869f;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+}
+
+.rulesWorkspaceActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 22px 26px;
+}
+
+.rulesWorkspaceNote {
+  margin: 0;
+  padding: 0 26px 24px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.payoutComputationPanel {
+  display: grid;
+  gap: 14px;
+  margin: 0 26px 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.payoutComputationPanel > header,
+.payoutJobStatus > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.payoutComputationPanel h3,
+.payoutComputationPanel p {
+  margin: 0;
+}
+
+.algorithmBadge {
+  padding: 5px 8px;
+  border: 1px solid rgba(91, 177, 255, 0.3);
+  border-radius: 999px;
+  color: #9fd2ff;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+}
+
+.payoutSourceSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.payoutSourceSummary > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.payoutSourceSummary dt {
+  color: #758aa3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payoutSourceSummary dd {
+  margin: 5px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.payoutBlocker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 190, 77, 0.24);
+  border-radius: 9px;
+  color: #ffd790;
+  font-size: 12px;
+}
+
+.payoutJobStatus {
+  display: grid;
+  gap: 10px;
+}
+
+.payoutJobStatus span,
+.payoutJobStatus > p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.payoutJobStatus progress {
+  width: 100%;
+}
+
+.payoutComputationPanel .rulesWorkspaceNote {
+  padding: 0;
 }
 
 .immutableLabel {
@@ -2734,10 +2865,20 @@ div.imageJobInlineError {
   .gameRow,
   .symbolRow,
   .rulesRow,
+  .rulesWorkspaceHeader,
   .payoutSymbolRow,
   .archiveConfirmation {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .rulesWorkspaceActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payoutSourceSummary {
+    grid-template-columns: 1fr;
   }
 
   .datasetValidationMetrics {
@@ -4513,6 +4654,52 @@ div.imageJobInlineError {
   color: var(--danger);
 }
 
+.reviewerPrerequisite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(255, 190, 77, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 190, 77, 0.06);
+}
+
+.reviewerPrerequisite p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.reviewerReadinessSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.reviewerReadinessSummary > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.reviewerReadinessSummary dt {
+  color: #758aa3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reviewerReadinessSummary dd {
+  margin: 5px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
 .reviewerIngressStatus {
   display: flex;
   gap: 12px;
@@ -4586,8 +4773,14 @@ div.imageJobInlineError {
 
 @media (max-width: 860px) {
   .reviewerLauncherControls,
-  .reviewerSessionResult {
+  .reviewerSessionResult,
+  .reviewerReadinessSummary {
     grid-template-columns: 1fr;
+  }
+
+  .reviewerPrerequisite {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .reviewerIngressStatus {

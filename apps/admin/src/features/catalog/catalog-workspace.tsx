@@ -11,7 +11,6 @@ import {
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
-import { DatasetCatalog } from '@/features/datasets/dataset-catalog';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { JobMonitor } from '@/features/jobs/job-monitor';
@@ -58,7 +57,7 @@ const GAME_SECTION_OPTIONS: readonly {
   {
     id: 'imports',
     title: 'Import layoutów',
-    description: 'Źródła, staging, walidacja i datasety gry.',
+    description: 'Wybór folderu, postęp importu i kompletność layoutów.',
   },
   {
     id: 'symbols',
@@ -166,6 +165,16 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
     }
   }
 
+  function openSection(section: GameSection) {
+    commitNavigation({ ...navigation, section });
+    window.requestAnimationFrame(() => {
+      sectionHeaderRefs.current[section]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+  }
+
   return (
     <div className="adminWorkspace">
       <header className="workspaceHeader">
@@ -258,17 +267,10 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                         id={`game-section-${section.id}`}
                       >
                         {section.id === 'imports' ? (
-                          <>
-                            <DatasetCatalog
-                              apiBaseUrl={apiBaseUrl}
-                              gameId={activeGame.id}
-                              gamesRevision={gamesRevision}
-                            />
-                            <ImageFolderImportPanel
-                              apiBaseUrl={apiBaseUrl}
-                              gameId={activeGame.id}
-                            />
-                          </>
+                          <ImageFolderImportPanel
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                          />
                         ) : null}
                         {section.id === 'symbols' ? (
                           <SymbolCatalog
@@ -288,6 +290,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                           <ReviewerAccessLauncher
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            onOpenImports={() => openSection('imports')}
                           />
                         ) : null}
                       </div>

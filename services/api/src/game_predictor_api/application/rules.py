@@ -53,6 +53,11 @@ class RulesRepository(Protocol):
         spin_cost: int,
     ) -> RulesVersion | None: ...
 
+    def get_or_clone_current_draft(
+        self,
+        source: RulesVersion,
+    ) -> RulesVersion: ...
+
     def save_rules_version(self, rules_version: RulesVersion) -> RulesVersion: ...
 
     def paylines_fit_dimensions(
@@ -246,6 +251,21 @@ class RulesService:
             ),
         )
         return self._repository.save_rules_version(updated)
+
+    def create_draft_from_published(
+        self,
+        rules_version_id: UUID,
+    ) -> RulesVersion:
+        source = self.get_rules_version(rules_version_id)
+        if source.status is RulesVersionStatus.DRAFT:
+            return source
+        if source.status is not RulesVersionStatus.PUBLISHED:
+            raise RulesConflictError(
+                "RULES_VERSION_NOT_PUBLISHED",
+                "Only a published rules version can be copied to a draft.",
+                details={"rulesVersionId": str(rules_version_id)},
+            )
+        return self._repository.get_or_clone_current_draft(source)
 
     def list_paylines(self, rules_version_id: UUID) -> Sequence[Payline]:
         self.get_rules_version(rules_version_id)

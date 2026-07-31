@@ -12769,6 +12769,84 @@
         ]
       }
     },
+    "/api/v1/admin/rules-versions/{rules_version_id}/draft": {
+      "post": {
+        "operationId": "createRulesDraftFromPublished",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Open the one current draft copied from a published version",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
     "/api/v1/admin/rules-versions/{rules_version_id}/paylines": {
       "get": {
         "operationId": "listPaylines",

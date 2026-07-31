@@ -125,6 +125,7 @@ POST  /api/v1/admin/games/{gameId}/rules-versions
 GET   /api/v1/admin/rules-versions/{rulesVersionId}
 PATCH /api/v1/admin/rules-versions/{rulesVersionId}
 DELETE /api/v1/admin/rules-versions/{rulesVersionId}
+POST  /api/v1/admin/rules-versions/{rulesVersionId}/draft
 GET   /api/v1/admin/rules-versions/{rulesVersionId}/publication-readiness
 POST  /api/v1/admin/rules-versions/{rulesVersionId}/publish
 ```
@@ -150,6 +151,21 @@ numerze wersji. Odpowiedź zawiera:
 
 `PATCH` przyjmuje co najmniej jedno z pól `rows`, `columns`, `spinCost` i
 działa wyłącznie dla statusu `draft`.
+
+POST `/draft` rozpoczyna edycję opublikowanej konfiguracji. Jeśli gra ma już
+draft, operacja zwraca najnowszy istniejący draft i nie tworzy kolejnej wersji.
+W przeciwnym razie tworzy `max(version) + 1` oraz kopiuje w jednej transakcji:
+
+- wymiary i koszt spinu,
+- wszystkie paylines wraz ze stanem aktywności,
+- konfiguracje symboli,
+- payout rules wraz ze stanem aktywności.
+
+Kopiowane rekordy podrzędne otrzymują nowe identyfikatory, a opublikowane źródło
+pozostaje niezmienne. Wywołanie dla draftu zwraca ten draft. Wersja
+zarchiwizowana nie może być źródłem i zwraca `RULES_VERSION_NOT_PUBLISHED`.
+Główny workspace Admina wybiera najnowszy draft, a przy jego braku najnowszą
+opublikowaną wersję; techniczna historia nie jest częścią tego widoku.
 
 GET `publication-readiness` jest operacją read-only i zwraca pełny,
 deterministycznie uporządkowany raport:
@@ -586,6 +602,24 @@ Typowane payloady:
 - `payout`: `datasetVersionId`, `rulesVersionId`, `algorithmVersion`,
 - `snapshot`: `mobileReleaseId`,
 - `android_build`: `mobileReleaseId`.
+
+Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
+przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu
+`payout-v2` oraz dokładna kombinacja:
+
+- opublikowany, niepusty dataset, dla którego `layoutCount` jest równy
+  `expectedLayoutCount`,
+- opublikowane reguły,
+- ta sama gra i identyczne wymiary datasetu oraz reguł.
+
+Niespełnienie warunków nie tworzy joba. Stabilne kody to
+`UNSUPPORTED_PAYOUT_ALGORITHM`, `DATASET_VERSION_NOT_FOUND`,
+`RULES_VERSION_NOT_FOUND`, `PAYOUT_GAME_MISMATCH`,
+`PAYOUT_DATASET_NOT_PUBLISHED`, `PAYOUT_RULES_NOT_PUBLISHED`,
+`PAYOUT_DIMENSIONS_MISMATCH`, `PAYOUT_DATASET_EMPTY` oraz
+`PAYOUT_DATASET_INCOMPLETE`. Aktywny i ukończony stan jest odczytywany przez
+zwykłe endpointy jobów; awaria jest wznawiana przez `POST /jobs/{jobId}/retry`
+na tym samym rekordzie i checkpointcie.
 
 Powtórzenie identycznego typu, gry i payloadu zwraca
 `409 JOB_INPUT_ALREADY_EXISTS` z `existingJobId`. API nie wykonuje workflow
@@ -1199,7 +1233,10 @@ GET  /api/v1/reviewer/context/games/{gameId}/symbols
 ```
 
 Utworzenie wymaga `gameId`, image `importJobId` należącego do tej gry i TTL od
-5 minut do 24 godzin. Odpowiedź zawiera identyfikator, link bez sekretu,
+5 minut do 24 godzin. Import musi mieć status `waiting_for_review` albo
+`completed` oraz zawierać co najmniej jedną planszę review. Backend sprawdza te
+warunki ponownie przy tworzeniu sesji; pusty, niedokończony albo obcy scope
+zwraca `REVIEWER_SCOPE_INVALID`. Odpowiedź zawiera identyfikator, link bez sekretu,
 jednorazowo ujawniony kod i czas wygaśnięcia. PostgreSQL przechowuje tylko
 salt/hash PBKDF2 kodu i hash opaque tokenu.
 

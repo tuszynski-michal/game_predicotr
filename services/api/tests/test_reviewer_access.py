@@ -4,11 +4,17 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.reviewer_access import (
+    InMemoryReviewerAccessRepository,
     ReviewerAccessError,
     ReviewerAccessService,
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
+
+
+class RejectingScopeRepository(InMemoryReviewerAccessRepository):
+    def scope_exists(self, _game_id, _import_job_id) -> bool:
+        return False
 
 
 def test_session_uses_separate_code_and_scope() -> None:
@@ -31,6 +37,23 @@ def test_session_uses_separate_code_and_scope() -> None:
     assert service.authenticate(unlocked.access_token).import_job_id == import_job_id
     with pytest.raises(ReviewerAccessError, match="invalid"):
         service.unlock(created.session.id, "WRONG-CODE")
+
+
+def test_session_rejects_import_without_ready_review_boards() -> None:
+    service = ReviewerAccessService(
+        "http://127.0.0.1:3001",
+        RejectingScopeRepository(),
+    )
+
+    with pytest.raises(ReviewerAccessError) as captured:
+        service.create(
+            game_id=uuid4(),
+            import_job_id=uuid4(),
+            lifetime_minutes=60,
+        )
+
+    assert captured.value.code == "REVIEWER_SCOPE_INVALID"
+    assert "contain boards" in captured.value.message
 
 
 def test_expired_session_fails_closed() -> None:

@@ -74,6 +74,44 @@ class MemoryRulesRepository(RulesRepository):
         self.items[rules_version.id] = rules_version
         return rules_version
 
+    def get_or_clone_current_draft(
+        self,
+        source: RulesVersion,
+    ) -> RulesVersion:
+        drafts = [
+            item
+            for item in self.items.values()
+            if item.game_id == source.game_id
+            and item.status is RulesVersionStatus.DRAFT
+        ]
+        if drafts:
+            return max(drafts, key=lambda item: (item.version, item.id))
+        draft = RulesVersion(
+            id=uuid4(),
+            game_id=source.game_id,
+            version=max(item.version for item in self.items.values()) + 1,
+            rows=source.rows,
+            columns=source.columns,
+            spin_cost=source.spin_cost,
+            status=RulesVersionStatus.DRAFT,
+            created_at=datetime.now(UTC),
+            published_at=None,
+        )
+        self.items[draft.id] = draft
+        for item in tuple(self.paylines.values()):
+            if item.rules_version_id == source.id:
+                cloned = replace(item, id=uuid4(), rules_version_id=draft.id)
+                self.paylines[cloned.id] = cloned
+        for item in tuple(self.rules_symbols.values()):
+            if item.rules_version_id == source.id:
+                cloned = replace(item, rules_version_id=draft.id)
+                self.rules_symbols[(draft.id, cloned.symbol_id)] = cloned
+        for item in tuple(self.payout_rules.values()):
+            if item.rules_version_id == source.id:
+                cloned = replace(item, id=uuid4(), rules_version_id=draft.id)
+                self.payout_rules[cloned.id] = cloned
+        return draft
+
     def paylines_fit_dimensions(
         self,
         rules_version_id: UUID,
@@ -378,6 +416,65 @@ def test_rules_api_reports_validation_missing_and_immutable_errors() -> None:
         missing_game = client.get(f"/api/v1/admin/games/{uuid4()}/rules-versions")
         assert missing_game.status_code == 404
         assert missing_game.json()["code"] == "GAME_NOT_FOUND"
+
+
+def test_published_rules_are_copied_once_into_the_current_draft() -> None:
+    game_id = uuid4()
+    symbol_id = uuid4()
+    repository = MemoryRulesRepository(game_id)
+    repository.symbols[symbol_id] = RulesSymbolDefinition(
+        id=symbol_id,
+        game_id=game_id,
+        is_wildcard=False,
+    )
+
+    with _client(repository) as client:
+        source_id = client.post(
+            f"/api/v1/admin/games/{game_id}/rules-versions",
+            json={"rows": 3, "columns": 5, "spinCost": 10},
+        ).json()["id"]
+        client.post(
+            f"/api/v1/admin/rules-versions/{source_id}/paylines",
+            json={
+                "code": "middle",
+                "name": "Middle",
+                "rowPath": [1, 1, 1, 1, 1],
+                "displayOrder": 0,
+            },
+        )
+        client.patch(
+            f"/api/v1/admin/rules-versions/{source_id}/symbols/{symbol_id}",
+            json={"minimumMatchLength": 3, "isActive": True},
+        )
+        client.post(
+            f"/api/v1/admin/rules-versions/{source_id}/payout-rules",
+            json={
+                "symbolId": str(symbol_id),
+                "matchLength": 3,
+                "payoutCredits": 10,
+            },
+        )
+        source_uuid = UUID(source_id)
+        published = replace(
+            repository.items[source_uuid],
+            status=RulesVersionStatus.PUBLISHED,
+            published_at=datetime.now(UTC),
+        )
+        repository.items[source_uuid] = published
+
+        first = client.post(f"/api/v1/admin/rules-versions/{source_id}/draft")
+        second = client.post(f"/api/v1/admin/rules-versions/{source_id}/draft")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+    draft_id = UUID(first.json()["id"])
+    assert first.json()["version"] == 2
+    assert repository.items[source_uuid] == published
+    assert len(repository.list_paylines(draft_id)) == 1
+    assert len(repository.list_rules_version_symbols(draft_id)) == 1
+    assert len(repository.list_payout_rules(draft_id)) == 1
+    assert repository.list_paylines(draft_id)[0].id != repository.list_paylines(source_uuid)[0].id
 
 
 def test_payline_crud_uses_zero_based_paths_and_archive_only_delete() -> None:

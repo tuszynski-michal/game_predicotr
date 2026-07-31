@@ -14,11 +14,14 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessRepository,
     ReviewerAccessSession,
 )
-from game_predictor_api.domain.jobs import JobType
+from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.models import (
+    ImageReviewItemModel,
     JobModel,
+    RecognizedBoardModel,
     ReviewerAccessAuditEventModel,
     ReviewerAccessSessionModel,
+    SourceImageModel,
 )
 
 
@@ -37,11 +40,27 @@ class SqlAlchemyReviewerAccessRepository(ReviewerAccessRepository):
         if record is None:
             return False
         job = self._session.get(JobModel, import_job_id)
-        return (
-            job is not None
-            and (job.input_payload.get("importKind") or job.input_payload.get("import_kind"))
-            == "image_directory"
+        if (
+            job is None
+            or (job.input_payload.get("importKind") or job.input_payload.get("import_kind"))
+            != "image_directory"
+            or job.status not in {JobStatus.WAITING_FOR_REVIEW, JobStatus.COMPLETED}
+        ):
+            return False
+        review_item = self._session.scalar(
+            select(ImageReviewItemModel.id)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(
+                SourceImageModel,
+                SourceImageModel.id == RecognizedBoardModel.source_image_id,
+            )
+            .where(SourceImageModel.import_job_id == import_job_id)
+            .limit(1)
         )
+        return review_item is not None
 
     def add(self, session: ReviewerAccessSession) -> ReviewerAccessSession:
         record = ReviewerAccessSessionModel(

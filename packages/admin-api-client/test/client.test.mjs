@@ -853,15 +853,18 @@ test('generated client sends rules publication workflow requests', async () => {
     fetch: mockFetch,
   });
 
+  const draft = await client.createRulesDraftFromPublished(rulesVersionId);
   const readiness = await client.getRulesPublicationReadiness(rulesVersionId);
   const published = await client.publishRulesVersion(rulesVersionId);
   await client.archiveRulesVersion(rulesVersionId);
 
+  assert.equal(draft.data?.id, rulesVersionId);
   assert.equal(readiness.data?.ready, true);
   assert.equal(published.data?.status, 'published');
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
     [
+      ['POST', `/api/v1/admin/rules-versions/${rulesVersionId}/draft`],
       [
         'GET',
         `/api/v1/admin/rules-versions/${rulesVersionId}/publication-readiness`,

@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Current State
 
 ## Phase
 
-`Version 0.2 in progress — TASK-0126 done, TASK-0127 next`
+`Version 0.2 in progress — TASK-0130 done, TASK-0131 next`
 
 ## Aktywne tory wydań
 
@@ -47,6 +47,18 @@ last_updated: 2026-07-31
 - TASK-0126 dodał kafelki z rzeczywistą grafiką, modal z deterministycznymi
   stronami po 10 cropów oraz atomową zmianę nazwy i obrazu bez zmiany
   stabilnego `code` ani `mobileCode`,
+- TASK-0127 uprościł reguły do jednego bieżącego workspace'u, zachowując
+  wewnętrzną niezmienną historię oraz pełne, idempotentne kopiowanie
+  opublikowanej konfiguracji do edytowalnego draftu,
+- TASK-0128 dodał jawną akcję przeliczania layoutów, preflight kompletnego
+  opublikowanego datasetu i reguł, widoczny `payout-v2`, postęp oraz wznowienie
+  tego samego joba od checkpointu,
+- TASK-0129 powiązał jedno wejście do osobnej aplikacji Reviewer z aktywną grą,
+  najnowszym gotowym image importem i faktycznymi planszami oraz dodał jawne
+  blokady i przejście z powrotem do importu,
+- TASK-0130 usunął z widocznego workspace'u techniczny katalog Dataset i
+  zabezpieczył brak powrotu dawnych wejść `datasets` oraz `manual-review` przez
+  URL; encje, endpointy i audyt pozostały nienaruszone,
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -105,7 +117,7 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 - finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
   pionu nawigacji Admina.
 
-Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0127.
+Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0131.
 
 ## Blocked / deferred
 
@@ -116,9 +128,9 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0127.
 
 ## Next recommended task
 
-Utworzyć i wykonać `TASK-0127 — Single rules workspace with internal immutable
-versioning`. Zadanie uprości główny widok reguł bez utraty niezmiennej historii
-potrzebnej do odtworzenia wydań mobilnych.
+Utworzyć i wykonać `TASK-0131 — Android release workspace for the controlled
+test game`. Zadanie uprości tworzenie testowej wersji Android do jednej
+kontrolowanej gry; obsługa i odbiór wielu gier pozostają zakresem 0.3.
 
 ## Do not start yet
 

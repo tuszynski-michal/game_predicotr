@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from game_predictor_api.application.jobs import (
     JobRepository,
     LayoutImportRulesReference,
+    PayoutDatasetReference,
+    PayoutRulesReference,
 )
 from game_predictor_api.domain.jobs import (
     Job,
@@ -20,6 +22,7 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.storage.models import (
+    DatasetVersionModel,
     GameModel,
     JobModel,
     MobileReleaseModel,
@@ -44,6 +47,36 @@ class SqlAlchemyJobRepository(JobRepository):
         return LayoutImportRulesReference(
             game_id=record.game_id,
             status=record.status,
+        )
+
+    def get_payout_dataset_reference(
+        self,
+        dataset_version_id: UUID,
+    ) -> PayoutDatasetReference | None:
+        record = self._session.get(DatasetVersionModel, dataset_version_id)
+        if record is None:
+            return None
+        return PayoutDatasetReference(
+            game_id=record.game_id,
+            status=record.status,
+            rows=record.rows,
+            columns=record.columns,
+            expected_layout_count=record.expected_layout_count,
+            layout_count=record.layout_count,
+        )
+
+    def get_payout_rules_reference(
+        self,
+        rules_version_id: UUID,
+    ) -> PayoutRulesReference | None:
+        record = self._session.get(RulesVersionModel, rules_version_id)
+        if record is None:
+            return None
+        return PayoutRulesReference(
+            game_id=record.game_id,
+            status=record.status,
+            rows=record.rows,
+            columns=record.columns,
         )
 
     def add_job(self, job: Job) -> Job:

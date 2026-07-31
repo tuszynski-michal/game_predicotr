@@ -63,6 +63,9 @@ import type {
   CreateReviewFeedbackExportData,
   CreateReviewFeedbackExportErrors,
   CreateReviewFeedbackExportResponses,
+  CreateRulesDraftFromPublishedData,
+  CreateRulesDraftFromPublishedErrors,
+  CreateRulesDraftFromPublishedResponses,
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
@@ -1965,6 +1968,28 @@ export const updateRulesVersion = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Open the one current draft copied from a published version
+ */
+export const createRulesDraftFromPublished = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRulesDraftFromPublishedData, ThrowOnError>,
+): RequestResult<
+  CreateRulesDraftFromPublishedResponses,
+  CreateRulesDraftFromPublishedErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRulesDraftFromPublishedResponses,
+    CreateRulesDraftFromPublishedErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/draft',
+    ...options,
   });
 
 /**

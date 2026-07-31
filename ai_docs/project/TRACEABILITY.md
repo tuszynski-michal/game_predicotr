@@ -51,6 +51,10 @@ last_updated: 2026-07-30
 | Masowy wznawialny import | `requirements/IMAGE_INGESTION.md` | M7 |
 | Skala 500 000 layoutów na grę | `project/PROJECT_BRIEF.md`, `quality/TEST_STRATEGY.md` | M3, M7 |
 | Analiza aplikacji referencyjnej | `reverse_engineering/REFERENCE_APP_ANALYSIS.md`, Q-020 | opcjonalne |
+| Reprezentatywne wydanie 0.1 z 500 000 layoutów | `delivery/VERSION_0_1_RELEASE_PLAN.md` | TASK-0118–0119 |
+| Nawigacja i workflow Admina 0.2 | `requirements/ADMIN_APP_V0_2.md` | TASK-0120–0133 |
+| Folderowy import i katalog symboli 0.2 | `requirements/ADMIN_APP_V0_2.md`, `requirements/IMAGE_INGESTION.md` | TASK-0122–0125 |
+| Odłożony hardening, backup i recovery 0.2 | `delivery/VERSION_0_2_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
 
 ## Plany wykonawcze
 
@@ -62,7 +66,9 @@ last_updated: 2026-07-30
 - M6: `delivery/MILESTONE_06_EXECUTION_PLAN.md`,
 - M6.5: `delivery/MILESTONE_06_5_EXECUTION_PLAN.md`,
 - M7: `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
-- M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`.
+- M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`,
+- wydanie 0.1: `delivery/VERSION_0_1_RELEASE_PLAN.md`,
+- wersja 0.2: `delivery/VERSION_0_2_EXECUTION_PLAN.md`.
 
 Plany wykonawcze mapują wymagania na kolejność podetapów, zadania i bramki, ale
 nie zastępują dokumentów źródła prawdy wskazanych w tabeli.

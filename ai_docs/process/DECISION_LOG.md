@@ -2497,6 +2497,40 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   allowlistę Bearer i nie dziedziczy uprawnień `local-owner`.
 - **Supersedes:** realizuje D-097; nie zmienia D-095 ani D-098.
 
+## D-100 — Wersja 0.1 zamyka reprezentatywny dataset 500k, a hardening i Admin przechodzą do 0.2
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** wersja `0.1` zostanie zamknięta przez TASK-0118 i TASK-0119 jako
+  całkowicie offline APK dla Google Pixel 10 Pro XL z jedną grą i dokładnie
+  500 000 layoutów. Ponad 100 ręcznie zatwierdzonych layoutów stanowi
+  chroniony podzbiór, a brakujące rekordy powstają deterministycznie z
+  zapisanym seedem, wersją generatora i checksumem. Wydanie używa grafik
+  symboli z zatwierdzonych cropów, znanych nazw, 10 jawnych paylines oraz
+  deterministycznych testowych minimów i payoutów. Przebudowa Admina,
+  TASK-0076 i niezakończone M8.2–M8.6 (TASK-0080–0089) przechodzą do wersji
+  `0.2`.
+- **Context:** podstawowy przepływ mobile, Admin, pipeline wydania, Reviewer,
+  ochrona lokalnego API i benchmark 500 000 rekordów już działają. Pełny
+  rzeczywisty dataset zdjęciowy pozostaje zablokowany jakością klasyfikacji, a
+  dotychczasowy Admin jest funkcjonalny, lecz zbyt długi i techniczny. Dalsze
+  oczekiwanie na perfekcyjną automatyzację opóźniałoby sprawdzenie kompletnego
+  produktu na telefonie.
+- **Reason:** reprezentatywne dane pozwalają zweryfikować od początku do końca
+  ergonomię, matching, duplikaty, Target, rozmiar i wydajność bez fałszywego
+  przedstawiania danych syntetycznych jako wyniku rozpoznawania. Osobna wersja
+  `0.2` daje bezpieczny zakres na przebudowę Admina i operacyjny hardening.
+- **Alternatives:** blokowanie `0.1` do czasu TASK-0076 i całego G8 albo wydanie
+  mniejszego snapshotu, który nie sprawdza docelowej skali.
+- **Consequences:** `0.1` jest funkcjonalnym wydaniem demonstracyjnym, a nie
+  finalnie zahardeningowanym systemem odzyskiwania po awarii. TASK-0118 nie
+  zalicza TASK-0076 ani G7, a dane dopełniające muszą być jawnie oznaczone jako
+  deterministyczne dane testowe. Ukończone G8.1 i G8.7 pozostają obowiązujące.
+  Na początku `0.2` właściciel odpowie na zebrane Q-022–Q-032 przed
+  implementacją TASK-0120–0133.
+- **Supersedes:** zmienia alokację wydaniową pozostałych zadań M7/M8 bez zmiany
+  ich wymagań i bramek; nie zmienia D-096 dla odbioru Pixela ani zasad domeny.
+
 ## Szablon nowej decyzji
 
 ```text

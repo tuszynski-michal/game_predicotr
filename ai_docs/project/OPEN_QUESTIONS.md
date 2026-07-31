@@ -53,6 +53,79 @@ testom/pilotowi; stały adres wymaga później named tunnel.
 
 Czy istnieje zgoda właściciela aplikacji Windows na analizę jej zachowania, plików i ruchu sieciowego? Bez zgody prace należy ograniczyć do obserwacji funkcji, dostarczonych zdjęć i ręcznego tworzenia specyfikacji.
 
+## Panel Admin 0.2
+
+Poniższe pytania są zapisane do wspólnego omówienia dopiero na początku prac
+nad `0.2`. Nie blokują TASK-0118, TASK-0119 ani wydania `0.1`.
+
+### Q-022 — Fizyczne usuwanie gry
+
+Czy `Usuń` ma działać wyłącznie dla gry bez zależnych importów, reguł, wydań i
+audytu, czy właściciel oczekuje kaskadowego usunięcia całej historii? Zalecenie:
+pozwolić fizycznie usunąć tylko pusty szkic, a pozostałe gry archiwizować.
+
+### Q-023 — Usuwanie wydania Android
+
+Czy przycisk usuwa tylko ciężki APK/snapshot, zachowując rekord, manifest i
+checksumy, czy ma usuwać również wpis wydania? Zalecenie: usuwać wyłącznie
+artefakty możliwe do odtworzenia i zachować audytowalny rekord release.
+
+### Q-024 — Retencja jobów
+
+Jak długo i dla których statusów zachowywać pełne szczegóły jobów oraz ich
+diagnostyczne artefakty? Zalecenie: zawsze zachować minimalny rekord audytowy,
+a ręczny cleanup ograniczyć do ciężkich logów/eksportów zakończonych jobów.
+
+### Q-025 — Wybór folderu zdjęć
+
+Czy akceptowalny jest kontrolowany natywny dialog Windows uruchamiany przez
+lokalny backend, czy preferowane jest ręczne wklejenie ścieżki? Zwykła strona
+webowa nie może bez zgody przeglądarki odczytać dowolnego katalogu dysku.
+
+### Q-026 — Jeden widoczny zestaw reguł
+
+Czy „tylko jedna wersja” oznacza wyłącznie ukrycie historii w interfejsie, czy
+oczekiwane jest nadpisywanie opublikowanych reguł? Zalecenie: pokazywać jeden
+bieżący workspace, ale każdą publikację utrwalać jako nową niezmienną wersję.
+
+### Q-027 — Docelowa liczba layoutów
+
+Czy stałe 500 000 obowiązuje każdą grę także po `0.2`, czy później ma być
+konfiguracją gry? Plan przyjmuje 500 000 jako domyślne i wymagane w pierwszym
+przepływie `0.2`.
+
+### Q-028 — Źródło numeru brakującej sekwencji
+
+Czy kompletność ma opierać się wyłącznie na numerze rozpoznanym spod planszy,
+czy administrator może ręcznie przypisać numer, gdy OCR jest niepewny lub
+nieczytelny?
+
+### Q-029 — Wybór lepszego zdjęcia duplikatu
+
+Czy automatyczny ranking ostrości, kompletności symboli i geometrii wystarczy,
+czy w `0.2` wymagany jest również ręczny wybór źródła dla tej samej sekwencji?
+
+### Q-030 — Niezgodna liczba wykrytych symboli
+
+Co ma zrobić pipeline, gdy podana liczba symboli wynosi np. 10, ale klastry
+jednoznacznie wskazują 9 albo 11? Zalecenie: nie tworzyć symboli po cichu,
+pokazać konflikt i poprosić o zatwierdzenie/scalenie propozycji.
+
+### Q-031 — Własność plików wybranego folderu
+
+Czy po wskazaniu folderu system ma skopiować obrazy do kontrolowanego storage,
+czy przetwarzać je wyłącznie z lokalizacji użytkownika? Zalecenie: kopiować
+oryginały content-addressed do storage, aby przeniesienie folderu nie psuło
+pochodzenia, wznowienia, review ani późniejszego backupu.
+
+### Q-032 — Zakres operacji „Usuń layouty”
+
+Czy operacja ma odłączyć bieżący nieopublikowany import, usunąć tylko jego
+pliki robocze, czy również kanoniczne layouty bez historii wydań? Zalecenie:
+nie pozwalać kasować danych użytych przez release ani decyzji człowieka;
+fizyczny cleanup ograniczyć do nieopublikowanego importu po jawnym
+potwierdzeniu i zachowaniu minimalnego audytu.
+
 ## Warunek rozpoczęcia etapów
 
 - M1 nie ma otwartych pytań blokujących.
@@ -64,3 +137,5 @@ Czy istnieje zgoda właściciela aplikacji Windows na analizę jej zachowania, p
   zamknięte; zdalna autoryzacja wielu recenzentów należy do M8.7 i wymaga
   rozstrzygnięcia Q-021.
 - Analiza aplikacji referencyjnej poza obserwacją wymaga odpowiedzi na Q-020.
+- Q-022–Q-032 są bramką rozpoczęcia implementacji Admina `0.2`, ale nie blokują
+  reprezentatywnego wydania `0.1`.

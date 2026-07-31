@@ -37,6 +37,7 @@ implementacyjnym.
 
 - [Mobile app](requirements/MOBILE_APP.md)
 - [Admin app](requirements/ADMIN_APP.md)
+- [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
 - [Algorithms](requirements/ALGORITHMS.md)
 - [Image ingestion](requirements/IMAGE_INGESTION.md)
 - [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
@@ -61,6 +62,8 @@ implementacyjnym.
 - [Milestone 06.5 execution plan](delivery/MILESTONE_06_5_EXECUTION_PLAN.md)
 - [Milestone 07 execution plan](delivery/MILESTONE_07_EXECUTION_PLAN.md)
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
+- [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
+- [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 
 ### Proces i jakość
 

@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Phase
 
-`M8.1 in progress — private distribution and hardening`
+`Version 0.1 release preparation — representative 500k offline package`
 
 ## Completed
 
@@ -1563,6 +1563,14 @@ last_updated: 2026-07-31
 - model zagrożeń potwierdza odseparowanie zdalnego Reviewera od Admin API oraz
   klasyfikuje luki w ochronie cross-origin, redakcji sekretów i audycie jako
   zakres hardeningu, a nie ukryte rozszerzenie produktu.
+- zaakceptowano D-100 i rozdzielono zakres wydań: `0.1` zamyka reprezentatywne,
+  całkowicie offline APK z jedną grą i dokładnie 500 000 layoutów w
+  TASK-0118–0119; przebudowa Admina, rzeczywisty masowy dataset i pozostały
+  hardening przechodzą do `0.2`,
+- utworzono zaakceptowane `delivery/VERSION_0_1_RELEASE_PLAN.md`,
+  `requirements/ADMIN_APP_V0_2.md` i
+  `delivery/VERSION_0_2_EXECUTION_PLAN.md`; zakres Admina 0.2 podzielono na
+  TASK-0120–0133, bez tworzenia aktywnych plików zadań przed rozpoczęciem prac.
 
 ## In progress
 
@@ -1577,15 +1585,18 @@ last_updated: 2026-07-31
   review feedback, retraining i nowy checksum-bound raport jakości. D-086
   pozwala wcześniej publikować wyłącznie całkowicie ręcznie zweryfikowane,
   ciągłe podzbiory; nie zalicza to TASK-0076 ani automatycznej bramki M7.5.
+  Zadanie jest zaplanowane dla wersji `0.2` i nie blokuje 0.1.
 
 ## Open questions
 
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
 - finalny model OCR; model symboli został zatwierdzony w D-088,
-- ostateczna nazwa sekcji `Result` albo `Target`.
+- ostateczna nazwa sekcji `Result` albo `Target`,
+- Q-022–Q-032: decyzje UX, własności danych i retencji Admina 0.2; są zebrane, ale zgodnie z
+  poleceniem właściciela zostaną omówione dopiero na początku wersji 0.2.
 
 Q-019 i Q-021 są zamknięte. Q-020, finalny OCR i
-nazwa sekcji również nie blokują TASK-0106.
+nazwa sekcji nie blokują 0.1. Q-022–Q-032 nie blokują TASK-0118 ani TASK-0119.
 
 ## M1 execution structure
 
@@ -1630,12 +1641,15 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć `TASK-0080 — Stable Android signing and secret handling`: utrwalić
-klucz podpisujący poza repozytorium, bezpieczną konfigurację haseł oraz testy
-braku sekretów w Git, logach i artefaktach diagnostycznych.
+Rozpocząć `TASK-0118 — Representative 500k offline release candidate`: zbudować
+jedną reprezentatywną grę z grafikami symboli z zatwierdzonych cropów,
+deterministycznymi regułami i 10 paylines, dopełnić dane do 500 000 layoutów,
+przeliczyć payouty oraz przygotować statycznie zweryfikowaną paczkę APK bez
+wymagania podłączonego telefonu.
 
-`massImportAllowed = true` pozostaje osobną bramką TASK-0076. TASK-0115 i G8.7
-są zamknięte po pozytywnym teście z urządzenia poza domową siecią.
+Po TASK-0118 należy wykonać wyłącznie `TASK-0119 — Pixel 10 Pro XL release
+acceptance`, które zamknie wersję `0.1`. TASK-0076 i TASK-0080–0089 są
+zaplanowane dla `0.2`; TASK-0115 i G8.7 pozostają zamknięte.
 
 ## Do not start yet
 

@@ -8,13 +8,20 @@ last_updated: 2026-07-31
 
 ## Cel
 
-Przygotować system do powtarzalnego, prywatnego użycia. Dla wersji `0.1`
-bramką jest Google Pixel 10 Pro XL; kolejne urządzenia pozostają późniejszą
-macierzą kompatybilności:
-stały podpis, backup i restore, diagnostyka, zgodność Android, instrukcje
-aktualizacji oraz adekwatne zabezpieczenie lokalnego panelu.
+Przygotować system do powtarzalnego, prywatnego użycia: stały podpis, backup i
+restore, diagnostyka, zgodność Android, instrukcje aktualizacji oraz adekwatne
+zabezpieczenie lokalnego panelu.
 Opcjonalny zakres końcowy może udostępnić osobie zdalnej wyłącznie
 game-scoped stanowisko review, bez wystawiania pełnej administracji.
+
+## Alokacja do wydań
+
+- M8.1 i M8.7 zostały ukończone przed wydaniem `0.1` i pozostają jego częścią.
+- Minimalną bramkę urządzeniową `0.1` realizuje TASK-0119 na Google Pixel 10
+  Pro XL zgodnie z `VERSION_0_1_RELEASE_PLAN.md`.
+- M8.2–M8.6, czyli TASK-0080–0089, są odłożonym zakresem wersji `0.2`.
+  Dopiero ich ukończenie zamyka pełną bramkę G8 obejmującą stały podpis,
+  backup/restore, recovery, formalny rollback i rozszerzoną kompatybilność.
 
 `ROADMAP.md` jest właścicielem granic milestone’u, a ten dokument jest
 właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
@@ -27,19 +34,20 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - `architecture/DATA_MODEL.md`
 - `architecture/API_CONTRACT.md`
 - `quality/TEST_STRATEGY.md`
+- `delivery/VERSION_0_1_RELEASE_PLAN.md`
+- `delivery/VERSION_0_2_EXECUTION_PLAN.md`
 - Q-019 i Q-021 w `project/OPEN_QUESTIONS.md`
-- D-003–D-006, D-012–D-014, D-086 i D-087 w
+- D-003–D-006, D-012–D-014, D-086, D-087 i D-100 w
   `process/DECISION_LOG.md`
 
 ## Warunki wejścia
 
 - pipeline M7 ma ukończone lokalne fundamenty; automatyczna publikacja
-  masowego importu w TASK-0076 pozostaje osobną bramką jakości i nie blokuje
-  hardeningu lokalnej wersji `0.1`,
+  masowego importu w TASK-0076 pozostaje osobną bramką jakości wersji `0.2`,
 - Q-019 jest zamknięte: docelowo decyzje review może zapisywać więcej niż jeden
   jawnie identyfikowany operator.
-- Google Pixel 10 Pro XL i jego wersja Android są dostępne do odbioru `0.1`;
-  lista kolejnych urządzeń może zostać uzupełniona po tej wersji.
+- zakres urządzeń wymaganych dla pełnej bramki `0.2` zostanie zatwierdzony na
+  początku tej wersji; odbiór samego `0.1` pozostaje w TASK-0119,
 - Wszystkie artefakty przeznaczone do zachowania mają ustaloną lokalizację.
 
 ## Zasady realizacji
@@ -156,9 +164,10 @@ używa aktora `local-owner`, a OpenAPI, klient i CSP Admina mają regresję.
 
 ### Zakres
 
-- Pixel 10 Pro XL jako obowiązkowa bramka wersji `0.1`,
-- Galaxy S21 Ultra i pozostałe urządzenia do łącznej liczby 3–5 jako późniejsza
-  macierz kompatybilności,
+- macierz urządzeń wersji `0.2`, której obowiązkowy skład zostanie uzgodniony
+  przed rozpoczęciem TASK-0085,
+- Google Pixel 10 Pro XL jako urządzenie bazowe z odebranej wersji `0.1`,
+- Galaxy S21 Ultra i ewentualne pozostałe urządzenia do łącznej liczby 3–5,
 - wersje Android, rozdzielczość, pamięć i ABI,
 - instalacja, aktualizacja i ponowne uruchomienie,
 - tryb samolotowy i brak sieci,
@@ -173,9 +182,9 @@ używa aktora `local-owner`, a OpenAPI, klient i CSP Admina mają regresję.
 
 ### Bramka G8.5
 
-- Pixel 10 Pro XL przechodzi obowiązkowy scenariusz wersji `0.1`,
-- niepowodzenie albo brak późniejszego testu Samsunga/pozostałych urządzeń nie
-  blokuje `0.1`, ale pozostaje jawnym ograniczeniem kompatybilności,
+- wszystkie urządzenia wskazane dla wersji `0.2` przechodzą obowiązkowy
+  scenariusz; wcześniejszy odbiór Pixela z TASK-0119 może być dowodem bazowym,
+  ale nie zastępuje regresji zmienionego artefaktu 0.2,
 - aktualizacja aktywuje nowy snapshot i nie używa starej kopii,
 - brak sieci nie zmienia funkcjonalności,
 - manifest nie ma `INTERNET`,
@@ -247,8 +256,8 @@ zamknięta.
 
 ### Bramka G8
 
-M8 może zakończyć się po G8.6 bez opcjonalnego zdalnego review. Jeżeli
-właściciel uruchamia M8.7, końcowy odbiór wymaga również G8.7.
+Pełna bramka G8 należy do wersji `0.2` i wymaga G8.1–G8.6. G8.7 zostało już
+zamknięte i pozostaje dodatkowym, wąskim zakresem zdalnego review.
 
 ## Mapa zadań M8
 
@@ -266,7 +275,8 @@ właściciel uruchamia M8.7, końcowy odbiór wymaga również G8.7.
 
 ## Zakończenie roadmapy
 
-Po przejściu G8 system spełnia zaakceptowany zakres prywatnej dystrybucji.
+Po przejściu G8 w wersji `0.2` system spełnia zaakceptowany zakres prywatnej
+dystrybucji i hardeningu.
 Publiczny backend ogólnego przeznaczenia, synchronizacja, Google Play, chmura
 i zdalny dostęp do pełnej administracji wymagają nowej decyzji właściciela.
 M8.7 jest wąskim wyjątkiem wyłącznie dla review.

@@ -6,6 +6,11 @@ last_updated: 2026-07-31
 
 # Wymagania modułu administracyjnego
 
+Ten dokument pozostaje źródłem obowiązującego zachowania wdrożonego do `0.1`.
+Planowana reorganizacja nawigacji i workflow dla `0.2` znajduje się w
+`ADMIN_APP_V0_2.md`; jej nierozstrzygnięte punkty nie zmieniają bieżącego
+kontraktu przed rozpoczęciem zadań `0.2`.
+
 ## Forma aplikacji
 
 Panel jest lokalną aplikacją webową uruchamianą na Windows. Korzysta z lokalnego Admin API i PostgreSQL. Nie jest usługą, z którą łączy się aplikacja mobilna.

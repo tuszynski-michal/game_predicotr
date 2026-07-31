@@ -1,7 +1,7 @@
 ---
 title: Project brief
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Project brief
@@ -98,6 +98,20 @@ Pierwsza wersja ma:
 - publikacja w Google Play,
 - synchronizacja mobilna, chmura i publiczna infrastruktura,
 - produkcyjna autoryzacja wielu administratorów.
+
+## Strategia wydań 0.1 i 0.2
+
+- `0.1` jest kompletną wersją demonstracyjną dla Google Pixel 10 Pro XL:
+  jedna gra, rzeczywiste grafiki symboli, chroniony podzbiór ponad 100
+  zatwierdzonych plansz i deterministyczne dopełnienie do dokładnie 500 000
+  layoutów. Dane dopełniające służą testom zachowania i wydajności, a nie są
+  deklarowane jako wynik rozpoznania 500 000 rzeczywistych układów.
+- `0.2` upraszcza Admina do prowadzonego workflow, dodaje docelowy import z
+  folderu i budowanie katalogu symboli, a następnie domyka publikację
+  rzeczywistych danych, stały podpis, backup/restore, recovery, rollback i
+  uzgodnioną macierz urządzeń.
+- Szczegółowe zakresy są zapisane w `delivery/VERSION_0_1_RELEASE_PLAN.md` i
+  `delivery/VERSION_0_2_EXECUTION_PLAN.md`.
 
 ## Najważniejsze ograniczenia
 

@@ -86,6 +86,14 @@ Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. 
 
 ### Admin API
 
+Niebezpieczne metody `/api/v1/admin/*` przechodzą przez wspólną bramkę
+`LocalAdminSecurityMiddleware`. Bramka sprawdza adres klienta loopback,
+dozwolony `Origin`, stałą intencję `local-owner`, a dla jawnej mapy operacji
+wysokiego wpływu również potwierdzenie i dokładny cel. Próby oraz wyniki są
+zapisywane append-only do kontrolowanego artefaktu JSONL. Reviewerowe mutacje
+z Bearer tokenem mają osobną, wąską allowlistę i nie uzyskują dostępu do
+pozostałej administracji.
+
 - walidacja kontraktów,
 - transakcje PostgreSQL,
 - operacje administracyjne,

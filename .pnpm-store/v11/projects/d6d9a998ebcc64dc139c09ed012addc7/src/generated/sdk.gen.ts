@@ -308,7 +308,11 @@ export const archiveDatasetVersion = <ThrowOnError extends boolean = false>(
     ArchiveDatasetVersionResponses,
     ArchiveDatasetVersionErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/dataset-versions/{dataset_version_id}', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/dataset-versions/{dataset_version_id}',
+    ...options,
+  });
 
 /**
  * Get a dataset version
@@ -360,6 +364,7 @@ export const publishDatasetVersion = <ThrowOnError extends boolean = false>(
     PublishDatasetVersionErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/dataset-versions/{dataset_version_id}/publish',
     ...options,
   });
@@ -407,6 +412,7 @@ export const createGame = <ThrowOnError extends boolean = false>(
     CreateGameErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games',
     ...options,
     headers: {
@@ -425,7 +431,11 @@ export const archiveGame = <ThrowOnError extends boolean = false>(
     ArchiveGameResponses,
     ArchiveGameErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/games/{game_id}', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}',
+    ...options,
+  });
 
 /**
  * Get game
@@ -448,6 +458,7 @@ export const updateGame = <ThrowOnError extends boolean = false>(
     UpdateGameErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}',
     ...options,
     headers: {
@@ -487,6 +498,7 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
     GenerateMockDatasetErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/dataset-versions/mock',
     ...options,
     headers: {
@@ -526,6 +538,7 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
     CreateRulesVersionErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/rules-versions',
     ...options,
     headers: {
@@ -557,6 +570,7 @@ export const createSymbol = <ThrowOnError extends boolean = false>(
     CreateSymbolErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbols',
     ...options,
     headers: {
@@ -575,7 +589,11 @@ export const archiveSymbol = <ThrowOnError extends boolean = false>(
     ArchiveSymbolResponses,
     ArchiveSymbolErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}',
+    ...options,
+  });
 
 /**
  * Get game symbol
@@ -600,6 +618,7 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
     UpdateSymbolErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}',
     ...options,
     headers: {
@@ -646,6 +665,7 @@ export const createImageDiagnosticExport = <
     CreateImageDiagnosticExportErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-jobs/{job_id}/diagnostic-exports',
     ...options,
   });
@@ -686,6 +706,7 @@ export const retryImageJobFile = <ThrowOnError extends boolean = false>(
     RetryImageJobFileErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-jobs/{job_id}/files/{file_execution_key}/retry',
     ...options,
     headers: {
@@ -745,6 +766,7 @@ export const freezeVerifiedImageReviewCohort = <
     FreezeVerifiedImageReviewCohortErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-review-cohort-exports',
     ...options,
     headers: {
@@ -880,7 +902,7 @@ export const previewOperationalImageReviewGeometry = <
     PreviewOperationalImageReviewGeometryErrors,
     ThrowOnError
   >({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-preview',
     ...options,
     headers: {
@@ -909,7 +931,7 @@ export const createOperationalImageReviewGeometryRevision = <
     CreateOperationalImageReviewGeometryRevisionErrors,
     ThrowOnError
   >({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions',
     ...options,
     headers: {
@@ -935,7 +957,7 @@ export const resolveOperationalImageReviewItem = <
     ResolveOperationalImageReviewItemErrors,
     ThrowOnError
   >({
-    security: [{ scheme: 'bearer', type: 'http' }],
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/resolution',
     ...options,
     headers: {
@@ -1008,6 +1030,7 @@ export const createJob = <ThrowOnError extends boolean = false>(
     CreateJobErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/jobs',
     ...options,
     headers: {
@@ -1037,7 +1060,11 @@ export const cancelJob = <ThrowOnError extends boolean = false>(
     CancelJobResponses,
     CancelJobErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/jobs/{job_id}/cancel', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/jobs/{job_id}/cancel',
+    ...options,
+  });
 
 /**
  * Requeue the same failed or review-paused job
@@ -1049,7 +1076,11 @@ export const retryJob = <ThrowOnError extends boolean = false>(
     RetryJobResponses,
     RetryJobErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/jobs/{job_id}/retry', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/jobs/{job_id}/retry',
+    ...options,
+  });
 
 /**
  * Get exact integrity aggregates and bounded diagnostics
@@ -1089,6 +1120,7 @@ export const publishLayoutImportDataset = <
     PublishLayoutImportDatasetErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/layout-import-validations/{validation_job_id}/publish',
     ...options,
   });
@@ -1129,6 +1161,7 @@ export const rejectLayoutImportStaging = <ThrowOnError extends boolean = false>(
     RejectLayoutImportStagingErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/layout-import-validations/{validation_job_id}/staging',
     ...options,
   });
@@ -1164,6 +1197,7 @@ export const createMobileRelease = <ThrowOnError extends boolean = false>(
     CreateMobileReleaseErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/mobile-releases',
     ...options,
     headers: {
@@ -1222,6 +1256,7 @@ export const buildMobileRelease = <ThrowOnError extends boolean = false>(
     BuildMobileReleaseErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/mobile-releases/{mobile_release_id}/build',
     ...options,
   });
@@ -1257,6 +1292,7 @@ export const importReviewBatch = <ThrowOnError extends boolean = false>(
     ImportReviewBatchErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/review-batches',
     ...options,
     headers: {
@@ -1313,6 +1349,7 @@ export const createReviewFeedbackExport = <
     CreateReviewFeedbackExportErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/review-batches/{review_batch_id}/feedback-exports',
     ...options,
     headers: {
@@ -1443,6 +1480,7 @@ export const resolveReviewItem = <ThrowOnError extends boolean = false>(
     ResolveReviewItemErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/review-items/{review_item_id}/resolution',
     ...options,
     headers: {
@@ -1497,6 +1535,7 @@ export const startReviewerIngress = <ThrowOnError extends boolean = false>(
     StartReviewerIngressErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/reviewer-ingress/start',
     ...options,
     headers: {
@@ -1520,6 +1559,7 @@ export const stopReviewerIngress = <ThrowOnError extends boolean = false>(
     StopReviewerIngressErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/reviewer-ingress/stop',
     ...options,
     headers: {
@@ -1543,6 +1583,7 @@ export const createReviewerSession = <ThrowOnError extends boolean = false>(
     CreateReviewerSessionErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/reviewer-sessions',
     ...options,
     headers: {
@@ -1565,7 +1606,11 @@ export const revokeReviewerSession = <ThrowOnError extends boolean = false>(
     RevokeReviewerSessionResponses,
     RevokeReviewerSessionErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/reviewer-sessions/{session_id}/revoke', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-sessions/{session_id}/revoke',
+    ...options,
+  });
 
 /**
  * Archive a published rules version
@@ -1581,7 +1626,11 @@ export const archiveRulesVersion = <ThrowOnError extends boolean = false>(
     ArchiveRulesVersionResponses,
     ArchiveRulesVersionErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/rules-versions/{rules_version_id}', ...options });
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}',
+    ...options,
+  });
 
 /**
  * Get rules version
@@ -1614,6 +1663,7 @@ export const updateRulesVersion = <ThrowOnError extends boolean = false>(
     UpdateRulesVersionErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}',
     ...options,
     headers: {
@@ -1648,6 +1698,7 @@ export const createPayline = <ThrowOnError extends boolean = false>(
     CreatePaylineErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines',
     ...options,
     headers: {
@@ -1667,6 +1718,7 @@ export const archivePayline = <ThrowOnError extends boolean = false>(
     ArchivePaylineErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}',
     ...options,
   });
@@ -1697,6 +1749,7 @@ export const updatePayline = <ThrowOnError extends boolean = false>(
     UpdatePaylineErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}',
     ...options,
     headers: {
@@ -1739,6 +1792,7 @@ export const createPayoutRule = <ThrowOnError extends boolean = false>(
     CreatePayoutRuleErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules',
     ...options,
     headers: {
@@ -1762,6 +1816,7 @@ export const archivePayoutRule = <ThrowOnError extends boolean = false>(
     ArchivePayoutRuleErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}',
     ...options,
   });
@@ -1796,6 +1851,7 @@ export const updatePayoutRule = <ThrowOnError extends boolean = false>(
     UpdatePayoutRuleErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}',
     ...options,
     headers: {
@@ -1840,6 +1896,7 @@ export const publishRulesVersion = <ThrowOnError extends boolean = false>(
     PublishRulesVersionErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/publish',
     ...options,
   });
@@ -1878,6 +1935,7 @@ export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
     UpdateRulesVersionSymbolErrors,
     ThrowOnError
   >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/rules-versions/{rules_version_id}/symbols/{symbol_id}',
     ...options,
     headers: {

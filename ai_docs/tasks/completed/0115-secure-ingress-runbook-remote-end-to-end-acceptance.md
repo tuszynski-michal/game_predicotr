@@ -1,6 +1,6 @@
 ---
 title: Secure ingress runbook and remote end-to-end acceptance
-status: in_progress
+status: done
 last_updated: 2026-07-31
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -44,11 +44,11 @@ i potwierdzić pełny zdalny scenariusz bez otwierania surowego portu routera.
 
 ## Acceptance criteria
 
-- [ ] Reviewer działa przez HTTPS z urządzenia w zewnętrznej sieci,
-- [ ] niepoprawny lub wygasły kod nie ujawnia danych,
-- [ ] zdalny użytkownik widzi tylko wskazaną grę/import,
-- [ ] odwołanie sesji działa natychmiast,
-- [ ] skan ekspozycji nie wykazuje Admin, bazy ani nieobjętych endpointów,
+- [x] Reviewer działa przez HTTPS z urządzenia w zewnętrznej sieci,
+- [x] niepoprawny lub wygasły kod nie ujawnia danych,
+- [x] zdalny użytkownik widzi tylko wskazaną grę/import,
+- [x] odwołanie sesji działa natychmiast,
+- [x] skan ekspozycji nie wykazuje Admin, bazy ani nieobjętych endpointów,
 - [x] runbook zawiera start, stop, status, odzyskanie i reakcję na incydent,
 - [x] Admin ma typowane przyciski start/stop, jawny stan i publiczny URL,
 - [x] start blokuje serwer developerski i nie przyjmuje dowolnej komendy,
@@ -99,7 +99,20 @@ Na Windows komunikacja API ze skryptem używa krótkiego pliku wyniku w
 przez proces potomny; plik jest bez BOM, nadpisywany pod lockiem i usuwany po
 odczycie.
 
-Test zewnętrzny został rozpoczęty: aktywny link oczekuje na wejście właściciela
-z drugiego komputera w innej sieci. Kryteria wymagające zewnętrznego klienta,
-odczytu właściwego scope, zapisu decyzji i natychmiastowego revoke pozostają
-niezaznaczone; do tego czasu TASK-0115 i G8.7 nie są zamknięte.
+Odbiór zewnętrzny 2026-07-31 zakończył się powodzeniem. Właściciel otworzył
+link HTTPS na innym urządzeniu podłączonym do innej sieci, zobaczył wcześniej
+zatwierdzone układy, a zatwierdzanie przez `Enter` i `ArrowRight` działało na
+tej samej trwałej kolejce. Oznacza to, że publiczny Reviewer odczytywał
+właściwy scope i decyzje pozostały zapisane w PostgreSQL. Akcja
+`Zatrzymaj udostępnianie` zakończyła publiczną dostępność aplikacji. Wraz z
+automatycznymi testami bramki kodu, allowlisty proxy, revoke i loopback zamyka
+to wszystkie kryteria TASK-0115 oraz bramkę G8.7.
+
+Weryfikacja automatyczna końcowej implementacji:
+
+- pełny pakiet API: `212 passed, 16 skipped`,
+- klient Admin API: `18/18 passed`,
+- testy serwisu ingressu: `3/3 passed`,
+- build Admina i produkcyjnego Reviewera: zakończone powodzeniem,
+- focused typecheck nowego serwisu: zakończony powodzeniem; pełny mypy
+  przekroczył kontrolowany limit 120 sekund.

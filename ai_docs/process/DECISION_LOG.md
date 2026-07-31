@@ -2472,6 +2472,31 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza operatorską część D-095 bez zmiany transportu,
   scope ani modelu sesji.
 
+## D-099 — Lokalne mutacje używają stałej intencji i niezależnego audytu JSONL
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** wszystkie niebezpieczne metody lokalnego Admin API wymagają
+  loopback, dozwolonego originu i stałej intencji `local-owner`. Jawna mapa
+  operacji wysokiego wpływu wymaga dodatkowo potwierdzenia i dokładnego celu.
+  Odrzucenia, autoryzacje i wyniki są zapisywane append-only do kontrolowanego,
+  redagowanego artefaktu JSONL, niezależnie od transakcji domenowej.
+- **Context:** D-097 odrzuciła pozorne lokalne logowanie, ale istniejące modale
+  React nie chroniły bezpośredniego requestu ani nie zapewniały wspólnego audytu
+  serwerowego aktora.
+- **Reason:** własny nagłówek intencji wymusza preflight dla obcej strony,
+  dokładny target blokuje omyłkę celu, a audit przed i po wywołaniu zachowuje
+  ślad również wtedy, gdy domenowa transakcja zostanie odrzucona. JSONL nie
+  wymaga osobnej transakcji PostgreSQL i można objąć go backupem artefaktów.
+- **Alternatives:** lokalne hasło jednego właściciela, same potwierdzenia UI,
+  audyt wyłącznie w tabelach domenowych albo publiczny system kont i ról.
+- **Consequences:** oficjalny klient Admina zawsze wysyła intencję, operacje
+  wysokiego wpływu mają kontrakt OpenAPI z confirmation/target, a ręczne
+  narzędzia operatorskie muszą podać te same nagłówki. Plik audytu należy objąć
+  backupem i nie może zawierać body ani sekretów. Reviewer zachowuje osobną
+  allowlistę Bearer i nie dziedziczy uprawnień `local-owner`.
+- **Supersedes:** realizuje D-097; nie zmienia D-095 ani D-098.
+
 ## Szablon nowej decyzji
 
 ```text

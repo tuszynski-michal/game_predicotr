@@ -286,7 +286,18 @@ export interface ListVerifiedImageReviewCohortsOptions extends OperationalImageR
 export function createAdminApiClient(options: AdminApiClientOptions) {
   const client = createGeneratedClient({
     baseUrl: options.baseUrl,
+    headers: { 'X-Admin-Intent': 'local-owner' },
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+  });
+
+  const confirmedTargetHeaders = (
+    target: string,
+  ): {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  } => ({
+    'X-Admin-Confirmation': 'confirmed',
+    'X-Admin-Target': target,
   });
 
   return {
@@ -294,14 +305,27 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     getReviewerIngressStatus: () =>
       getGeneratedReviewerIngressStatus({ client }),
     startReviewerIngress: (body: ReviewerIngressCommand) =>
-      startGeneratedReviewerIngress({ body, client }),
+      startGeneratedReviewerIngress({
+        body,
+        client,
+        headers: confirmedTargetHeaders('remote-reviewer'),
+      }),
     stopReviewerIngress: (body: ReviewerIngressCommand) =>
-      stopGeneratedReviewerIngress({ body, client }),
+      stopGeneratedReviewerIngress({
+        body,
+        client,
+        headers: confirmedTargetHeaders('remote-reviewer'),
+      }),
     createReviewerSession: (body: ReviewerSessionCreate) =>
-      createGeneratedReviewerSession({ body, client }),
+      createGeneratedReviewerSession({
+        body,
+        client,
+        headers: confirmedTargetHeaders('reviewer-session:new'),
+      }),
     revokeReviewerSession: (sessionId: string) =>
       revokeGeneratedReviewerSession({
         client,
+        headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
         path: { session_id: sessionId },
       }),
     unlockReviewerSession: (sessionId: string, body: ReviewerSessionUnlock) =>
@@ -310,7 +334,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { session_id: sessionId },
       }),
-    createJob: (body: JobCreate) => createGeneratedJob({ body, client }),
+    createJob: (body: JobCreate) =>
+      createGeneratedJob({
+        body,
+        client,
+        headers: confirmedTargetHeaders('job:new'),
+      }),
     listJobs: (filters: ListJobsOptions = {}) =>
       listGeneratedJobs({
         client,
@@ -326,7 +355,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     getJob: (jobId: string) =>
       getGeneratedJob({ client, path: { job_id: jobId } }),
     cancelJob: (jobId: string) =>
-      cancelGeneratedJob({ client, path: { job_id: jobId } }),
+      cancelGeneratedJob({
+        client,
+        headers: confirmedTargetHeaders(`job:${jobId}`),
+        path: { job_id: jobId },
+      }),
     retryJob: (jobId: string) =>
       retryGeneratedJob({ client, path: { job_id: jobId } }),
     getImageJobOperations: (jobId: string, fileLimit = 100) =>
@@ -519,16 +552,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     rejectLayoutImportStaging: (validationJobId: string) =>
       rejectGeneratedLayoutImportStaging({
         client,
+        headers: confirmedTargetHeaders(`validation-job:${validationJobId}`),
         path: { validation_job_id: validationJobId },
       }),
     publishLayoutImportDataset: (validationJobId: string) =>
       publishGeneratedLayoutImportDataset({
         client,
+        headers: confirmedTargetHeaders(`validation-job:${validationJobId}`),
         path: { validation_job_id: validationJobId },
       }),
     listMobileReleases: () => listGeneratedMobileReleases({ client }),
     createMobileRelease: (body: MobileReleaseCreate) =>
-      createGeneratedMobileRelease({ body, client }),
+      createGeneratedMobileRelease({
+        body,
+        client,
+        headers: confirmedTargetHeaders('mobile-release:new'),
+      }),
     getMobileRelease: (mobileReleaseId: string) =>
       getGeneratedMobileRelease({
         client,
@@ -542,6 +581,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     buildMobileRelease: (mobileReleaseId: string) =>
       buildGeneratedMobileRelease({
         client,
+        headers: confirmedTargetHeaders(`mobile-release:${mobileReleaseId}`),
         path: { mobile_release_id: mobileReleaseId },
       }),
     listReviewBatches: () => listGeneratedReviewBatches({ client }),
@@ -602,7 +642,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     updateGame: (gameId: string, body: GameUpdate) =>
       updateGeneratedGame({ body, client, path: { game_id: gameId } }),
     archiveGame: (gameId: string) =>
-      archiveGeneratedGame({ client, path: { game_id: gameId } }),
+      archiveGeneratedGame({
+        client,
+        headers: confirmedTargetHeaders(`game:${gameId}`),
+        path: { game_id: gameId },
+      }),
     listRulesVersions: (gameId: string) =>
       listGeneratedRulesVersions({ client, path: { game_id: gameId } }),
     createRulesVersion: (gameId: string, body: RulesVersionCreate) =>
@@ -630,11 +674,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     publishRulesVersion: (rulesVersionId: string) =>
       publishGeneratedRulesVersion({
         client,
+        headers: confirmedTargetHeaders(`rules-version:${rulesVersionId}`),
         path: { rules_version_id: rulesVersionId },
       }),
     archiveRulesVersion: (rulesVersionId: string) =>
       archiveGeneratedRulesVersion({
         client,
+        headers: confirmedTargetHeaders(`rules-version:${rulesVersionId}`),
         path: { rules_version_id: rulesVersionId },
       }),
     listDatasetVersions: (gameId: string) =>
@@ -674,11 +720,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     publishDatasetVersion: (datasetVersionId: string) =>
       publishGeneratedDatasetVersion({
         client,
+        headers: confirmedTargetHeaders(`dataset-version:${datasetVersionId}`),
         path: { dataset_version_id: datasetVersionId },
       }),
     archiveDatasetVersion: (datasetVersionId: string) =>
       archiveGeneratedDatasetVersion({
         client,
+        headers: confirmedTargetHeaders(`dataset-version:${datasetVersionId}`),
         path: { dataset_version_id: datasetVersionId },
       }),
     listPaylines: (rulesVersionId: string) =>
@@ -716,6 +764,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     archivePayline: (rulesVersionId: string, paylineId: string) =>
       archiveGeneratedPayline({
         client,
+        headers: confirmedTargetHeaders(`payline:${paylineId}`),
         path: {
           payline_id: paylineId,
           rules_version_id: rulesVersionId,
@@ -774,6 +823,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     archivePayoutRule: (rulesVersionId: string, payoutRuleId: string) =>
       archiveGeneratedPayoutRule({
         client,
+        headers: confirmedTargetHeaders(`payout-rule:${payoutRuleId}`),
         path: {
           payout_rule_id: payoutRuleId,
           rules_version_id: rulesVersionId,
@@ -801,6 +851,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     archiveSymbol: (gameId: string, symbolId: string) =>
       archiveGeneratedSymbol({
         client,
+        headers: confirmedTargetHeaders(`symbol:${symbolId}`),
         path: { game_id: gameId, symbol_id: symbolId },
       }),
   } as const;

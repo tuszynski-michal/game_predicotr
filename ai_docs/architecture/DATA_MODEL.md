@@ -8,6 +8,13 @@ last_updated: 2026-07-29
 
 Model rozdziela kanoniczne dane administracyjne PostgreSQL od generowanego, niezmiennego SQLite dla mobile. Nazwy i dokładne typy zostaną utrwalone migracjami Alembic; poniższe reguły integralności są obowiązkowe.
 
+Audyt ochrony lokalnego Admina nie jest tabelą domenową. Jest append-only
+artefaktem JSONL pod `artifacts/admin-audit/local-admin-events.jsonl`, aby awaria
+lub odrzucenie requestu mogły zostać zapisane niezależnie od transakcji
+domenowej. Każdy wpis ma UUID zdarzenia, czas UTC, serwerowego aktora
+`local-owner`, akcję, jednoznaczny cel, wynik i opcjonalny stabilny kod
+przyczyny; body, Authorization, kody, tokeny, hasła i klucze nie są zapisywane.
+
 ## PostgreSQL — dane kanoniczne
 
 ### games

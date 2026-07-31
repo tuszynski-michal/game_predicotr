@@ -67,9 +67,13 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 ### Zadania
 
 - `TASK-0078 — Local administration threat model and Q-019 decision` — done
-- `TASK-0079 — Administration access control and audit hardening`
+- `TASK-0079 — Administration access control and audit hardening` — done
 
 ### Bramka G8.1
+
+Stan 2026-07-31: G8.1 jest zamknięta. Centralny guard mutacji wymusza loopback,
+origin, intencję i dokładny cel operacji wysokiego wpływu; append-only audyt
+używa aktora `local-owner`, a OpenAPI, klient i CSP Admina mają regresję.
 
 - model jednego lub wielu administratorów jest jawny,
 - panel nie jest przypadkowo wystawiony publicznie,
@@ -223,9 +227,10 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - `TASK-0114 — Revocable game-scoped authorization and brute-force protection`,
 - `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance`.
 
-Stan 2026-07-30: TASK-0113 i TASK-0114 są ukończone. Implementacja oraz runbook
-TASK-0115 są gotowe, ale zadanie pozostaje `in_progress` do odłożonego przez
-właściciela testu HTTPS z urządzenia poza domową siecią.
+Stan 2026-07-31: TASK-0113, TASK-0114 i TASK-0115 są ukończone. Odbiór HTTPS
+z innego urządzenia i innej sieci potwierdził właściwy scope, trwałość decyzji
+oraz natychmiastowe zatrzymanie publicznej ekspozycji. Bramka G8.7 jest
+zamknięta.
 
 ### Bramka G8.7
 

@@ -3220,6 +3220,10 @@ export type VerifiedCohortFreezeResponse = {
 
 export type ArchiveDatasetVersionData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Dataset Version Id
@@ -3231,6 +3235,10 @@ export type ArchiveDatasetVersionData = {
 };
 
 export type ArchiveDatasetVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -3349,6 +3357,10 @@ export type ListDatasetLayoutsResponse =
 
 export type PublishDatasetVersionData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Dataset Version Id
@@ -3360,6 +3372,10 @@ export type PublishDatasetVersionData = {
 };
 
 export type PublishDatasetVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -3454,6 +3470,10 @@ export type CreateGameData = {
 
 export type CreateGameErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -3480,6 +3500,10 @@ export type CreateGameResponse = CreateGameResponses[keyof CreateGameResponses];
 
 export type ArchiveGameData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Game Id
@@ -3491,6 +3515,10 @@ export type ArchiveGameData = {
 };
 
 export type ArchiveGameErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -3568,6 +3596,10 @@ export type UpdateGameData = {
 };
 
 export type UpdateGameErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -3648,6 +3680,10 @@ export type GenerateMockDatasetData = {
 };
 
 export type GenerateMockDatasetErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -3731,6 +3767,10 @@ export type CreateRulesVersionData = {
 
 export type CreateRulesVersionErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -3812,6 +3852,10 @@ export type CreateSymbolData = {
 
 export type CreateSymbolErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -3839,6 +3883,10 @@ export type CreateSymbolResponse =
 
 export type ArchiveSymbolData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Game Id
@@ -3854,6 +3902,10 @@ export type ArchiveSymbolData = {
 };
 
 export type ArchiveSymbolErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -3940,6 +3992,10 @@ export type UpdateSymbolData = {
 
 export type UpdateSymbolErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -4020,6 +4076,10 @@ export type CreateImageDiagnosticExportData = {
 };
 
 export type CreateImageDiagnosticExportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Image job or file not found
    */
@@ -4110,6 +4170,10 @@ export type RetryImageJobFileData = {
 };
 
 export type RetryImageJobFileErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Image job or file not found
    */
@@ -4249,6 +4313,10 @@ export type FreezeVerifiedImageReviewCohortData = {
 };
 
 export type FreezeVerifiedImageReviewCohortErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Verified cohort resource not found
    */
@@ -4555,6 +4623,10 @@ export type PreviewOperationalImageReviewGeometryData = {
 
 export type PreviewOperationalImageReviewGeometryErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Operational review resource not found
    */
   404: ErrorResponse;
@@ -4600,6 +4672,10 @@ export type CreateOperationalImageReviewGeometryRevisionData = {
 };
 
 export type CreateOperationalImageReviewGeometryRevisionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Operational review resource not found
    */
@@ -4649,6 +4725,10 @@ export type ResolveOperationalImageReviewItemData = {
 };
 
 export type ResolveOperationalImageReviewItemErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Operational review resource not found
    */
@@ -4826,12 +4906,20 @@ export type CreateJobData = {
     | ({
         jobType: 'android_build';
       } & AndroidBuildJobCreate);
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path?: never;
   query?: never;
   url: '/api/v1/admin/jobs';
 };
 
 export type CreateJobErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Job or game not found
    */
@@ -4897,6 +4985,10 @@ export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
 
 export type CancelJobData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Job Id
@@ -4908,6 +5000,10 @@ export type CancelJobData = {
 };
 
 export type CancelJobErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Job or game not found
    */
@@ -4946,6 +5042,10 @@ export type RetryJobData = {
 };
 
 export type RetryJobErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Job or game not found
    */
@@ -5013,6 +5113,10 @@ export type GetLayoutImportIntegrityReportResponse =
 
 export type PublishLayoutImportDatasetData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Validation Job Id
@@ -5024,6 +5128,10 @@ export type PublishLayoutImportDatasetData = {
 };
 
 export type PublishLayoutImportDatasetErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Layout import validation not found
    */
@@ -5107,6 +5215,10 @@ export type ListLayoutImportNormalizedRowsResponse =
 
 export type RejectLayoutImportStagingData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Validation Job Id
@@ -5118,6 +5230,10 @@ export type RejectLayoutImportStagingData = {
 };
 
 export type RejectLayoutImportStagingErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Layout import validation not found
    */
@@ -5184,12 +5300,20 @@ export type ListMobileReleasesResponse =
 
 export type CreateMobileReleaseData = {
   body: MobileReleaseCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path?: never;
   query?: never;
   url: '/api/v1/admin/mobile-releases';
 };
 
 export type CreateMobileReleaseErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Release source not found
    */
@@ -5299,6 +5423,10 @@ export type DownloadMobileReleaseApkResponse =
 
 export type BuildMobileReleaseData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Mobile Release Id
@@ -5310,6 +5438,10 @@ export type BuildMobileReleaseData = {
 };
 
 export type BuildMobileReleaseErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Release source not found
    */
@@ -5382,6 +5514,10 @@ export type ImportReviewBatchData = {
 };
 
 export type ImportReviewBatchErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Review resource not found
    */
@@ -5504,6 +5640,10 @@ export type CreateReviewFeedbackExportData = {
 };
 
 export type CreateReviewFeedbackExportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Review resource not found
    */
@@ -5792,6 +5932,10 @@ export type ResolveReviewItemData = {
 
 export type ResolveReviewItemErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Review resource not found
    */
   404: ErrorResponse;
@@ -5879,12 +6023,20 @@ export type GetReviewerIngressStatusResponse =
 
 export type StartReviewerIngressData = {
   body: ReviewerIngressCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path?: never;
   query?: never;
   url: '/api/v1/admin/reviewer-ingress/start';
 };
 
 export type StartReviewerIngressErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Validation Error
    */
@@ -5910,12 +6062,20 @@ export type StartReviewerIngressResponse =
 
 export type StopReviewerIngressData = {
   body: ReviewerIngressCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path?: never;
   query?: never;
   url: '/api/v1/admin/reviewer-ingress/stop';
 };
 
 export type StopReviewerIngressErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Validation Error
    */
@@ -5941,12 +6101,20 @@ export type StopReviewerIngressResponse =
 
 export type CreateReviewerSessionData = {
   body: ReviewerSessionCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path?: never;
   query?: never;
   url: '/api/v1/admin/reviewer-sessions';
 };
 
 export type CreateReviewerSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Unprocessable Entity
    */
@@ -5968,6 +6136,10 @@ export type CreateReviewerSessionResponse =
 
 export type RevokeReviewerSessionData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Session Id
@@ -5979,6 +6151,10 @@ export type RevokeReviewerSessionData = {
 };
 
 export type RevokeReviewerSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Not Found
    */
@@ -6004,6 +6180,10 @@ export type RevokeReviewerSessionResponse =
 
 export type ArchiveRulesVersionData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Rules Version Id
@@ -6015,6 +6195,10 @@ export type ArchiveRulesVersionData = {
 };
 
 export type ArchiveRulesVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -6095,6 +6279,10 @@ export type UpdateRulesVersionData = {
 };
 
 export type UpdateRulesVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -6177,6 +6365,10 @@ export type CreatePaylineData = {
 
 export type CreatePaylineErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -6204,6 +6396,10 @@ export type CreatePaylineResponse =
 
 export type ArchivePaylineData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Rules Version Id
@@ -6219,6 +6415,10 @@ export type ArchivePaylineData = {
 };
 
 export type ArchivePaylineErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -6306,6 +6506,10 @@ export type UpdatePaylineData = {
 
 export type UpdatePaylineErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -6387,6 +6591,10 @@ export type CreatePayoutRuleData = {
 
 export type CreatePayoutRuleErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -6415,6 +6623,10 @@ export type CreatePayoutRuleResponse =
 
 export type ArchivePayoutRuleData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Rules Version Id
@@ -6430,6 +6642,10 @@ export type ArchivePayoutRuleData = {
 };
 
 export type ArchivePayoutRuleErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -6518,6 +6734,10 @@ export type UpdatePayoutRuleData = {
 
 export type UpdatePayoutRuleErrors = {
   /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
    * Resource not found
    */
   404: ErrorResponse;
@@ -6586,6 +6806,10 @@ export type GetRulesPublicationReadinessResponse =
 
 export type PublishRulesVersionData = {
   body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
   path: {
     /**
      * Rules Version Id
@@ -6597,6 +6821,10 @@ export type PublishRulesVersionData = {
 };
 
 export type PublishRulesVersionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */
@@ -6683,6 +6911,10 @@ export type UpdateRulesVersionSymbolData = {
 };
 
 export type UpdateRulesVersionSymbolErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
   /**
    * Resource not found
    */

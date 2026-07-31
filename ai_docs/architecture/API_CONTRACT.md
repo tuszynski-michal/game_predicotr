@@ -16,6 +16,15 @@ Prefix Admin API:
 /api/v1/admin
 ```
 
+Każda mutacja pod tym prefiksem wymaga mechanizmu OpenAPI
+`LocalAdminIntent`, realizowanego nagłówkiem
+`X-Admin-Intent: local-owner`. Operacje wysokiego wpływu wymagają ponadto
+`X-Admin-Confirmation: confirmed` oraz `X-Admin-Target` zgodnego z dokładnym
+celem w ścieżce lub stałym celem operacji. Brak loopback, obcy `Origin`, brak
+intencji albo niezgodny cel zwracają stabilne kody odpowiednio
+`ADMIN_LOOPBACK_REQUIRED`, `ADMIN_ORIGIN_FORBIDDEN`, `ADMIN_INTENT_REQUIRED`
+lub `ADMIN_CONFIRMATION_REQUIRED` bez wykonania domenowej mutacji.
+
 Format błędu:
 
 ```json

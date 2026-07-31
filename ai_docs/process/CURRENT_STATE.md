@@ -1518,15 +1518,17 @@ last_updated: 2026-07-31
 - ukończono TASK-0114: migracja `0021_reviewer_access` utrwala sesje i audyt,
   piąta błędna próba blokuje kod, revoke natychmiast usuwa token, a publiczny
   same-origin proxy ma testowaną allowlistę i HttpOnly cookie,
-- automatyczna część TASK-0115 jest gotowa: skrypty `setup/start/status/stop`,
+- ukończono TASK-0115 i zamknięto G8.7: skrypty `setup/start/status/stop`,
   publiczny origin w linku Admina, runbook, CSP i produkcyjny build Reviewera;
   D-098 dodaje typowane przyciski publikacji/zatrzymania w Adminie, zapewnienie
-  produkcyjnego procesu i blokadę ekspozycji trybu developerskiego; test z
-  urządzenia poza domową siecią jest teraz następnym krokiem właściciela.
+  produkcyjnego procesu i blokadę ekspozycji trybu developerskiego; test
+  z innego urządzenia i innej sieci potwierdził HTTPS, właściwy scope, trwały
+  zapis decyzji oraz zatrzymanie publicznej ekspozycji.
 - lokalny odbiór przycisków TASK-0115 przeszedł: start utworzył rzeczywisty
   Quick Tunnel HTTPS, publiczny ekran nie ujawnił danych przed kodem, stop
-  wyłączył stary URL, a ponowny start nadał nowy origin i sesję; aktywny link
-  oczekuje na test z drugiego komputera i innej sieci.
+  wyłączył stary URL, a ponowny start nadał nowy origin i sesję; późniejszy
+  odbiór zewnętrzny potwierdził także działanie `Enter` i `ArrowRight` na
+  zapisanych wcześniej układach.
 - ukończono TASK-0111 i zamknięto lokalną bramkę G6.5: właściciel zatwierdził
   i przejrzał układy do `#55`, próba 11 nowych decyzji trwała 198 sekund,
   a odbiór 1366 × 768 potwierdził brak overflow oraz pełną siatkę 5 × 3.
@@ -1552,6 +1554,12 @@ last_updated: 2026-07-31
   właściciela Windows i granicę loopback; D-097 odrzuca pozorne lokalne
   logowanie, ale wymaga serwerowego potwierdzenia i append-only audytu operacji
   wysokiego wpływu w TASK-0079.
+- ukończono TASK-0079 i zamknięto G8.1: centralny guard Admin API wymusza
+  loopback, dozwolony origin i intencję `local-owner`; operacje wysokiego
+  wpływu wymagają dokładnego celu, a próby i wyniki trafiają do redagowanego,
+  append-only `artifacts/admin-audit/local-admin-events.jsonl`. OpenAPI, klient
+  TypeScript i CSP Admina są spójne; pełne API ma `215 passed, 16 skipped`,
+  Admin `83/83`, a klient `18/18` testów.
 - model zagrożeń potwierdza odseparowanie zdalnego Reviewera od Admin API oraz
   klasyfikuje luki w ochronie cross-origin, redakcji sekretów i audycie jako
   zakres hardeningu, a nie ukryte rozszerzenie produktu.
@@ -1561,10 +1569,6 @@ last_updated: 2026-07-31
 - realny import zawiera obecnie 387 plansz; odbiór M6.5 zakończył się po
   przejrzeniu układów do `#55`. Dalsze ręczne etykietowanie może być
   kontynuowane niezależnie i nie blokuje lokalnej wersji `0.1`.
-- `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance` czeka
-  na odbiór z urządzenia poza domową siecią po uruchomieniu nowym przyciskiem:
-  HTTPS,
-  ograniczenie gry/importu, zapis, revoke i skan zabronionych tras.
 
 ## Blocked
 
@@ -1626,14 +1630,12 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Rozpocząć `TASK-0079 — Administration access control and audit hardening`:
-dodać serwerową ochronę lokalnych mutacji, aktora `local-owner`, append-only
-audyt, regresję loopback/cross-origin oraz redakcję sekretów. Po jego odbiorze
-można zamknąć G8.1.
+Rozpocząć `TASK-0080 — Stable Android signing and secret handling`: utrwalić
+klucz podpisujący poza repozytorium, bezpieczną konfigurację haseł oraz testy
+braku sekretów w Git, logach i artefaktach diagnostycznych.
 
-`massImportAllowed = true` pozostaje osobną bramką TASK-0076. TASK-0115 ma
-gotową implementację, ale jego test z urządzenia poza domową siecią jest
-odłożony i nie blokuje lokalnej wersji produktu.
+`massImportAllowed = true` pozostaje osobną bramką TASK-0076. TASK-0115 i G8.7
+są zamknięte po pozytywnym teście z urządzenia poza domową siecią.
 
 ## Do not start yet
 
@@ -1644,7 +1646,6 @@ odłożony i nie blokuje lokalnej wersji produktu.
 - finalnego wyboru OCR,
 - Celery/Redis, mikroserwisów i chmury,
 - synchronizacji danych mobilnych,
-- bindingu Reviewera poza loopback przed TASK-0113 oraz G8.1,
 - publicznego deploymentu lub publikacji w Google Play.
 
 ## Handoff notes

@@ -3,6 +3,7 @@
 import json
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
@@ -83,6 +84,14 @@ from game_predictor_api.domain.rules import (
     RulesConflictError,
     RulesError,
     RulesNotFoundError,
+)
+from game_predictor_api.security.local_admin import (
+    ADMIN_CONFIRMATION_HEADER,
+    ADMIN_INTENT_HEADER,
+    ADMIN_TARGET_HEADER,
+    AppendOnlyAdminAuditLog,
+    LocalAdminSecurityMiddleware,
+    augment_admin_security_openapi,
 )
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
@@ -338,7 +347,19 @@ def create_app(
         ],
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
-        allow_headers=["Accept", "Authorization", "Content-Type"],
+        allow_headers=[
+            "Accept",
+            "Authorization",
+            "Content-Type",
+            ADMIN_INTENT_HEADER,
+            ADMIN_CONFIRMATION_HEADER,
+            ADMIN_TARGET_HEADER,
+        ],
+    )
+    application.add_middleware(
+        LocalAdminSecurityMiddleware,
+        admin_origin=resolved_settings.admin_origin,
+        audit_log=AppendOnlyAdminAuditLog(resolved_settings.artifact_root),
     )
     application.state.database_engine = database_engine
     application.include_router(
@@ -546,6 +567,15 @@ def create_app(
                 },
             },
         )
+
+    generated_openapi = application.openapi
+
+    def local_admin_openapi() -> dict[str, Any]:
+        schema = cast(dict[str, Any], generated_openapi())
+        augment_admin_security_openapi(schema)
+        return schema
+
+    application.openapi = local_admin_openapi
 
     return application
 

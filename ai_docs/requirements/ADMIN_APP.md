@@ -10,6 +10,12 @@ last_updated: 2026-07-31
 
 Panel jest lokalną aplikacją webową uruchamianą na Windows. Korzysta z lokalnego Admin API i PostgreSQL. Nie jest usługą, z którą łączy się aplikacja mobilna.
 
+Lokalny Admin nie ma pozornego ekranu logowania dla jednego właściciela
+Windows. Wszystkie mutacje wysyłają stały sygnał intencji `local-owner`, a API
+sprawdza loopback i `Origin`. Operacje wysokiego wpływu wysyłają dodatkowo
+potwierdzenie oraz dokładny cel; bez nich API nie zmienia danych. Zdalny
+Reviewer nie otrzymuje tych uprawnień i zachowuje własną ograniczoną sesję.
+
 ## Zakres funkcjonalny
 
 ### Games

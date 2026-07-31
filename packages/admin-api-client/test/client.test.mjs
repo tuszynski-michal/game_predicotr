@@ -73,6 +73,11 @@ test('generated client controls only the explicit Reviewer ingress target', asyn
   );
   assert.deepEqual(await requests[1].clone().json(), command);
   assert.deepEqual(await requests[2].clone().json(), command);
+  for (const request of requests.slice(1)) {
+    assert.equal(request.headers.get('X-Admin-Intent'), 'local-owner');
+    assert.equal(request.headers.get('X-Admin-Confirmation'), 'confirmed');
+    assert.equal(request.headers.get('X-Admin-Target'), 'remote-reviewer');
+  }
 });
 
 test('generated client sends typed game and symbol requests', async () => {

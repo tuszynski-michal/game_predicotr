@@ -18,6 +18,11 @@ PostgreSQL, worker i Reviewer są lokalnymi narzędziami do przygotowywania
 danych, ich weryfikacji oraz budowania APK. Telefon nie łączy się z żadnym z
 tych procesów.
 
+Audyt mutacji lokalnego Admina znajduje się w
+`artifacts\admin-audit\local-admin-events.jsonl`. Plik jest append-only i należy
+go objąć backupem razem z pozostałymi artefaktami. Nie edytuj go ręcznie;
+zatrzymaj API przed kopiowaniem spójnej kopii operatorskiej.
+
 ## Najkrótsza procedura na kolejny dzień pracy
 
 1. Uruchom Docker Desktop.

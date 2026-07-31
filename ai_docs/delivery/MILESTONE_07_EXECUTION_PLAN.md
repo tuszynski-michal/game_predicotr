@@ -173,8 +173,8 @@ single worker, PostgreSQL jobs oraz `execution_slot = 1`; Redis/Celery i
 mikroserwisy nie mają uzasadnienia pomiarowego. G7 pozostaje niezaliczone do
 czasu wykonania TASK-0076.
 
-Zgodnie z planem wydań z 2026-07-31 TASK-0076 został przeniesiony do wersji
-`0.2`. Wersja `0.1` użyje w TASK-0118 chronionego podzbioru zatwierdzonych
+Zgodnie z aktualnym planem wydań TASK-0076 należy do wersji `0.3`. Wersja
+`0.1` używa chronionego podzbioru zatwierdzonych
 layoutów i deterministycznego dopełnienia testowego do 500 000 rekordów. Nie
 zalicza to TASK-0076 ani G7 i nie może być przedstawiane jako automatycznie
 rozpoznany, rzeczywisty dataset 500 000 zdjęć.

@@ -55,8 +55,8 @@ Czy istnieje zgoda właściciela aplikacji Windows na analizę jej zachowania, p
 
 ## Panel Admin 0.2
 
-Poniższe pytania są zapisane do wspólnego omówienia dopiero na początku prac
-nad `0.2`. Nie blokują TASK-0118, TASK-0119 ani wydania `0.1`.
+Poniższe pytania są omawiane przed zadaniem `0.2`, którego semantykę zmieniają.
+Nie blokują TASK-0119, kontrolowanego resetu TASK-0120 ani wydania `0.1`.
 
 ### Q-022 — Fizyczne usuwanie gry
 
@@ -90,9 +90,9 @@ bieżący workspace, ale każdą publikację utrwalać jako nową niezmienną we
 
 ### Q-027 — Docelowa liczba layoutów
 
-Czy stałe 500 000 obowiązuje każdą grę także po `0.2`, czy później ma być
-konfiguracją gry? Plan przyjmuje 500 000 jako domyślne i wymagane w pierwszym
-przepływie `0.2`.
+Czy docelowe 500 000 obowiązuje każdą grę w `0.3`, czy ma być konfiguracją
+gry? W `0.2` liczba layoutów jest jawnie ustawioną wielkością małego datasetu
+testowego i nie rozstrzyga tej decyzji.
 
 ### Q-028 — Źródło numeru brakującej sekwencji
 
@@ -137,5 +137,5 @@ potwierdzeniu i zachowaniu minimalnego audytu.
   zamknięte; zdalna autoryzacja wielu recenzentów należy do M8.7 i wymaga
   rozstrzygnięcia Q-021.
 - Analiza aplikacji referencyjnej poza obserwacją wymaga odpowiedzi na Q-020.
-- Q-022–Q-032 są bramką rozpoczęcia implementacji Admina `0.2`, ale nie blokują
-  reprezentatywnego wydania `0.1`.
+- Q-022–Q-032 blokują tylko zadania Admina `0.2`, których zachowanie zależy od
+  odpowiedzi. Nie blokują TASK-0120 ani reprezentatywnego wydania `0.1`.

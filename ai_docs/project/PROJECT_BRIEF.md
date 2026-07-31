@@ -99,19 +99,22 @@ Pierwsza wersja ma:
 - synchronizacja mobilna, chmura i publiczna infrastruktura,
 - produkcyjna autoryzacja wielu administratorów.
 
-## Strategia wydań 0.1 i 0.2
+## Strategia wydań 0.1, 0.2 i 0.3
 
 - `0.1` jest kompletną wersją demonstracyjną dla Google Pixel 10 Pro XL:
   jedna gra, rzeczywiste grafiki symboli, chroniony podzbiór ponad 100
   zatwierdzonych plansz i deterministyczne dopełnienie do dokładnie 500 000
   layoutów. Dane dopełniające służą testom zachowania i wydajności, a nie są
   deklarowane jako wynik rozpoznania 500 000 rzeczywistych układów.
-- `0.2` upraszcza Admina do prowadzonego workflow, dodaje docelowy import z
-  folderu i budowanie katalogu symboli, a następnie domyka publikację
-  rzeczywistych danych, stały podpis, backup/restore, recovery, rollback i
-  uzgodnioną macierz urządzeń.
+- `0.2` zaczyna od czystego PostgreSQL, upraszcza Admina do prowadzonego
+  workflow i sprawdza folderowy import, katalog symboli, reguły, review oraz
+  testowe wydanie na małym kontrolowanym zbiorze jednej gry.
+- `0.3` obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe wydanie,
+  pełną skalę, stały podpis, backup/restore, recovery, rollback i uzgodnioną
+  macierz urządzeń.
 - Szczegółowe zakresy są zapisane w `delivery/VERSION_0_1_RELEASE_PLAN.md` i
-  `delivery/VERSION_0_2_EXECUTION_PLAN.md`.
+  planach `delivery/VERSION_0_2_EXECUTION_PLAN.md` oraz
+  `delivery/VERSION_0_3_EXECUTION_PLAN.md`.
 
 ## Najważniejsze ograniczenia
 

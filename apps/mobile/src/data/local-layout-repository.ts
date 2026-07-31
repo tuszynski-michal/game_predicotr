@@ -85,6 +85,7 @@ interface SymbolRow {
   code: string;
   display_order: number;
   game_id: number;
+  image_asset_key: string | null;
   is_wildcard: number;
   mobile_code: number;
   name: string;
@@ -122,7 +123,9 @@ const GAME_QUERY = `
 `;
 
 const SYMBOL_QUERY = `
-  SELECT game_id, mobile_code, code, name, is_wildcard, display_order
+  SELECT
+    game_id, mobile_code, code, name, is_wildcard, display_order,
+    image_asset_key
   FROM symbols
   ORDER BY game_id, display_order, mobile_code
 `;
@@ -345,6 +348,14 @@ export class LocalLayoutRepository {
           isWildcard: wildcard === 1,
           mobileCode: requireInteger(row.mobile_code, 'Symbol mobile code', 1),
           name: requireString(row.name, 'Symbol name'),
+          ...(row.image_asset_key === null || row.image_asset_key === undefined
+            ? {}
+            : {
+                imageAssetKey: requireString(
+                  row.image_asset_key,
+                  'Symbol image asset key',
+                ),
+              }),
         };
         const symbols = symbolsByGame.get(gameId) ?? [];
         symbols.push(symbol);

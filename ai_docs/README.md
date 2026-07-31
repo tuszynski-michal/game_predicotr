@@ -64,6 +64,7 @@ implementacyjnym.
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
+- [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
 
 ### Proces i jakość
 

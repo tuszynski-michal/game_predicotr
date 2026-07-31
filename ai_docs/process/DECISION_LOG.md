@@ -2531,6 +2531,39 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zmienia alokację wydaniową pozostałych zadań M7/M8 bez zmiany
   ich wymagań i bramek; nie zmienia D-096 dla odbioru Pixela ani zasad domeny.
 
+## D-101 — Wersja 0.2 używa czystej bazy i małego datasetu, a pełne dane przechodzą do 0.3
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** po zbudowaniu statycznej paczki `0.1` można rozpocząć prace nad
+  `0.2` przed zakończeniem odbioru urządzeniowego TASK-0119. Pierwszym zadaniem
+  `0.2` jest kontrolowany reset lokalnego PostgreSQL do pustego, zmigrowanego
+  baseline’u. Reset nie obejmuje paczki `0.1`, klucza podpisującego, kodu,
+  dokumentacji ani źródłowych plików poza bazą. Wersja `0.2` waliduje Admina i
+  pełny workflow na jednej grze oraz małym, jawnie ograniczonym datasecie.
+  Pełny rzeczywisty dataset, około 500 000 layoutów, nowe gry, wielogrowe
+  wydanie, TASK-0076 i TASK-0080–0089 należą do `0.3`.
+- **Context:** paczka `0.1.5 (6)` jest gotowa, ale jej odbiór na Pixelu będzie
+  wykonany później. Dotychczasowa baza zawiera dane kolejnych eksperymentów,
+  importów, jobów i review, które utrudniają sprawdzenie nowego UX od czystego
+  stanu. Jednoczesne wymaganie przebudowy Admina i pełnego datasetu w `0.2`
+  tworzyłoby zbyt szeroką bramkę oraz utrudniało diagnozę błędów funkcjonalnych.
+- **Reason:** mały, kontrolowany zbiór wystarcza do walidacji nawigacji,
+  importu, symboli, reguł, review, payoutów i orkiestracji wydania. Pełna skala
+  powinna zostać uruchomiona dopiero po zaakceptowaniu ergonomii obu wersji i
+  naprawieniu znalezionych błędów.
+- **Alternatives:** blokowanie `0.2` do zamknięcia wszystkich testów `0.1`,
+  zachowanie historycznej bazy jako startowego stanu albo jednoczesna realizacja
+  nowego UX, pełnych danych, nowych gier i hardeningu.
+- **Consequences:** TASK-0120 zostaje nowym pierwszym zadaniem `0.2`, a
+  dotychczasowe rezerwacje TASK-0120–0133 przesuwają się na TASK-0121–0134.
+  Testy `0.2` nie zaliczają bramki pełnej skali. Start `0.3` wymaga akceptacji
+  testów `0.1` i `0.2` oraz zamknięcia wymaganych poprawek. Szczegóły historyczne
+  pozostają w ukończonych zadaniach i Decision Log, dlatego `CURRENT_STATE` jest
+  utrzymywany jako krótki handoff zamiast dziennika wszystkich wyników.
+- **Supersedes:** zastępuje część D-100 przypisującą TASK-0076 i TASK-0080–0089
+  do `0.2`; nie zmienia zakresu ani artefaktów wydania `0.1`.
+
 ## Szablon nowej decyzji
 
 ```text

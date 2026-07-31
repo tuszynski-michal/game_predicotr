@@ -8,114 +8,148 @@ last_updated: 2026-07-31
 
 ## Cel
 
-Przekształcić działające techniczne piony w prosty, prowadzony workflow:
-folder zdjęć → layouty → symbole → reguły → zatwierdzanie → wydanie Android.
-Następnie domknąć odłożony hardening, backup, recovery, dystrybucję i
-automatyczną publikację rzeczywistych danych.
+Zbudować na czystej lokalnej bazie prosty, prowadzony workflow Admina:
+gra → import małego zestawu testowego → symbole → reguły → zatwierdzanie →
+testowe wydanie Android. Wersja `0.2` służy walidacji funkcji i ergonomii, a
+nie skali docelowego datasetu.
 
-## Warunki rozpoczęcia
+## Relacja z wersją 0.1
 
-- wersja `0.1` przeszła TASK-0118 i TASK-0119,
-- pytania Q-022–Q-032 zostały omówione z właścicielem,
-- istniejące decyzje o offline mobile, niezmiennych release’ach, ochronie
-  człowieka i ograniczonym Reviewerze pozostają obowiązujące.
+- statyczna paczka `0.1.5 (6)` jest ukończona i chroniona,
+- TASK-0119 oraz poprawki wykryte podczas odbioru Pixela mogą być wykonywane
+  równolegle z rozwojem `0.2`,
+- reset danych `0.2` nie może usunąć APK, snapshotu, manifestu, grafik ani
+  raportu wydania `0.1`,
+- przejście do `0.3` wymaga zaakceptowania przez właściciela testów `0.1` i
+  `0.2` oraz zamknięcia znalezionych błędów o uzgodnionym priorytecie.
+
+## Zasady danych testowych 0.2
+
+- aktywny PostgreSQL zaczyna od pustego, zmigrowanego schematu,
+- `0.2` używa jednej kontrolowanej gry i ograniczonego podzbioru layoutów,
+- liczba layoutów wynika z testu danego pionu; nie obowiązuje bramka 500 000,
+- kompletność jest liczona względem jawnego `expected_layout_count` testowego
+  datasetu, a nie względem docelowej skali produktu,
+- testy muszą nadal obejmować unique, duplicate, not found, payout i Target,
+- mały dataset `0.2` nie jest dowodem gotowości wydajnościowej ani jakościowej
+  dla pełnego importu.
+
+## V0.2.0 — Czysty stan danych
+
+- `TASK-0120 — Controlled PostgreSQL reset and v0.2 clean baseline`
+  — **ukończone 2026-07-31**: zapisano pełny dump i inwentarz, zabezpieczono
+  instalacyjne APK 0.1, wyczyszczono dane domenowe/joby, a schemat odtworzono
+  migracjami Alembic do `0021_reviewer_access`.
+
+### Dane chronione podczas TASK-0120
+
+- `artifacts/v01-representative-release/` w całości,
+- `.tooling/android-signing/` i konfiguracja toolchainu,
+- zdjęcia źródłowe oraz ręczne materiały wejściowe poza PostgreSQL,
+- kod, migracje, dokumentacja, test fixtures i raporty jakości,
+- `apps/mobile/assets/snapshot/m1-snapshot.db` do czasu świadomego zastąpienia
+  fixture’em `0.2`.
+
+### Bramka V0.2.0
+
+- destrukcyjny reset ma zatwierdzony dokładny cel i nie używa szerokiej ścieżki,
+- schemat PostgreSQL jest na `alembic head`, a tabele domenowe nie zawierają
+  danych poprzedniej iteracji,
+- nie istnieje aktywny job, sesja Reviewera ani release wskazujący na usunięte
+  rekordy,
+- checksumy paczki `0.1` są niezmienione,
+- powstał krótki raport z listą usuniętych klas danych i zachowanych artefaktów.
+
+Bramka została spełniona. Raport znajduje się w
+`artifacts/v02-clean-baseline/reset-report.json`, a przywracanie dumpu nie jest
+częścią zwykłego startu wersji 0.2.
 
 ## V0.2.1 — Nawigacja i jeden kontekst gry
 
-- `TASK-0120 — Admin workspace navigation and collapsible sections`
+- `TASK-0121 — Admin workspace navigation and collapsible sections`
   — dwa kafelki trybu, accordion, zachowanie scrolla i stan w URL.
-- `TASK-0121 — Active game catalog, filters and dependency-safe removal`
-  — sekcja `Gry`, podświetlenie, filtry i uzgodniona semantyka `Usuń`.
+- `TASK-0122 — Active game catalog, filters and dependency-safe removal`
+  — sekcja `Gry`, podświetlenie, filtry i uzgodniona semantyka usuwania.
 
 ### Bramka V0.2.1
 
-- bez aktywnej gry wejście pokazuje wyłącznie `Gry`; po wyborze pojawiają się
-  zwinięte nagłówki sekcji zależnych,
+- bez aktywnej gry wejście pokazuje wyłącznie `Gry`,
 - zawsze istnieje najwyżej jeden aktywny kontekst gry,
 - zmiana sekcji nie resetuje wyboru ani pozycji użytkownika,
-- żadna zależna sekcja nie ma drugiego selecta gry.
+- zależne sekcje nie mają drugiego selecta gry.
 
-## V0.2.2 — Folder zdjęć, layouty i katalog symboli
+## V0.2.2 — Mały import zdjęć i katalog symboli
 
-- `TASK-0122 — Local image folder source and resumable layout ingestion`
+- `TASK-0123 — Local image folder source and resumable test ingestion`
   — bezpieczny wybór folderu, discovery, manifest i wznowienie.
-- `TASK-0123 — 500k completeness, incremental gaps and source quality selection`
-  — brakujące zakresy, doładowanie, deduplikacja i wybór czytelniejszego źródła.
-- `TASK-0124 — Automatic symbol catalog bootstrap from imported layouts`
+- `TASK-0124 — Test dataset completeness, gaps and source quality selection`
+  — oczekiwany mały zakres, brakujące numery, deduplikacja i wybór źródła.
+- `TASK-0125 — Automatic symbol catalog bootstrap from imported layouts`
   — oczekiwana liczba symboli, propozycje nazw i stabilne kody.
-- `TASK-0125 — Representative symbol image picker and catalog refinement`
-  — 10 kandydatów, kolejne strony kandydatur i edycja grafiki/nazwy.
+- `TASK-0126 — Representative symbol image picker and catalog refinement`
+  — kandydatury grafik oraz edycja grafiki i nazwy.
 
 ### Bramka V0.2.2
 
 - import nie zależy od `examples/imgs` ani Excela,
 - ponowienie nie dubluje sekwencji,
-- użytkownik widzi dokładny licznik braków do 500 000,
-- symbole powstają z rzeczywistych cropów dopiero po imporcie,
+- UI pokazuje kompletność względem testowego `expected_layout_count`,
+- symbole powstają z rzeczywistych cropów testowego importu,
 - każda automatyczna decyzja zachowuje pochodzenie i metrykę jakości.
 
 ## V0.2.3 — Reguły i zatwierdzanie bez technicznego szumu
 
-- `TASK-0126 — Single rules workspace with internal immutable versioning`
+- `TASK-0127 — Single rules workspace with internal immutable versioning`
   — jeden bieżący widok bez eksponowania pełnej historii.
-- `TASK-0127 — Full-layout payout recomputation workflow`
-  — jawne przeliczenie, progress, wersja algorytmu i blokada release przy brakach.
-- `TASK-0128 — Integrated board approval entry and prerequisite states`
+- `TASK-0128 — Test-dataset payout recomputation workflow`
+  — jawne przeliczenie, progress, wersja algorytmu i blokada przy brakach.
+- `TASK-0129 — Integrated board approval entry and prerequisite states`
   — jedna sekcja zatwierdzania prowadząca do osobnego Reviewera.
-- `TASK-0129 — Remove duplicate Dataset and Manual Review navigation`
+- `TASK-0130 — Remove duplicate Dataset and Manual Review navigation`
   — przeniesienie funkcji bez usuwania encji i audytów backendu.
 
 ### Bramka V0.2.3
 
-- zmiana reguł nigdy nie modyfikuje opublikowanej historii,
-- 500 000 payoutów można przeliczyć i wznowić,
+- zmiana reguł nie modyfikuje opublikowanej historii,
+- payout całego małego datasetu można przeliczyć i wznowić,
 - zatwierdzanie jest dostępne wyłącznie dla prawidłowego importu,
-- nie ma dwóch konkurencyjnych ekranów wykonujących tę samą decyzję review.
+- nie ma dwóch ekranów wykonujących tę samą decyzję review.
 
-## V0.2.4 — Wydania Android, joby i retencja
+## V0.2.4 — Testowe wydanie i odbiór workflow
 
-- `TASK-0130 — Android release workspace and multi-game selection`
-  — osobny kafelek, wybór aktywnych gier i jedna orkiestracja.
-- `TASK-0131 — Contextual operations instead of the global Jobs section`
+- `TASK-0131 — Android release workspace for the controlled test game`
+  — jedna orkiestracja dla aktywnej gry; test wielu gier należy do `0.3`.
+- `TASK-0132 — Contextual operations instead of the global Jobs section`
   — progress i retry przy imporcie/wydaniu oraz kompaktowa diagnostyka.
-- `TASK-0132 — Release, job and artifact retention controls`
-  — uzgodnione usuwanie ciężkich artefaktów bez kasowania wymaganej historii.
-- `TASK-0133 — Admin 0.2 end-to-end usability and regression acceptance`
-  — desktop 1366 × 768, klawiatura, loading/error/empty i pełny workflow.
-
-### Bramka V0.2.4
-
-- użytkownik nie musi odwiedzać globalnego ekranu Jobs, aby przygotować APK,
-- każdy etap ma kontekst gry albo wydania,
-- cleanup nie narusza aktywnego release, checksum, manifestu ani audytu,
-- cały podstawowy workflow jest krótszy i nie wymaga nawigacji po jednej długiej
-  stronie.
-
-## V0.2.5 — Rzeczywiste dane i odłożony hardening
-
-- `TASK-0076 — Large image dataset publication and mobile release` po
-  spełnieniu `massImportAllowed = true`,
-- `TASK-0080–0081` — stabilny podpis i odtwarzalna weryfikacja release,
-- `TASK-0082–0083` — backup/restore PostgreSQL i artefaktów,
-- `TASK-0084` — recovery uszkodzonego snapshotu,
-- `TASK-0085–0087` — macierz urządzeń, offline regression, performance i
-  accessibility; zakres urządzeń zostanie ustalony dla `0.2`,
-- `TASK-0088–0089` — dystrybucja, rollback, disaster recovery i finalny odbiór.
+- `TASK-0133 — Safe cleanup controls for v0.2 working data`
+  — usuwanie wyłącznie jawnie wskazanych danych roboczych i artefaktów.
+- `TASK-0134 — Admin 0.2 end-to-end usability and regression acceptance`
+  — desktop 1366 × 768, klawiatura, loading/error/empty i pełny mały workflow.
 
 ### Bramka V0.2
 
 - Admin realizuje prowadzony workflow bez duplikowania kontekstu gry,
-- rzeczywisty dataset może zostać opublikowany albo jawnie pozostaje wyłączony
-  przez niespełnioną bramkę jakości,
-- backup został rzeczywiście odtworzony,
-- podpis, APK, snapshot i rollback są audytowalne,
-- wymagane urządzenia `0.2` przechodzą pełną regresję offline,
-- wszystkie krytyczne błędy są zamknięte, a ograniczenia zaakceptowane.
+- workflow działa od pustej bazy do testowego artefaktu,
+- mały dataset pokrywa podstawowe warianty domenowe, ale nie udaje pełnej skali,
+- użytkownik nie musi odwiedzać globalnego ekranu Jobs,
+- cleanup nie narusza aktywnego artefaktu ani audytu,
+- właściciel wykonał testy `0.2`, a zaakceptowane poprawki są zamknięte albo
+  jawnie odłożone.
+
+## Świadomie poza 0.2
+
+- pełny dataset obejmujący wszystkie dostępne layouty,
+- automatyczna publikacja około 500 000 rzeczywistych layoutów,
+- dodawanie i testowanie kolejnych gier,
+- wielogrowe wydanie mobilne,
+- pełne benchmarki skali, rozszerzona macierz urządzeń i finalny hardening,
+- TASK-0076 oraz TASK-0080–0089.
+
+Powyższy zakres należy do [wersji 0.3](VERSION_0_3_EXECUTION_PLAN.md).
 
 ## Poza zakresem bez nowej decyzji
 
 - Google Play i publiczna dystrybucja,
 - publiczny Admin API lub PostgreSQL,
 - synchronizacja mobile z backendem,
-- usunięcie wersjonowania domenowego tylko dlatego, że jest ukryte w UI,
 - automatyczne kasowanie decyzji człowieka, audytu lub aktywnego release.

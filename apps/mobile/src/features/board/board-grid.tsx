@@ -1,8 +1,9 @@
 import type { SymbolDefinition } from '@game-predictor/shared-ts';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import type { BoardCell } from './board-reducer';
 import { boardColors } from './board-theme';
+import { resolveSymbolAsset } from './symbol-assets';
 
 type Props = {
   cells: readonly BoardCell[];
@@ -29,6 +30,7 @@ export function BoardGrid({ cells, columns, rows, symbols }: Props) {
             const mobileCode = cells[cellIndex] ?? null;
             const symbol =
               mobileCode === null ? undefined : symbolByCode.get(mobileCode);
+            const imageSource = resolveSymbolAsset(symbol?.imageAssetKey);
             const label =
               mobileCode === null
                 ? `Puste pole, wiersz ${rowIndex + 1}, kolumna ${columnIndex + 1}`
@@ -44,6 +46,13 @@ export function BoardGrid({ cells, columns, rows, symbols }: Props) {
                 ]}
                 testID={`board-cell-${cellIndex}`}
               >
+                {imageSource === null ? null : (
+                  <Image
+                    accessibilityIgnoresInvertColors
+                    source={imageSource}
+                    style={styles.symbolImage}
+                  />
+                )}
                 <Text
                   style={[
                     styles.cellText,
@@ -111,5 +120,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 8,
+  },
+  symbolImage: {
+    borderRadius: 6,
+    height: 34,
+    marginBottom: 2,
+    width: 34,
   },
 });

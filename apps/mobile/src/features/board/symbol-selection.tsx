@@ -1,7 +1,15 @@
 import type { SymbolDefinition } from '@game-predictor/shared-ts';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { boardColors } from './board-theme';
+import { resolveSymbolAsset } from './symbol-assets';
 
 type Props = {
   disabled: boolean;
@@ -26,31 +34,41 @@ export function SymbolSelection({ disabled, onSelectSymbol, symbols }: Props) {
         horizontal
         showsHorizontalScrollIndicator={false}
       >
-        {symbols.map((symbol) => (
-          <Pressable
-            accessibilityLabel={`${symbol.name}${symbol.isWildcard ? ', joker' : ''}`}
-            accessibilityRole="button"
-            accessibilityState={{ disabled }}
-            disabled={disabled}
-            key={symbol.mobileCode}
-            onPress={() => onSelectSymbol(symbol.mobileCode)}
-            style={({ pressed }) => [
-              styles.symbol,
-              symbol.isWildcard && styles.jokerSymbol,
-              disabled && styles.symbolDisabled,
-              pressed && !disabled && styles.symbolPressed,
-            ]}
-            testID={`symbol-${symbol.mobileCode}`}
-          >
-            <Text style={styles.symbolCode}>{symbol.code}</Text>
-            <Text numberOfLines={1} style={styles.symbolName}>
-              {symbol.name}
-            </Text>
-            {symbol.isWildcard ? (
-              <Text style={styles.jokerText}>JOKER</Text>
-            ) : null}
-          </Pressable>
-        ))}
+        {symbols.map((symbol) => {
+          const imageSource = resolveSymbolAsset(symbol.imageAssetKey);
+          return (
+            <Pressable
+              accessibilityLabel={`${symbol.name}${symbol.isWildcard ? ', joker' : ''}`}
+              accessibilityRole="button"
+              accessibilityState={{ disabled }}
+              disabled={disabled}
+              key={symbol.mobileCode}
+              onPress={() => onSelectSymbol(symbol.mobileCode)}
+              style={({ pressed }) => [
+                styles.symbol,
+                symbol.isWildcard && styles.jokerSymbol,
+                disabled && styles.symbolDisabled,
+                pressed && !disabled && styles.symbolPressed,
+              ]}
+              testID={`symbol-${symbol.mobileCode}`}
+            >
+              {imageSource === null ? null : (
+                <Image
+                  accessibilityIgnoresInvertColors
+                  source={imageSource}
+                  style={styles.symbolImage}
+                />
+              )}
+              <Text style={styles.symbolCode}>{symbol.code}</Text>
+              <Text numberOfLines={1} style={styles.symbolName}>
+                {symbol.name}
+              </Text>
+              {symbol.isWildcard ? (
+                <Text style={styles.jokerText}>JOKER</Text>
+              ) : null}
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -99,7 +117,7 @@ const styles = StyleSheet.create({
   },
   symbolCode: {
     color: boardColors.text,
-    fontSize: 18,
+    fontSize: 12,
     fontWeight: '900',
   },
   symbolDisabled: {
@@ -110,6 +128,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
     maxWidth: 70,
+  },
+  symbolImage: {
+    borderRadius: 8,
+    height: 44,
+    marginBottom: 5,
+    width: 44,
   },
   symbolPressed: {
     backgroundColor: boardColors.accentPressed,

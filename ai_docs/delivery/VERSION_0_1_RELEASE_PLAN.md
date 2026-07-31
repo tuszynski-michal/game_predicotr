@@ -12,7 +12,7 @@ Zamknąć pierwszą kompletną wersję demonstracyjną jako instalowalne APK dla
 Google Pixel 10 Pro XL. Wydanie ma pokazać rzeczywisty interfejs symboli,
 matching, obsługę duplikatów oraz pełny Target na 500 000 layoutów, bez
 oczekiwania na docelowy automatyczny import wszystkich zdjęć i pełny hardening
-operacyjny `0.2`.
+operacyjny `0.3`.
 
 ## Zamrożony zakres
 
@@ -39,10 +39,11 @@ operacyjny `0.2`.
 
 ### TASK-0118 — Representative 500k offline release candidate
 
-Następne zadanie. Obejmuje wybór grafik symboli, utworzenie testowych reguł,
-paylines i payoutów, wygenerowanie/dopełnienie 500 000 layoutów, precomputing,
-snapshot, APK i statyczny raport weryfikacji. Nie instaluje APK, dopóki telefon
-pozostaje odłączony.
+Ukończone 2026-07-31. Powstał deterministyczny snapshot `0.1.5` z 169
+zatwierdzonymi planszami, 8 nazwanymi grafikami symboli, 10 paylines,
+precomputed payout i dokładnie 500 000 layoutów. Statycznie zweryfikowane APK
+`0.1.5 (6)` nie deklaruje `INTERNET` i pozostaje lokalnie w
+`artifacts/v01-representative-release/`. Telefon nie był wymagany.
 
 ### TASK-0119 — Pixel 10 Pro XL release acceptance
 
@@ -67,11 +68,17 @@ bramkę wydania `0.1`.
 
 - przebudowa informacji i nawigacji panelu Admin,
 - docelowy folderowy import zdjęć i automatyczne budowanie katalogu symboli,
+- mały workflow testowy uruchamiany od czystego PostgreSQL,
+- kontekstowe joby i bezpieczne czyszczenie danych roboczych.
+
+## Świadomie odłożone do 0.3
+
 - automatyczna publikacja 500 000 rzeczywistych layoutów ze zdjęć,
+- nowe gry i wielogrowe wydanie mobilne,
 - stabilny produkcyjny klucz podpisujący i pełna odtwarzalność release,
 - backup/restore, recovery uszkodzonego snapshotu i formalny rollback,
 - rozszerzona macierz urządzeń oraz finalna dostępność,
-- retencja/usuwanie wydań, jobów i artefaktów.
+- pełna retencja, dystrybucja i disaster recovery.
 
 Zdalny Reviewer, ochrona lokalnego Admina i test Pixela wykonane przed tym
 planem pozostają częścią `0.1`; nie są cofane przez zmianę zakresu.

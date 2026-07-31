@@ -4,6 +4,7 @@ export interface SymbolDefinition {
   readonly name: string;
   readonly isWildcard: boolean;
   readonly displayOrder: number;
+  readonly imageAssetKey?: string;
 }
 
 export interface GameConfig {

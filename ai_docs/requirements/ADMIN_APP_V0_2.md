@@ -18,6 +18,16 @@ retencji, własności plików i wyboru folderu znajdują się w
 `project/OPEN_QUESTIONS.md` i nie
 blokują wydania `0.1`.
 
+## Stan początkowy i skala testów
+
+- prace funkcjonalne `0.2` rozpoczynają się od pustego, zmigrowanego
+  PostgreSQL przygotowanego w TASK-0120,
+- reset nie obejmuje chronionej paczki wydania `0.1`, klucza podpisującego ani
+  źródłowych zdjęć poza bazą,
+- workflow `0.2` jest testowany na jednej grze i małym kontrolowanym zbiorze,
+- pełne 500 000 rzeczywistych layoutów, dodatkowe gry i wielogrowe wydanie
+  należą do `0.3`.
+
 ## Główna nawigacja
 
 Na górze znajdują się dwa kafelki trybu:
@@ -70,7 +80,7 @@ krok zamiast pustego formularza.
 - ponowne napotkanie już istniejącej sekwencji nie tworzy drugiej pozycji,
 - gdy wiele obrazów przedstawia tę samą sekwencję, pipeline wybiera najlepsze
   źródło według jawnych metryk jakości i zachowuje pochodzenie decyzji,
-- w `0.2` oczekiwana liczba jest domyślnie równa 500 000,
+- w `0.2` oczekiwana liczba jest jawnie ustawiana dla małego datasetu testowego,
 - status `Brakujące layouty: X` otwiera modal z bounded/stronicowaną listą
   brakujących zakresów i numerów,
 - `Doładuj layouty` wznawia ten sam logiczny zbiór i dodaje wyłącznie brakujące
@@ -124,7 +134,8 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 
 ## Wersje Android
 
-- administrator wybiera aktywne gry wchodzące do jednego wydania,
+- administrator przygotowuje wydanie dla jednej aktywnej gry testowej; wybór
+  wielu gier jest świadomie odłożony do `0.3`,
 - utworzenie wydania uruchamia potrzebne walidacje, precomputing, snapshot i
   build jako jeden obserwowalny workflow,
 - techniczne joby są prezentowane kontekstowo przy wydaniu lub imporcie, a nie

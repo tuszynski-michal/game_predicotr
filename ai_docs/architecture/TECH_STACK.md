@@ -1,7 +1,7 @@
 ---
 title: Accepted technology stack
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Stos technologiczny
@@ -341,9 +341,19 @@ Bootstrap M1 potwierdził lokalny workflow Windows:
 
 - Microsoft OpenJDK 17,
 - Android SDK Platform i Build Tools 36,
-- czysty `expo prebuild`,
+- przyrostowy `expo prebuild --no-clean`; pełne czyszczenie wyłącznie na jawne
+  żądanie operatorskie,
 - przypięty Gradle wrapper,
 - domyślny prywatny build urządzeniowy `arm64-v8a`.
+
+Kanoniczny skrypt builda ma własne limity: 5 minut dla Expo prebuild i 30 minut
+dla Gradle. Po przekroczeniu limitu kończy całe drzewo procesu, aby kolejna próba
+nie konkurowała z osieroconym Gradle, Kotlin albo Ninja. Gradle działa bez
+równoległości, z jednym workerem i kompilatorem Kotlin w tym samym procesie;
+natywny CMake ma domyślnie najwyżej dwa równoległe zadania. Ustawienia Gradle są
+również generowane przez plugin Expo `with-bounded-android-build`, więc pozostają
+aktywne po odtworzeniu katalogu `android`. Skrypt wywołuje wyłącznie
+`:app:assembleRelease`, bez zbędnego składania publikowalnych AAR-ów bibliotek.
 
 Komendy root:
 
@@ -440,11 +450,14 @@ znajdują się w `.tooling/node`, a JDK oraz Android SDK w istniejących katalog
 `GAME_PREDICTOR_NODE_HOME` i krótkiego cache Gradle wykonuje:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\configure_windows_user_environment.ps1 -ConfigurePowerShellExecutionPolicy
+npm run windows:environment:setup
 ```
 
 Skrypt jest idempotentny, deduplikuje wpisy `PATH`, waliduje zakresy wersji
 z `package.json` i nie zmienia zmiennych na poziomie całego komputera.
+`npm run windows:environment:check` odczytuje zapisany profil użytkownika, a nie
+tylko zmienne odziedziczone przez bieżący terminal. Zmiana polityki wykonywania
+PowerShell pozostaje oddzielną, opcjonalną decyzją operatorską.
 Instrukcje operacyjne znajdują się w
 `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`.
 

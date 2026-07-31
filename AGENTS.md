@@ -32,6 +32,21 @@ zadanie odwołuje się do nich jawnie.
 - Nie wykonuj destrukcyjnych operacji na danych bez wyraźnej zgody użytkownika.
 - Nie dodawaj kolejki Redis/Celery, mikroserwisów ani chmury, dopóki pomiary nie pokażą takiej potrzeby.
 
+## Trwałość rozwiązań
+
+- Rozwiązując problem, usuwaj jego przyczynę w sposób globalny i trwały dla
+  repozytorium albo środowiska użytkownika. Naprawa ma działać również w nowym
+  procesie, nowym terminalu i po ponownym uruchomieniu komputera.
+- Zmiana wyłącznie bieżącego `PATH`, ręczne zakończenie procesu, jednorazowa
+  komenda lub modyfikacja stanu tylko w pamięci jest obejściem sesyjnym, a nie
+  ukończoną naprawą.
+- Jeżeli obejście sesyjne jest konieczne do odblokowania pracy, oznacz je jawnie,
+  a następnie dodaj trwałą konfigurację, kod, migrację, test lub instrukcję
+  operatorską eliminującą przyczynę.
+- Weryfikuj trwałość z nowego procesu albo przez odczyt konfiguracji zapisanej
+  dla użytkownika/systemu. Jeżeli nie można potwierdzić zachowania po restarcie,
+  nie raportuj problemu jako definitywnie naprawionego i zapisz pozostałe ryzyko.
+
 ## Cykl wykonania zadania
 
 ### Przed kodowaniem

@@ -1,7 +1,7 @@
 ---
 title: Definition of Done
 status: active
-last_updated: 2026-07-23
+last_updated: 2026-07-31
 ---
 
 # Definition of Done
@@ -21,7 +21,10 @@ Zadanie jest ukończone, gdy wszystkie właściwe punkty są spełnione.
 - nie ma zbędnego duplikowania,
 - nie ma martwego kodu ani tymczasowych obejść bez oznaczenia,
 - logika domenowa nie zależy od UI lub frameworka HTTP,
-- konfiguracja środowiskowa nie jest hardkodowana.
+- konfiguracja środowiskowa nie jest hardkodowana,
+- naprawa problemu usuwa jego przyczynę trwale w repozytorium albo profilu
+  użytkownika i została sprawdzona w nowym procesie; zmiana tylko bieżącej sesji
+  nie spełnia Definition of Done.
 
 ## Dane
 

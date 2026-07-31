@@ -1,0 +1,47 @@
+{
+  "artifact": {
+    "adminDownloadPassed": true,
+    "apkPath": "artifacts/android-releases/m3.4.3/app-release-7a2e1dff24339380d601f19d7888c3dfb06d530e41e128eaeda6e3beca53e9f0.apk",
+    "apkSha256": "7a2e1dff24339380d601f19d7888c3dfb06d530e41e128eaeda6e3beca53e9f0",
+    "offlineAuditPassed": true,
+    "ready": true,
+    "releaseVersion": "m3.4.3",
+    "snapshotMatchesRelease": true,
+    "snapshotSha256": "a22c7746b8367b433198e5ba87ffd539e4a2b991139f055c365cd7092dc2465a"
+  },
+  "capturedAt": "2026-07-31T10:45:00+02:00",
+  "deviceUpdate": {
+    "deviceModel": "Google Pixel 10 Pro XL",
+    "inPlacePassed": true,
+    "manualOwnerAcceptanceAt": "2026-07-31",
+    "newSnapshotActivated": true,
+    "newSnapshotSha256": "4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a",
+    "newSnapshotVersion": "m1-fixture.2",
+    "newVersionCode": 5,
+    "newVersionName": "0.1.4",
+    "previousVersionCode": 4,
+    "previousVersionName": "0.0.0-release.m35-benchmark.1",
+    "reportPath": ".tooling/device-acceptance/update-Pixel_10_Pro_XL.json",
+    "runtimeScenariosPassed": true
+  },
+  "evidence": {
+    "currentApkSha256": "4fdec4407e54934024f84ea7a6f664cd2648359e8426a4914e185875931b5925",
+    "currentApkSnapshotSha256": "4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a",
+    "deviceUpdateWithoutUninstall": true,
+    "failureWorkflowTests": "14 passed",
+    "postgresReleaseIntegrationTests": "1 passed"
+  },
+  "sizes": {
+    "apkBytes": 42158738,
+    "estimatedFifteenGamesReleaseBytes": 657541778,
+    "postgresqlBytes": 17192639,
+    "sqliteBytes": 41025536
+  },
+  "status": "passed",
+  "workflow": {
+    "failureMatrixPassed": true,
+    "historicalArtifactsImmutable": true,
+    "panelToReadyApkPassed": true,
+    "sameInputsReproducible": true
+  }
+}

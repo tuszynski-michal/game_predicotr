@@ -1,14 +1,15 @@
 ---
 title: Release failure and immutability integration tests
-status: blocked
-last_updated: 2026-07-27
+status: done
+last_updated: 2026-07-31
+closed_at: 2026-07-31
 ---
 
 # TASK-0039 — Release failure and immutability integration tests
 
 ## Status
 
-`blocked`
+`done`
 
 ## Goal
 
@@ -77,14 +78,15 @@ snapshotu po aktualizacji urządzenia.
 - [x] Drugi release nie zmienia ścieżek, checksum ani bajtów pierwszego.
 - [x] Pełny przebieg na PostgreSQL zapisuje dokładne źródła i oba artefakty.
 - [x] Rzeczywisty APK przechodzi audyt offline i zawiera dokładny nowy snapshot.
-- [ ] `adb install -r` aktualizuje istniejący pakiet bez czyszczenia danych.
-- [ ] Ekran po aktualizacji pokazuje nową `releaseVersion` oraz checksumę.
+- [x] `adb install -r` aktualizuje istniejący pakiet bez czyszczenia danych.
+- [x] Po aktualizacji aplikacja pokazuje nową `releaseVersion`, waliduje
+      checksumę snapshotu i uruchamia scenariusze na nowej bazie.
 - [x] Pełna jakość i fizyczne testy PostgreSQL przechodzą.
 
 ## Assumptions
 
-- Do fizycznego odbioru będzie podłączony dokładnie jeden autoryzowany Pixel 10
-  Pro XL albo Galaxy S21 Ultra; brak urządzenia nie blokuje automatycznej części.
+- Do fizycznego odbioru wersji `0.1` jest wymagany dokładnie jeden
+  autoryzowany Pixel 10 Pro XL zgodnie z D-096.
 - Kolejny kandydat ma wyższy `versionCode` od zainstalowanego `3` i ten sam
   prywatny signing key.
 - Raport urządzenia zapisuje poprzednią oraz nową wersję pakietu, aby dowieść
@@ -146,10 +148,37 @@ Usunięto trzy przyczyny awarii fizycznego builda:
   release build usuwa wyłącznie zweryfikowane, wygenerowane katalogi `.cxx`
   spod `node_modules`, aby nie dziedziczyć starej długiej ścieżki `.g`.
 
+Korekta z 2026-07-31 usuwa również przyczyny sesyjne i nieograniczone
+oczekiwanie:
+
+- normalny Expo prebuild używa `--no-clean`, a pełne czyszczenie wymaga jawnego
+  `-CleanNativeProject`,
+- Gradle ma jeden worker, Kotlin działa `in-process`, CMake najwyżej dwa zadania,
+  a plugin Expo odtwarza te ustawienia po wygenerowaniu katalogu `android`,
+- prebuild i Gradle mają timeouty `5/30` minut kończące całe drzewo procesu,
+- build wykonuje `:app:assembleRelease`, bez zbędnego składania AAR-ów bibliotek.
+
+Test timeoutu usunął całe drzewo zimnego builda bez osieroconej Javy. Następnie
+pełny build zakończył się w `18m56s`, a przyrostowy build nowym targetem w
+`4m05s`. Oba wskazały APK `0.1.4 (5)` o SHA-256
+`4fdec4407e54934024f84ea7a6f664cd2648359e8426a4914e185875931b5925`;
+niezależny verifier potwierdził prywatny podpis, brak `INTERNET` i SQLite
+`4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`.
+
 Test regresyjny potwierdza zachowanie tożsamości plików bazowych oraz heartbeat
 podczas długiego subprocessu. Bazowy `m1-fixture.2` został po buildzie
 przywrócony z pierwotnym SHA-256
 `4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`.
 
-TASK-0039 pozostaje `blocked` wyłącznie na ręcznej aktualizacji urządzenia
-`adb install -r` i potwierdzeniu na ekranie `releaseVersion` oraz checksumy.
+Raport `.tooling/device-acceptance/update-Pixel_10_Pro_XL.json` potwierdza
+aktualizację in-place z `versionCode 4` do `5`, zachowanie `firstInstallTime`,
+tryb samolotowy i oczekiwany snapshot `m1-fixture.2` o SHA-256
+`4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a`.
+Właściciel zaliczył na tej instalacji podpowiedź duplikatu, layout `#99`,
+pełny Target i płynne przewijanie.
+
+Utworzono `ai_docs/quality/m35-release-workflow-acceptance.json`, który wiąże
+workflow panel → ready APK, niezmienność, rozmiary, audyt offline i aktualizację
+Pixela. Ponowne testy zakończyły się wynikami `14 passed` dla macierzy release,
+`1 passed` dla fizycznej integracji PostgreSQL oraz pozytywnym audytem APK
+`0.1.4 (5)`. TASK-0039 i bramka G3.4 są ukończone.

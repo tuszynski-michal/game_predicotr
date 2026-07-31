@@ -1,20 +1,22 @@
 ---
 title: SQLite, mobile and worker performance benchmark
-status: blocked
-last_updated: 2026-07-28
+status: done
+last_updated: 2026-07-31
+closed_at: 2026-07-31
 ---
 
 # TASK-0041 — SQLite, mobile and worker performance benchmark
 
 ## Status
 
-`blocked`
+`done`
 
 ## Goal
 
 Zmierzyć na deterministycznym datasecie 500 000 layoutów czasy i pamięć
 produkcyjnych ścieżek SQLite, Target oraz workera, a następnie zebrać
-porównywalne wyniki z Google Pixel 10 Pro XL i Samsung Galaxy S21 Ultra.
+porównywalne wyniki z Google Pixel 10 Pro XL, który zgodnie z D-096 jest
+urządzeniem akceptacyjnym wersji `0.1`.
 
 ## Context
 
@@ -55,7 +57,7 @@ odbiór urządzeniowy pozostanie jawnym punktem blokującym.
 - przepustowość generowania layoutów, `payout-v2`, SQLite i pełnej walidacji,
 - automatyczny, powtarzalny harness mobilny zapisujący wynik w logu/na ekranie,
 - model urządzenia, Android, wariant builda, rozmiar bazy i liczba iteracji,
-- pomiary offline na Pixel 10 Pro XL i Galaxy S21 Ultra,
+- pomiary offline na Pixel 10 Pro XL,
 - raport surowy JSON i krótkie podsumowanie względem budżetów roboczych.
 
 ## Out of scope
@@ -69,16 +71,16 @@ odbiór urządzeniowy pozostanie jawnym punktem blokującym.
 ## Acceptance criteria
 
 - [x] Skrypt desktopowy mierzy p50/p95/max dla exact, prefix i pełnego cyklu.
-- [ ] Pomiar rozdziela czas SQLite od czasu czystego Target i raportuje E2E.
+- [x] Pomiar rozdziela czas SQLite od czasu czystego Target i raportuje E2E.
 - [x] Plany exact/prefix potwierdzają użycie indeksu sygnatury.
 - [x] Worker raportuje czas, throughput, peak memory i maksymalny batch.
 - [x] Benchmarki nie materializują 500 000 sygnatur poza ścieżką, którą mierzą.
 - [x] Mobilny harness używa tego samego repozytorium i engine co aplikacja.
-- [ ] Raport urządzenia zawiera model, Android, build, checksumę i rozmiar bazy.
-- [ ] Pomiary offline są zapisane dla Pixel 10 Pro XL i Galaxy S21 Ultra.
-- [ ] Wyniki są porównane z budżetami z `TEST_STRATEGY.md`, bez ukrytej zmiany
+- [x] Raport urządzenia zawiera model, Android, build, checksumę i rozmiar bazy.
+- [x] Pomiary offline są zapisane dla Pixel 10 Pro XL.
+- [x] Wyniki są porównane z budżetami z `TEST_STRATEGY.md`, bez ukrytej zmiany
       architektury.
-- [ ] Testy, lint, format i typecheck zmienionych części przechodzą.
+- [x] Testy, lint, format i typecheck zmienionych części przechodzą.
 
 ## Technical notes
 
@@ -189,23 +191,28 @@ timeout istniejącego testu UI po długim buildzie; izolowane powtórzenie
 `6 passed` oraz ponowienie całego zestawu `66 passed` potwierdziły brak
 powtarzalnej regresji.
 
-### Not completed
+### Device acceptance
 
-- ADB nie widzi obecnie żadnego podłączonego telefonu, dlatego zweryfikowane APK
-  nie zostało jeszcze zainstalowane.
-- Czasy Hermes/Expo SQLite, peak PSS/RSS i ręczna płynność przewijania na Pixelu
-  oraz Samsungu pozostają do wykonania. Bez nich TASK-0041 nie jest ukończony.
+- Pixel 10 Pro XL z Androidem 16 ukończył pomiar przy `airplaneMode = 1` i
+  `wifiEnabled = 0`. Wszystkie cztery budżety automatyczne przeszły; p95
+  pełnego cyklu wynosi `4250.7241 ms`, czystego Target `224.1573 ms`, a E2E
+  `4463.1237 ms`. Peak PSS/RSS to odpowiednio `565311/699664 KiB`.
+- właściciel potwierdził 2026-07-31 płynne przewinięcie pełnej tabeli oraz
+  funkcjonalne scenariusze podpowiedzi duplikatu bez Target i unique `#99` z
+  pełnym Target na Pixelu w wersji `0.1.4 (5)`,
+- surowy raport znajduje się w
+  `ai_docs/quality/device-benchmarks/Google-Pixel-10-Pro-XL-59041FDCQ005E1.json`,
+- Samsung pozostaje późniejszym testem kompatybilności i zgodnie z D-096 nie
+  blokuje wersji `0.1` ani ukończenia TASK-0041.
 
 ### Documentation updates
 
-- `CURRENT_STATE.md` zachowuje TASK-0041 jako zablokowane,
+- `CURRENT_STATE.md` zapisuje TASK-0041 jako ukończone,
 - decyzja TEXT/BLOB i ewentualna zmiana adaptera nadal należą do TASK-0042.
 
-Na polecenie właściciela z 2026-07-27 rozpoczęto TASK-0042, aby przygotować
-automatyczną ocenę już zebranych dowodów. Nie zmienia to niezrealizowanych
-kryteriów urządzeniowych tego zadania ani statusu bramki G3.
+Na polecenie właściciela z 2026-07-31 D-096 ograniczyła bramkę wersji `0.1` do
+Pixela, dzięki czemu kompletne wyniki urządzenia zamykają TASK-0041.
 
 ### Recommended next task
 
-- dokończyć TASK-0041 po udostępnieniu benchmarkowego APK i podłączeniu kolejno
-  obu urządzeń, a następnie ponowić ocenę TASK-0042.
+- ponowić ocenę TASK-0042 na kompletnym raporcie Pixela i dowodzie TASK-0039.

@@ -1,9 +1,9 @@
 {
   "architectureDecision": {
-    "mobileAdapter": "pending_device_evidence",
-    "signatureRepresentation": "pending"
+    "mobileAdapter": "retain_text_signature_and_typescript_adapter",
+    "signatureRepresentation": "text-v1"
   },
-  "capturedAt": "2026-07-28T01:20:38.978693+00:00",
+  "capturedAt": "2026-07-31T09:07:31.372529+00:00",
   "checks": [
     {
       "evidence": [],
@@ -24,16 +24,12 @@
       "summary": "Worker przetwarza dane partiami do 1000 i raportuje czas, throughput oraz RSS."
     },
     {
-      "evidence": [],
+      "evidence": [
+        "ai_docs/quality/device-benchmarks/Google-Pixel-10-Pro-XL-59041FDCQ005E1.json"
+      ],
       "id": "android_pixel_10_pro_xl",
-      "status": "missing",
-      "summary": "Brak raportu offline dla pixel_10_pro_xl."
-    },
-    {
-      "evidence": [],
-      "id": "android_galaxy_s21_ultra",
-      "status": "missing",
-      "summary": "Brak raportu offline dla galaxy_s21_ultra."
+      "status": "passed",
+      "summary": "Urz\u0105dzenie przechodzi offline, pami\u0119\u0107, bud\u017cety i r\u0119czne przewijanie."
     },
     {
       "evidence": [],
@@ -44,20 +40,20 @@
     {
       "evidence": [],
       "id": "release_panel_to_ready_apk",
-      "status": "missing",
-      "summary": "Brak m35-release-workflow-acceptance.json z TASK-0039."
+      "status": "passed",
+      "summary": "Panel uruchamia pe\u0142ny workflow do zweryfikowanego i pobieralnego APK."
     },
     {
       "evidence": [],
       "id": "release_reproducibility_immutability",
-      "status": "missing",
-      "summary": "Brak fizycznego dowodu odtwarzalno\u015bci i niezmienno\u015bci wydania."
+      "status": "passed",
+      "summary": "Te same wej\u015bcia s\u0105 odtwarzalne, a historyczne artefakty niezmienne."
     },
     {
       "evidence": [],
       "id": "release_sizes_and_device_update",
-      "status": "missing",
-      "summary": "Brak rozmiar\u00f3w PostgreSQL/SQLite/APK i odbioru aktualizacji in-place."
+      "status": "passed",
+      "summary": "Rozmiary mieszcz\u0105 si\u0119 w limicie, a aktualizacja aktywuje nowy snapshot."
     }
   ],
   "inputs": {
@@ -67,13 +63,7 @@
     "repositoryReport": "ai_docs/quality/m35-repository-benchmark.json",
     "workerReport": "ai_docs/quality/m35-worker-benchmark.json"
   },
-  "missingEvidence": [
-    "android_pixel_10_pro_xl",
-    "android_galaxy_s21_ultra",
-    "release_panel_to_ready_apk",
-    "release_reproducibility_immutability",
-    "release_sizes_and_device_update"
-  ],
+  "missingEvidence": [],
   "schemaVersion": 1,
-  "status": "blocked"
+  "status": "passed"
 }

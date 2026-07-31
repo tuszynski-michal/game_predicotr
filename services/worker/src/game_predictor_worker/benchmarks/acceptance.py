@@ -615,20 +615,18 @@ def evaluate_m35_acceptance(
 ) -> M35AcceptanceResult:
     selected_devices = _select_device_reports(device_reports)
     pixel = _check_device("pixel_10_pro_xl", selected_devices)
-    samsung = _check_device("galaxy_s21_ultra", selected_devices)
     checks = (
         _check_dataset(dataset_report),
         _check_repository(repository_report),
         _check_worker(worker_report),
         pixel.check,
-        samsung.check,
         _check_architecture(architecture_evidence),
         *_check_release_evidence(release_evidence),
     )
 
-    if pixel.budget_failed or samsung.budget_failed:
+    if pixel.budget_failed:
         decision = "adapter_change_required"
-    elif pixel.check.status == "passed" and samsung.check.status == "passed":
+    elif pixel.check.status == "passed":
         decision = "retain_text_signature_and_typescript_adapter"
     else:
         decision = "pending_device_evidence"

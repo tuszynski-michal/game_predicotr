@@ -1,7 +1,7 @@
 ---
 title: Milestone 03 execution plan
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-31
 ---
 
 # Plan wykonania Milestone 03 — Versioned mobile release pipeline
@@ -144,7 +144,8 @@ G3.3 zaliczona 2026-07-27.
 - `TASK-0036 — Mobile release domain and API` — done 2026-07-27
 - `TASK-0037 — Release workflow orchestration` — done 2026-07-27
 - `TASK-0038 — Android release panel and artifact UI` — done 2026-07-27
-- `TASK-0039 — Release failure and immutability integration tests`
+- `TASK-0039 — Release failure and immutability integration tests` — done
+  2026-07-31
 
 ### Bramka G3.4
 
@@ -156,6 +157,8 @@ G3.3 zaliczona 2026-07-27.
 - API zwraca lokalne ścieżki, ale nie instaluje APK na urządzeniu,
 - ręczny sideload na urządzeniu aktualizuje istniejącą aplikację, a ekran
   potwierdza wersję celowo zmienionego snapshotu zgodnie z D-012 i D-020.
+
+G3.4 zaliczona 2026-07-31 na Google Pixel 10 Pro XL.
 
 ## M3.5 — Benchmark 500 000 layoutów
 
@@ -172,9 +175,11 @@ G3.3 zaliczona 2026-07-27.
 
 ### Zadania
 
-- `TASK-0040 — Representative 500k benchmark dataset`
-- `TASK-0041 — SQLite, mobile and worker performance benchmark`
-- `TASK-0042 — Benchmark decision and release pipeline acceptance`
+- `TASK-0040 — Representative 500k benchmark dataset` — done 2026-07-27
+- `TASK-0041 — SQLite, mobile and worker performance benchmark` — done
+  2026-07-31
+- `TASK-0042 — Benchmark decision and release pipeline acceptance` — done
+  2026-07-31
 
 ### Bramka G3
 
@@ -185,6 +190,10 @@ G3.3 zaliczona 2026-07-27.
   i powtórzono pomiar,
 - nie dodano Redis/Celery ani natywnego modułu bez dowodu pomiarowego,
 - administrator potrafi wskazać gotowy APK do ręcznego sideloadu.
+
+G3 zaliczona 2026-07-31. Zgodnie z D-096 wymaganym urządzeniem wersji `0.1`
+jest Google Pixel 10 Pro XL; decyzja zachowuje `text-v1` i obecny adapter Expo
+SQLite/TypeScript.
 
 ## Mapa zadań M3
 

@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -52,7 +52,7 @@ W tym workspace lokalny toolchain znajduje się w ignorowanym katalogu
 `.tooling`. Zapisz jego ścieżki i zmienne na stałe dla bieżącego użytkownika:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\configure_windows_user_environment.ps1 -ConfigurePowerShellExecutionPolicy
+npm run windows:environment:setup
 ```
 
 Skrypt zapisuje:
@@ -205,6 +205,15 @@ Sprawdź środowisko i zależności:
 npm run windows:environment:check
 ```
 
+Kontrola obejmuje również zmienne użytkownika Windows i wpisy `PATH` zapisane
+trwale w profilu. Dzięki temu wynik `passed` obowiązuje także dla nowego
+terminala i po ponownym uruchomieniu komputera, a nie tylko dla bieżącej sesji.
+Jeżeli kontrola zgłosi brak trwałej konfiguracji, wykonaj:
+
+```powershell
+npm run windows:environment:setup
+```
+
 Jeżeli katalog `node_modules` nie istnieje, wykonaj wcześniej `npm install`.
 
 Sprawdź wersję już zainstalowaną na podłączonym telefonie:
@@ -220,6 +229,18 @@ $versionName = '0.1.3'
 $versionCode = 4
 npm run android:build:offline -- --VersionName $versionName --VersionCode $versionCode
 ```
+
+Skrypt używa jednego workera Gradle, wyłącza równoległy build, ogranicza natywny
+CMake do dwóch zadań i uruchamia kompilator Kotlin w procesie Gradle, aby nie
+pozostawiać drugiego daemona zajmującego pamięć. Te ustawienia generuje również
+plugin Expo, więc nie znikają po odtworzeniu katalogu `android`. Expo prebuild ma
+domyślny limit 5 minut, a Gradle 30 minut.
+Build kończy target aplikacji `:app:assembleRelease`; nie publikuje osobnych
+artefaktów AAR zależności.
+Po przekroczeniu limitu całe drzewo danego builda jest kończone, więc nie wolno
+uruchamiać drugiej kopii bez sprawdzenia komunikatu pierwszej. Pełne czyszczenie
+projektu natywnego wykonuj tylko jawnie z `-CleanNativeProject`, gdy zmieniła się
+konfiguracja natywna albo zwykły prebuild zgłosi kontrolowany błąd.
 
 Build Release tworzy albo sprawdza prywatne dane podpisu w
 `.tooling\android-signing`. Wykonaj ich bezpieczną kopię poza repozytorium.

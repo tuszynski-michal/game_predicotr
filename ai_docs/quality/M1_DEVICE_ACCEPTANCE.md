@@ -1,7 +1,7 @@
 ---
 title: M1 Android device acceptance protocol
 status: active
-last_updated: 2026-07-26
+last_updated: 2026-07-31
 ---
 
 # M1 Android device acceptance
@@ -157,6 +157,20 @@ Po aktualizacji ekran musi pokazać nową wersję snapshotu. Samo podniesienie
 Wynik scenariuszy manualnych został potwierdzony przez właściciela 2026-07-25.
 Nie podano liczbowych czasów matching, Target ani przewijania; nie należy ich
 estymować.
+
+### Odbiór wersji 0.1.4 na Pixelu
+
+Właściciel potwierdził 2026-07-31 na Google Pixel 10 Pro XL dwa scenariusze
+wersji `0.1.4 (5)`:
+
+- prefiks `8, 4, 1` pokazał wspólny layout dwóch duplikatów; po akceptacji stan
+  pozostał `duplicate`, bez pozycji sekwencji i bez uruchomienia Target,
+- pełny układ `5, 8, 5, 6, 2, 2, 4, 4, 6, 3, 1, 4, 3, 10, 4` odnalazł layout
+  `#99`, uruchomił pełny Target, a przewijanie tabeli do końca było płynne.
+
+Ten odbiór domyka ręczny punkt płynności Pixela w raporcie M3.5 i wymagany
+odbiór urządzeniowy wersji `0.1`. Samsung pozostaje późniejszym testem
+kompatybilności i nie blokuje wersji `0.1`.
 
 ## Wynik końcowy
 

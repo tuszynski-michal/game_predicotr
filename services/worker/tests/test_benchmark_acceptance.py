@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import cast
 
 from game_predictor_worker.benchmarks.acceptance import (
@@ -164,17 +163,13 @@ def test_missing_physical_evidence_blocks_without_inventing_a_decision() -> None
         check.check_id for check in result.checks if check.status == "missing"
     } >= {
         "android_pixel_10_pro_xl",
-        "android_galaxy_s21_ultra",
         "release_panel_to_ready_apk",
     }
 
 
 def test_complete_evidence_retains_existing_adapter_and_passes() -> None:
     result = evaluate(
-        devices=[
-            ("pixel.json", device_report(pixel=True)),
-            ("samsung.json", device_report(pixel=False)),
-        ],
+        devices=[("pixel.json", device_report(pixel=True))],
         release=release_evidence(),
     )
 
@@ -189,10 +184,9 @@ def test_complete_evidence_retains_existing_adapter_and_passes() -> None:
 def test_device_budget_failure_requires_adapter_change() -> None:
     result = evaluate(
         devices=[
-            ("pixel.json", device_report(pixel=True)),
             (
-                "samsung.json",
-                device_report(pixel=False, e2e_p95_ms=10_000),
+                "pixel.json",
+                device_report(pixel=True, e2e_p95_ms=10_000),
             ),
         ],
         release=release_evidence(),
@@ -200,11 +194,11 @@ def test_device_budget_failure_requires_adapter_change() -> None:
 
     assert result.status == "failed"
     assert result.architecture_decision == "adapter_change_required"
-    samsung = next(
-        check for check in result.checks if check.check_id == "android_galaxy_s21_ultra"
+    pixel = next(
+        check for check in result.checks if check.check_id == "android_pixel_10_pro_xl"
     )
-    assert samsung.status == "failed"
-    assert "Target E2E" in samsung.summary
+    assert pixel.status == "failed"
+    assert "Target E2E" in pixel.summary
 
 
 def test_checksum_mismatch_is_failed_not_missing() -> None:
@@ -215,10 +209,7 @@ def test_checksum_mismatch_is_failed_not_missing() -> None:
     dataset["snapshotFileSha256"] = "f" * 64
 
     result = evaluate(
-        devices=[
-            ("pixel.json", pixel),
-            ("samsung.json", deepcopy(device_report(pixel=False))),
-        ],
+        devices=[("pixel.json", pixel)],
         release=release_evidence(),
     )
 

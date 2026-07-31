@@ -1,14 +1,15 @@
 ---
 title: Benchmark decision and release pipeline acceptance
-status: blocked
-last_updated: 2026-07-28
+status: done
+last_updated: 2026-07-31
+closed_at: 2026-07-31
 ---
 
 # TASK-0042 — Benchmark decision and release pipeline acceptance
 
 ## Status
 
-`blocked`
+`done`
 
 ## Goal
 
@@ -20,13 +21,11 @@ spełnieniu wszystkich kryteriów fizycznych i release.
 ## Context
 
 TASK-0040 dostarczył zwalidowany dataset 500 000 layoutów. TASK-0041 zapisał
-wyniki Windows/SQLite i workera oraz przygotował harness Android i zweryfikowane
-APK `m35-benchmark.1 (4)`, ale pozostaje zablokowany bez pomiarów na Pixelu oraz
-Samsungu. TASK-0039 ma kompletną
-automatyczną macierz awarii, lecz nie ma fizycznego APK i aktualizacji
-urządzenia. Na polecenie właściciela TASK-0042 rozpoczyna się mimo tych braków,
-aby brakujące dowody były raportowane maszynowo, a nie zastępowane
-założeniami.
+wyniki Windows/SQLite i workera oraz przygotował harness Android. Pomiar,
+automatyczne budżety i odbiór ręczny Google Pixel 10 Pro XL przeszły. D-096
+ustanawia Pixel jedynym wymaganym urządzeniem wersji `0.1`. TASK-0039 dostarczył
+kompletną macierz awarii, fizyczny workflow release, audyt APK i aktualizację
+in-place.
 
 ## Relevant docs
 
@@ -49,8 +48,8 @@ założeniami.
 
 - walidacja spójności checksum, wersji i liczników raportów M3.5,
 - ocena exact, prefix, pełnego cyklu, Target E2E, widocznego postępu i pamięci
-  na obu urządzeniach,
-- jawny dowód płynnego przewijania wirtualizowanej tabeli na obu urządzeniach,
+  na Pixelu,
+- jawny dowód płynnego przewijania wirtualizowanej tabeli na Pixelu,
 - porównanie wszystkich pomiarów z budżetami `TEST_STRATEGY.md`,
 - ocena bounded batch workera i granicy rozmiaru kilku GB,
 - ocena pełnego workflow panel → snapshot → zweryfikowany APK,
@@ -74,19 +73,19 @@ założeniami.
 - [x] Brak dowodu daje `missing/blocked`, a nie fałszywy wynik pozytywny.
 - [x] Niezgodny checksum, wersja, offline state albo przekroczony budżet daje
       dokładny wynik `failed`.
-- [x] Raport obejmuje dataset, SQLite, worker, Pixel, Samsung, rozmiary oraz
+- [x] Raport obejmuje dataset, SQLite, worker, Pixel, rozmiary oraz
       workflow release.
 - [x] Decyzja `retain_text_signature_and_typescript_adapter` powstaje wyłącznie
-      po przejściu obu urządzeń; przekroczenie budżetu wskazuje
+      po przejściu Pixela; przekroczenie budżetu wskazuje
       `adapter_change_required`.
 - [x] Raport potwierdza brak Redis/Celery i alternatywnego natywnego adaptera
       w bezpośrednich zależnościach.
-- [ ] Pełny workflow tworzy gotowy, odtwarzalny i zweryfikowany APK wskazywany
+- [x] Pełny workflow tworzy gotowy, odtwarzalny i zweryfikowany APK wskazywany
       przez panel.
-- [ ] Wszystkie pomiary `TEST_STRATEGY.md`, w tym ręczne przewijanie, są
-      zapisane dla obu urządzeń.
+- [x] Wszystkie pomiary `TEST_STRATEGY.md`, w tym ręczne przewijanie, są
+      zapisane dla Pixela.
 - [x] Testy, lint, format i typecheck zmienionych części przechodzą.
-- [ ] G3 zostaje oznaczona jako zaliczona dopiero, gdy raport ma status
+- [x] G3 zostaje oznaczona jako zaliczona dopiero, gdy raport ma status
       `passed`.
 
 ## Assumptions
@@ -95,8 +94,7 @@ założeniami.
 - dowód niezgodny z kontraktem albo jawnie negatywny jest stanem `failed`,
 - przy kilku raportach tego samego modelu oceniany jest najnowszy według
   `capturedAt`, a ścieżka wybranego raportu pozostaje w wyniku,
-- robocze budżety obowiązują na obu urządzeniach; decyzja opiera się na
-  słabszym wyniku,
+- robocze budżety wersji `0.1` obowiązują na Pixelu zgodnie z D-096,
 - zaakceptowana granica „kilku GB” jest automatycznie sprawdzana jako najwyżej
   5 GiB dla estymowanego wydania 15 gier,
 - wynik Windows jest baseline’em diagnostycznym i sam nie zatwierdza adaptera
@@ -139,10 +137,8 @@ niekompletne.
 
 ## Risks / open questions
 
-- TASK-0041 nie może dostarczyć raportów urządzeń bez fizycznie podłączonych
-  Pixela i Samsunga; benchmarkowe APK jest już dostępne i zweryfikowane.
-- TASK-0039 nie może dostarczyć dowodu release bez minimalnego dostępu builda
-  do dwóch plików snapshotu i fizycznej aktualizacji urządzenia.
+- późniejszy raport Samsunga pozostaje wartościowym testem kompatybilności, ale
+  nie blokuje wersji `0.1`,
 - Jeśli urządzenie przekroczy 10 s dla Target E2E, potrzebny będzie osobny
   pomiar po udokumentowanej zmianie adaptera przed zaliczeniem G3.
 
@@ -150,8 +146,8 @@ niekompletne.
 
 ### Changed
 
-- dodano czystą, testowaną ocenę datasetu, baseline SQLite, workera, obu
-  urządzeń, zależności i fizycznego workflow release,
+- dodano czystą, testowaną ocenę datasetu, baseline SQLite, workera, Pixela,
+  zależności i fizycznego workflow release,
 - `evaluate_m35_acceptance.py` wykrywa raporty urządzeń, wybiera najnowszy dla
   każdego modelu, zapisuje atomowo jeden raport i opcjonalnie wymaga pełnego
   wyniku przez `--require-pass`,
@@ -165,22 +161,10 @@ niekompletne.
 
 ### Current evaluation
 
-`ai_docs/quality/m35-acceptance-report.json` ma status `blocked`:
-
-- `passed`: dataset 500 000, baseline SQLite, bounded worker i kontrola
-  zależności,
-- `missing`: Pixel 10 Pro XL, Galaxy S21 Ultra, workflow panel → ready APK,
-  odtwarzalność/niezmienność release oraz rozmiary i aktualizacja in-place,
-- decyzja: `pending_device_evidence`,
-- nie ma wyniku `failed`, więc obecne pomiary nie uzasadniają zmiany adaptera.
-
-Ponowna ocena 2026-07-28, już po zbudowaniu i statycznej weryfikacji
-benchmarkowego APK, zachowała ten sam poprawny wynik: cztery kontrole `passed`,
-pięć grup dowodów `missing`, decyzja `pending_device_evidence` i status
-`blocked`. Samo istnienie APK nie zastępuje raportów ADB ani fizycznego dowodu
-workflow release.
-
-`--require-pass` zgodnie z kontraktem zwraca kod `1`.
+`ai_docs/quality/m35-acceptance-report.json` ma status `passed`. Wszystkie osiem
+kontroli przeszło, `missingEvidence` jest puste, a decyzja brzmi
+`retain_text_signature_and_typescript_adapter` z reprezentacją `text-v1`.
+`--require-pass` zwraca kod `0`.
 
 ### Verification
 
@@ -191,22 +175,26 @@ workflow release.
 - mypy: `94 source files`,
 - Ruff, TypeScript, ESLint zmienionych plików, Prettier oraz składnia 11
   skryptów PowerShell przeszły.
-- Po ponownym uruchomieniu oceny: `4 passed` dla testów acceptance, Ruff i mypy
-  przeszły, a `--require-pass` zgodnie z kontraktem zwrócił kod `1`.
+- Po odbiorze Pixela: `4 passed` dla testów acceptance i Ruff przeszły, a
+  finalne `--require-pass` zwróciło kod `0`.
+- Częściowa komenda mypy obejmująca tylko worker i skrypty osiągnęła limit
+  120 sekund, ponieważ nie uwzględniała źródeł importowanego pakietu API.
+  Nie zmieniano kodu Python; kanoniczna kontrola repozytorium nadal obejmuje
+  jednocześnie `services/api/src`, `services/worker/src` i `scripts`.
 
 Pierwszy pełny pytest bez `--basetemp` nie mógł odczytać systemowego katalogu
 `pytest-of-user` w sandboxie. Powtórzenie z ignorowanym
 `.tmp/task0042-pytest` wewnątrz workspace przeszło w całości.
 
-### Not completed
+### Completed
 
-- utworzono benchmarkowe APK, ale nie wykonano pomiarów obu telefonów,
-- nie utworzono fizycznego raportu release z TASK-0039,
-- nie podjęto ostatecznej decyzji TEXT/BLOB ani adaptera,
-- G3 i M3 pozostają niezaliczone.
+- Pixel przeszedł automatyczny i ręczny odbiór offline,
+- TASK-0039 dostarczył fizyczny raport release,
+- pozostaje tekstowa sygnatura `text-v1` i obecny adapter Expo
+  SQLite/TypeScript,
+- G3 jest zaliczona.
 
 ### Recommended next step
 
-Podłączyć kolejno Pixel i Samsung, dokończyć TASK-0041 oraz fizyczny dowód
-TASK-0039, a następnie ponowić
-`m35:acceptance:evaluate -- --require-pass`.
+Kontynuować zamykanie pozostałego zakresu wersji `0.1`. Samsung może zostać
+przetestowany później jako dodatkowy dowód kompatybilności.

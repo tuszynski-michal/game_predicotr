@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Strategia testów
@@ -324,10 +324,8 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
 
 ### Device smoke
 
-M1 wymaga testu na:
-
-- Google Pixel 10 Pro XL,
-- Samsung Galaxy S21 Ultra.
+Wersja `0.1` wymaga testu na Google Pixel 10 Pro XL. Samsung Galaxy S21 Ultra
+pozostaje urządzeniem późniejszego testu kompatybilności i nie blokuje `0.1`.
 
 Scenariusz działa w trybie samolotowym i po ponownym uruchomieniu aplikacji. E2E automatyzujemy dopiero po ustabilizowaniu UI; manualny protokół urządzenia jest obowiązkowy wcześniej.
 

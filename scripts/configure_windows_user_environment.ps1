@@ -60,6 +60,45 @@ if (Test-Path -LiteralPath (Join-Path $dockerBin 'docker.exe') -PathType Leaf) {
     $pathEntries += $dockerBin
 }
 
+$variables = [ordered]@{
+    GAME_PREDICTOR_NODE_HOME = $nodeRoot
+    JAVA_HOME = $jdkHome
+    ANDROID_HOME = $androidSdkRoot
+    ANDROID_SDK_ROOT = $androidSdkRoot
+    GAME_PREDICTOR_GRADLE_USER_HOME = $gradleUserHome
+}
+
+if ($CheckOnly) {
+    foreach ($entry in $variables.GetEnumerator()) {
+        $persistedValue = [Environment]::GetEnvironmentVariable(
+            $entry.Key,
+            'User'
+        )
+        if ($persistedValue -ine $entry.Value) {
+            throw (
+                "User environment variable $($entry.Key) is not persisted. " +
+                "Run npm run windows:environment:setup."
+            )
+        }
+    }
+
+    $persistedUserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $persistedPathEntries = @($persistedUserPath -split ';') |
+        Where-Object { $_ } |
+        ForEach-Object { $_.Trim().TrimEnd('\') }
+    foreach ($requiredPathEntry in $pathEntries) {
+        $normalizedRequiredEntry = $requiredPathEntry.TrimEnd('\')
+        if (-not ($persistedPathEntries | Where-Object {
+                    $_ -ieq $normalizedRequiredEntry
+                })) {
+            throw (
+                "User PATH does not persist '$requiredPathEntry'. " +
+                "Run npm run windows:environment:setup."
+            )
+        }
+    }
+}
+
 if (-not $CheckOnly) {
     if ($ConfigurePowerShellExecutionPolicy) {
         if ((Get-ExecutionPolicy -Scope CurrentUser) -ne 'RemoteSigned') {
@@ -79,13 +118,6 @@ if (-not $CheckOnly) {
         }
     }
 
-    $variables = [ordered]@{
-        GAME_PREDICTOR_NODE_HOME = $nodeRoot
-        JAVA_HOME = $jdkHome
-        ANDROID_HOME = $androidSdkRoot
-        ANDROID_SDK_ROOT = $androidSdkRoot
-        GAME_PREDICTOR_GRADLE_USER_HOME = $gradleUserHome
-    }
     foreach ($entry in $variables.GetEnumerator()) {
         [Environment]::SetEnvironmentVariable($entry.Key, $entry.Value, 'User')
         Set-Item -Path "Env:$($entry.Key)" -Value $entry.Value

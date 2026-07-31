@@ -12,11 +12,86 @@ param(
     [ValidateRange(1, 2100000000)]
     [int]$VersionCode = 1,
 
-    [switch]$CleanNativeProject
+    [switch]$CleanNativeProject,
+
+    [ValidateRange(60, 1800)]
+    [int]$PrebuildTimeoutSeconds = 300,
+
+    [ValidateRange(120, 3600)]
+    [int]$GradleTimeoutSeconds = 1800,
+
+    [ValidateRange(1, 8)]
+    [int]$NativeBuildParallelism = 2
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+function Invoke-BoundedProcess {
+    param(
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [string[]]$ArgumentList = @(),
+
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory,
+
+        [Parameter(Mandatory)]
+        [ValidateRange(1, 3600)]
+        [int]$TimeoutSeconds,
+
+        [Parameter(Mandatory)]
+        [string]$Description
+    )
+
+    $quotedArguments = foreach ($argument in $ArgumentList) {
+        if ($argument.Contains('"')) {
+            throw "$Description contains an unsupported double quote in an argument."
+        }
+        if ($argument -match '\s') {
+            '"' + $argument + '"'
+        }
+        else {
+            $argument
+        }
+    }
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $env:ComSpec
+    $startInfo.Arguments = (
+        '/d /s /c ""' +
+        $FilePath +
+        '" ' +
+        ($quotedArguments -join ' ') +
+        '"'
+    )
+    $startInfo.WorkingDirectory = $WorkingDirectory
+    $startInfo.UseShellExecute = $false
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) {
+            throw "$Description could not be started."
+        }
+        $completed = $process.WaitForExit([int]($TimeoutSeconds * 1000))
+        if (-not $completed) {
+            $taskKill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
+            & $taskKill /PID $process.Id /T /F | Out-Null
+            $process.WaitForExit(5000) | Out-Null
+            throw (
+                "$Description timed out after $TimeoutSeconds seconds. " +
+                "The complete process tree was terminated."
+            )
+        }
+        $process.WaitForExit()
+        if ($process.ExitCode -ne 0) {
+            throw "$Description failed with exit code $($process.ExitCode)."
+        }
+    }
+    finally {
+        $process.Dispose()
+    }
+}
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $mobileRoot = Join-Path $repositoryRoot 'apps\mobile'
@@ -100,6 +175,7 @@ else {
 }
 $env:CI = '1'
 $env:NODE_ENV = 'development'
+$env:CMAKE_BUILD_PARALLEL_LEVEL = [string]$NativeBuildParallelism
 $env:GAME_PREDICTOR_VERSION_NAME = $VersionName
 $env:GAME_PREDICTOR_VERSION_CODE = [string]$VersionCode
 $env:PATH = $nodeDirectory + ';' + (Join-Path $javaHome 'bin') + ';' + (Join-Path $androidSdkRoot 'platform-tools') + ';' + $env:PATH
@@ -121,13 +197,15 @@ try {
     }
 
     $prebuildArguments = @('prebuild', '--platform', 'android', '--no-install')
-    if ($CleanNativeProject) {
-        $prebuildArguments += '--clean'
+    if (-not $CleanNativeProject) {
+        $prebuildArguments += '--no-clean'
     }
-    & $expoCommand @prebuildArguments
-    if ($LASTEXITCODE -ne 0) {
-        throw "Expo prebuild failed with exit code $LASTEXITCODE."
-    }
+    Invoke-BoundedProcess `
+        -FilePath $expoCommand `
+        -ArgumentList $prebuildArguments `
+        -WorkingDirectory $mobileRoot `
+        -TimeoutSeconds $PrebuildTimeoutSeconds `
+        -Description 'Expo prebuild'
 
     if ($Variant -eq 'Release' -and $CleanNativeProject) {
         $nodeModulesRoot = [System.IO.Path]::GetFullPath(
@@ -160,12 +238,13 @@ try {
 
     Push-Location (Join-Path $mobileRoot 'android')
     try {
-        $gradleTask = "assemble$Variant"
+        $gradleTask = ":app:assemble$Variant"
         $gradleArguments = @(
             '--no-daemon',
+            '--no-parallel',
             '--no-watch-fs',
             '--max-workers=1',
-            '-Dkotlin.compiler.execution.strategy=in-process'
+            '-Pkotlin.compiler.execution.strategy=in-process'
         )
         if ($CleanNativeProject) {
             $gradleArguments += 'clean'
@@ -174,10 +253,12 @@ try {
             $gradleTask,
             "-PreactNativeArchitectures=$Architectures"
         )
-        & .\gradlew.bat @gradleArguments
-        if ($LASTEXITCODE -ne 0) {
-            throw "Gradle $Variant build failed with exit code $LASTEXITCODE."
-        }
+        Invoke-BoundedProcess `
+            -FilePath (Join-Path (Get-Location) 'gradlew.bat') `
+            -ArgumentList $gradleArguments `
+            -WorkingDirectory (Get-Location) `
+            -TimeoutSeconds $GradleTimeoutSeconds `
+            -Description "Gradle $Variant build"
     }
     finally {
         Pop-Location

@@ -473,9 +473,9 @@ last_updated: 2026-07-31
   rozpoczęto przyszłych plików zadań,
 - właściciel potwierdził ręcznie poprawne działanie układów normalnych,
   duplikatów i pozostałych funkcji na zainstalowanym kandydacie M3.4,
-- zaakceptowano D-041: implementacja M4 może ruszyć warunkowo, natomiast
-  benchmarki Pixel/Samsung i formalne G3 muszą zostać domknięte po M4 i przed
-  M5,
+- zaakceptowano D-041: implementacja M4 mogła ruszyć warunkowo przed formalnym
+  G3; późniejsza D-096 ograniczyła bramkę wersji `0.1` do Pixela, a G3 zostało
+  ostatecznie zaliczone 2026-07-31,
 - ukończono `TASK-0043`: `layout-import-v1` definiuje ścisłe UTF-8 bez BOM,
   dokładny CSV oraz strumieniowy JSON Lines, dodatni domenowy numer sekwencji,
   tablicę komórek row-major i stabilne kody błędów,
@@ -1480,6 +1480,24 @@ last_updated: 2026-07-31
   Powtarzalny zapis `PATH` i zmiennych środowiskowych wykonuje
   `scripts/configure_windows_user_environment.ps1`, a pełny runbook znajduje
   się w `guides/LOCAL_OPERATION_GUIDE.md`.
+- kontrola środowiska została wzmocniona: sprawdza teraz wartości zapisane w
+  profilu użytkownika Windows, a nie tylko odziedziczone przez bieżący terminal.
+  `GAME_PREDICTOR_NODE_HOME`, `JAVA_HOME`, oba rooty Android SDK, krótki cache
+  Gradle i wpisy `PATH` zapisano w `HKCU\Environment` i potwierdzono z nowego
+  procesu PowerShell.
+- usunięto sesyjne przyczyny niestabilnego Android builda: zwykły Expo prebuild
+  zachowuje katalog natywny przez `--no-clean`, Gradle i Kotlin nie uruchamiają
+  równoległych workerów/oddzielnego daemona kompilatora, CMake ma ograniczoną
+  równoległość, a prebuild i Gradle mają jawne timeouty kończące całe drzewo
+  procesu. Te same ustawienia generuje plugin Expo po każdym odtworzeniu
+  katalogu `android`.
+- kontrola timeoutu zakończyła pełne drzewo niedokończonego zimnego builda po
+  20 minutach bez osieroconego procesu. Po ustawieniu bezpiecznego limitu
+  30 minut pełny build przeszedł w `18m56s`, a następny przyrostowy build
+  ograniczony do `:app:assembleRelease` w `4m05s` (`20` zadań wykonanych,
+  `475` up-to-date). Zweryfikowany APK `0.1.4 (5)` ma `42 158 738` bajtów,
+  SHA-256 `4fdec4407e54934024f84ea7a6f664cd2648359e8426a4914e185875931b5925`,
+  prywatny podpis, prawidłowy SQLite i brak uprawnienia `INTERNET`.
 - zaakceptowano D-094 i utworzono TASK-0116: grupa kilku pozycji mających jedną
   identyczną pełną sygnaturę może podpowiedzieć brakujące symbole w mobile, ale
   wynik pozostaje `duplicate`, bez wybranego numeru i bez Target.
@@ -1514,6 +1532,16 @@ last_updated: 2026-07-31
   kandydat nie opublikował profili i nie włączył `trainingAllowed`, a jego
   produkcyjne założenie zostało zastąpione przez D-063 i dalszą ścieżkę
   geometrii.
+- zaakceptowano D-096: Google Pixel 10 Pro XL jest jedynym wymaganym
+  urządzeniem wersji `0.1`; Samsung pozostaje późniejszym testem
+  kompatybilności.
+- ukończono TASK-0039 i G3.4: workflow panel → ready APK, macierz awarii,
+  niezmienność, fizyczny PostgreSQL, audyt offline i aktualizacja Pixela
+  `versionCode 4 → 5` mają zapisane dowody.
+- ukończono TASK-0041: benchmark 500 000 layoutów i ręczny odbiór Pixela
+  przeszły wszystkie budżety oraz scenariusze funkcjonalne.
+- ukończono TASK-0042 i G3: raport ma `8/8 passed`, brak `missingEvidence`, a
+  decyzja zachowuje `text-v1` i adapter Expo SQLite/TypeScript.
 
 ## In progress
 
@@ -1526,22 +1554,6 @@ last_updated: 2026-07-31
 
 ## Blocked
 
-- `TASK-0039 — Release failure and immutability integration tests`: automatyczna
-  macierz awarii/retry, fizyczny PostgreSQL i niezmienność są gotowe. Rzeczywisty
-  workflow utworzył gotowe wydanie `m3.4.3`; prywatnie podpisany APK arm64 nie
-  deklaruje `INTERNET` i zawiera dokładny snapshot. Aktualizacja na Samsungu i
-  ręczne scenariusze funkcjonalne przeszły; pozostaje sformalizowanie dowodu
-  wersji/checksumy i raportu release wymaganego przez TASK-0042.
-- `TASK-0041 — SQLite, mobile and worker performance benchmark`: zweryfikowane
-  APK `m35-benchmark.1 (4)` jest gotowe, ale ADB nie widzi telefonu; brakuje
-  fizycznych raportów z Pixela i Samsunga.
-- `TASK-0042 — Benchmark decision and release pipeline acceptance`: raport
-  `m35-acceptance-report.json` przechodzi dataset, SQLite, worker i kontrolę
-  zależności, ale ma status `blocked`, pięć grup brakujących dowodów oraz
-  decyzję `pending_device_evidence`. Ponowna ocena 2026-07-28 po zbudowaniu
-  benchmarkowego APK zachowała cztery kontrole `passed`, pięć `missing`, a
-  `--require-pass` poprawnie zwróciło kod `1`. Nie ma podstaw do zmiany adaptera
-  ani do zaliczenia G3.
 - `TASK-0076 — Large image dataset publication and mobile release`: nie może
   zostać rozpoczęty przy `massImportAllowed = false`; wymagane są dodatkowe
   review feedback, retraining i nowy checksum-bound raport jakości. D-086
@@ -1600,10 +1612,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Podłączyć Google Pixel 10 Pro XL przez ADB i wznowić fizyczny odbiór wersji
-`0.1`: najpierw smoke podpowiedzi duplikatów z TASK-0116, następnie brakujące
-dowody TASK-0039/TASK-0041 i ponowną ocenę TASK-0042. `adb devices -l` nie
-zwraca obecnie urządzenia, dlatego tych kroków nie można uczciwie zaliczyć.
+Przeliczyć pozostałe otwarte zadania wersji `0.1` po zaliczeniu G3 i wskazać
+najbliższą rzeczywistą blokadę produktu. Podpowiedź duplikatu, główny przepływ
+Target, płynność tabeli, benchmark Pixela, trwały workflow builda i dowód
+release są zaliczone.
 
 `massImportAllowed = true` pozostaje osobną bramką TASK-0076. TASK-0115 ma
 gotową implementację, ale jego test z urządzenia poza domową siecią jest
@@ -1642,6 +1654,7 @@ aktualizacja do zmienionego snapshotu i dokładne pomiary są jawnym zakresem
 M3.4–M3.5 zgodnie z D-020.
 
 Benchmark M1 dla 1000 layoutów znajduje się w
-`ai_docs/quality/m1-repository-benchmark.json`. Benchmark 500 000 layoutów na
-Androidzie pozostaje bramką M3 przed uznaniem rozwiązania SQLite/TypeScript za
-wystarczające dla docelowej skali.
+`ai_docs/quality/m1-repository-benchmark.json`. Automatyczny benchmark 500 000
+layoutów oraz ręczna płynność tabeli przeszły offline na Pixel 10 Pro XL.
+Zgodnie z D-096 Samsung pozostaje późniejszym testem kompatybilności i nie jest
+częścią bramki wersji `0.1`.

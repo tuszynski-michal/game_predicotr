@@ -109,6 +109,10 @@
                                  }
                   },
     "manualAcceptance":  {
-                             "virtualizedTargetTableScrollingPassed":  null
+                             "applicationVersion":  "0.1.4 (5)",
+                             "confirmedAt":  "2026-07-31",
+                             "duplicateSuggestionKeepsTargetBlockedPassed":  true,
+                             "layout99FullTargetPassed":  true,
+                             "virtualizedTargetTableScrollingPassed":  true
                          }
 }

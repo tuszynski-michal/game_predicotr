@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Decision Log
@@ -2396,6 +2396,27 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   bramką TASK-0115. Stały adres albo tryb always-on wymagają named tunnel oraz
   osobnej decyzji operacyjnej.
 - **Supersedes:** rozstrzyga Q-021 i materializuje zdalną część D-087/D-091.
+
+## D-096 — Google Pixel 10 Pro XL jest jedyną bramką urządzeniową wersji 0.1
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** lokalna wersja `0.1` wymaga kompletnego odbioru wyłącznie na
+  Google Pixel 10 Pro XL. Samsung Galaxy S21 Ultra pozostaje urządzeniem
+  późniejszego testu kompatybilności, ale jego brak nie blokuje TASK-0041,
+  TASK-0042, G3 ani wydania `0.1`.
+- **Context:** właściciel zakończył automatyczny i ręczny odbiór Pixela oraz
+  świadomie ograniczył pierwszą wersję produktu do jednego urządzenia.
+- **Reason:** aplikacja jest prywatnym projektem zaliczeniowym instalowanym na
+  maksymalnie kilku urządzeniach. Dla pierwszej kompletnej wersji ważniejszy
+  jest zamknięty przepływ produktu niż powtarzanie tej samej bramki na drugim
+  telefonie.
+- **Alternatives:** utrzymanie obowiązkowego Pixela i Samsunga dla `0.1` albo
+  całkowite usunięcie Samsunga z planu kompatybilności.
+- **Consequences:** ocena M3.5 podejmuje decyzję adaptera na podstawie Pixela.
+  Raport Samsunga może zostać dodany później bez zmiany artefaktu `0.1`.
+- **Supersedes:** dla wersji `0.1` zastępuje dwuurządzeniowe wymaganie D-020,
+  kryterium M1 w `MOBILE_APP.md` i dotychczasową bramkę TASK-0041/TASK-0042.
 
 ## Szablon nowej decyzji
 

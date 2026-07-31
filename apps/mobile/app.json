@@ -30,6 +30,7 @@
       "expo-router",
       "expo-sqlite",
       "./plugins/with-release-signing",
+      "./plugins/with-bounded-android-build",
       [
         "expo-splash-screen",
         {

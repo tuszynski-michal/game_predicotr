@@ -1,7 +1,7 @@
 ---
 title: Mobile application requirements
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Wymagania aplikacji mobilnej
@@ -16,7 +16,9 @@ last_updated: 2026-07-30
 - Konfiguracja, sygnatury layoutów i obliczone payouty są dołączone do wersji APK w snapshotcie SQLite.
 - Zmiana danych lub reguł wymaga utworzenia nowego wydania i ręcznego zainstalowania APK.
 - Dystrybucja jest prywatna, na maksymalnie 3–5 urządzeniach; publikacja w sklepie nie jest wymagana.
-- Pierwsze urządzenia akceptacyjne: Google Pixel 10 Pro XL i Samsung Galaxy S21 Ultra.
+- Wersja `0.1` wymaga odbioru na Google Pixel 10 Pro XL. Samsung Galaxy S21
+  Ultra pozostaje urządzeniem kompatybilności dla późniejszego etapu i nie
+  blokuje wydania `0.1`.
 
 Development build może być używany w czasie tworzenia, ale kryterium M1 spełnia samodzielnie instalowalne APK działające bez komputera deweloperskiego.
 
@@ -263,7 +265,7 @@ Nie występują stany błędu serwera ani ponawianie połączenia sieciowego.
 11. Tabela zawiera dodatnie lokalne maksima, w tym późniejsze niższe maksimum; zero nie jest wynikiem dodatnim.
 12. Pierwszy element plateau jest wybierany jako wiersz maksimum.
 13. Tabela znajduje się na dole i jest płynnie przewijalna.
-14. APK działa bez sieci na Google Pixel 10 Pro XL i Samsung Galaxy S21 Ultra.
+14. APK wersji `0.1` działa bez sieci na Google Pixel 10 Pro XL.
 15. UI nie wymaga poziomego przewijania całej strony.
 16. Aktualizacja APK z inną wersją danych używa nowego snapshotu.
 17. Finalny manifest APK nie zawiera uprawnienia `INTERNET`.

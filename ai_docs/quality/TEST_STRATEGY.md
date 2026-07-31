@@ -225,6 +225,19 @@ layoutów. Dane domenowe nie mogą być przygotowane bezpośrednim SQL.
 
 ## Admin web tests
 
+Końcowa bramka Admina 0.2 jest uruchamiana przez
+`npm.cmd run v02:admin:acceptance`. Łączy izolowane testy PostgreSQL publicznego
+przepływu M2, release i cleanup z pełnymi testami Admina, TypeScript, ESLint,
+kontrolą OpenAPI i produkcyjnym buildem. Każdy proces ma limit 120 sekund, a
+raport maszynowy trafia do
+`artifacts/v02-admin-acceptance/acceptance-report.json`.
+
+Osobny odbiór przeglądarkowy przy 1366 × 768 sprawdza dokładnie trzy
+workspace'y, odtwarzanie stanu z URL, puste/loading/error, brak poziomego
+overflow, czystą konsolę i podstawową nawigację klawiaturą. Automatyczny pass
+nie zastępuje krótkiego odbioru właściciela opisanego w
+`quality/V0_2_ADMIN_ACCEPTANCE.md`.
+
 - czyste funkcje mapują każdy status i typ joba na tekst,
 - lifecycle jawnie określa polling, cancel i retry,
 - znany i nieznany total zachowują bieżący postęp oraz liczniki,

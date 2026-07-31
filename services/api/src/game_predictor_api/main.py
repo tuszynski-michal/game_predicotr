@@ -16,6 +16,10 @@ from game_predictor_worker.images.manual_geometry_recrop import (
 
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.cleanup import (
+    CleanupService,
+    ManagedCleanupArtifactStore,
+)
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.image_imports import (
     ImageFolderSelectionService,
@@ -60,6 +64,11 @@ from game_predictor_api.domain.catalog import (
     CatalogError,
     CatalogNotFoundError,
 )
+from game_predictor_api.domain.cleanup import (
+    CleanupConflictError,
+    CleanupError,
+    CleanupNotFoundError,
+)
 from game_predictor_api.domain.datasets import (
     DatasetConflictError,
     DatasetError,
@@ -101,6 +110,7 @@ from game_predictor_api.security.local_admin import (
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
+from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
 from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
@@ -140,6 +150,7 @@ def create_app(
     settings: ApiSettings | None = None,
     *,
     catalog_service_dependency: Callable[..., object] | None = None,
+    cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
@@ -169,6 +180,20 @@ def create_app(
                 raise
 
     resolved_catalog_dependency = catalog_service_dependency or default_catalog_service_dependency
+
+    def default_cleanup_service_dependency() -> Iterator[CleanupService]:
+        with session_factory() as session:
+            try:
+                yield CleanupService(
+                    SqlAlchemyCleanupRepository(session),
+                    ManagedCleanupArtifactStore(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_cleanup_dependency = cleanup_service_dependency or default_cleanup_service_dependency
 
     def default_symbol_bootstrap_service_dependency() -> Iterator[SymbolBootstrapService]:
         with session_factory() as session:
@@ -397,6 +422,7 @@ def create_app(
         create_api_router(
             resolved_settings,
             resolved_catalog_dependency,
+            resolved_cleanup_dependency,
             resolved_rules_dependency,
             resolved_dataset_dependency,
             resolved_job_dependency,
@@ -423,6 +449,25 @@ def create_app(
         if isinstance(error, CatalogNotFoundError):
             status_code = 404
         elif isinstance(error, CatalogConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(CleanupError)
+    async def handle_cleanup_error(
+        _request: Request,
+        error: CleanupError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, CleanupNotFoundError):
+            status_code = 404
+        elif isinstance(error, CleanupConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

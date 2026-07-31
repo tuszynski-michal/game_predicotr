@@ -72,6 +72,9 @@ import type {
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  DeleteMobileReleaseData,
+  DeleteMobileReleaseErrors,
+  DeleteMobileReleaseResponses,
   DownloadImageDiagnosticExportData,
   DownloadImageDiagnosticExportErrors,
   DownloadImageDiagnosticExportResponses,
@@ -241,6 +244,12 @@ import type {
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
+  PreviewGameLayoutDataResetData,
+  PreviewGameLayoutDataResetErrors,
+  PreviewGameLayoutDataResetResponses,
+  PreviewMobileReleaseDeletionData,
+  PreviewMobileReleaseDeletionErrors,
+  PreviewMobileReleaseDeletionResponses,
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
@@ -256,6 +265,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ResetGameLayoutDataData,
+  ResetGameLayoutDataErrors,
+  ResetGameLayoutDataResponses,
   ResolveOperationalImageReviewItemData,
   ResolveOperationalImageReviewItemErrors,
   ResolveOperationalImageReviewItemResponses,
@@ -544,6 +556,51 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Reset all layout workflow data for one game
+ */
+export const resetGameLayoutData = <ThrowOnError extends boolean = false>(
+  options: Options<ResetGameLayoutDataData, ThrowOnError>,
+): RequestResult<
+  ResetGameLayoutDataResponses,
+  ResetGameLayoutDataErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    ResetGameLayoutDataResponses,
+    ResetGameLayoutDataErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/layout-data',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview reset of all layout workflow data for one game
+ */
+export const previewGameLayoutDataReset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGameLayoutDataResetData, ThrowOnError>,
+): RequestResult<
+  PreviewGameLayoutDataResetResponses,
+  PreviewGameLayoutDataResetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGameLayoutDataResetResponses,
+    PreviewGameLayoutDataResetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/layout-data-reset-preview',
+    ...options,
   });
 
 /**
@@ -1505,6 +1562,30 @@ export const createMobileRelease = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Delete one mobile release and its dedicated artifacts
+ */
+export const deleteMobileRelease = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteMobileReleaseData, ThrowOnError>,
+): RequestResult<
+  DeleteMobileReleaseResponses,
+  DeleteMobileReleaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteMobileReleaseResponses,
+    DeleteMobileReleaseErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/mobile-releases/{mobile_release_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Get an immutable mobile release
  */
 export const getMobileRelease = <ThrowOnError extends boolean = false>(
@@ -1556,6 +1637,27 @@ export const buildMobileRelease = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/mobile-releases/{mobile_release_id}/build',
+    ...options,
+  });
+
+/**
+ * Preview complete deletion of one mobile release
+ */
+export const previewMobileReleaseDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewMobileReleaseDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewMobileReleaseDeletionResponses,
+  PreviewMobileReleaseDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewMobileReleaseDeletionResponses,
+    PreviewMobileReleaseDeletionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/mobile-releases/{mobile_release_id}/deletion-preview',
     ...options,
   });
 

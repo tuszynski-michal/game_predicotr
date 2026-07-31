@@ -1461,3 +1461,49 @@ test('symbol image picker pages candidates and selects only a scoped observation
   );
   assert.deepEqual(await requests[1].clone().json(), { name: 'Lemon' });
 });
+
+test('cleanup client binds previews and destructive calls to exact targets', async () => {
+  const requests = [];
+  const releaseId = '22222222-2222-4222-8222-222222222222';
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const body = {
+    confirmationTarget: releaseId,
+    confirmed: true,
+    previewToken: 'a'.repeat(64),
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+
+  await client.previewMobileReleaseDeletion(releaseId);
+  await client.deleteMobileRelease(releaseId, body);
+  await client.previewGameLayoutDataReset(gameId);
+  await client.resetGameLayoutData(gameId, {
+    ...body,
+    confirmationTarget: gameId,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/mobile-releases/${releaseId}/deletion-preview`],
+      ['DELETE', `/api/v1/admin/mobile-releases/${releaseId}`],
+      ['GET', `/api/v1/admin/games/${gameId}/layout-data-reset-preview`],
+      ['DELETE', `/api/v1/admin/games/${gameId}/layout-data`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `mobile-release:${releaseId}`,
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `game-layout-data:${gameId}`,
+  );
+  assert.equal(requests[1].headers.get('X-Admin-Confirmation'), 'confirmed');
+  assert.deepEqual(await requests[1].clone().json(), body);
+});

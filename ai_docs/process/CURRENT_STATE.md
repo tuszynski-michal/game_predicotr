@@ -8,7 +8,7 @@ last_updated: 2026-08-01
 
 ## Phase
 
-`Version 0.2 in progress — TASK-0130 done, TASK-0131 next`
+`Version 0.2 technically complete — owner acceptance pending`
 
 ## Aktywne tory wydań
 
@@ -59,6 +59,21 @@ last_updated: 2026-08-01
 - TASK-0130 usunął z widocznego workspace'u techniczny katalog Dataset i
   zabezpieczył brak powrotu dawnych wejść `datasets` oraz `manual-review` przez
   URL; encje, endpointy i audyt pozostały nienaruszone,
+- TASK-0131 uprościł wydanie Android do jednej aktywnej gry, automatycznej
+  najnowszej zgodnej pary dataset/reguły i pojedynczej akcji create → build;
+  zwijana historia, bezpieczny draft po częściowej awarii, retry, checksumy i
+  pobieranie APK pozostały dostępne,
+- TASK-0132 uprościł osobny workspace `Joby` do jednego filtra statusu i
+  zwartego podsumowania typu, kontekstu, postępu, czasu oraz błędu; techniczne
+  metadane i dotychczasowe operacje pozostały dostępne po rozwinięciu joba,
+- TASK-0133 dodał read-only preview i mocno potwierdzane usunięcie pojedynczego
+  wydania oraz reset game-scoped danych layoutów bez usuwania gry; aktywne
+  workflow i współdzielone wydania blokują operację, współdzielone artefakty i
+  joby są zachowywane, a wykonanie ma idempotentne potwierdzenie,
+- TASK-0134 dodał powtarzalną, ograniczoną czasowo bramkę końcową; cztery testy
+  izolowanego PostgreSQL, 126 testów Admina, TypeScript, ESLint, OpenAPI i
+  produkcyjny build przeszły, a przeglądarka przy 1366 × 768 potwierdziła trzy
+  workspace'y, URL, puste stany, czystą konsolę i brak poziomego overflow,
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -85,7 +100,7 @@ last_updated: 2026-08-01
 
 ### Robocze
 
-- PostgreSQL jest na migracji `0023_symbol_bootstrap`; przed rozpoczęciem pionu
+- PostgreSQL jest na migracji `0024_cleanup_operations`; przed rozpoczęciem pionu
   importu 0.2 baza nie zawierała rekordów domenowych,
 - nie istnieją aktywne joby, sesje Reviewera, gry, datasety ani wydania,
 - dane poprzedniej iteracji są dostępne wyłącznie w kontrolowanym dumpie
@@ -117,7 +132,7 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 - finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
   pionu nawigacji Admina.
 
-Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0131.
+Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Blocked / deferred
 
@@ -128,9 +143,10 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0131.
 
 ## Next recommended task
 
-Utworzyć i wykonać `TASK-0131 — Android release workspace for the controlled
-test game`. Zadanie uprości tworzenie testowej wersji Android do jednej
-kontrolowanej gry; obsługa i odbiór wielu gier pozostają zakresem 0.3.
+Wykonać krótki odbiór właściciela według
+`ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md`. Po potwierdzeniu nawigacji, małego
+workflow, jednego wydania i preview cleanup można zamknąć produktową bramkę 0.2;
+ewentualne regresje należy poprawić przed rozpoczęciem zakresu 0.3.
 
 ## Do not start yet
 

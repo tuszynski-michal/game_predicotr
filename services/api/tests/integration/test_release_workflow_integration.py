@@ -194,6 +194,7 @@ def _seed_complete_release_source(session: Session) -> MobileReleaseGameInput:
             rows=1,
             columns=2,
             signature_cell_width=2,
+            expected_layout_count=2,
             layout_count=2,
             status=DatasetVersionStatus.PUBLISHED,
             generation_seed=39,
@@ -345,7 +346,17 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
                 JobService(SqlAlchemyJobRepository(session)).cancel_job(cancelled_job.id)
 
         android_builder.before_return = request_cancellation
-        assert worker.run_once() is JobExecutionResult.CANCELLED
+        cancellation_result = worker.run_once()
+        with Session(engine) as session:
+            persisted_cancelled_job = SqlAlchemyJobRepository(session).get_job(
+                cancelled_job.id
+            )
+        assert persisted_cancelled_job is not None
+        assert cancellation_result is JobExecutionResult.CANCELLED, (
+            persisted_cancelled_job.status,
+            persisted_cancelled_job.error_code,
+            persisted_cancelled_job.error_message,
+        )
         with Session(engine) as session:
             cancelled = SqlAlchemyMobileReleaseRepository(session).get_mobile_release(
                 cancelled_release.id

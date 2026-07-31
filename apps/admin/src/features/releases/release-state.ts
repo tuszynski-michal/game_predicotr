@@ -46,12 +46,21 @@ export function releaseStatusLabel(status: MobileReleaseStatus): string {
 export function createInitialSelections(
   sources: readonly ReleaseGameSource[],
 ): readonly ReleaseGameSelection[] {
+  const preferredGameId =
+    sources.find((source) => hasCompatibleReleasePair(source))?.game.id ?? null;
+  return selectControlledReleaseGame(sources, preferredGameId);
+}
+
+export function selectControlledReleaseGame(
+  sources: readonly ReleaseGameSource[],
+  gameId: string | null,
+): readonly ReleaseGameSelection[] {
   return sources.map((source) => {
     const pair = newestCompatiblePair(source);
     return {
       datasetVersionId: pair?.dataset.id ?? '',
       gameId: source.game.id,
-      included: false,
+      included: source.game.id === gameId && pair !== null,
       rulesVersionId: pair?.rules.id ?? '',
     };
   });
@@ -125,9 +134,9 @@ export function validateReleaseDraft(
     };
   }
   const included = draft.selections.filter((selection) => selection.included);
-  if (included.length < 1 || included.length > 15) {
+  if (included.length !== 1) {
     return {
-      error: 'Wybierz od 1 do 15 gier dla wydania.',
+      error: 'Wybierz dokładnie jedną aktywną grę testową.',
       valid: false,
     };
   }

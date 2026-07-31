@@ -14,8 +14,9 @@ import {
 } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import {
-  createRelease,
+  createAndStartRelease,
   downloadReleaseApk,
   loadReleaseWorkspace,
   refreshRelease,
@@ -24,25 +25,19 @@ import {
   type ReleasesClient,
 } from '@/features/releases/release-actions';
 import {
-  compatibleDatasets,
-  compatibleRules,
   createInitialSelections,
   formatReleaseTimestamp,
   hasCompatibleReleasePair,
-  publishedDatasets,
-  publishedRules,
   releaseStatusLabel,
   type ReleaseGameSelection,
   type ReleaseGameSource,
+  selectControlledReleaseGame,
   upsertRelease,
   validateReleaseDraft,
 } from '@/features/releases/release-state';
 import {
   canRetryJob,
   isActiveJob,
-  jobProgressLabel,
-  jobProgressPercent,
-  jobStageLabel,
   jobStatusLabel,
 } from '@/features/jobs/job-state';
 
@@ -51,12 +46,14 @@ type LoadState = 'loading' | 'ready' | 'error';
 interface ReleasePanelProps {
   readonly apiBaseUrl: string;
   readonly client?: ReleasesClient;
+  readonly onOpenJobs?: () => void;
   readonly pollIntervalMs?: number;
 }
 
 export function ReleasePanel({
   apiBaseUrl,
   client,
+  onOpenJobs,
   pollIntervalMs = 2000,
 }: ReleasePanelProps) {
   const api = useMemo(
@@ -97,6 +94,19 @@ export function ReleasePanel({
     releases.find((release) => release.id === selectedReleaseId) ?? null;
   const visibleJob =
     selectedJobReleaseId === selectedReleaseId ? selectedJob : null;
+  const selectedSelection =
+    selections.find((selection) => selection.included) ?? null;
+  const selectedSource =
+    sources.find((source) => source.game.id === selectedSelection?.gameId) ??
+    null;
+  const selectedDataset =
+    selectedSource?.datasets.find(
+      (dataset) => dataset.id === selectedSelection?.datasetVersionId,
+    ) ?? null;
+  const selectedRules =
+    selectedSource?.rulesVersions.find(
+      (rules) => rules.id === selectedSelection?.rulesVersionId,
+    ) ?? null;
 
   const loadWorkspace = useCallback(async () => {
     const currentRequest = ++requestId.current;
@@ -192,47 +202,8 @@ export function ReleasePanel({
     return () => window.clearInterval(interval);
   }, [pollIntervalMs, refreshSelected, shouldPoll]);
 
-  function updateSelection(
-    gameId: string,
-    update: (current: ReleaseGameSelection) => ReleaseGameSelection,
-  ) {
-    setSelections((current) =>
-      current.map((selection) =>
-        selection.gameId === gameId ? update(selection) : selection,
-      ),
-    );
-  }
-
-  function onDatasetChanged(
-    source: ReleaseGameSource,
-    current: ReleaseGameSelection,
-    datasetVersionId: string,
-  ) {
-    const rules = compatibleRules(source, datasetVersionId);
-    updateSelection(source.game.id, () => ({
-      ...current,
-      datasetVersionId,
-      rulesVersionId: rules.some((item) => item.id === current.rulesVersionId)
-        ? current.rulesVersionId
-        : (rules[0]?.id ?? ''),
-    }));
-  }
-
-  function onRulesChanged(
-    source: ReleaseGameSource,
-    current: ReleaseGameSelection,
-    rulesVersionId: string,
-  ) {
-    const datasets = compatibleDatasets(source, rulesVersionId);
-    updateSelection(source.game.id, () => ({
-      ...current,
-      datasetVersionId: datasets.some(
-        (item) => item.id === current.datasetVersionId,
-      )
-        ? current.datasetVersionId
-        : (datasets[0]?.id ?? ''),
-      rulesVersionId,
-    }));
+  function onGameChanged(gameId: string) {
+    setSelections(selectControlledReleaseGame(sources, gameId || null));
   }
 
   async function onCreate(event: FormEvent<HTMLFormElement>) {
@@ -246,19 +217,37 @@ export function ReleasePanel({
       return;
     }
     setIsCreating(true);
-    const result = await createRelease(api, validation.body);
+    const result = await createAndStartRelease(api, validation.body);
     if (!mounted.current) return;
-    setIsCreating(false);
     if (!result.ok) {
-      setError(result.error);
+      setIsCreating(false);
+      if (result.release === null) {
+        setError(result.error);
+        return;
+      }
+      const preservedDraft = result.release;
+      setReleases((current) => upsertRelease(current, preservedDraft));
+      setSelectedReleaseId(preservedDraft.id);
+      setVersion('');
+      setError(
+        `Draft ${preservedDraft.version} został zachowany. ${result.error}`,
+      );
       return;
     }
     setReleases((current) => upsertRelease(current, result.release));
     setSelectedReleaseId(result.release.id);
     setVersion('');
+    setIsCreating(false);
+    const buildingRelease = {
+      ...result.release,
+      buildJobId: result.build.jobId,
+      status: 'building' as const,
+    };
+    setReleases((current) => upsertRelease(current, buildingRelease));
     setFeedback(
-      `Utworzono niezmienny draft ${result.release.version}. Sprawdź wybór i uruchom build.`,
+      `Wydanie ${result.release.version} utworzono i przekazano do kontrolowanego workflow.`,
     );
+    queueMicrotask(() => void refreshSelected(false));
   }
 
   async function onBuild(release: MobileReleaseResponse) {
@@ -344,6 +333,18 @@ export function ReleasePanel({
     setFeedback(`Pobrano zweryfikowany APK ${release.version}.`);
   }
 
+  function onReleaseDeleted(releaseId: string) {
+    setReleases((current) => {
+      const remaining = current.filter((release) => release.id !== releaseId);
+      setSelectedReleaseId(remaining[0]?.id ?? null);
+      return remaining;
+    });
+    setSelectedJob(null);
+    setSelectedJobReleaseId(null);
+    setFeedback('Wydanie i jego dedykowane artefakty zostały usunięte.');
+    setError('');
+  }
+
   return (
     <section className="catalogSection" id="releases">
       <header className="pageHeader releasePageHeader">
@@ -394,8 +395,8 @@ export function ReleasePanel({
           <form className="releaseComposer" onSubmit={onCreate}>
             <div className="releaseComposerHeader">
               <div>
-                <p className="eyebrow">Nowy niezmienny draft</p>
-                <h2>Wybierz dokładne źródła</h2>
+                <p className="eyebrow">Jedna kontrolowana gra</p>
+                <h2>Przygotuj testowe wydanie</h2>
               </div>
               <label className="releaseVersionField">
                 Wersja wydania
@@ -414,206 +415,164 @@ export function ReleasePanel({
                 title="Brak aktywnych gier"
               />
             ) : (
-              <div className="releaseSourceList">
-                {sources.map((source) => {
-                  const selection = selections.find(
-                    (item) => item.gameId === source.game.id,
-                  );
-                  if (selection === undefined) return null;
-                  return (
-                    <ReleaseSourceRow
-                      key={source.game.id}
-                      onDatasetChanged={(datasetId) =>
-                        onDatasetChanged(source, selection, datasetId)
-                      }
-                      onIncludedChanged={(included) =>
-                        updateSelection(source.game.id, (current) => ({
-                          ...current,
-                          included,
-                        }))
-                      }
-                      onRulesChanged={(rulesId) =>
-                        onRulesChanged(source, selection, rulesId)
-                      }
-                      selection={selection}
-                      source={source}
-                    />
-                  );
-                })}
+              <div className="releaseControlledSource">
+                <label className="releaseGameField">
+                  Gra testowa
+                  <select
+                    onChange={(event) => onGameChanged(event.target.value)}
+                    value={selectedSelection?.gameId ?? ''}
+                  >
+                    <option value="">Wybierz gotową grę</option>
+                    {sources.map((source) => (
+                      <option
+                        disabled={!hasCompatibleReleasePair(source)}
+                        key={source.game.id}
+                        value={source.game.id}
+                      >
+                        {source.game.name} · {source.game.code}
+                        {!hasCompatibleReleasePair(source)
+                          ? ' · brak gotowych źródeł'
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {selectedSource && selectedDataset && selectedRules ? (
+                  <dl className="releaseSourceSummary">
+                    <div>
+                      <dt>Dataset</dt>
+                      <dd>
+                        v{selectedDataset.version} ·{' '}
+                        {selectedDataset.layoutCount.toLocaleString('pl-PL')}{' '}
+                        layoutów
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Reguły</dt>
+                      <dd>
+                        v{selectedRules.version} · koszt{' '}
+                        {selectedRules.spinCost}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Plansza</dt>
+                      <dd>
+                        {selectedDataset.rows}×{selectedDataset.columns}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <p className="releaseSourceWarning">
+                    Wybrana gra wymaga zgodnego opublikowanego datasetu i reguł.
+                  </p>
+                )}
               </div>
             )}
 
             <div className="releaseComposerFooter">
               <p>
-                Wybrano{' '}
-                <strong>
-                  {selections.filter((selection) => selection.included).length}
-                </strong>{' '}
-                z maksymalnie 15 gier.
+                Najnowsza zgodna para dataset/reguły zostanie zamrożona
+                automatycznie.
               </p>
               <button
                 className="primaryButton"
-                disabled={isCreating || sources.length === 0}
+                disabled={isCreating || selectedSelection === null}
                 type="submit"
               >
-                {isCreating ? 'Tworzenie…' : 'Utwórz draft'}
+                {isCreating
+                  ? 'Uruchamianie workflow…'
+                  : 'Utwórz i uruchom wydanie'}
               </button>
             </div>
           </form>
 
-          <div className="releaseWorkspace">
-            <div className="releaseHistoryPanel">
-              <div className="listHeader">
-                <div>
-                  <p className="eyebrow">Historia</p>
-                  <h2>Wydania</h2>
+          <details className="releaseHistoryDisclosure" open>
+            <summary>
+              <span>Historia wydań</span>
+              <strong>{releases.length}</strong>
+            </summary>
+            <div className="releaseWorkspace">
+              <div className="releaseHistoryPanel">
+                <div className="listHeader">
+                  <div>
+                    <p className="eyebrow">Historia</p>
+                    <h2>Wydania</h2>
+                  </div>
+                  <p>
+                    Najnowsze pierwsze · poprzednie artefakty pozostają dostępne
+                  </p>
                 </div>
-                <p>
-                  Najnowsze pierwsze · poprzednie artefakty pozostają dostępne
-                </p>
+                {releases.length === 0 ? (
+                  <ReleaseState
+                    text="Utwórz pierwszy draft z formularza powyżej."
+                    title="Brak wydań"
+                  />
+                ) : (
+                  <div className="releaseHistoryList">
+                    {releases.map((release) => (
+                      <button
+                        aria-pressed={release.id === selectedReleaseId}
+                        className={`releaseHistoryItem ${
+                          release.id === selectedReleaseId
+                            ? 'releaseHistoryItemSelected'
+                            : ''
+                        }`}
+                        key={release.id}
+                        onClick={() => setSelectedReleaseId(release.id)}
+                        type="button"
+                      >
+                        <span>
+                          <strong>{release.version}</strong>
+                          <small>
+                            {formatReleaseTimestamp(release.createdAt)}
+                          </small>
+                        </span>
+                        <span
+                          className={`releaseStatus releaseStatus-${release.status}`}
+                        >
+                          {releaseStatusLabel(release.status)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {releases.length === 0 ? (
+
+              {selectedRelease === null ? (
                 <ReleaseState
-                  text="Utwórz pierwszy draft z formularza powyżej."
-                  title="Brak wydań"
+                  text="Wybierz lub utwórz wydanie, aby zobaczyć jego niezmienny skład."
+                  title="Brak wybranego wydania"
                 />
               ) : (
-                <div className="releaseHistoryList">
-                  {releases.map((release) => (
-                    <button
-                      aria-pressed={release.id === selectedReleaseId}
-                      className={`releaseHistoryItem ${
-                        release.id === selectedReleaseId
-                          ? 'releaseHistoryItemSelected'
-                          : ''
-                      }`}
-                      key={release.id}
-                      onClick={() => setSelectedReleaseId(release.id)}
-                      type="button"
-                    >
-                      <span>
-                        <strong>{release.version}</strong>
-                        <small>
-                          {formatReleaseTimestamp(release.createdAt)}
-                        </small>
-                      </span>
-                      <span
-                        className={`releaseStatus releaseStatus-${release.status}`}
-                      >
-                        {releaseStatusLabel(release.status)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <ReleaseDetail
+                  apiBaseUrl={apiBaseUrl}
+                  cleanupClient={api}
+                  isBuilding={isBuilding}
+                  isDownloading={downloadingReleaseId === selectedRelease.id}
+                  isRefreshing={isRefreshing}
+                  isRetrying={isRetrying}
+                  job={visibleJob}
+                  onBuild={() => void onBuild(selectedRelease)}
+                  onCopy={(path) => void copyArtifactPath(path)}
+                  onDownload={() => void onDownload(selectedRelease)}
+                  onDeleted={() => onReleaseDeleted(selectedRelease.id)}
+                  onOpenJobs={onOpenJobs}
+                  onRefresh={() => void refreshSelected(true)}
+                  onRetry={() => void onRetry()}
+                  release={selectedRelease}
+                />
               )}
             </div>
-
-            {selectedRelease === null ? (
-              <ReleaseState
-                text="Wybierz lub utwórz wydanie, aby zobaczyć jego niezmienny skład."
-                title="Brak wybranego wydania"
-              />
-            ) : (
-              <ReleaseDetail
-                isBuilding={isBuilding}
-                isDownloading={downloadingReleaseId === selectedRelease.id}
-                isRefreshing={isRefreshing}
-                isRetrying={isRetrying}
-                job={visibleJob}
-                onBuild={() => void onBuild(selectedRelease)}
-                onCopy={(path) => void copyArtifactPath(path)}
-                onDownload={() => void onDownload(selectedRelease)}
-                onRefresh={() => void refreshSelected(true)}
-                onRetry={() => void onRetry()}
-                release={selectedRelease}
-              />
-            )}
-          </div>
+          </details>
         </>
       )}
     </section>
   );
 }
 
-function ReleaseSourceRow({
-  onDatasetChanged,
-  onIncludedChanged,
-  onRulesChanged,
-  selection,
-  source,
-}: {
-  readonly onDatasetChanged: (datasetId: string) => void;
-  readonly onIncludedChanged: (included: boolean) => void;
-  readonly onRulesChanged: (rulesId: string) => void;
-  readonly selection: ReleaseGameSelection;
-  readonly source: ReleaseGameSource;
-}) {
-  const available = hasCompatibleReleasePair(source);
-  const datasets =
-    compatibleDatasets(source, selection.rulesVersionId).length > 0
-      ? compatibleDatasets(source, selection.rulesVersionId)
-      : publishedDatasets(source);
-  const rules =
-    compatibleRules(source, selection.datasetVersionId).length > 0
-      ? compatibleRules(source, selection.datasetVersionId)
-      : publishedRules(source);
-
-  return (
-    <article
-      className={`releaseSourceRow ${
-        selection.included ? 'releaseSourceRowIncluded' : ''
-      }`}
-    >
-      <label className="releaseGameToggle">
-        <input
-          checked={selection.included}
-          disabled={!available}
-          onChange={(event) => onIncludedChanged(event.target.checked)}
-          type="checkbox"
-        />
-        <span>
-          <strong>{source.game.name}</strong>
-          <small>{source.game.code}</small>
-        </span>
-      </label>
-      <label>
-        Dataset
-        <select
-          disabled={!selection.included || !available}
-          onChange={(event) => onDatasetChanged(event.target.value)}
-          value={selection.datasetVersionId}
-        >
-          {datasets.map((dataset) => (
-            <option key={dataset.id} value={dataset.id}>
-              v{dataset.version} · {dataset.layoutCount.toLocaleString('pl-PL')}{' '}
-              layoutów · {dataset.rows}×{dataset.columns}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Reguły
-        <select
-          disabled={!selection.included || !available}
-          onChange={(event) => onRulesChanged(event.target.value)}
-          value={selection.rulesVersionId}
-        >
-          {rules.map((item) => (
-            <option key={item.id} value={item.id}>
-              v{item.version} · koszt {item.spinCost} · {item.rows}×
-              {item.columns}
-            </option>
-          ))}
-        </select>
-      </label>
-      {!available ? (
-        <p>Brak zgodnej pary opublikowanego datasetu i reguł.</p>
-      ) : null}
-    </article>
-  );
-}
-
 function ReleaseDetail({
+  apiBaseUrl,
+  cleanupClient,
   isBuilding,
   isDownloading,
   isRefreshing,
@@ -622,10 +581,14 @@ function ReleaseDetail({
   onBuild,
   onCopy,
   onDownload,
+  onDeleted,
+  onOpenJobs,
   onRefresh,
   onRetry,
   release,
 }: {
+  readonly apiBaseUrl: string;
+  readonly cleanupClient: ReleasesClient;
   readonly isBuilding: boolean;
   readonly isDownloading: boolean;
   readonly isRefreshing: boolean;
@@ -634,6 +597,8 @@ function ReleaseDetail({
   readonly onBuild: () => void;
   readonly onCopy: (path: string) => void;
   readonly onDownload: () => void;
+  readonly onDeleted: () => void;
+  readonly onOpenJobs?: () => void;
   readonly onRefresh: () => void;
   readonly onRetry: () => void;
   readonly release: MobileReleaseResponse;
@@ -727,7 +692,12 @@ function ReleaseDetail({
       </div>
 
       {job ? (
-        <ReleaseJob isRetrying={isRetrying} job={job} onRetry={onRetry} />
+        <ReleaseJob
+          isRetrying={isRetrying}
+          job={job}
+          onOpenJobs={onOpenJobs}
+          onRetry={onRetry}
+        />
       ) : release.buildJobId ? (
         <p className="releaseJobPlaceholder">
           Pobieram powiązany job <code>{release.buildJobId}</code>…
@@ -753,6 +723,14 @@ function ReleaseDetail({
           path={release.apk?.relativePath ?? null}
         />
       </div>
+
+      <CleanupControl
+        apiBaseUrl={apiBaseUrl}
+        client={cleanupClient}
+        onCompleted={onDeleted}
+        target={{ id: release.id, kind: 'mobile-release' }}
+        targetLabel={`Wydanie ${release.version}`}
+      />
     </article>
   );
 }
@@ -760,13 +738,14 @@ function ReleaseDetail({
 function ReleaseJob({
   isRetrying,
   job,
+  onOpenJobs,
   onRetry,
 }: {
   readonly isRetrying: boolean;
   readonly job: JobResponse;
+  readonly onOpenJobs?: () => void;
   readonly onRetry: () => void;
 }) {
-  const percent = jobProgressPercent(job);
   return (
     <section className={`releaseJob releaseJob-${job.status}`}>
       <div className="releaseJobHeader">
@@ -775,38 +754,29 @@ function ReleaseJob({
           <strong>{jobStatusLabel(job.status)}</strong>
           <code>{job.id}</code>
         </div>
-        {canRetryJob(job) ? (
-          <button
-            className="primaryButton"
-            disabled={isRetrying}
-            onClick={onRetry}
-            type="button"
-          >
-            {isRetrying ? 'Ponawianie…' : 'Wznów ten sam job'}
-          </button>
-        ) : null}
+        <div className="rowActions">
+          {onOpenJobs ? (
+            <button
+              className="secondaryButton"
+              onClick={onOpenJobs}
+              type="button"
+            >
+              Pokaż w Jobach
+            </button>
+          ) : null}
+          {canRetryJob(job) ? (
+            <button
+              className="primaryButton"
+              disabled={isRetrying}
+              onClick={onRetry}
+              type="button"
+            >
+              {isRetrying ? 'Ponawianie…' : 'Wznów ten sam job'}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <p>
-        Etap: <strong>{jobStageLabel(job.progress.stage)}</strong>
-      </p>
-      <div className="jobProgressSummary">
-        <strong>{jobProgressLabel(job)}</strong>
-        <span>
-          {percent === null ? 'Rozmiar nieznany' : `${percent.toFixed(1)}%`}
-        </span>
-      </div>
-      <div
-        aria-label={`Postęp: ${jobProgressLabel(job)}`}
-        aria-valuemax={job.progress.total ?? undefined}
-        aria-valuemin={0}
-        aria-valuenow={job.progress.current}
-        className={`jobProgressTrack ${
-          percent === null ? 'jobProgressTrackIndeterminate' : ''
-        }`}
-        role="progressbar"
-      >
-        <span style={{ width: percent === null ? '35%' : `${percent}%` }} />
-      </div>
+      <p>Pełny postęp, etap i diagnostyka są dostępne w workspace `Joby`.</p>
       {job.error ? (
         <div className="jobError" role="alert">
           <strong>{job.error.code}</strong>

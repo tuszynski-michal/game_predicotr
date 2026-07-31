@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Model danych
@@ -33,6 +33,23 @@ Wersjonowane wymiary i koszt spinu znajdują się w `rules_versions`, aby
 historyczne wydanie było odtwarzalne. `expected_layout_count` określa bieżący
 cel kompletności gry. Testowa gra `0.2` może mieć mniejszą wartość; docelna
 wartość domyślna pozostaje `500 000`.
+
+### cleanup_operations
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | techniczny klucz potwierdzenia wykonania |
+| operation_type | varchar | `mobile_release` albo `game_layout_data` |
+| target_id | UUID | historyczny cel bez FK do usuniętego rekordu |
+| preview_token | char(64) | SHA-256 kanonicznego preview |
+| result_payload | jsonb | minimalny wynik i liczniki operacji |
+| created_at | timestamptz | czas wykonania |
+
+Unikalność `(operation_type, target_id, preview_token)` zapewnia idempotentny
+retry po utracie odpowiedzi. Tabela jest append-only i nie przechowuje
+usuniętych danych domenowych ani sekretów. Niezależny audyt bezpieczeństwa JSONL
+zapisuje próbę autoryzacji i wynik requestu; `cleanup_operations` jest trwałym
+potwierdzeniem skutku domenowego.
 
 ### symbols
 

@@ -11,6 +11,7 @@ import {
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
+import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { JobMonitor } from '@/features/jobs/job-monitor';
@@ -236,10 +237,23 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                   <code>{activeGame.code}</code>
                 </header>
 
+                <CleanupControl
+                  apiBaseUrl={apiBaseUrl}
+                  onCompleted={() => {
+                    setGamesRevision((revision) => revision + 1);
+                    commitNavigation({ ...navigation, section: null });
+                  }}
+                  target={{ id: activeGame.id, kind: 'game-layout-data' }}
+                  targetLabel={`${activeGame.name} · ${activeGame.code}`}
+                />
+
                 {GAME_SECTION_OPTIONS.map((section) => {
                   const expanded = navigation.section === section.id;
                   return (
-                    <article className="gameAccordionItem" key={section.id}>
+                    <article
+                      className="gameAccordionItem"
+                      key={`${section.id}-${gamesRevision}`}
+                    >
                       <h2 className="gameAccordionHeading">
                         <button
                           aria-controls={`game-section-${section.id}`}
@@ -303,7 +317,10 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
 
         {navigation.workspace === 'releases' ? (
-          <ReleasePanel apiBaseUrl={apiBaseUrl} />
+          <ReleasePanel
+            apiBaseUrl={apiBaseUrl}
+            onOpenJobs={() => selectWorkspace('jobs')}
+          />
         ) : null}
         {navigation.workspace === 'jobs' ? (
           <JobMonitor apiBaseUrl={apiBaseUrl} />

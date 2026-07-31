@@ -34,6 +34,118 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * CleanupCommandRequest
+ */
+export type CleanupCommandRequest = {
+  /**
+   * Confirmationtarget
+   */
+  confirmationTarget: string;
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * CleanupCountResponse
+ */
+export type CleanupCountResponse = {
+  /**
+   * Count
+   */
+  count: number;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * CleanupPreviewResponse
+ */
+export type CleanupPreviewResponse = {
+  /**
+   * Artifactpaths
+   */
+  artifactPaths: Array<string>;
+  /**
+   * Blockers
+   */
+  blockers: Array<string>;
+  /**
+   * Confirmationtarget
+   */
+  confirmationTarget: string;
+  /**
+   * Counts
+   */
+  counts: Array<CleanupCountResponse>;
+  /**
+   * Kind
+   */
+  kind: 'mobile_release' | 'game_layout_data';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Retainedsharedartifactcount
+   */
+  retainedSharedArtifactCount: number;
+  /**
+   * Targetid
+   */
+  targetId: string;
+  /**
+   * Targetlabel
+   */
+  targetLabel: string;
+};
+
+/**
+ * CleanupResultResponse
+ */
+export type CleanupResultResponse = {
+  /**
+   * Alreadycompleted
+   */
+  alreadyCompleted: boolean;
+  /**
+   * Deletedartifactcount
+   */
+  deletedArtifactCount: number;
+  /**
+   * Deletedcounts
+   */
+  deletedCounts: Array<CleanupCountResponse>;
+  /**
+   * Kind
+   */
+  kind: 'mobile_release' | 'game_layout_data';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Retainedsharedartifactcount
+   */
+  retainedSharedArtifactCount: number;
+  /**
+   * Targetid
+   */
+  targetId: string;
+  /**
+   * Targetlabel
+   */
+  targetLabel: string;
+};
+
+/**
  * DatasetLayoutPageResponse
  */
 export type DatasetLayoutPageResponse = {
@@ -4146,6 +4258,94 @@ export type GenerateMockDatasetResponses = {
 export type GenerateMockDatasetResponse =
   GenerateMockDatasetResponses[keyof GenerateMockDatasetResponses];
 
+export type ResetGameLayoutDataData = {
+  body: CleanupCommandRequest;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/layout-data';
+};
+
+export type ResetGameLayoutDataErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResetGameLayoutDataError =
+  ResetGameLayoutDataErrors[keyof ResetGameLayoutDataErrors];
+
+export type ResetGameLayoutDataResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupResultResponse;
+};
+
+export type ResetGameLayoutDataResponse =
+  ResetGameLayoutDataResponses[keyof ResetGameLayoutDataResponses];
+
+export type PreviewGameLayoutDataResetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/layout-data-reset-preview';
+};
+
+export type PreviewGameLayoutDataResetErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewGameLayoutDataResetError =
+  PreviewGameLayoutDataResetErrors[keyof PreviewGameLayoutDataResetErrors];
+
+export type PreviewGameLayoutDataResetResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupPreviewResponse;
+};
+
+export type PreviewGameLayoutDataResetResponse =
+  PreviewGameLayoutDataResetResponses[keyof PreviewGameLayoutDataResetResponses];
+
 export type ListRulesVersionsData = {
   body?: never;
   path: {
@@ -6311,6 +6511,54 @@ export type CreateMobileReleaseResponses = {
 export type CreateMobileReleaseResponse =
   CreateMobileReleaseResponses[keyof CreateMobileReleaseResponses];
 
+export type DeleteMobileReleaseData = {
+  body: CleanupCommandRequest;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}';
+};
+
+export type DeleteMobileReleaseErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteMobileReleaseError =
+  DeleteMobileReleaseErrors[keyof DeleteMobileReleaseErrors];
+
+export type DeleteMobileReleaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupResultResponse;
+};
+
+export type DeleteMobileReleaseResponse =
+  DeleteMobileReleaseResponses[keyof DeleteMobileReleaseResponses];
+
 export type GetMobileReleaseData = {
   body?: never;
   path: {
@@ -6438,6 +6686,46 @@ export type BuildMobileReleaseResponses = {
 
 export type BuildMobileReleaseResponse =
   BuildMobileReleaseResponses[keyof BuildMobileReleaseResponses];
+
+export type PreviewMobileReleaseDeletionData = {
+  body?: never;
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}/deletion-preview';
+};
+
+export type PreviewMobileReleaseDeletionErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewMobileReleaseDeletionError =
+  PreviewMobileReleaseDeletionErrors[keyof PreviewMobileReleaseDeletionErrors];
+
+export type PreviewMobileReleaseDeletionResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupPreviewResponse;
+};
+
+export type PreviewMobileReleaseDeletionResponse =
+  PreviewMobileReleaseDeletionResponses[keyof PreviewMobileReleaseDeletionResponses];
 
 export type ListReviewBatchesData = {
   body?: never;

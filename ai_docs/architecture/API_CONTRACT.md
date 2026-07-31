@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1338,6 +1338,11 @@ unikalnym, bezpiecznym segmentem ścieżki. Request zawiera od 1 do 15 unikalnyc
 gier. Dataset i reguły muszą być opublikowane, należeć do wskazanej aktywnej
 gry i mieć zgodne wymiary.
 
+Admin 0.2 wysyła dokładnie jedną grę testową i natychmiast po poprawnym POST
+wywołuje endpoint builda. Zakres 1–15 w API pozostaje bez zmian jako kontrakt
+backendowy dla późniejszego wydania wielogrowego 0.3. Jeżeli drugi request nie
+powiedzie się, utworzony draft pozostaje dostępny do jawnego wznowienia.
+
 ### GET `/api/v1/admin/mobile-releases`
 
 Zwraca wszystkie historyczne wydania od najnowszego. Każdy element ma ten sam
@@ -1442,6 +1447,77 @@ RELEASE_DATASET_EMPTY
 MOBILE_RELEASE_APK_NOT_READY
 MOBILE_RELEASE_APK_UNAVAILABLE
 MOBILE_RELEASE_APK_CHECKSUM_MISMATCH
+```
+
+## Kontrolowane usuwanie danych roboczych
+
+### GET `/api/v1/admin/mobile-releases/{releaseId}/deletion-preview`
+
+### GET `/api/v1/admin/games/{gameId}/layout-data-reset-preview`
+
+Oba endpointy są read-only. Zwracają aktualny cel, liczniki zależności, jawne
+ścieżki zarządzanych artefaktów, liczbę zachowanych artefaktów współdzielonych,
+blokady oraz SHA-256 kanonicznego stanu:
+
+```json
+{
+  "kind": "game_layout_data",
+  "targetId": "uuid",
+  "targetLabel": "Game One (game-1)",
+  "confirmationTarget": "uuid",
+  "counts": [
+    { "name": "layouts", "count": 250 },
+    { "name": "jobs_preserved", "count": 3 }
+  ],
+  "artifactPaths": ["data/originals/ab/checksum.jpg"],
+  "retainedSharedArtifactCount": 1,
+  "blockers": [],
+  "previewToken": "pełny-mały-hex-sha256"
+}
+```
+
+Preview nie usuwa danych. Aktywny job, build, sesja Reviewera albo współdzielone
+wydanie jest zwracane jako blokada; UI nie może wtedy wykonać operacji.
+
+### DELETE `/api/v1/admin/mobile-releases/{releaseId}`
+
+### DELETE `/api/v1/admin/games/{gameId}/layout-data`
+
+Request obu endpointów:
+
+```json
+{
+  "previewToken": "pełny-mały-hex-sha256",
+  "confirmationTarget": "uuid",
+  "confirmed": true
+}
+```
+
+Oprócz body wymagane są standardowa lokalna intencja oraz dokładny nagłówek
+`X-Admin-Target`: odpowiednio `mobile-release:{releaseId}` albo
+`game-layout-data:{gameId}`. Serwer pod blokadą ponownie wylicza preview; zmiana
+stanu daje konflikt zamiast wykonania na starym zakresie.
+
+Usunięcie wydania usuwa rekord, powiązania oraz dedykowany katalog snapshotu i
+APK. Reset gry zachowuje rekord `games`, joby i współdzielony cache przetwarzania,
+ale usuwa game-scoped importy, obrazy robocze, review, symbole, reguły, datasety,
+layouty, payouty, sesje Reviewera i zależne wydania. Źródłowy folder wybrany przez
+użytkownika oraz artefakty nadal wskazywane przez inną grę nie są usuwane.
+
+Odpowiedź zawiera `deletedCounts`, `deletedArtifactCount`,
+`retainedSharedArtifactCount` oraz `alreadyCompleted`. Retry tego samego
+potwierdzonego tokenu po utracie odpowiedzi zwraca zapisany wynik z
+`alreadyCompleted = true`.
+
+Stabilne błędy cleanupu:
+
+```text
+CLEANUP_TARGET_NOT_FOUND
+CLEANUP_CONFIRMATION_MISMATCH
+CLEANUP_PREVIEW_STALE
+CLEANUP_BLOCKED
+CLEANUP_ARTIFACT_DELETE_FAILED
+CLEANUP_ARTIFACT_PATH_UNSAFE
 ```
 
 ## Kontrakt snapshotu mobilnego

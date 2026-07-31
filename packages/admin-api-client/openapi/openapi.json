@@ -53,6 +53,177 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "CleanupCommandRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmationTarget": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Confirmationtarget",
+            "type": "string"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "previewToken": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Previewtoken",
+            "type": "string"
+          }
+        },
+        "required": [
+          "previewToken",
+          "confirmationTarget",
+          "confirmed"
+        ],
+        "title": "CleanupCommandRequest",
+        "type": "object"
+      },
+      "CleanupCountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "count"
+        ],
+        "title": "CleanupCountResponse",
+        "type": "object"
+      },
+      "CleanupPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactPaths": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Artifactpaths",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "confirmationTarget": {
+            "title": "Confirmationtarget",
+            "type": "string"
+          },
+          "counts": {
+            "items": {
+              "$ref": "#/components/schemas/CleanupCountResponse"
+            },
+            "title": "Counts",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "mobile_release",
+              "game_layout_data"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "previewToken": {
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "retainedSharedArtifactCount": {
+            "title": "Retainedsharedartifactcount",
+            "type": "integer"
+          },
+          "targetId": {
+            "format": "uuid",
+            "title": "Targetid",
+            "type": "string"
+          },
+          "targetLabel": {
+            "title": "Targetlabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "targetId",
+          "targetLabel",
+          "confirmationTarget",
+          "previewToken",
+          "counts",
+          "artifactPaths",
+          "retainedSharedArtifactCount",
+          "blockers"
+        ],
+        "title": "CleanupPreviewResponse",
+        "type": "object"
+      },
+      "CleanupResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "alreadyCompleted": {
+            "title": "Alreadycompleted",
+            "type": "boolean"
+          },
+          "deletedArtifactCount": {
+            "title": "Deletedartifactcount",
+            "type": "integer"
+          },
+          "deletedCounts": {
+            "items": {
+              "$ref": "#/components/schemas/CleanupCountResponse"
+            },
+            "title": "Deletedcounts",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "mobile_release",
+              "game_layout_data"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "previewToken": {
+            "title": "Previewtoken",
+            "type": "string"
+          },
+          "retainedSharedArtifactCount": {
+            "title": "Retainedsharedartifactcount",
+            "type": "integer"
+          },
+          "targetId": {
+            "format": "uuid",
+            "title": "Targetid",
+            "type": "string"
+          },
+          "targetLabel": {
+            "title": "Targetlabel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "targetId",
+          "targetLabel",
+          "previewToken",
+          "deletedCounts",
+          "deletedArtifactCount",
+          "retainedSharedArtifactCount",
+          "alreadyCompleted"
+        ],
+        "title": "CleanupResultResponse",
+        "type": "object"
+      },
       "DatasetLayoutPageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6994,6 +7165,174 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/layout-data": {
+      "delete": {
+        "operationId": "resetGameLayoutData",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanupCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reset all layout workflow data for one game",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/layout-data-reset-preview": {
+      "get": {
+        "operationId": "previewGameLayoutDataReset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview reset of all layout workflow data for one game",
+        "tags": [
+          "cleanup"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/rules-versions": {
       "get": {
         "operationId": "listRulesVersions",
@@ -11056,6 +11395,109 @@
       }
     },
     "/api/v1/admin/mobile-releases/{mobile_release_id}": {
+      "delete": {
+        "operationId": "deleteMobileRelease",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mobile_release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mobile Release Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CleanupCommandRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Delete one mobile release and its dedicated artifacts",
+        "tags": [
+          "cleanup"
+        ]
+      },
       "get": {
         "operationId": "getMobileRelease",
         "parameters": [
@@ -11274,6 +11716,69 @@
         "summary": "Start the one controlled release build workflow",
         "tags": [
           "mobile-releases"
+        ]
+      }
+    },
+    "/api/v1/admin/mobile-releases/{mobile_release_id}/deletion-preview": {
+      "get": {
+        "operationId": "previewMobileReleaseDeletion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mobile_release_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mobile Release Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup target not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cleanup state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview complete deletion of one mobile release",
+        "tags": [
+          "cleanup"
         ]
       }
     },

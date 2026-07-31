@@ -92,6 +92,14 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "create-mobile-release", "mobile-release:new"
     ),
     (
+        "DELETE",
+        "/api/v1/admin/mobile-releases/{mobile_release_id}",
+    ): HighImpactOperation("delete-mobile-release", "mobile-release:{mobile_release_id}"),
+    (
+        "DELETE",
+        "/api/v1/admin/games/{game_id}/layout-data",
+    ): HighImpactOperation("reset-game-layout-data", "game-layout-data:{game_id}"),
+    (
         "POST",
         "/api/v1/admin/mobile-releases/{mobile_release_id}/build",
     ): HighImpactOperation("build-mobile-release", "mobile-release:{mobile_release_id}"),

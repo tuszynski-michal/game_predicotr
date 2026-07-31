@@ -5,6 +5,7 @@ from collections.abc import Callable
 from fastapi import APIRouter
 
 from game_predictor_api.api.catalog import create_catalog_router
+from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
 from game_predictor_api.api.health import create_health_router
 from game_predictor_api.api.image_imports import create_image_imports_router
@@ -31,6 +32,7 @@ from game_predictor_api.config import ApiSettings
 def create_api_router(
     settings: ApiSettings,
     catalog_service_dependency: Callable[..., object],
+    cleanup_service_dependency: Callable[..., object],
     rules_service_dependency: Callable[..., object],
     dataset_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
@@ -57,6 +59,7 @@ def create_api_router(
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
+    router.include_router(create_cleanup_router(cleanup_service_dependency))
     router.include_router(
         create_symbol_bootstrap_router(
             symbol_bootstrap_service_dependency,

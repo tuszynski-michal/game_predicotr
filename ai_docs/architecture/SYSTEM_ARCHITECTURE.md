@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Architektura systemu
@@ -78,6 +78,14 @@ Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. 
 - manual review,
 - publikacja wersji datasetów i reguł,
 - zlecenie przygotowania snapshotu i APK.
+
+Workspace `Joby` jest prostą projekcją istniejącego kontraktu jobs. Główny
+widok pobiera ograniczoną listę, filtruje wyłącznie po jednym statusie i pokazuje
+typ, identyfikator/kontekst, status, postęp, czas utworzenia oraz krótki błąd.
+Metadane lease/workera, liczniki, pełny błąd i operacje retry/cancel lub
+diagnostyka importu są ładowane lub prezentowane w rozwijanych szczegółach.
+Aktywne joby zachowują polling; UI nie wprowadza własnej kolejki, retencji ani
+automatycznego cleanupu.
 
 ### Reviewer web
 
@@ -179,8 +187,8 @@ Dalsze etapy mogą używać zarządzanych ścieżek bez dostępu do folderu źr�
 
 ### Kontrolowany reset danych layoutów gry
 
-TASK-0133 udostępnia operację wysokiego wpływu przywracającą wskazaną grę do
-stanu sprzed importu. Najpierw read-only preview wylicza dokładny `game_id`,
+TASK-0133 udostępnia operacje wysokiego wpływu przywracające wskazaną grę do
+stanu sprzed importu albo usuwające jedno wydanie. Najpierw read-only preview wylicza dokładny `game_id` lub `release_id`,
 liczbę rekordów według klas, wydania i listę zarządzanych artefaktów. Wykonanie
 wymaga zgodnego preview tokenu, wpisania identyfikatora gry i dodatkowego
 potwierdzenia lokalnej intencji.
@@ -189,8 +197,16 @@ Reset zachowuje rekord `games` i minimalny append-only audyt, lecz usuwa
 game-scoped importy obrazów, review, datasety/layouty, payouty, katalog
 symboli, reguły, wydania oraz ich dedykowane artefakty. Rekordy i blob
 współdzielone nie są fizycznie usuwane, dopóki istnieje referencja innej gry.
-Usuwanie PostgreSQL i plików jest kontrolowanym workflow z raportem końcowym;
-częściowa awaria pozostaje widoczna i możliwa do bezpiecznego ponowienia.
+Content-addressed cache wykonań pipeline'u i joby pozostają jako współdzielony
+cache oraz audyt operacyjny. Aktywny job, build, sesja Reviewera albo wydanie
+współdzielone przez gry blokuje reset.
+
+Serwis blokuje rekord celu i ponownie wylicza token, usuwa wyłącznie jawnie
+wyliczone ścieżki wewnątrz zarządzanego katalogu, a następnie wykonuje zmiany
+PostgreSQL w jednej transakcji. Błąd pliku nie uruchamia zmian bazy, a jawny
+rekord `cleanup_operations` pozwala rozpoznać poprawne wykonanie po utracie
+odpowiedzi. Częściowa awaria pozostaje widoczna i możliwa do bezpiecznego
+ponowienia.
 
 ### Batch payout precomputation
 
@@ -335,18 +351,22 @@ builda produkcyjny manifest schema v1 i `snapshot.db` zastępują stały asset
 Metro, a pliki bazowe są bezwarunkowo odtwarzane. Weryfikacja potwierdza podpis,
 brak `INTERNET`, standalone bundle oraz SQLite o dokładnym checksumie release.
 
-Panel wybiera wyłącznie aktywne gry oraz opublikowane, zgodne wymiarami pary
-dataset/reguły. Po utworzeniu draftu nie edytuje jego składu. Podczas builda
-odświeża szczegół release i dokładnie jeden przypięty job, a retry wznawia ten
-sam rekord. Gotowy APK jest pobierany przez kontrolowany endpoint po ponownej
-weryfikacji SHA-256 względem wspólnego katalogu artefaktów; przeglądarka nie
-przekazuje ścieżki ani komendy systemowej.
+Panel 0.2 wybiera dokładnie jedną aktywną grę i automatycznie przypina jej
+najnowszą opublikowaną, zgodną wymiarami parę dataset/reguły. Jedna akcja UI
+tworzy niezmienny draft, a następnie wywołuje kontrolowany build; awaria drugiego
+kroku zachowuje draft do jawnego wznowienia. Podczas builda panel odświeża
+szczegół release i dokładnie jeden przypięty job, a pełną diagnostykę deleguje do
+workspace'u `Joby`. Gotowy APK jest pobierany przez kontrolowany endpoint po
+ponownej weryfikacji SHA-256 względem wspólnego katalogu artefaktów; przeglądarka
+nie przekazuje ścieżki ani komendy systemowej.
 
 Utworzenie release i uruchomienie builda są osobnymi operacjami. TASK-0036
 utrwala globalnie unikalną wersję oraz 1–15 dokładnych wyborów dataset/rules.
 Serwer ustala obsługiwany algorytm i schema, blokuje źródła, wymaga statusu
 `published`, wspólnej aktywnej gry oraz zgodnych wymiarów i zapisuje wszystkie
 rekordy w jednej transakcji. Dopiero TASK-0037 tworzy job i zmienia lifecycle.
+Zakres 1–15 pozostaje kontraktem backendowym przygotowanym dla 0.3; Admin 0.2
+wysyła dokładnie jeden wybór.
 
 ## Przepływ ręcznego importu layoutów
 

@@ -6,7 +6,6 @@ import type {
   ImageStorageInventoryResponse,
   JobResponse,
   JobStatus,
-  JobType,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -25,7 +24,6 @@ import {
 } from '@/features/jobs/job-actions';
 import {
   JOB_STATUS_OPTIONS,
-  JOB_TYPE_OPTIONS,
   canCancelJob,
   canRetryJob,
   formatJobTimestamp,
@@ -34,6 +32,8 @@ import {
   formatStorageBytes,
   isActiveJob,
   isImageImportJob,
+  jobContextLabel,
+  jobErrorSummary,
   jobProgressLabel,
   jobProgressPercent,
   jobStageLabel,
@@ -61,7 +61,6 @@ export function JobMonitor({
   );
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState<JobStatus | ''>('');
-  const [typeFilter, setTypeFilter] = useState<JobType | ''>('');
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -86,7 +85,6 @@ export function JobMonitor({
       setError('');
       const result = await loadJobs(api, {
         ...(statusFilter === '' ? {} : { status: statusFilter }),
-        ...(typeFilter === '' ? {} : { jobType: typeFilter }),
       });
       if (!mounted.current || currentRequest !== requestId.current) return;
       requestInProgress.current = false;
@@ -100,7 +98,7 @@ export function JobMonitor({
       setJobs(result.jobs);
       setLoadState('ready');
     },
-    [api, statusFilter, typeFilter],
+    [api, statusFilter],
   );
 
   useEffect(() => {
@@ -169,7 +167,7 @@ export function JobMonitor({
       <header className="pageHeader jobsPageHeader">
         <div>
           <p className="eyebrow">M3.1 · lokalny worker</p>
-          <h1>Jobs</h1>
+          <h1>Joby</h1>
           <p className="lead">
             Obserwuj etap, postęp i lease długich operacji. Anulowanie aktywnego
             zadania następuje dopiero w bezpiecznym checkpointcie workera.
@@ -198,22 +196,6 @@ export function JobMonitor({
             {JOB_STATUS_OPTIONS.map((status) => (
               <option key={status} value={status}>
                 {jobStatusLabel(status)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Typ
-          <select
-            onChange={(event) =>
-              setTypeFilter(event.target.value as JobType | '')
-            }
-            value={typeFilter}
-          >
-            <option value="">Wszystkie typy</option>
-            {JOB_TYPE_OPTIONS.map((jobType) => (
-              <option key={jobType} value={jobType}>
-                {jobTypeLabel(jobType)}
               </option>
             ))}
           </select>
@@ -294,146 +276,162 @@ function JobCard({
   readonly onRetry: () => void;
 }) {
   const percent = jobProgressPercent(job);
+  const errorSummary = jobErrorSummary(job);
   const cancellationPending =
     job.status === 'processing' && job.cancelRequestedAt !== null;
 
   return (
-    <article className={`jobCard jobCard-${job.status}`}>
-      <div className="jobCardHeader">
-        <div>
-          <div className="jobTitleLine">
-            <span className="jobTypeMark" aria-hidden="true">
-              {job.jobType.slice(0, 2).toUpperCase()}
-            </span>
-            <div>
-              <h2>{jobTypeLabel(job.jobType)}</h2>
-              <code title={job.id}>{job.id}</code>
-            </div>
-            <span className={`jobStatus jobStatus-${job.status}`}>
-              {jobStatusLabel(job.status)}
-            </span>
-          </div>
+    <details className={`jobCard jobCard-${job.status}`}>
+      <summary className="jobCardSummary">
+        <span className="jobTypeMark" aria-hidden="true">
+          {job.jobType.slice(0, 2).toUpperCase()}
+        </span>
+        <span className="jobSummaryIdentity">
+          <strong>{jobTypeLabel(job.jobType)}</strong>
+          <code title={job.id}>{job.id}</code>
+          <small title={jobContextLabel(job)}>{jobContextLabel(job)}</small>
+        </span>
+        <span className={`jobStatus jobStatus-${job.status}`}>
+          {jobStatusLabel(job.status)}
+        </span>
+        <span className="jobSummaryProgress">
+          <span>
+            <strong>{jobProgressLabel(job)}</strong>
+            <small>
+              {percent === null ? 'Rozmiar nieznany' : `${percent.toFixed(1)}%`}
+            </small>
+          </span>
+          <span
+            aria-label={`Postęp: ${jobProgressLabel(job)}`}
+            aria-valuemax={job.progress.total ?? undefined}
+            aria-valuemin={0}
+            aria-valuenow={job.progress.current}
+            className={`jobProgressTrack ${
+              percent === null ? 'jobProgressTrackIndeterminate' : ''
+            }`}
+            role="progressbar"
+          >
+            <span style={{ width: percent === null ? '35%' : `${percent}%` }} />
+          </span>
+        </span>
+        <span className="jobSummaryCreated">
+          <small>Utworzono</small>
+          <time dateTime={job.createdAt}>
+            {formatJobTimestamp(job.createdAt)}
+          </time>
+        </span>
+        <span className="jobSummaryChevron" aria-hidden="true">
+          +
+        </span>
+        {errorSummary ? (
+          <span className="jobErrorSummary" title={errorSummary}>
+            {errorSummary}
+          </span>
+        ) : null}
+      </summary>
+
+      <div className="jobCardDetails">
+        <div className="jobCardHeader">
           <p className="jobStage">
             Etap: <strong>{jobStageLabel(job.progress.stage)}</strong>
           </p>
-        </div>
-        <div className="jobActions">
-          {cancelConfirmation ? (
-            <>
-              <span>Czy na pewno?</span>
-              <button
-                className="textButton"
-                disabled={mutating}
-                onClick={onCancelConfirmationClose}
-                type="button"
-              >
-                Wróć
-              </button>
-              <button
-                className="dangerButton"
-                disabled={mutating}
-                onClick={onCancelConfirmation}
-                type="button"
-              >
-                {mutating ? 'Anulowanie…' : 'Potwierdź'}
-              </button>
-            </>
-          ) : (
-            <>
-              {canRetryJob(job) ? (
+          <div className="jobActions">
+            {cancelConfirmation ? (
+              <>
+                <span>Czy na pewno?</span>
                 <button
-                  className="primaryButton"
+                  className="textButton"
                   disabled={mutating}
-                  onClick={onRetry}
+                  onClick={onCancelConfirmationClose}
                   type="button"
                 >
-                  {mutating ? 'Ponawianie…' : 'Ponów'}
+                  Wróć
                 </button>
-              ) : null}
-              {canCancelJob(job) ? (
                 <button
                   className="dangerButton"
                   disabled={mutating}
-                  onClick={onCancel}
+                  onClick={onCancelConfirmation}
                   type="button"
                 >
-                  Anuluj
+                  {mutating ? 'Anulowanie…' : 'Potwierdź'}
                 </button>
-              ) : null}
-            </>
-          )}
+              </>
+            ) : (
+              <>
+                {canRetryJob(job) ? (
+                  <button
+                    className="primaryButton"
+                    disabled={mutating}
+                    onClick={onRetry}
+                    type="button"
+                  >
+                    {mutating ? 'Ponawianie…' : 'Ponów'}
+                  </button>
+                ) : null}
+                {canCancelJob(job) ? (
+                  <button
+                    className="dangerButton"
+                    disabled={mutating}
+                    onClick={onCancel}
+                    type="button"
+                  >
+                    Anuluj
+                  </button>
+                ) : null}
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {cancellationPending ? (
-        <p className="jobCancellationNotice" role="status">
-          Żądanie anulowania zapisane. Oczekiwanie na bezpieczny checkpoint.
-        </p>
-      ) : null}
+        {cancellationPending ? (
+          <p className="jobCancellationNotice" role="status">
+            Żądanie anulowania zapisane. Oczekiwanie na bezpieczny checkpoint.
+          </p>
+        ) : null}
 
-      <div className="jobProgressSection">
-        <div className="jobProgressSummary">
-          <strong>{jobProgressLabel(job)}</strong>
-          <span>
-            {percent === null
-              ? 'Całkowity rozmiar nieznany'
-              : `${percent.toFixed(1)}%`}
-          </span>
+        <div className="jobProgressSection">
+          <dl className="jobCounters">
+            <div>
+              <dt>Poprawne</dt>
+              <dd>{job.progress.succeeded.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Błędy</dt>
+              <dd>{job.progress.failed.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Review</dt>
+              <dd>{job.progress.review.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Próba</dt>
+              <dd>{job.attemptCount}</dd>
+            </div>
+          </dl>
         </div>
-        <div
-          aria-label={`Postęp: ${jobProgressLabel(job)}`}
-          aria-valuemax={job.progress.total ?? undefined}
-          aria-valuemin={0}
-          aria-valuenow={job.progress.current}
-          className={`jobProgressTrack ${
-            percent === null ? 'jobProgressTrackIndeterminate' : ''
-          }`}
-          role="progressbar"
-        >
-          <span style={{ width: percent === null ? '35%' : `${percent}%` }} />
-        </div>
-        <dl className="jobCounters">
-          <div>
-            <dt>Poprawne</dt>
-            <dd>{job.progress.succeeded.toLocaleString('pl-PL')}</dd>
+
+        {job.error ? (
+          <div className="jobError" role="alert">
+            <strong>{job.error.code}</strong>
+            <p>{job.error.message}</p>
           </div>
+        ) : null}
+
+        <dl className="jobMetadata">
+          <JobTime label="Rozpoczęto" value={job.startedAt} />
+          <JobTime label="Zakończono" value={job.finishedAt} />
+          <JobTime label="Heartbeat" value={job.heartbeatAt} />
+          <JobTime label="Lease do" value={job.leaseExpiresAt} />
           <div>
-            <dt>Błędy</dt>
-            <dd>{job.progress.failed.toLocaleString('pl-PL')}</dd>
-          </div>
-          <div>
-            <dt>Review</dt>
-            <dd>{job.progress.review.toLocaleString('pl-PL')}</dd>
-          </div>
-          <div>
-            <dt>Próba</dt>
-            <dd>{job.attemptCount}</dd>
+            <dt>Worker</dt>
+            <dd>{job.workerVersion ?? '—'}</dd>
           </div>
         </dl>
+        {isImageImportJob(job) ? (
+          <ImageJobOperationsPanel api={api} job={job} />
+        ) : null}
       </div>
-
-      {job.error ? (
-        <div className="jobError" role="alert">
-          <strong>{job.error.code}</strong>
-          <p>{job.error.message}</p>
-        </div>
-      ) : null}
-
-      <dl className="jobMetadata">
-        <JobTime label="Utworzono" value={job.createdAt} />
-        <JobTime label="Rozpoczęto" value={job.startedAt} />
-        <JobTime label="Zakończono" value={job.finishedAt} />
-        <JobTime label="Heartbeat" value={job.heartbeatAt} />
-        <JobTime label="Lease do" value={job.leaseExpiresAt} />
-        <div>
-          <dt>Worker</dt>
-          <dd>{job.workerVersion ?? '—'}</dd>
-        </div>
-      </dl>
-      {isImageImportJob(job) ? (
-        <ImageJobOperationsPanel api={api} job={job} />
-      ) : null}
-    </article>
+    </details>
   );
 }
 

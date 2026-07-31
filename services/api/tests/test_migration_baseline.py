@@ -30,6 +30,7 @@ IMAGE_VERIFIED_COHORTS_REVISION = "0020_verified_cohorts"
 REVIEWER_ACCESS_REVISION = "0021_reviewer_access"
 DATASET_QUALITY_REVISION = "0022_dataset_quality"
 SYMBOL_BOOTSTRAP_REVISION = "0023_symbol_bootstrap"
+CLEANUP_OPERATIONS_REVISION = "0024_cleanup_operations"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -41,7 +42,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_symbol_bootstrap_migration_is_the_only_head() -> None:
+def test_cleanup_operations_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -66,8 +67,9 @@ def test_symbol_bootstrap_migration_is_the_only_head() -> None:
     reviewer_access = script.get_revision(REVIEWER_ACCESS_REVISION)
     dataset_quality = script.get_revision(DATASET_QUALITY_REVISION)
     symbol_bootstrap = script.get_revision(SYMBOL_BOOTSTRAP_REVISION)
+    cleanup_operations = script.get_revision(CLEANUP_OPERATIONS_REVISION)
 
-    assert script.get_heads() == [SYMBOL_BOOTSTRAP_REVISION]
+    assert script.get_heads() == [CLEANUP_OPERATIONS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -114,6 +116,8 @@ def test_symbol_bootstrap_migration_is_the_only_head() -> None:
     assert dataset_quality.down_revision == REVIEWER_ACCESS_REVISION
     assert symbol_bootstrap is not None
     assert symbol_bootstrap.down_revision == DATASET_QUALITY_REVISION
+    assert cleanup_operations is not None
+    assert cleanup_operations.down_revision == SYMBOL_BOOTSTRAP_REVISION
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:
@@ -157,6 +161,25 @@ def test_symbol_bootstrap_migration_adds_checksum_bound_runs() -> None:
     assert "uq_symbol_bootstrap_source_expectation" in upgrade_sql
     assert "ck_symbol_bootstrap_applied_state" in upgrade_sql
     assert "drop table symbol_bootstrap_runs" in downgrade_output.getvalue().lower()
+
+
+def test_cleanup_operations_migration_adds_append_only_receipts() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{SYMBOL_BOOTSTRAP_REVISION}:{CLEANUP_OPERATIONS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{CLEANUP_OPERATIONS_REVISION}:{SYMBOL_BOOTSTRAP_REVISION}",
+        sql=True,
+    )
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table cleanup_operations" in upgrade_sql
+    assert "uq_cleanup_operations_target_preview" in upgrade_sql
+    assert "drop table cleanup_operations" in downgrade_output.getvalue().lower()
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  createAndStartRelease,
   createRelease,
   downloadReleaseApk,
   loadReleaseWorkspace,
@@ -84,6 +85,61 @@ test('loads active games, exact source histories and releases', async () => {
     [game.id],
   );
   assert.deepEqual(result.releases, [release]);
+});
+
+test('creates and immediately starts one controlled release workflow', async () => {
+  const calls = [];
+  const result = await createAndStartRelease(
+    {
+      createMobileRelease: async () => {
+        calls.push('create');
+        return { data: release };
+      },
+      buildMobileRelease: async (releaseId) => {
+        calls.push(`build:${releaseId}`);
+        return { data: { jobId: job.id, status: 'created' } };
+      },
+    },
+    {
+      games: [
+        {
+          datasetVersionId: 'dataset-1',
+          gameId: game.id,
+          rulesVersionId: 'rules-1',
+        },
+      ],
+      version: release.version,
+    },
+  );
+
+  assert.deepEqual(calls, ['create', `build:${release.id}`]);
+  assert.deepEqual(result, {
+    build: { jobId: job.id, status: 'created' },
+    ok: true,
+    release,
+  });
+});
+
+test('preserves the immutable draft when starting its build fails', async () => {
+  const result = await createAndStartRelease(
+    {
+      createMobileRelease: async () => ({ data: release }),
+      buildMobileRelease: async () => ({
+        error: {
+          code: 'ANDROID_BUILD_FAILED',
+          details: {},
+          message: 'Build could not start.',
+        },
+      }),
+    },
+    { games: [], version: release.version },
+  );
+
+  assert.deepEqual(result, {
+    error: 'Build could not start. (ANDROID_BUILD_FAILED)',
+    ok: false,
+    release,
+  });
 });
 
 test('creates, starts, refreshes and retries through typed operations', async () => {

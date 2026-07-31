@@ -24,6 +24,7 @@ import {
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createSymbol as createGeneratedSymbol,
+  deleteMobileRelease as deleteGeneratedMobileRelease,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
   getDatasetVersion as getGeneratedDatasetVersion,
@@ -70,11 +71,14 @@ import {
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   publishRulesVersion as publishGeneratedRulesVersion,
+  previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
+  previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  resetGameLayoutData as resetGeneratedGameLayoutData,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
@@ -96,6 +100,7 @@ import {
 } from './generated/sdk.gen';
 import type {
   CreateJobData,
+  CleanupCommandRequest,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
   ImageSequenceSourceOverrideCommand,
@@ -135,6 +140,10 @@ import type {
 export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
+  CleanupCommandRequest,
+  CleanupCountResponse,
+  CleanupPreviewResponse,
+  CleanupResultResponse,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -702,6 +711,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { mobile_release_id: mobileReleaseId },
       }),
+    previewMobileReleaseDeletion: (mobileReleaseId: string) =>
+      previewGeneratedMobileReleaseDeletion({
+        client,
+        path: { mobile_release_id: mobileReleaseId },
+      }),
+    deleteMobileRelease: (
+      mobileReleaseId: string,
+      body: CleanupCommandRequest,
+    ) =>
+      deleteGeneratedMobileRelease({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`mobile-release:${mobileReleaseId}`),
+        path: { mobile_release_id: mobileReleaseId },
+      }),
     downloadMobileReleaseApk: (mobileReleaseId: string) =>
       downloadGeneratedMobileReleaseApk({
         client,
@@ -765,6 +789,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { feedback_export_id: feedbackExportId },
       }),
     listGames: () => listGeneratedGames({ client }),
+    previewGameLayoutDataReset: (gameId: string) =>
+      previewGeneratedGameLayoutDataReset({
+        client,
+        path: { game_id: gameId },
+      }),
+    resetGameLayoutData: (gameId: string, body: CleanupCommandRequest) =>
+      resetGeneratedGameLayoutData({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`game-layout-data:${gameId}`),
+        path: { game_id: gameId },
+      }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>
       getGeneratedGame({ client, path: { game_id: gameId } }),

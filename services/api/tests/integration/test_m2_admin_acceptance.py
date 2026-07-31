@@ -93,6 +93,7 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                         "code": "m2-game",
                         "name": "M2 Acceptance Game",
                         "status": "active",
+                        "expectedLayoutCount": 1000,
                     },
                 ),
                 201,

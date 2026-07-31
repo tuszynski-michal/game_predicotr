@@ -154,18 +154,28 @@ Nie uruchamiaj równolegle kilku workerów ani kilku buildów Android.
 
 Minimalna kolejność przygotowania danych i wydania:
 
-1. `Gry` — utwórz albo wybierz grę.
-2. `Symbole` — dodaj symbole, ich `mobileCode`, nazwę i oznaczenie jokera.
-3. `Reguły` — utwórz draft, ustaw wymiary oraz koszt spinu, dodaj paylines i
-   payouty, a potem opublikuj kompletną wersję.
-4. `Datasety` albo `Import layoutów` — wygeneruj fixture lub zleć import,
-   walidację i publikację danych.
-5. `Jobs` — obserwuj status i etap. Dla zadań asynchronicznych worker musi
-   działać.
-6. `Zatwierdzanie` — wybierz grę/import i utwórz sesję osobnej aplikacji
-   Reviewer; przycisk może od razu wystawić ją przez czasowy HTTPS.
-7. `Wydania Android` — wybierz opublikowany dataset i zgodne reguły, utwórz
-   nowe wydanie oraz uruchom build.
+1. W workspace `Zarządzanie grami` otwórz `Gry` i utwórz albo wybierz grę.
+2. Otwórz `Import layoutów`, wybierz folder Windows i uruchom import zdjęć.
+3. Otwórz `Symbole`, zatwierdź bootstrap i popraw nazwy lub obrazy symboli.
+4. Otwórz `Reguły`, przygotuj bieżący draft, paylines, minima oraz payouty,
+   opublikuj reguły i uruchom przeliczenie layoutów.
+5. Otwórz `Zatwierdzanie`, wybierz gotowy import i utwórz sesję osobnej
+   aplikacji Reviewer; przycisk może od razu wystawić ją przez czasowy HTTPS.
+6. W osobnym workspace `Joby` obserwuj status i etap. Dla zadań
+   asynchronicznych worker musi działać.
+7. W osobnym workspace `Wersje Android` utwórz jedno kontrolowane wydanie dla
+   aktywnej gry. Najnowsza zgodna para opublikowanego datasetu i reguł jest
+   wybierana automatycznie.
+
+Admin 0.2 nie pokazuje osobnych workspace'ów `Datasety` ani `Manual review`.
+Pozostają one wewnętrznymi encjami workflow, a decyzje użytkownika prowadzą
+przez import, reguły i osobną aplikację Reviewer.
+
+Końcową techniczną bramkę 0.2 można powtórzyć bez użycia danych roboczych:
+
+```powershell
+npm.cmd run v02:admin:acceptance
+```
 
 Nie archiwizuj źródeł używanych przez przygotowywane wydanie. Zmiana reguł lub
 danych nie aktualizuje aplikacji już zainstalowanej na telefonie — wymaga

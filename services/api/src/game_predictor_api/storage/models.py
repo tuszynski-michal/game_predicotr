@@ -97,6 +97,43 @@ class GameModel(Base):
     )
 
 
+class CleanupOperationModel(Base):
+    __tablename__ = "cleanup_operations"
+    __table_args__ = (
+        CheckConstraint(
+            "operation_type IN ('mobile_release', 'game_layout_data')",
+            name="ck_cleanup_operations_type",
+        ),
+        CheckConstraint(
+            "preview_token ~ '^[0-9a-f]{64}$'",
+            name="ck_cleanup_operations_preview_token",
+        ),
+        UniqueConstraint(
+            "operation_type",
+            "target_id",
+            "preview_token",
+            name="uq_cleanup_operations_target_preview",
+        ),
+        Index(
+            "ix_cleanup_operations_target_created",
+            "operation_type",
+            "target_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    operation_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    target_id: Mapped[UUID] = mapped_column(nullable=False)
+    preview_token: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class SymbolModel(Base):
     __tablename__ = "symbols"
     __table_args__ = (

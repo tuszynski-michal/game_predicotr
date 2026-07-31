@@ -8,6 +8,7 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_api.domain.catalog import (
+    DEFAULT_EXPECTED_LAYOUT_COUNT,
     CatalogConflictError,
     CatalogNotFoundError,
     Game,
@@ -15,6 +16,7 @@ from game_predictor_api.domain.catalog import (
     Symbol,
     SymbolStatus,
     validate_display_order,
+    validate_expected_layout_count,
     validate_image_path,
     validate_mobile_code,
     validate_name,
@@ -27,7 +29,14 @@ class CatalogRepository(Protocol):
 
     def get_game(self, game_id: UUID) -> Game | None: ...
 
-    def add_game(self, *, code: str, name: str, status: GameStatus) -> Game: ...
+    def add_game(
+        self,
+        *,
+        code: str,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int,
+    ) -> Game: ...
 
     def save_game(self, game: Game) -> Game: ...
 
@@ -72,11 +81,21 @@ class CatalogService:
             )
         return game
 
-    def create_game(self, *, code: str, name: str, status: GameStatus) -> Game:
+    def create_game(
+        self,
+        *,
+        code: str,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int = DEFAULT_EXPECTED_LAYOUT_COUNT,
+    ) -> Game:
         return self._repository.add_game(
             code=validate_stable_code(code, field_name="code"),
             name=validate_name(name),
             status=status,
+            expected_layout_count=validate_expected_layout_count(
+                expected_layout_count
+            ),
         )
 
     def update_game(
@@ -85,12 +104,18 @@ class CatalogService:
         *,
         name: str | None = None,
         status: GameStatus | None = None,
+        expected_layout_count: int | None = None,
     ) -> Game:
         game = self.get_game(game_id)
         updated = replace(
             game,
             name=game.name if name is None else validate_name(name),
             status=game.status if status is None else status,
+            expected_layout_count=(
+                game.expected_layout_count
+                if expected_layout_count is None
+                else validate_expected_layout_count(expected_layout_count)
+            ),
         )
         return self._repository.save_game(updated)
 

@@ -92,9 +92,15 @@ import type {
   GetGameResponses,
   GetHealthData,
   GetHealthResponses,
+  GetImageDatasetCompletenessData,
+  GetImageDatasetCompletenessErrors,
+  GetImageDatasetCompletenessResponses,
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
+  GetImageSequenceSourceSelectionData,
+  GetImageSequenceSourceSelectionErrors,
+  GetImageSequenceSourceSelectionResponses,
   GetImageStorageInventoryData,
   GetImageStorageInventoryErrors,
   GetImageStorageInventoryResponses,
@@ -250,6 +256,9 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  SelectImageSequenceSourceData,
+  SelectImageSequenceSourceErrors,
+  SelectImageSequenceSourceResponses,
   SelectLocalImageFolderData,
   SelectLocalImageFolderErrors,
   SelectLocalImageFolderResponses,
@@ -845,6 +854,72 @@ export const listOperationalImageReviewItems = <
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items',
     ...options,
+  });
+
+/**
+ * Get accepted image sequence completeness for one game
+ */
+export const getImageDatasetCompleteness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageDatasetCompletenessData, ThrowOnError>,
+): RequestResult<
+  GetImageDatasetCompletenessResponses,
+  GetImageDatasetCompletenessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageDatasetCompletenessResponses,
+    GetImageDatasetCompletenessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Get ranked accepted sources for one game sequence
+ */
+export const getImageSequenceSourceSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSequenceSourceSelectionData, ThrowOnError>,
+): RequestResult<
+  GetImageSequenceSourceSelectionResponses,
+  GetImageSequenceSourceSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSequenceSourceSelectionResponses,
+    GetImageSequenceSourceSelectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Select or clear the manual source override for one sequence
+ */
+export const selectImageSequenceSource = <ThrowOnError extends boolean = false>(
+  options: Options<SelectImageSequenceSourceData, ThrowOnError>,
+): RequestResult<
+  SelectImageSequenceSourceResponses,
+  SelectImageSequenceSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectImageSequenceSourceResponses,
+    SelectImageSequenceSourceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}/override',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

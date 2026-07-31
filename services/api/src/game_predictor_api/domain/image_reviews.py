@@ -145,6 +145,57 @@ class ImageReviewPage:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageDatasetCompleteness:
+    game_id: UUID
+    expected_layout_count: int
+    accepted_board_count: int
+    unique_sequence_count: int
+    missing_sequence_count: int
+    duplicate_sequence_count: int
+    out_of_range_sequence_count: int
+    missing_sequence_numbers: tuple[int, ...]
+    missing_sequence_numbers_truncated: bool
+    manual_override_count: int
+
+    @property
+    def completion_percentage(self) -> float:
+        return round(
+            min(self.unique_sequence_count, self.expected_layout_count)
+            * 100
+            / self.expected_layout_count,
+            4,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSequenceSourceCandidate:
+    review_item_id: UUID
+    recognized_board_id: UUID
+    import_job_id: UUID
+    sequence_number: int
+    source_checksum_sha256: str
+    source_relative_path: str
+    width: int
+    height: int
+    board_confidence: float
+    sequence_confidence: float
+    geometry_revision: int
+    automatic_rank: int
+    quality_score: float
+    selected: bool
+    selected_manually: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSequenceSourceSelection:
+    game_id: UUID
+    sequence_number: int
+    candidates: tuple[ImageSequenceSourceCandidate, ...]
+    manual_override_review_item_id: UUID | None
+    override_revision: int
+
+
+@dataclass(frozen=True, slots=True)
 class ImageReviewResolutionCell:
     cell_index: int
     crop_sample_id: str
@@ -568,6 +619,7 @@ __all__ = [
     "ImageReviewCell",
     "ImageReviewConflictError",
     "ImageReviewCounts",
+    "ImageDatasetCompleteness",
     "ImageReviewError",
     "ImageReviewGeometryArtifacts",
     "ImageReviewGeometryCellArtifact",
@@ -576,6 +628,8 @@ __all__ = [
     "ImageReviewItem",
     "ImageReviewNotFoundError",
     "ImageReviewPage",
+    "ImageSequenceSourceCandidate",
+    "ImageSequenceSourceSelection",
     "ImageReviewResolutionCell",
     "ImageReviewResolutionEvent",
     "ImageReviewView",

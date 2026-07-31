@@ -168,6 +168,7 @@ class LayoutImportPublicationSource:
     integrity_source: LayoutImportIntegritySource
     game_id: UUID
     signature_cell_width: int
+    expected_layout_count: int
     rules_are_published: bool
     existing_dataset: DatasetVersion | None
 

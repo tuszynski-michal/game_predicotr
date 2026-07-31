@@ -476,6 +476,7 @@ class SqlAlchemyLayoutImportReportRepository(LayoutImportReportRepository):
             ),
             game_id=validation_job.game_id,
             signature_cell_width=len(str(int(maximum_mobile_code))),
+            expected_layout_count=game.expected_layout_count,
             rules_are_published=rules.status is RulesVersionStatus.PUBLISHED,
             existing_dataset=(
                 None if existing_record is None else _to_dataset_version(existing_record)
@@ -497,6 +498,7 @@ class SqlAlchemyLayoutImportReportRepository(LayoutImportReportRepository):
             rows=source.reference.rows,
             columns=source.reference.columns,
             signature_cell_width=source.signature_cell_width,
+            expected_layout_count=source.expected_layout_count,
             layout_count=source.integrity_source.valid_row_count,
             status=DatasetVersionStatus.STAGING,
             generation_seed=0,
@@ -706,6 +708,7 @@ def _to_dataset_version(record: DatasetVersionModel) -> DatasetVersion:
         rows=record.rows,
         columns=record.columns,
         signature_cell_width=record.signature_cell_width,
+        expected_layout_count=record.expected_layout_count,
         layout_count=record.layout_count,
         status=record.status,
         generation_seed=record.generation_seed,

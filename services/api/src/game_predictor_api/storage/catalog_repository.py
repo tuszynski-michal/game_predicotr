@@ -53,8 +53,20 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record = self._session.get(GameModel, game_id)
         return None if record is None else _to_game(record)
 
-    def add_game(self, *, code: str, name: str, status: GameStatus) -> Game:
-        record = GameModel(code=code, name=name, status=status)
+    def add_game(
+        self,
+        *,
+        code: str,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int,
+    ) -> Game:
+        record = GameModel(
+            code=code,
+            name=name,
+            status=status,
+            expected_layout_count=expected_layout_count,
+        )
         self._session.add(record)
         self._flush_or_raise_conflict()
         self._session.refresh(record)
@@ -66,6 +78,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             raise RuntimeError("Game disappeared during a catalog transaction.")
         record.name = game.name
         record.status = game.status
+        record.expected_layout_count = game.expected_layout_count
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
         return _to_game(record)
@@ -158,6 +171,7 @@ def _to_game(record: GameModel) -> Game:
         code=record.code,
         name=record.name,
         status=record.status,
+        expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

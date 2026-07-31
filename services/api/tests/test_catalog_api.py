@@ -28,7 +28,14 @@ class MemoryCatalogRepository(CatalogRepository):
     def get_game(self, game_id: UUID) -> Game | None:
         return self.games.get(game_id)
 
-    def add_game(self, *, code: str, name: str, status: GameStatus) -> Game:
+    def add_game(
+        self,
+        *,
+        code: str,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int,
+    ) -> Game:
         if any(game.code == code for game in self.games.values()):
             raise CatalogConflictError(
                 "GAME_CODE_ALREADY_EXISTS",
@@ -40,6 +47,7 @@ class MemoryCatalogRepository(CatalogRepository):
             code=code,
             name=name,
             status=status,
+            expected_layout_count=expected_layout_count,
             created_at=timestamp,
             updated_at=timestamp,
         )

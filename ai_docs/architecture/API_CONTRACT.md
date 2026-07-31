@@ -1046,6 +1046,25 @@ POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-review-items/{reviewItemId}/geometry-revisions
 ```
 
+TASK-0124 rozszerza grupę o kontrolę kompletności i wybór źródła:
+
+```text
+GET  /api/v1/admin/image-review-items/dataset-completeness/{gameId}
+GET  /api/v1/admin/image-review-items/sequence-sources/{gameId}/{sequenceNumber}
+POST /api/v1/admin/image-review-items/sequence-sources/{gameId}/{sequenceNumber}/override
+```
+
+Raport kompletności porównuje zaakceptowane numery z zakresem
+`1..expectedLayoutCount`. Zwraca dokładne liczniki zaakceptowanych plansz,
+unikalnych sekwencji, luk, nadmiarowych źródeł i numerów poza zakresem oraz
+maksymalnie 100 pierwszych brakujących numerów z flagą obcięcia.
+
+Lista źródeł zwraca stabilny ranking zaakceptowanych plansz tej samej sekwencji,
+jawne metryki jakości, provenance, automatyczny rank i aktualny wybór. Komenda
+override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru
+automatycznego oraz `selectedBy`. Każda zmiana tworzy kolejną rewizję audytu;
+nie usuwa automatycznego rankingu ani historycznej decyzji.
+
 TASK-0110 dodał osobną, jawną operację zamrożenia:
 
 ```text

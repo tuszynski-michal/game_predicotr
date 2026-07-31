@@ -59,6 +59,7 @@ def create_catalog_router(
                 code=payload.code,
                 name=payload.name,
                 status=payload.status,
+                expected_layout_count=payload.expected_layout_count,
             )
         )
 
@@ -92,6 +93,7 @@ def create_catalog_router(
                 game_id,
                 name=payload.name,
                 status=payload.status,
+                expected_layout_count=payload.expected_layout_count,
             )
         )
 

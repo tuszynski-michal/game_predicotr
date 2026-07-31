@@ -28,6 +28,7 @@ IMAGE_FAILURE_RETRY_REVISION = "0018_image_failure_retry"
 IMAGE_REVIEW_GEOMETRY_REVISION = "0019_review_geometry"
 IMAGE_VERIFIED_COHORTS_REVISION = "0020_verified_cohorts"
 REVIEWER_ACCESS_REVISION = "0021_reviewer_access"
+DATASET_QUALITY_REVISION = "0022_dataset_quality"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -39,7 +40,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_reviewer_access_migration_is_the_only_head() -> None:
+def test_dataset_quality_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -62,8 +63,9 @@ def test_reviewer_access_migration_is_the_only_head() -> None:
     image_review_geometry = script.get_revision(IMAGE_REVIEW_GEOMETRY_REVISION)
     image_verified_cohorts = script.get_revision(IMAGE_VERIFIED_COHORTS_REVISION)
     reviewer_access = script.get_revision(REVIEWER_ACCESS_REVISION)
+    dataset_quality = script.get_revision(DATASET_QUALITY_REVISION)
 
-    assert script.get_heads() == [REVIEWER_ACCESS_REVISION]
+    assert script.get_heads() == [DATASET_QUALITY_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -106,6 +108,31 @@ def test_reviewer_access_migration_is_the_only_head() -> None:
     assert image_verified_cohorts.down_revision == IMAGE_REVIEW_GEOMETRY_REVISION
     assert reviewer_access is not None
     assert reviewer_access.down_revision == IMAGE_VERIFIED_COHORTS_REVISION
+    assert dataset_quality is not None
+    assert dataset_quality.down_revision == REVIEWER_ACCESS_REVISION
+
+
+def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{REVIEWER_ACCESS_REVISION}:{DATASET_QUALITY_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{DATASET_QUALITY_REVISION}:{REVIEWER_ACCESS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "expected_layout_count" in upgrade_sql
+    assert "create table image_sequence_source_override_events" in upgrade_sql
+    assert "uq_image_sequence_source_override_revision" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table image_sequence_source_override_events" in downgrade_sql
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

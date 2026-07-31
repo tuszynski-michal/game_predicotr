@@ -8,7 +8,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
+from game_predictor_api.domain.catalog import (
+    DEFAULT_EXPECTED_LAYOUT_COUNT,
+    MAX_EXPECTED_LAYOUT_COUNT,
+    GameStatus,
+    SymbolStatus,
+)
 
 
 def _to_camel(value: str) -> str:
@@ -35,11 +40,21 @@ class GameCreate(ApiModel):
     code: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=200)
     status: GameStatus = GameStatus.DRAFT
+    expected_layout_count: int = Field(
+        default=DEFAULT_EXPECTED_LAYOUT_COUNT,
+        ge=1,
+        le=MAX_EXPECTED_LAYOUT_COUNT,
+    )
 
 
 class GameUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     status: GameStatus | None = None
+    expected_layout_count: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_EXPECTED_LAYOUT_COUNT,
+    )
 
     @model_validator(mode="after")
     def require_change(self) -> Self:
@@ -49,6 +64,11 @@ class GameUpdate(ApiModel):
             raise ValueError("name cannot be null.")
         if "status" in self.model_fields_set and self.status is None:
             raise ValueError("status cannot be null.")
+        if (
+            "expected_layout_count" in self.model_fields_set
+            and self.expected_layout_count is None
+        ):
+            raise ValueError("expectedLayoutCount cannot be null.")
         return self
 
 
@@ -57,6 +77,7 @@ class GameResponse(ApiModel):
     code: str
     name: str
     status: GameStatus
+    expected_layout_count: int
     created_at: datetime
     updated_at: datetime
 

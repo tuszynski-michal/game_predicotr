@@ -411,6 +411,17 @@ W pełni ręcznie zweryfikowany, ciągły zakres może zostać opublikowany przy
 nadal blokuje automatyczną publikację nierozwiązanych lub auto-zaakceptowanych
 elementów i nie jest obchodzona przez samą obecność predykcji.
 
+Kompletność jest liczona względem dodatniego `expected_layout_count` gry,
+domyślnie 500 000, ale konfigurowalnego dla małego testu 0.2. Raport musi podać
+dokładne liczniki, lecz może zwrócić najwyżej 100 pierwszych brakujących
+numerów. Nie wolno tworzyć syntetycznych layoutów tylko po to, aby zamknąć luki.
+
+Jeżeli kilka zaakceptowanych plansz wskazuje ten sam numer, system zachowuje
+wszystkie źródła i wybiera jedno deterministycznie na podstawie jawnych metryk
+jakości. Operator może wskazać inne źródło albo cofnąć override. Ręczna
+korekta numeru domenowego nie zmienia surowej odpowiedzi OCR, a wybrane źródło
+zachowuje checksumę, ścieżkę i identyfikatory importu oraz planszy.
+
 ## Stan i etapy zadania
 
 ```text

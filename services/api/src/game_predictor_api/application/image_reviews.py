@@ -21,6 +21,7 @@ from game_predictor_api.application.image_review_assets import (
 )
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
+    ImageDatasetCompleteness,
     ImageReviewAction,
     ImageReviewConflictError,
     ImageReviewCounts,
@@ -34,6 +35,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewResolutionCell,
     ImageReviewResolutionEvent,
     ImageReviewView,
+    ImageSequenceSourceSelection,
     ValidatedImageReviewGeometryCommand,
     ValidatedImageReviewResolution,
     decode_image_review_cursor,
@@ -80,6 +82,25 @@ class OperationalImageReviewRepository(Protocol):
     ) -> ImageReviewItem | None: ...
 
     def active_symbol_codes(self, game_id: UUID) -> Sequence[str]: ...
+
+    def expected_layout_count(self, game_id: UUID) -> int | None: ...
+
+    def dataset_completeness(self, game_id: UUID) -> ImageDatasetCompleteness | None: ...
+
+    def sequence_source_selection(
+        self,
+        game_id: UUID,
+        sequence_number: int,
+    ) -> ImageSequenceSourceSelection | None: ...
+
+    def append_source_override(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        review_item_id: UUID | None,
+        selected_by: str,
+    ) -> None: ...
 
     def save_resolution(
         self,
@@ -273,6 +294,17 @@ class OperationalImageReviewService:
                 "IMAGE_REVIEW_REVISION_INVALID",
                 "The expected revision cannot be negative.",
             )
+        expected_layout_count = self._repository.expected_layout_count(game_id)
+        if (
+            expected_layout_count is not None
+            and sequence_number is not None
+            and sequence_number > expected_layout_count
+        ):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SEQUENCE_OUT_OF_RANGE",
+                "The sequence number exceeds the configured game range.",
+                details={"expectedLayoutCount": expected_layout_count},
+            )
         item = self.get_item(
             review_item_id,
             game_id=game_id,
@@ -297,6 +329,76 @@ class OperationalImageReviewService:
             resolution=resolution,
             resolved_at=datetime.now(UTC),
         )
+
+    def dataset_completeness(self, game_id: UUID) -> ImageDatasetCompleteness:
+        report = self._repository.dataset_completeness(game_id)
+        if report is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_GAME_NOT_FOUND",
+                "The selected operational review game does not exist.",
+            )
+        return report
+
+    def sequence_source_selection(
+        self,
+        game_id: UUID,
+        sequence_number: int,
+    ) -> ImageSequenceSourceSelection:
+        expected = self._repository.expected_layout_count(game_id)
+        if expected is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_REVIEW_GAME_NOT_FOUND",
+                "The selected operational review game does not exist.",
+            )
+        if sequence_number < 1 or sequence_number > expected:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_SEQUENCE_OUT_OF_RANGE",
+                "The sequence number is outside the configured game range.",
+                details={"expectedLayoutCount": expected},
+            )
+        selection = self._repository.sequence_source_selection(
+            game_id,
+            sequence_number,
+        )
+        if selection is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_SEQUENCE_SOURCE_NOT_FOUND",
+                "No accepted image source exists for this sequence.",
+            )
+        return selection
+
+    def select_sequence_source(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        review_item_id: UUID | None,
+        selected_by: str,
+    ) -> ImageSequenceSourceSelection:
+        actor = selected_by.strip()
+        if not actor or len(actor) > 200:
+            raise ImageReviewConflictError(
+                "IMAGE_SEQUENCE_SOURCE_ACTOR_INVALID",
+                "selectedBy must identify the local administrator.",
+            )
+        current = self.sequence_source_selection(game_id, sequence_number)
+        if review_item_id is not None and review_item_id not in {
+            candidate.review_item_id for candidate in current.candidates
+        }:
+            raise ImageReviewConflictError(
+                "IMAGE_SEQUENCE_SOURCE_CANDIDATE_INVALID",
+                "The selected review item is not an accepted source for this sequence.",
+            )
+        self._repository.append_source_override(
+            game_id=game_id,
+            sequence_number=sequence_number,
+            review_item_id=review_item_id,
+            selected_by=actor,
+        )
+        updated = self._repository.sequence_source_selection(game_id, sequence_number)
+        if updated is None:
+            raise RuntimeError("Image sequence source selection disappeared after update.")
+        return updated
 
     def list_resolution_events(
         self,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -18,6 +18,7 @@ from game_predictor_api.application.image_reviews import (
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_ALTERNATIVES,
+    ImageDatasetCompleteness,
     ImageReviewAlternative,
     ImageReviewCell,
     ImageReviewConflictError,
@@ -31,6 +32,8 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewPage,
     ImageReviewResolutionEvent,
     ImageReviewView,
+    ImageSequenceSourceCandidate,
+    ImageSequenceSourceSelection,
     ValidatedImageReviewGeometryCommand,
     ValidatedImageReviewResolution,
     crop_sample_id,
@@ -45,6 +48,7 @@ from game_predictor_api.storage.models import (
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     ImageReviewResolutionEventModel,
+    ImageSequenceSourceOverrideEventModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -88,6 +92,225 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "IMAGE_REVIEW_CONTEXT_INVALID",
                 "The import job does not belong to this game or image workflow.",
             )
+
+    def expected_layout_count(self, game_id: UUID) -> int | None:
+        value = self._session.scalar(
+            select(GameModel.expected_layout_count).where(GameModel.id == game_id)
+        )
+        return None if value is None else int(value)
+
+    def dataset_completeness(self, game_id: UUID) -> ImageDatasetCompleteness | None:
+        expected = self.expected_layout_count(game_id)
+        if expected is None:
+            return None
+        accepted = (
+            select(ImageLayoutStagingRowModel.sequence_number.label("sequence_number"))
+            .join(JobModel, JobModel.id == ImageLayoutStagingRowModel.import_job_id)
+            .where(JobModel.game_id == game_id)
+        ).subquery()
+        accepted_count = int(
+            self._session.scalar(select(func.count()).select_from(accepted)) or 0
+        )
+        in_range = (
+            select(accepted.c.sequence_number)
+            .where(accepted.c.sequence_number.between(1, expected))
+            .distinct()
+        ).subquery()
+        unique_count = int(
+            self._session.scalar(select(func.count()).select_from(in_range)) or 0
+        )
+        out_of_range_count = int(
+            self._session.scalar(
+                select(func.count(func.distinct(accepted.c.sequence_number))).where(
+                    ~accepted.c.sequence_number.between(1, expected)
+                )
+            )
+            or 0
+        )
+        duplicate_groups = (
+            select(accepted.c.sequence_number)
+            .where(accepted.c.sequence_number.between(1, expected))
+            .group_by(accepted.c.sequence_number)
+            .having(func.count() > 1)
+        ).subquery()
+        duplicate_count = int(
+            self._session.scalar(select(func.count()).select_from(duplicate_groups)) or 0
+        )
+        ordered = select(
+            in_range.c.sequence_number,
+            func.lag(in_range.c.sequence_number)
+            .over(order_by=in_range.c.sequence_number)
+            .label("previous_number"),
+        ).subquery()
+        gap_rows = self._session.execute(
+            select(ordered.c.sequence_number, ordered.c.previous_number)
+            .where(
+                or_(
+                    and_(ordered.c.previous_number.is_(None), ordered.c.sequence_number > 1),
+                    ordered.c.sequence_number - ordered.c.previous_number > 1,
+                )
+            )
+            .order_by(ordered.c.sequence_number)
+            .limit(101)
+        ).all()
+        missing: list[int] = []
+        for number, previous in gap_rows:
+            start = 1 if previous is None else int(previous) + 1
+            stop = int(number)
+            missing.extend(range(start, min(stop, start + 100 - len(missing))))
+            if len(missing) >= 100:
+                break
+        maximum = self._session.scalar(select(func.max(in_range.c.sequence_number)))
+        if len(missing) < 100 and (maximum is None or int(maximum) < expected):
+            start = 1 if maximum is None else int(maximum) + 1
+            missing.extend(range(start, min(expected + 1, start + 100 - len(missing))))
+        override_latest = (
+            select(
+                ImageSequenceSourceOverrideEventModel.sequence_number,
+                func.max(ImageSequenceSourceOverrideEventModel.revision).label("revision"),
+            )
+            .where(ImageSequenceSourceOverrideEventModel.game_id == game_id)
+            .group_by(ImageSequenceSourceOverrideEventModel.sequence_number)
+        ).subquery()
+        override_count = int(
+            self._session.scalar(
+                select(func.count())
+                .select_from(ImageSequenceSourceOverrideEventModel)
+                .join(
+                    override_latest,
+                    and_(
+                        override_latest.c.sequence_number
+                        == ImageSequenceSourceOverrideEventModel.sequence_number,
+                        override_latest.c.revision
+                        == ImageSequenceSourceOverrideEventModel.revision,
+                    ),
+                )
+                .where(
+                    ImageSequenceSourceOverrideEventModel.game_id == game_id,
+                    ImageSequenceSourceOverrideEventModel.selected_review_item_id.is_not(None),
+                )
+            )
+            or 0
+        )
+        missing_count = expected - unique_count
+        return ImageDatasetCompleteness(
+            game_id=game_id,
+            expected_layout_count=expected,
+            accepted_board_count=accepted_count,
+            unique_sequence_count=unique_count,
+            missing_sequence_count=missing_count,
+            duplicate_sequence_count=duplicate_count,
+            out_of_range_sequence_count=out_of_range_count,
+            missing_sequence_numbers=tuple(missing),
+            missing_sequence_numbers_truncated=missing_count > len(missing),
+            manual_override_count=override_count,
+        )
+
+    def sequence_source_selection(
+        self,
+        game_id: UUID,
+        sequence_number: int,
+    ) -> ImageSequenceSourceSelection | None:
+        rows = self._session.execute(
+            select(
+                ImageReviewItemModel,
+                RecognizedBoardModel,
+                SourceImageModel,
+                ImageLayoutStagingRowModel,
+            )
+            .join(
+                ImageLayoutStagingRowModel,
+                ImageLayoutStagingRowModel.review_item_id == ImageReviewItemModel.id,
+            )
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == ImageLayoutStagingRowModel.import_job_id)
+            .where(
+                JobModel.game_id == game_id,
+                ImageLayoutStagingRowModel.sequence_number == sequence_number,
+                ImageReviewItemModel.status.in_(("accepted", "corrected")),
+            )
+            .order_by(
+                RecognizedBoardModel.board_confidence.desc(),
+                RecognizedBoardModel.sequence_confidence.desc(),
+                (SourceImageModel.width * SourceImageModel.height).desc(),
+                ImageReviewItemModel.id,
+            )
+        ).all()
+        if not rows:
+            return None
+        override = self._session.scalar(
+            select(ImageSequenceSourceOverrideEventModel)
+            .where(
+                ImageSequenceSourceOverrideEventModel.game_id == game_id,
+                ImageSequenceSourceOverrideEventModel.sequence_number == sequence_number,
+            )
+            .order_by(ImageSequenceSourceOverrideEventModel.revision.desc())
+            .limit(1)
+        )
+        manual_id = None if override is None else override.selected_review_item_id
+        selected_id = manual_id or rows[0][0].id
+        candidates = tuple(
+            ImageSequenceSourceCandidate(
+                review_item_id=item.id,
+                recognized_board_id=board.id,
+                import_job_id=staging.import_job_id,
+                sequence_number=sequence_number,
+                source_checksum_sha256=source.checksum_sha256,
+                source_relative_path=source.relative_path,
+                width=source.width,
+                height=source.height,
+                board_confidence=board.board_confidence,
+                sequence_confidence=board.sequence_confidence,
+                geometry_revision=board.geometry_revision,
+                automatic_rank=index,
+                quality_score=round(
+                    board.board_confidence * 0.45
+                    + board.sequence_confidence * 0.35
+                    + min(source.width * source.height / 2_073_600, 1.0) * 0.20,
+                    6,
+                ),
+                selected=item.id == selected_id,
+                selected_manually=manual_id is not None and item.id == manual_id,
+            )
+            for index, (item, board, source, staging) in enumerate(rows, start=1)
+        )
+        return ImageSequenceSourceSelection(
+            game_id=game_id,
+            sequence_number=sequence_number,
+            candidates=candidates,
+            manual_override_review_item_id=manual_id,
+            override_revision=0 if override is None else override.revision,
+        )
+
+    def append_source_override(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        review_item_id: UUID | None,
+        selected_by: str,
+    ) -> None:
+        latest = self._session.scalar(
+            select(func.max(ImageSequenceSourceOverrideEventModel.revision)).where(
+                ImageSequenceSourceOverrideEventModel.game_id == game_id,
+                ImageSequenceSourceOverrideEventModel.sequence_number == sequence_number,
+            )
+        )
+        self._session.add(
+            ImageSequenceSourceOverrideEventModel(
+                game_id=game_id,
+                sequence_number=sequence_number,
+                revision=int(latest or 0) + 1,
+                selected_review_item_id=review_item_id,
+                selected_by=selected_by,
+                created_at=datetime.now(UTC),
+            )
+        )
+        self._session.flush()
 
     def list_items(
         self,

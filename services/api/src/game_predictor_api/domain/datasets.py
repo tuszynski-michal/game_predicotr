@@ -75,6 +75,7 @@ class DatasetVersion:
     rows: int
     columns: int
     signature_cell_width: int
+    expected_layout_count: int
     layout_count: int
     status: DatasetVersionStatus
     generation_seed: int
@@ -317,7 +318,7 @@ def validate_dataset(
     layouts = source.layouts
     sequence_numbers = tuple(item.sequence_number for item in layouts)
     sequence_counts = Counter(sequence_numbers)
-    expected_numbers = set(range(1, dataset.layout_count + 1))
+    expected_numbers = set(range(1, dataset.expected_layout_count + 1))
     actual_numbers = set(sequence_counts)
 
     missing_numbers = expected_numbers - actual_numbers
@@ -374,7 +375,7 @@ def validate_dataset(
         ]
     )
 
-    count_difference = abs(dataset.layout_count - len(layouts))
+    count_difference = abs(dataset.expected_layout_count - len(layouts))
     checks = (
         _validation_check(
             DatasetValidationCheckCode.LAYOUT_COUNT_MISMATCH,

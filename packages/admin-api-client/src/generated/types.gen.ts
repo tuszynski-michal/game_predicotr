@@ -202,6 +202,10 @@ export type DatasetVersionResponse = {
    */
   createdAt: string;
   /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
    * Gameid
    */
   gameId: string;
@@ -300,6 +304,10 @@ export type GameCreate = {
    */
   code: string;
   /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount?: number;
+  /**
    * Name
    */
   name: string;
@@ -318,6 +326,10 @@ export type GameResponse = {
    * Createdat
    */
   createdAt: string;
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
   /**
    * Id
    */
@@ -342,6 +354,10 @@ export type GameStatus = 'draft' | 'active' | 'archived';
  * GameUpdate
  */
 export type GameUpdate = {
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount?: number | null;
   /**
    * Name
    */
@@ -371,6 +387,56 @@ export type HealthResponse = {
    * Version
    */
   version: string;
+};
+
+/**
+ * ImageDatasetCompletenessResponse
+ */
+export type ImageDatasetCompletenessResponse = {
+  /**
+   * Acceptedboardcount
+   */
+  acceptedBoardCount: number;
+  /**
+   * Completionpercentage
+   */
+  completionPercentage: number;
+  /**
+   * Duplicatesequencecount
+   */
+  duplicateSequenceCount: number;
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manualoverridecount
+   */
+  manualOverrideCount: number;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Missingsequencenumbers
+   */
+  missingSequenceNumbers: Array<number>;
+  /**
+   * Missingsequencenumberstruncated
+   */
+  missingSequenceNumbersTruncated: boolean;
+  /**
+   * Outofrangesequencecount
+   */
+  outOfRangeSequenceCount: number;
+  /**
+   * Uniquesequencecount
+   */
+  uniqueSequenceCount: number;
 };
 
 /**
@@ -651,6 +717,112 @@ export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
  * ImageReviewView
  */
 export type ImageReviewView = 'pending' | 'completed' | 'all';
+
+/**
+ * ImageSequenceSourceCandidateResponse
+ */
+export type ImageSequenceSourceCandidateResponse = {
+  /**
+   * Automaticrank
+   */
+  automaticRank: number;
+  /**
+   * Boardconfidence
+   */
+  boardConfidence: number;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Qualityscore
+   */
+  qualityScore: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Selected
+   */
+  selected: boolean;
+  /**
+   * Selectedmanually
+   */
+  selectedManually: boolean;
+  /**
+   * Sequenceconfidence
+   */
+  sequenceConfidence: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Width
+   */
+  width: number;
+};
+
+/**
+ * ImageSequenceSourceOverrideCommand
+ */
+export type ImageSequenceSourceOverrideCommand = {
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Selectedby
+   */
+  selectedBy: string;
+};
+
+/**
+ * ImageSequenceSourceSelectionResponse
+ */
+export type ImageSequenceSourceSelectionResponse = {
+  /**
+   * Candidates
+   */
+  candidates: Array<ImageSequenceSourceCandidateResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manualoverridereviewitemid
+   */
+  manualOverrideReviewItemId: string | null;
+  /**
+   * Overriderevision
+   */
+  overrideRevision: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
 
 /**
  * ImageStorageInventoryResponse
@@ -4545,6 +4717,138 @@ export type ListOperationalImageReviewItemsResponses = {
 
 export type ListOperationalImageReviewItemsResponse =
   ListOperationalImageReviewItemsResponses[keyof ListOperationalImageReviewItemsResponses];
+
+export type GetImageDatasetCompletenessData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}';
+};
+
+export type GetImageDatasetCompletenessErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageDatasetCompletenessError =
+  GetImageDatasetCompletenessErrors[keyof GetImageDatasetCompletenessErrors];
+
+export type GetImageDatasetCompletenessResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageDatasetCompletenessResponse;
+};
+
+export type GetImageDatasetCompletenessResponse =
+  GetImageDatasetCompletenessResponses[keyof GetImageDatasetCompletenessResponses];
+
+export type GetImageSequenceSourceSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}';
+};
+
+export type GetImageSequenceSourceSelectionErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSequenceSourceSelectionError =
+  GetImageSequenceSourceSelectionErrors[keyof GetImageSequenceSourceSelectionErrors];
+
+export type GetImageSequenceSourceSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSequenceSourceSelectionResponse;
+};
+
+export type GetImageSequenceSourceSelectionResponse =
+  GetImageSequenceSourceSelectionResponses[keyof GetImageSequenceSourceSelectionResponses];
+
+export type SelectImageSequenceSourceData = {
+  body: ImageSequenceSourceOverrideCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}/override';
+};
+
+export type SelectImageSequenceSourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectImageSequenceSourceError =
+  SelectImageSequenceSourceErrors[keyof SelectImageSequenceSourceErrors];
+
+export type SelectImageSequenceSourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSequenceSourceSelectionResponse;
+};
+
+export type SelectImageSequenceSourceResponse =
+  SelectImageSequenceSourceResponses[keyof SelectImageSequenceSourceResponses];
 
 export type GetOperationalImageReviewItemData = {
   body?: never;

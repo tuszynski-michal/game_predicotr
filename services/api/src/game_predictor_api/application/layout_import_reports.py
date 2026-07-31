@@ -175,6 +175,15 @@ class LayoutImportReportService:
                 "The validation rules version must remain published.",
                 details={"rulesVersionId": str(source.reference.rules_version_id)},
             )
+        if source.integrity_source.valid_row_count != source.expected_layout_count:
+            raise JobConflictError(
+                "LAYOUT_IMPORT_EXPECTED_COUNT_MISMATCH",
+                "The validated layout count does not match the game expectation.",
+                details={
+                    "actualLayoutCount": source.integrity_source.valid_row_count,
+                    "expectedLayoutCount": source.expected_layout_count,
+                },
+            )
         report = build_layout_import_integrity_report(
             source.reference,
             source.integrity_source,

@@ -110,6 +110,7 @@ class MemoryLayoutImportReportRepository:
             integrity_source=self.source,
             game_id=self.game_id,
             signature_cell_width=2,
+            expected_layout_count=self.source.valid_row_count,
             rules_are_published=True,
             existing_dataset=None,
         )
@@ -127,6 +128,7 @@ class MemoryLayoutImportReportRepository:
             rows=source.reference.rows or 0,
             columns=source.reference.columns or 0,
             signature_cell_width=source.signature_cell_width,
+            expected_layout_count=source.expected_layout_count,
             layout_count=source.integrity_source.valid_row_count,
             status=DatasetVersionStatus.PUBLISHED,
             generation_seed=0,

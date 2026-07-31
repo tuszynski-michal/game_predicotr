@@ -1,8 +1,10 @@
 'use client';
 
 import type {
+  ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
   ImageImportJobPayload,
+  ImageSequenceSourceSelectionResponse,
   JobResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -47,15 +49,29 @@ export function ImageFolderImportPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [completeness, setCompleteness] =
+    useState<ImageDatasetCompletenessResponse | null>(null);
+  const [sequenceNumber, setSequenceNumber] = useState('');
+  const [sourceSelection, setSourceSelection] =
+    useState<ImageSequenceSourceSelectionResponse | null>(null);
 
   const refreshJobs = useCallback(async () => {
-    const result = await api.listJobs({
-      gameId,
-      jobType: 'import',
-      limit: 20,
-    });
-    if (result.error === undefined && result.data !== undefined) {
-      setJobs(result.data.filter(isImageImportJob));
+    const [jobsResult, completenessResult] = await Promise.all([
+      api.listJobs({
+        gameId,
+        jobType: 'import',
+        limit: 20,
+      }),
+      api.getImageDatasetCompleteness(gameId),
+    ]);
+    if (jobsResult.error === undefined && jobsResult.data !== undefined) {
+      setJobs(jobsResult.data.filter(isImageImportJob));
+    }
+    if (
+      completenessResult.error === undefined &&
+      completenessResult.data !== undefined
+    ) {
+      setCompleteness(completenessResult.data);
     }
   }, [api, gameId]);
 
@@ -114,6 +130,42 @@ export function ImageFolderImportPanel({
     setFeedback(
       `Import ${result.job.id} utworzony. Uruchom worker i obserwuj zakładkę Joby.`,
     );
+  }
+
+  async function inspectSequence() {
+    const parsed = Number(sequenceNumber);
+    if (!Number.isSafeInteger(parsed) || parsed < 1) {
+      setError('Podaj dodatni numer sekwencji.');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    const result = await api.getImageSequenceSourceSelection(gameId, parsed);
+    setBusy(false);
+    if (result.error !== undefined || result.data === undefined) {
+      setSourceSelection(null);
+      setError('Brak zaakceptowanego źródła dla podanej sekwencji.');
+      return;
+    }
+    setSourceSelection(result.data);
+  }
+
+  async function chooseSource(reviewItemId: string | null) {
+    if (sourceSelection === null || busy) return;
+    setBusy(true);
+    setError('');
+    const result = await api.selectImageSequenceSource(
+      gameId,
+      sourceSelection.sequenceNumber,
+      { reviewItemId, selectedBy: 'local-owner' },
+    );
+    setBusy(false);
+    if (result.error !== undefined || result.data === undefined) {
+      setError('Nie udało się zapisać wyboru źródła.');
+      return;
+    }
+    setSourceSelection(result.data);
+    await refreshJobs();
   }
 
   return (
@@ -175,6 +227,95 @@ export function ImageFolderImportPanel({
             <dd>{selection.supportedFileCount}</dd>
           </div>
         </dl>
+      ) : null}
+
+      {completeness ? (
+        <div className="gamesPanel">
+          <div className="listHeader">
+            <div>
+              <p className="eyebrow">Kompletność zaakceptowanych plansz</p>
+              <h3>
+                {completeness.uniqueSequenceCount.toLocaleString('pl-PL')} /{' '}
+                {completeness.expectedLayoutCount.toLocaleString('pl-PL')}
+              </h3>
+            </div>
+            <strong>{completeness.completionPercentage.toFixed(2)}%</strong>
+          </div>
+          <dl className="diagnosticList">
+            <div>
+              <dt>Brakujące</dt>
+              <dd>{completeness.missingSequenceCount.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Duplikaty numeru</dt>
+              <dd>{completeness.duplicateSequenceCount}</dd>
+            </div>
+            <div>
+              <dt>Ręczne wybory źródła</dt>
+              <dd>{completeness.manualOverrideCount}</dd>
+            </div>
+          </dl>
+          {completeness.missingSequenceNumbers.length > 0 ? (
+            <p>
+              Pierwsze luki: {completeness.missingSequenceNumbers.join(', ')}
+              {completeness.missingSequenceNumbersTruncated ? '…' : ''}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="listHeader">
+        <div>
+          <p className="eyebrow">Źródła tej samej sekwencji</p>
+          <p>Sprawdź ranking jakości lub wskaż ręcznie lepsze zdjęcie.</p>
+        </div>
+      </div>
+      <div className="inlineActions">
+        <input
+          aria-label="Numer sekwencji do sprawdzenia"
+          inputMode="numeric"
+          min={1}
+          onChange={(event) => setSequenceNumber(event.currentTarget.value)}
+          placeholder="Numer sekwencji"
+          type="number"
+          value={sequenceNumber}
+        />
+        <button disabled={busy} onClick={() => void inspectSequence()} type="button">
+          Pokaż źródła
+        </button>
+        {sourceSelection?.manualOverrideReviewItemId ? (
+          <button disabled={busy} onClick={() => void chooseSource(null)} type="button">
+            Przywróć wybór automatyczny
+          </button>
+        ) : null}
+      </div>
+      {sourceSelection ? (
+        <ul className="compactList">
+          {sourceSelection.candidates.map((candidate) => (
+            <li key={candidate.reviewItemId}>
+              <strong>
+                #{candidate.automaticRank} · jakość{' '}
+                {(candidate.qualityScore * 100).toFixed(1)}%
+                {candidate.selected ? ' · wybrane' : ''}
+              </strong>
+              <span>
+                {candidate.width} × {candidate.height} · OCR{' '}
+                {(candidate.sequenceConfidence * 100).toFixed(1)}% · plansza{' '}
+                {(candidate.boardConfidence * 100).toFixed(1)}%
+              </span>
+              <small>{candidate.sourceRelativePath}</small>
+              {!candidate.selected ? (
+                <button
+                  disabled={busy}
+                  onClick={() => void chooseSource(candidate.reviewItemId)}
+                  type="button"
+                >
+                  Wybierz to źródło
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       <div className="listHeader">

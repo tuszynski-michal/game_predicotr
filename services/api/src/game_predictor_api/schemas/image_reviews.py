@@ -12,11 +12,13 @@ from game_predictor_api.application.image_reviews import OperationalImageReviewP
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     MAX_IMAGE_REVIEW_ALTERNATIVES,
+    ImageDatasetCompleteness,
     ImageReviewAction,
     ImageReviewGeometryRevision,
     ImageReviewItem,
     ImageReviewResolutionEvent,
     ImageReviewView,
+    ImageSequenceSourceSelection,
     crop_sample_id,
 )
 from game_predictor_api.schemas.catalog import ApiModel
@@ -89,6 +91,51 @@ class OperationalImageReviewPageResponse(ApiModel):
     counts: OperationalImageReviewCountsResponse
     previous_cursor: str | None
     next_cursor: str | None
+
+
+class ImageDatasetCompletenessResponse(ApiModel):
+    game_id: UUID
+    expected_layout_count: int = Field(ge=1)
+    accepted_board_count: int = Field(ge=0)
+    unique_sequence_count: int = Field(ge=0)
+    missing_sequence_count: int = Field(ge=0)
+    duplicate_sequence_count: int = Field(ge=0)
+    out_of_range_sequence_count: int = Field(ge=0)
+    missing_sequence_numbers: tuple[int, ...] = Field(max_length=100)
+    missing_sequence_numbers_truncated: bool
+    manual_override_count: int = Field(ge=0)
+    completion_percentage: float = Field(ge=0, le=100)
+
+
+class ImageSequenceSourceCandidateResponse(ApiModel):
+    review_item_id: UUID
+    recognized_board_id: UUID
+    import_job_id: UUID
+    sequence_number: int = Field(ge=1)
+    source_checksum_sha256: Sha256
+    source_relative_path: str
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+    board_confidence: Probability
+    sequence_confidence: Probability
+    geometry_revision: int = Field(ge=0)
+    automatic_rank: int = Field(ge=1)
+    quality_score: Probability
+    selected: bool
+    selected_manually: bool
+
+
+class ImageSequenceSourceSelectionResponse(ApiModel):
+    game_id: UUID
+    sequence_number: int = Field(ge=1)
+    candidates: tuple[ImageSequenceSourceCandidateResponse, ...] = Field(min_length=1)
+    manual_override_review_item_id: UUID | None
+    override_revision: int = Field(ge=0)
+
+
+class ImageSequenceSourceOverrideCommand(ApiModel):
+    review_item_id: UUID | None
+    selected_by: str = Field(min_length=1, max_length=200)
 
 
 class OperationalImageReviewResolutionCell(ApiModel):
@@ -268,6 +315,55 @@ def to_operational_page_response(
     )
 
 
+def to_image_dataset_completeness_response(
+    report: ImageDatasetCompleteness,
+) -> ImageDatasetCompletenessResponse:
+    return ImageDatasetCompletenessResponse(
+        game_id=report.game_id,
+        expected_layout_count=report.expected_layout_count,
+        accepted_board_count=report.accepted_board_count,
+        unique_sequence_count=report.unique_sequence_count,
+        missing_sequence_count=report.missing_sequence_count,
+        duplicate_sequence_count=report.duplicate_sequence_count,
+        out_of_range_sequence_count=report.out_of_range_sequence_count,
+        missing_sequence_numbers=report.missing_sequence_numbers,
+        missing_sequence_numbers_truncated=report.missing_sequence_numbers_truncated,
+        manual_override_count=report.manual_override_count,
+        completion_percentage=report.completion_percentage,
+    )
+
+
+def to_image_sequence_source_selection_response(
+    selection: ImageSequenceSourceSelection,
+) -> ImageSequenceSourceSelectionResponse:
+    return ImageSequenceSourceSelectionResponse(
+        game_id=selection.game_id,
+        sequence_number=selection.sequence_number,
+        candidates=tuple(
+            ImageSequenceSourceCandidateResponse(
+                review_item_id=candidate.review_item_id,
+                recognized_board_id=candidate.recognized_board_id,
+                import_job_id=candidate.import_job_id,
+                sequence_number=candidate.sequence_number,
+                source_checksum_sha256=candidate.source_checksum_sha256,
+                source_relative_path=candidate.source_relative_path,
+                width=candidate.width,
+                height=candidate.height,
+                board_confidence=candidate.board_confidence,
+                sequence_confidence=candidate.sequence_confidence,
+                geometry_revision=candidate.geometry_revision,
+                automatic_rank=candidate.automatic_rank,
+                quality_score=candidate.quality_score,
+                selected=candidate.selected,
+                selected_manually=candidate.selected_manually,
+            )
+            for candidate in selection.candidates
+        ),
+        manual_override_review_item_id=selection.manual_override_review_item_id,
+        override_revision=selection.override_revision,
+    )
+
+
 def to_operational_event_response(
     event: ImageReviewResolutionEvent,
 ) -> OperationalImageReviewResolutionEventResponse:
@@ -326,6 +422,9 @@ def to_operational_geometry_revision_response(
 
 __all__ = [
     "OperationalImageReviewPageResponse",
+    "ImageDatasetCompletenessResponse",
+    "ImageSequenceSourceOverrideCommand",
+    "ImageSequenceSourceSelectionResponse",
     "OperationalImageReviewGeometryCommand",
     "OperationalImageReviewGeometryPreviewCommand",
     "OperationalImageReviewGeometryResponse",
@@ -336,4 +435,6 @@ __all__ = [
     "to_operational_geometry_revision_response",
     "to_operational_item_response",
     "to_operational_page_response",
+    "to_image_dataset_completeness_response",
+    "to_image_sequence_source_selection_response",
 ]

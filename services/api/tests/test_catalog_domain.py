@@ -20,9 +20,24 @@ class EmptyCatalogRepository(CatalogRepository):
     def get_game(self, game_id: UUID) -> Game | None:
         return None
 
-    def add_game(self, *, code: str, name: str, status: GameStatus) -> Game:
+    def add_game(
+        self,
+        *,
+        code: str,
+        name: str,
+        status: GameStatus,
+        expected_layout_count: int,
+    ) -> Game:
         timestamp = datetime.now(UTC)
-        return Game(uuid4(), code, name, status, timestamp, timestamp)
+        return Game(
+            uuid4(),
+            code,
+            name,
+            status,
+            expected_layout_count,
+            timestamp,
+            timestamp,
+        )
 
     def save_game(self, game: Game) -> Game:
         return game

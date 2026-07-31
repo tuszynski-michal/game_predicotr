@@ -29,6 +29,8 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
+  getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
@@ -75,6 +77,7 @@ import {
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
+  selectImageSequenceSource as selectGeneratedImageSequenceSource,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
@@ -89,6 +92,7 @@ import type {
   CreateJobData,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
+  ImageSequenceSourceOverrideCommand,
   JobStatus,
   JobType,
   ImageReviewView,
@@ -143,6 +147,7 @@ export type {
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
   ImageDiagnosticExportCreationResponse,
+  ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
@@ -153,6 +158,9 @@ export type {
   ImageStorageNamespaceResponse,
   ImageReviewAction,
   ImageReviewView,
+  ImageSequenceSourceCandidateResponse,
+  ImageSequenceSourceOverrideCommand,
+  ImageSequenceSourceSelectionResponse,
   JobErrorResponse,
   JobProgressResponse,
   JobResponse,
@@ -402,6 +410,32 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
+    getImageDatasetCompleteness: (gameId: string) =>
+      getGeneratedImageDatasetCompleteness({
+        client,
+        path: { game_id: gameId },
+      }),
+    getImageSequenceSourceSelection: (
+      gameId: string,
+      sequenceNumber: number,
+    ) =>
+      getGeneratedImageSequenceSourceSelection({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    selectImageSequenceSource: (
+      gameId: string,
+      sequenceNumber: number,
+      body: ImageSequenceSourceOverrideCommand,
+    ) =>
+      selectGeneratedImageSequenceSource({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-sequence-source:${gameId}:${sequenceNumber}`,
+        ),
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
     listOperationalImageReviewItems: (
       filters: ListOperationalImageReviewItemsOptions,
     ) =>

@@ -112,6 +112,73 @@ test('generated client selects a folder and creates its image import', async () 
   );
 });
 
+test('generated client reads completeness and controls a sequence source override', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const reviewItemId = '22222222-2222-4222-8222-222222222222';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const path = new URL(request.url).pathname;
+    if (path.includes('dataset-completeness')) {
+      return Response.json({
+        acceptedBoardCount: 2,
+        completionPercentage: 1,
+        duplicateSequenceCount: 0,
+        expectedLayoutCount: 200,
+        gameId,
+        manualOverrideCount: 0,
+        missingSequenceCount: 198,
+        missingSequenceNumbers: [3, 4],
+        missingSequenceNumbersTruncated: true,
+        outOfRangeSequenceCount: 0,
+        uniqueSequenceCount: 2,
+      });
+    }
+    return Response.json({
+      candidates: [],
+      gameId,
+      manualOverrideReviewItemId: path.endsWith('/override')
+        ? reviewItemId
+        : null,
+      overrideRevision: path.endsWith('/override') ? 1 : 0,
+      sequenceNumber: 7,
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.getImageDatasetCompleteness(gameId);
+  await client.getImageSequenceSourceSelection(gameId, 7);
+  await client.selectImageSequenceSource(gameId, 7, {
+    reviewItemId,
+    selectedBy: 'local-owner',
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/image-review-items/dataset-completeness/${gameId}`,
+      ],
+      [
+        'GET',
+        `/api/v1/admin/image-review-items/sequence-sources/${gameId}/7`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-review-items/sequence-sources/${gameId}/7/override`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[2].headers.get('X-Admin-Target'),
+    `image-sequence-source:${gameId}:7`,
+  );
+});
+
 test('generated client controls only the explicit Reviewer ingress target', async () => {
   const requests = [];
   const status = {

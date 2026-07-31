@@ -11,6 +11,7 @@ const savedGame = {
   code: 'game-1',
   createdAt: '2026-07-26T10:00:00Z',
   id: '11111111-1111-4111-8111-111111111111',
+  expectedLayoutCount: 500000,
   name: 'Game 1',
   status: 'active',
   updatedAt: '2026-07-26T10:00:00Z',
@@ -38,11 +39,17 @@ test('creates a game with its stable code through the typed client boundary', as
   const result = await saveGameIdentity(
     client,
     { mode: 'create' },
-    { code: 'game-1', name: 'Game 1', status: 'active' },
+    {
+      code: 'game-1',
+      expectedLayoutCount: '500000',
+      name: 'Game 1',
+      status: 'active',
+    },
   );
 
   assert.deepEqual(request, {
     code: 'game-1',
+    expectedLayoutCount: 500000,
     name: 'Game 1',
     status: 'active',
   });
@@ -63,11 +70,20 @@ test('edits only mutable game identity fields and never sends the stable code', 
   const result = await saveGameIdentity(
     client,
     { gameId: savedGame.id, mode: 'edit' },
-    { code: 'attempted-change', name: 'Renamed', status: 'draft' },
+    {
+      code: 'attempted-change',
+      expectedLayoutCount: '250',
+      name: 'Renamed',
+      status: 'draft',
+    },
   );
 
   assert.equal(gameId, savedGame.id);
-  assert.deepEqual(request, { name: 'Renamed', status: 'draft' });
+  assert.deepEqual(request, {
+    expectedLayoutCount: 250,
+    name: 'Renamed',
+    status: 'draft',
+  });
   assert.equal(result.ok, true);
 });
 
@@ -120,6 +136,10 @@ test('restores an archived game as a draft without changing its identity', async
   );
 
   assert.equal(gameId, savedGame.id);
-  assert.deepEqual(request, { name: savedGame.name, status: 'draft' });
+  assert.deepEqual(request, {
+    expectedLayoutCount: 500000,
+    name: savedGame.name,
+    status: 'draft',
+  });
   assert.deepEqual(result, { game: restoredGame, ok: true });
 });

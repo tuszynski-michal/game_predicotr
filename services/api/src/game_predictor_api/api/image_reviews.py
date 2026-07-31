@@ -32,6 +32,9 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_reviews import (
+    ImageDatasetCompletenessResponse,
+    ImageSequenceSourceOverrideCommand,
+    ImageSequenceSourceSelectionResponse,
     OperationalImageReviewGeometryCommand,
     OperationalImageReviewGeometryPreviewCommand,
     OperationalImageReviewGeometryResponse,
@@ -40,6 +43,8 @@ from game_predictor_api.schemas.image_reviews import (
     OperationalImageReviewResolutionCommand,
     OperationalImageReviewResolutionEventResponse,
     OperationalImageReviewResolutionResponse,
+    to_image_dataset_completeness_response,
+    to_image_sequence_source_selection_response,
     to_operational_event_response,
     to_operational_geometry_revision_response,
     to_operational_item_response,
@@ -81,6 +86,59 @@ def create_image_reviews_router(
         return f"reviewer-session:{reviewer_session.id}"
 
     reviewer_service_parameter = Depends(reviewer_access_service_dependency)
+
+    @router.get(
+        "/dataset-completeness/{game_id}",
+        response_model=ImageDatasetCompletenessResponse,
+        operation_id="getImageDatasetCompleteness",
+        summary="Get accepted image sequence completeness for one game",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_dataset_completeness(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> ImageDatasetCompletenessResponse:
+        return to_image_dataset_completeness_response(
+            service.dataset_completeness(game_id)
+        )
+
+    @router.get(
+        "/sequence-sources/{game_id}/{sequence_number}",
+        response_model=ImageSequenceSourceSelectionResponse,
+        operation_id="getImageSequenceSourceSelection",
+        summary="Get ranked accepted sources for one game sequence",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_sequence_source_selection(
+        game_id: UUID,
+        sequence_number: int,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> ImageSequenceSourceSelectionResponse:
+        return to_image_sequence_source_selection_response(
+            service.sequence_source_selection(game_id, sequence_number)
+        )
+
+    @router.post(
+        "/sequence-sources/{game_id}/{sequence_number}/override",
+        response_model=ImageSequenceSourceSelectionResponse,
+        operation_id="selectImageSequenceSource",
+        summary="Select or clear the manual source override for one sequence",
+        responses=ERROR_RESPONSES,
+    )
+    def select_image_sequence_source(
+        game_id: UUID,
+        sequence_number: int,
+        payload: ImageSequenceSourceOverrideCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> ImageSequenceSourceSelectionResponse:
+        return to_image_sequence_source_selection_response(
+            service.select_sequence_source(
+                game_id=game_id,
+                sequence_number=sequence_number,
+                review_item_id=payload.review_item_id,
+                selected_by=payload.selected_by,
+            )
+        )
 
     @router.get(
         "",

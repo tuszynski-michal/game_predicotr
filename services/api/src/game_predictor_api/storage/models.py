@@ -57,7 +57,13 @@ def _enum_values(
 
 class GameModel(Base):
     __tablename__ = "games"
-    __table_args__ = (UniqueConstraint("code", name="uq_games_code"),)
+    __table_args__ = (
+        CheckConstraint(
+            "expected_layout_count BETWEEN 1 AND 10000000",
+            name="ck_games_expected_layout_count_range",
+        ),
+        UniqueConstraint("code", name="uq_games_code"),
+    )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -71,6 +77,12 @@ class GameModel(Base):
         ),
         nullable=False,
         default=GameStatus.DRAFT,
+    )
+    expected_layout_count: Mapped[int] = mapped_column(
+        BigInteger,
+        nullable=False,
+        default=500_000,
+        server_default=text("500000"),
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -920,6 +932,50 @@ class ImageReviewResolutionEventModel(Base):
     )
 
 
+class ImageSequenceSourceOverrideEventModel(Base):
+    __tablename__ = "image_sequence_source_override_events"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0",
+            name="ck_image_sequence_source_override_sequence_positive",
+        ),
+        CheckConstraint(
+            "revision > 0",
+            name="ck_image_sequence_source_override_revision_positive",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "sequence_number",
+            "revision",
+            name="uq_image_sequence_source_override_revision",
+        ),
+        Index(
+            "ix_image_sequence_source_override_current",
+            "game_id",
+            "sequence_number",
+            "revision",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    selected_review_item_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    selected_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageBoardGeometryRevisionModel(Base):
     __tablename__ = "image_board_geometry_revisions"
     __table_args__ = (
@@ -1337,6 +1393,10 @@ class DatasetVersionModel(Base):
             name="ck_dataset_versions_signature_width_range",
         ),
         CheckConstraint(
+            "expected_layout_count BETWEEN 1 AND 10000000",
+            name="ck_dataset_versions_expected_layout_count_range",
+        ),
+        CheckConstraint(
             "layout_count >= 0",
             name="ck_dataset_versions_layout_count_nonnegative",
         ),
@@ -1370,6 +1430,7 @@ class DatasetVersionModel(Base):
         SmallInteger,
         nullable=False,
     )
+    expected_layout_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     layout_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[DatasetVersionStatus] = mapped_column(
         Enum(

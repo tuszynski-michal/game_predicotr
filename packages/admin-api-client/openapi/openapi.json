@@ -321,6 +321,10 @@
             "title": "Createdat",
             "type": "string"
           },
+          "expectedLayoutCount": {
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -390,6 +394,7 @@
           "rows",
           "columns",
           "signatureCellWidth",
+          "expectedLayoutCount",
           "layoutCount",
           "status",
           "generationSeed",
@@ -476,6 +481,13 @@
             "title": "Code",
             "type": "string"
           },
+          "expectedLayoutCount": {
+            "default": 500000,
+            "maximum": 10000000.0,
+            "minimum": 1.0,
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -506,6 +518,10 @@
             "title": "Createdat",
             "type": "string"
           },
+          "expectedLayoutCount": {
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -529,6 +545,7 @@
           "code",
           "name",
           "status",
+          "expectedLayoutCount",
           "createdAt",
           "updatedAt"
         ],
@@ -547,6 +564,19 @@
       "GameUpdate": {
         "additionalProperties": false,
         "properties": {
+          "expectedLayoutCount": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedlayoutcount"
+          },
           "name": {
             "anyOf": [
               {
@@ -605,6 +635,84 @@
           "version"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "ImageDatasetCompletenessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptedBoardCount": {
+            "minimum": 0.0,
+            "title": "Acceptedboardcount",
+            "type": "integer"
+          },
+          "completionPercentage": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Completionpercentage",
+            "type": "number"
+          },
+          "duplicateSequenceCount": {
+            "minimum": 0.0,
+            "title": "Duplicatesequencecount",
+            "type": "integer"
+          },
+          "expectedLayoutCount": {
+            "minimum": 1.0,
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "manualOverrideCount": {
+            "minimum": 0.0,
+            "title": "Manualoverridecount",
+            "type": "integer"
+          },
+          "missingSequenceCount": {
+            "minimum": 0.0,
+            "title": "Missingsequencecount",
+            "type": "integer"
+          },
+          "missingSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 100,
+            "title": "Missingsequencenumbers",
+            "type": "array"
+          },
+          "missingSequenceNumbersTruncated": {
+            "title": "Missingsequencenumberstruncated",
+            "type": "boolean"
+          },
+          "outOfRangeSequenceCount": {
+            "minimum": 0.0,
+            "title": "Outofrangesequencecount",
+            "type": "integer"
+          },
+          "uniqueSequenceCount": {
+            "minimum": 0.0,
+            "title": "Uniquesequencecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "expectedLayoutCount",
+          "acceptedBoardCount",
+          "uniqueSequenceCount",
+          "missingSequenceCount",
+          "duplicateSequenceCount",
+          "outOfRangeSequenceCount",
+          "missingSequenceNumbers",
+          "missingSequenceNumbersTruncated",
+          "manualOverrideCount",
+          "completionPercentage"
+        ],
+        "title": "ImageDatasetCompletenessResponse",
         "type": "object"
       },
       "ImageDiagnosticExportCreationResponse": {
@@ -1084,6 +1192,183 @@
         ],
         "title": "ImageReviewView",
         "type": "string"
+      },
+      "ImageSequenceSourceCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "automaticRank": {
+            "minimum": 1.0,
+            "title": "Automaticrank",
+            "type": "integer"
+          },
+          "boardConfidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Boardconfidence",
+            "type": "number"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "qualityScore": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Qualityscore",
+            "type": "number"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "reviewItemId": {
+            "format": "uuid",
+            "title": "Reviewitemid",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "selectedManually": {
+            "title": "Selectedmanually",
+            "type": "boolean"
+          },
+          "sequenceConfidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Sequenceconfidence",
+            "type": "number"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceRelativePath": {
+            "title": "Sourcerelativepath",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "sequenceNumber",
+          "sourceChecksumSha256",
+          "sourceRelativePath",
+          "width",
+          "height",
+          "boardConfidence",
+          "sequenceConfidence",
+          "geometryRevision",
+          "automaticRank",
+          "qualityScore",
+          "selected",
+          "selectedManually"
+        ],
+        "title": "ImageSequenceSourceCandidateResponse",
+        "type": "object"
+      },
+      "ImageSequenceSourceOverrideCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "selectedBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Selectedby",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewItemId",
+          "selectedBy"
+        ],
+        "title": "ImageSequenceSourceOverrideCommand",
+        "type": "object"
+      },
+      "ImageSequenceSourceSelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSequenceSourceCandidateResponse"
+            },
+            "minItems": 1,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "manualOverrideReviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manualoverridereviewitemid"
+          },
+          "overrideRevision": {
+            "minimum": 0.0,
+            "title": "Overriderevision",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "sequenceNumber",
+          "candidates",
+          "manualOverrideReviewItemId",
+          "overrideRevision"
+        ],
+        "title": "ImageSequenceSourceSelectionResponse",
+        "type": "object"
       },
       "ImageStorageInventoryResponse": {
         "additionalProperties": false,
@@ -7822,6 +8107,238 @@
           }
         ],
         "summary": "List one bounded page of job-local image review items",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/dataset-completeness/{game_id}": {
+      "get": {
+        "operationId": "getImageDatasetCompleteness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageDatasetCompletenessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get accepted image sequence completeness for one game",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}": {
+      "get": {
+        "operationId": "getImageSequenceSourceSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSequenceSourceSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Get ranked accepted sources for one game sequence",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}/override": {
+      "post": {
+        "operationId": "selectImageSequenceSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSequenceSourceOverrideCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSequenceSourceSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Select or clear the manual source override for one sequence",
         "tags": [
           "image-reviews"
         ]

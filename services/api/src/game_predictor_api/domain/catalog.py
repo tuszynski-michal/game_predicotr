@@ -13,6 +13,8 @@ from uuid import UUID
 _CODE_PATTERN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 _MAX_NAME_LENGTH: Final = 200
 _MAX_IMAGE_PATH_LENGTH: Final = 500
+DEFAULT_EXPECTED_LAYOUT_COUNT: Final = 500_000
+MAX_EXPECTED_LAYOUT_COUNT: Final = 10_000_000
 
 
 class GameStatus(StrEnum):
@@ -56,6 +58,7 @@ class Game:
     code: str
     name: str
     status: GameStatus
+    expected_layout_count: int
     created_at: datetime
     updated_at: datetime
 
@@ -100,6 +103,19 @@ def validate_mobile_code(value: int) -> int:
             "INVALID_MOBILE_CODE",
             "mobileCode must be between 1 and 32767.",
             details={"field": "mobileCode"},
+        )
+    return value
+
+
+def validate_expected_layout_count(value: int) -> int:
+    if (
+        isinstance(value, bool)
+        or not 1 <= value <= MAX_EXPECTED_LAYOUT_COUNT
+    ):
+        raise CatalogError(
+            "INVALID_EXPECTED_LAYOUT_COUNT",
+            "expectedLayoutCount must be between 1 and 10000000.",
+            details={"field": "expectedLayoutCount"},
         )
     return value
 

@@ -594,6 +594,19 @@ SHA-256 komendy, aktorem, wartością i czasem. Unikalne
 eventu. Ponowne otwarcie zwiększa rewizję elementu review, ale nie usuwa
 wcześniejszej decyzji z audytu.
 
+### image_sequence_source_override_events
+
+TASK-0124 utrwala wyłącznie jawne odstępstwa od automatycznego rankingu źródeł.
+Każdy rekord zawiera `game_id`, dodatni `sequence_number`, rosnącą `revision`,
+opcjonalne `selected_review_item_id`, aktora i czas. `null` oznacza świadome
+wycofanie override i powrót do rankingu automatycznego.
+
+Unikalne `(game_id, sequence_number, revision)` zachowuje append-only historię.
+Wybrane review item musi być zaakceptowanym kandydatem tej samej gry i
+sekwencji. Automatyczny wybór pozostaje odtwarzalny i jest porządkowany po
+confidence planszy, confidence numeru, rozdzielczości oraz UUID; ręczna decyzja
+nie nadpisuje metryk ani provenance źródła.
+
 ### image_board_geometry_revisions
 
 M6.5 dodaje append-only historię ręcznych korekt geometrii operacyjnej planszy.

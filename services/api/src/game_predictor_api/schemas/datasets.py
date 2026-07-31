@@ -28,6 +28,7 @@ class DatasetVersionResponse(ApiModel):
     rows: int
     columns: int
     signature_cell_width: int
+    expected_layout_count: int
     layout_count: int
     status: DatasetVersionStatus
     generation_seed: int

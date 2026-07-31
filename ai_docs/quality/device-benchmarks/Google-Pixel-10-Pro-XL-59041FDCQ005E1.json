@@ -1,0 +1,114 @@
+{
+    "capturedAt":  "2026-07-31T06:52:49.5757261+00:00",
+    "collection":  {
+                       "adbSerial":  "59041FDCQ005E1",
+                       "airplaneMode":  "1",
+                       "androidSdk":  "36",
+                       "androidVersion":  "16",
+                       "durationSeconds":  25.853,
+                       "launchOutput":  [
+                                            "Starting: Intent { cmp=com.gamepredictor.mobile/.MainActivity }",
+                                            "Status: ok",
+                                            "LaunchState: COLD",
+                                            "Activity: com.gamepredictor.mobile/.MainActivity",
+                                            "TotalTime: 610",
+                                            "WaitTime: 611",
+                                            "Complete"
+                                        ],
+                       "manufacturer":  "Google",
+                       "model":  "Pixel 10 Pro XL",
+                       "peakTotalPssKb":  565311,
+                       "peakTotalRssKb":  699664,
+                       "wifiEnabled":  "0"
+                   },
+    "benchmark":  {
+                      "androidVersion":  "36",
+                      "buildVariant":  "release",
+                      "deviceManufacturer":  "Google",
+                      "deviceModel":  "Pixel 10 Pro XL",
+                      "progressIndicatorReadyMs":  103.7584,
+                      "report":  {
+                                     "budgetResults":  {
+                                                           "cyclicRead":  true,
+                                                           "exact":  true,
+                                                           "prefix":  true,
+                                                           "targetEndToEnd":  true
+                                                       },
+                                     "databaseInitializationMs":  288.2124,
+                                     "dataset":  {
+                                                     "layoutCount":  500000,
+                                                     "logicalContentSha256":  "1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89",
+                                                     "releaseVersion":  "m35-benchmark.1",
+                                                     "snapshotFileSha256":  "04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27",
+                                                     "snapshotSizeBytes":  41025536
+                                                 },
+                                     "measurements":  {
+                                                          "cyclicRead":  {
+                                                                             "firstMs":  4250.7241,
+                                                                             "iterations":  5,
+                                                                             "maxMs":  4250.7241,
+                                                                             "minMs":  4134.68,
+                                                                             "p50Ms":  4213.9922,
+                                                                             "p95Ms":  4250.7241
+                                                                         },
+                                                          "exactDuplicate":  {
+                                                                                 "firstMs":  1.9643,
+                                                                                 "iterations":  100,
+                                                                                 "maxMs":  2.9373,
+                                                                                 "minMs":  1.2487,
+                                                                                 "p50Ms":  1.974,
+                                                                                 "p95Ms":  2.5377
+                                                                             },
+                                                          "exactNotFound":  {
+                                                                                "firstMs":  0.8765,
+                                                                                "iterations":  100,
+                                                                                "maxMs":  2.0518,
+                                                                                "minMs":  0.6836,
+                                                                                "p50Ms":  0.962,
+                                                                                "p95Ms":  1.3402
+                                                                            },
+                                                          "exactUnique":  {
+                                                                              "firstMs":  1.8276,
+                                                                              "iterations":  100,
+                                                                              "maxMs":  6.0146,
+                                                                              "minMs":  1.2064,
+                                                                              "p50Ms":  2.0377,
+                                                                              "p95Ms":  3.7292
+                                                                          },
+                                                          "prefixFiveCells":  {
+                                                                                  "firstMs":  0.88,
+                                                                                  "iterations":  100,
+                                                                                  "maxMs":  2.5796,
+                                                                                  "minMs":  0.6986,
+                                                                                  "p50Ms":  0.8866,
+                                                                                  "p95Ms":  1.6841,
+                                                                                  "candidateCount":  4
+                                                                              },
+                                                          "targetCalculation":  {
+                                                                                    "firstMs":  212.3827,
+                                                                                    "iterations":  5,
+                                                                                    "maxMs":  224.1573,
+                                                                                    "minMs":  211.6005,
+                                                                                    "p50Ms":  213.005,
+                                                                                    "p95Ms":  224.1573
+                                                                                },
+                                                          "targetEndToEnd":  {
+                                                                                 "firstMs":  4463.1237,
+                                                                                 "iterations":  5,
+                                                                                 "maxMs":  4463.1237,
+                                                                                 "minMs":  4358.8447,
+                                                                                 "p50Ms":  4428.1011,
+                                                                                 "p95Ms":  4463.1237
+                                                                             }
+                                                      },
+                                     "references":  {
+                                                        "cycleStartSequenceNumber":  1,
+                                                        "duplicateSequenceNumber":  71427,
+                                                        "uniqueSequenceNumber":  1
+                                                    }
+                                 }
+                  },
+    "manualAcceptance":  {
+                             "virtualizedTargetTableScrollingPassed":  null
+                         }
+}

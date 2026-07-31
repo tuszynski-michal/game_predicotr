@@ -8,7 +8,9 @@ param(
     [string]$OutputDirectory = 'ai_docs\quality\device-benchmarks',
 
     [ValidateSet('passed', 'failed')]
-    [string]$VirtualizedTargetTableScrolling
+    [string]$VirtualizedTargetTableScrolling,
+
+    [switch]$RequireOffline
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,10 +64,23 @@ $androidVersion = Read-DeviceProperty 'ro.build.version.release'
 $androidSdk = Read-DeviceProperty 'ro.build.version.sdk'
 $airplaneMode = ((Invoke-Adb shell settings get global airplane_mode_on) -join '').Trim()
 $wifiEnabled = ((Invoke-Adb shell settings get global wifi_on) -join '').Trim()
+if ($RequireOffline -and ($airplaneMode -ne '1' -or $wifiEnabled -ne '0')) {
+    throw "Offline mode is required, but airplaneMode=$airplaneMode and wifiEnabled=$wifiEnabled."
+}
 
-Invoke-Adb logcat -c | Out-Null
+Invoke-Adb -Arguments @('logcat', '-c') | Out-Null
 Invoke-Adb shell am force-stop com.gamepredictor.mobile | Out-Null
-$launchOutput = Invoke-Adb shell am start -W -n com.gamepredictor.mobile/.MainActivity
+Invoke-Adb -Arguments @('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP') | Out-Null
+Start-Sleep -Milliseconds 500
+Invoke-Adb -Arguments @('shell', 'wm', 'dismiss-keyguard') | Out-Null
+$launchOutput = Invoke-Adb -Arguments @(
+    'shell',
+    'am',
+    'start',
+    '-W',
+    '-n',
+    'com.gamepredictor.mobile/.MainActivity'
+)
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $peakTotalPssKb = 0
@@ -80,7 +95,14 @@ while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
         $peakTotalRssKb = [math]::Max($peakTotalRssKb, $currentRss)
     }
 
-    $logs = Invoke-Adb logcat -d -v raw 'ReactNativeJS:I' '*:S'
+    $logs = Invoke-Adb -Arguments @(
+        'logcat',
+        '-d',
+        '-v',
+        'raw',
+        'ReactNativeJS:I',
+        '*:S'
+    )
     $line = $logs |
         Where-Object { $_ -like '*M35_BENCHMARK_RESULT*' } |
         Select-Object -Last 1

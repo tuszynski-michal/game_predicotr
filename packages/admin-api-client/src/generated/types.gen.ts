@@ -423,6 +423,53 @@ export type ImageDiagnosticExportResponse = {
 };
 
 /**
+ * ImageFolderImportCreate
+ */
+export type ImageFolderImportCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Selectiontoken
+   */
+  selectionToken: string;
+};
+
+/**
+ * ImageFolderImportResponse
+ */
+export type ImageFolderImportResponse = {
+  job: JobResponse;
+};
+
+/**
+ * ImageFolderSelectionResponse
+ */
+export type ImageFolderSelectionResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt?: string | null;
+  /**
+   * Path
+   */
+  path?: string | null;
+  /**
+   * Selectiontoken
+   */
+  selectionToken?: string | null;
+  /**
+   * Status
+   */
+  status: 'selected' | 'cancelled';
+  /**
+   * Supportedfilecount
+   */
+  supportedFileCount?: number;
+};
+
+/**
  * ImageImportJobPayload
  */
 export type ImageImportJobPayload = {
@@ -438,6 +485,18 @@ export type ImageImportJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory?: string | null;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName?: string | null;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId?: string | null;
 };
 
 /**
@@ -4020,6 +4079,84 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type CreateImageFolderImportData = {
+  body: ImageFolderImportCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports';
+};
+
+export type CreateImageFolderImportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateImageFolderImportError =
+  CreateImageFolderImportErrors[keyof CreateImageFolderImportErrors];
+
+export type CreateImageFolderImportResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageFolderImportResponse;
+};
+
+export type CreateImageFolderImportResponse =
+  CreateImageFolderImportResponses[keyof CreateImageFolderImportResponses];
+
+export type SelectLocalImageFolderData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports/folder-selection';
+};
+
+export type SelectLocalImageFolderErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectLocalImageFolderError =
+  SelectLocalImageFolderErrors[keyof SelectLocalImageFolderErrors];
+
+export type SelectLocalImageFolderResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageFolderSelectionResponse;
+};
+
+export type SelectLocalImageFolderResponse =
+  SelectLocalImageFolderResponses[keyof SelectLocalImageFolderResponses];
 
 export type ListImageDiagnosticExportsData = {
   body?: never;

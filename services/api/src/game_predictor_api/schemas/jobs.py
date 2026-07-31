@@ -31,6 +31,9 @@ class ImportJobPayload(ApiModel):
 class ImageImportJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     import_kind: Literal["image_directory"]
+    source_selection_id: UUID | None = None
+    source_directory: str | None = Field(default=None, min_length=1, max_length=2048)
+    source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 

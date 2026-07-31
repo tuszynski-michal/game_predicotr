@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
@@ -116,6 +117,47 @@ class JobService:
                 "source_size_bytes": source.size_bytes,
                 "file_format": source.file_format.value,
                 "contract_version": source.contract_version,
+            },
+            game_already_validated=True,
+        )
+
+    def create_image_import_job(
+        self,
+        *,
+        game_id: UUID,
+        selection_id: UUID,
+        source_directory: Path,
+        source_display_name: str,
+        pipeline_fingerprint: str,
+    ) -> Job:
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        try:
+            resolved = source_directory.resolve(strict=True)
+        except OSError as error:
+            raise JobError(
+                "IMAGE_FOLDER_NOT_FOUND",
+                "The selected image folder does not exist or is unavailable.",
+            ) from error
+        if not resolved.is_dir():
+            raise JobError(
+                "IMAGE_FOLDER_NOT_DIRECTORY",
+                "The selected image source must be a directory.",
+            )
+        return self._persist_job(
+            JobType.IMPORT,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "import_kind": "image_directory",
+                "source_selection_id": str(selection_id),
+                "source_directory": str(resolved),
+                "source_display_name": source_display_name,
+                "pipeline_fingerprint": pipeline_fingerprint,
             },
             game_already_validated=True,
         )

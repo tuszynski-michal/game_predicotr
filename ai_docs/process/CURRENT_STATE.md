@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Phase
 
-`Version 0.2 in progress — TASK-0122 done, TASK-0123 next`
+`Version 0.2 in progress — TASK-0123 done, TASK-0124 next`
 
 ## Aktywne tory wydań
 
@@ -35,6 +35,9 @@ last_updated: 2026-07-31
   i accordion zależnych sekcji ze stanem w URL,
 - TASK-0122 dodał trzy filtry katalogu gier, spójny wybór kontekstu oraz
   odwracalne przywrócenie zarchiwizowanej gry jako szkicu,
+- TASK-0123 dodał natywny wybór folderu Windows, jednorazowy token zatwierdzonej
+  ścieżki, typowany image import oraz wznawialne kopiowanie JPEG-ów do
+  content-addressed `data/originals` z niezmiennym manifestem,
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -93,7 +96,7 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 - finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
   pionu nawigacji Admina.
 
-Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0123.
+Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0124.
 
 ## Blocked / deferred
 
@@ -104,9 +107,10 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0123.
 
 ## Next recommended task
 
-Utworzyć i wykonać `TASK-0123 — Local image folder source and resumable test
-ingestion`. Zadanie rozpocznie mały workflow danych 0.2 od natywnego wyboru
-folderu Windows, walidacji źródła, manifestu discovery i bezpiecznego wznowienia.
+Utworzyć i wykonać `TASK-0124 — Test dataset completeness, gaps and source
+quality selection`. Zadanie wykorzysta manifesty i zarządzane oryginały z
+TASK-0123 do małego datasetu 0.2, raportu braków oraz wyboru najlepszego źródła
+tej samej sekwencji.
 
 ## Do not start yet
 

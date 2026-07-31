@@ -8,6 +8,7 @@ import {
   archiveSymbol as archiveGeneratedSymbol,
   buildMobileRelease as buildGeneratedMobileRelease,
   cancelJob as cancelGeneratedJob,
+  createImageFolderImport as createGeneratedImageFolderImport,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
   createImageDiagnosticExport as createGeneratedImageDiagnosticExport,
@@ -73,6 +74,7 @@ import {
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
+  selectLocalImageFolder as selectGeneratedLocalImageFolder,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
@@ -86,6 +88,7 @@ import {
 import type {
   CreateJobData,
   ImageJobFileRetryRequest,
+  ImageFolderImportCreate,
   JobStatus,
   JobType,
   ImageReviewView,
@@ -136,6 +139,9 @@ export type {
   ImportJobCreate,
   ImportJobPayload,
   ImageImportJobPayload,
+  ImageFolderImportCreate,
+  ImageFolderImportResponse,
+  ImageFolderSelectionResponse,
   ImageDiagnosticExportCreationResponse,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
@@ -339,6 +345,17 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         headers: confirmedTargetHeaders('job:new'),
+      }),
+    selectLocalImageFolder: () =>
+      selectGeneratedLocalImageFolder({
+        client,
+        headers: confirmedTargetHeaders('image-folder:select'),
+      }),
+    createImageFolderImport: (body: ImageFolderImportCreate) =>
+      createGeneratedImageFolderImport({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
       }),
     listJobs: (filters: ListJobsOptions = {}) =>
       listGeneratedJobs({

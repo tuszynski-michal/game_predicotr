@@ -17,6 +17,11 @@ from game_predictor_api.storage.database import (
     create_session_factory,
 )
 
+from game_predictor_worker.images.source_ingestion import (
+    ImageSourceIngestionHandler,
+    ManagedOriginalStore,
+)
+from game_predictor_worker.imports.dispatch import ImportJobDispatchHandler
 from game_predictor_worker.imports.handler import LayoutImportStagingHandler
 from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingStore
 from game_predictor_worker.imports.validation_handler import (
@@ -39,7 +44,7 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 
-WORKER_VERSION = "worker-v4"
+WORKER_VERSION = "worker-v5"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -97,6 +102,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
         ),
     )
     import_validation_handler = LayoutImportValidationHandler(import_store)
+    image_import_handler = ImageSourceIngestionHandler(ManagedOriginalStore(artifact_root))
+    import_dispatch_handler = ImportJobDispatchHandler(
+        import_handler,
+        image_import_handler,
+    )
     snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
     release_handler = ReleaseWorkflowHandler(
         SqlAlchemyReleaseWorkflowStore(session_factory),
@@ -115,7 +125,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
     worker = LocalJobWorker(
         store,
         {
-            JobType.IMPORT: import_handler,
+            JobType.IMPORT: import_dispatch_handler,
             JobType.VALIDATE: import_validation_handler,
             JobType.PAYOUT: payout_handler,
             JobType.ANDROID_BUILD: release_handler,

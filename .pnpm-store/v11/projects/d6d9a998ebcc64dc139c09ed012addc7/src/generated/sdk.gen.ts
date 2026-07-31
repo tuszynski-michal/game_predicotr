@@ -39,6 +39,9 @@ import type {
   CreateImageDiagnosticExportData,
   CreateImageDiagnosticExportErrors,
   CreateImageDiagnosticExportResponses,
+  CreateImageFolderImportData,
+  CreateImageFolderImportErrors,
+  CreateImageFolderImportResponses,
   CreateJobData,
   CreateJobErrors,
   CreateJobResponses,
@@ -247,6 +250,9 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  SelectLocalImageFolderData,
+  SelectLocalImageFolderErrors,
+  SelectLocalImageFolderResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
@@ -625,6 +631,50 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Create an image import from an approved local folder selection
+ */
+export const createImageFolderImport = <ThrowOnError extends boolean = false>(
+  options: Options<CreateImageFolderImportData, ThrowOnError>,
+): RequestResult<
+  CreateImageFolderImportResponses,
+  CreateImageFolderImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageFolderImportResponses,
+    CreateImageFolderImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Open the controlled native Windows folder picker
+ */
+export const selectLocalImageFolder = <ThrowOnError extends boolean = false>(
+  options?: Options<SelectLocalImageFolderData, ThrowOnError>,
+): RequestResult<
+  SelectLocalImageFolderResponses,
+  SelectLocalImageFolderErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    SelectLocalImageFolderResponses,
+    SelectLocalImageFolderErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/folder-selection',
+    ...options,
   });
 
 /**

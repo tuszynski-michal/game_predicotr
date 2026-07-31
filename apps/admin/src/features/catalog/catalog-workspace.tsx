@@ -13,7 +13,7 @@ import {
 } from '@/features/catalog/admin-navigation-state';
 import { DatasetCatalog } from '@/features/datasets/dataset-catalog';
 import { GameCatalog } from '@/features/games/game-catalog';
-import { ManualImportPanel } from '@/features/imports/manual-import-panel';
+import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
@@ -264,7 +264,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                               gameId={activeGame.id}
                               gamesRevision={gamesRevision}
                             />
-                            <ManualImportPanel
+                            <ImageFolderImportPanel
                               apiBaseUrl={apiBaseUrl}
                               gameId={activeGame.id}
                             />

@@ -58,6 +58,7 @@ Format błędu:
 /games/{gameId}/dataset-versions
 /dataset-versions/{datasetVersionId}/layouts
 /jobs
+/image-imports
 /import-jobs
 /layout-import-validations
 /review-batches
@@ -537,6 +538,24 @@ DELETE jest idempotentną archiwizacją wersji opublikowanej i zwraca `204`.
 Zachowuje `publishedAt` i wszystkie layouty. Wersji stagingowej nie archiwizuje
 ten endpoint; odrzucanie importu pozostaje osobną operacją workflow importu.
 
+## Kontrolowany import folderu zdjęć
+
+### POST `/api/v1/admin/image-imports/folder-selection`
+
+Otwiera stały natywny dialog Windows wyłącznie na lokalnym backendzie. Request
+nie zawiera ścieżki ani parametrów procesu. Anulowanie zwraca `status =
+cancelled`. Poprawny wybór wykonuje lekki preflight i zwraca zatwierdzoną
+ścieżkę do prezentacji, liczbę plików JPEG oraz losowy `selectionToken` ważny 15
+minut. Token jest przechowywany tylko w pamięci API i po restarcie wygasa.
+
+### POST `/api/v1/admin/image-imports`
+
+Przyjmuje wyłącznie `gameId` oraz `selectionToken`. Backend ponownie sprawdza
+folder, konsumuje token po udanym zapisie i tworzy job `import` z
+`importKind = image_directory`, `sourceSelectionId`, zatwierdzonym
+`sourceDirectory`, bezpieczną nazwą folderu oraz `pipelineFingerprint`.
+Przeglądarka nie może utworzyć image importu przez przesłanie własnej ścieżki.
+
 ## Job status
 
 ### POST `/api/v1/admin/jobs`
@@ -877,8 +896,10 @@ Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
 `checkpointPayload` nigdy nie są zwracane przez Admin API.
 
 Job `import` z `importKind = image_directory` zwraca w `inputPayload` także
-poświadczony `pipelineFingerprint`. Szczegóły operacyjne takiego joba mają
-osobny kontrakt:
+`sourceSelectionId`, zatwierdzone `sourceDirectory`, `sourceDisplayName` i
+poświadczony `pipelineFingerprint`. Pola źródła są opcjonalne wyłącznie przy
+odczycie historycznych jobów utworzonych przed TASK-0123; nowy endpoint zawsze
+je zapisuje. Szczegóły operacyjne takiego joba mają osobny kontrakt:
 
 ### GET `/api/v1/admin/image-jobs/{jobId}/operations`
 

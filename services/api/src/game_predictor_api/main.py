@@ -17,6 +17,10 @@ from game_predictor_worker.images.manual_geometry_recrop import (
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.image_imports import (
+    ImageFolderSelectionService,
+    WindowsFolderPicker,
+)
 from game_predictor_api.application.image_jobs import ImageJobOperationsService
 from game_predictor_api.application.image_review_cohorts import (
     VerifiedCohortArtifactStore,
@@ -136,6 +140,7 @@ def create_app(
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
+    image_folder_selection_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -198,6 +203,13 @@ def create_app(
                 raise
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency
+
+    default_image_folder_selection_service = ImageFolderSelectionService(
+        WindowsFolderPicker(Path.cwd() / "scripts" / "select_local_image_folder.ps1")
+    )
+    resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
+        lambda: default_image_folder_selection_service
+    )
 
     def default_image_job_service_dependency() -> Iterator[ImageJobOperationsService]:
         with session_factory() as session:
@@ -370,6 +382,7 @@ def create_app(
             resolved_dataset_dependency,
             resolved_job_dependency,
             resolved_image_job_dependency,
+            resolved_image_folder_selection_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_review_cohort_dependency,

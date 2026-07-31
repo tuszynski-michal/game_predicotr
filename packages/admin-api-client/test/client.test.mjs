@@ -31,6 +31,87 @@ test('generated client calls the typed health operation', async () => {
   assert.equal(requests[0].url, 'http://127.0.0.1:8000/api/v1/health');
 });
 
+test('generated client selects a folder and creates its image import', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const path = new URL(request.url).pathname;
+    if (path.endsWith('/folder-selection')) {
+      return Response.json({
+        expiresAt: '2026-07-31T12:15:00Z',
+        path: 'C:\\photos',
+        selectionToken: 'approved-token',
+        status: 'selected',
+        supportedFileCount: 2,
+      });
+    }
+    return Response.json(
+      {
+        job: {
+          id: '22222222-2222-4222-8222-222222222222',
+          jobType: 'import',
+          gameId,
+          status: 'created',
+          inputPayload: {
+            schemaVersion: 1,
+            importKind: 'image_directory',
+            sourceSelectionId: '33333333-3333-4333-8333-333333333333',
+            sourceDirectory: 'C:\\photos',
+            sourceDisplayName: 'photos',
+            pipelineFingerprint: 'a'.repeat(64),
+          },
+          progress: {
+            current: 0,
+            total: null,
+            stage: null,
+            succeeded: 0,
+            failed: 0,
+            review: 0,
+          },
+          error: null,
+          workerVersion: null,
+          attemptCount: 0,
+          heartbeatAt: null,
+          leaseExpiresAt: null,
+          createdAt: '2026-07-31T12:00:00Z',
+          updatedAt: '2026-07-31T12:00:00Z',
+          startedAt: null,
+          finishedAt: null,
+          cancelRequestedAt: null,
+        },
+      },
+      { status: 201 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.selectLocalImageFolder();
+  await client.createImageFolderImport({
+    gameId,
+    selectionToken: 'approved-token',
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/image-imports/folder-selection'],
+      ['POST', '/api/v1/admin/image-imports'],
+    ],
+  );
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    'image-folder:select',
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `image-import:${gameId}`,
+  );
+});
+
 test('generated client controls only the explicit Reviewer ingress target', async () => {
   const requests = [];
   const status = {

@@ -67,6 +67,9 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
         input_payload={
             "schema_version": 1,
             "import_kind": "image_directory",
+            "source_selection_id": str(uuid4()),
+            "source_directory": r"C:\photos",
+            "source_display_name": "photos",
             "pipeline_fingerprint": "a" * 64,
         },
         created_at=datetime(2026, 7, 29, tzinfo=UTC),
@@ -77,6 +80,9 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
     assert response["inputPayload"] == {
         "schemaVersion": 1,
         "importKind": "image_directory",
+        "sourceSelectionId": job.input_payload["source_selection_id"],
+        "sourceDirectory": r"C:\photos",
+        "sourceDisplayName": "photos",
         "pipelineFingerprint": "a" * 64,
     }
 

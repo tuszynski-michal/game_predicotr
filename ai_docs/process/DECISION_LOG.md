@@ -2759,6 +2759,26 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   nie usuwa plików z pierwotnego folderu użytkownika.
 - **Supersedes:** rozstrzyga Q-032 i rozszerza cleanup 0.2.
 
+## D-113 — Wybór folderu używa krótkotrwałego capability tokenu
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** natywny dialog jest wywoływany przez stały, loopback-only
+  endpoint. Backend zapisuje zatwierdzoną ścieżkę w pamięci procesu na 15 minut
+  i zwraca losowy, jednorazowy token. Utworzenie importu przyjmuje token i
+  `game_id`, a nie dowolną ścieżkę z przeglądarki. Sam dialog ma limit 120
+  sekund; skanowanie, checksumy i kopiowanie wykonuje później worker.
+- **Context:** blokujący request nie może wykonywać długiego importu, a pole
+  tekstowe pozwalałoby frontendowi wskazać dowolny katalog lokalny.
+- **Reason:** krótki token zachowuje wygodę natywnego wyboru i jednocześnie
+  oddziela niezaufany kontrakt HTTP od uprawnień systemu plików.
+- **Alternatives:** pełna ścieżka w body, upload przez browser albo trwała sesja
+  wyboru w PostgreSQL.
+- **Consequences:** restart API unieważnia niezrealizowany wybór i wymaga
+  ponownego kliknięcia `Wybierz folder`. Po utworzeniu joba dalszy stan jest
+  trwały. TASK-0123 wprowadza ten kontrakt bez migracji bazy.
+- **Supersedes:** uszczegóławia D-105 bez zmiany decyzji użytkownika.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -114,6 +114,13 @@ Tunnel: stały kontroler ma maksymalnie 25 sekund, nie przetwarza danych
 domenowych i nie przyjmuje dowolnej komendy. Długi build Reviewera nie odbywa
 się w request — artefakt produkcyjny musi już istnieć.
 
+Trzecim ograniczonym wyjątkiem jest natywny wybór folderu zdjęć na lokalnym
+Windows. Stały helper PowerShell może oczekiwać na decyzję użytkownika najwyżej
+120 sekund i nie przyjmuje ścieżki ani komendy z requestu. API wykonuje tylko
+lekki preflight, wiąże zatwierdzoną ścieżkę z jednorazowym tokenem ważnym 15
+minut i nie liczy checksum ani nie kopiuje obrazów w request. Token jest
+przechowywany wyłącznie w pamięci procesu oraz nie jest dostępny Reviewerowi.
+
 ### Worker / CLI
 
 - operacje długotrwałe i wznawialne,
@@ -162,6 +169,13 @@ Import po wyborze folderu kopiuje oryginał do zarządzanego storage przed
 uruchomieniem etapów obrazu. PostgreSQL przechowuje względną ścieżkę, checksumę
 i referencję logiczną. Identyczne bajty mogą współdzielić fizyczny blob, ale
 każda gra/import zachowuje własne pochodzenie i lifecycle referencji.
+
+Worker zapisuje najpierw niezmienny manifest
+`data/originals/manifests/<job_id>.json`, następnie kopiuje unikalne bajty do
+`data/originals/<pierwsze-2-znaki-sha256>/<sha256>.jpg`. Kopia i manifest są
+tworzone atomowo. Checkpoint zawiera względną ścieżkę i checksumę manifestu;
+po restarcie worker weryfikuje istniejące bloby i kopiuje tylko brakujące.
+Dalsze etapy mogą używać zarządzanych ścieżek bez dostępu do folderu źródłowego.
 
 ### Kontrolowany reset danych layoutów gry
 

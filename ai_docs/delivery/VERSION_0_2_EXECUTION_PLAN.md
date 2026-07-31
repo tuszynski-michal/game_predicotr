@@ -67,9 +67,11 @@ częścią zwykłego startu wersji 0.2.
 ## V0.2.1 — Nawigacja i jeden kontekst gry
 
 - `TASK-0121 — Admin workspace navigation and collapsible sections`
-  — dwa kafelki trybu, accordion, zachowanie scrolla i stan w URL.
-- `TASK-0122 — Active game catalog, filters and dependency-safe removal`
-  — sekcja `Gry`, podświetlenie, filtry i uzgodniona semantyka usuwania.
+  — trzy kafelki trybu (`Zarządzanie grami`, `Wersje Android`, `Joby`),
+  accordion zarządzania grą, zachowanie scrolla i stan w URL.
+- `TASK-0122 — Active game catalog, filters and archiving`
+  — sekcja `Gry`, podświetlenie, filtry statusu i odwracalna archiwizacja; bez
+  fizycznego usuwania gry w `0.2`.
 
 ### Bramka V0.2.1
 
@@ -81,11 +83,14 @@ częścią zwykłego startu wersji 0.2.
 ## V0.2.2 — Mały import zdjęć i katalog symboli
 
 - `TASK-0123 — Local image folder source and resumable test ingestion`
-  — bezpieczny wybór folderu, discovery, manifest i wznowienie.
+  — natywny dialog `Wybierz folder` na Windows, walidacja katalogu, discovery,
+  manifest i wznowienie.
 - `TASK-0124 — Test dataset completeness, gaps and source quality selection`
-  — oczekiwany mały zakres, brakujące numery, deduplikacja i wybór źródła.
+  — konfigurowalny oczekiwany zakres, brakujące numery, opcjonalna ręczna
+  korekta numeru, doładowanie zdjęć oraz automatyczny/ręczny wybór źródła.
 - `TASK-0125 — Automatic symbol catalog bootstrap from imported layouts`
-  — oczekiwana liczba symboli, propozycje nazw i stabilne kody.
+  — oczekiwana liczba symboli, propozycje nazw, stabilne kody oraz ręczne
+  rozwiązanie konfliktu liczby klastrów.
 - `TASK-0126 — Representative symbol image picker and catalog refinement`
   — kandydatury grafik oraz edycja grafiki i nazwy.
 
@@ -95,6 +100,7 @@ częścią zwykłego startu wersji 0.2.
 - ponowienie nie dubluje sekwencji,
 - UI pokazuje kompletność względem testowego `expected_layout_count`,
 - symbole powstają z rzeczywistych cropów testowego importu,
+- oryginały są kopiowane do kontrolowanego content-addressed storage,
 - każda automatyczna decyzja zachowuje pochodzenie i metrykę jakości.
 
 ## V0.2.3 — Reguły i zatwierdzanie bez technicznego szumu
@@ -119,10 +125,12 @@ częścią zwykłego startu wersji 0.2.
 
 - `TASK-0131 — Android release workspace for the controlled test game`
   — jedna orkiestracja dla aktywnej gry; test wielu gier należy do `0.3`.
-- `TASK-0132 — Contextual operations instead of the global Jobs section`
-  — progress i retry przy imporcie/wydaniu oraz kompaktowa diagnostyka.
+- `TASK-0132 — Simple Jobs workspace and status filters`
+  — osobna lista jobów, postęp, prosty filtr statusu i kompaktowa diagnostyka
+  bez dodatkowej logiki retencji.
 - `TASK-0133 — Safe cleanup controls for v0.2 working data`
-  — usuwanie wyłącznie jawnie wskazanych danych roboczych i artefaktów.
+  — pełne usuwanie wybranego wydania oraz kontrolowany reset wszystkich danych
+  layoutów wskazanej gry do stanu sprzed importu, z preview zależności.
 - `TASK-0134 — Admin 0.2 end-to-end usability and regression acceptance`
   — desktop 1366 × 768, klawiatura, loading/error/empty i pełny mały workflow.
 
@@ -131,8 +139,10 @@ częścią zwykłego startu wersji 0.2.
 - Admin realizuje prowadzony workflow bez duplikowania kontekstu gry,
 - workflow działa od pustej bazy do testowego artefaktu,
 - mały dataset pokrywa podstawowe warianty domenowe, ale nie udaje pełnej skali,
-- użytkownik nie musi odwiedzać globalnego ekranu Jobs,
-- cleanup nie narusza aktywnego artefaktu ani audytu,
+- użytkownik może sprawdzić postęp wszystkich jobów w oddzielnej trzeciej
+  zakładce bez mieszania ich z formularzami gry i wydania,
+- cleanup nie narusza innego aktywnego artefaktu ani minimalnego audytu
+  wykonanej operacji,
 - właściciel wykonał testy `0.2`, a zaakceptowane poprawki są zamknięte albo
   jawnie odłożone.
 

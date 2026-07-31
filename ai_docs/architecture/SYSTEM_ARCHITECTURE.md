@@ -148,12 +148,32 @@ osierocony rekord: wraca on do `created` z zachowanym checkpointem albo do
 
 ### File storage
 
-- oryginalne zdjęcia,
+- content-addressed kopie oryginalnych zdjęć z zachowanym pochodzeniem folderu,
 - pliki robocze i wycinki,
 - dane treningowe i modele,
 - eksporty,
 - strukturalne audyty payoutów JSONL,
 - wygenerowane snapshoty i APK.
+
+Import po wyborze folderu kopiuje oryginał do zarządzanego storage przed
+uruchomieniem etapów obrazu. PostgreSQL przechowuje względną ścieżkę, checksumę
+i referencję logiczną. Identyczne bajty mogą współdzielić fizyczny blob, ale
+każda gra/import zachowuje własne pochodzenie i lifecycle referencji.
+
+### Kontrolowany reset danych layoutów gry
+
+TASK-0133 udostępnia operację wysokiego wpływu przywracającą wskazaną grę do
+stanu sprzed importu. Najpierw read-only preview wylicza dokładny `game_id`,
+liczbę rekordów według klas, wydania i listę zarządzanych artefaktów. Wykonanie
+wymaga zgodnego preview tokenu, wpisania identyfikatora gry i dodatkowego
+potwierdzenia lokalnej intencji.
+
+Reset zachowuje rekord `games` i minimalny append-only audyt, lecz usuwa
+game-scoped importy obrazów, review, datasety/layouty, payouty, katalog
+symboli, reguły, wydania oraz ich dedykowane artefakty. Rekordy i blob
+współdzielone nie są fizycznie usuwane, dopóki istnieje referencja innej gry.
+Usuwanie PostgreSQL i plików jest kontrolowanym workflow z raportem końcowym;
+częściowa awaria pozostaje widoczna i możliwa do bezpiecznego ponowienia.
 
 ### Batch payout precomputation
 

@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -93,6 +93,11 @@ Pliki niebędące obrazami są ignorowane. Uszkodzony JPEG, niezgodna sygnatura,
 nieczytelny plik i ścieżka wychodząca poza root mają osobne stabilne kody.
 Tożsamość i pomijanie znanego wejścia zależą od SHA-256, nie od nazwy ani mtime.
 
+Po zatwierdzeniu folderu każdy obsługiwany oryginał jest kopiowany do
+kontrolowanego `data/originals` pod tożsamością content-addressed. Manifest
+zachowuje pierwotną ścieżkę względną, checksumę i wynik kopiowania. Pipeline nie
+zależy później od obecności folderu użytkownika.
+
 ### 2. Normalizacja
 
 - odczyt orientacji EXIF,
@@ -171,6 +176,9 @@ pozycji ekranu. Nie może być wygenerowany wyłącznie przez testowany cropper.
 - ciągłość wszystkich pozycji w kolejności korpusu flaguje nierozpoznanie,
   duplikat, lukę albo konflikt, ale nigdy nie zmienia raw text ani normalized
   number,
+- użytkownik może opcjonalnie zaakceptować lub poprawić numer w review;
+  alternatywnie pozostawia brak i doładowuje kolejne zdjęcia, a system nigdy
+  nie wymusza ręcznego numerowania całego importu,
 - baseline na numerach 1–387 osiąga `247/387 = 63.8243%`; na 31 held-out
   source images wynik to `179/279 = 64.1577%`. Nie spełnia zaakceptowanego
   progu 98% wymaganego do auto-accept.
@@ -330,6 +338,12 @@ auto-accept; niskie confidence nigdy nie odrzuca próbki automatycznie.
 Aktualny model bootstrapowy nie spełnia tych bramek, dlatego każda predykcja
 pozostaje decyzją człowieka.
 
+Bootstrap katalogu `0.2` porównuje liczbę proponowanych klastrów z oczekiwaną
+liczbą symboli. Różnica blokuje automatyczne utworzenie katalogu i pokazuje
+użytkownikowi kandydatów do scalenia, rozdzielenia albo przypisania. System nie
+interpretuje samodzielnie dodatkowego klastra jako nowego symbolu ani niedoboru
+jako potwierdzonego scalenia.
+
 Kolejny batch active-learning zawiera całe pending layouty 5 × 3. Ranking
 łączy niepewność pięciu najbardziej niepewnych komórek, różnorodność rozkładu
 predykcji, nowe zdjęcie źródłowe i niedoreprezentowaną przewidywaną klasę.
@@ -349,6 +363,11 @@ Element trafia do review, jeżeli:
 - layout ma nieprawidłową liczbę komórek.
 
 Administrator zatwierdza, poprawia albo odrzuca element. Korekta symbolu może zostać wyeksportowana jako oznaczony przykład.
+
+Jeżeli kilka źródeł przedstawia ten sam `sequence_number`, pipeline zapisuje
+uporządkowany ranking jakości obejmujący co najmniej ostrość, kompletność
+symboli i geometrię. Najlepszy kandydat jest domyślny, ale Reviewer pozwala
+ręcznie wybrać inne źródło; decyzja zachowuje aktora, metryki i pochodzenie.
 
 Dla symboli podstawowym ekranem bootstrapu jest pełny layout 5 × 3 z siatką,
 15 przewidywaniami, confidence i skrótami. Niepewne komórki są wyróżnione,
@@ -436,6 +455,12 @@ za dowiązaniami symbolicznymi i raportuje liczbę pominiętych dowiązań.
 Automatyczne usuwanie jest wyłączone dla każdej przestrzeni. `originals` i
 `models` mają politykę `preserve`; pozostałe dane są wersjonowane, ale również
 nie mogą zostać usunięte przez TASK-0073.
+
+Wyjątkiem jest jawny reset danych layoutów gry z TASK-0133. Po pokazaniu
+pełnego preview i mocnym potwierdzeniu może usunąć zarządzane oryginały oraz
+pochodne artefakty należące do resetowanej gry. Fizyczny plik content-addressed
+pozostaje, jeżeli ma choć jedną referencję z innej gry. Reset nie przeszukuje
+ani nie usuwa plików z pierwotnego folderu użytkownika.
 
 Diagnostyka joba może zostać wyeksportowana jako kanoniczny JSON bez obrazów,
 sekretów, stack trace i ścieżek absolutnych. Eksport zawiera dokładne agregaty

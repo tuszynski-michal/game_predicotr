@@ -2564,6 +2564,201 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zastępuje część D-100 przypisującą TASK-0076 i TASK-0080–0089
   do `0.2`; nie zmienia zakresu ani artefaktów wydania `0.1`.
 
+## D-102 — Usuwanie gry jest odłożone, a 0.2 używa archiwizacji i filtrów
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** docelowa operacja `Usuń grę` ma kaskadowo usunąć grę oraz
+  należące do niej rekordy. Nie będzie jednak implementowana w wersji `0.2`.
+  Katalog gier `0.2` udostępni filtry `Aktywne`, `Szkice`, `Zarchiwizowane` i
+  odwracalną archiwizację.
+- **Context:** właściciel będzie usuwał gry rzadko i w bieżącej wersji bardziej
+  potrzebuje czytelnej organizacji katalogu niż destrukcyjnego workflow.
+- **Reason:** odłożenie operacji pozwala uniknąć niepełnej kaskady obejmującej
+  importy, reguły, review, wydania i audyt. Archiwizacja realizuje bieżącą
+  potrzebę bez utraty danych.
+- **Alternatives:** usuwanie wyłącznie pustego szkicu albo natychmiastowa
+  implementacja pełnej kaskady w `0.2`.
+- **Consequences:** TASK-0122 obejmuje filtry i archiwizację, ale nie przycisk
+  `Usuń`. Późniejsze zadanie usuwania musi jawnie zdefiniować wszystkie
+  zależności, audyt, potwierdzenie dokładnego celu i zachowanie artefaktów
+  wydań, zanim otrzyma zgodę na operację destrukcyjną.
+- **Supersedes:** rozstrzyga Q-022 i zawęża zakres TASK-0122 bez zmiany
+  pozostałych zadań 0.2.
+
+## D-103 — Usunięcie wydania Android jest pełne i nie zapewnia powrotu
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** jawna operacja `Usuń wydanie` ma usunąć rekord wybranego
+  wydania Android oraz jego APK, snapshot, manifest, checksumy i dedykowane
+  artefakty. Nie zachowujemy dostępnej historii starej wersji ani możliwości
+  przywrócenia jej z panelu. Pozostaje tylko minimalny append-only wpis audytowy
+  potwierdzający wykonanie operacji.
+- **Context:** właściciel nie planuje wracać do wersji uznanych za zbędne i
+  chce usuwać je całkowicie zamiast utrzymywać katalog historyczny.
+- **Reason:** pełne usunięcie odpowiada prostemu prywatnemu modelowi eksploatacji
+  i odzyskuje zarówno miejsce, jak i usuwa niepotrzebne rekordy z UI.
+- **Alternatives:** usuwanie wyłącznie APK/snapshotu przy zachowaniu rekordu,
+  manifestu i checksum albo bezterminowa retencja wszystkich wydań.
+- **Consequences:** operacja jest nieodwracalna, musi wymagać dokładnego celu i
+  mocnego potwierdzenia oraz usuwać pliki dopiero w kontrolowanym workflow.
+  Nie może usunąć innego wydania przez wspólną ścieżkę artefaktu. Zwykły audyt
+  operacji pozostaje zgodny z D-099, ale nie służy odtworzeniu wersji.
+- **Supersedes:** rozstrzyga Q-023 i zmienia rekomendowaną politykę cleanupu
+  wydania w Adminie 0.2.
+
+## D-104 — Joby mają własny prosty workspace bez automatycznej retencji
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** główna nawigacja Admina `0.2` ma trzy zakładki: `Zarządzanie
+  grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
+  proste filtrowanie po statusie. `0.2` nie dodaje automatycznej retencji ani
+  osobnej logiki cleanupu jobów.
+- **Context:** joby są potrzebne do obserwacji importu, przeliczania i buildów,
+  ale mieszanie ich z formularzami gry i wydania zaśmiecało długi panel.
+- **Reason:** osobny, prosty workspace zachowuje widoczność postępu bez
+  rozbudowy polityk operacyjnych, których mała lokalna instalacja jeszcze nie
+  potrzebuje.
+- **Alternatives:** pokazywanie jobów wyłącznie kontekstowo przy każdej operacji
+  albo dodanie rozbudowanej retencji, wyszukiwania i cleanupu już w `0.2`.
+- **Consequences:** TASK-0121 buduje trzy tryby nawigacji, a TASK-0132 realizuje
+  prostą zakładkę `Joby` i filtr statusu zamiast usuwać globalny widok. Ekrany
+  źródłowe mogą pokazać identyfikator utworzonego joba i link do jego widoku,
+  ale nie duplikują pełnej listy.
+- **Supersedes:** rozstrzyga Q-024 i zastępuje wcześniejszy kierunek
+  kontekstowych jobów w planie Admina 0.2.
+
+## D-105 — Folder zdjęć wybiera natywny dialog Windows uruchamiany lokalnie
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** Admin `0.2` udostępnia przycisk `Wybierz folder`, który przez
+  kontrolowany lokalny backend otwiera standardowe okno wyboru folderu Windows.
+  Backend po wyborze waliduje istnienie, dostępność i obsługiwane pliki. Ręczne
+  wpisanie ścieżki nie jest wymagane w podstawowym workflow.
+- **Context:** zwykła aplikacja webowa nie może dowolnie przeglądać lokalnego
+  systemu plików, natomiast Admin i backend działają lokalnie na komputerze
+  właściciela.
+- **Reason:** natywny dialog jest prostszy i mniej podatny na błędy ścieżki niż
+  ręczne kopiowanie pełnej nazwy katalogu.
+- **Alternatives:** wyłącznie tekstowe pole ścieżki albo upload wszystkich
+  obrazów przez przeglądarkę.
+- **Consequences:** endpoint otwierający dialog musi pozostać wyłącznie na
+  loopback, nie może przyjmować zdalnego wywołania Reviewera i zwraca tylko
+  zatwierdzoną ścieżkę. TASK-0123 obejmuje dialog oraz walidację folderu.
+- **Supersedes:** rozstrzyga Q-025.
+
+## D-106 — Admin pokazuje jeden workspace reguł, a backend zachowuje wersje
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** użytkownik widzi jeden bieżący workspace reguł. Zapis zmian
+  tworzy draft, a publikacja nową niezmienną wersję backendową; opublikowanej
+  wersji nie nadpisuje się w miejscu.
+- **Context:** pełna historia wersji zaśmiecała panel, ale wydania Android muszą
+  pozostać związane z dokładnymi regułami.
+- **Reason:** prosty UI nie wymaga rezygnacji z odtwarzalności danych.
+- **Alternatives:** widoczna pełna historia albo nadpisywanie publikacji.
+- **Consequences:** TASK-0127 ukrywa historię z głównego widoku, zachowując
+  obecny niezmienny model domenowy.
+- **Supersedes:** rozstrzyga Q-026.
+
+## D-107 — Oczekiwana liczba layoutów jest konfigurowalna z domyślnym 500 000
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** gra ma prostą konfigurację `expected_layout_count`, domyślnie
+  `500 000`; dataset zamraża użyte oczekiwanie. `0.2` może ustawić małą wartość
+  testową. Pole nie generuje syntetycznie brakujących rekordów.
+- **Context:** obecnie każda docelowa gra prawdopodobnie będzie miała 500 000
+  layoutów, ale niewielki koszt konfiguracji chroni model przed sztywną stałą i
+  umożliwia kontrolowane testy 0.2.
+- **Reason:** konfiguracja jest prostsza niż późniejsza migracja twardego limitu.
+- **Alternatives:** stałe 500 000 w kodzie albo dowolna liczba bez domyślnej.
+- **Consequences:** TASK-0124 i migracja danych dodają dodatnie oczekiwanie;
+  publikacja porównuje je z faktycznym `layout_count`.
+- **Supersedes:** rozstrzyga Q-027.
+
+## D-108 — Ręczny sequence number jest opcjonalną decyzją review
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** administrator może ręcznie zaakceptować lub poprawić numer
+  sekwencji, ale nie musi. Może pozostawić brak i doładować lepsze lub nowe
+  zdjęcia. Surowa odpowiedź OCR pozostaje niezmieniona.
+- **Context:** niska jakość obrazu może uniemożliwić pewny OCR, a kolejne źródło
+  może rozwiązać problem bez ręcznego numerowania.
+- **Reason:** oba sposoby uzupełnienia braków są potrzebne i audytowalne.
+- **Alternatives:** wyłącznie OCR albo obowiązkowa ręczna korekta każdego braku.
+- **Consequences:** TASK-0124 waliduje ręczny zakres i konflikty, ale pozwala
+  kontynuować doładowanie zdjęć bez wymuszania wartości.
+- **Supersedes:** rozstrzyga Q-028.
+
+## D-109 — Wybór źródła sekwencji jest automatyczny z ręcznym override
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** pipeline szereguje zdjęcia tej samej sekwencji według jawnych
+  metryk i domyślnie wybiera najlepsze. Reviewer pokazuje kandydatów i pozwala
+  człowiekowi zmienić wybór z zachowaniem pochodzenia.
+- **Context:** automatyczny ranking przyspiesza import, ale nie zawsze rozpozna
+  częściowe przycięcie lub lokalną nieczytelność symbolu.
+- **Reason:** człowiek zachowuje finalną kontrolę bez ręcznego wybierania każdego
+  poprawnego przypadku.
+- **Alternatives:** wyłącznie ranking albo obowiązkowy ręczny wybór.
+- **Consequences:** TASK-0124 zapisuje metryki, kolejność i jawny override.
+- **Supersedes:** rozstrzyga Q-029.
+
+## D-110 — Konflikt liczby klastrów symboli wymaga decyzji użytkownika
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** inna liczba klastrów niż oczekiwana blokuje automatyczne
+  utworzenie katalogu symboli. Użytkownik scala warianty jakości tego samego
+  symbolu, rozdziela błędne scalenie albo przypisuje kandydatów.
+- **Context:** dodatkowy klaster często reprezentuje ten sam symbol w gorszej
+  jakości, a brak klastra może oznaczać połączenie dwóch różnych symboli.
+- **Reason:** ciche dopasowanie liczby zanieczyściłoby etykiety i kolejne dane.
+- **Alternatives:** automatyczne obcinanie/dodawanie albo przyjęcie liczby modelu.
+- **Consequences:** TASK-0125 potrzebuje prostego stanu konfliktu i ręcznego
+  rozstrzygnięcia przed nadaniem stabilnych `mobile_code`.
+- **Supersedes:** rozstrzyga Q-030.
+
+## D-111 — Import kopiuje oryginały do kontrolowanego storage
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** obrazy wybrane w folderze są kopiowane content-addressed do
+  zarządzanego `data/originals`, z checksumą i pochodzeniem. Dalszy pipeline nie
+  zależy od pierwotnego folderu.
+- **Context:** użytkownik może przenieść albo usunąć folder po imporcie, a
+  wznowienie i Reviewer nadal muszą działać.
+- **Reason:** zarządzana kopia upraszcza odtwarzalność i późniejszy backup.
+- **Alternatives:** przetwarzanie wyłącznie in-place albo upload przez browser.
+- **Consequences:** TASK-0123 kopiuje i deduplikuje bajty; późniejsze testy mogą
+  ponownie ocenić politykę, jeśli rozmiar okaże się problemem.
+- **Supersedes:** rozstrzyga Q-031.
+
+## D-112 — Reset layoutów przywraca grę do stanu sprzed importu
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** `Wyczyść layouty i dane powiązane` zachowuje rekord gry, ale
+  usuwa wszystkie game-scoped dane i pliki utworzone w workflow importu,
+  symboli, reguł, review, datasetów, payoutów i wydań. Współdzielone bloby
+  pozostają do zaniku ostatniej referencji; minimalny audyt resetu zostaje.
+- **Context:** właściciel oczekuje efektu odpowiadającego stanowi bezpośrednio
+  przed pierwszym wczytaniem layoutów dla danej gry.
+- **Reason:** częściowe usunięcie pozostawiałoby osierocone lub mylące dane.
+- **Alternatives:** usuwanie jednego stagingu albo blokada danych użytych przez
+  wydanie.
+- **Consequences:** TASK-0133 wymaga read-only preview pełnej kaskady, mocnego
+  potwierdzenia, ochrony danych innej gry i raportu częściowych błędów. Operacja
+  nie usuwa plików z pierwotnego folderu użytkownika.
+- **Supersedes:** rozstrzyga Q-032 i rozszerza cleanup 0.2.
+
 ## Szablon nowej decyzji
 
 ```text

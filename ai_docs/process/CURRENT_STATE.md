@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Phase
 
-`TASK-0120 complete — clean PostgreSQL baseline ready for version 0.2`
+`Version 0.2 clarified — TASK-0121 ready to start on the clean PostgreSQL baseline`
 
 ## Aktywne tory wydań
 
@@ -20,7 +20,11 @@ last_updated: 2026-07-31
   `d94061734d1e141ee9e68bf0e532eeb0ac1d485b68796f853c0dc3589326c522`,
 - snapshot ma SHA-256
   `ddbfa90e673811efe2acad8e8049acc2435389bbbcaf256715573a744ef66de8`,
-- TASK-0119 — instalacja, testy offline i odbiór Pixela — pozostaje otwarty,
+- APK `0.1.5 (6)` zainstalowano aktualizacyjnie na Google Pixel 10 Pro XL;
+  Android potwierdził wersję, zachowany `firstInstallTime` i poprawny start,
+- TASK-0119 — ręczne testy offline i końcowy odbiór Pixela — pozostaje otwarty,
+- test wstępny 0.1 potwierdził start aplikacji i wykonywanie obliczeń; dokładna
+  weryfikacja poprawności zostanie dokończona później przez właściciela,
 - błędy znalezione w odbiorze 0.1 będą naprawiane równolegle z pracą nad 0.2.
 
 ### Wersja 0.2
@@ -80,12 +84,12 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 ## Otwarte pytania
 
 - Q-020 — dozwolony zakres analizy aplikacji referencyjnej,
-- Q-022–Q-032 — UX usuwania, retencja, foldery i własność danych Admina 0.2,
+- Q-022–Q-032 zostały rozstrzygnięte; Admin 0.2 nie ma otwartego pytania
+  blokującego rozpoczęcie TASK-0121,
 - finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
   pionu nawigacji Admina.
 
-Q-022–Q-032 należy rozstrzygnąć przed zadaniami, których semantykę zmieniają.
-Nie wszystkie są wymagane do rozpoczęcia samego szkieletu nawigacji TASK-0121.
+Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0121.
 
 ## Blocked / deferred
 
@@ -96,10 +100,10 @@ Nie wszystkie są wymagane do rozpoczęcia samego szkieletu nawigacji TASK-0121.
 
 ## Next recommended task
 
-Po odpowiedziach właściciela na pytania 0.2 utworzyć i wykonać
-`TASK-0121 — Admin workspace navigation and collapsible sections`. Zadanie ma
-zbudować prostą nawigację i zachowanie kontekstu bez ponownego wprowadzania
-danych usuniętych w TASK-0120.
+Utworzyć i wykonać `TASK-0121 — Admin workspace navigation and collapsible
+sections`. Zadanie ma zbudować trzy główne workspace’y, accordion zarządzania
+grą i deterministyczne zachowanie kontekstu bez ponownego wprowadzania danych
+usuniętych w TASK-0120.
 
 ## Do not start yet
 

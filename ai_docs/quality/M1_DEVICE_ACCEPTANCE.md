@@ -172,6 +172,14 @@ Ten odbiór domyka ręczny punkt płynności Pixela w raporcie M3.5 i wymagany
 odbiór urządzeniowy wersji `0.1`. Samsung pozostaje późniejszym testem
 kompatybilności i nie blokuje wersji `0.1`.
 
+### Instalacja reprezentatywnego wydania 0.1.5 na Pixelu
+
+2026-07-31 zachowane APK `0.1.5 (6)` z 500 000 layoutów zainstalowano
+aktualizacyjnie na Google Pixel 10 Pro XL przez `adb install -r`. Instalacja
+zakończyła się powodzeniem, zachowała pierwotny `firstInstallTime`, a aktywność
+launchera została uruchomiona. Ten zapis potwierdza instalację artefaktu, ale
+nie zastępuje ręcznych scenariuszy offline wymaganych przez TASK-0119.
+
 ## Wynik końcowy
 
 Właściciel zaakceptował G6 i M1 2026-07-26, ponieważ aplikacja działała zgodnie

@@ -9,14 +9,13 @@ last_updated: 2026-07-31
 ## Cel zmiany
 
 Panel ma przestać być jedną długą stroną technicznych modułów. Administrator
-pracuje w jednym kontekście gry albo w osobnym kontekście wydania Android, a
-szczegóły datasetów, wersji i jobów są zachowane przez backend, lecz pokazywane
-tylko tam, gdzie są potrzebne do wykonania zadania.
+pracuje w jednym kontekście gry, w osobnym kontekście wydania Android albo w
+prostym monitorze jobów. Szczegóły datasetów i wersji pozostają zachowane przez
+backend, lecz są pokazywane tylko tam, gdzie są potrzebne do wykonania zadania.
 
-Ten dokument opisuje planowany UX `0.2`. Nierozstrzygnięte semantyki usuwania,
-retencji, własności plików i wyboru folderu znajdują się w
-`project/OPEN_QUESTIONS.md` i nie
-blokują wydania `0.1`.
+Ten dokument opisuje zaakceptowany UX `0.2`. Semantyki usuwania, retencji,
+własności plików i wyboru folderu zostały rozstrzygnięte w Q-022–Q-032 oraz
+D-102–D-112.
 
 ## Stan początkowy i skala testów
 
@@ -30,14 +29,29 @@ blokują wydania `0.1`.
 
 ## Główna nawigacja
 
-Na górze znajdują się dwa kafelki trybu:
+Na górze znajdują się trzy kafelki trybu:
 
 1. `Zarządzanie grami`,
-2. `Wersje Android`.
+2. `Wersje Android`,
+3. `Joby`.
 
 Przełączenie kafelka zmienia workspace, a nie tylko przewija długą stronę.
 Stan powinien być możliwy do odtworzenia po odświeżeniu za pomocą URL albo
 równoważnego deterministycznego mechanizmu.
+
+## Joby
+
+- `Joby` jest osobnym, trzecim workspace’em i nie jest accordionem wewnątrz
+  zarządzania grą ani wydań Android,
+- lista pokazuje co najmniej typ, kontekst/identyfikator, aktualny status,
+  czytelny postęp, czas utworzenia i krótki błąd dla niepowodzenia,
+- prosty filtr statusu pozwala wybrać `Wszystkie` albo jeden ze statusów
+  zwracanych przez kontrakt API,
+- kliknięcie joba może rozwinąć istniejące szczegóły diagnostyczne, ale `0.2`
+  nie dodaje zaawansowanego wyszukiwania, retencji ani cleanupu jobów,
+- operacja uruchamiająca job pokazuje jego identyfikator i może prowadzić do
+  zakładki `Joby`; pełna lista i obserwacja postępu nie zaśmiecają ekranu
+  źródłowego.
 
 ## Zarządzanie grami
 
@@ -68,25 +82,40 @@ krok zamiast pustego formularza.
 - usunięty zostaje opis o wszystkich rekordach i stabilnym kodzie z nagłówka;
   walidacja stabilnego kodu nadal obowiązuje w formularzu i API,
 - `Archiwizuj` pozostaje operacją odwracalną,
-- `Usuń` jest osobną operacją wysokiego wpływu i będzie dostępne dopiero po
-  rozstrzygnięciu Q-022; nie może po cichu kasować zależnych danych lub audytu.
+- fizyczne `Usuń` nie jest dostępne w `0.2`; docelowo będzie osobną operacją
+  wysokiego wpływu kasującą grę wraz z należącymi do niej rekordami,
+- kontrakt kaskadowego usuwania, jego dokładny zakres oraz zabezpieczenia
+  powstaną w osobnym zadaniu późniejszej wersji.
 
 ### Import layoutów
 
-- administrator wskazuje katalog zdjęć na lokalnym dysku; `examples/imgs` nie
-  jest ścieżką specjalną,
+- administrator używa przycisku `Wybierz folder`, który przez kontrolowany
+  lokalny backend otwiera standardowe okno wyboru folderu Windows;
+  `examples/imgs` nie jest ścieżką specjalną,
+- po wyborze backend sprawdza dostępność katalogu i obecność obsługiwanych
+  plików przed utworzeniem importu,
 - import działa wyłącznie na obrazach; nie ma importu layoutów z Excela,
 - nowy import może utworzyć pierwszy zestaw albo uzupełnić brakujące sekwencje,
 - ponowne napotkanie już istniejącej sekwencji nie tworzy drugiej pozycji,
 - gdy wiele obrazów przedstawia tę samą sekwencję, pipeline wybiera najlepsze
-  źródło według jawnych metryk jakości i zachowuje pochodzenie decyzji,
-- w `0.2` oczekiwana liczba jest jawnie ustawiana dla małego datasetu testowego,
+  źródło według jawnych metryk jakości i zachowuje pochodzenie decyzji; Reviewer
+  pozwala obejrzeć kandydatów oraz ręcznie zmienić wybór,
+- oryginalne pliki są kopiowane do kontrolowanego content-addressed storage;
+  rekord zachowuje checksumę i pochodzenie z wybranego folderu,
+- oczekiwana liczba layoutów jest prostą konfiguracją, domyślnie `500 000`; w
+  `0.2` testowy dataset jawnie ustawia mniejszą wartość,
 - status `Brakujące layouty: X` otwiera modal z bounded/stronicowaną listą
   brakujących zakresów i numerów,
 - `Doładuj layouty` wznawia ten sam logiczny zbiór i dodaje wyłącznie brakujące
   dane,
-- `Usuń layouty` jest potwierdzoną operacją wysokiego wpływu zależną od polityki
-  Q-032 i nie może usuwać źródła aktywnego wydania,
+- przy niepewnym OCR administrator może opcjonalnie wpisać lub poprawić numer
+  sekwencji albo doładować nowe/lepsze zdjęcia; ręczny numer nie jest wymagany,
+- `Wyczyść layouty i dane powiązane` przywraca wybraną grę do stanu sprzed
+  importu: zachowuje rekord gry, ale usuwa wszystkie jej dane i pliki powstałe
+  w workflow layoutów, w tym zależne wydania,
+- przed resetem UI pokazuje dokładne liczniki rekordów i artefaktów, wymaga
+  wpisania identyfikatora gry oraz mocnego potwierdzenia; współdzielony blob
+  pozostaje do zaniku ostatniej referencji,
 - po pierwszym poprawnym imporcie odblokowują się `Symbole` i
   `Zatwierdzanie plansz`.
 
@@ -97,7 +126,9 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 
 - przed uruchomieniem administrator podaje oczekiwaną liczbę symboli,
 - pipeline wybiera reprezentatywne klastry/cropy z części importu i tworzy
-  dokładnie oczekiwaną liczbę propozycji,
+  propozycje względem oczekiwanej liczby,
+- jeżeli liczba klastrów jest inna, katalog nie powstaje automatycznie:
+  użytkownik rozstrzyga, które klastry scalić, rozdzielić albo przypisać,
 - każdy symbol jest kafelkiem z proponowaną grafiką i edytowalną nazwą,
 - nie ma podstawowego przepływu `Nowy symbol` ani ręcznego budowania całego
   rekordu symbolu,
@@ -138,15 +169,18 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
   wielu gier jest świadomie odłożony do `0.3`,
 - utworzenie wydania uruchamia potrzebne walidacje, precomputing, snapshot i
   build jako jeden obserwowalny workflow,
-- techniczne joby są prezentowane kontekstowo przy wydaniu lub imporcie, a nie
-  jako podstawowa długa sekcja panelu,
+- utworzenie technicznego joba jest sygnalizowane przy wydaniu lub imporcie,
+  ale jego pełny postęp i szczegóły są prezentowane w osobnej zakładce `Joby`,
 - zwijana sekcja historii pokazuje wersję, stan, czas, gry, checksumy oraz APK,
 - nieudane kroki pokazują bezpieczny błąd i możliwość ponowienia właściwego
   etapu,
-- `Usuń` przy wydaniu podlega Q-023: rekomendowane jest usuwanie artefaktu APK
-  po potwierdzeniu przy zachowaniu rekordu, manifestu, checksum i audytu,
-- historia jobów i ciężkich artefaktów podlega jawnej polityce retencji Q-024;
-  automatyczne kasowanie całego audytu jest zabronione.
+- `Usuń` przy wydaniu po mocnym potwierdzeniu usuwa cały rekord wydania, APK,
+  snapshot, manifest, checksumy i dedykowane artefakty; operacja nie zapewnia
+  powrotu do tej wersji,
+- po usunięciu pozostaje wyłącznie minimalny append-only wpis audytowy samej
+  operacji, a nie dostępna historia wydania,
+- joby nie mają w `0.2` automatycznej retencji ani dodatkowego cleanupu;
+  automatyczne kasowanie audytu jest zabronione.
 
 ## Niezmienne granice architektury
 

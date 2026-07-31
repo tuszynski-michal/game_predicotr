@@ -47,10 +47,11 @@ precomputed payout i dokładnie 500 000 layoutów. Statycznie zweryfikowane APK
 
 ### TASK-0119 — Pixel 10 Pro XL release acceptance
 
-Po powrocie właściciela i podłączeniu telefonu: aktualizacja lub instalacja APK,
-tryb offline, unique/duplicate/not_found, pełny Target, płynność tabeli,
-restart aplikacji oraz zapis końcowego czasu i rozmiaru. To zadanie zamyka
-bramkę wydania `0.1`.
+W toku. 2026-07-31 aktualizacja `0.1.4 (5)` → `0.1.5 (6)` na Google Pixel 10
+Pro XL zakończyła się powodzeniem, zachowała `firstInstallTime`, a aplikacja
+została uruchomiona. Pozostają ręczne testy trybu offline,
+unique/duplicate/not_found, pełnego Target, płynności tabeli i restartu. To
+zadanie zamyka bramkę wydania `0.1`.
 
 ## Bramka V0.1
 

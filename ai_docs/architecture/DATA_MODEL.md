@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Model danych
@@ -25,10 +25,14 @@ przyczyny; body, Authorization, kody, tokeny, hasła i klucze nie są zapisywane
 | code | varchar | stabilny kod, unique |
 | name | varchar | nazwa użytkowa |
 | status | enum | draft/active/archived |
+| expected_layout_count | bigint | dodatnia konfiguracja, domyślnie 500 000 |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
-Wersjonowane wymiary i koszt spinu znajdują się w `rules_versions`, aby historyczne wydanie było odtwarzalne.
+Wersjonowane wymiary i koszt spinu znajdują się w `rules_versions`, aby
+historyczne wydanie było odtwarzalne. `expected_layout_count` określa bieżący
+cel kompletności gry. Testowa gra `0.2` może mieć mniejszą wartość; docelna
+wartość domyślna pozostaje `500 000`.
 
 ### symbols
 
@@ -175,6 +179,7 @@ Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje
 | rows | smallint | wymiary danych |
 | columns | smallint | |
 | signature_cell_width | smallint | 1–5, zapisana konfiguracja codeca |
+| expected_layout_count | bigint | zamrożony cel kompletności tego datasetu |
 | layout_count | bigint | po walidacji |
 | status | enum | staging/published/archived |
 | generation_seed | bigint | 0–2147483647 dla mock generatora |
@@ -189,6 +194,11 @@ Niepusty `source_job_id` jest unikalny. Dataset opublikowany z ręcznego importu
 wskazuje job walidacji `layout_import`, ma
 `generator_version = layout-import-v1` oraz `generation_seed = 0`. Ponowienie
 publikacji tej samej walidacji zwraca istniejący rekord.
+
+`expected_layout_count` jest kopiowane z konfiguracji gry przy utworzeniu
+stagingu i nie zmienia się później razem z grą. Publikacja wymaga
+`layout_count = expected_layout_count`. Pole służy walidacji kompletności i nie
+uruchamia syntetycznego generowania brakujących layoutów.
 
 Wydanie może połączyć dataset i rules wyłącznie przy zgodnych wymiarach.
 Generator mocka zapisuje seed i wersję algorytmu, dzięki czemu powtórzenie tych
@@ -530,6 +540,12 @@ globalnego cache.
 
 Unikalne `(source_image_id, position_index)` uniemożliwia ciche przesunięcie
 plansz lub duplikację wyniku row-major.
+
+`sequence_number` w `recognized_boards` pozostaje sugestią OCR. Opcjonalny
+numer zaakceptowany lub poprawiony przez człowieka jest zapisywany w
+wersjonowanej decyzji review wraz z aktorem i rewizją; nie nadpisuje surowej
+odpowiedzi OCR. Brak ręcznej decyzji pozwala pozostawić lukę i doładować kolejne
+zdjęcia.
 
 ### cell_observations
 

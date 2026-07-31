@@ -30,7 +30,8 @@ implementacyjnym.
 
 - [Project brief](project/PROJECT_BRIEF.md) — cel, użytkownicy, zakres i ograniczenia.
 - [Glossary](project/GLOSSARY.md) — jednoznaczne pojęcia domenowe.
-- [Open questions](project/OPEN_QUESTIONS.md) — wyłącznie nierozstrzygnięte pytania.
+- [Open questions](project/OPEN_QUESTIONS.md) — pytania otwarte i indeks
+  ostatnich rozstrzygnięć.
 - [Traceability](project/TRACEABILITY.md) — mapa wymaganie → dokument → milestone.
 
 ### Wymagania

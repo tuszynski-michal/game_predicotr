@@ -1,14 +1,16 @@
 ---
 title: Milestone 08 execution plan
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Plan wykonania Milestone 08 — Private distribution and hardening
 
 ## Cel
 
-Przygotować system do powtarzalnego, prywatnego użycia na 3–5 urządzeniach:
+Przygotować system do powtarzalnego, prywatnego użycia. Dla wersji `0.1`
+bramką jest Google Pixel 10 Pro XL; kolejne urządzenia pozostają późniejszą
+macierzą kompatybilności:
 stały podpis, backup i restore, diagnostyka, zgodność Android, instrukcje
 aktualizacji oraz adekwatne zabezpieczenie lokalnego panelu.
 Opcjonalny zakres końcowy może udostępnić osobie zdalnej wyłącznie
@@ -31,10 +33,13 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 
 ## Warunki wejścia
 
-- M7 przechodzi G7.
+- pipeline M7 ma ukończone lokalne fundamenty; automatyczna publikacja
+  masowego importu w TASK-0076 pozostaje osobną bramką jakości i nie blokuje
+  hardeningu lokalnej wersji `0.1`,
 - Q-019 jest zamknięte: docelowo decyzje review może zapisywać więcej niż jeden
   jawnie identyfikowany operator.
-- Dostępna jest lista 3–5 urządzeń i wersji Android do odbioru.
+- Google Pixel 10 Pro XL i jego wersja Android są dostępne do odbioru `0.1`;
+  lista kolejnych urządzeń może zostać uzupełniona po tej wersji.
 - Wszystkie artefakty przeznaczone do zachowania mają ustaloną lokalizację.
 
 ## Zasady realizacji
@@ -61,7 +66,7 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 
 ### Zadania
 
-- `TASK-0078 — Local administration threat model and Q-019 decision`
+- `TASK-0078 — Local administration threat model and Q-019 decision` — done
 - `TASK-0079 — Administration access control and audit hardening`
 
 ### Bramka G8.1
@@ -147,8 +152,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 
 ### Zakres
 
-- Pixel 10 Pro XL i Galaxy S21 Ultra,
-- pozostałe urządzenia do łącznej liczby 3–5,
+- Pixel 10 Pro XL jako obowiązkowa bramka wersji `0.1`,
+- Galaxy S21 Ultra i pozostałe urządzenia do łącznej liczby 3–5 jako późniejsza
+  macierz kompatybilności,
 - wersje Android, rozdzielczość, pamięć i ABI,
 - instalacja, aktualizacja i ponowne uruchomienie,
 - tryb samolotowy i brak sieci,
@@ -163,7 +169,9 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 
 ### Bramka G8.5
 
-- wszystkie 3–5 urządzeń przechodzą obowiązkowy scenariusz,
+- Pixel 10 Pro XL przechodzi obowiązkowy scenariusz wersji `0.1`,
+- niepowodzenie albo brak późniejszego testu Samsunga/pozostałych urządzeń nie
+  blokuje `0.1`, ale pozostaje jawnym ograniczeniem kompatybilności,
 - aktualizacja aktywuje nowy snapshot i nie używa starej kopii,
 - brak sieci nie zmienia funkcjonalności,
 - manifest nie ma `INTERNET`,

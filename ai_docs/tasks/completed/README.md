@@ -1,7 +1,7 @@
 ---
 title: Completed tasks archive
 status: active
-last_updated: 2026-07-28
+last_updated: 2026-07-31
 ---
 
 # Ukończone zadania
@@ -72,6 +72,7 @@ Aktywne zadanie znajduje się bezpośrednio w `ai_docs/tasks/` i musi mieć stat
 - [TASK-0056 — Sequence number OCR and continuity validation](0056-sequence-number-ocr-continuity.md)
 - [TASK-0057 — Geometry and OCR benchmark report](0057-geometry-ocr-benchmark-report.md)
 - [TASK-0058 — Image prototype architecture decision](0058-image-prototype-architecture-decision.md)
+- [TASK-0078 — Local administration threat model and Q-019 decision](0078-local-administration-threat-model-q019-decision.md)
 - [TASK-0090 — Payout-v2 and snapshot](0090-payout-v2-left-prefix-and-snapshot.md)
 - [TASK-0091 — Documentation consistency before M2](0091-documentation-consistency-before-m2.md)
 - [TASK-0092 — M5 corpus, variable final page and OCR rework](0092-m5-corpus-variable-page-and-ocr-rework.md)

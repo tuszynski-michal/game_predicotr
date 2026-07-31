@@ -2418,6 +2418,34 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** dla wersji `0.1` zastępuje dwuurządzeniowe wymaganie D-020,
   kryterium M1 w `MOBILE_APP.md` i dotychczasową bramkę TASK-0041/TASK-0042.
 
+## D-097 — Lokalny Admin ufa właścicielowi Windows, ale mutacje chroni API
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** Admin wersji `0.1` pozostaje narzędziem jednego właściciela bez
+  osobnego ekranu logowania i binduje wyłącznie loopback. Konto Windows,
+  uprawnienia plików i loopback stanowią lokalną granicę dostępu. Zdalny
+  Reviewer pozostaje osobną, ograniczoną powierzchnią i nigdy nie publikuje
+  Admina. Operacje wysokiego wpływu wymagają serwerowego sygnału intencji,
+  jednoznacznego celu i append-only audytu z aktorem `local-owner`; potwierdzenie
+  obecne tylko w UI nie jest wystarczającym zabezpieczeniem.
+- **Context:** audyt M8.1 potwierdził poprawne bindingi loopback oraz
+  potwierdzenia w UI, ale bezpośrednie wywołania endpointów archiwizacji,
+  odrzucenia stagingu i anulowania jobu mogą ominąć warstwę prezentacji.
+  Administracyjne mutacje nie mają również jednego wspólnego audytu aktora.
+- **Reason:** lokalne hasło na tym samym przejętym komputerze tworzyłoby
+  pozorną ochronę. Egzekwowanie intencji, celu, konfliktu i audytu w API chroni
+  natomiast przed realnym obejściem UI, przypadkową mutacją i utratą śladu.
+- **Alternatives:** pełny system kont lokalnych, zaufanie wyłącznie do
+  potwierdzeń React albo wystawienie Admina przez mechanizm Reviewera.
+- **Consequences:** TASK-0079 dodaje guard mutacji, audyt, regresję loopback,
+  ochronę cross-origin oraz redakcję sekretów. Wiele lokalnych kont lub
+  publiczny Admin wymaga nowej decyzji. M8 core może być realizowany dla
+  lokalnej wersji `0.1` niezależnie od zablokowanej automatycznej publikacji
+  masowego importu w TASK-0076.
+- **Supersedes:** doprecyzowuje lokalną część D-021 i D-087; nie zmienia
+  zdalnego modelu D-095.
+
 ## Szablon nowej decyzji
 
 ```text

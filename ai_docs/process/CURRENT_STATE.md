@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Phase
 
-`M6.5 in progress — supervised verification workbench`
+`M8.1 in progress — private distribution and hardening`
 
 ## Completed
 
@@ -1542,6 +1542,13 @@ last_updated: 2026-07-31
   przeszły wszystkie budżety oraz scenariusze funkcjonalne.
 - ukończono TASK-0042 i G3: raport ma `8/8 passed`, brak `missingEvidence`, a
   decyzja zachowuje `text-v1` i adapter Expo SQLite/TypeScript.
+- ukończono TASK-0078: lokalny Admin wersji `0.1` ma jawny model jednego
+  właściciela Windows i granicę loopback; D-097 odrzuca pozorne lokalne
+  logowanie, ale wymaga serwerowego potwierdzenia i append-only audytu operacji
+  wysokiego wpływu w TASK-0079.
+- model zagrożeń potwierdza odseparowanie zdalnego Reviewera od Admin API oraz
+  klasyfikuje luki w ochronie cross-origin, redakcji sekretów i audycie jako
+  zakres hardeningu, a nie ukryte rozszerzenie produktu.
 
 ## In progress
 
@@ -1612,10 +1619,10 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Przeliczyć pozostałe otwarte zadania wersji `0.1` po zaliczeniu G3 i wskazać
-najbliższą rzeczywistą blokadę produktu. Podpowiedź duplikatu, główny przepływ
-Target, płynność tabeli, benchmark Pixela, trwały workflow builda i dowód
-release są zaliczone.
+Rozpocząć `TASK-0079 — Administration access control and audit hardening`:
+dodać serwerową ochronę lokalnych mutacji, aktora `local-owner`, append-only
+audyt, regresję loopback/cross-origin oraz redakcję sekretów. Po jego odbiorze
+można zamknąć G8.1.
 
 `massImportAllowed = true` pozostaje osobną bramką TASK-0076. TASK-0115 ma
 gotową implementację, ale jego test z urządzenia poza domową siecią jest

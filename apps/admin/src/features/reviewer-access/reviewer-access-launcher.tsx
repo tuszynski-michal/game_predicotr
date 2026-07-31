@@ -18,8 +18,10 @@ import {
 
 export function ReviewerAccessLauncher({
   apiBaseUrl,
+  gameId: controlledGameId,
 }: {
   readonly apiBaseUrl: string;
+  readonly gameId?: string;
 }) {
   const api = useMemo(
     () => createConfiguredAdminApiClient(apiBaseUrl),
@@ -27,7 +29,8 @@ export function ReviewerAccessLauncher({
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
-  const [gameId, setGameId] = useState('');
+  const [uncontrolledGameId, setGameId] = useState('');
+  const gameId = controlledGameId ?? uncontrolledGameId;
   const [jobId, setJobId] = useState('');
   const [session, setSession] = useState<ReviewerSessionCreatedResponse | null>(
     null,
@@ -85,8 +88,13 @@ export function ReviewerAccessLauncher({
           activeGames[0]?.id ??
           '';
         setJobs(imageJobs);
-        setGameId(firstGameId);
-        setJobId(imageJobs.find((job) => job.gameId === firstGameId)?.id ?? '');
+        const selectedGameId = controlledGameId ?? firstGameId;
+        if (controlledGameId === undefined) {
+          setGameId(firstGameId);
+        }
+        setJobId(
+          imageJobs.find((job) => job.gameId === selectedGameId)?.id ?? '',
+        );
         if (ingressResult.ok) {
           setIngress(ingressResult.ingress);
         } else {
@@ -104,7 +112,7 @@ export function ReviewerAccessLauncher({
     return () => {
       active = false;
     };
-  }, [api]);
+  }, [api, controlledGameId]);
 
   const availableJobs = jobs.filter((job) => job.gameId === gameId);
 
@@ -204,27 +212,29 @@ export function ReviewerAccessLauncher({
 
       <div className="reviewerLauncherCard">
         <div className="reviewerLauncherControls">
-          <label>
-            Gra
-            <select
-              disabled={loading || creating}
-              onChange={(event) => {
-                const nextGameId = event.target.value;
-                setGameId(nextGameId);
-                setJobId(
-                  jobs.find((job) => job.gameId === nextGameId)?.id ?? '',
-                );
-                setSession(null);
-              }}
-              value={gameId}
-            >
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {controlledGameId === undefined ? (
+            <label>
+              Gra
+              <select
+                disabled={loading || creating}
+                onChange={(event) => {
+                  const nextGameId = event.target.value;
+                  setGameId(nextGameId);
+                  setJobId(
+                    jobs.find((job) => job.gameId === nextGameId)?.id ?? '',
+                  );
+                  setSession(null);
+                }}
+                value={gameId}
+              >
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label>
             Import zdjęć
             <select

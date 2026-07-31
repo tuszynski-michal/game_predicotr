@@ -18,10 +18,15 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   archiveGameIdentity,
   type GamesClient,
+  restoreGameIdentity,
   saveGameIdentity,
 } from '@/features/games/game-catalog-actions';
 import {
+  countGamesByStatus,
   EMPTY_GAME_DRAFT,
+  filterGamesByStatus,
+  GAME_STATUS_FILTER_LABELS,
+  GAME_STATUS_FILTERS,
   GAME_STATUS_LABELS,
   type GameDraft,
   markGameArchived,
@@ -39,18 +44,25 @@ interface GameCatalogProps {
   readonly apiBaseUrl: string;
   readonly client?: GamesClient;
   readonly onGamesChanged?: () => void;
+  readonly onGamesLoaded?: (games: readonly GameResponse[]) => void;
+  readonly onSelectedGameIdChange?: (gameId: string | null) => void;
+  readonly selectedGameId?: string | null;
 }
 
 export function GameCatalog({
   apiBaseUrl,
   client,
   onGamesChanged,
+  onGamesLoaded,
+  onSelectedGameIdChange,
+  selectedGameId,
 }: GameCatalogProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
+  const [statusFilter, setStatusFilter] = useState<GameStatus>('active');
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [loadError, setLoadError] = useState('');
   const [editor, setEditor] = useState<EditorState>({ mode: 'closed' });
@@ -62,8 +74,16 @@ export function GameCatalog({
     null,
   );
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const loadRequestId = useRef(0);
   const mutationInProgress = useRef(false);
+  const statusCounts = useMemo(() => countGamesByStatus(games), [games]);
+  const selectedCatalogGame = games.find((game) => game.id === selectedGameId);
+  const effectiveStatusFilter = selectedCatalogGame?.status ?? statusFilter;
+  const visibleGames = useMemo(
+    () => filterGamesByStatus(games, effectiveStatusFilter),
+    [effectiveStatusFilter, games],
+  );
 
   const loadGames = useCallback(async () => {
     const requestId = ++loadRequestId.current;
@@ -82,7 +102,9 @@ export function GameCatalog({
         setLoadState('error');
         return;
       }
-      setGames(result.data ?? []);
+      const loadedGames = result.data ?? [];
+      setGames(loadedGames);
+      onGamesLoaded?.(loadedGames);
       setLoadState('ready');
     } catch {
       if (requestId === loadRequestId.current) {
@@ -92,7 +114,7 @@ export function GameCatalog({
         setLoadState('error');
       }
     }
-  }, [api]);
+  }, [api, onGamesLoaded]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,9 +187,15 @@ export function GameCatalog({
       }
 
       const savedGame = result.game;
-      setGames((current) => upsertGame(current, savedGame));
+      const nextGames = upsertGame(games, savedGame);
+      setGames(nextGames);
+      setStatusFilter(savedGame.status);
+      onGamesLoaded?.(nextGames);
       setEditor({ mode: 'closed' });
       onGamesChanged?.();
+      onSelectedGameIdChange?.(
+        savedGame.status === 'archived' ? null : savedGame.id,
+      );
       setNotice(
         editor.mode === 'create'
           ? `Utworzono grę „${savedGame.name}”.`
@@ -193,9 +221,14 @@ export function GameCatalog({
         setNotice(result.error);
         return;
       }
-      setGames((current) => markGameArchived(current, game.id));
+      const nextGames = markGameArchived(games, game.id);
+      setGames(nextGames);
+      onGamesLoaded?.(nextGames);
       setArchiveCandidateId(null);
       onGamesChanged?.();
+      if (selectedGameId === game.id) {
+        onSelectedGameIdChange?.(null);
+      }
       setNotice(
         `Zarchiwizowano grę „${game.name}”. Rekord pozostał w katalogu.`,
       );
@@ -205,12 +238,55 @@ export function GameCatalog({
     }
   }
 
+  async function restoreArchivedGame(game: GameResponse) {
+    if (mutationInProgress.current || game.status !== 'archived') {
+      return;
+    }
+    mutationInProgress.current = true;
+    setRestoringId(game.id);
+    setNotice('');
+
+    try {
+      const result = await restoreGameIdentity(api, game);
+      if (!result.ok) {
+        setNotice(result.error);
+        return;
+      }
+      const nextGames = upsertGame(games, result.game);
+      setGames(nextGames);
+      setStatusFilter('draft');
+      onGamesLoaded?.(nextGames);
+      onGamesChanged?.();
+      onSelectedGameIdChange?.(result.game.id);
+      setNotice(
+        `Przywrócono grę „${result.game.name}” jako szkic. Dane gry pozostały zachowane.`,
+      );
+    } finally {
+      mutationInProgress.current = false;
+      setRestoringId(null);
+    }
+  }
+
+  function changeStatusFilter(nextFilter: GameStatus) {
+    if (nextFilter === effectiveStatusFilter) {
+      return;
+    }
+    const selectedGame = games.find((game) => game.id === selectedGameId);
+    if (selectedGame && selectedGame.status !== nextFilter) {
+      onSelectedGameIdChange?.(null);
+    }
+    setStatusFilter(nextFilter);
+    setEditor({ mode: 'closed' });
+    setArchiveCandidateId(null);
+    setFormError('');
+  }
+
   return (
     <div id="games">
       <header className="pageHeader">
         <div>
           <p className="eyebrow">M2 · Konfiguracja administracyjna</p>
-          <h1>Katalog gier</h1>
+          <h1>Gry</h1>
           <p className="lead">
             Zarządzaj stabilną tożsamością gry. Wymiary planszy i koszt spinu
             zostaną przypisane później do wersji reguł.
@@ -255,29 +331,69 @@ export function GameCatalog({
         ) : null}
         {loadState === 'ready' && games.length > 0 ? (
           <div className="gamesPanel">
-            <div className="listHeader">
-              <div>
-                <p className="eyebrow">Wszystkie rekordy</p>
-                <h2>
-                  {games.length} {games.length === 1 ? 'gra' : 'gry'}
-                </h2>
-              </div>
-              <p>Kod jest stabilny i nie można go zmienić po utworzeniu.</p>
-            </div>
-            <div className="gamesList">
-              {games.map((game) => (
-                <GameRow
-                  archivePending={archivingId === game.id}
-                  confirmArchive={archiveCandidateId === game.id}
-                  game={game}
-                  key={game.id}
-                  onArchive={() => setArchiveCandidateId(game.id)}
-                  onArchiveCancel={() => setArchiveCandidateId(null)}
-                  onArchiveConfirm={() => void confirmArchive(game)}
-                  onEdit={() => openEditEditor(game)}
-                />
+            <div
+              aria-label="Filtr statusu gier"
+              className="gameStatusFilters"
+              role="group"
+            >
+              {GAME_STATUS_FILTERS.map((status) => (
+                <button
+                  aria-pressed={effectiveStatusFilter === status}
+                  className={
+                    effectiveStatusFilter === status
+                      ? 'gameStatusFilter gameStatusFilterActive'
+                      : 'gameStatusFilter'
+                  }
+                  data-testid={`game-filter-${status}`}
+                  key={status}
+                  onClick={() => changeStatusFilter(status)}
+                  type="button"
+                >
+                  <span>{GAME_STATUS_FILTER_LABELS[status]}</span>
+                  <strong>{statusCounts[status]}</strong>
+                </button>
               ))}
             </div>
+            <div className="listHeader">
+              <div>
+                <p className="eyebrow">
+                  {GAME_STATUS_FILTER_LABELS[effectiveStatusFilter]}
+                </p>
+                <h2>
+                  {visibleGames.length}{' '}
+                  {visibleGames.length === 1 ? 'gra' : 'gry'}
+                </h2>
+              </div>
+              <p>Łącznie w katalogu: {games.length}</p>
+            </div>
+            {visibleGames.length === 0 ? (
+              <GamesFilteredEmpty status={effectiveStatusFilter} />
+            ) : (
+              <div className="gamesList">
+                {visibleGames.map((game) => (
+                  <GameRow
+                    archivePending={archivingId === game.id}
+                    confirmArchive={archiveCandidateId === game.id}
+                    game={game}
+                    key={game.id}
+                    onArchive={() => setArchiveCandidateId(game.id)}
+                    onArchiveCancel={() => setArchiveCandidateId(null)}
+                    onArchiveConfirm={() => void confirmArchive(game)}
+                    onEdit={() => openEditEditor(game)}
+                    onRestore={() => void restoreArchivedGame(game)}
+                    onSelect={() =>
+                      game.status !== 'archived' &&
+                      onSelectedGameIdChange?.(game.id)
+                    }
+                    restorePending={restoringId === game.id}
+                    selectable={game.status !== 'archived'}
+                    selected={
+                      game.status !== 'archived' && selectedGameId === game.id
+                    }
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
       </section>
@@ -433,6 +549,11 @@ interface GameRowProps {
   readonly onArchiveCancel: () => void;
   readonly onArchiveConfirm: () => void;
   readonly onEdit: () => void;
+  readonly onRestore: () => void;
+  readonly onSelect: () => void;
+  readonly restorePending: boolean;
+  readonly selectable: boolean;
+  readonly selected: boolean;
 }
 
 function GameRow({
@@ -443,10 +564,28 @@ function GameRow({
   onArchiveCancel,
   onArchiveConfirm,
   onEdit,
+  onRestore,
+  onSelect,
+  restorePending,
+  selectable,
+  selected,
 }: GameRowProps) {
   return (
-    <article className="gameRow" data-testid={`game-row-${game.id}`}>
-      <div className="gameIdentity">
+    <article
+      className={selected ? 'gameRow gameRowSelected' : 'gameRow'}
+      data-testid={`game-row-${game.id}`}
+    >
+      <button
+        aria-disabled={!selectable}
+        aria-pressed={selected}
+        className={
+          selectable
+            ? 'gameIdentity gameIdentityButton'
+            : 'gameIdentity gameIdentityButton gameIdentityButtonDisabled'
+        }
+        onClick={onSelect}
+        type="button"
+      >
         <span className="gameMonogram" aria-hidden="true">
           {game.name.slice(0, 2).toUpperCase()}
         </span>
@@ -459,7 +598,7 @@ function GameRow({
           </div>
           <code>{game.code}</code>
         </div>
-      </div>
+      </button>
 
       {confirmArchive ? (
         <div className="archiveConfirmation" role="group">
@@ -501,7 +640,17 @@ function GameRow({
             >
               Archiwizuj
             </button>
-          ) : null}
+          ) : (
+            <button
+              className="secondaryButton"
+              data-testid={`game-restore-${game.id}`}
+              disabled={restorePending}
+              onClick={onRestore}
+              type="button"
+            >
+              {restorePending ? 'Przywracanie…' : 'Przywróć jako szkic'}
+            </button>
+          )}
         </div>
       )}
     </article>
@@ -563,6 +712,18 @@ function GamesEmpty({ onCreate }: { readonly onCreate: () => void }) {
           Utwórz pierwszą grę
         </button>
       </div>
+    </div>
+  );
+}
+
+function GamesFilteredEmpty({ status }: { readonly status: GameStatus }) {
+  return (
+    <div className="filteredEmptyState" data-testid={`games-empty-${status}`}>
+      <strong>Brak gier w tym widoku</strong>
+      <p>
+        Filtr „{GAME_STATUS_FILTER_LABELS[status]}” nie zawiera obecnie żadnych
+        rekordów. Pozostałe gry nie zostały usunięte.
+      </p>
     </div>
   );
 }

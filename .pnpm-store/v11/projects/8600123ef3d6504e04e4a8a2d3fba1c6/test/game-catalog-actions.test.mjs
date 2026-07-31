@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   archiveGameIdentity,
+  restoreGameIdentity,
   saveGameIdentity,
 } from '../src/features/games/game-catalog-actions.ts';
 
@@ -100,4 +101,25 @@ test('archives by identifier and preserves a stable API error for the UI', async
     error: 'Game not found. (GAME_NOT_FOUND)',
     ok: false,
   });
+});
+
+test('restores an archived game as a draft without changing its identity', async () => {
+  let gameId;
+  let request;
+  const archivedGame = { ...savedGame, status: 'archived' };
+  const restoredGame = { ...savedGame, status: 'draft' };
+  const result = await restoreGameIdentity(
+    createClient({
+      updateGame: async (receivedGameId, body) => {
+        gameId = receivedGameId;
+        request = body;
+        return { data: restoredGame };
+      },
+    }),
+    archivedGame,
+  );
+
+  assert.equal(gameId, savedGame.id);
+  assert.deepEqual(request, { name: savedGame.name, status: 'draft' });
+  assert.deepEqual(result, { game: restoredGame, ok: true });
 });

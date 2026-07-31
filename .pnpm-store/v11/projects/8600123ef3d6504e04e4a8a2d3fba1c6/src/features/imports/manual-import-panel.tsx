@@ -53,11 +53,13 @@ type LoadState = 'loading' | 'ready' | 'error';
 interface ManualImportPanelProps {
   readonly apiBaseUrl: string;
   readonly client?: ManualImportsClient;
+  readonly gameId?: string;
 }
 
 export function ManualImportPanel({
   apiBaseUrl,
   client,
+  gameId,
 }: ManualImportPanelProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -69,7 +71,8 @@ export function ManualImportPanel({
     readonly RulesVersionResponse[]
   >([]);
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [uncontrolledGameId, setSelectedGameId] = useState<string | null>(null);
+  const selectedGameId = gameId ?? uncontrolledGameId;
   const [sourcePath, setSourcePath] = useState('');
   const [selectedImportJobId, setSelectedImportJobId] = useState('');
   const [selectedRulesVersionId, setSelectedRulesVersionId] = useState('');
@@ -150,9 +153,11 @@ export function ManualImportPanel({
       setGames(gamesResult.data);
       setJobs([...importsResult.data, ...validationsResult.data]);
       setSelectedGameId((current) =>
-        gamesResult.data.some((game) => game.id === current)
-          ? current
-          : (gamesResult.data[0]?.id ?? null),
+        gameId !== undefined
+          ? gameId
+          : gamesResult.data.some((game) => game.id === current)
+            ? current
+            : (gamesResult.data[0]?.id ?? null),
       );
       const completed = completedLayoutImportValidations(
         validationsResult.data,
@@ -169,7 +174,7 @@ export function ManualImportPanel({
         setLoadState('error');
       }
     }
-  }, [api]);
+  }, [api, gameId]);
 
   const loadGameConfiguration = useCallback(
     async (gameId: string) => {
@@ -480,28 +485,30 @@ export function ManualImportPanel({
         />
       ) : (
         <>
-          <div className="gameSelectorPanel">
-            <label htmlFor="import-game">Gra</label>
-            <select
-              id="import-game"
-              onChange={(event) => {
-                setSelectedGameId(event.target.value || null);
-                setReport(null);
-                setPage(null);
-              }}
-              value={selectedGameId ?? ''}
-            >
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name} · {game.code}
-                </option>
-              ))}
-            </select>
-            <p>
-              Plik pozostaje na tym komputerze pod katalogiem skonfigurowanym
-              jako <code>GAME_PREDICTOR_IMPORT_ROOT</code>.
-            </p>
-          </div>
+          {gameId === undefined ? (
+            <div className="gameSelectorPanel">
+              <label htmlFor="import-game">Gra</label>
+              <select
+                id="import-game"
+                onChange={(event) => {
+                  setSelectedGameId(event.target.value || null);
+                  setReport(null);
+                  setPage(null);
+                }}
+                value={selectedGameId ?? ''}
+              >
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name} · {game.code}
+                  </option>
+                ))}
+              </select>
+              <p>
+                Plik pozostaje na tym komputerze pod katalogiem skonfigurowanym
+                jako <code>GAME_PREDICTOR_IMPORT_ROOT</code>.
+              </p>
+            </div>
+          ) : null}
 
           <div className="importComposerGrid">
             <form

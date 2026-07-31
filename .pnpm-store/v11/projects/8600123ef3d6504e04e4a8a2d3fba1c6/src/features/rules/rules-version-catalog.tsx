@@ -42,12 +42,14 @@ type EditorState =
 interface RulesVersionCatalogProps {
   readonly apiBaseUrl: string;
   readonly client?: RulesVersionsClient;
+  readonly gameId?: string;
   readonly gamesRevision?: number;
 }
 
 export function RulesVersionCatalog({
   apiBaseUrl,
   client,
+  gameId,
   gamesRevision = 0,
 }: RulesVersionCatalogProps) {
   const api = useMemo(
@@ -56,7 +58,8 @@ export function RulesVersionCatalog({
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [gamesState, setGamesState] = useState<LoadState>('loading');
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [uncontrolledGameId, setSelectedGameId] = useState<string | null>(null);
+  const selectedGameId = gameId ?? uncontrolledGameId;
   const [rulesVersions, setRulesVersions] = useState<
     readonly RulesVersionResponse[]
   >([]);
@@ -96,7 +99,9 @@ export function RulesVersionCatalog({
         return;
       }
       setGames(result.data);
-      setSelectedGameId((current) => selectRulesGameId(result.data, current));
+      setSelectedGameId((current) =>
+        gameId === undefined ? selectRulesGameId(result.data, current) : gameId,
+      );
       setGamesState('ready');
     } catch {
       if (requestId === gamesRequestId.current) {
@@ -104,7 +109,7 @@ export function RulesVersionCatalog({
         setGamesState('error');
       }
     }
-  }, [api]);
+  }, [api, gameId]);
 
   const loadRulesVersions = useCallback(
     async (gameId: string) => {
@@ -310,25 +315,27 @@ export function RulesVersionCatalog({
         />
       ) : (
         <>
-          <div className="gameSelectorPanel">
-            <label htmlFor="rules-game">Gra</label>
-            <select
-              id="rules-game"
-              onChange={(event) => chooseGame(event.target.value)}
-              value={selectedGameId ?? ''}
-            >
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name} · {game.code}
-                </option>
-              ))}
-            </select>
-            <p>
-              {selectedGame
-                ? `Konfigurujesz reguły gry „${selectedGame.name}”.`
-                : 'Wybierz grę.'}
-            </p>
-          </div>
+          {gameId === undefined ? (
+            <div className="gameSelectorPanel">
+              <label htmlFor="rules-game">Gra</label>
+              <select
+                id="rules-game"
+                onChange={(event) => chooseGame(event.target.value)}
+                value={selectedGameId ?? ''}
+              >
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name} · {game.code}
+                  </option>
+                ))}
+              </select>
+              <p>
+                {selectedGame
+                  ? `Konfigurujesz reguły gry „${selectedGame.name}”.`
+                  : 'Wybierz grę.'}
+              </p>
+            </div>
+          ) : null}
 
           {editor.mode !== 'closed' ? (
             <form className="editorPanel rulesForm" onSubmit={onSubmit}>

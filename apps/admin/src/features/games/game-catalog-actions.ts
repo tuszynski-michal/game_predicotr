@@ -82,3 +82,31 @@ export async function archiveGameIdentity(
     };
   }
 }
+
+export async function restoreGameIdentity(
+  api: GamesClient,
+  game: GameResponse,
+): Promise<SaveGameResult> {
+  try {
+    const result = await api.updateGame(game.id, {
+      name: game.name,
+      status: 'draft',
+    } satisfies GameUpdate);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przywrócić gry jako szkicu.',
+        ),
+        ok: false,
+      };
+    }
+    return { game: result.data, ok: true };
+  } catch {
+    return {
+      error:
+        'Połączenie z lokalnym Admin API zostało przerwane. Przywrócenie nie zostało potwierdzone.',
+      ok: false,
+    };
+  }
+}

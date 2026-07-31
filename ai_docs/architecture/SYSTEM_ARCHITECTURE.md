@@ -68,6 +68,9 @@ Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. 
 
 ### Admin web
 
+- trzy odrębne workspace’y (`Zarządzanie grami`, `Wersje Android`, `Joby`),
+- jeden aktywny kontekst gry odtwarzany wraz z otwartą sekcją z URL,
+- zależne moduły gry osadzone w accordionie bez własnych selectorów gry,
 - CRUD konfiguracji,
 - edytor paylines i payoutów,
 - generowanie/import i podgląd layoutów,

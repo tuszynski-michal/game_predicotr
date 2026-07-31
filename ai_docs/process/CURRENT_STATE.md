@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Phase
 
-`Version 0.2 clarified — TASK-0121 ready to start on the clean PostgreSQL baseline`
+`Version 0.2 in progress — TASK-0122 done, TASK-0123 next`
 
 ## Aktywne tory wydań
 
@@ -31,6 +31,10 @@ last_updated: 2026-07-31
 
 - rozwój może rozpocząć się przed zakończeniem TASK-0119,
 - TASK-0120 zakończył kontrolowany reset lokalnego PostgreSQL,
+- TASK-0121 zakończył przebudowę Admina na trzy workspace’y, jeden kontekst gry
+  i accordion zależnych sekcji ze stanem w URL,
+- TASK-0122 dodał trzy filtry katalogu gier, spójny wybór kontekstu oraz
+  odwracalne przywrócenie zarchiwizowanej gry jako szkicu,
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -85,11 +89,11 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 
 - Q-020 — dozwolony zakres analizy aplikacji referencyjnej,
 - Q-022–Q-032 zostały rozstrzygnięte; Admin 0.2 nie ma otwartego pytania
-  blokującego rozpoczęcie TASK-0121,
+  blokującego rozpoczęcie TASK-0122,
 - finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
   pionu nawigacji Admina.
 
-Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0121.
+Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0123.
 
 ## Blocked / deferred
 
@@ -100,10 +104,9 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0121.
 
 ## Next recommended task
 
-Utworzyć i wykonać `TASK-0121 — Admin workspace navigation and collapsible
-sections`. Zadanie ma zbudować trzy główne workspace’y, accordion zarządzania
-grą i deterministyczne zachowanie kontekstu bez ponownego wprowadzania danych
-usuniętych w TASK-0120.
+Utworzyć i wykonać `TASK-0123 — Local image folder source and resumable test
+ingestion`. Zadanie rozpocznie mały workflow danych 0.2 od natywnego wyboru
+folderu Windows, walidacji źródła, manifestu discovery i bezpiecznego wznowienia.
 
 ## Do not start yet
 

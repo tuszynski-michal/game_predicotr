@@ -45,12 +45,14 @@ type Feedback = {
 interface SymbolCatalogProps {
   readonly apiBaseUrl: string;
   readonly client?: SymbolsClient;
+  readonly gameId?: string;
   readonly gamesRevision?: number;
 }
 
 export function SymbolCatalog({
   apiBaseUrl,
   client,
+  gameId,
   gamesRevision = 0,
 }: SymbolCatalogProps) {
   const api = useMemo(
@@ -60,7 +62,8 @@ export function SymbolCatalog({
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [gamesState, setGamesState] = useState<LoadState>('loading');
   const [gamesError, setGamesError] = useState('');
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [uncontrolledGameId, setSelectedGameId] = useState<string | null>(null);
+  const selectedGameId = gameId ?? uncontrolledGameId;
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [symbolsState, setSymbolsState] = useState<LoadState>('ready');
   const [symbolsError, setSymbolsError] = useState('');
@@ -98,7 +101,9 @@ export function SymbolCatalog({
       }
       const loadedGames = result.data ?? [];
       setGames(loadedGames);
-      setSelectedGameId((current) => selectGameId(loadedGames, current));
+      setSelectedGameId((current) =>
+        gameId === undefined ? selectGameId(loadedGames, current) : gameId,
+      );
       setGamesState('ready');
     } catch {
       if (requestId === gamesRequestId.current) {
@@ -108,7 +113,7 @@ export function SymbolCatalog({
         setGamesState('error');
       }
     }
-  }, [api]);
+  }, [api, gameId]);
 
   const loadSymbols = useCallback(
     async (gameId: string) => {
@@ -325,28 +330,30 @@ export function SymbolCatalog({
 
       {gamesState === 'ready' && games.length > 0 ? (
         <>
-          <div className="gameSelectorPanel">
-            <label htmlFor="symbol-game-selector">
-              Gra dla katalogu symboli
-            </label>
-            <select
-              id="symbol-game-selector"
-              onChange={(event) => chooseGame(event.currentTarget.value)}
-              value={selectedGameId ?? ''}
-            >
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name} · {game.code}
-                  {game.status === 'archived' ? ' · zarchiwizowana' : ''}
-                </option>
-              ))}
-            </select>
-            <p>
-              {selectedGame
-                ? `Wybrano: ${selectedGame.name}. Kod gry pozostaje stabilny.`
-                : 'Wybierz grę, aby zarządzać jej symbolami.'}
-            </p>
-          </div>
+          {gameId === undefined ? (
+            <div className="gameSelectorPanel">
+              <label htmlFor="symbol-game-selector">
+                Gra dla katalogu symboli
+              </label>
+              <select
+                id="symbol-game-selector"
+                onChange={(event) => chooseGame(event.currentTarget.value)}
+                value={selectedGameId ?? ''}
+              >
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name} · {game.code}
+                    {game.status === 'archived' ? ' · zarchiwizowana' : ''}
+                  </option>
+                ))}
+              </select>
+              <p>
+                {selectedGame
+                  ? `Wybrano: ${selectedGame.name}. Kod gry pozostaje stabilny.`
+                  : 'Wybierz grę, aby zarządzać jej symbolami.'}
+              </p>
+            </div>
+          ) : null}
 
           {feedback ? (
             <p

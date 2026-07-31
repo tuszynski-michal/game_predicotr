@@ -8,6 +8,8 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $composePath = Join-Path $repositoryRoot 'infra\docker\compose.yaml'
 $pythonPath = Join-Path $repositoryRoot '.venv\Scripts\python.exe'
 $integrationTestPath = Join-Path $repositoryRoot 'services\api\tests\integration'
+$pytestTempRoot = Join-Path $repositoryRoot '.tooling\pytest'
+$pytestBaseTemp = Join-Path $pytestTempRoot "postgres-baseline-$PID"
 $dockerDesktopUserPath = Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe'
 $dockerDesktopPath = 'C:\Program Files\Docker\Docker\resources\bin\docker.exe'
 $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
@@ -29,6 +31,8 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
     throw 'Python virtual environment is missing. Create .venv and install project dependencies.'
 }
 
+New-Item -ItemType Directory -Path $pytestTempRoot -Force | Out-Null
+
 & $dockerPath compose -f $composePath up -d --wait postgres
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
@@ -37,7 +41,7 @@ if ($LASTEXITCODE -ne 0) {
 $previousTestFlag = $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS
 try {
     $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'
-    & $pythonPath -m pytest $integrationTestPath -ra
+    & $pythonPath -m pytest $integrationTestPath -ra --basetemp $pytestBaseTemp
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  countGamesByStatus,
+  filterGamesByStatus,
+  GAME_STATUS_FILTERS,
   markGameArchived,
   upsertGame,
   validateGameDraft,
@@ -16,6 +19,10 @@ const game = {
   status: 'active',
   updatedAt: '2026-07-26T10:00:00Z',
 };
+
+test('offers exactly the three accepted status filters', () => {
+  assert.deepEqual(GAME_STATUS_FILTERS, ['active', 'draft', 'archived']);
+});
 
 test('validates and normalizes the game identity draft', () => {
   assert.deepEqual(
@@ -62,6 +69,35 @@ test('archives a game without removing or mutating the original record', () => {
   assert.equal(archived[0].status, 'archived');
   assert.equal(initial[0].status, 'active');
   assert.equal(archived[0].code, game.code);
+});
+
+test('filters games by exactly one status and preserves catalog order', () => {
+  const draft = { ...game, id: 'game-2', name: 'Draft', status: 'draft' };
+  const archived = {
+    ...game,
+    id: 'game-3',
+    name: 'Archived',
+    status: 'archived',
+  };
+  const secondActive = { ...game, id: 'game-4', name: 'Second active' };
+  const games = [game, draft, archived, secondActive];
+
+  assert.deepEqual(filterGamesByStatus(games, 'active'), [game, secondActive]);
+  assert.deepEqual(filterGamesByStatus(games, 'draft'), [draft]);
+  assert.deepEqual(filterGamesByStatus(games, 'archived'), [archived]);
+  assert.deepEqual(games, [game, draft, archived, secondActive]);
+});
+
+test('counts every game status for filter badges', () => {
+  assert.deepEqual(
+    countGamesByStatus([
+      game,
+      { ...game, id: 'game-2', status: 'active' },
+      { ...game, id: 'game-3', status: 'draft' },
+      { ...game, id: 'game-4', status: 'archived' },
+    ]),
+    { active: 2, archived: 1, draft: 1 },
+  );
 });
 
 test('presents stable API error text and hides unknown transport details', () => {

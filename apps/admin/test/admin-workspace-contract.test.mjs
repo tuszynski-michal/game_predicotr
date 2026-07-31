@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const workspaceSource = await readFile(
+  new URL('../src/features/catalog/catalog-workspace.tsx', import.meta.url),
+  'utf8',
+);
+const shellSource = await readFile(
+  new URL('../src/components/admin-shell.tsx', import.meta.url),
+  'utf8',
+);
+
+test('exposes exactly the three v0.2 workspaces', () => {
+  assert.match(workspaceSource, /Zarządzanie grami/);
+  assert.match(workspaceSource, /Wersje Android/);
+  assert.match(workspaceSource, /Joby/);
+  assert.match(workspaceSource, /WORKSPACE_OPTIONS/);
+});
+
+test('uses a single controlled game context for dependent sections', () => {
+  assert.match(workspaceSource, /selectedGameId=\{navigation\.gameId\}/);
+  assert.match(workspaceSource, /gameId=\{activeGame\.id\}/);
+  assert.match(workspaceSource, /aria-expanded=\{expanded\}/);
+  assert.doesNotMatch(shellSource, /href="#symbols"/);
+  assert.doesNotMatch(shellSource, /href="#jobs"/);
+});

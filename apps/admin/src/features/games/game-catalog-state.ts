@@ -31,6 +31,35 @@ export const GAME_STATUS_LABELS: Record<GameStatus, string> = {
   archived: 'Zarchiwizowana',
 };
 
+export const GAME_STATUS_FILTERS = ['active', 'draft', 'archived'] as const;
+
+export const GAME_STATUS_FILTER_LABELS: Record<GameStatus, string> = {
+  active: 'Aktywne',
+  draft: 'Szkice',
+  archived: 'Zarchiwizowane',
+};
+
+export type GameStatusCounts = Readonly<Record<GameStatus, number>>;
+
+export function countGamesByStatus(
+  games: readonly GameResponse[],
+): GameStatusCounts {
+  return games.reduce<GameStatusCounts>(
+    (counts, game) => ({
+      ...counts,
+      [game.status]: counts[game.status] + 1,
+    }),
+    { active: 0, archived: 0, draft: 0 },
+  );
+}
+
+export function filterGamesByStatus(
+  games: readonly GameResponse[],
+  status: GameStatus,
+): readonly GameResponse[] {
+  return games.filter((game) => game.status === status);
+}
+
 export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
   const code = draft.code.trim();
   const name = draft.name.trim();

@@ -213,6 +213,266 @@ nav {
   padding: 62px 52px 90px;
 }
 
+.sidebarSummary {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.sidebarSummary .eyebrow,
+.sidebarSummary p {
+  margin: 0;
+}
+
+.sidebarSummary > p:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.workspaceHeader {
+  margin-bottom: 28px;
+}
+
+.workspaceHeader h1 {
+  font-size: clamp(34px, 4vw, 50px);
+}
+
+.workspaceNavigation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.workspaceTile {
+  display: grid;
+  min-height: 150px;
+  align-content: start;
+  gap: 9px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.workspaceTile:hover {
+  border-color: var(--line-strong);
+  background: rgba(255, 255, 255, 0.045);
+  transform: translateY(-1px);
+}
+
+.workspaceTileActive {
+  border-color: rgba(112, 225, 180, 0.48);
+  background: var(--accent-soft);
+}
+
+.workspaceTileIndex {
+  color: var(--accent);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.workspaceTile strong {
+  font-size: 17px;
+}
+
+.workspaceTile > span:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.workspaceBody {
+  margin-top: 48px;
+}
+
+.workspaceBody > .catalogSection {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.activeGameContext {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.activeGameContext .eyebrow,
+.activeGameContext h2 {
+  margin-bottom: 0;
+}
+
+.activeGameContext h2 {
+  margin-top: 4px;
+}
+
+.activeGameContext code {
+  color: var(--muted);
+}
+
+.gameAccordion {
+  overflow: hidden;
+  margin-top: 36px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(14, 26, 44, 0.72);
+}
+
+.gameAccordionItem + .gameAccordionItem {
+  border-top: 1px solid var(--line);
+}
+
+.gameAccordionHeading {
+  margin: 0;
+}
+
+.gameAccordionTrigger {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto 34px;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 22px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.gameAccordionTrigger:hover,
+.gameAccordionTrigger[aria-expanded='true'] {
+  background: rgba(112, 225, 180, 0.06);
+}
+
+.gameAccordionTrigger > span:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.gameAccordionTrigger > span:first-child > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sectionReadiness {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.accordionChevron {
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.gameAccordionBody {
+  padding: 30px 22px 36px;
+  border-top: 1px solid var(--line);
+}
+
+.gameAccordionBody[hidden] {
+  display: none;
+}
+
+.gameAccordionBody .catalogSection {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.gameAccordionBody .catalogSection + .catalogSection {
+  margin-top: 52px;
+  padding-top: 42px;
+  border-top: 1px solid var(--line);
+}
+
+.gameAccordionBody .pageHeader h1 {
+  font-size: clamp(30px, 4vw, 44px);
+}
+
+.gameIdentityButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.gameIdentityButton:focus-visible {
+  border-radius: 12px;
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+}
+
+.gameIdentityButtonDisabled {
+  cursor: default;
+  opacity: 0.68;
+}
+
+.gameIdentityButtonDisabled:focus-visible {
+  outline-color: var(--line-strong);
+}
+
+.gameRowSelected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+@media (max-width: 980px) {
+  .sidebarSummary {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .workspaceNavigation {
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceTile {
+    min-height: auto;
+  }
+
+  .gameStatusFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .gameAccordionTrigger {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sectionReadiness {
+    display: none;
+  }
+
+  .activeGameContext {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 #games,
 .catalogSection {
   scroll-margin-top: 28px;
@@ -552,6 +812,70 @@ a:focus-visible {
 
 .gamesPanel {
   overflow: hidden;
+}
+
+.gameStatusFilters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(5, 12, 22, 0.26);
+}
+
+.gameStatusFilter {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.gameStatusFilter strong {
+  display: grid;
+  min-width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.gameStatusFilter:hover,
+.gameStatusFilterActive {
+  border-color: rgba(112, 225, 180, 0.38);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.gameStatusFilterActive strong {
+  background: rgba(112, 225, 180, 0.18);
+  color: var(--accent);
+}
+
+.filteredEmptyState {
+  display: grid;
+  min-height: 150px;
+  place-content: center;
+  gap: 8px;
+  padding: 32px;
+  text-align: center;
+}
+
+.filteredEmptyState p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
 }
 
 .listHeader {

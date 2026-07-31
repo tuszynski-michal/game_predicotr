@@ -40,12 +40,14 @@ type LoadState = 'loading' | 'ready' | 'error';
 interface DatasetCatalogProps {
   readonly apiBaseUrl: string;
   readonly client?: DatasetsClient;
+  readonly gameId?: string;
   readonly gamesRevision?: number;
 }
 
 export function DatasetCatalog({
   apiBaseUrl,
   client,
+  gameId,
   gamesRevision = 0,
 }: DatasetCatalogProps) {
   const api = useMemo(
@@ -53,7 +55,8 @@ export function DatasetCatalog({
     [apiBaseUrl, client],
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
-  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
+  const [uncontrolledGameId, setSelectedGameId] = useState<string | null>(null);
+  const selectedGameId = gameId ?? uncontrolledGameId;
   const [rulesVersions, setRulesVersions] = useState<
     readonly RulesVersionResponse[]
   >([]);
@@ -103,7 +106,9 @@ export function DatasetCatalog({
         return;
       }
       setGames(result.data);
-      setSelectedGameId((current) => selectRulesGameId(result.data, current));
+      setSelectedGameId((current) =>
+        gameId === undefined ? selectRulesGameId(result.data, current) : gameId,
+      );
       setLoadState('ready');
     } catch {
       if (currentRequest === requestId.current) {
@@ -111,7 +116,7 @@ export function DatasetCatalog({
         setLoadState('error');
       }
     }
-  }, [api]);
+  }, [api, gameId]);
 
   const loadDatasetWorkspace = useCallback(
     async (gameId: string) => {
@@ -315,28 +320,30 @@ export function DatasetCatalog({
         />
       ) : (
         <>
-          <div className="gameSelectorPanel">
-            <label htmlFor="dataset-game">Gra</label>
-            <select
-              id="dataset-game"
-              onChange={(event) => {
-                setSelectedGameId(event.target.value || null);
-                setFeedback('');
-              }}
-              value={selectedGameId ?? ''}
-            >
-              {games.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name} · {game.code}
-                </option>
-              ))}
-            </select>
-            <p>
-              {selectedGame
-                ? `Przygotowujesz dane gry „${selectedGame.name}”.`
-                : 'Wybierz grę.'}
-            </p>
-          </div>
+          {gameId === undefined ? (
+            <div className="gameSelectorPanel">
+              <label htmlFor="dataset-game">Gra</label>
+              <select
+                id="dataset-game"
+                onChange={(event) => {
+                  setSelectedGameId(event.target.value || null);
+                  setFeedback('');
+                }}
+                value={selectedGameId ?? ''}
+              >
+                {games.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name} · {game.code}
+                  </option>
+                ))}
+              </select>
+              <p>
+                {selectedGame
+                  ? `Przygotowujesz dane gry „${selectedGame.name}”.`
+                  : 'Wybierz grę.'}
+              </p>
+            </div>
+          ) : null}
 
           {loadState === 'loading' ? (
             <DatasetState

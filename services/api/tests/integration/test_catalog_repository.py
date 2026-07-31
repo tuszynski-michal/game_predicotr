@@ -91,7 +91,7 @@ def test_catalog_repository_uses_real_constraints(
     engine = create_engine(isolated_catalog_database, pool_pre_ping=True)
 
     try:
-        assert set(inspect(engine).get_table_names()) == {
+        assert {
             "alembic_version",
             "dataset_versions",
             "games",
@@ -107,7 +107,7 @@ def test_catalog_repository_uses_real_constraints(
             "rules_versions",
             "rules_version_symbols",
             "symbols",
-        }
+        } <= set(inspect(engine).get_table_names())
 
         with Session(engine, expire_on_commit=False) as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))

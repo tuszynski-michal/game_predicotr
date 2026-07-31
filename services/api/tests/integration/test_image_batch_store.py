@@ -551,7 +551,7 @@ def test_image_job_operations_aggregate_and_retry_failed_stage(
             assert before.files[0].file_execution_key == registered.file_execution_key
 
             diagnostic = repository.diagnostic_snapshot(job.id, error_limit=10)
-            assert diagnostic.error_count == 1
+            assert diagnostic.failed == 1
             assert diagnostic.truncated is False
             assert diagnostic.failures[0].file_execution_key == (registered.file_execution_key)
             assert diagnostic.failures[0].source_relative_path == ("batch/page-004.jpg")

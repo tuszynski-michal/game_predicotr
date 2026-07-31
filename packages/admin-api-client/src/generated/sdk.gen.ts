@@ -107,6 +107,9 @@ import type {
   GetJobData,
   GetJobErrors,
   GetJobResponses,
+  GetLatestSymbolBootstrapData,
+  GetLatestSymbolBootstrapErrors,
+  GetLatestSymbolBootstrapResponses,
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
@@ -159,6 +162,12 @@ import type {
   GetRulesVersionResponses,
   GetSymbolData,
   GetSymbolErrors,
+  GetSymbolImageAssetData,
+  GetSymbolImageAssetErrors,
+  GetSymbolImageAssetResponses,
+  GetSymbolImageCandidateAssetData,
+  GetSymbolImageCandidateAssetErrors,
+  GetSymbolImageCandidateAssetResponses,
   GetSymbolResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
@@ -220,6 +229,9 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
+  ListSymbolImageCandidatesData,
+  ListSymbolImageCandidatesErrors,
+  ListSymbolImageCandidatesResponses,
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
@@ -247,6 +259,9 @@ import type {
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
+  ResolveSymbolBootstrapData,
+  ResolveSymbolBootstrapErrors,
+  ResolveSymbolBootstrapResponses,
   RetryImageJobFileData,
   RetryImageJobFileErrors,
   RetryImageJobFileResponses,
@@ -262,9 +277,15 @@ import type {
   SelectLocalImageFolderData,
   SelectLocalImageFolderErrors,
   SelectLocalImageFolderResponses,
+  SelectSymbolImageCandidateData,
+  SelectSymbolImageCandidateErrors,
+  SelectSymbolImageCandidateResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
+  StartSymbolBootstrapData,
+  StartSymbolBootstrapErrors,
+  StartSymbolBootstrapResponses,
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
@@ -563,6 +584,70 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Get the latest symbol bootstrap run
+ */
+export const getLatestSymbolBootstrap = <ThrowOnError extends boolean = false>(
+  options: Options<GetLatestSymbolBootstrapData, ThrowOnError>,
+): RequestResult<
+  GetLatestSymbolBootstrapResponses,
+  GetLatestSymbolBootstrapErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetLatestSymbolBootstrapResponses,
+    GetLatestSymbolBootstrapErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbol-bootstrap', ...options });
+
+/**
+ * Build symbol proposals from imported crops
+ */
+export const startSymbolBootstrap = <ThrowOnError extends boolean = false>(
+  options: Options<StartSymbolBootstrapData, ThrowOnError>,
+): RequestResult<
+  StartSymbolBootstrapResponses,
+  StartSymbolBootstrapErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartSymbolBootstrapResponses,
+    StartSymbolBootstrapErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-bootstrap',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resolve a symbol cluster-count conflict
+ */
+export const resolveSymbolBootstrap = <ThrowOnError extends boolean = false>(
+  options: Options<ResolveSymbolBootstrapData, ThrowOnError>,
+): RequestResult<
+  ResolveSymbolBootstrapResponses,
+  ResolveSymbolBootstrapErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolveSymbolBootstrapResponses,
+    ResolveSymbolBootstrapErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * List game symbols
  */
 export const listSymbols = <ThrowOnError extends boolean = false>(
@@ -640,6 +725,91 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List a bounded page of actual crop candidates
+ */
+export const listSymbolImageCandidates = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolImageCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListSymbolImageCandidatesResponses,
+  ListSymbolImageCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolImageCandidatesResponses,
+    ListSymbolImageCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates',
+    ...options,
+  });
+
+/**
+ * Read one checksum-bound symbol crop candidate
+ */
+export const getSymbolImageCandidateAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSymbolImageCandidateAssetData, ThrowOnError>,
+): RequestResult<
+  GetSymbolImageCandidateAssetResponses,
+  GetSymbolImageCandidateAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolImageCandidateAssetResponses,
+    GetSymbolImageCandidateAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/asset',
+    ...options,
+  });
+
+/**
+ * Select a checksum-bound crop as the symbol reference image
+ */
+export const selectSymbolImageCandidate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SelectSymbolImageCandidateData, ThrowOnError>,
+): RequestResult<
+  SelectSymbolImageCandidateResponses,
+  SelectSymbolImageCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectSymbolImageCandidateResponses,
+    SelectSymbolImageCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the current checksum-bound symbol reference image
+ */
+export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolImageAssetData, ThrowOnError>,
+): RequestResult<
+  GetSymbolImageAssetResponses,
+  GetSymbolImageAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolImageAssetResponses,
+    GetSymbolImageAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset',
+    ...options,
   });
 
 /**

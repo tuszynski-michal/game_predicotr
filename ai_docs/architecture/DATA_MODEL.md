@@ -607,6 +607,20 @@ sekwencji. Automatyczny wybór pozostaje odtwarzalny i jest porządkowany po
 confidence planszy, confidence numeru, rozdzielczości oraz UUID; ręczna decyzja
 nie nadpisuje metryk ani provenance źródła.
 
+### symbol_bootstrap_runs
+
+Run TASK-0125 zamraża `expected_symbol_count`, liczbę wykrytych grup,
+`source_state_sha256`, status `ready | conflict | applied`, kandydatów i
+opcjonalne ręczne rozstrzygnięcie. Kandydat zachowuje kod predykcji, liczność,
+średnie confidence oraz ścieżkę i checksumę rzeczywistego reprezentatywnego
+cropu. Unikalne `(game_id, source_state_sha256, expected_symbol_count)` chroni
+idempotentny retry.
+
+Status `applied` zawsze ma resolution i `applied_at`; pozostałe stany nie mogą
+ich mieć. Katalog jest tworzony atomowo z runem i kolejnymi `mobile_code`.
+Rozstrzygnięcie zachowuje wszystkie candidate ID, również gdy kilka grup jest
+scalanych albo jedna grupa jest źródłem ręcznego splitu.
+
 ### image_board_geometry_revisions
 
 M6.5 dodaje append-only historię ręcznych korekt geometrii operacyjnej planszy.

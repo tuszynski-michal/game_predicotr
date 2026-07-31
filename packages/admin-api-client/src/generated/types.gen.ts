@@ -3213,6 +3213,168 @@ export type SnapshotJobPayload = {
 };
 
 /**
+ * SymbolBootstrapCandidateResponse
+ */
+export type SymbolBootstrapCandidateResponse = {
+  /**
+   * Candidateid
+   */
+  candidateId: string;
+  /**
+   * Meanconfidence
+   */
+  meanConfidence: number;
+  /**
+   * Predictedsymbolcode
+   */
+  predictedSymbolCode: string;
+  /**
+   * Proposedcode
+   */
+  proposedCode: string;
+  /**
+   * Proposedname
+   */
+  proposedName: string;
+  /**
+   * Representativecropchecksumsha256
+   */
+  representativeCropChecksumSha256: string;
+  /**
+   * Representativecroprelativepath
+   */
+  representativeCropRelativePath: string;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+};
+
+/**
+ * SymbolBootstrapDefinitionCommand
+ */
+export type SymbolBootstrapDefinitionCommand = {
+  /**
+   * Candidateids
+   */
+  candidateIds: Array<string>;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * SymbolBootstrapDefinitionResponse
+ */
+export type SymbolBootstrapDefinitionResponse = {
+  /**
+   * Candidateids
+   */
+  candidateIds: Array<string>;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Imagepath
+   */
+  imagePath: string;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * SymbolBootstrapResolveCommand
+ */
+export type SymbolBootstrapResolveCommand = {
+  /**
+   * Symbols
+   */
+  symbols: Array<SymbolBootstrapDefinitionCommand>;
+};
+
+/**
+ * SymbolBootstrapRunResponse
+ */
+export type SymbolBootstrapRunResponse = {
+  /**
+   * Appliedat
+   */
+  appliedAt: string | null;
+  /**
+   * Candidates
+   */
+  candidates: Array<SymbolBootstrapCandidateResponse>;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Detectedclustercount
+   */
+  detectedClusterCount: number;
+  /**
+   * Expectedsymbolcount
+   */
+  expectedSymbolCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Resolution
+   */
+  resolution: Array<SymbolBootstrapDefinitionResponse>;
+  /**
+   * Sourcestatesha256
+   */
+  sourceStateSha256: string;
+  status: SymbolBootstrapStatus;
+};
+
+/**
+ * SymbolBootstrapStartCommand
+ */
+export type SymbolBootstrapStartCommand = {
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Expectedsymbolcount
+   */
+  expectedSymbolCount: number;
+};
+
+/**
+ * SymbolBootstrapStatus
+ */
+export type SymbolBootstrapStatus = 'ready' | 'conflict' | 'applied';
+
+/**
  * SymbolCreate
  */
 export type SymbolCreate = {
@@ -3241,6 +3403,48 @@ export type SymbolCreate = {
    */
   name: string;
   status?: SymbolStatus;
+};
+
+/**
+ * SymbolImageCandidatePageResponse
+ */
+export type SymbolImageCandidatePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SymbolImageCandidateResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * SymbolImageCandidateResponse
+ */
+export type SymbolImageCandidateResponse = {
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Observationid
+   */
+  observationId: string;
+};
+
+/**
+ * SymbolImageSelectionCommand
+ */
+export type SymbolImageSelectionCommand = {
+  /**
+   * Name
+   */
+  name: string;
 };
 
 /**
@@ -4028,6 +4232,140 @@ export type CreateRulesVersionResponses = {
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
 
+export type GetLatestSymbolBootstrapData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap';
+};
+
+export type GetLatestSymbolBootstrapErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetLatestSymbolBootstrapError =
+  GetLatestSymbolBootstrapErrors[keyof GetLatestSymbolBootstrapErrors];
+
+export type GetLatestSymbolBootstrapResponses = {
+  /**
+   * Response Getlatestsymbolbootstrap
+   *
+   * Successful Response
+   */
+  200: SymbolBootstrapRunResponse | null;
+};
+
+export type GetLatestSymbolBootstrapResponse =
+  GetLatestSymbolBootstrapResponses[keyof GetLatestSymbolBootstrapResponses];
+
+export type StartSymbolBootstrapData = {
+  body: SymbolBootstrapStartCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap';
+};
+
+export type StartSymbolBootstrapErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartSymbolBootstrapError =
+  StartSymbolBootstrapErrors[keyof StartSymbolBootstrapErrors];
+
+export type StartSymbolBootstrapResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolBootstrapRunResponse;
+};
+
+export type StartSymbolBootstrapResponse =
+  StartSymbolBootstrapResponses[keyof StartSymbolBootstrapResponses];
+
+export type ResolveSymbolBootstrapData = {
+  body: SymbolBootstrapResolveCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Bootstrap Id
+     */
+    bootstrap_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution';
+};
+
+export type ResolveSymbolBootstrapErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResolveSymbolBootstrapError =
+  ResolveSymbolBootstrapErrors[keyof ResolveSymbolBootstrapErrors];
+
+export type ResolveSymbolBootstrapResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolBootstrapRunResponse;
+};
+
+export type ResolveSymbolBootstrapResponse =
+  ResolveSymbolBootstrapResponses[keyof ResolveSymbolBootstrapResponses];
+
 export type ListSymbolsData = {
   body?: never;
   path: {
@@ -4251,6 +4589,197 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type ListSymbolImageCandidatesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: {
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates';
+};
+
+export type ListSymbolImageCandidatesErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolImageCandidatesError =
+  ListSymbolImageCandidatesErrors[keyof ListSymbolImageCandidatesErrors];
+
+export type ListSymbolImageCandidatesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolImageCandidatePageResponse;
+};
+
+export type ListSymbolImageCandidatesResponse =
+  ListSymbolImageCandidatesResponses[keyof ListSymbolImageCandidatesResponses];
+
+export type GetSymbolImageCandidateAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+    /**
+     * Observation Id
+     */
+    observation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/asset';
+};
+
+export type GetSymbolImageCandidateAssetErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolImageCandidateAssetError =
+  GetSymbolImageCandidateAssetErrors[keyof GetSymbolImageCandidateAssetErrors];
+
+export type GetSymbolImageCandidateAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type SelectSymbolImageCandidateData = {
+  body: SymbolImageSelectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+    /**
+     * Observation Id
+     */
+    observation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection';
+};
+
+export type SelectSymbolImageCandidateErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSymbolImageCandidateError =
+  SelectSymbolImageCandidateErrors[keyof SelectSymbolImageCandidateErrors];
+
+export type SelectSymbolImageCandidateResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type SelectSymbolImageCandidateResponse =
+  SelectSymbolImageCandidateResponses[keyof SelectSymbolImageCandidateResponses];
+
+export type GetSymbolImageAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset';
+};
+
+export type GetSymbolImageAssetErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolImageAssetError =
+  GetSymbolImageAssetErrors[keyof GetSymbolImageAssetErrors];
+
+export type GetSymbolImageAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type CreateImageFolderImportData = {
   body: ImageFolderImportCreate;

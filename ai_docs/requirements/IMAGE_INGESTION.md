@@ -344,6 +344,13 @@ użytkownikowi kandydatów do scalenia, rozdzielenia albo przypisania. System ni
 interpretuje samodzielnie dodatkowego klastra jako nowego symbolu ani niedoboru
 jako potwierdzonego scalenia.
 
+Implementacja TASK-0125 używa rzeczywistych cropów i wersjonowanych predykcji
+produkcyjnego klasyfikatora jako deterministycznych grup startowych. Nie czyta
+`examples/imgs` i nie tworzy syntetycznych grafik. Najwyższe confidence z
+deterministycznym tie-breakiem wybiera reprezentanta grupy; pełny run zachowuje
+checksumę źródła. Ręczne rozstrzygnięcie jest wymagane przed utworzeniem
+katalogu, jeżeli liczba grup różni się od oczekiwanej.
+
 Kolejny batch active-learning zawiera całe pending layouty 5 × 3. Ranking
 łączy niepewność pięciu najbardziej niepewnych komórek, różnorodność rozkładu
 predykcji, nowe zdjęcie źródłowe i niedoreprezentowaną przewidywaną klasę.

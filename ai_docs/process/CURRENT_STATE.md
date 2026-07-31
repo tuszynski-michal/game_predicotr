@@ -8,7 +8,7 @@ last_updated: 2026-07-31
 
 ## Phase
 
-`Version 0.2 in progress — TASK-0124 done, TASK-0125 next`
+`Version 0.2 in progress — TASK-0126 done, TASK-0127 next`
 
 ## Aktywne tory wydań
 
@@ -41,6 +41,12 @@ last_updated: 2026-07-31
 - TASK-0124 dodał konfigurowalny cel liczby layoutów, raport kompletności i luk,
   walidację ręcznych numerów sekwencji oraz deterministyczny wybór najlepszego
   źródła z audytowalnym ręcznym override,
+- TASK-0125 dodał checksum-bound bootstrap katalogu symboli z rzeczywistych
+  cropów, automatyczne utworzenie przy zgodnej liczbie grup oraz jawne
+  rozstrzygnięcie merge/split przy konflikcie,
+- TASK-0126 dodał kafelki z rzeczywistą grafiką, modal z deterministycznymi
+  stronami po 10 cropów oraz atomową zmianę nazwy i obrazu bez zmiany
+  stabilnego `code` ani `mobileCode`,
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -67,7 +73,7 @@ last_updated: 2026-07-31
 
 ### Robocze
 
-- PostgreSQL jest na migracji `0022_dataset_quality`; przed rozpoczęciem pionu
+- PostgreSQL jest na migracji `0023_symbol_bootstrap`; przed rozpoczęciem pionu
   importu 0.2 baza nie zawierała rekordów domenowych,
 - nie istnieją aktywne joby, sesje Reviewera, gry, datasety ani wydania,
 - dane poprzedniej iteracji są dostępne wyłącznie w kontrolowanym dumpie
@@ -99,7 +105,7 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 - finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
   pionu nawigacji Admina.
 
-Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0125.
+Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0127.
 
 ## Blocked / deferred
 
@@ -110,10 +116,9 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0125.
 
 ## Next recommended task
 
-Utworzyć i wykonać `TASK-0125 — Bootstrap symbol catalog from actual crops and
-manual mapping`. Zadanie wykorzysta zarządzane oryginały i wybrane źródła z
-TASK-0123–0124 do przygotowania katalogu symboli opartego na rzeczywistych
-cropach, bez generowania sztucznych symboli.
+Utworzyć i wykonać `TASK-0127 — Single rules workspace with internal immutable
+versioning`. Zadanie uprości główny widok reguł bez utraty niezmiennej historii
+potrzebnej do odtworzenia wydań mobilnych.
 
 ## Do not start yet
 

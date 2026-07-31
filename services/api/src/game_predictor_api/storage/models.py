@@ -136,6 +136,65 @@ class SymbolModel(Base):
     )
 
 
+class SymbolBootstrapRunModel(Base):
+    __tablename__ = "symbol_bootstrap_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "expected_symbol_count BETWEEN 1 AND 32767",
+            name="ck_symbol_bootstrap_expected_count_range",
+        ),
+        CheckConstraint(
+            "detected_cluster_count > 0",
+            name="ck_symbol_bootstrap_detected_count_positive",
+        ),
+        CheckConstraint(
+            "source_state_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_symbol_bootstrap_source_sha256",
+        ),
+        CheckConstraint(
+            "status IN ('ready', 'conflict', 'applied')",
+            name="ck_symbol_bootstrap_status",
+        ),
+        CheckConstraint(
+            "(status = 'applied' AND resolution IS NOT NULL AND applied_at IS NOT NULL) "
+            "OR (status <> 'applied' AND resolution IS NULL AND applied_at IS NULL)",
+            name="ck_symbol_bootstrap_applied_state",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "source_state_sha256",
+            "expected_symbol_count",
+            name="uq_symbol_bootstrap_source_expectation",
+        ),
+        Index("ix_symbol_bootstrap_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    expected_symbol_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    detected_cluster_count: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    source_state_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    candidates: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    resolution: Mapped[list[dict[str, object]] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    applied_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
 class RulesVersionModel(Base):
     __tablename__ = "rules_versions"
     __table_args__ = (

@@ -43,6 +43,7 @@ import {
   getPayoutRule as getGeneratedPayoutRule,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
+  getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
@@ -66,6 +67,7 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listSymbols as listGeneratedSymbols,
+  listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   publishRulesVersion as publishGeneratedRulesVersion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   publishDatasetVersion as publishGeneratedDatasetVersion,
@@ -78,6 +80,9 @@ import {
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
+  selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
+  resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
+  startSymbolBootstrap as startGeneratedSymbolBootstrap,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
@@ -120,6 +125,9 @@ import type {
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
   SymbolCreate,
+  SymbolBootstrapResolveCommand,
+  SymbolBootstrapStartCommand,
+  SymbolImageSelectionCommand,
   SymbolUpdate,
 } from './generated/types.gen';
 
@@ -243,6 +251,16 @@ export type {
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
   SymbolCreate,
+  SymbolBootstrapCandidateResponse,
+  SymbolBootstrapDefinitionCommand,
+  SymbolBootstrapDefinitionResponse,
+  SymbolBootstrapResolveCommand,
+  SymbolBootstrapRunResponse,
+  SymbolBootstrapStartCommand,
+  SymbolBootstrapStatus,
+  SymbolImageCandidatePageResponse,
+  SymbolImageCandidateResponse,
+  SymbolImageSelectionCommand,
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
@@ -410,15 +428,74 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
+    getLatestSymbolBootstrap: (gameId: string) =>
+      getGeneratedLatestSymbolBootstrap({
+        client,
+        path: { game_id: gameId },
+      }),
+    startSymbolBootstrap: (gameId: string, body: SymbolBootstrapStartCommand) =>
+      startGeneratedSymbolBootstrap({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-bootstrap:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    resolveSymbolBootstrap: (
+      gameId: string,
+      bootstrapId: string,
+      body: SymbolBootstrapResolveCommand,
+    ) =>
+      resolveGeneratedSymbolBootstrap({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-bootstrap:${bootstrapId}`),
+        path: { bootstrap_id: bootstrapId, game_id: gameId },
+      }),
+    listSymbolImageCandidates: (
+      gameId: string,
+      symbolId: string,
+      afterCursor?: string,
+    ) =>
+      listGeneratedSymbolImageCandidates({
+        client,
+        path: { game_id: gameId, symbol_id: symbolId },
+        query: {
+          limit: 10,
+          ...(afterCursor === undefined ? {} : { afterCursor }),
+        },
+      }),
+    symbolImageCandidateAssetUrl: (
+      gameId: string,
+      symbolId: string,
+      observationId: string,
+    ) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image-candidates/${encodeURIComponent(observationId)}/asset`,
+    symbolImageAssetUrl: (gameId: string, symbolId: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
+    selectSymbolImageCandidate: (
+      gameId: string,
+      symbolId: string,
+      observationId: string,
+      body: SymbolImageSelectionCommand,
+    ) =>
+      selectGeneratedSymbolImageCandidate({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `symbol-image:${gameId}:${symbolId}:${observationId}`,
+        ),
+        path: {
+          game_id: gameId,
+          observation_id: observationId,
+          symbol_id: symbolId,
+        },
+      }),
     getImageDatasetCompleteness: (gameId: string) =>
       getGeneratedImageDatasetCompleteness({
         client,
         path: { game_id: gameId },
       }),
-    getImageSequenceSourceSelection: (
-      gameId: string,
-      sequenceNumber: number,
-    ) =>
+    getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({
         client,
         path: { game_id: gameId, sequence_number: sequenceNumber },

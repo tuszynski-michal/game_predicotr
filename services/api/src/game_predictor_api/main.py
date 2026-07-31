@@ -53,6 +53,7 @@ from game_predictor_api.application.reviewer_ingress import (
 )
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
+from game_predictor_api.application.symbol_bootstrap import SymbolBootstrapService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
@@ -130,6 +131,9 @@ from game_predictor_api.storage.reviewer_access_repository import (
     SqlAlchemyReviewerAccessRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
+from game_predictor_api.storage.symbol_bootstrap_repository import (
+    SqlAlchemySymbolBootstrapRepository,
+)
 
 
 def create_app(
@@ -149,6 +153,7 @@ def create_app(
     review_service_dependency: Callable[..., object] | None = None,
     reviewer_access_service_dependency: Callable[..., object] | None = None,
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
+    symbol_bootstrap_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -164,6 +169,20 @@ def create_app(
                 raise
 
     resolved_catalog_dependency = catalog_service_dependency or default_catalog_service_dependency
+
+    def default_symbol_bootstrap_service_dependency() -> Iterator[SymbolBootstrapService]:
+        with session_factory() as session:
+            try:
+                yield SymbolBootstrapService(SqlAlchemySymbolBootstrapRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_bootstrap_dependency = (
+        symbol_bootstrap_service_dependency
+        or default_symbol_bootstrap_service_dependency
+    )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
         with session_factory() as session:
@@ -391,6 +410,7 @@ def create_app(
             resolved_review_dependency,
             resolved_reviewer_access_dependency,
             resolved_reviewer_ingress_dependency,
+            resolved_symbol_bootstrap_dependency,
         )
     )
 

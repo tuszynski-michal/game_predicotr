@@ -29,6 +29,7 @@ IMAGE_REVIEW_GEOMETRY_REVISION = "0019_review_geometry"
 IMAGE_VERIFIED_COHORTS_REVISION = "0020_verified_cohorts"
 REVIEWER_ACCESS_REVISION = "0021_reviewer_access"
 DATASET_QUALITY_REVISION = "0022_dataset_quality"
+SYMBOL_BOOTSTRAP_REVISION = "0023_symbol_bootstrap"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -40,7 +41,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_dataset_quality_migration_is_the_only_head() -> None:
+def test_symbol_bootstrap_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -64,8 +65,9 @@ def test_dataset_quality_migration_is_the_only_head() -> None:
     image_verified_cohorts = script.get_revision(IMAGE_VERIFIED_COHORTS_REVISION)
     reviewer_access = script.get_revision(REVIEWER_ACCESS_REVISION)
     dataset_quality = script.get_revision(DATASET_QUALITY_REVISION)
+    symbol_bootstrap = script.get_revision(SYMBOL_BOOTSTRAP_REVISION)
 
-    assert script.get_heads() == [DATASET_QUALITY_REVISION]
+    assert script.get_heads() == [SYMBOL_BOOTSTRAP_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -110,6 +112,8 @@ def test_dataset_quality_migration_is_the_only_head() -> None:
     assert reviewer_access.down_revision == IMAGE_VERIFIED_COHORTS_REVISION
     assert dataset_quality is not None
     assert dataset_quality.down_revision == REVIEWER_ACCESS_REVISION
+    assert symbol_bootstrap is not None
+    assert symbol_bootstrap.down_revision == DATASET_QUALITY_REVISION
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:
@@ -133,6 +137,26 @@ def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> 
     assert "uq_image_sequence_source_override_revision" in upgrade_sql
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table image_sequence_source_override_events" in downgrade_sql
+
+
+def test_symbol_bootstrap_migration_adds_checksum_bound_runs() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{DATASET_QUALITY_REVISION}:{SYMBOL_BOOTSTRAP_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_BOOTSTRAP_REVISION}:{DATASET_QUALITY_REVISION}",
+        sql=True,
+    )
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table symbol_bootstrap_runs" in upgrade_sql
+    assert "uq_symbol_bootstrap_source_expectation" in upgrade_sql
+    assert "ck_symbol_bootstrap_applied_state" in upgrade_sql
+    assert "drop table symbol_bootstrap_runs" in downgrade_output.getvalue().lower()
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

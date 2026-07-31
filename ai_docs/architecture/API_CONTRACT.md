@@ -1065,6 +1065,42 @@ override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru
 automatycznego oraz `selectedBy`. Każda zmiana tworzy kolejną rewizję audytu;
 nie usuwa automatycznego rankingu ani historycznej decyzji.
 
+TASK-0125 dodaje game-scoped bootstrap symboli:
+
+```text
+GET  /api/v1/admin/games/{gameId}/symbol-bootstrap
+POST /api/v1/admin/games/{gameId}/symbol-bootstrap
+POST /api/v1/admin/games/{gameId}/symbol-bootstrap/{bootstrapId}/resolution
+```
+
+Start przyjmuje `expectedSymbolCount` i `createdBy`. Odpowiedź zawiera checksum
+stanu cropów, wykrytą liczbę grup, provenance kandydatów i status. Zgodna liczba
+grup daje `applied`; różnica daje `conflict` bez utworzenia symboli. Resolution
+musi zdefiniować dokładnie oczekiwaną liczbę symboli, użyć wszystkich
+kandydatów i zachować unikalne stabilne kody oraz `mobileCode`.
+
+TASK-0126 rozszerza katalog o checksum-bound wybór grafiki reprezentatywnej:
+
+```text
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image/asset
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates
+GET  /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates/{observationId}/asset
+POST /api/v1/admin/games/{gameId}/symbols/{symbolId}/image-candidates/{observationId}/selection
+```
+
+Lista zwraca maksymalnie 10 rzeczywistych cropów grupy symbolu w kolejności
+confidence malejąco, checksum i UUID obserwacji. Opaque `afterCursor` jest
+związany z `gameId` i `symbolId`; nie można użyć go w innym katalogu. Klient
+nie otrzymuje ścieżki pliku kandydata. Endpoint assetu ponownie ustala
+obserwację w dokładnym zakresie symbolu, ogranicza plik do
+`<artifact-root>/data`, dopuszcza wyłącznie PNG/JPEG i porównuje SHA-256.
+
+Selection przyjmuje tylko nową `name`; target grafiki wynika z identyfikatora
+obserwacji w URL. Zapis aktualizuje atomowo nazwę i `image_path`, ale nie może
+zmienić `code`, `mobileCode`, kolejności ani provenance bootstrapu. Bieżąca
+grafika kafelka jest odczytywana osobnym endpointem przez jej zachowaną
+obserwację i checksumę, a nie przez ścieżkę podaną przez przeglądarkę.
+
 TASK-0110 dodał osobną, jawną operację zamrożenia:
 
 ```text

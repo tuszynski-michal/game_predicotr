@@ -12,8 +12,15 @@ export type SymbolsClient = Pick<
   AdminApiClient,
   | 'archiveSymbol'
   | 'createSymbol'
+  | 'getLatestSymbolBootstrap'
   | 'listGames'
   | 'listSymbols'
+  | 'resolveSymbolBootstrap'
+  | 'listSymbolImageCandidates'
+  | 'selectSymbolImageCandidate'
+  | 'startSymbolBootstrap'
+  | 'symbolImageAssetUrl'
+  | 'symbolImageCandidateAssetUrl'
   | 'updateSymbol'
 >;
 

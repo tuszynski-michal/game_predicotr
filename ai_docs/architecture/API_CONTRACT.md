@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1024,11 +1024,13 @@ GET  /api/v1/admin/image-review-cohort-exports
 ```
 
 Lista wymaga `gameId` i `importJobId`, używa bounded cursor i przyjmuje widok
-`pending | completed`. `completed` obejmuje accepted/corrected, ale elementy
-pozostają edytowalne. Kolejność jest deterministyczna po zaakceptowanym
-`sequenceNumber`, a przed jego akceptacją po stabilnej pozycji źródła i
-planszy. Odpowiedź zawiera cursor poprzedni/następny oraz liczniki, ale nie
-całą kolejkę.
+`all | pending | completed`. `completed` obejmuje accepted/corrected, ale
+elementy pozostają edytowalne. Osobna aplikacja Reviewer używa `all` jako
+aktywnej kolejki nawigacyjnej; `pending/completed` pozostają projekcjami
+statusów i liczników, a nie filtrem usuwającym element z bieżącej sesji po
+zapisie. Kolejność jest deterministyczna po zaakceptowanym `sequenceNumber`, a
+przed jego akceptacją po stabilnej pozycji źródła i planszy. Odpowiedź zawiera
+cursor poprzedni/następny oraz liczniki, ale nie całą kolejkę.
 
 Detail zawiera snapshot źródła, bieżącą geometrię, dokładnie 15 komórek,
 aktualną etykietę oraz predykcję z confidence i maksymalnie czterema
@@ -1041,9 +1043,18 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
-Kursor jest opaque, związany z `gameId`, `importJobId` i widokiem oraz traci
-ważność po usunięciu wskazywanego elementu z danego widoku. Rozmiar strony jest
-ograniczony do 50. Bazowa geometria pipeline'u ma rewizję `0`, a
+Kursor jest opaque i związany z `gameId`, `importJobId` oraz wybraną projekcją.
+W aktywnej projekcji `all` zapis accepted/corrected nie usuwa elementu, więc
+wcześniejszy kursor nadal może do niego wrócić. Rozmiar strony jest ograniczony
+do 50, a Reviewer zawsze żąda `limit = 1`. Pełny import nigdy nie jest
+zwracany jako jedna odpowiedź.
+
+Bez kursora wejściowego lub po reloadzie lista `all` wskazuje pierwszą planszę
+`pending`; jeśli nie ma żadnej pending, wskazuje pierwszą planszę importu.
+Pomyślny zapis resolution zwraca albo pozwala jednoznacznie pobrać następny
+kursor w projekcji `all`, bez ponownego filtrowania bieżącego itemu. Na końcu
+kolejki pozostaje jawny brak następnego kursora; poprzedni działa również dla
+accepted/corrected. Bazowa geometria pipeline'u ma rewizję `0`, a
 `cropSampleId` v1 jest deterministycznym SHA-256 tożsamości planszy, pozycji,
 wersji croppera, ścieżki i checksumy cropu. Endpointy assetów rozwiązują
 wyłącznie względne ścieżki pod `<artifact-root>/data`, blokują traversal i
@@ -1087,6 +1098,35 @@ autoryzującego każde kolejne żądanie, dlatego nie wolno ich wystawiać w
 Internecie. M8.7 rozszerzy tę granicę w TASK-0113–0115 o trwałą, odwoływalną
 autoryzację, ochronę brute force i HTTPS; pełne endpointy administracyjne
 pozostaną niedostępne.
+
+### Aktualny kontrakt zdalnej sesji Reviewer (TASK-0113–0115)
+
+Powyższy opis procesowej sesji TASK-0112 jest historycznym baseline i zostaje
+zastąpiony przez trwały kontrakt:
+
+```text
+POST /api/v1/admin/reviewer-sessions
+POST /api/v1/admin/reviewer-sessions/{sessionId}/revoke
+POST /api/v1/reviewer/sessions/{sessionId}/unlock
+GET  /api/v1/reviewer/context/games
+GET  /api/v1/reviewer/context/jobs
+GET  /api/v1/reviewer/context/games/{gameId}/symbols
+```
+
+Utworzenie wymaga `gameId`, image `importJobId` należącego do tej gry i TTL od
+5 minut do 24 godzin. Odpowiedź zawiera identyfikator, link bez sekretu,
+jednorazowo ujawniony kod i czas wygaśnięcia. PostgreSQL przechowuje tylko
+salt/hash PBKDF2 kodu i hash opaque tokenu.
+
+Unlock rotuje bearer token. Piąta błędna próba blokuje sesję, a revoke
+natychmiast usuwa token. Publiczny proxy przejmuje token do `HttpOnly`,
+`SameSite=Strict` cookie i nie udostępnia go JavaScriptowi. Każdy operacyjny
+odczyt i zapis porównuje scope tokenu z `gameId/importJobId`; backend zastępuje
+aktora wartością `reviewer-session:<UUID>`.
+
+Same-origin proxy nie udostępnia CRUD, job mutations, kohort/eksportów,
+storage ani mobile releases. Brak bearer nadal oznacza lokalne wywołanie Admin
+API na loopback; takie żądanie nie ma publicznej trasy.
 
 ## Mobile release
 

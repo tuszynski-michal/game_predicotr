@@ -16,6 +16,7 @@ import {
   operationalReviewSequence,
   operationalReviewStatusLabel,
   operationalReviewSymbolForKey,
+  updateOperationalReviewCounts,
 } from '../src/features/operational-reviews/operational-review-state.ts';
 
 function symbol(index, status = 'active') {
@@ -148,10 +149,9 @@ test('ignores editable keyboard targets', () => {
   assert.equal(isOperationalReviewTypingTarget({ tagName: 'BUTTON' }), false);
 });
 
-test('submits on one Enter and ignores repeat, typing and open dialogs', () => {
+test('submits on Enter or ArrowRight and ignores repeat, typing and open dialogs', () => {
   const shortcuts = buildOperationalReviewSymbolShortcuts([symbol(1)]);
   const base = {
-    hasNext: true,
     hasPrevious: true,
     key: 'Enter',
     otherDialogOpen: false,
@@ -180,12 +180,49 @@ test('submits on one Enter and ignores repeat, typing and open dialogs', () => {
   );
   assert.deepEqual(
     operationalReviewKeyboardAction({ ...base, key: 'ArrowRight' }),
-    { type: 'next' },
+    { type: 'submit' },
   );
   assert.deepEqual(operationalReviewKeyboardAction({ ...base, key: '1' }), {
     symbolCode: 'symbol-1',
     type: 'set-symbol',
   });
+});
+
+test('updates counts when the last visible board changes status', () => {
+  const counts = {
+    accepted: 2,
+    completed: 3,
+    corrected: 1,
+    pending: 4,
+    rejected: 1,
+    total: 8,
+  };
+  assert.deepEqual(
+    updateOperationalReviewCounts(counts, 'pending', 'accepted'),
+    {
+      accepted: 3,
+      completed: 4,
+      corrected: 1,
+      pending: 3,
+      rejected: 1,
+      total: 8,
+    },
+  );
+  assert.deepEqual(
+    updateOperationalReviewCounts(counts, 'accepted', 'corrected'),
+    {
+      accepted: 1,
+      completed: 3,
+      corrected: 2,
+      pending: 4,
+      rejected: 1,
+      total: 8,
+    },
+  );
+  assert.equal(
+    updateOperationalReviewCounts(counts, 'accepted', 'accepted'),
+    counts,
+  );
 });
 
 test('builds accepted or corrected whole-board commands without empty revisions', () => {

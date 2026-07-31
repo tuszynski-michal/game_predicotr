@@ -187,6 +187,13 @@ import type {
   ListReviewBatchesData,
   ListReviewBatchesErrors,
   ListReviewBatchesResponses,
+  ListReviewerGamesData,
+  ListReviewerGamesResponses,
+  ListReviewerJobsData,
+  ListReviewerJobsResponses,
+  ListReviewerSymbolsData,
+  ListReviewerSymbolsErrors,
+  ListReviewerSymbolsResponses,
   ListReviewFeedbackExportsData,
   ListReviewFeedbackExportsErrors,
   ListReviewFeedbackExportsResponses,
@@ -235,6 +242,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevokeReviewerSessionData,
+  RevokeReviewerSessionErrors,
+  RevokeReviewerSessionResponses,
   UnlockReviewerSessionData,
   UnlockReviewerSessionErrors,
   UnlockReviewerSessionResponses,
@@ -751,7 +761,11 @@ export const listOperationalImageReviewItems = <
     ListOperationalImageReviewItemsResponses,
     ListOperationalImageReviewItemsErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/image-review-items', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/image-review-items',
+    ...options,
+  });
 
 /**
  * Get one job-local image review item with 15 cells
@@ -769,7 +783,11 @@ export const getOperationalImageReviewItem = <
     GetOperationalImageReviewItemResponses,
     GetOperationalImageReviewItemErrors,
     ThrowOnError
-  >({ url: '/api/v1/admin/image-review-items/{review_item_id}', ...options });
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/image-review-items/{review_item_id}',
+    ...options,
+  });
 
 /**
  * Read the checksum-bound rectified board image
@@ -788,6 +806,7 @@ export const getOperationalImageReviewBoardAsset = <
     GetOperationalImageReviewBoardAssetErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/assets/board',
     ...options,
   });
@@ -809,6 +828,7 @@ export const getOperationalImageReviewCellAsset = <
     GetOperationalImageReviewCellAssetErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/assets/cells/{cell_index}',
     ...options,
   });
@@ -830,6 +850,7 @@ export const getOperationalImageReviewSourceAsset = <
     GetOperationalImageReviewSourceAssetErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/assets/source',
     ...options,
   });
@@ -851,6 +872,7 @@ export const previewOperationalImageReviewGeometry = <
     PreviewOperationalImageReviewGeometryErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-preview',
     ...options,
     headers: {
@@ -879,6 +901,7 @@ export const createOperationalImageReviewGeometryRevision = <
     CreateOperationalImageReviewGeometryRevisionErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions',
     ...options,
     headers: {
@@ -904,6 +927,7 @@ export const resolveOperationalImageReviewItem = <
     ResolveOperationalImageReviewItemErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/resolution',
     ...options,
     headers: {
@@ -932,6 +956,7 @@ export const listOperationalImageReviewResolutionEvents = <
     ListOperationalImageReviewResolutionEventsErrors,
     ThrowOnError
   >({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/resolution-events',
     ...options,
   });
@@ -1438,7 +1463,7 @@ export const listReviewResolutions = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Create one process-local game and import scoped reviewer session
+ * Create one durable game and import scoped reviewer session
  */
 export const createReviewerSession = <ThrowOnError extends boolean = false>(
   options: Options<CreateReviewerSessionData, ThrowOnError>,
@@ -1459,6 +1484,22 @@ export const createReviewerSession = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * Immediately revoke one Reviewer session
+ */
+export const revokeReviewerSession = <ThrowOnError extends boolean = false>(
+  options: Options<RevokeReviewerSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeReviewerSessionResponses,
+  RevokeReviewerSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeReviewerSessionResponses,
+    RevokeReviewerSessionErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/reviewer-sessions/{session_id}/revoke', ...options });
 
 /**
  * Archive a published rules version
@@ -1787,6 +1828,58 @@ export const getHealth = <ThrowOnError extends boolean = false>(
 ): RequestResult<GetHealthResponses, unknown, ThrowOnError> =>
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
+    ...options,
+  });
+
+/**
+ * Read only the game selected for the authenticated Reviewer session
+ */
+export const listReviewerGames = <ThrowOnError extends boolean = false>(
+  options?: Options<ListReviewerGamesData, ThrowOnError>,
+): RequestResult<ListReviewerGamesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListReviewerGamesResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/reviewer/context/games',
+    ...options,
+  });
+
+/**
+ * Read symbols only for the authenticated Reviewer game
+ */
+export const listReviewerSymbols = <ThrowOnError extends boolean = false>(
+  options: Options<ListReviewerSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListReviewerSymbolsResponses,
+  ListReviewerSymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListReviewerSymbolsResponses,
+    ListReviewerSymbolsErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/reviewer/context/games/{game_id}/symbols',
+    ...options,
+  });
+
+/**
+ * Read only the import selected for the authenticated Reviewer session
+ */
+export const listReviewerJobs = <ThrowOnError extends boolean = false>(
+  options?: Options<ListReviewerJobsData, ThrowOnError>,
+): RequestResult<ListReviewerJobsResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListReviewerJobsResponses,
+    unknown,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/reviewer/context/jobs',
     ...options,
   });
 

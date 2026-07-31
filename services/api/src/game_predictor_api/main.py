@@ -1,6 +1,9 @@
 """FastAPI application factory for the local Admin API."""
 
+import json
 from collections.abc import Callable, Iterator
+from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -106,6 +109,9 @@ from game_predictor_api.storage.mobile_release_repository import (
 from game_predictor_api.storage.review_repository import (
     SqlAlchemyReviewRepository,
 )
+from game_predictor_api.storage.reviewer_access_repository import (
+    SqlAlchemyReviewerAccessRepository,
+)
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 
 
@@ -123,6 +129,7 @@ def create_app(
     layout_import_report_service_dependency: Callable[..., object] | None = None,
     mobile_release_service_dependency: Callable[..., object] | None = None,
     review_service_dependency: Callable[..., object] | None = None,
+    reviewer_access_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -277,7 +284,29 @@ def create_app(
                 raise
 
     resolved_review_dependency = review_service_dependency or default_review_service_dependency
-    reviewer_access_service = ReviewerAccessService(resolved_settings.reviewer_origin)
+
+    def default_reviewer_access_service_dependency() -> Iterator[ReviewerAccessService]:
+        with session_factory() as session:
+            try:
+                yield ReviewerAccessService(
+                    lambda: _active_reviewer_origin(
+                        resolved_settings.reviewer_origin,
+                    ),
+                    SqlAlchemyReviewerAccessRepository(session),
+                )
+                session.commit()
+            except ReviewerAccessError:
+                # Failed unlock attempts and the fifth-attempt lock are
+                # security events that must survive the HTTP error response.
+                session.commit()
+                raise
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_reviewer_access_dependency = (
+        reviewer_access_service_dependency or default_reviewer_access_service_dependency
+    )
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
@@ -299,7 +328,7 @@ def create_app(
         ],
         allow_credentials=False,
         allow_methods=["GET", "POST", "PATCH", "DELETE"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_headers=["Accept", "Authorization", "Content-Type"],
     )
     application.state.database_engine = database_engine
     application.include_router(
@@ -316,7 +345,7 @@ def create_app(
             resolved_layout_import_report_dependency,
             resolved_mobile_release_dependency,
             resolved_review_dependency,
-            reviewer_access_service,
+            resolved_reviewer_access_dependency,
         )
     )
 
@@ -458,9 +487,17 @@ def create_app(
         _request: Request,
         error: ReviewerAccessError,
     ) -> JSONResponse:
-        status_code = 401 if error.code == "REVIEWER_ACCESS_CODE_INVALID" else 404
-        if error.code == "REVIEWER_SESSION_LIFETIME_INVALID":
-            status_code = 422
+        status_code = {
+            "REVIEWER_ACCESS_CODE_INVALID": 401,
+            "REVIEWER_SESSION_LOCKED": 401,
+            "REVIEWER_SESSION_REVOKED": 401,
+            "REVIEWER_TOKEN_INVALID": 401,
+            "REVIEWER_TOKEN_REQUIRED": 401,
+            "REVIEWER_SCOPE_FORBIDDEN": 403,
+            "REVIEWER_SESSION_NOT_FOUND": 404,
+            "REVIEWER_SCOPE_INVALID": 422,
+            "REVIEWER_SESSION_LIFETIME_INVALID": 422,
+        }.get(error.code, 422)
         return JSONResponse(
             status_code=status_code,
             content={"code": error.code, "message": error.message, "details": {}},
@@ -490,6 +527,24 @@ def create_app(
         )
 
     return application
+
+
+def _active_reviewer_origin(local_origin: str) -> str:
+    state_path = Path(__file__).resolve().parents[4] / ".runtime" / "remote-reviewer.json"
+    try:
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+        public_origin = str(payload.get("publicOrigin", "")).rstrip("/")
+        parsed = urlparse(public_origin)
+        if (
+            parsed.scheme == "https"
+            and parsed.hostname is not None
+            and parsed.hostname.endswith(".trycloudflare.com")
+            and parsed.path in {"", "/"}
+        ):
+            return public_origin
+    except (OSError, ValueError, TypeError):
+        pass
+    return local_origin.rstrip("/")
 
 
 app = create_app()

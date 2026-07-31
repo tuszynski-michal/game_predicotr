@@ -1,7 +1,7 @@
 ---
 title: Algorithms specification
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-30
 ---
 
 # Specyfikacja algorytmów
@@ -32,10 +32,20 @@ mobile_release_version
 
 1. Zamień wprowadzone symbole na prefiks sygnatury.
 2. Wyszukaj lokalnie pozycje, których sygnatura zaczyna się od prefiksu.
-3. Zwróć:
+3. Odczytaj dokładny `candidate_count`.
+4. Jeżeli pozostał więcej niż jeden rekord, sprawdź najwyżej dwie różne pełne
+   sygnatury przez indeks `(game_id, signature)`. Dwie wystarczają do
+   rozstrzygnięcia, czy treść layoutu nadal jest jednoznaczna.
+5. Zwróć:
    - `candidate_count`,
-   - pełny layout wyłącznie przy dokładnie jednym kandydacie,
-   - `sequence_number` pojedynczego kandydata.
+   - pełny layout, gdy istnieje dokładnie jedna pełna sygnatura,
+   - `sequence_number` wyłącznie przy dokładnie jednym rekordzie,
+   - jawny wariant podpowiedzi `duplicate`, liczbę wystąpień i brak
+     `sequence_number`, gdy kilka rekordów ma jedną pełną sygnaturę.
+
+Kilka różnych pełnych sygnatur nie tworzy podpowiedzi. Uzupełnienie jednej
+sygnatury współdzielonej przez duplikaty nie rozstrzyga pozycji sekwencji:
+pełny exact match nadal zwraca `duplicate` i nie uruchamia prognozy.
 
 ### Pełny layout
 

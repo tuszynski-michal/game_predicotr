@@ -91,7 +91,7 @@ function repository(
   return {
     findByPrefix: jest
       .fn()
-      .mockResolvedValue({ candidate: null, candidateCount: 2 }),
+      .mockResolvedValue({ candidateCount: 2, suggestion: null }),
     findExact,
     readCyclicPayouts,
   };

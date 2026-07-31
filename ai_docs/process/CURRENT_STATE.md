@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Current State
@@ -1384,8 +1384,8 @@ last_updated: 2026-07-30
   obrazu, loading, empty, błąd transportu i konflikt kursora mają tekstowe
   stany, a ekran nie zapisuje decyzji samoczynnie,
 - walidacja TASK-0107 przeszła: 83 testy panelu, TypeScript strict, ESLint,
-  Prettier i produkcyjny build Next.js. Ręczne testy viewportu pozostają
-  zgodnie z decyzją właściciela odroczone do odbioru po TASK-0111.
+  Prettier i produkcyjny build Next.js. Ręczny test viewportu został następnie
+  zaliczony w końcowym odbiorze TASK-0111.
 - ukończono TASK-0108: aktywny katalog gry ma stabilne mapowanie `1`–`9`, `0`,
   następnie QWERTY, a kliknięcie, skrót i maksymalnie cztery sugestie zmieniają
   dokładnie wybraną komórkę draftu,
@@ -1400,7 +1400,7 @@ last_updated: 2026-07-30
   completed wymaga realnej zmiany przed kolejną rewizją,
 - konflikt rewizji ma kontrolowany stan i ponowne wczytanie; 89 testów panelu,
   TypeScript strict, ESLint, Prettier oraz produkcyjny build Next.js przeszły.
-  Ręczny odbiór pozostaje odroczony do testów po TASK-0111.
+  Ręczny odbiór został następnie zaliczony w TASK-0111.
 - ukończono TASK-0109: migracja `0019_review_geometry` dodaje bieżący wskaźnik
   rewizji planszy i append-only `image_board_geometry_revisions` z czterema
   narożnikami, planszą, 15 cropami, UUID idempotencji oraz SHA-256 komendy,
@@ -1418,7 +1418,7 @@ last_updated: 2026-07-30
   osobny fizyczny test PostgreSQL migracji/repozytorium, 15 testów klienta,
   91 testów panelu, Ruff, mypy, TypeScript strict, ESLint, Prettier, kontrola
   OpenAPI/generowanego klienta i produkcyjny build Next.js. Ręczny odbiór
-  stanowiska nadal pozostaje odroczony do testów po TASK-0111.
+  stanowiska został następnie zaliczony w TASK-0111.
 - ukończono TASK-0110: migracja `0020_verified_cohorts` dodaje wersjonowane
   `image_verified_cohort_exports` per gra i image import job z osobnymi
   checksumami stanu oraz payloadu, względną ścieżką i licznikami,
@@ -1438,7 +1438,7 @@ last_updated: 2026-07-30
   fizyczny cykl PostgreSQL migracji, 16 testów klienta i 92 testy panelu,
   Ruff, mypy 233 modułów, TypeScript strict, ESLint, Prettier,
   OpenAPI/generated-client check i produkcyjny build Next.js. Ręczny odbiór
-  pozostaje odroczony do TASK-0111.
+  został następnie zaliczony w TASK-0111.
 - ukończono TASK-0112: operacyjne zatwierdzanie przeniesiono z panelu admina do
   osobnego `apps/reviewer` na porcie 3001, a panel tworzy lokalny link i osobno
   pokazuje unikalny kod dla wybranej gry/importu,
@@ -1452,13 +1452,77 @@ last_updated: 2026-07-30
   kwadratowe i tworzą mniejszą siatkę 5 × 3, a obok znajduje się wycięta
   pojedyncza plansza; pełne zdjęcie z maksymalnie dziewięcioma planszami nie jest
   pokazywane w głównym ekranie.
+- pierwszy test klawiatury potwierdził pojedynczy zapis przez `Enter` bez
+  modala, ale wykrył błędne usuwanie zatwierdzonej planszy z nawigacji pending.
+  Zaakceptowana korekta utrzymuje jedną kolejkę wszystkich plansz z bounded
+  `limit = 1`: zapis przechodzi do następnej, lewo wraca również do
+  zatwierdzonej, a wejście/reload zaczyna od pierwszej pending lub od pierwszej
+  planszy, gdy pending nie istnieje.
+- korekta pełnej kolejki została wdrożona i automatycznie sprawdzona na realnym
+  imporcie: nowa sesja zaczęła od pierwszej pending `#17`, a nawigacja
+  `#17 → #16 → #17` przeszła bez zmiany danych. Pozostał ręczny test
+  `Enter → następna → lewo → prawo` wykonywany przez właściciela.
+- usunięto blokadę ekranu dostępu Reviewera: restrykcyjne CSP nie dopuszczało
+  skryptu bootstrap Next.js, przez co formularz pozostawał w stanie loading.
+  Polityka dopuszcza teraz wymagany inline bootstrap (oraz `unsafe-eval`
+  wyłącznie w development), a browser smoke potwierdził przejście od kodu do
+  aktywnego stanowiska „Weryfikacja plansz”.
+- doprecyzowano akcję `Enter` w kolejce wszystkich plansz: po wejściu na
+  niezmienioną kompletną planszę główna akcja ma etykietę `Dalej` i przechodzi
+  do następnej pozycji bez tworzenia pustej rewizji. Usunięto również nagłówek
+  nad wyciętą planszą, aby jej obraz zaczynał się na wysokości siatki symboli.
+- właściciel zatwierdził i przejrzał układy do `#55`, potwierdzając poprawne
+  działanie przepływu. Na podstawie odbioru `ArrowRight` oraz przycisk `→`
+  wykonują teraz tę samą bezpieczną akcję co `Enter`: zapisują bieżącą planszę
+  albo przechodzą dalej bez pustej rewizji; `ArrowLeft` nadal wraca.
+- skonfigurowano trwały toolchain użytkownika Windows: Node `24.14.0`, npm
+  `11.18.0`, Microsoft OpenJDK `17.0.20`, Android SDK 36/ADB oraz Docker CLI.
+  Powtarzalny zapis `PATH` i zmiennych środowiskowych wykonuje
+  `scripts/configure_windows_user_environment.ps1`, a pełny runbook znajduje
+  się w `guides/LOCAL_OPERATION_GUIDE.md`.
+- zaakceptowano D-094 i utworzono TASK-0116: grupa kilku pozycji mających jedną
+  identyczną pełną sygnaturę może podpowiedzieć brakujące symbole w mobile, ale
+  wynik pozostaje `duplicate`, bez wybranego numeru i bez Target.
+- ukończono TASK-0116: bounded prefix lookup rozróżnia jeden rekord, kilka
+  rekordów jednej sygnatury oraz wiele sygnatur; modal podpowiada wspólny
+  layout duplikatów bez numeru sekwencji, a exact nadal blokuje Target.
+- pełny pakiet mobile ma 67/67 testów; covering index dla nowego zapytania
+  potwierdzono na snapshotcie. Ręczny smoke tej korekty na Pixelu właściciel
+  odłożył do późniejszej sesji testowej.
+- ukończono TASK-0117: jeden operatorski runbook opisuje trwałe środowisko
+  Windows, start i użycie Admina/Reviewera oraz build, audyt, instalację i
+  aktualizację APK na Pixelu. Wszystkie nazwy skryptów, ścieżki i porty
+  zweryfikowano statycznie, a ręczne uruchomienie odłożono na życzenie
+  właściciela.
+- ukończono TASK-0113 i zamknięto Q-021: D-095 wybiera czasowy Cloudflare
+  Quick Tunnel publikujący wyłącznie origin Reviewera; model zagrożeń obejmuje
+  scope, brute force, replay, prywatność obrazów, audyt i reakcję na incydent,
+- ukończono TASK-0114: migracja `0021_reviewer_access` utrwala sesje i audyt,
+  piąta błędna próba blokuje kod, revoke natychmiast usuwa token, a publiczny
+  same-origin proxy ma testowaną allowlistę i HttpOnly cookie,
+- automatyczna część TASK-0115 jest gotowa: skrypty `setup/start/status/stop`,
+  publiczny origin w linku Admina, runbook, CSP i produkcyjny build Reviewera;
+  test z urządzenia poza domową siecią właściciel odłożył.
+- ukończono TASK-0111 i zamknięto lokalną bramkę G6.5: właściciel zatwierdził
+  i przejrzał układy do `#55`, próba 11 nowych decyzji trwała 198 sekund,
+  a odbiór 1366 × 768 potwierdził brak overflow oraz pełną siatkę 5 × 3.
+  `Enter`, `ArrowRight` i przycisk `→` wykonują jedną bezpieczną akcję, zaś
+  lewa strzałka wraca po pełnej kolejce.
+
+- zamknięto TASK-0098 jako zakończony negatywny eksperyment: przegląd `25/25`
+  wykazał przecięcia symboli na 18 planszach, w tym wszystkich 9 held-out;
+  kandydat nie opublikował profili i nie włączył `trainingAllowed`, a jego
+  produkcyjne założenie zostało zastąpione przez D-063 i dalszą ścieżkę
+  geometrii.
 
 ## In progress
 
-- `TASK-0111 — Verification workbench scale and usability acceptance` czeka na
-  ręczny odbiór właściciela w osobnej aplikacji Reviewer.
-- realny import zawiera obecnie 387 plansz: 87 kompletnych i 300 oczekujących;
-  do szybkiego odbioru właściciel wybrał pierwsze 50 layoutów.
+- realny import zawiera obecnie 387 plansz; odbiór M6.5 zakończył się po
+  przejrzeniu układów do `#55`. Dalsze ręczne etykietowanie może być
+  kontynuowane niezależnie i nie blokuje lokalnej wersji `0.1`.
+- `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance` czeka
+  wyłącznie na późniejszy odbiór z urządzenia poza domową siecią: HTTPS,
+  ograniczenie gry/importu, zapis, revoke i skan zabronionych tras.
 
 ## Blocked
 
@@ -1487,11 +1551,10 @@ last_updated: 2026-07-30
 ## Open questions
 
 - Q-020: zakres dozwolonej analizy aplikacji referencyjnej,
-- Q-021: wybór tunelu HTTPS albo VPN dla opcjonalnego M8.7,
 - finalny model OCR; model symboli został zatwierdzony w D-088,
 - ostateczna nazwa sekcji `Result` albo `Target`.
 
-Q-019 jest zamknięte. Q-021 nie blokuje lokalnego M6.5; Q-020, finalny OCR i
+Q-019 i Q-021 są zamknięte. Q-020, finalny OCR i
 nazwa sekcji również nie blokują TASK-0106.
 
 ## M1 execution structure
@@ -1537,23 +1600,14 @@ zawsze bezpośrednio przed rozpoczęciem danego zakresu.
 
 ## Next recommended task
 
-Kontynuować aktywny
-`TASK-0111 — Verification workbench scale and usability acceptance` w osobnej
-aplikacji Reviewer dostarczonej przez ukończony TASK-0112.
-Automatyczna część G6.5 przeszła na fizycznym PostgreSQL dla 3000 plansz:
-p95 odczytu 49,896 ms, p95 zapisu 96,368 ms, bounded page `1`, exact retry,
-konflikt dwóch kart i wznowienie po nowej sesji są potwierdzone. Produkcyjny
-build panelu oraz automatyczne testy klawiatury i fokus dialogu przechodzą.
+Podłączyć Google Pixel 10 Pro XL przez ADB i wznowić fizyczny odbiór wersji
+`0.1`: najpierw smoke podpowiedzi duplikatów z TASK-0116, następnie brakujące
+dowody TASK-0039/TASK-0041 i ponowną ocenę TASK-0042. `adb devices -l` nie
+zwraca obecnie urządzenia, dlatego tych kroków nie można uczciwie zaliczyć.
 
-Do zamknięcia zadania pozostał odbiór operatorski według
-`quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`: pierwsze 50 layoutów realnego
-importu `image_directory`, widok 1366 × 768, scenariusze TASK-0107–0110 i pomiar
-co najmniej 10 plansz. Reviewer działa lokalnie pod `http://127.0.0.1:3001`;
-link i kod tworzy sekcja `Zatwierdzanie` panelu admina.
-`massImportAllowed = true` jest nadal warunkiem rozpoczęcia automatycznej
-ścieżki TASK-0076; ręcznie zweryfikowany ciągły zakres używa D-086.
-TASK-0041/TASK-0042 oraz G3 pozostają równolegle zablokowane na fizycznych
-raportach Pixela i Samsunga.
+`massImportAllowed = true` pozostaje osobną bramką TASK-0076. TASK-0115 ma
+gotową implementację, ale jego test z urządzenia poza domową siecią jest
+odłożony i nie blokuje lokalnej wersji produktu.
 
 ## Do not start yet
 

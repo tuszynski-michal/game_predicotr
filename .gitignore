@@ -27,6 +27,7 @@ __pycache__/
 .g/
 .g39/
 .tmp/
+.runtime/
 
 # Editors and operating systems
 .idea/

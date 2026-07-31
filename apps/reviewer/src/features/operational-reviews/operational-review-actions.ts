@@ -236,6 +236,7 @@ export interface LoadOperationalReviewPageOptions {
   readonly view: ImageReviewView;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
+  readonly resumeAtFirstPending?: boolean;
   readonly sequenceNumber?: number;
 }
 

@@ -1,7 +1,7 @@
 ---
 title: Milestone 06.5 execution plan
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Plan wykonania Milestone 06.5 — Supervised verification workbench
@@ -81,8 +81,8 @@ Symbol confidence gate przeszedł przy progu `0.88850097`; globalne
 
 ## M6.5.2 — Operacyjna kolejka review
 
-Status: `completed` w TASK-0106. Testy ręczne całego stanowiska pozostają
-odroczone do odbioru po TASK-0111; kontrakt API ma testy automatyczne.
+Status: `completed` w TASK-0106, a ręczny odbiór całego stanowiska zaliczono
+w TASK-0111.
 
 ### Zadanie
 
@@ -108,8 +108,8 @@ odroczone do odbioru po TASK-0111; kontrakt API ma testy automatyczne.
 
 ## M6.5.3 — Minimalistyczne stanowisko desktop
 
-Status: `completed` w TASK-0107. Ręczna kontrola widoku 1366 × 768 i pełne
-testy operatorskie pozostają odroczone do wspólnego odbioru po TASK-0111.
+Status: `completed` w TASK-0107. Ręczną kontrolę i automatyczny pomiar widoku
+1366 × 768 zaliczono we wspólnym odbiorze TASK-0111.
 
 ### Zadanie
 
@@ -141,7 +141,7 @@ testy operatorskie pozostają odroczone do wspólnego odbioru po TASK-0111.
 Status: `completed` w TASK-0108, a zachowanie zapisu uproszczono w TASK-0112.
 Automatyczne testy potwierdzają mapowanie klawiszy, pojedynczy zapis, ochronę
 przed key repeat i konfliktem rewizji.
-Ręczny odbiór operatorski pozostaje odroczony do testów po TASK-0111.
+Ręczny odbiór operatorski zaliczono w TASK-0111.
 
 ### Zadanie
 
@@ -149,7 +149,8 @@ Ręczny odbiór operatorski pozostaje odroczony do testów po TASK-0111.
 
 ### Zakres
 
-- strzałki lewo/prawo nawigują między planszami,
+- strzałka w lewo wraca do poprzedniej planszy, a strzałka w prawo wykonuje tę
+  samą bezpieczną akcję co `Enter`: zapisuje albo przechodzi dalej,
 - kliknięcie komórki ustawia bieżący wybór,
 - skróty symboli wynikają ze stabilnej kolejności katalogu gry:
   `1`–`9`, `0` dla dziesiątego symbolu, następnie `QWERTY...`,
@@ -259,12 +260,12 @@ Exact retry nie utworzył drugiej rewizji, konflikt dwóch kart zwrócił
 `IMAGE_REVIEW_REVISION_CONFLICT`, a nowa sesja wznowiła kolejkę od pierwszej
 nierozwiązanej planszy.
 
-Raport `quality/m65-workbench-acceptance-report.json` zapisuje również
-checksum-bound dowody jakości oraz jawną prognozę 328,27 planszy/h. Jest to
-prognoza oparta na opisanych założeniach, nie pomiar 3000 ręcznych decyzji.
-Krótki odbiór operatora i rzeczywisty pomiar co najmniej 10 plansz pozostają do
-wykonania według `quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`; do tego potrzebny
-jest realny import job `image_directory`.
+Raport `quality/m65-workbench-acceptance-report.json` zapisuje checksum-bound
+dowody jakości oraz jawną prognozę 328,27 planszy/h. Końcowy odbiór operatora
+objął układy do `#55`; próbka 11 nowych decyzji `#28–#42` trwała 198 sekund,
+obejmowała 10 accepted, jedną corrected i jedną zmienioną komórkę. Widok
+1366 × 768, pełna kolejka, korekty i skróty przeszły. G6.5 jest zamknięta,
+natomiast `massImportAllowed` pozostaje osobną bramką.
 
 ## M6.5.8 — Osobna lokalna aplikacja Reviewer
 
@@ -317,6 +318,6 @@ tunel lub VPN; domyślny tryb loopback pozostaje bez zmian.
 
 ## Następny krok
 
-Dokończyć ręczny odbiór TASK-0111 w osobnej aplikacji Reviewer dostarczonej
-przez TASK-0112. Nie zaczynać zdalnego dostępu przed lokalnym G6.5 i modelem
-bezpieczeństwa M8.1.
+Podłączyć Pixel 10 Pro XL i przejść do fizycznego odbioru wersji `0.1`.
+TASK-0115 może zostać dokończony później z urządzenia poza domową siecią; nie
+blokuje lokalnego produktu.

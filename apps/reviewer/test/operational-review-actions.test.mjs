@@ -117,7 +117,7 @@ test('loads only active games and image-directory jobs in stable order', async (
   );
 });
 
-test('loads exactly one scope-bound board with the requested cursor', async () => {
+test('loads exactly one scope-bound board from the stable all-status queue', async () => {
   let receivedOptions;
   const page = {
     counts: {
@@ -133,7 +133,7 @@ test('loads exactly one scope-bound board with the requested cursor', async () =
     items: [{ id: 'review-1500' }],
     nextCursor: null,
     previousCursor: null,
-    view: 'pending',
+    view: 'all',
   };
   const result = await loadOperationalReviewPage(
     {
@@ -146,7 +146,8 @@ test('loads exactly one scope-bound board with the requested cursor', async () =
       afterCursor: 'opaque-next',
       gameId: activeGame.id,
       importJobId: 'job-1',
-      view: 'pending',
+      resumeAtFirstPending: true,
+      view: 'all',
     },
   );
   assert.deepEqual(receivedOptions, {
@@ -154,7 +155,8 @@ test('loads exactly one scope-bound board with the requested cursor', async () =
     gameId: activeGame.id,
     importJobId: 'job-1',
     limit: 1,
-    view: 'pending',
+    resumeAtFirstPending: true,
+    view: 'all',
   });
   assert.deepEqual(result, { ok: true, page });
   assert.equal(result.page.items.length, 1);

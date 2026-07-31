@@ -25,6 +25,22 @@ export interface LayoutCandidate {
   readonly signature: string;
 }
 
+export type PrefixLayoutSuggestion =
+  | {
+      readonly cells: readonly number[];
+      readonly kind: 'unique';
+      readonly occurrenceCount: 1;
+      readonly sequenceNumber: number;
+      readonly signature: string;
+    }
+  | {
+      readonly cells: readonly number[];
+      readonly kind: 'duplicate';
+      readonly occurrenceCount: number;
+      readonly sequenceNumber: null;
+      readonly signature: string;
+    };
+
 export type ExactMatchResult =
   | {
       readonly status: 'not_found';
@@ -40,8 +56,8 @@ export type ExactMatchResult =
     };
 
 export interface PrefixMatchResult {
-  readonly candidate: LayoutCandidate | null;
   readonly candidateCount: number;
+  readonly suggestion: PrefixLayoutSuggestion | null;
 }
 
 export interface LocalSnapshotDatabase {
@@ -83,6 +99,10 @@ interface LayoutRow {
   signature: string;
 }
 
+interface SignatureRow {
+  signature: string;
+}
+
 interface SequenceNumberRow {
   sequence_number: number;
 }
@@ -119,6 +139,15 @@ const PREFIX_CANDIDATE_QUERY = `
   WHERE game_id = ? AND signature >= ? AND signature < ?
   ORDER BY signature, sequence_number
   LIMIT 1
+`;
+
+const PREFIX_DISTINCT_SIGNATURES_QUERY = `
+  SELECT signature
+  FROM layouts INDEXED BY idx_layouts_game_signature
+  WHERE game_id = ? AND signature >= ? AND signature < ?
+  GROUP BY signature
+  ORDER BY signature
+  LIMIT 2
 `;
 
 const EXACT_COUNT_QUERY = `
@@ -248,6 +277,30 @@ function readCandidate(
   });
 }
 
+function readLayoutContent(
+  row: SignatureRow | null,
+  game: LocalGameConfig,
+): Pick<PrefixLayoutSuggestion, 'cells' | 'signature'> {
+  if (row === null) {
+    throw new LocalDataError(
+      'Candidate count and distinct signature rows are inconsistent.',
+    );
+  }
+
+  const signature = requireString(row.signature, 'Layout signature');
+  const cells = decodeSignature(
+    signature,
+    game.signatureCellWidth,
+    game.rows * game.columns,
+  );
+  validateFullBoard(cells, game);
+
+  return Object.freeze({
+    cells: Object.freeze([...cells]),
+    signature,
+  });
+}
+
 function readCandidateCount(row: CountRow | null): number {
   if (row === null) {
     throw new LocalDataError('Candidate count query returned no row.');
@@ -352,23 +405,61 @@ export class LocalLayoutRepository {
       const count = readCandidateCount(
         await this.database.getFirstAsync<CountRow>(PREFIX_COUNT_QUERY, params),
       );
-      if (count !== 1) {
-        return Object.freeze({ candidate: null, candidateCount: count });
+      if (count === 0) {
+        return Object.freeze({ candidateCount: 0, suggestion: null });
       }
 
-      const candidate = readCandidate(
-        await this.database.getFirstAsync<LayoutRow>(
-          PREFIX_CANDIDATE_QUERY,
-          params,
-        ),
-        game,
+      if (count === 1) {
+        const candidate = readCandidate(
+          await this.database.getFirstAsync<LayoutRow>(
+            PREFIX_CANDIDATE_QUERY,
+            params,
+          ),
+          game,
+        );
+        if (!candidate.signature.startsWith(signaturePrefix)) {
+          throw new LocalDataError(
+            'Prefix query returned a candidate outside the requested range.',
+          );
+        }
+        return Object.freeze({
+          candidateCount: 1,
+          suggestion: Object.freeze({
+            ...candidate,
+            kind: 'unique',
+            occurrenceCount: 1,
+          }),
+        });
+      }
+
+      const distinctSignatures = await this.database.getAllAsync<SignatureRow>(
+        PREFIX_DISTINCT_SIGNATURES_QUERY,
+        params,
       );
-      if (!candidate.signature.startsWith(signaturePrefix)) {
+      if (distinctSignatures.length === 0) {
         throw new LocalDataError(
-          'Prefix query returned a candidate outside the requested range.',
+          'Candidate count and distinct signature rows are inconsistent.',
         );
       }
-      return Object.freeze({ candidate, candidateCount: 1 });
+      if (distinctSignatures.length > 1) {
+        return Object.freeze({ candidateCount: count, suggestion: null });
+      }
+
+      const layout = readLayoutContent(distinctSignatures[0] ?? null, game);
+      if (!layout.signature.startsWith(signaturePrefix)) {
+        throw new LocalDataError(
+          'Prefix query returned a signature outside the requested range.',
+        );
+      }
+      return Object.freeze({
+        candidateCount: count,
+        suggestion: Object.freeze({
+          ...layout,
+          kind: 'duplicate',
+          occurrenceCount: count,
+          sequenceNumber: null,
+        }),
+      });
     } catch (error: unknown) {
       throw asLocalDataError(error, 'Could not match layout prefix');
     }

@@ -2,8 +2,8 @@ import { encodeSignaturePrefix } from '@game-predictor/shared-ts';
 import { useEffect, useMemo, useState } from 'react';
 
 import type {
-  LayoutCandidate,
   LocalGameConfig,
+  PrefixLayoutSuggestion,
   PrefixMatchResult,
 } from '@/data/local-layout-repository';
 import { asLocalDataError, type LocalDataError } from '@/data/local-data-error';
@@ -19,25 +19,25 @@ export interface PrefixMatchRepository {
 
 export type PrefixMatchingState =
   | {
-      readonly candidate: null;
       readonly candidateCount: null;
       readonly error: null;
       readonly signaturePrefix: string;
       readonly status: 'idle' | 'loading';
+      readonly suggestion: null;
     }
   | {
-      readonly candidate: LayoutCandidate | null;
       readonly candidateCount: number;
       readonly error: null;
       readonly signaturePrefix: string;
       readonly status: 'ready';
+      readonly suggestion: PrefixLayoutSuggestion | null;
     }
   | {
-      readonly candidate: null;
       readonly candidateCount: null;
       readonly error: LocalDataError;
       readonly signaturePrefix: string;
       readonly status: 'error';
+      readonly suggestion: null;
     };
 
 type StoredPrefixState = PrefixMatchingState & {
@@ -48,22 +48,22 @@ type StoredPrefixState = PrefixMatchingState & {
 function idleState(signaturePrefix = ''): StoredPrefixState {
   return {
     boardCells: null,
-    candidate: null,
     candidateCount: null,
     error: null,
     gameId: null,
     signaturePrefix,
     status: 'idle',
+    suggestion: null,
   };
 }
 
 function loadingState(signaturePrefix: string): PrefixMatchingState {
   return {
-    candidate: null,
     candidateCount: null,
     error: null,
     signaturePrefix,
     status: 'loading',
+    suggestion: null,
   };
 }
 
@@ -101,12 +101,12 @@ export function usePrefixMatching(
         }
         setStoredState({
           boardCells: cells,
-          candidate: result.candidate,
           candidateCount: result.candidateCount,
           error: null,
           gameId: game.id,
           signaturePrefix,
           status: 'ready',
+          suggestion: result.suggestion,
         });
       })
       .catch((error: unknown) => {
@@ -115,12 +115,12 @@ export function usePrefixMatching(
         }
         setStoredState({
           boardCells: cells,
-          candidate: null,
           candidateCount: null,
           error: asLocalDataError(error, 'Could not match board prefix'),
           gameId: game.id,
           signaturePrefix,
           status: 'error',
+          suggestion: null,
         });
       });
 
@@ -140,12 +140,19 @@ export function usePrefixMatching(
     return idleState(signaturePrefix);
   }
   if (rejectedSuggestionPrefix === signaturePrefix) {
+    const candidateCount =
+      storedState.status === 'ready' &&
+      storedState.gameId === game.id &&
+      storedState.boardCells === cells &&
+      storedState.signaturePrefix === signaturePrefix
+        ? storedState.candidateCount
+        : 0;
     return {
-      candidate: null,
-      candidateCount: 1,
+      candidateCount,
       error: null,
       signaturePrefix,
       status: 'ready',
+      suggestion: null,
     };
   }
   if (

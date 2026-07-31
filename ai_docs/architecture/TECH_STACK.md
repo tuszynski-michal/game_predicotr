@@ -1,7 +1,7 @@
 ---
 title: Accepted technology stack
 status: accepted
-last_updated: 2026-07-27
+last_updated: 2026-07-30
 ---
 
 # Stos technologiczny
@@ -430,6 +430,23 @@ migracji, generowania klienta, snapshotu i Android build.
 JavaScript workspace używa npm 11 i jednego `package-lock.json`. Python używa
 `pyproject.toml` oraz lokalnego `.venv`. Uzasadnienie i ograniczenia opisuje
 D-013.
+
+### Trwałe środowisko Windows
+
+Referencyjny lokalny toolchain nie zależy od cache procesu Codex. Node i npm
+znajdują się w `.tooling/node`, a JDK oraz Android SDK w istniejących katalogach
+`.tooling/jdk` i `.tooling/android-sdk`. Konfigurację użytkownikowego `PATH`,
+`JAVA_HOME`, `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
+`GAME_PREDICTOR_NODE_HOME` i krótkiego cache Gradle wykonuje:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\configure_windows_user_environment.ps1 -ConfigurePowerShellExecutionPolicy
+```
+
+Skrypt jest idempotentny, deduplikuje wpisy `PATH`, waliduje zakresy wersji
+z `package.json` i nie zmienia zmiennych na poziomie całego komputera.
+Instrukcje operacyjne znajdują się w
+`ai_docs/guides/LOCAL_OPERATION_GUIDE.md`.
 
 ## Świadomie odłożone technologie
 

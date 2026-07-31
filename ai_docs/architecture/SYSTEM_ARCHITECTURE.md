@@ -1,10 +1,23 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Architektura systemu
+
+## Aktualizacja granicy zdalnego Reviewera v0.1
+
+Cloudflare Quick Tunnel publikuje wyłącznie origin osobnej aplikacji Reviewer
+na `127.0.0.1:3001`. Reviewer udostępnia same-origin proxy z allowlistą i
+przekazuje uwierzytelnione żądania do FastAPI na `127.0.0.1:8000`. API,
+PostgreSQL, Admin, worker i pipeline wydań nie mają publicznego listenera.
+
+Sesja jest trwała, game/import-scoped, odwoływalna i blokowana po pięciu
+błędnych kodach. Opaque token jest hashowany w bazie i przechowywany przez
+przeglądarkę w HttpOnly cookie. Backend nadpisuje aktora decyzji identyfikatorem
+sesji. Szczegóły:
+`../security/REMOTE_REVIEWER_THREAT_MODEL.md`.
 
 ## Kontekst
 
@@ -835,9 +848,19 @@ zmienia działającego modelu.
 M6.5 nie rozszerza ograniczonych `review_batches` do tysięcy elementów.
 Minimalistyczne stanowisko operatorskie czyta i zapisuje job-local
 `image_review_items` M7 przez osobny kontrakt kursorowy ograniczony grą i
-import jobem. Sąsiednie elementy mogą być prefetchowane w bounded oknie, ale UI
-nie pobiera całej kolejki. Widoki `Do weryfikacji` i `Plansze kompletne` są
-projekcjami statusów; nie tworzą drugiego magazynu decyzji.
+import jobem. Aktywna sesja Reviewera nawiguje po jednej deterministycznej
+kolejności wszystkich plansz importu, bez usuwania accepted/corrected po
+zapisie. Widoki `Do weryfikacji` i `Plansze kompletne` pozostają projekcjami
+statusów i liczników, lecz nie wyznaczają osobnych kolejek nawigacyjnych ani
+drugiego magazynu decyzji.
+
+Po wejściu lub reloadzie backend wskazuje pierwszą planszę pending, a gdy jej
+nie ma — pierwszą planszę importu. Pomyślny zapis przesuwa kursor do następnego
+elementu pełnej kolejności, natomiast poprzedni kursor nadal może wskazać
+planszę właśnie zatwierdzoną. Klient pobiera każdą pozycję bounded z
+`limit = 1`; pełna nawigacja nie oznacza materializacji wszystkich itemów w
+React ani odpowiedzi API. Sąsiednie elementy mogą być prefetchowane wyłącznie
+w bounded oknie.
 
 Akceptacja pozostaje atomową komendą całej planszy z expected revision i UUID
 idempotencji. Pojedyncze `Enter` albo kliknięcie wysyła jedną komendę bez

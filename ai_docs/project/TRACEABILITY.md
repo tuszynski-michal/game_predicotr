@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Mapa śledzenia wymagań
@@ -16,6 +16,7 @@ last_updated: 2026-07-29
 | Plansza 3 × 5 i row-major | `requirements/MOBILE_APP.md` | M1 |
 | Selection 10–12 symboli | `requirements/MOBILE_APP.md` | M1 |
 | Modal jednego kandydata | `requirements/MOBILE_APP.md`, `requirements/ALGORITHMS.md` | M1 |
+| Podpowiedź jednej sygnatury współdzielonej przez duplikaty | `requirements/MOBILE_APP.md`, D-094 | TASK-0116 |
 | Local exact/prefix lookup | `requirements/ALGORITHMS.md`, `architecture/DATA_MODEL.md` | M1 |
 | Duplikat bez confirmation chain | `requirements/ALGORITHMS.md`, D-008 | M1 |
 | Cykliczna sekwencja `N - 1` | `requirements/ALGORITHMS.md`, D-009 | M1 |

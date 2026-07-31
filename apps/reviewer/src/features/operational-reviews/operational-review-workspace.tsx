@@ -2,7 +2,6 @@
 
 import type {
   GameResponse,
-  ImageReviewView,
   JobResponse,
   OperationalImageReviewCountsResponse,
   OperationalImageReviewItemResponse,
@@ -38,6 +37,7 @@ import {
   operationalReviewKeyboardAction,
   operationalReviewSequence,
   operationalReviewStatusLabel,
+  updateOperationalReviewCounts,
 } from '@/features/operational-reviews/operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
@@ -52,8 +52,12 @@ interface OperationalReviewWorkspaceProps {
 interface PageNavigation {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
+  readonly resumeAtFirstPending?: boolean;
   readonly sequenceNumber?: number;
 }
+
+const REVIEW_QUEUE_VIEW = 'all' as const;
+const REVIEWER_RESTRICTED = true;
 
 const EMPTY_COUNTS: OperationalImageReviewCountsResponse = {
   accepted: 0,
@@ -85,7 +89,6 @@ export function OperationalReviewWorkspace({
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [symbolsState, setSymbolsState] = useState<LoadState>('ready');
   const [symbolsError, setSymbolsError] = useState('');
-  const [view, setView] = useState<ImageReviewView>('pending');
   const [page, setPage] = useState<OperationalImageReviewPageResponse | null>(
     null,
   );
@@ -180,7 +183,7 @@ export function OperationalReviewWorkspace({
       const options: LoadOperationalReviewPageOptions = {
         gameId: selectedGameId,
         importJobId: selectedJobId,
-        view,
+        view: REVIEW_QUEUE_VIEW,
         ...navigation,
       };
       const result = await loadOperationalReviewPage(api, options);
@@ -194,10 +197,16 @@ export function OperationalReviewWorkspace({
       setPage(result.page);
       setPageState('ready');
     },
-    [api, selectedGameId, selectedJobId, view],
+    [api, selectedGameId, selectedJobId],
   );
 
   const refreshCohorts = useCallback(async () => {
+    if (REVIEWER_RESTRICTED) {
+      setCohortExports([]);
+      setCohortState('ready');
+      setCohortError('');
+      return;
+    }
     if (selectedGameId === '' || selectedJobId === '') {
       setCohortExports([]);
       setCohortState('ready');
@@ -238,7 +247,7 @@ export function OperationalReviewWorkspace({
   }, [refreshSymbols]);
 
   useEffect(() => {
-    queueMicrotask(() => void refreshPage());
+    queueMicrotask(() => void refreshPage({ resumeAtFirstPending: true }));
   }, [refreshPage]);
 
   useEffect(() => {
@@ -251,14 +260,6 @@ export function OperationalReviewWorkspace({
     jobs.find((candidate) => candidate.id === selectedJobId) ?? null;
   const item = page?.items[0] ?? null;
   const counts = page?.counts ?? EMPTY_COUNTS;
-
-  function changeView(nextView: ImageReviewView) {
-    pageRequestId.current += 1;
-    setView(nextView);
-    setPage(null);
-    setJumpValue('');
-    setPageNotice('');
-  }
 
   function jumpToSequence() {
     const sequenceNumber = Number(jumpValue);
@@ -275,12 +276,23 @@ export function OperationalReviewWorkspace({
         ? `Układ #${resolution.item.sequenceNumber ?? '—'} zapisano jako ${operationalReviewStatusLabel(resolution.item.status).toLocaleLowerCase('pl-PL')}.`
         : 'Ten sam zapis był już przyjęty — nie utworzono drugiej rewizji.',
     );
-    if (view === 'pending') {
-      void refreshPage();
+    if (page?.nextCursor !== null && page?.nextCursor !== undefined) {
+      void refreshPage({ afterCursor: page.nextCursor });
       return;
     }
-    const sequenceNumber = operationalReviewSequence(resolution.item);
-    void refreshPage(sequenceNumber === null ? {} : { sequenceNumber });
+    setPage((current) => {
+      if (current === null) return current;
+      const previousStatus = current.items[0]?.status;
+      return {
+        ...current,
+        counts: updateOperationalReviewCounts(
+          current.counts,
+          previousStatus,
+          resolution.item.status,
+        ),
+        items: [resolution.item],
+      };
+    });
   }
 
   async function handleFreezeCohort() {
@@ -359,7 +371,7 @@ export function OperationalReviewWorkspace({
             jobs={jobs}
             selectedJob={selectedJob}
           />
-          {selectedJobId !== '' ? (
+          {!REVIEWER_RESTRICTED && selectedJobId !== '' ? (
             <OperationalReviewCohortPanel
               counts={counts}
               error={cohortError}
@@ -427,9 +439,7 @@ export function OperationalReviewWorkspace({
           ) : item === null ? (
             <OperationalReviewEmpty
               counts={counts}
-              onReset={() => void refreshPage()}
-              onViewChange={changeView}
-              view={view}
+              onReset={() => void refreshPage({ resumeAtFirstPending: true })}
             />
           ) : (
             <>
@@ -459,11 +469,14 @@ export function OperationalReviewWorkspace({
                     beforeCursor: page?.previousCursor ?? undefined,
                   })
                 }
-                onReload={() => void refreshPage()}
+                onReload={() => {
+                  const sequenceNumber = operationalReviewSequence(item);
+                  void refreshPage(
+                    sequenceNumber === null ? {} : { sequenceNumber },
+                  );
+                }}
                 onResolved={handleResolved}
-                onViewChange={changeView}
                 symbols={symbols}
-                view={view}
                 hasNext={page?.nextCursor !== null}
                 hasPrevious={page?.previousCursor !== null}
               />
@@ -471,7 +484,7 @@ export function OperationalReviewWorkspace({
           )}
         </>
       )}
-      {freezeDialogOpen ? (
+      {!REVIEWER_RESTRICTED && freezeDialogOpen ? (
         <div
           aria-labelledby="operational-review-freeze-title"
           aria-modal="true"
@@ -639,9 +652,7 @@ function OperationalReviewBoard({
   onPrevious,
   onReload,
   onResolved,
-  onViewChange,
   symbols,
-  view,
 }: {
   readonly api: OperationalReviewsClient;
   readonly apiBaseUrl: string;
@@ -660,9 +671,7 @@ function OperationalReviewBoard({
   readonly onResolved: (
     resolution: OperationalImageReviewResolutionResponse,
   ) => void;
-  readonly onViewChange: (view: ImageReviewView) => void;
   readonly symbols: readonly SymbolResponse[];
-  readonly view: ImageReviewView;
 }) {
   const context = { gameId: item.gameId, importJobId };
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
@@ -699,11 +708,19 @@ function OperationalReviewBoard({
       sequenceNumber,
       draftSymbols,
     );
-  const canSubmit =
+  const draftMatchesCurrent =
+    sequenceDraft.trim() === String(displaySequence ?? '') &&
+    draftSymbols.length === item.cells.length &&
+    item.cells.every(
+      (cell, index) => cell.currentSymbolCode === draftSymbols[index],
+    );
+  const canResolve =
     sequenceIsValid &&
     allSymbolsAreActive &&
-    (view === 'pending' || changedFromCurrent) &&
-    !isSaving;
+    (item.status === 'pending' || changedFromCurrent);
+  const canAdvance =
+    item.status !== 'pending' && draftMatchesCurrent && hasNext;
+  const canUsePrimaryAction = (canResolve || canAdvance) && !isSaving;
   const selectedSuggestions = useMemo(() => {
     if (selectedCell === undefined) return [];
     const candidates = [
@@ -743,7 +760,14 @@ function OperationalReviewBoard({
   );
 
   const submitResolution = useCallback(async () => {
-    if (savingRef.current || !canSubmit) {
+    if (savingRef.current) return;
+    if (canAdvance) {
+      setSaveError('');
+      setRevisionConflict(false);
+      onNext();
+      return;
+    }
+    if (!canResolve) {
       setSaveError(
         !sequenceIsValid
           ? 'Podaj dodatni, całkowity numer układu.'
@@ -780,10 +804,12 @@ function OperationalReviewBoard({
   }, [
     api,
     allSymbolsAreActive,
-    canSubmit,
+    canAdvance,
+    canResolve,
     draftSymbols,
     importJobId,
     item,
+    onNext,
     onResolved,
     sequenceIsValid,
     sequenceNumber,
@@ -797,7 +823,6 @@ function OperationalReviewBoard({
       const openDialog =
         document.querySelector<HTMLDialogElement>('dialog[open]');
       const action = operationalReviewKeyboardAction({
-        hasNext,
         hasPrevious,
         key: event.key,
         otherDialogOpen: openDialog !== null,
@@ -812,8 +837,6 @@ function OperationalReviewBoard({
         void submitResolution();
       } else if (action.type === 'previous') {
         onPrevious();
-      } else if (action.type === 'next') {
-        onNext();
       } else {
         changeSelectedSymbol(action.symbolCode);
       }
@@ -825,7 +848,6 @@ function OperationalReviewBoard({
     hasNext,
     hasPrevious,
     isSaving,
-    onNext,
     onPrevious,
     shortcuts,
     submitResolution,
@@ -860,20 +882,7 @@ function OperationalReviewBoard({
             </span>
           </div>
           <div className="operationalReviewViewTabs" aria-label="Widok kolejki">
-            <button
-              aria-pressed={view === 'pending'}
-              onClick={() => onViewChange('pending')}
-              type="button"
-            >
-              Widok planszy
-            </button>
-            <button
-              aria-pressed={view === 'completed'}
-              onClick={() => onViewChange('completed')}
-              type="button"
-            >
-              Plansze kompletne
-            </button>
+            <span>Wszystkie plansze</span>
           </div>
           <div className="operationalReviewNavigation">
             <OperationalReviewGeometryEditor
@@ -893,21 +902,25 @@ function OperationalReviewBoard({
               ←
             </button>
             <button
-              aria-label="Następna plansza"
+              aria-label="Zatwierdź lub przejdź do następnej planszy"
               className="operationalReviewArrow"
-              disabled={!hasNext}
-              onClick={onNext}
+              disabled={!canUsePrimaryAction}
+              onClick={() => void submitResolution()}
               type="button"
             >
               →
             </button>
             <button
               className="primaryButton operationalReviewApprove"
-              disabled={!canSubmit}
+              disabled={!canUsePrimaryAction}
               onClick={() => void submitResolution()}
               type="button"
             >
-              {view === 'completed' ? 'Zapisz zmianę' : 'Zatwierdź'}
+              {item.status === 'pending'
+                ? 'Zatwierdź'
+                : canAdvance
+                  ? 'Dalej'
+                  : 'Zapisz zmianę'}
             </button>
           </div>
         </header>
@@ -982,7 +995,7 @@ function OperationalReviewBoard({
               value={sequenceDraft}
             />
           </label>
-          {view === 'completed' ? (
+          {item.status !== 'pending' ? (
             <em>Edycja dozwolona — kolejny zapis utworzy nową rewizję.</em>
           ) : null}
         </div>
@@ -1106,17 +1119,6 @@ function OperationalReviewBoard({
           </div>
 
           <section className="operationalReviewBoardReference">
-            <header>
-              <div>
-                <p className="eyebrow">Plansza do porównania</p>
-                <h2>
-                  Wycięty układ{' '}
-                  {displaySequence === null
-                    ? 'bez numeru'
-                    : `#${displaySequence}`}
-                </h2>
-              </div>
-            </header>
             <OperationalReviewImage
               alt={`Wycięta plansza układu ${displaySequence ?? 'bez numeru'}`}
               key={item.id}
@@ -1167,44 +1169,25 @@ function OperationalReviewImage({
 function OperationalReviewEmpty({
   counts,
   onReset,
-  onViewChange,
-  view,
 }: {
   readonly counts: OperationalImageReviewCountsResponse;
   readonly onReset: () => void;
-  readonly onViewChange: (view: ImageReviewView) => void;
-  readonly view: ImageReviewView;
 }) {
-  const visibleCount = view === 'pending' ? counts.pending : counts.completed;
   return (
     <div className="operationalReviewEmpty">
       <p className="eyebrow">Kolejka jest pusta</p>
       <h2>
-        {visibleCount > 0
+        {counts.total > 0
           ? 'Nie znaleziono układu o podanym numerze'
-          : view === 'pending'
-            ? 'Wszystkie dostępne plansze zostały sprawdzone'
-            : 'Brak kompletnych plansz'}
+          : 'Brak plansz do wyświetlenia'}
       </h2>
       <p>
-        {visibleCount > 0
-          ? `Ten widok zawiera ${visibleCount} układów. Wróć do jego aktualnego początku.`
+        {counts.total > 0
+          ? `Kolejka zawiera ${counts.total} układów. Wróć do pierwszej planszy oczekującej na zatwierdzenie.`
           : `Do weryfikacji: ${counts.pending}. Kompletne: ${counts.completed}. Odrzucone: ${counts.rejected}.`}
       </p>
-      <button
-        className="secondaryButton"
-        onClick={
-          visibleCount > 0
-            ? onReset
-            : () => onViewChange(view === 'pending' ? 'completed' : 'pending')
-        }
-        type="button"
-      >
-        {visibleCount > 0
-          ? 'Wróć do początku widoku'
-          : view === 'pending'
-            ? 'Pokaż kompletne'
-            : 'Wróć do weryfikacji'}
+      <button className="secondaryButton" onClick={onReset} type="button">
+        Wróć do pierwszej niezatwierdzonej
       </button>
     </div>
   );

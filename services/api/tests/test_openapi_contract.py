@@ -410,10 +410,17 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "afterCursor",
         "beforeCursor",
         "sequenceNumber",
+        "resumeAtFirstPending",
         "limit",
     } == set(parameters)
     assert parameters["limit"]["schema"]["maximum"] == 50
     assert parameters["sequenceNumber"]["schema"]["anyOf"][0]["minimum"] == 1
+    assert parameters["resumeAtFirstPending"]["schema"]["default"] is False
+    assert set(schema["components"]["schemas"]["ImageReviewView"]["enum"]) == {
+        "pending",
+        "completed",
+        "all",
+    }
 
     item_schema = schema["components"]["schemas"]["OperationalImageReviewItemResponse"]
     assert item_schema["properties"]["cells"]["minItems"] == 15

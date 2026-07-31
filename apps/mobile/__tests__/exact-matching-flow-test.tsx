@@ -79,7 +79,7 @@ function matchingRepository(
   return {
     findByPrefix: jest
       .fn()
-      .mockResolvedValue({ candidate: null, candidateCount: 2 }),
+      .mockResolvedValue({ candidateCount: 2, suggestion: null }),
     findExact,
     readCyclicPayouts: jest.fn(
       (selectedGame: LocalGameConfig, startSequenceNumber: number) =>

@@ -1,7 +1,7 @@
 ---
 title: TASK-0098 — Local image grid calibration and held-out gate
-status: in_progress
-last_updated: 2026-07-28
+status: done
+last_updated: 2026-07-30
 ---
 
 # TASK-0098 — Local image grid calibration and held-out gate
@@ -141,7 +141,7 @@ to a checksum-addressed geometry-quarantine backup before implementation.
 
 ## Outcome
 
-In progress:
+Completed as a measured negative experiment superseded for production geometry:
 
 - implemented exact-source local calibration based on each board detector
   bounding frame; cross-image fallback is forbidden,
@@ -158,10 +158,13 @@ In progress:
 - focused verification passes: 23 Python tests, Ruff and mypy. Browser smoke
   confirmed both missing-anchor and held-out states.
 
-Owner review of the 25-board queue is the current gate. Independent held-out
-metrics, complete v3 schemas and final `trainingAllowed` remain pending.
-
 The owner completed `25/25`, but the gate did not pass: 18 boards retained
-reported symbol cuts, including all 9 held-out boards. TASK-0100 now evaluates
-a symbol-aware lattice refinement before TASK-0098 can publish production
-profiles or enable training.
+reported symbol cuts, including all 9 held-out boards. Therefore this task did
+not publish production profiles and did not enable training. Its immutable
+review evidence and the negative held-out result remain valid.
+
+D-063 superseded the assumption that one exact-source frame correction is
+sufficient for final cell geometry. TASK-0100 and the later production geometry
+path replaced this experiment. The unchecked acceptance criteria above remain
+intentionally unchecked because the proposed candidate failed; closing the task
+records completion of the experiment, not a successful quality gate.

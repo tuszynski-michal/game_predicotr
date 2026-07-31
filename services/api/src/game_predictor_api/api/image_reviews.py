@@ -8,6 +8,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse, Response
 
+from game_predictor_api.api.reviewer_security import (
+    create_optional_reviewer_session_dependency,
+)
 from game_predictor_api.application.image_review_assets import (
     OperationalReviewAsset,
     resolve_operational_board_asset,
@@ -16,6 +19,10 @@ from game_predictor_api.application.image_review_assets import (
 )
 from game_predictor_api.application.image_reviews import (
     OperationalImageReviewService,
+)
+from game_predictor_api.application.reviewer_access import (
+    ReviewerAccessService,
+    ReviewerAccessSession,
 )
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
@@ -50,9 +57,30 @@ ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 def create_image_reviews_router(
     service_dependency: OperationalImageReviewServiceDependency,
     artifact_root: Path,
+    reviewer_access_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/image-review-items", tags=["image-reviews"])
     service_parameter = Depends(service_dependency)
+    reviewer_parameter = Depends(
+        create_optional_reviewer_session_dependency(reviewer_access_service_dependency)
+    )
+
+    def authorize(
+        reviewer_session: ReviewerAccessSession | None,
+        reviewer_access_service: ReviewerAccessService,
+        game_id: UUID,
+        import_job_id: UUID,
+    ) -> str | None:
+        if reviewer_session is None:
+            return None
+        reviewer_access_service.authorize_scope(
+            reviewer_session,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        return f"reviewer-session:{reviewer_session.id}"
+
+    reviewer_service_parameter = Depends(reviewer_access_service_dependency)
 
     @router.get(
         "",
@@ -63,6 +91,11 @@ def create_image_reviews_router(
     )
     def list_operational_image_review_items(
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
         view: ImageReviewView = ImageReviewView.PENDING,
@@ -72,8 +105,13 @@ def create_image_reviews_router(
             int | None,
             Query(alias="sequenceNumber", ge=1),
         ] = None,
+        resume_at_first_pending: Annotated[
+            bool,
+            Query(alias="resumeAtFirstPending"),
+        ] = False,
         limit: Annotated[int, Query(ge=1, le=MAX_IMAGE_REVIEW_PAGE_SIZE)] = 25,
     ) -> OperationalImageReviewPageResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         return to_operational_page_response(
             service.list_items(
                 game_id=game_id,
@@ -82,6 +120,7 @@ def create_image_reviews_router(
                 after_cursor=after_cursor,
                 before_cursor=before_cursor,
                 sequence_number=sequence_number,
+                resume_at_first_pending=resume_at_first_pending,
                 limit=limit,
             )
         )
@@ -103,9 +142,15 @@ def create_image_reviews_router(
         review_item_id: UUID,
         payload: OperationalImageReviewGeometryPreviewCommand,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> Response:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         preview = service.preview_geometry(
             review_item_id,
             game_id=game_id,
@@ -133,9 +178,20 @@ def create_image_reviews_router(
         review_item_id: UUID,
         payload: OperationalImageReviewGeometryCommand,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> OperationalImageReviewGeometryResponse:
+        reviewer_actor = authorize(
+            reviewer_session,
+            reviewer_access_service,
+            game_id,
+            import_job_id,
+        )
         item, revision, created = service.correct_geometry(
             review_item_id,
             game_id=game_id,
@@ -146,7 +202,7 @@ def create_image_reviews_router(
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
             ),
-            corrected_by=payload.corrected_by,
+            corrected_by=reviewer_actor or payload.corrected_by,
         )
         return OperationalImageReviewGeometryResponse(
             item=to_operational_item_response(item),
@@ -164,9 +220,15 @@ def create_image_reviews_router(
     def get_operational_image_review_item(
         review_item_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> OperationalImageReviewItemResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         return to_operational_item_response(
             service.get_item(
                 review_item_id,
@@ -186,9 +248,20 @@ def create_image_reviews_router(
         review_item_id: UUID,
         payload: OperationalImageReviewResolutionCommand,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> OperationalImageReviewResolutionResponse:
+        reviewer_actor = authorize(
+            reviewer_session,
+            reviewer_access_service,
+            game_id,
+            import_job_id,
+        )
         item, event, created = service.resolve_item(
             review_item_id,
             game_id=game_id,
@@ -207,7 +280,7 @@ def create_image_reviews_router(
                 for cell in payload.cells
             ),
             rejection_reason=payload.rejection_reason,
-            resolved_by=payload.resolved_by,
+            resolved_by=reviewer_actor or payload.resolved_by,
         )
         return OperationalImageReviewResolutionResponse(
             item=to_operational_item_response(item),
@@ -225,9 +298,15 @@ def create_image_reviews_router(
     def list_operational_image_review_resolution_events(
         review_item_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> list[OperationalImageReviewResolutionEventResponse]:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         return [
             to_operational_event_response(event)
             for event in service.list_resolution_events(
@@ -254,9 +333,15 @@ def create_image_reviews_router(
     def get_operational_image_review_source_asset(
         review_item_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> FileResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         item = service.get_item(
             review_item_id,
             game_id=game_id,
@@ -274,9 +359,15 @@ def create_image_reviews_router(
     def get_operational_image_review_board_asset(
         review_item_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> FileResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         item = service.get_item(
             review_item_id,
             game_id=game_id,
@@ -295,9 +386,15 @@ def create_image_reviews_router(
         review_item_id: UUID,
         cell_index: int,
         service: Annotated[OperationalImageReviewService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
         game_id: Annotated[UUID, Query(alias="gameId")],
         import_job_id: Annotated[UUID, Query(alias="importJobId")],
     ) -> FileResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
         item = service.get_item(
             review_item_id,
             game_id=game_id,

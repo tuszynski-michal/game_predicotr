@@ -29,6 +29,7 @@ export function ReviewerAccessLauncher({
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [revoking, setRevoking] = useState(false);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   useEffect(() => {
@@ -123,6 +124,30 @@ export function ReviewerAccessLauncher({
   async function copy(value: string, kind: 'code' | 'link') {
     await navigator.clipboard.writeText(value);
     setCopied(kind);
+  }
+
+  async function revokeSession() {
+    if (session === null || revoking) return;
+    setRevoking(true);
+    setError('');
+    try {
+      const result = await api.revokeReviewerSession(session.sessionId);
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się unieważnić sesji recenzenta.',
+          ),
+        );
+        return;
+      }
+      setSession(null);
+      setCopied(null);
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      setRevoking(false);
+    }
   }
 
   return (
@@ -235,6 +260,14 @@ export function ReviewerAccessLauncher({
               }).format(new Date(session.expiresAt))}
               . Kod zostanie pokazany tylko dla tej utworzonej sesji.
             </small>
+            <button
+              className="textButton"
+              disabled={revoking}
+              onClick={() => void revokeSession()}
+              type="button"
+            >
+              {revoking ? 'Unieważnianie…' : 'Unieważnij sesję'}
+            </button>
           </div>
         ) : null}
       </div>

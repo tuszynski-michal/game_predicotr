@@ -16,6 +16,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     SmallInteger,
     String,
     Text,
@@ -977,6 +978,93 @@ class ImageBoardGeometryRevisionModel(Base):
         nullable=False,
     )
     corrected_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ReviewerAccessSessionModel(Base):
+    __tablename__ = "reviewer_access_sessions"
+    __table_args__ = (
+        CheckConstraint(
+            "expires_at > created_at",
+            name="ck_reviewer_access_sessions_expiration",
+        ),
+        CheckConstraint(
+            "failed_attempts BETWEEN 0 AND 5",
+            name="ck_reviewer_access_sessions_failed_attempts",
+        ),
+        Index("ix_reviewer_access_sessions_token_hash", "token_hash", unique=True),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    code_salt: Mapped[bytes] = mapped_column(LargeBinary(16), nullable=False)
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    failed_attempts: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+    )
+    locked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    last_unlocked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+
+class ReviewerAccessAuditEventModel(Base):
+    __tablename__ = "reviewer_access_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('created', 'unlock_failed', 'unlocked', 'locked', 'revoked')",
+            name="ck_reviewer_access_audit_events_type",
+        ),
+        Index(
+            "ix_reviewer_access_audit_events_session_created",
+            "session_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("reviewer_access_sessions.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

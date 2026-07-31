@@ -65,9 +65,19 @@ const diagnostics: SnapshotDiagnostics = {
   snapshotFileSha256: 'a'.repeat(64),
 };
 
-const candidate = {
+const uniqueSuggestion = {
   cells: [1, 2, 1],
+  kind: 'unique',
+  occurrenceCount: 1,
   sequenceNumber: 42,
+  signature: '010201',
+} as const;
+
+const duplicateSuggestion = {
+  cells: [1, 2, 1],
+  kind: 'duplicate',
+  occurrenceCount: 3,
+  sequenceNumber: null,
   signature: '010201',
 } as const;
 
@@ -132,8 +142,8 @@ describe('prefix matching flow', () => {
   test('skips the empty board and opens an accessible modal for one longer candidate', async () => {
     const repository: PrefixMatchRepository = {
       findByPrefix: jest.fn().mockResolvedValue({
-        candidate,
         candidateCount: 1,
+        suggestion: uniqueSuggestion,
       }),
     };
     const renderer = render(
@@ -168,8 +178,8 @@ describe('prefix matching flow', () => {
   test('accepts completion as one Undo operation', async () => {
     const repository: PrefixMatchRepository = {
       findByPrefix: jest.fn().mockResolvedValue({
-        candidate,
         candidateCount: 1,
+        suggestion: uniqueSuggestion,
       }),
     };
     const renderer = render(
@@ -204,12 +214,59 @@ describe('prefix matching flow', () => {
     act(() => renderer.unmount());
   });
 
+  test('suggests one shared duplicate layout without selecting a sequence or running Target', async () => {
+    const readCyclicPayouts = jest.fn().mockResolvedValue([]);
+    const repository: MatchingRepository = {
+      findByPrefix: jest.fn().mockResolvedValue({
+        candidateCount: 3,
+        suggestion: duplicateSuggestion,
+      }),
+      findExact: jest.fn().mockResolvedValue({
+        occurrenceCount: 3,
+        sequenceNumbers: [4, 7, 9],
+        status: 'duplicate',
+      }),
+      readCyclicPayouts,
+    };
+    const renderer = render(
+      <GameWorkspaceScreen
+        diagnostics={diagnostics}
+        games={[game]}
+        repository={repository}
+      />,
+    );
+
+    await press(renderer, 'symbol-1');
+
+    const renderedSuggestion = JSON.stringify(renderer.toJSON());
+    expect(renderedSuggestion).toContain('DUPLIKAT LAYOUTU');
+    expect(
+      renderer.root.findByProps({ testID: 'duplicate-candidate-summary' }).props
+        .children,
+    ).toEqual(['Identyczny layout występuje ', 3, ' razy.']);
+    expect(renderedSuggestion).not.toContain('Numer sekwencji');
+
+    await press(renderer, 'candidate-accept-button');
+
+    expect(JSON.stringify(renderer.toJSON())).toContain('Duplikat layoutu');
+    expect(readCyclicPayouts).not.toHaveBeenCalled();
+
+    await press(renderer, 'undo-button');
+    expect(
+      boardCellLabels(renderer, 1).some((label) =>
+        label.includes('Puste pole'),
+      ),
+    ).toBe(true);
+
+    act(() => renderer.unmount());
+  });
+
   test('closing does not change cells or reopen for the same prefix', async () => {
     const findByPrefix = jest
       .fn<Promise<PrefixMatchResult>, [LocalGameConfig, string]>()
       .mockResolvedValue({
-        candidate,
         candidateCount: 1,
+        suggestion: uniqueSuggestion,
       });
     const repository: PrefixMatchRepository = { findByPrefix };
     const renderer = render(
@@ -241,8 +298,8 @@ describe('prefix matching flow', () => {
   test('does not open a modal for zero or many candidates', async () => {
     const findByPrefix = jest
       .fn<Promise<PrefixMatchResult>, [LocalGameConfig, string]>()
-      .mockResolvedValueOnce({ candidate: null, candidateCount: 0 })
-      .mockResolvedValueOnce({ candidate: null, candidateCount: 7 });
+      .mockResolvedValueOnce({ candidateCount: 0, suggestion: null })
+      .mockResolvedValueOnce({ candidateCount: 7, suggestion: null });
     const renderer = render(
       <GameWorkspaceScreen
         diagnostics={diagnostics}
@@ -266,8 +323,8 @@ describe('prefix matching flow', () => {
     const findByPrefix = jest
       .fn<Promise<PrefixMatchResult>, [LocalGameConfig, string]>()
       .mockResolvedValue({
-        candidate,
         candidateCount: 1,
+        suggestion: uniqueSuggestion,
       });
     const renderer = render(
       <GameWorkspaceScreen
@@ -325,11 +382,11 @@ describe('prefix matching flow', () => {
 
     await act(async () => {
       second.resolve({
-        candidate: {
-          ...candidate,
+        candidateCount: 1,
+        suggestion: {
+          ...uniqueSuggestion,
           sequenceNumber: 22,
         },
-        candidateCount: 1,
       });
       await second.promise;
     });
@@ -337,11 +394,11 @@ describe('prefix matching flow', () => {
 
     await act(async () => {
       first.resolve({
-        candidate: {
-          ...candidate,
+        candidateCount: 1,
+        suggestion: {
+          ...uniqueSuggestion,
           sequenceNumber: 11,
         },
-        candidateCount: 1,
       });
       await first.promise;
     });

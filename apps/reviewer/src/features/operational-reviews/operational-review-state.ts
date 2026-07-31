@@ -1,6 +1,7 @@
 import type {
   GameResponse,
   JobResponse,
+  OperationalImageReviewCountsResponse,
   OperationalImageReviewItemResponse,
   OperationalImageReviewGeometryCommand,
   OperationalImageReviewGeometryPoint,
@@ -29,14 +30,12 @@ export interface OperationalReviewSymbolShortcut {
 }
 
 export type OperationalReviewKeyboardAction =
-  | { readonly type: 'next' }
   | { readonly type: 'none' }
   | { readonly type: 'previous' }
   | { readonly symbolCode: string; readonly type: 'set-symbol' }
   | { readonly type: 'submit' };
 
 export interface OperationalReviewKeyboardInput {
-  readonly hasNext: boolean;
   readonly hasPrevious: boolean;
   readonly key: string;
   readonly otherDialogOpen: boolean;
@@ -82,6 +81,39 @@ export function operationalReviewStatusLabel(status: string): string {
     rejected: 'Odrzucona',
   };
   return labels[status] ?? `Nieznany status: ${status}`;
+}
+
+export function updateOperationalReviewCounts(
+  counts: OperationalImageReviewCountsResponse,
+  previousStatus: string | undefined,
+  nextStatus: string,
+): OperationalImageReviewCountsResponse {
+  if (previousStatus === undefined || previousStatus === nextStatus) {
+    return counts;
+  }
+  let pending = counts.pending;
+  let accepted = counts.accepted;
+  let corrected = counts.corrected;
+  let rejected = counts.rejected;
+
+  if (previousStatus === 'pending') pending = Math.max(0, pending - 1);
+  if (previousStatus === 'accepted') accepted = Math.max(0, accepted - 1);
+  if (previousStatus === 'corrected') corrected = Math.max(0, corrected - 1);
+  if (previousStatus === 'rejected') rejected = Math.max(0, rejected - 1);
+
+  if (nextStatus === 'pending') pending += 1;
+  if (nextStatus === 'accepted') accepted += 1;
+  if (nextStatus === 'corrected') corrected += 1;
+  if (nextStatus === 'rejected') rejected += 1;
+
+  return {
+    accepted,
+    completed: accepted + corrected,
+    corrected,
+    pending,
+    rejected,
+    total: counts.total,
+  };
 }
 
 export function operationalReviewSequence(
@@ -145,10 +177,9 @@ export function operationalReviewKeyboardAction(
   if (input.key === 'ArrowLeft' && input.hasPrevious) {
     return { type: 'previous' };
   }
-  if (input.key === 'ArrowRight' && input.hasNext) {
-    return { type: 'next' };
+  if (input.key === 'ArrowRight' || input.key === 'Enter') {
+    return { type: 'submit' };
   }
-  if (input.key === 'Enter') return { type: 'submit' };
   const symbol = operationalReviewSymbolForKey(input.shortcuts, input.key);
   return symbol === null
     ? { type: 'none' }
@@ -330,10 +361,15 @@ export function operationalReviewAssetUrl(
   const encodedItemId = encodeURIComponent(reviewItemId);
   const suffix =
     asset === 'cell' ? `cells/${requireCellIndex(cellIndex)}` : asset;
-  const url = new URL(
-    `api/v1/admin/image-review-items/${encodedItemId}/assets/${suffix}`,
-    base,
-  );
+  const assetPath = `api/v1/admin/image-review-items/${encodedItemId}/assets/${suffix}`;
+  if (base.startsWith('/')) {
+    const query = new URLSearchParams({
+      gameId: context.gameId,
+      importJobId: context.importJobId,
+    });
+    return `${base}${assetPath}?${query.toString()}`;
+  }
+  const url = new URL(assetPath, base);
   url.searchParams.set('gameId', context.gameId);
   url.searchParams.set('importJobId', context.importJobId);
   return url.toString();

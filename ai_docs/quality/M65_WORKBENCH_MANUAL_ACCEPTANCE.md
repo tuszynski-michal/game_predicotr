@@ -1,7 +1,7 @@
 ---
 title: M6.5 workbench manual acceptance
-status: prepared
-last_updated: 2026-07-30
+status: completed
+last_updated: 2026-07-31
 ---
 
 # M6.5 — ręczny odbiór stanowiska weryfikacji
@@ -37,52 +37,58 @@ Kod należy podać na ekranie wejścia. Rozdzielczość okna Reviewera ustawić 
 
 ### 1. Układ i dostępność
 
-- [ ] brak poziomego paska przewijania strony,
-- [ ] wszystkie 15 cropów symboli jest kwadratowych, czytelnych i nie rozciąga
+- [x] brak poziomego paska przewijania strony,
+- [x] wszystkie 15 cropów symboli jest kwadratowych, czytelnych i nie rozciąga
   się na całą szerokość ekranu,
-- [ ] cały układ 5 × 3, wszystkie etykiety i przycisk `Zatwierdź` są widoczne
+- [x] cały układ 5 × 3, wszystkie etykiety i przycisk `Zatwierdź` są widoczne
   bez przewijania,
-- [ ] obok siatki znajduje się wycięty obraz dokładnie bieżącej planszy, a nie
+- [x] obok siatki znajduje się wycięty obraz dokładnie bieżącej planszy, a nie
   pełne zdjęcie zawierające do dziewięciu layoutów,
-- [ ] fokus klawiatury jest zawsze widoczny,
-- [ ] nazwy gry, importu, widoku, komórek i nawigacji są zrozumiałe bez koloru.
+- [x] fokus klawiatury jest zawsze widoczny,
+- [x] nazwy gry, importu, widoku, komórek i nawigacji są zrozumiałe bez koloru.
 
 ### 2. Poprawna plansza wyłącznie klawiaturą
 
-- [ ] pojedyncze świadome `Enter` zapisuje dokładnie jedną rewizję bez modala,
-- [ ] powtórzenie przytrzymanego `Enter` nie tworzy kolejnej rewizji,
-- [ ] strzałka w prawo przechodzi do następnej planszy,
-- [ ] po odświeżeniu panel zaczyna od pierwszej nierozwiązanej planszy i nie
-  pokazuje zapisanej ponownie w `Do weryfikacji`.
+- [x] pojedyncze świadome `Enter` zapisuje dokładnie jedną rewizję bez modala,
+- [x] po poprawnym zapisie `Enter` przechodzi do następnej planszy,
+- [x] powtórzenie przytrzymanego `Enter` nie tworzy kolejnej rewizji,
+- [x] strzałka w prawo zatwierdza lub przechodzi dalej tak samo jak `Enter`,
+- [x] strzałka w lewo wraca do poprzedniej planszy także wtedy, gdy została
+  właśnie zatwierdzona,
+- [x] nawigacja obejmuje zawsze wszystkie plansze importu i nie kurczy się po
+  zmianie statusu; sieć nadal pobiera najwyżej jedną planszę na żądanie,
+- [x] po odświeżeniu Reviewer zaczyna od pierwszej nierozwiązanej planszy,
+- [x] gdy wszystkie plansze są rozwiązane, ponowne wejście zaczyna od pierwszej
+  planszy importu.
 
 ### 3. Korekta symbolu
 
-- [ ] kliknięcie komórki pokazuje 3–4 uporządkowane sugestie,
-- [ ] klawisze `1`–`9`, `0`, a następnie `QWERTY` odpowiadają legendzie,
-- [ ] skrót nie działa podczas pisania numeru układu,
-- [ ] zmieniona etykieta jest widoczna przed zapisem,
-- [ ] zapis ma status `Poprawiona`, a historia zawiera poprzednią rewizję.
+- [x] kliknięcie komórki pokazuje 3–4 uporządkowane sugestie,
+- [x] klawisze `1`–`9`, `0`, a następnie `QWERTY` odpowiadają legendzie,
+- [x] skrót nie działa podczas pisania numeru układu,
+- [x] zmieniona etykieta jest widoczna przed zapisem,
+- [x] zapis ma status `Poprawiona`, a historia zawiera poprzednią rewizję.
 
 ### 4. Ponowna edycja kompletnej planszy
 
-- [ ] w `Plansze kompletne` można wrócić do accepted/corrected,
-- [ ] zapis bez żadnej zmiany jest zablokowany,
-- [ ] rzeczywista zmiana dopisuje nową rewizję i nie usuwa poprzedniej.
+- [x] w kolejce wszystkich plansz można wrócić do accepted/corrected,
+- [x] niezmieniona kompletna plansza przechodzi akcją `Dalej` bez pustej rewizji,
+- [x] rzeczywista zmiana dopisuje nową rewizję i nie usuwa poprzedniej.
 
 ### 5. Korekta geometrii
 
-- [ ] `Edytuj siatkę` otwiera cztery narożniki na oryginale,
-- [ ] podgląd pokazuje ukośną siatkę, wyprostowaną planszę i 15 cropów,
-- [ ] anulowanie niczego nie zapisuje,
-- [ ] zapis tworzy nowe cropy, ponownie otwiera planszę i nie kopiuje starych
+- [x] `Edytuj siatkę` otwiera cztery narożniki na oryginale,
+- [x] podgląd pokazuje ukośną siatkę, wyprostowaną planszę i 15 cropów,
+- [x] anulowanie niczego nie zapisuje,
+- [x] zapis tworzy nowe cropy, ponownie otwiera planszę i nie kopiuje starych
   etykiet na nowe `cropSampleId`.
 
 ### 6. Błędy i dwie karty
 
-- [ ] po otwarciu tej samej planszy w dwóch kartach zapis pierwszej przechodzi,
-- [ ] zapis drugiej pokazuje kontrolowany konflikt i przycisk wczytania
+- [x] po otwarciu tej samej planszy w dwóch kartach zapis pierwszej przechodzi,
+- [x] zapis drugiej pokazuje kontrolowany konflikt i przycisk wczytania
   aktualnej rewizji,
-- [ ] odłączenie odpowiedzi po wysłaniu, a następnie exact retry tego samego
+- [x] odłączenie odpowiedzi po wysłaniu, a następnie exact retry tego samego
   klucza nie tworzy drugiej rewizji.
 
 ## Próba czasu operatora
@@ -91,13 +97,21 @@ Zmierz stoperem co najmniej 10 kolejnych plansz i zapisz:
 
 | Metryka | Wynik |
 |---|---:|
-| liczba plansz |  |
-| łączny czas |  |
-| poprawne bez zmiany |  |
-| plansze z korektą symbolu |  |
-| skorygowane komórki |  |
-| korekty geometrii |  |
+| liczba plansz | 11 |
+| łączny czas | 198 s |
+| poprawne bez zmiany | 10 |
+| plansze z korektą symbolu | 1 |
+| skorygowane komórki | 1 |
+| korekty geometrii | 0 |
 
-Do czasu tej próby raport używa jawnej prognozy, a nie wyniku pracy człowieka:
+Przed tą próbą raport używał jawnej prognozy, a nie wyniku pracy człowieka:
 8 s dla poprawnej planszy, 25 s dla korekty symbolu i 90 s dla korekty
 geometrii. Prognoza nie jest podstawą do włączenia automatycznego importu.
+
+## Wynik
+
+Właściciel zatwierdził i ponownie przejrzał układy do `#55`. Próbę czasu
+odtworzono z utrwalonych `resolvedAt` dla 11 nowych decyzji `#28–#42`; przerwy
+na już kompletne pozycje pozostają w całkowitym czasie 198 sekund. Dodatkowy
+odbiór 1366 × 768 potwierdził brak poziomego overflow, 15 kwadratowych komórek
+w viewport, widoczny przycisk główny i wyrównanie obrazu porównawczego.

@@ -43,11 +43,11 @@ pełnej administracji.
 
 ### Q-021 — Transport zdalnego review
 
-Który jawnie konfigurowany tunel HTTPS albo VPN będzie używany do połączenia z
-domowym komputerem? Wybór wymaga aktualnego porównania bezpieczeństwa,
-ograniczeń planu bezpłatnego i obsługi Windows. Pytanie nie blokuje lokalnego
-M6.5; rozstrzyga je TASK-0112 przed implementacją M8.7. Surowe przekierowanie
-portu routera nie jest dopuszczonym wariantem.
+**Status: closed 2026-07-30.** Dla czasowego zdalnego review v0.1 wybrano
+Cloudflare Quick Tunnel do publicznego originu samej aplikacji Reviewer.
+Połączenie jest wychodzące, używa losowego adresu HTTPS i nie otwiera portu
+routera. API, Admin i PostgreSQL pozostają na loopback. Tryb nie ma SLA i służy
+testom/pilotowi; stały adres wymaga później named tunnel.
 
 ### Q-020 — Aplikacja referencyjna
 

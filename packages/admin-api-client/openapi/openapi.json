@@ -574,6 +574,19 @@
         "title": "GameUpdate",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "HealthResponse": {
         "additionalProperties": false,
         "properties": {
@@ -936,7 +949,8 @@
       "ImageReviewView": {
         "enum": [
           "pending",
-          "completed"
+          "completed",
+          "all"
         ],
         "title": "ImageReviewView",
         "type": "string"
@@ -4484,6 +4498,44 @@
         "title": "ReviewerSessionUnlock",
         "type": "object"
       },
+      "ReviewerSessionUnlockResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accessToken": {
+            "title": "Accesstoken",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "gameId",
+          "importJobId",
+          "expiresAt",
+          "accessToken"
+        ],
+        "title": "ReviewerSessionUnlockResponse",
+        "type": "object"
+      },
       "RulesPublicationIssueResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5048,6 +5100,46 @@
         "title": "ValidateJobPayload",
         "type": "object"
       },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
       "VerifiedCohortExportResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5166,6 +5258,12 @@
         ],
         "title": "VerifiedCohortFreezeResponse",
         "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "ReviewerBearer": {
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -7028,6 +7126,16 @@
           },
           {
             "in": "query",
+            "name": "resumeAtFirstPending",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Resumeatfirstpending",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -7081,6 +7189,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "List one bounded page of job-local image review items",
         "tags": [
           "image-reviews"
@@ -7164,6 +7277,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Get one job-local image review item with 15 cells",
         "tags": [
           "image-reviews"
@@ -7240,6 +7358,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Read the checksum-bound rectified board image",
         "tags": [
           "image-reviews"
@@ -7325,6 +7448,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Read one checksum-bound operational cell crop",
         "tags": [
           "image-reviews"
@@ -7401,6 +7529,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Read the checksum-bound source image",
         "tags": [
           "image-reviews"
@@ -7490,6 +7623,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Preview a corrected board without persisting files or revisions",
         "tags": [
           "image-reviews"
@@ -7583,6 +7721,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Persist immutable corrected geometry and reopen review",
         "tags": [
           "image-reviews"
@@ -7676,6 +7819,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "Atomically append and materialize one whole-board decision",
         "tags": [
           "image-reviews"
@@ -7763,6 +7911,11 @@
             "description": "Validation error"
           }
         },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
         "summary": "List append-only operational review decisions",
         "tags": [
           "image-reviews"
@@ -9694,7 +9847,60 @@
             "description": "Unprocessable Entity"
           }
         },
-        "summary": "Create one process-local game and import scoped reviewer session",
+        "summary": "Create one durable game and import scoped reviewer session",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-sessions/{session_id}/revoke": {
+      "post": {
+        "operationId": "revokeReviewerSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerSessionScopeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Immediately revoke one Reviewer session",
         "tags": [
           "reviewer-access"
         ]
@@ -10897,6 +11103,118 @@
         ]
       }
     },
+    "/api/v1/reviewer/context/games": {
+      "get": {
+        "operationId": "listReviewerGames",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GameResponse"
+                  },
+                  "title": "Response Listreviewergames",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "Read only the game selected for the authenticated Reviewer session",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/reviewer/context/games/{game_id}/symbols": {
+      "get": {
+        "operationId": "listReviewerSymbols",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SymbolResponse"
+                  },
+                  "title": "Response Listreviewersymbols",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "Read symbols only for the authenticated Reviewer game",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/reviewer/context/jobs": {
+      "get": {
+        "operationId": "listReviewerJobs",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobResponse"
+                  },
+                  "title": "Response Listreviewerjobs",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "ReviewerBearer": []
+          }
+        ],
+        "summary": "Read only the import selected for the authenticated Reviewer session",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
     "/api/v1/reviewer/sessions/{session_id}/unlock": {
       "post": {
         "operationId": "unlockReviewerSession",
@@ -10927,7 +11245,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReviewerSessionScopeResponse"
+                  "$ref": "#/components/schemas/ReviewerSessionUnlockResponse"
                 }
               }
             },

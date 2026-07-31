@@ -98,6 +98,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         after_key: OrderKey | None,
         before_key: OrderKey | None,
         sequence_number: int | None,
+        resume_at_first_pending: bool,
         limit: int,
     ) -> ImageReviewPage:
         self.require_context(game_id=game_id, import_job_id=import_job_id)
@@ -119,6 +120,30 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             query = query.where(_lexicographic_before(order, before_key))
         if sequence_number is not None:
             query = query.where(_sequence_expression(view) == sequence_number)
+        elif resume_at_first_pending:
+            pending_row = (
+                self._session.execute(
+                    _base_query(game_id, import_job_id, ImageReviewView.PENDING)
+                    .order_by(*[expression.asc() for expression in order])
+                    .limit(1)
+                )
+                .tuples()
+                .first()
+            )
+            if pending_row is not None:
+                pending_item, pending_board, _source, pending_association, _job = pending_row
+                pending_key: OrderKey = (
+                    0,
+                    pending_association.order_index,
+                    pending_board.position_index,
+                    str(pending_item.id),
+                )
+                query = query.where(
+                    or_(
+                        _lexicographic_equal(order, pending_key),
+                        _lexicographic_after(order, pending_key),
+                    )
+                )
         descending = before_key is not None
         ordered = [expression.desc() if descending else expression.asc() for expression in order]
         rows = list(self._session.execute(query.order_by(*ordered).limit(limit + 1)).tuples().all())
@@ -135,7 +160,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
-                    items[0].cursor_key,
+                    items[0].cursor_key_for(view),
                 )
             )
             has_next = (
@@ -143,7 +168,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                     game_id,
                     import_job_id,
                     view,
-                    items[-1].cursor_key,
+                    items[-1].cursor_key_for(view),
                 )
                 if descending
                 else extra
@@ -750,16 +775,26 @@ def _base_query(
 def _sequence_expression(view: ImageReviewView) -> ColumnElement[int]:
     if view is ImageReviewView.PENDING:
         return cast(ColumnElement[int], RecognizedBoardModel.sequence_number)
-    return cast(
+    resolved_sequence = cast(
         ColumnElement[int],
         ImageReviewItemModel.resolved_value["sequenceNumber"].astext.cast(BigInteger),
     )
+    if view is ImageReviewView.ALL:
+        return cast(
+            ColumnElement[int],
+            func.coalesce(resolved_sequence, RecognizedBoardModel.sequence_number),
+        )
+    return resolved_sequence
 
 
 def _order_expressions(view: ImageReviewView) -> tuple[ColumnElement[object], ...]:
     sequence: ColumnElement[object] = cast(
         ColumnElement[object],
-        literal(0) if view is ImageReviewView.PENDING else _sequence_expression(view),
+        (
+            literal(0)
+            if view in {ImageReviewView.PENDING, ImageReviewView.ALL}
+            else _sequence_expression(view)
+        ),
     )
     return (
         sequence,

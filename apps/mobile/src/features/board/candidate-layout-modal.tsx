@@ -1,53 +1,70 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type {
-  LayoutCandidate,
   LocalGameConfig,
+  PrefixLayoutSuggestion,
 } from '@/data/local-layout-repository';
 
 import { BoardGrid } from './board-grid';
 import { boardColors } from './board-theme';
 
 type Props = {
-  candidate: LayoutCandidate | null;
   game: LocalGameConfig;
   onAccept: () => void;
   onClose: () => void;
+  suggestion: PrefixLayoutSuggestion | null;
 };
 
 export function CandidateLayoutModal({
-  candidate,
   game,
   onAccept,
   onClose,
+  suggestion,
 }: Props) {
+  const isDuplicate = suggestion?.kind === 'duplicate';
+
   return (
     <Modal
       animationType="fade"
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
-      visible={candidate !== null}
+      visible={suggestion !== null}
     >
       <View style={styles.backdrop}>
-        {candidate === null ? null : (
+        {suggestion === null ? null : (
           <View
-            accessibilityLabel="Propozycja pełnego layoutu"
+            accessibilityLabel={
+              isDuplicate
+                ? 'Propozycja pełnego layoutu będącego duplikatem'
+                : 'Propozycja pełnego layoutu'
+            }
             accessibilityViewIsModal
             style={styles.card}
             testID="candidate-modal"
           >
-            <Text style={styles.eyebrow}>JEDEN KANDYDAT</Text>
+            <Text style={styles.eyebrow}>
+              {isDuplicate ? 'DUPLIKAT LAYOUTU' : 'JEDEN KANDYDAT'}
+            </Text>
             <Text accessibilityRole="header" style={styles.title}>
               Uzupełnić layout?
             </Text>
-            <Text style={styles.sequence}>
-              Numer sekwencji: {candidate.sequenceNumber}
-            </Text>
+            {isDuplicate ? (
+              <Text
+                style={styles.sequence}
+                testID="duplicate-candidate-summary"
+              >
+                Identyczny layout występuje {suggestion.occurrenceCount} razy.
+              </Text>
+            ) : (
+              <Text style={styles.sequence}>
+                Numer sekwencji: {suggestion.sequenceNumber}
+              </Text>
+            )}
 
             <View style={styles.board}>
               <BoardGrid
-                cells={candidate.cells}
+                cells={suggestion.cells}
                 columns={game.columns}
                 rows={game.rows}
                 symbols={game.symbols}
@@ -55,8 +72,9 @@ export function CandidateLayoutModal({
             </View>
 
             <Text style={styles.explanation}>
-              Lokalny snapshot zawiera tylko jeden layout pasujący do
-              wprowadzonego prefiksu.
+              {isDuplicate
+                ? 'Brakujące symbole są jednoznaczne, ale pozycja sekwencji pozostaje nierozstrzygnięta. Po uzupełnieniu wynik nadal będzie duplikatem i Target nie zostanie uruchomiony.'
+                : 'Lokalny snapshot zawiera tylko jeden layout pasujący do wprowadzonego prefiksu.'}
             </Text>
 
             <View style={styles.actions}>

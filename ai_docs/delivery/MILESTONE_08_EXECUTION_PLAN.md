@@ -215,6 +215,10 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 - `TASK-0114 — Revocable game-scoped authorization and brute-force protection`,
 - `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance`.
 
+Stan 2026-07-30: TASK-0113 i TASK-0114 są ukończone. Implementacja oraz runbook
+TASK-0115 są gotowe, ale zadanie pozostaje `in_progress` do odłożonego przez
+właściciela testu HTTPS z urządzenia poza domową siecią.
+
 ### Bramka G8.7
 
 - bez zdalnego trybu panel i API nadal odrzucają adresy inne niż loopback,

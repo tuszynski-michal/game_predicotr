@@ -1,14 +1,15 @@
 ---
 title: Verification workbench scale and usability acceptance
-status: in_progress
-last_updated: 2026-07-30
+status: done
+last_updated: 2026-07-31
+completed_at: 2026-07-31
 ---
 
 # TASK-0111 — Verification workbench scale and usability acceptance
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -32,6 +33,8 @@ metryki pozwalające oszacować ręczną pracę dla kolejnych 1000 i 3000 plansz
 
 - dodać powtarzalny profil kolejki co najmniej 3000 syntetycznych plansz,
 - potwierdzić bounded cursor i brak pobierania całej kolejki do klienta,
+- potwierdzić jedną kolejkę wszystkich plansz: zapis nie usuwa planszy z
+  nawigacji, lewo wraca do zatwierdzonej, a `Enter` zapisuje i przechodzi dalej,
 - zmierzyć p95 lokalnego odczytu sąsiada i zapisu bez recropowania,
 - zweryfikować scenariusz keyboard-only, korektę symbolu, geometrii i ponowną
   edycję kompletnej planszy,
@@ -61,12 +64,18 @@ metryki pozwalające oszacować ręczną pracę dla kolejnych 1000 i 3000 plansz
 - [x] bounded cursor zachowuje deterministyczne poprzednia/następna na początku,
   w środku i na końcu kolejki,
 - [x] decyzja i pozycja są możliwe do wznowienia po restarcie,
+- [x] aktywna sesja nawiguje po wszystkich planszach z `limit = 1`; po zapisie
+  strzałka w lewo wraca do zatwierdzonej planszy,
+- [x] `Enter` zapisuje najwyżej jedną rewizję i po sukcesie przechodzi do
+  następnej planszy pełnej kolejności,
+- [x] wejście/reload zaczyna od pierwszej pending, a przy braku pending od
+  pierwszej planszy importu,
 - [x] konflikt stale revision i exact retry są rozróżnione i nie tworzą
   podwójnej rewizji,
-- [ ] keyboard-only, korekta symbolu, korekta geometrii i ponowna edycja
+- [x] keyboard-only, korekta symbolu, korekta geometrii i ponowna edycja
   kompletnej planszy przechodzą,
-- [ ] pełna siatka 5 × 3 mieści się przy 1366 × 768 bez poziomego overflow,
-- [ ] podstawowe nazwy dostępności, role, fokus dialogu i kolejność klawiatury
+- [x] pełna siatka 5 × 3 mieści się przy 1366 × 768 bez poziomego overflow,
+- [x] podstawowe nazwy dostępności, role, fokus dialogu i kolejność klawiatury
   przechodzą odbiór,
 - [x] raport nie przedstawia pracy ręcznej jako automatyzacji i podaje
   oszacowania dla kolejnych 1000/3000 plansz,
@@ -80,6 +89,8 @@ metryki pozwalające oszacować ręczną pracę dla kolejnych 1000 i 3000 plansz
   czasu ściennego. Nie zapisuje obrazów ani nie uruchamia recropowania.
 - Pamięć klienta jest ograniczona kontraktem `limit: 1`; licznik 3000 nie może
   oznaczać tablicy 3000 obiektów po stronie React.
+- „Wszystkie plansze” oznacza semantykę kolejki, nie eager loading. Każdy krok
+  nawigacji nadal pobiera najwyżej jedną planszę.
 - Pomiar operatorski wykonany bez pełnego realnego przejrzenia 3000 plansz
   jest prognozą na podstawie jawnie zapisanej próby. Raport musi podać rozmiar
   próby i nie może nazwać prognozy pomiarem produkcyjnym.
@@ -145,12 +156,38 @@ node --test --experimental-strip-types apps/reviewer/test/operational-review-*.t
 - korekta widoku porównawczego: `15 passed`, TypeScript strict, ukierunkowany
   ESLint, Prettier, produkcyjny build Reviewera i browser smoke przeszły.
 
-### Pending manual acceptance
+### Manual acceptance
 
 - TASK-0112 dostarczył osobną aplikację Reviewer i poprawny lokalny przepływ
   panel admina → link i kod → gate → stanowisko ograniczone do gry/importu.
-- Realny import zawiera 387 plansz: 87 kompletnych i 300 oczekujących. Właściciel
-  wykona szybki odbiór na pierwszych 50 layoutach.
-- Do zamknięcia pozostają ręczne scenariusze symbolu, geometrii, ponownej edycji,
-  keyboard-only i widoku 1366 × 768 oraz rzeczywisty pomiar minimum 10 plansz
-  według `ai_docs/quality/M65_WORKBENCH_MANUAL_ACCEPTANCE.md`.
+- Właściciel zatwierdził i ponownie przejrzał układy do `#55`, potwierdzając
+  poprawne działanie zatwierdzania, korekt i nawigacji.
+- Rzeczywista próba operatorska obejmuje 11 nowych decyzji z zakresu
+  `#28–#42` w 198 sekund: 10 zaakceptowanych, jedną poprawioną planszę i jedną
+  zmienioną komórkę.
+- Odbiór 1366 × 768 potwierdził 15 kwadratowych komórek w viewport, brak
+  poziomego overflow, widoczny główny przycisk i wyrównanie obrazu planszy
+  porównawczej z siatką symboli.
+- Pierwszy test operatorski potwierdził pojedynczy zapis przez `Enter`, ale
+  ujawnił błąd nawigacji: po zapisie filtrowanie pending usuwało item i
+  uniemożliwiało powrót strzałką w lewo. Zaakceptowana korekta wymaga jednej
+  kolejki `all`, automatycznego przejścia dalej po zapisie oraz startu od
+  pierwszej pending po wejściu/reloadzie.
+- Podczas wznowienia testów wykryto, że CSP Reviewera blokuje inline bootstrap
+  Next.js i pozostawia gate w stanie loading. Politykę skorygowano bez
+  dopuszczania zewnętrznych originów; test konfiguracji, build produkcyjny oraz
+  browser smoke `kod → Weryfikacja plansz` przeszły.
+- Kolejny test wykrył wejście po zapisie na planszę kompletną, rozdzielającą
+  oczekujące pozycje. `Enter` i przycisk pokazują teraz `Dalej` oraz przechodzą
+  bez pustej rewizji; strzałki nadal nawigują po wszystkich statusach.
+  Nagłówek planszy porównawczej usunięto, aby obraz był wyrównany z górą siatki
+  symboli. Zmiana przeszła 19 testów Reviewera, lint, formatowanie, TypeScript
+  strict i build produkcyjny.
+- Właściciel zatwierdził i przejrzał układy do `#55`, potwierdzając poprawne
+  działanie stanowiska. Zgodnie z informacją zwrotną `ArrowRight` i przycisk
+  `→` zostały zrównane z akcją `Enter`; lewa strzałka pozostaje nawigacją
+  wstecz. Regresja przeszła 19 testów, ukierunkowany lint, formatowanie,
+  TypeScript strict i build produkcyjny.
+- Końcowy odbiór właściciela potwierdził obie akcje `ArrowRight`/`→`. TASK-0111
+  oraz lokalna bramka G6.5 są zamknięte; wynik nie zmienia osobnej blokady
+  `massImportAllowed`.

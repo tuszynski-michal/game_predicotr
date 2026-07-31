@@ -350,6 +350,16 @@ export type GameUpdate = {
 };
 
 /**
+ * HTTPValidationError
+ */
+export type HttpValidationError = {
+  /**
+   * Detail
+   */
+  detail?: Array<ValidationError>;
+};
+
+/**
  * HealthResponse
  */
 export type HealthResponse = {
@@ -581,7 +591,7 @@ export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
 /**
  * ImageReviewView
  */
-export type ImageReviewView = 'pending' | 'completed';
+export type ImageReviewView = 'pending' | 'completed' | 'all';
 
 /**
  * ImageStorageInventoryResponse
@@ -2723,6 +2733,32 @@ export type ReviewerSessionUnlock = {
 };
 
 /**
+ * ReviewerSessionUnlockResponse
+ */
+export type ReviewerSessionUnlockResponse = {
+  /**
+   * Accesstoken
+   */
+  accessToken: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
  * RulesPublicationIssueResponse
  */
 export type RulesPublicationIssueResponse = {
@@ -3033,6 +3069,34 @@ export type ValidateJobPayload = {
    * Schemaversion
    */
   schemaVersion?: 1;
+};
+
+/**
+ * ValidationError
+ */
+export type ValidationError = {
+  /**
+   * Context
+   */
+  ctx?: {
+    [key: string]: unknown;
+  };
+  /**
+   * Input
+   */
+  input?: unknown;
+  /**
+   * Location
+   */
+  loc: Array<string | number>;
+  /**
+   * Message
+   */
+  msg: string;
+  /**
+   * Error Type
+   */
+  type: string;
 };
 
 /**
@@ -4197,6 +4261,10 @@ export type ListOperationalImageReviewItemsData = {
      * Sequencenumber
      */
     sequenceNumber?: number | null;
+    /**
+     * Resumeatfirstpending
+     */
+    resumeAtFirstPending?: boolean;
     /**
      * Limit
      */
@@ -5779,6 +5847,42 @@ export type CreateReviewerSessionResponses = {
 export type CreateReviewerSessionResponse =
   CreateReviewerSessionResponses[keyof CreateReviewerSessionResponses];
 
+export type RevokeReviewerSessionData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/reviewer-sessions/{session_id}/revoke';
+};
+
+export type RevokeReviewerSessionErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RevokeReviewerSessionError =
+  RevokeReviewerSessionErrors[keyof RevokeReviewerSessionErrors];
+
+export type RevokeReviewerSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerSessionScopeResponse;
+};
+
+export type RevokeReviewerSessionResponse =
+  RevokeReviewerSessionResponses[keyof RevokeReviewerSessionResponses];
+
 export type ArchiveRulesVersionData = {
   body?: never;
   path: {
@@ -6503,6 +6607,78 @@ export type GetHealthResponses = {
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
 
+export type ListReviewerGamesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/reviewer/context/games';
+};
+
+export type ListReviewerGamesResponses = {
+  /**
+   * Response Listreviewergames
+   *
+   * Successful Response
+   */
+  200: Array<GameResponse>;
+};
+
+export type ListReviewerGamesResponse =
+  ListReviewerGamesResponses[keyof ListReviewerGamesResponses];
+
+export type ListReviewerSymbolsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/reviewer/context/games/{game_id}/symbols';
+};
+
+export type ListReviewerSymbolsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListReviewerSymbolsError =
+  ListReviewerSymbolsErrors[keyof ListReviewerSymbolsErrors];
+
+export type ListReviewerSymbolsResponses = {
+  /**
+   * Response Listreviewersymbols
+   *
+   * Successful Response
+   */
+  200: Array<SymbolResponse>;
+};
+
+export type ListReviewerSymbolsResponse =
+  ListReviewerSymbolsResponses[keyof ListReviewerSymbolsResponses];
+
+export type ListReviewerJobsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/reviewer/context/jobs';
+};
+
+export type ListReviewerJobsResponses = {
+  /**
+   * Response Listreviewerjobs
+   *
+   * Successful Response
+   */
+  200: Array<JobResponse>;
+};
+
+export type ListReviewerJobsResponse =
+  ListReviewerJobsResponses[keyof ListReviewerJobsResponses];
+
 export type UnlockReviewerSessionData = {
   body: ReviewerSessionUnlock;
   path: {
@@ -6537,7 +6713,7 @@ export type UnlockReviewerSessionResponses = {
   /**
    * Successful Response
    */
-  200: ReviewerSessionScopeResponse;
+  200: ReviewerSessionUnlockResponse;
 };
 
 export type UnlockReviewerSessionResponse =

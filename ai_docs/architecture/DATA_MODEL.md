@@ -597,6 +597,18 @@ Accepted/corrected `resolved_value` wskazuje dokładną rewizję geometrii i
 cięcia ani retraining nie zmienia danych, które rzeczywiście zatwierdził
 człowiek.
 
+### reviewer_access_sessions i reviewer_access_audit_events
+
+Trwała sesja Reviewera wiąże dokładnie `game_id` i `import_job_id`. Przechowuje
+salt i PBKDF2 hash kodu, licznik maksymalnie pięciu prób, `locked_at`,
+`revoked_at`, hash opaque tokenu, jego wygaśnięcie oraz czas ostatniego unlock.
+Kod i token nie występują jawnie. Token wygasa nie później niż sesja i jest
+usuwany przy revoke lub blokadzie.
+
+Append-only `reviewer_access_audit_events` zapisuje `created`,
+`unlock_failed`, `unlocked`, `locked` i `revoked`. Decyzje plansz pozostają w
+istniejącym audycie review, a ich aktor ma postać `reviewer-session:<UUID>`.
+
 ### image_verified_cohort_exports
 
 Zamrożony materiał z operacyjnego review jest wersjonowany per gra i import

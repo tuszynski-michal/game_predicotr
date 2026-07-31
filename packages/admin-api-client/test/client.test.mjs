@@ -1116,3 +1116,40 @@ test('generated client lists and explicitly freezes verified cohorts in one cont
     context.importJobId,
   );
 });
+
+test('operational review client forwards resume-at-first-pending in the all queue', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        counts: {
+          accepted: 0,
+          completed: 0,
+          corrected: 0,
+          pending: 1,
+          rejected: 0,
+        },
+        hasNext: false,
+        hasPrevious: false,
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+      });
+    },
+  });
+
+  await client.listOperationalImageReviewItems({
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+    limit: 1,
+    resumeAtFirstPending: true,
+    view: 'all',
+  });
+
+  const query = new URL(requests[0].url).searchParams;
+  assert.equal(query.get('view'), 'all');
+  assert.equal(query.get('limit'), '1');
+  assert.equal(query.get('resumeAtFirstPending'), 'true');
+});

@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Wymagania modułu administracyjnego
@@ -302,13 +302,26 @@ pełnych plansz i ma:
   plansz,
 - widoczną legendę skrótów symboli.
 
-Strzałki lewo/prawo przechodzą między planszami. Symbole są mapowane według
-stabilnej kolejności katalogu gry: klawisze `1`–`9`, `0` dla dziesiątego, a
-następne pozycje kolejno do klawiszy w wierszach `QWERTY`. Pojedyncze `Enter`
-albo kliknięcie `Zatwierdź` wykonuje zapis bez dodatkowego modala. Skróty nie
-działają podczas pisania w polu, w innym dialogu ani podczas trwającego zapisu.
-Idempotency key i blokada trwającego żądania nadal chronią przed podwójnym
-zdarzeniem.
+Aktywna sesja utrzymuje jedną deterministyczną kolejność wszystkich plansz
+wybranego importu, niezależnie od ich bieżącego statusu. Statusy i przełącznik
+widoku mogą zmieniać prezentowane liczniki, ale nie mogą usuwać
+accepted/corrected z nawigacji sesji. Strzałki lewo/prawo przechodzą po tej
+pełnej kolejności; strzałka w lewo musi wrócić również do planszy zatwierdzonej
+chwilę wcześniej.
+
+Przy pierwszym wejściu albo pełnym odświeżeniu aplikacja ustawia bieżącą
+pozycję na pierwszej planszy `pending`. Jeżeli nie istnieje żadna plansza
+`pending`, zaczyna od pierwszej planszy importu. Nie oznacza to pobrania pełnej
+kolejki do klienta: każda bieżąca plansza i sąsiad są nadal pobierane bounded,
+z limitem jednej planszy.
+
+Symbole są mapowane według stabilnej kolejności katalogu gry: klawisze
+`1`–`9`, `0` dla dziesiątego, a następne pozycje kolejno do klawiszy w
+wierszach `QWERTY`. Pojedyncze `Enter` albo kliknięcie `Zatwierdź` wykonuje
+zapis bez dodatkowego modala, a po poprawnym zapisie przesuwa bieżącą pozycję
+do następnej planszy w pełnej kolejności. Skróty nie działają podczas pisania
+w polu, w innym dialogu ani podczas trwającego zapisu. Idempotency key i
+blokada trwającego żądania nadal chronią przed podwójnym zdarzeniem.
 
 Plansza accepted/corrected pozostaje dostępna w widoku `Plansze kompletne` i
 może zostać ponownie edytowana. Zmiana tworzy kolejną rewizję append-only;
@@ -350,6 +363,18 @@ można unieważnić, każda decyzja zapisuje aktora i sesję, a konflikt dwóch
 recenzentów używa istniejącej kontroli rewizji. Zdalny tryb wymaga HTTPS przez
 jawnie wybrany tunel albo VPN. Domyślny loopback pozostaje włączony, a surowe
 przekierowanie portu routera nie jest wspieraną instrukcją.
+
+### Aktualizacja zdalnego dostępu v0.1
+
+Powyższy akapit o „przyszłym” M8.7 opisuje wcześniejszy baseline. W v0.1
+zdalny tryb jest wdrożony przez jawnie uruchamiany Cloudflare Quick Tunnel do
+samej aplikacji Reviewer. API, Admin i PostgreSQL nadal bindują loopback, a
+publiczny same-origin proxy ma zamkniętą allowlistę.
+
+Sesja jest trwała, ma maksymalnie pięć prób kodu, wydaje rotowany token,
+wygasa i może zostać natychmiast unieważniona w Adminie. Recenzent widzi tylko
+jedną grę/import i nie ma tras do konfiguracji, job mutations, eksportów ani
+wydań. Surowe przekierowanie portu routera pozostaje zabronione.
 
 ### Mobile releases
 

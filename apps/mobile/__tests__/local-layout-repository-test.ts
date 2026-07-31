@@ -159,32 +159,22 @@ describe('LocalLayoutRepository game catalog', () => {
 });
 
 describe('LocalLayoutRepository prefix matching', () => {
-  test.each([
-    ['empty', '', 4],
-    ['not found', '02', 0],
-    ['ambiguous', '01', 3],
-  ])(
-    'returns exact candidate count for %s prefix',
-    async (_label, prefix, candidateCount) => {
-      const database = new FakeDatabase([], [count(candidateCount)]);
+  test('returns zero candidates without a second query', async () => {
+    const database = new FakeDatabase([], [count(0)]);
 
-      await expect(
-        new LocalLayoutRepository(database).findByPrefix(game, prefix),
-      ).resolves.toEqual({
-        candidate: null,
-        candidateCount,
-      });
-      expect(database.firstQueries).toHaveLength(1);
-      expect(database.firstQueries[0]?.params).toEqual([
-        7,
-        prefix,
-        `${prefix}:`,
-      ]);
-      expect(database.firstQueries[0]?.source).toContain(
-        'idx_layouts_game_signature',
-      );
-    },
-  );
+    await expect(
+      new LocalLayoutRepository(database).findByPrefix(game, '02'),
+    ).resolves.toEqual({
+      candidateCount: 0,
+      suggestion: null,
+    });
+    expect(database.firstQueries).toHaveLength(1);
+    expect(database.allQueries).toHaveLength(0);
+    expect(database.firstQueries[0]?.params).toEqual([7, '02', '02:']);
+    expect(database.firstQueries[0]?.source).toContain(
+      'idx_layouts_game_signature',
+    );
+  });
 
   test('returns the full layout only for one prefix candidate', async () => {
     const database = new FakeDatabase(
@@ -195,14 +185,51 @@ describe('LocalLayoutRepository prefix matching', () => {
     await expect(
       new LocalLayoutRepository(database).findByPrefix(game, '0102'),
     ).resolves.toEqual({
-      candidate: {
+      candidateCount: 1,
+      suggestion: {
         cells: [1, 2, 1, 2],
+        kind: 'unique',
+        occurrenceCount: 1,
         sequenceNumber: 3,
         signature,
       },
-      candidateCount: 1,
     });
     expect(database.firstQueries).toHaveLength(2);
+  });
+
+  test('suggests shared content when all matching records have one signature', async () => {
+    const database = new FakeDatabase([[{ signature }]], [count(3)]);
+
+    await expect(
+      new LocalLayoutRepository(database).findByPrefix(game, '01'),
+    ).resolves.toEqual({
+      candidateCount: 3,
+      suggestion: {
+        cells: [1, 2, 1, 2],
+        kind: 'duplicate',
+        occurrenceCount: 3,
+        sequenceNumber: null,
+        signature,
+      },
+    });
+    expect(database.firstQueries).toHaveLength(1);
+    expect(database.allQueries).toHaveLength(1);
+    expect(database.allQueries[0]?.source).toContain('GROUP BY signature');
+    expect(database.allQueries[0]?.source).toContain('LIMIT 2');
+  });
+
+  test('does not suggest when a prefix has multiple distinct signatures', async () => {
+    const database = new FakeDatabase(
+      [[{ signature }, { signature: '01020201' }]],
+      [count(4)],
+    );
+
+    await expect(
+      new LocalLayoutRepository(database).findByPrefix(game, '01'),
+    ).resolves.toEqual({
+      candidateCount: 4,
+      suggestion: null,
+    });
   });
 
   test('rejects a prefix containing a symbol outside the game', async () => {

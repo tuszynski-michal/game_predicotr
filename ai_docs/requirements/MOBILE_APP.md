@@ -1,7 +1,7 @@
 ---
 title: Mobile application requirements
 status: accepted
-last_updated: 2026-07-24
+last_updated: 2026-07-30
 ---
 
 # Wymagania aplikacji mobilnej
@@ -123,14 +123,20 @@ Po każdej zmianie aplikacja wyszukuje prefiks w lokalnym snapshotcie.
 
 Modal jest otwierany, gdy:
 
-- istnieje dokładnie jeden kandydat pozycji sekwencji,
+- istnieje dokładnie jeden kandydat pozycji sekwencji albo wszystkie pozostałe
+  pozycje mają jedną identyczną pełną sygnaturę layoutu,
 - kandydat ma więcej symboli niż obecnie wprowadzono,
 - propozycja nie została już odrzucona dla tego samego prefiksu.
+
+Grupa kilku pozycji z jedną pełną sygnaturą może podpowiedzieć brakujące symbole,
+ale nadal pozostaje wynikiem `duplicate`. Podpowiedź nie może wybierać jednego
+`sequence_number`, uruchamiać Target ani ukrywać liczby wystąpień.
 
 ### Zawartość modala
 
 - wizualizacja pełnego proponowanego layoutu,
-- numer sekwencji,
+- numer sekwencji dla pojedynczego kandydata albo jawna informacja o grupie
+  duplikatów bez arbitralnego numeru,
 - przycisk `Akceptuj`,
 - przycisk `Zamknij`.
 

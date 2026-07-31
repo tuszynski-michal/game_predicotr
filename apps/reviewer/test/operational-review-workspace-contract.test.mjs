@@ -27,9 +27,20 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(source, /loadOperationalReviewPage/);
   assert.match(actions, /limit: 1/);
   assert.match(source, /item\.cells\.map/);
-  assert.match(source, /Widok planszy/);
-  assert.match(source, /Plansze kompletne/);
-  assert.match(source, /Wycięty układ/);
+  assert.match(source, /REVIEW_QUEUE_VIEW = 'all'/);
+  assert.match(source, /resumeAtFirstPending: true/);
+  assert.match(source, /Wszystkie plansze/);
+  assert.doesNotMatch(source, /onViewChange/);
+  assert.match(source, /afterCursor: page\.nextCursor/);
+  assert.match(source, /beforeCursor: page\?\.previousCursor/);
+  assert.match(source, /const canAdvance =/);
+  assert.match(source, /canAdvance\s*\?\s*'Dalej'/);
+  assert.match(
+    source,
+    /aria-label="Zatwierdź lub przejdź do następnej planszy"[\s\S]*onClick=\{\(\) => void submitResolution\(\)\}/,
+  );
+  assert.doesNotMatch(source, /Plansza do porównania/);
+  assert.doesNotMatch(source, />\s*Wycięty układ/);
   assert.match(source, /item\.id,\s*'board'/);
   assert.doesNotMatch(source, /item\.id,\s*'source'/);
   assert.match(source, /Edycja dozwolona/);
@@ -78,5 +89,9 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(
     reviewerStyles,
     /\.operationalReviewBoardReference[\s\S]*height:\s*min\(300px,\s*28vw\)/,
+  );
+  assert.match(
+    reviewerStyles,
+    /\.operationalReviewApprove:disabled\s*\{[\s\S]*cursor:\s*not-allowed/,
   );
 });

@@ -18,6 +18,7 @@ from game_predictor_api.application.image_reviews import (
     OperationalImageReviewRepository,
     OperationalImageReviewService,
 )
+from game_predictor_api.application.reviewer_access import ReviewerAccessService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
@@ -70,58 +71,71 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         after_key: tuple[int, int, int, str] | None,
         before_key: tuple[int, int, int, str] | None,
         sequence_number: int | None,
+        resume_at_first_pending: bool,
         limit: int,
     ) -> ImageReviewPage:
         self.require_context(game_id=game_id, import_job_id=import_job_id)
+
+        def belongs_to_view(item: ImageReviewItem) -> bool:
+            if view is ImageReviewView.PENDING:
+                return item.status == "pending"
+            if view is ImageReviewView.COMPLETED:
+                return item.status in {"accepted", "corrected"}
+            return item.status in {"pending", "accepted", "corrected", "rejected"}
+
+        def effective_sequence_number(item: ImageReviewItem) -> int | None:
+            if view is ImageReviewView.PENDING:
+                return item.suggested_sequence_number
+            if view is ImageReviewView.COMPLETED:
+                return item.queue_sequence_number
+            return item.queue_sequence_number or item.suggested_sequence_number
+
+        def key(item: ImageReviewItem) -> tuple[int, int, int, str]:
+            return item.cursor_key_for(view)
+
         candidates = [
             item
             for item in self.items.values()
-            if (
-                item.status == "pending"
-                if view is ImageReviewView.PENDING
-                else item.status in {"accepted", "corrected"}
-            )
-            and (sequence_number is None or item.queue_sequence_number == sequence_number)
+            if belongs_to_view(item)
+            and (sequence_number is None or effective_sequence_number(item) == sequence_number)
         ]
-        candidates.sort(key=lambda item: item.cursor_key)
+        candidates.sort(key=key)
+        if resume_at_first_pending:
+            first_pending = next(
+                (item for item in candidates if item.status == "pending"),
+                None,
+            )
+            if first_pending is not None:
+                first_pending_key = key(first_pending)
+                candidates = [item for item in candidates if key(item) >= first_pending_key]
         if after_key is not None:
-            if not any(item.cursor_key == after_key for item in candidates):
+            if not any(key(item) == after_key for item in candidates):
                 raise ImageReviewConflictError(
                     "IMAGE_REVIEW_CURSOR_STALE",
                     "The operational review cursor is stale.",
                 )
-            candidates = [item for item in candidates if item.cursor_key > after_key]
+            candidates = [item for item in candidates if key(item) > after_key]
         if before_key is not None:
-            if not any(item.cursor_key == before_key for item in candidates):
+            if not any(key(item) == before_key for item in candidates):
                 raise ImageReviewConflictError(
                     "IMAGE_REVIEW_CURSOR_STALE",
                     "The operational review cursor is stale.",
                 )
-            candidates = [item for item in candidates if item.cursor_key < before_key]
+            candidates = [item for item in candidates if key(item) < before_key]
             visible = candidates[-limit:]
         else:
             visible = candidates[:limit]
         all_for_view = sorted(
-            (
-                item
-                for item in self.items.values()
-                if (
-                    item.status == "pending"
-                    if view is ImageReviewView.PENDING
-                    else item.status in {"accepted", "corrected"}
-                )
-            ),
-            key=lambda item: item.cursor_key,
+            (item for item in self.items.values() if belongs_to_view(item)),
+            key=key,
         )
         return ImageReviewPage(
             items=tuple(visible),
             counts=self._counts(),
             has_previous=bool(
-                visible and any(item.cursor_key < visible[0].cursor_key for item in all_for_view)
+                visible and any(key(item) < key(visible[0]) for item in all_for_view)
             ),
-            has_next=bool(
-                visible and any(item.cursor_key > visible[-1].cursor_key for item in all_for_view)
-            ),
+            has_next=bool(visible and any(key(item) > key(visible[-1]) for item in all_for_view)),
         )
 
     def get_item(
@@ -444,6 +458,70 @@ def _resolution_payload(
     }
 
 
+def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
+    game_id = uuid4()
+    import_job_id = uuid4()
+    item = _item(
+        game_id,
+        import_job_id,
+        source_order_index=0,
+        suggested_sequence_number=1,
+    )
+    repository = MemoryOperationalImageReviewRepository(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        items=[item],
+    )
+    access = ReviewerAccessService("http://127.0.0.1:3001")
+    created = access.create(
+        game_id=game_id,
+        import_job_id=import_job_id,
+        lifetime_minutes=60,
+    )
+    token = access.unlock(created.session.id, created.code).access_token
+    app = create_app(
+        ApiSettings.from_environment({}),
+        image_review_service_dependency=lambda: OperationalImageReviewService(repository),
+        reviewer_access_service_dependency=lambda: access,
+    )
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    allowed = client.get(
+        "/api/v1/admin/image-review-items",
+        params={
+            "gameId": str(game_id),
+            "importJobId": str(import_job_id),
+            "view": "all",
+            "limit": 1,
+        },
+        headers=headers,
+    )
+    assert allowed.status_code == 200
+
+    forbidden = client.get(
+        "/api/v1/admin/image-review-items",
+        params={
+            "gameId": str(game_id),
+            "importJobId": str(uuid4()),
+            "view": "all",
+            "limit": 1,
+        },
+        headers=headers,
+    )
+    assert forbidden.status_code == 403
+    assert forbidden.json()["code"] == "REVIEWER_SCOPE_FORBIDDEN"
+
+    resolved = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/resolution",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json=_resolution_payload(item, idempotency_key=uuid4()),
+        headers=headers,
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["event"]["resolvedBy"] == (f"reviewer-session:{created.session.id}")
+
+
 def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
     tmp_path: Path,
 ) -> None:
@@ -569,10 +647,7 @@ def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
         json={**payload, "correctedBy": "another-operator"},
     )
     assert reused_for_other_payload.status_code == 409
-    assert (
-        reused_for_other_payload.json()["code"]
-        == "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT"
-    )
+    assert reused_for_other_payload.json()["code"] == "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT"
 
     stale = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
@@ -651,6 +726,161 @@ def test_cursor_queue_is_bounded_reversible_and_scope_bound(
         },
     )
     assert wrong_scope.status_code in {404, 409}
+
+
+def test_all_view_keeps_source_order_and_cursor_valid_after_resolution(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    query = {
+        "gameId": str(game_id),
+        "importJobId": str(import_job_id),
+        "view": "all",
+        "limit": 1,
+    }
+    first = client.get("/api/v1/admin/image-review-items", params=query)
+    assert first.status_code == 200
+    first_body = first.json()
+    first_id = UUID(first_body["items"][0]["id"])
+    assert first_body["nextCursor"]
+
+    item = repository.items[first_id]
+    resolved = client.post(
+        f"/api/v1/admin/image-review-items/{item.id}/resolution",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json=_resolution_payload(
+            item,
+            idempotency_key=uuid4(),
+            action="corrected",
+            sequence_number=99,
+            corrected_cell=0,
+        ),
+    )
+    assert resolved.status_code == 200
+
+    next_page = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "afterCursor": first_body["nextCursor"]},
+    )
+    assert next_page.status_code == 200
+    next_body = next_page.json()
+    assert next_body["items"][0]["sourceOrderIndex"] == 1
+    assert next_body["previousCursor"]
+
+    previous_page = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "beforeCursor": next_body["previousCursor"]},
+    )
+    assert previous_page.status_code == 200
+    assert previous_page.json()["items"][0]["id"] == str(first_id)
+    assert previous_page.json()["nextCursor"] is not None
+
+    exact_jump = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "sequenceNumber": 99},
+    )
+    assert exact_jump.status_code == 200
+    assert exact_jump.json()["items"][0]["id"] == str(first_id)
+
+    ordered = client.get(
+        "/api/v1/admin/image-review-items",
+        params={**query, "limit": 3},
+    )
+    assert [item["sourceOrderIndex"] for item in ordered.json()["items"]] == [0, 1, 2]
+
+
+def test_all_view_can_resume_at_first_pending_with_previous_navigation(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    first_item = min(repository.items.values(), key=lambda item: item.source_order_index)
+    resolved = client.post(
+        f"/api/v1/admin/image-review-items/{first_item.id}/resolution",
+        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
+        json=_resolution_payload(first_item, idempotency_key=uuid4()),
+    )
+    assert resolved.status_code == 200
+
+    query = {
+        "gameId": str(game_id),
+        "importJobId": str(import_job_id),
+        "view": "all",
+        "resumeAtFirstPending": "true",
+        "limit": 1,
+    }
+    resumed = client.get("/api/v1/admin/image-review-items", params=query)
+    assert resumed.status_code == 200
+    resumed_body = resumed.json()
+    assert resumed_body["items"][0]["sourceOrderIndex"] == 1
+    assert resumed_body["previousCursor"]
+
+    previous = client.get(
+        "/api/v1/admin/image-review-items",
+        params={
+            "gameId": str(game_id),
+            "importJobId": str(import_job_id),
+            "view": "all",
+            "beforeCursor": resumed_body["previousCursor"],
+            "limit": 1,
+        },
+    )
+    assert previous.status_code == 200
+    assert previous.json()["items"][0]["sourceOrderIndex"] == 0
+    assert previous.json()["nextCursor"] is not None
+
+    invalid = client.get(
+        "/api/v1/admin/image-review-items",
+        params={
+            "gameId": str(game_id),
+            "importJobId": str(import_job_id),
+            "view": "pending",
+            "resumeAtFirstPending": "true",
+        },
+    )
+    assert invalid.status_code == 409
+    assert invalid.json()["code"] == "IMAGE_REVIEW_PAGE_INVALID"
+
+
+def test_all_view_resume_falls_back_to_first_item_when_nothing_is_pending(
+    operational_review_context: tuple[
+        TestClient,
+        MemoryOperationalImageReviewRepository,
+        UUID,
+        UUID,
+    ],
+) -> None:
+    client, repository, game_id, import_job_id = operational_review_context
+    context = {"gameId": str(game_id), "importJobId": str(import_job_id)}
+    for item in sorted(repository.items.values(), key=lambda value: value.source_order_index):
+        response = client.post(
+            f"/api/v1/admin/image-review-items/{item.id}/resolution",
+            params=context,
+            json=_resolution_payload(item, idempotency_key=uuid4()),
+        )
+        assert response.status_code == 200
+
+    resumed = client.get(
+        "/api/v1/admin/image-review-items",
+        params={
+            **context,
+            "view": "all",
+            "resumeAtFirstPending": "true",
+            "limit": 1,
+        },
+    )
+    assert resumed.status_code == 200
+    assert resumed.json()["items"][0]["sourceOrderIndex"] == 0
+    assert resumed.json()["previousCursor"] is None
 
 
 def test_whole_board_resolution_is_idempotent_and_reeditable(

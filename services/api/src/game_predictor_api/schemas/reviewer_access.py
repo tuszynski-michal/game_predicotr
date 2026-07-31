@@ -10,6 +10,7 @@ from pydantic import Field
 from game_predictor_api.application.reviewer_access import (
     CreatedReviewerAccess,
     ReviewerAccessSession,
+    UnlockedReviewerAccess,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -60,9 +61,28 @@ class ReviewerSessionScopeResponse(ApiModel):
         )
 
 
+class ReviewerSessionUnlockResponse(ReviewerSessionScopeResponse):
+    access_token: str
+
+    @classmethod
+    def from_unlocked(
+        cls,
+        unlocked: UnlockedReviewerAccess,
+    ) -> ReviewerSessionUnlockResponse:
+        session = unlocked.session
+        return cls(
+            session_id=session.id,
+            game_id=session.game_id,
+            import_job_id=session.import_job_id,
+            expires_at=session.expires_at,
+            access_token=unlocked.access_token,
+        )
+
+
 __all__ = [
     "ReviewerSessionCreate",
     "ReviewerSessionCreatedResponse",
     "ReviewerSessionScopeResponse",
     "ReviewerSessionUnlock",
+    "ReviewerSessionUnlockResponse",
 ]

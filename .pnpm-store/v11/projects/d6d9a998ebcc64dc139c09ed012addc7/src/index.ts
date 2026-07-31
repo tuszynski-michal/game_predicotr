@@ -69,6 +69,7 @@ import {
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
   retryImageJobFile as retryGeneratedImageJobFile,
+  revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   updateGame as updateGeneratedGame,
@@ -106,6 +107,7 @@ import type {
   ReviewResolutionCommand,
   ReviewerSessionCreate,
   ReviewerSessionUnlock,
+  ReviewerSessionUnlockResponse,
   SymbolCreate,
   SymbolUpdate,
 } from './generated/types.gen';
@@ -219,6 +221,7 @@ export type {
   ReviewerSessionCreatedResponse,
   ReviewerSessionScopeResponse,
   ReviewerSessionUnlock,
+  ReviewerSessionUnlockResponse,
   SymbolCreate,
   SymbolResponse,
   SymbolStatus,
@@ -265,6 +268,7 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly view?: ImageReviewView;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
+  readonly resumeAtFirstPending?: boolean;
   readonly sequenceNumber?: number;
   readonly limit?: number;
 }
@@ -283,6 +287,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     getHealth: () => getGeneratedHealth({ client }),
     createReviewerSession: (body: ReviewerSessionCreate) =>
       createGeneratedReviewerSession({ body, client }),
+    revokeReviewerSession: (sessionId: string) =>
+      revokeGeneratedReviewerSession({
+        client,
+        path: { session_id: sessionId },
+      }),
     unlockReviewerSession: (sessionId: string, body: ReviewerSessionUnlock) =>
       unlockGeneratedReviewerSession({
         body,
@@ -346,6 +355,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(filters.beforeCursor === undefined
             ? {}
             : { beforeCursor: filters.beforeCursor }),
+          ...(filters.resumeAtFirstPending === undefined
+            ? {}
+            : { resumeAtFirstPending: filters.resumeAtFirstPending }),
           ...(filters.sequenceNumber === undefined
             ? {}
             : { sequenceNumber: filters.sequenceNumber }),

@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Decision Log
@@ -2320,6 +2320,82 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   zaktualizowane. Akcje destrukcyjne, takie jak odrzucenie albo zamrożenie
   kohorty, mogą nadal wymagać osobnego potwierdzenia.
 - **Supersedes:** zastępuje dwustopniowy Enter z TASK-0108 i D-086.
+
+## D-093 — Sesja Reviewera nawiguje po pełnej kolejności plansz
+
+- **Status:** accepted
+- **Date:** 2026-07-30
+- **Decision:** aktywna sesja Reviewera używa jednej deterministycznej
+  kolejności wszystkich plansz wybranego importu. Zapis accepted/corrected nie
+  usuwa bieżącego itemu z tej kolejki. Pojedyncze `Enter` zapisuje i przechodzi
+  do następnego elementu, a nawigacja w lewo może wrócić do właśnie
+  zatwierdzonej planszy. Pierwsze wejście i reload wybierają pierwszą pending;
+  jeśli pending nie istnieje, wybierają pierwszą planszę importu.
+- **Context:** odbiór operatorski wykazał, że filtrowanie aktywnej kolejki do
+  pending usuwało item natychmiast po zapisie i uniemożliwiało naturalny powrót
+  strzałką w lewo.
+- **Reason:** status decyzji nie może zmieniać topologii bieżącej sesji.
+  Stabilna pełna kolejność daje przewidywalną nawigację i nadal pozwala szybko
+  wznowić pracę od pierwszego nierozwiązanego itemu po ponownym wejściu.
+- **Alternatives:** osobne kolejki pending/completed, klientowa tablica całego
+  importu albo ręczny powrót przez zmianę filtra. Pierwsza powoduje skok po
+  zapisie, druga łamie bounded memory, a trzecia utrudnia seryjny review.
+- **Consequences:** API udostępnia projekcję `all`, ale Reviewer zachowuje
+  `limit = 1` i nie ładuje pełnej kolejki. Widoki pending/completed pozostają
+  licznikami lub projekcjami statusu. Testy obejmują save-and-next, powrót do
+  accepted oraz oba przypadki pozycji startowej.
+- **Supersedes:** doprecyzowuje nawigację D-086 i zachowuje pojedynczą,
+  idempotentną akcję zapisu D-092.
+
+## D-094 — Grupa duplikatów może podpowiedzieć layout, ale nie pozycję sekwencji
+
+- **Status:** accepted
+- **Date:** 2026-07-30
+- **Decision:** jeżeli po dopasowaniu niepełnego wejścia pozostało kilka
+  rekordów, ale wszystkie mają dokładnie tę samą pełną sygnaturę layoutu,
+  aplikacja mobilna może zaproponować uzupełnienie brakujących symboli tym
+  layoutem. Po akceptacji exact match nadal zwraca `duplicate`; aplikacja nie
+  wybiera żadnego `sequence_number` i nie uruchamia Target.
+- **Context:** duplikaty tej samej planszy są dozwolone w danych. Obecny modal
+  podpowiada tylko wtedy, gdy pozostał jeden rekord, mimo że kilka rekordów o
+  jednej sygnaturze daje równie jednoznaczną podpowiedź symboli.
+- **Reason:** jednoznaczność treści layoutu i jednoznaczność pozycji sekwencji są
+  różnymi własnościami. Pierwsza wystarcza do bezpiecznego uzupełnienia planszy,
+  druga jest nadal konieczna do uruchomienia Target.
+- **Alternatives:** brak podpowiedzi dla każdej grupy duplikatów albo wybór
+  pierwszego rekordu. Pierwsza opcja niepotrzebnie zwiększa pracę ręczną, a druga
+  łamie zasadę braku arbitralnego wyboru duplikatu.
+- **Consequences:** TASK-0116 doda distinct-signature matching, jawny wariant
+  modala dla duplikatu oraz testy potwierdzające brak Target i brak wybranego
+  numeru sekwencji.
+- **Supersedes:** rozszerza automatyczną propozycję M1 bez zmiany D-008.
+
+## D-095 — Zdalny Reviewer używa outbound-only Quick Tunnel i same-origin proxy
+
+- **Status:** accepted
+- **Date:** 2026-07-30
+- **Decision:** czasowy dostęp v0.1 publikuje wyłącznie aplikację
+  `apps/reviewer` przez Cloudflare Quick Tunnel. Reviewer pozostaje zbindowany
+  do `127.0.0.1:3001`, a tunel tworzy wychodzące połączenie HTTPS. Same-origin
+  proxy Reviewera przekazuje do FastAPI wyłącznie allowlistę scoped review;
+  Admin, PostgreSQL, worker, eksporty i wydania nie mają publicznej trasy.
+  Sesje są trwałe, odwoływalne, blokowane po pięciu błędnych kodach i wydają
+  niejawny token przechowywany przez przeglądarkę wyłącznie jako HttpOnly cookie.
+- **Context:** odbiorca ma wejść zwykłym linkiem z innego miasta bez instalacji
+  VPN, domeny ani płatnego hostingu. Lokalny procesowy code gate z D-091 nie
+  stanowił zabezpieczenia internetowego.
+- **Reason:** outbound tunnel nie wymaga otwierania portu routera, a publiczny
+  proxy pozwala technicznie odciąć całą powierzchnię Admin API. Quick Tunnel
+  spełnia czasowy charakter prywatnych testów i może zostać uruchomiony oraz
+  zatrzymany jedną komendą.
+- **Alternatives:** Tailscale Funnel wymaga konfiguracji tailnetu i pozostaje
+  usługą beta; VPN wymaga klienta po stronie odbiorcy; named Cloudflare Tunnel
+  wymaga konta i domeny; surowy port forwarding jest niedopuszczalny.
+- **Consequences:** link `trycloudflare.com` zmienia się po ponownym
+  uruchomieniu i nie ma SLA. Test z sieci zewnętrznej pozostaje obowiązkową
+  bramką TASK-0115. Stały adres albo tryb always-on wymagają named tunnel oraz
+  osobnej decyzji operacyjnej.
+- **Supersedes:** rozstrzyga Q-021 i materializuje zdalną część D-087/D-091.
 
 ## Szablon nowej decyzji
 

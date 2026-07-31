@@ -66,6 +66,7 @@ class OperationalImageReviewRepository(Protocol):
         after_key: tuple[int, int, int, str] | None,
         before_key: tuple[int, int, int, str] | None,
         sequence_number: int | None,
+        resume_at_first_pending: bool,
         limit: int,
     ) -> ImageReviewPage: ...
 
@@ -143,11 +144,21 @@ class OperationalImageReviewService:
         after_cursor: str | None,
         before_cursor: str | None,
         sequence_number: int | None,
+        resume_at_first_pending: bool,
         limit: int,
     ) -> OperationalImageReviewPage:
         if (
             not 1 <= limit <= MAX_IMAGE_REVIEW_PAGE_SIZE
             or (after_cursor is not None and before_cursor is not None)
+            or (
+                resume_at_first_pending
+                and (
+                    view is not ImageReviewView.ALL
+                    or after_cursor is not None
+                    or before_cursor is not None
+                    or sequence_number is not None
+                )
+            )
             or (
                 sequence_number is not None
                 and (
@@ -160,7 +171,8 @@ class OperationalImageReviewService:
         ):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_PAGE_INVALID",
-                "Use one bounded cursor or one positive sequenceNumber.",
+                "Use one bounded cursor, one positive sequenceNumber, or "
+                "resumeAtFirstPending with view=all.",
             )
         self._repository.require_context(game_id=game_id, import_job_id=import_job_id)
         after_key = (
@@ -190,6 +202,7 @@ class OperationalImageReviewService:
             after_key=after_key,
             before_key=before_key,
             sequence_number=sequence_number,
+            resume_at_first_pending=resume_at_first_pending,
             limit=limit,
         )
         return OperationalImageReviewPage(
@@ -203,7 +216,7 @@ class OperationalImageReviewService:
                     game_id=game_id,
                     import_job_id=import_job_id,
                     view=view,
-                    key=page.items[0].cursor_key,
+                    key=page.items[0].cursor_key_for(view),
                 )
                 if page.items and page.has_previous
                 else None
@@ -213,7 +226,7 @@ class OperationalImageReviewService:
                     game_id=game_id,
                     import_job_id=import_job_id,
                     view=view,
-                    key=page.items[-1].cursor_key,
+                    key=page.items[-1].cursor_key_for(view),
                 )
                 if page.items and page.has_next
                 else None

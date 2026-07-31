@@ -102,7 +102,7 @@ class FakeRepository {
   }
 
   async findByPrefix(): Promise<PrefixMatchResult> {
-    return { candidate: null, candidateCount: 3 };
+    return { candidateCount: 3, suggestion: null };
   }
 
   async readCyclicPayouts(): Promise<readonly SequencePayout[]> {

@@ -22,6 +22,7 @@ BASE_GEOMETRY_REVISION = 0
 class ImageReviewView(StrEnum):
     PENDING = "pending"
     COMPLETED = "completed"
+    ALL = "all"
 
 
 class ImageReviewAction(StrEnum):
@@ -107,6 +108,16 @@ class ImageReviewItem:
             self.position_index,
             str(self.id),
         )
+
+    def cursor_key_for(self, view: ImageReviewView) -> tuple[int, int, int, str]:
+        if view is ImageReviewView.ALL:
+            return (
+                0,
+                self.source_order_index,
+                self.position_index,
+                str(self.id),
+            )
+        return self.cursor_key
 
 
 @dataclass(frozen=True, slots=True)

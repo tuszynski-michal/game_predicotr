@@ -155,13 +155,12 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
       ? targetForecast.state.result.positiveLocalPeaks
       : EMPTY_TARGET_PEAKS;
   const targetReady = targetForecast.state.status === 'ready';
-  const candidate =
+  const suggestion =
     prefixMatching.status === 'ready' &&
-    prefixMatching.candidateCount === 1 &&
-    prefixMatching.candidate !== null &&
-    prefixMatching.candidate.cells.length > enteredCount &&
+    prefixMatching.suggestion !== null &&
+    prefixMatching.suggestion.cells.length > enteredCount &&
     prefixMatching.signaturePrefix !== state.rejectedSuggestionPrefix
-      ? prefixMatching.candidate
+      ? prefixMatching.suggestion
       : null;
 
   const handleSelectGame = (gameId: string) => {
@@ -276,24 +275,24 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
       />
       {selectedGame === null ? null : (
         <CandidateLayoutModal
-          candidate={candidate}
           game={selectedGame}
           onAccept={() => {
-            if (candidate !== null) {
+            if (suggestion !== null) {
               dispatch({
-                cells: candidate.cells,
+                cells: suggestion.cells,
                 type: 'complete_board',
               });
             }
           }}
           onClose={() => {
-            if (candidate !== null) {
+            if (suggestion !== null) {
               dispatch({
                 signaturePrefix: prefixMatching.signaturePrefix,
                 type: 'reject_suggestion',
               });
             }
           }}
+          suggestion={suggestion}
         />
       )}
     </SafeAreaView>

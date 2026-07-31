@@ -1,7 +1,7 @@
 ---
 title: AI documentation index
 status: active
-last_updated: 2026-07-29
+last_updated: 2026-07-31
 ---
 
 # Dokumentacja AI Driven Development
@@ -70,6 +70,15 @@ implementacyjnym.
 - [Current state](process/CURRENT_STATE.md)
 - [Task template](process/TASK_TEMPLATE.md)
 - [Test strategy](quality/TEST_STRATEGY.md)
+
+### Bezpieczeństwo
+
+- [Model zagrożeń zdalnego Reviewera](security/REMOTE_REVIEWER_THREAT_MODEL.md)
+
+### Instrukcje operatorskie
+
+- [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
+  środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
 
 ### Materiały warunkowe
 

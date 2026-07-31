@@ -69,7 +69,7 @@ function repository(
   return {
     findByPrefix: jest
       .fn()
-      .mockResolvedValue({ candidate: null, candidateCount: 2 }),
+      .mockResolvedValue({ candidateCount: 2, suggestion: null }),
     findExact: jest.fn().mockResolvedValue({
       candidate: {
         cells: [1, 2],

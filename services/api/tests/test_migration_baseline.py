@@ -27,6 +27,7 @@ IMAGE_PROCESSING_REVISION = "0017_image_processing"
 IMAGE_FAILURE_RETRY_REVISION = "0018_image_failure_retry"
 IMAGE_REVIEW_GEOMETRY_REVISION = "0019_review_geometry"
 IMAGE_VERIFIED_COHORTS_REVISION = "0020_verified_cohorts"
+REVIEWER_ACCESS_REVISION = "0021_reviewer_access"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -38,7 +39,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_verified_cohorts_migration_is_the_only_head() -> None:
+def test_reviewer_access_migration_is_the_only_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -60,8 +61,9 @@ def test_verified_cohorts_migration_is_the_only_head() -> None:
     image_failure_retry = script.get_revision(IMAGE_FAILURE_RETRY_REVISION)
     image_review_geometry = script.get_revision(IMAGE_REVIEW_GEOMETRY_REVISION)
     image_verified_cohorts = script.get_revision(IMAGE_VERIFIED_COHORTS_REVISION)
+    reviewer_access = script.get_revision(REVIEWER_ACCESS_REVISION)
 
-    assert script.get_heads() == [IMAGE_VERIFIED_COHORTS_REVISION]
+    assert script.get_heads() == [REVIEWER_ACCESS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -102,6 +104,8 @@ def test_verified_cohorts_migration_is_the_only_head() -> None:
     assert image_review_geometry.down_revision == IMAGE_FAILURE_RETRY_REVISION
     assert image_verified_cohorts is not None
     assert image_verified_cohorts.down_revision == IMAGE_REVIEW_GEOMETRY_REVISION
+    assert reviewer_access is not None
+    assert reviewer_access.down_revision == IMAGE_VERIFIED_COHORTS_REVISION
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

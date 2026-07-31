@@ -42,6 +42,7 @@ import {
   getRulesVersion as getGeneratedRulesVersion,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
+  getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
@@ -72,6 +73,8 @@ import {
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
+  startReviewerIngress as startGeneratedReviewerIngress,
+  stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
   updatePayline as updateGeneratedPayline,
   updatePayoutRule as updateGeneratedPayoutRule,
@@ -105,6 +108,7 @@ import type {
   ReviewItemStatus,
   ReviewFeedbackExportCreate,
   ReviewResolutionCommand,
+  ReviewerIngressCommand,
   ReviewerSessionCreate,
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
@@ -217,6 +221,8 @@ export type {
   ReviewResolutionCommandResponse,
   ReviewResolutionLabel,
   ReviewResolutionResponse,
+  ReviewerIngressCommand,
+  ReviewerIngressStatusResponse,
   ReviewerSessionCreate,
   ReviewerSessionCreatedResponse,
   ReviewerSessionScopeResponse,
@@ -285,6 +291,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
+    getReviewerIngressStatus: () =>
+      getGeneratedReviewerIngressStatus({ client }),
+    startReviewerIngress: (body: ReviewerIngressCommand) =>
+      startGeneratedReviewerIngress({ body, client }),
+    stopReviewerIngress: (body: ReviewerIngressCommand) =>
+      stopGeneratedReviewerIngress({ body, client }),
     createReviewerSession: (body: ReviewerSessionCreate) =>
       createGeneratedReviewerSession({ body, client }),
     revokeReviewerSession: (sessionId: string) =>

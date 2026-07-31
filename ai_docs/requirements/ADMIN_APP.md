@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Wymagania modułu administracyjnego
@@ -280,9 +280,16 @@ pełnych plansz i ma:
 
 - działać jako osobna aplikacja przeglądarkowa `Reviewer`, a nie sekcja
   właściwego panelu administracyjnego,
-- być uruchamiany lokalnie osobną komendą i mieć własny adres; panel admina
-  wybiera grę oraz import, generuje ograniczoną sesję, a następnie pokazuje link
-  i unikalny kod wejścia,
+- mieć własny proces i adres; panel Admin wybiera grę oraz import, a przycisk
+  `Utwórz link i wystaw online` uruchamia brakujący produkcyjny Reviewer,
+  kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
+  oraz unikalny kod wejścia,
+- pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
+  `Zatrzymaj udostępnianie`, który unieważnia bieżącą sesję i zamyka publiczny
+  tunel; decyzje zapisane wcześniej w audycie pozostają w bazie,
+- nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
+  wykrycie procesu developerskiego na porcie Reviewera blokuje start z
+  czytelnym komunikatem,
 - przed pokazaniem danych wymagać poprawnego kodu. Lokalna wersja pozostaje
   dostępna wyłącznie przez loopback; kod lokalny nie jest deklarowany jako
   zabezpieczenie dostępu internetowego,
@@ -375,6 +382,11 @@ Sesja jest trwała, ma maksymalnie pięć prób kodu, wydaje rotowany token,
 wygasa i może zostać natychmiast unieważniona w Adminie. Recenzent widzi tylko
 jedną grę/import i nie ma tras do konfiguracji, job mutations, eksportów ani
 wydań. Surowe przekierowanie portu routera pozostaje zabronione.
+
+Publiczny lifecycle jest obsługiwany z panelu: start jest idempotentny i ma
+ograniczony czas oczekiwania, a stop usuwa stan tunelu. Tryb CLI
+`reviewer:remote:start/status/stop` pozostaje awaryjnym odpowiednikiem tych
+samych kontrolowanych operacji.
 
 ### Mobile releases
 

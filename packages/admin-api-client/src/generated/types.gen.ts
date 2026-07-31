@@ -2653,6 +2653,46 @@ export type ReviewSelectionScoreWeights = {
 };
 
 /**
+ * ReviewerIngressCommand
+ */
+export type ReviewerIngressCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Target
+   */
+  target: 'remote-reviewer';
+};
+
+/**
+ * ReviewerIngressStatusResponse
+ */
+export type ReviewerIngressStatusResponse = {
+  /**
+   * Publicorigin
+   */
+  publicOrigin: string | null;
+  /**
+   * Reviewerready
+   */
+  reviewerReady: boolean | null;
+  /**
+   * Startedat
+   */
+  startedAt: string | null;
+  /**
+   * State
+   */
+  state: 'running' | 'stopped' | 'stale' | 'degraded';
+  /**
+   * Target
+   */
+  target: string;
+};
+
+/**
  * ReviewerSessionCreate
  */
 export type ReviewerSessionCreate = {
@@ -5819,6 +5859,85 @@ export type ListReviewResolutionsResponses = {
 
 export type ListReviewResolutionsResponse =
   ListReviewResolutionsResponses[keyof ListReviewResolutionsResponses];
+
+export type GetReviewerIngressStatusData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/reviewer-ingress';
+};
+
+export type GetReviewerIngressStatusResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerIngressStatusResponse;
+};
+
+export type GetReviewerIngressStatusResponse =
+  GetReviewerIngressStatusResponses[keyof GetReviewerIngressStatusResponses];
+
+export type StartReviewerIngressData = {
+  body: ReviewerIngressCommand;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/reviewer-ingress/start';
+};
+
+export type StartReviewerIngressErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type StartReviewerIngressError =
+  StartReviewerIngressErrors[keyof StartReviewerIngressErrors];
+
+export type StartReviewerIngressResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerIngressStatusResponse;
+};
+
+export type StartReviewerIngressResponse =
+  StartReviewerIngressResponses[keyof StartReviewerIngressResponses];
+
+export type StopReviewerIngressData = {
+  body: ReviewerIngressCommand;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/reviewer-ingress/stop';
+};
+
+export type StopReviewerIngressErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type StopReviewerIngressError =
+  StopReviewerIngressErrors[keyof StopReviewerIngressErrors];
+
+export type StopReviewerIngressResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerIngressStatusResponse;
+};
+
+export type StopReviewerIngressResponse =
+  StopReviewerIngressResponses[keyof StopReviewerIngressResponses];
 
 export type CreateReviewerSessionData = {
   body: ReviewerSessionCreate;

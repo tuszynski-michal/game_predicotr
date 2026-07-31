@@ -157,7 +157,8 @@ Minimalna kolejność przygotowania danych i wydania:
    walidację i publikację danych.
 5. `Jobs` — obserwuj status i etap. Dla zadań asynchronicznych worker musi
    działać.
-6. `Zatwierdzanie` — utwórz lokalną sesję osobnej aplikacji Reviewer.
+6. `Zatwierdzanie` — wybierz grę/import i utwórz sesję osobnej aplikacji
+   Reviewer; przycisk może od razu wystawić ją przez czasowy HTTPS.
 7. `Wydania Android` — wybierz opublikowany dataset i zgodne reguły, utwórz
    nowe wydanie oraz uruchom build.
 
@@ -167,10 +168,8 @@ nowego wydania APK z wyższym `VersionCode`.
 
 ## Uruchomienie aplikacji Reviewer
 
-Reviewer wymaga działających PostgreSQL, API i własnego procesu Next.js. Panel
-Admin jest potrzebny do utworzenia sesji.
-
-W osobnym oknie PowerShell uruchom:
+Do pracy wyłącznie lokalnej Reviewer wymaga działających PostgreSQL, API i
+własnego procesu Next.js. W osobnym oknie PowerShell uruchom:
 
 ```powershell
 npm run reviewer:dev
@@ -180,18 +179,15 @@ Następnie:
 
 1. w Adminie otwórz `Zatwierdzanie`,
 2. wybierz aktywną grę i jej import zdjęć,
-3. kliknij `Utwórz link i kod`,
+3. utwórz lokalną sesję albo użyj niżej opisanego przycisku online,
 4. otwórz wygenerowany link pod portem `3001`,
 5. wpisz kod pokazany osobno w panelu.
 
-Kod jest pokazywany tylko przy tworzeniu sesji. Obecna sesja jest ważna przez
-8 godzin, ale znajduje się w pamięci procesu API — restart API unieważnia ją
-wcześniej. W takim przypadku utwórz nowy link i kod.
+Kod jest pokazywany tylko przy tworzeniu sesji. Sesja jest trwała, ważna przez
+8 godzin, ma limit pięciu błędnych prób i może zostać unieważniona.
 
-Obecny Reviewer działa wyłącznie na tym komputerze (`127.0.0.1`). Nie
-przekierowuj portów routera i nie wysyłaj tego linku przez Internet. Zdalny
-dostęp wymaga osobnego hardeningu, HTTPS przez zaakceptowany tunel albo VPN
-oraz TASK-0113–0115.
+Nie wysyłaj lokalnego adresu `127.0.0.1`. Zdalny dostęp używa wyłącznie
+kontrolowanego trybu HTTPS opisanego niżej; nie przekierowuj portów routera.
 
 ## Zbudowanie mobilnego APK z bieżącego snapshotu
 
@@ -393,33 +389,43 @@ decyzji i kopii danych.
 Ten tryb publikuje tylko aplikację Reviewer. Admin, API, PostgreSQL i worker
 pozostają na `127.0.0.1`. Nie konfiguruj przekierowania portów routera.
 
-Jednorazowo zainstaluj oficjalny `cloudflared`:
+Jednorazowo zainstaluj oficjalny `cloudflared` i zbuduj produkcyjnego Reviewera:
 
 ```powershell
 npm run reviewer:remote:setup
+npm run reviewer:build
 ```
 
-Uruchom lokalnie PostgreSQL, migracje, API oraz Reviewer zgodnie z wcześniejszą
-częścią instrukcji. Następnie:
+Uruchom PostgreSQL, migracje, API i Admin. Nie uruchamiaj `reviewer:dev`,
+ponieważ serwer developerski nie może zostać wystawiony online. W Adminie:
+
+1. otwórz `Zatwierdzanie`,
+2. wybierz grę i import zdjęć,
+3. kliknij `Utwórz link i wystaw online`,
+4. poczekaj na stan `online`,
+5. skopiuj publiczny link oraz osobno kod.
+
+Przycisk uruchamia brakujący produkcyjny Reviewer, czeka na gotowość, otwiera
+Quick Tunnel i tworzy sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz
+komunikat o trybie developerskim, zatrzymaj okno z `reviewer:dev` i kliknij
+ponownie. Awaryjny odpowiednik CLI:
 
 ```powershell
 npm run reviewer:remote:start
 npm run reviewer:remote:status
 ```
 
-`start` czeka maksymalnie 10 sekund, uruchamia proces w tle i pokazuje losowy
-adres `https://...trycloudflare.com`. Teraz w lokalnym Adminie wybierz grę oraz
-import i kliknij `Utwórz link i kod`. Nowa sesja automatycznie użyje aktywnego
+`start` uruchamia proces w tle i pokazuje losowy adres
+`https://...trycloudflare.com`. Nowa sesja automatycznie użyje aktywnego
 publicznego originu.
 
 Wyślij link i kod dwoma osobnymi kanałami. Odbiorca nie instaluje klienta VPN:
 otwiera link w przeglądarce i podaje kod. Kod ma najwyżej pięć prób, a sesja
 wygasa najpóźniej po 24 godzinach.
 
-Po zakończeniu:
-
-1. kliknij `Unieważnij sesję` w Adminie,
-2. zatrzymaj ingress:
+Po zakończeniu kliknij `Zatrzymaj udostępnianie`. Panel próbuje unieważnić
+bieżącą sesję i zawsze zatrzymuje publiczny tunel. Decyzje plansz i audyt
+pozostają w PostgreSQL. Awaryjnie:
 
 ```powershell
 npm run reviewer:remote:stop

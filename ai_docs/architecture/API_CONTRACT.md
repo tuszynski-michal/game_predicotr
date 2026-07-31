@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1127,6 +1127,41 @@ aktora wartością `reviewer-session:<UUID>`.
 Same-origin proxy nie udostępnia CRUD, job mutations, kohort/eksportów,
 storage ani mobile releases. Brak bearer nadal oznacza lokalne wywołanie Admin
 API na loopback; takie żądanie nie ma publicznej trasy.
+
+### Kontrolowany lifecycle publicznego ingressu
+
+Lokalny Admin steruje wyłącznie jednym z góry zdefiniowanym celem
+`remote-reviewer`:
+
+```text
+GET  /api/v1/admin/reviewer-ingress
+POST /api/v1/admin/reviewer-ingress/start
+POST /api/v1/admin/reviewer-ingress/stop
+```
+
+Obie mutacje wymagają jawnego payloadu:
+
+```json
+{
+  "confirmed": true,
+  "target": "remote-reviewer"
+}
+```
+
+Nie można przekazać komendy, pliku wykonywalnego, argumentów powłoki, portu ani
+docelowego URL. Backend uruchamia wyłącznie przypięte skrypty start/status/stop
+z ograniczonym timeoutem. Start zapewnia produkcyjny Reviewer na loopback,
+blokuje wykryty serwer developerski, uruchamia outbound-only Quick Tunnel i
+zwraca stan, publiczny origin, lokalny target, czas startu i gotowość Reviewera.
+
+`state` przyjmuje `running`, `stopped`, `stale` albo `degraded`. Stop jest
+idempotentny i usuwa publiczny origin. Endpointy są częścią Admin API na
+loopback i nie znajdują się na allowliście publicznego proxy Reviewera.
+
+Panel wykonuje start przed `POST /admin/reviewer-sessions`, dzięki czemu nowa
+sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
+próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
+zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
 
 ## Mobile release
 

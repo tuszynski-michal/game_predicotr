@@ -4005,7 +4005,9 @@ div.imageJobInlineError {
 
 .reviewerLauncherControls {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.4fr) auto;
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(260px, 1.4fr) auto
+    auto;
   gap: 12px;
   align-items: end;
 }
@@ -4025,6 +4027,37 @@ div.imageJobInlineError {
 .reviewerLauncherError {
   margin: 16px 0 0;
   color: var(--danger);
+}
+
+.reviewerIngressStatus {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(5, 12, 22, 0.34);
+  font-size: 12px;
+}
+
+.reviewerIngressStatus-running strong,
+.reviewerIngressStatus-running a {
+  color: var(--success);
+}
+
+.reviewerIngressStatus-degraded strong,
+.reviewerIngressStatus-stale strong {
+  color: var(--warning);
+}
+
+.reviewerIngressStatus a {
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reviewerSessionResult {
@@ -4071,6 +4104,15 @@ div.imageJobInlineError {
   .reviewerLauncherControls,
   .reviewerSessionResult {
     grid-template-columns: 1fr;
+  }
+
+  .reviewerIngressStatus {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .reviewerIngressStatus a {
+    max-width: 100%;
   }
 }
 

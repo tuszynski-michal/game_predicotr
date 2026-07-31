@@ -3,12 +3,18 @@
 import type {
   GameResponse,
   JobResponse,
+  ReviewerIngressStatusResponse,
   ReviewerSessionCreatedResponse,
 } from '@game-predictor/admin-api-client';
 import { useEffect, useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import {
+  loadReviewerIngress,
+  publishReviewerSession,
+  stopReviewerPublishing,
+} from '@/features/reviewer-access/reviewer-access-actions';
 
 export function ReviewerAccessLauncher({
   apiBaseUrl,
@@ -26,10 +32,14 @@ export function ReviewerAccessLauncher({
   const [session, setSession] = useState<ReviewerSessionCreatedResponse | null>(
     null,
   );
+  const [ingress, setIngress] = useState<ReviewerIngressStatusResponse | null>(
+    null,
+  );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   useEffect(() => {
@@ -38,9 +48,10 @@ export function ReviewerAccessLauncher({
       setLoading(true);
       setError('');
       try {
-        const [gamesResult, jobsResult] = await Promise.all([
+        const [gamesResult, jobsResult, ingressResult] = await Promise.all([
           api.listGames(),
           api.listJobs({ jobType: 'import', limit: 200 }),
+          loadReviewerIngress(api),
         ]);
         if (!active) return;
         if (
@@ -76,6 +87,11 @@ export function ReviewerAccessLauncher({
         setJobs(imageJobs);
         setGameId(firstGameId);
         setJobId(imageJobs.find((job) => job.gameId === firstGameId)?.id ?? '');
+        if (ingressResult.ok) {
+          setIngress(ingressResult.ingress);
+        } else {
+          setError(ingressResult.error);
+        }
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -99,21 +115,17 @@ export function ReviewerAccessLauncher({
     setSession(null);
     setCopied(null);
     try {
-      const result = await api.createReviewerSession({
+      const result = await publishReviewerSession(api, {
         gameId,
         importJobId: jobId,
         lifetimeMinutes: 480,
       });
-      if (result.error !== undefined || result.data === undefined) {
-        setError(
-          apiErrorMessage(
-            result.error,
-            'Nie udało się utworzyć sesji recenzenta.',
-          ),
-        );
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
-      setSession(result.data);
+      setIngress(result.ingress);
+      setSession(result.session);
     } catch {
       setError('Połączenie z lokalnym Admin API zostało przerwane.');
     } finally {
@@ -150,6 +162,29 @@ export function ReviewerAccessLauncher({
     }
   }
 
+  async function stopPublishing() {
+    if (stopping || ingress?.state === 'stopped') return;
+    setStopping(true);
+    setError('');
+    try {
+      const result = await stopReviewerPublishing(
+        api,
+        session?.sessionId ?? null,
+      );
+      if ('ingress' in result && result.ingress !== undefined) {
+        setIngress(result.ingress);
+      }
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setSession(null);
+      setCopied(null);
+    } finally {
+      setStopping(false);
+    }
+  }
+
   return (
     <section
       className="catalogSection reviewerLauncher"
@@ -160,8 +195,9 @@ export function ReviewerAccessLauncher({
           <p className="eyebrow">Osobna aplikacja</p>
           <h1>Zatwierdzanie plansz</h1>
           <p className="lead">
-            Utwórz link ograniczony do jednej gry i importu. Aplikacja
-            recenzenta działa osobno pod portem 3001.
+            Jednym kliknięciem uruchom osobną aplikację Reviewer, wystaw ją
+            przez czasowy tunel HTTPS i utwórz dostęp ograniczony do jednej gry
+            oraz importu.
           </p>
         </div>
       </header>
@@ -212,13 +248,58 @@ export function ReviewerAccessLauncher({
           </label>
           <button
             className="primaryButton"
-            disabled={loading || creating || gameId === '' || jobId === ''}
+            disabled={
+              loading || creating || stopping || gameId === '' || jobId === ''
+            }
             onClick={() => void createSession()}
             type="button"
           >
-            {creating ? 'Tworzenie…' : 'Utwórz link i kod'}
+            {creating
+              ? 'Uruchamianie i tworzenie…'
+              : ingress?.state === 'running'
+                ? 'Utwórz nowy link online'
+                : 'Utwórz link i wystaw online'}
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={
+              loading ||
+              creating ||
+              stopping ||
+              ingress === null ||
+              ingress.state === 'stopped'
+            }
+            onClick={() => void stopPublishing()}
+            type="button"
+          >
+            {stopping ? 'Zatrzymywanie…' : 'Zatrzymaj udostępnianie'}
           </button>
         </div>
+
+        {ingress ? (
+          <div
+            className={`reviewerIngressStatus reviewerIngressStatus-${ingress.state}`}
+            role="status"
+          >
+            <span>
+              Udostępnianie:{' '}
+              <strong>
+                {ingress.state === 'running'
+                  ? 'online'
+                  : ingress.state === 'stopped'
+                    ? 'wyłączone'
+                    : ingress.state === 'degraded'
+                      ? 'problem z aplikacją Reviewer'
+                      : 'nieaktualny stan'}
+              </strong>
+            </span>
+            {ingress.publicOrigin ? (
+              <a href={ingress.publicOrigin} rel="noreferrer" target="_blank">
+                {ingress.publicOrigin}
+              </a>
+            ) : null}
+          </div>
+        ) : null}
 
         {error ? (
           <p className="reviewerLauncherError" role="alert">

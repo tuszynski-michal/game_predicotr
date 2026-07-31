@@ -31,6 +31,50 @@ test('generated client calls the typed health operation', async () => {
   assert.equal(requests[0].url, 'http://127.0.0.1:8000/api/v1/health');
 });
 
+test('generated client controls only the explicit Reviewer ingress target', async () => {
+  const requests = [];
+  const status = {
+    publicOrigin: 'https://safe-name.trycloudflare.com',
+    reviewerReady: true,
+    startedAt: '2026-07-31T10:00:00Z',
+    state: 'running',
+    target: 'http://127.0.0.1:3001',
+  };
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json(
+      request.url.endsWith('/stop')
+        ? {
+            ...status,
+            publicOrigin: null,
+            startedAt: null,
+            state: 'stopped',
+          }
+        : status,
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+  const command = { confirmed: true, target: 'remote-reviewer' };
+
+  await client.getReviewerIngressStatus();
+  await client.startReviewerIngress(command);
+  await client.stopReviewerIngress(command);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', '/api/v1/admin/reviewer-ingress'],
+      ['POST', '/api/v1/admin/reviewer-ingress/start'],
+      ['POST', '/api/v1/admin/reviewer-ingress/stop'],
+    ],
+  );
+  assert.deepEqual(await requests[1].clone().json(), command);
+  assert.deepEqual(await requests[2].clone().json(), command);
+});
+
 test('generated client sends typed game and symbol requests', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

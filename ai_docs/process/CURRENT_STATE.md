@@ -1520,7 +1520,13 @@ last_updated: 2026-07-31
   same-origin proxy ma testowaną allowlistę i HttpOnly cookie,
 - automatyczna część TASK-0115 jest gotowa: skrypty `setup/start/status/stop`,
   publiczny origin w linku Admina, runbook, CSP i produkcyjny build Reviewera;
-  test z urządzenia poza domową siecią właściciel odłożył.
+  D-098 dodaje typowane przyciski publikacji/zatrzymania w Adminie, zapewnienie
+  produkcyjnego procesu i blokadę ekspozycji trybu developerskiego; test z
+  urządzenia poza domową siecią jest teraz następnym krokiem właściciela.
+- lokalny odbiór przycisków TASK-0115 przeszedł: start utworzył rzeczywisty
+  Quick Tunnel HTTPS, publiczny ekran nie ujawnił danych przed kodem, stop
+  wyłączył stary URL, a ponowny start nadał nowy origin i sesję; aktywny link
+  oczekuje na test z drugiego komputera i innej sieci.
 - ukończono TASK-0111 i zamknięto lokalną bramkę G6.5: właściciel zatwierdził
   i przejrzał układy do `#55`, próba 11 nowych decyzji trwała 198 sekund,
   a odbiór 1366 × 768 potwierdził brak overflow oraz pełną siatkę 5 × 3.
@@ -1556,7 +1562,8 @@ last_updated: 2026-07-31
   przejrzeniu układów do `#55`. Dalsze ręczne etykietowanie może być
   kontynuowane niezależnie i nie blokuje lokalnej wersji `0.1`.
 - `TASK-0115 — Secure ingress runbook and remote end-to-end acceptance` czeka
-  wyłącznie na późniejszy odbiór z urządzenia poza domową siecią: HTTPS,
+  na odbiór z urządzenia poza domową siecią po uruchomieniu nowym przyciskiem:
+  HTTPS,
   ograniczenie gry/importu, zapis, revoke i skan zabronionych tras.
 
 ## Blocked

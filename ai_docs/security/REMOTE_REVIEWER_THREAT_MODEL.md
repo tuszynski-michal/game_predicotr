@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -61,7 +61,8 @@ grupie ani pozostawiać tunelu uruchomionego bez aktywnej sesji.
 ## Awaria i reakcja na incydent
 
 1. W panelu Admin kliknij `Unieważnij sesję`.
-2. Uruchom `npm run reviewer:remote:stop`.
+2. Kliknij `Zatrzymaj udostępnianie`; awaryjnie uruchom
+   `npm run reviewer:remote:stop`.
 3. Sprawdź `npm run reviewer:remote:status`; oczekiwany stan to `stopped`.
 4. Utwórz nową sesję i nowy link dopiero po ustaleniu przyczyny.
 5. Audyt `reviewer_access_audit_events` zachowuje utworzenie, błędne próby,

@@ -42,6 +42,10 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessError,
     ReviewerAccessService,
 )
+from game_predictor_api.application.reviewer_ingress import (
+    ReviewerIngressError,
+    ReviewerIngressService,
+)
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings, get_settings
@@ -130,6 +134,7 @@ def create_app(
     mobile_release_service_dependency: Callable[..., object] | None = None,
     review_service_dependency: Callable[..., object] | None = None,
     reviewer_access_service_dependency: Callable[..., object] | None = None,
+    reviewer_ingress_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -307,6 +312,11 @@ def create_app(
     resolved_reviewer_access_dependency = (
         reviewer_access_service_dependency or default_reviewer_access_service_dependency
     )
+    project_root = Path(__file__).resolve().parents[4]
+    reviewer_ingress_service = ReviewerIngressService(project_root)
+    resolved_reviewer_ingress_dependency = reviewer_ingress_service_dependency or (
+        lambda: reviewer_ingress_service
+    )
     api_host = (
         f"[{resolved_settings.host}]" if resolved_settings.host == "::1" else resolved_settings.host
     )
@@ -346,6 +356,7 @@ def create_app(
             resolved_mobile_release_dependency,
             resolved_review_dependency,
             resolved_reviewer_access_dependency,
+            resolved_reviewer_ingress_dependency,
         )
     )
 
@@ -500,6 +511,16 @@ def create_app(
         }.get(error.code, 422)
         return JSONResponse(
             status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": {}},
+        )
+
+    @application.exception_handler(ReviewerIngressError)
+    async def handle_reviewer_ingress_error(
+        _request: Request,
+        error: ReviewerIngressError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
             content={"code": error.code, "message": error.message, "details": {}},
         )
 

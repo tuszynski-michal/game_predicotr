@@ -3,9 +3,21 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-if (Get-Command -Name "cloudflared" -ErrorAction SilentlyContinue) {
+$installedCloudflared = Get-Command -Name "cloudflared" -ErrorAction SilentlyContinue
+$knownInstallPath = @(
+    "C:\Program Files (x86)\cloudflared\cloudflared.exe",
+    "C:\Program Files\cloudflared\cloudflared.exe"
+) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+
+if ($null -ne $installedCloudflared) {
     Write-Host "cloudflared is already available."
-    cloudflared --version
+    & $installedCloudflared.Source --version
+    exit 0
+}
+
+if ($null -ne $knownInstallPath) {
+    Write-Host "cloudflared is already installed at $knownInstallPath."
+    & $knownInstallPath --version
     exit 0
 }
 

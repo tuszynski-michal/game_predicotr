@@ -43,7 +43,7 @@ export function ReviewerAccessGate({
       setScope(result.data);
       setAccessCode('');
     } catch {
-      setError('Nie udało się połączyć z lokalnym serwerem aplikacji.');
+      setError('Nie udało się połączyć z serwerem aplikacji.');
     } finally {
       setBusy(false);
     }
@@ -73,7 +73,7 @@ export function ReviewerAccessGate({
             <span>Reviewer</span>
           </div>
         </div>
-        <p className="eyebrow">Lokalna sesja zatwierdzania</p>
+        <p className="eyebrow">Prywatna sesja zatwierdzania</p>
         <h1>Podaj kod dostępu</h1>
         <p className="lead">
           Kod jest wyświetlany osobno w panelu administratora i nie znajduje się
@@ -118,9 +118,7 @@ export function ReviewerAccessGate({
             {error}
           </p>
         ) : null}
-        <small>
-          Wersja lokalna · serwer dostępny wyłącznie na tym komputerze
-        </small>
+        <small>Dostęp ograniczony kodem, grą i wybranym importem</small>
       </section>
     </main>
   );

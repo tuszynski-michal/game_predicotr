@@ -131,6 +131,8 @@ import type {
   GetReviewCellAssetData,
   GetReviewCellAssetErrors,
   GetReviewCellAssetResponses,
+  GetReviewerIngressStatusData,
+  GetReviewerIngressStatusResponses,
   GetReviewFeedbackExportData,
   GetReviewFeedbackExportErrors,
   GetReviewFeedbackExportResponses,
@@ -245,6 +247,12 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  StartReviewerIngressData,
+  StartReviewerIngressErrors,
+  StartReviewerIngressResponses,
+  StopReviewerIngressData,
+  StopReviewerIngressErrors,
+  StopReviewerIngressResponses,
   UnlockReviewerSessionData,
   UnlockReviewerSessionErrors,
   UnlockReviewerSessionResponses,
@@ -1460,6 +1468,64 @@ export const listReviewResolutions = <ThrowOnError extends boolean = false>(
   >({
     url: '/api/v1/admin/review-items/{review_item_id}/resolutions',
     ...options,
+  });
+
+/**
+ * Read the controlled public Reviewer ingress status
+ */
+export const getReviewerIngressStatus = <ThrowOnError extends boolean = false>(
+  options?: Options<GetReviewerIngressStatusData, ThrowOnError>,
+): RequestResult<GetReviewerIngressStatusResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    GetReviewerIngressStatusResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/reviewer-ingress', ...options });
+
+/**
+ * Start the standalone Reviewer and its outbound-only HTTPS tunnel
+ */
+export const startReviewerIngress = <ThrowOnError extends boolean = false>(
+  options: Options<StartReviewerIngressData, ThrowOnError>,
+): RequestResult<
+  StartReviewerIngressResponses,
+  StartReviewerIngressErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartReviewerIngressResponses,
+    StartReviewerIngressErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/reviewer-ingress/start',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Stop public exposure of the standalone Reviewer
+ */
+export const stopReviewerIngress = <ThrowOnError extends boolean = false>(
+  options: Options<StopReviewerIngressData, ThrowOnError>,
+): RequestResult<
+  StopReviewerIngressResponses,
+  StopReviewerIngressErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StopReviewerIngressResponses,
+    StopReviewerIngressErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/reviewer-ingress/stop',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

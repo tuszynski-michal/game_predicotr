@@ -41,6 +41,9 @@ test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
     ['GET', '/api/v1/admin/image-review-cohort-exports'],
     ['POST', '/api/v1/admin/mobile-releases'],
     ['GET', '/api/v1/admin/image-storage'],
+    ['GET', '/api/v1/admin/reviewer-ingress'],
+    ['POST', '/api/v1/admin/reviewer-ingress/start'],
+    ['POST', '/api/v1/admin/reviewer-ingress/stop'],
   ]) {
     assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
   }

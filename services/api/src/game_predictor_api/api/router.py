@@ -40,6 +40,7 @@ def create_api_router(
     mobile_release_service_dependency: Callable[..., object],
     review_service_dependency: Callable[..., object],
     reviewer_access_service_dependency: Callable[..., object],
+    reviewer_ingress_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -48,6 +49,7 @@ def create_api_router(
             reviewer_access_service_dependency,
             catalog_service_dependency,
             job_service_dependency,
+            reviewer_ingress_service_dependency,
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))

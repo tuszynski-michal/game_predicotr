@@ -2446,6 +2446,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** doprecyzowuje lokalną część D-021 i D-087; nie zmienia
   zdalnego modelu D-095.
 
+## D-098 — Admin steruje tylko przypiętym lifecycle’em publicznego Reviewera
+
+- **Status:** accepted
+- **Date:** 2026-07-31
+- **Decision:** `Utwórz link i wystaw online` wykonuje kolejno kontrolowany
+  start produkcyjnego Reviewera, start outbound-only Quick Tunnel i utworzenie
+  game/import-scoped sesji. `Zatrzymaj udostępnianie` próbuje unieważnić
+  bieżącą sesję i zatrzymuje tunel. FastAPI może wywołać wyłącznie trzy stałe
+  skrypty `start/status/stop` z timeoutem; request nie może podać komendy,
+  procesu, portu ani URL. Serwer developerski jest blokowany.
+- **Context:** wcześniejszy TASK-0115 wymagał ręcznego uruchomienia Reviewera i
+  tunelu w PowerShellu przed utworzeniem sesji, czego właściciel nie uznał za
+  docelowy przepływ operatorski.
+- **Reason:** jeden jawny przycisk ogranicza błędy kolejności, a przypięty
+  kontroler zachowuje granicę bezpieczeństwa i nie tworzy ogólnego zdalnego
+  wykonania poleceń. Blokada trybu developerskiego zapobiega publikacji
+  słabszej konfiguracji CSP.
+- **Alternatives:** pozostawienie czterech ręcznych komend, ogólny runner
+  poleceń z panelu albo publiczny binding Admina/API.
+- **Consequences:** produkcyjny build Reviewera musi istnieć przed kliknięciem.
+  API może oczekiwać maksymalnie 25 sekund na tę małą operację lifecycle, ale
+  nie wykonuje builda. CLI pozostaje ścieżką awaryjną. Zewnętrzny odbiór
+  TASK-0115 nadal jest wymagany do zamknięcia G8.7.
+- **Supersedes:** rozszerza operatorską część D-095 bez zmiany transportu,
+  scope ani modelu sesji.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -4378,6 +4378,89 @@
         "title": "ReviewSelectionScoreWeights",
         "type": "object"
       },
+      "ReviewerIngressCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "target": {
+            "const": "remote-reviewer",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed",
+          "target"
+        ],
+        "title": "ReviewerIngressCommand",
+        "type": "object"
+      },
+      "ReviewerIngressStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "publicOrigin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publicorigin"
+          },
+          "reviewerReady": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewerready"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "stopped",
+              "stale",
+              "degraded"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "publicOrigin",
+          "target",
+          "startedAt",
+          "reviewerReady"
+        ],
+        "title": "ReviewerIngressStatusResponse",
+        "type": "object"
+      },
       "ReviewerSessionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -9809,6 +9892,129 @@
         "summary": "List immutable resolution history for one review item",
         "tags": [
           "reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-ingress": {
+      "get": {
+        "operationId": "getReviewerIngressStatus",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read the controlled public Reviewer ingress status",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-ingress/start": {
+      "post": {
+        "operationId": "startReviewerIngress",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerIngressCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Start the standalone Reviewer and its outbound-only HTTPS tunnel",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-ingress/stop": {
+      "post": {
+        "operationId": "stopReviewerIngress",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerIngressCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Stop public exposure of the standalone Reviewer",
+        "tags": [
+          "reviewer-access"
         ]
       }
     },

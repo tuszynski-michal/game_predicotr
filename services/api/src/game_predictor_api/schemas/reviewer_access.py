@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import Field
@@ -12,6 +13,7 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessSession,
     UnlockedReviewerAccess,
 )
+from game_predictor_api.application.reviewer_ingress import ReviewerIngressStatus
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -19,6 +21,32 @@ class ReviewerSessionCreate(ApiModel):
     game_id: UUID
     import_job_id: UUID
     lifetime_minutes: int = Field(default=480, ge=5, le=1440)
+
+
+class ReviewerIngressCommand(ApiModel):
+    confirmed: Literal[True]
+    target: Literal["remote-reviewer"]
+
+
+class ReviewerIngressStatusResponse(ApiModel):
+    state: Literal["running", "stopped", "stale", "degraded"]
+    public_origin: str | None
+    target: str
+    started_at: datetime | None
+    reviewer_ready: bool | None
+
+    @classmethod
+    def from_domain(
+        cls,
+        status: ReviewerIngressStatus,
+    ) -> ReviewerIngressStatusResponse:
+        return cls(
+            state=status.state,
+            public_origin=status.public_origin,
+            target=status.target,
+            started_at=status.started_at,
+            reviewer_ready=status.reviewer_ready,
+        )
 
 
 class ReviewerSessionCreatedResponse(ApiModel):
@@ -80,6 +108,8 @@ class ReviewerSessionUnlockResponse(ReviewerSessionScopeResponse):
 
 
 __all__ = [
+    "ReviewerIngressCommand",
+    "ReviewerIngressStatusResponse",
     "ReviewerSessionCreate",
     "ReviewerSessionCreatedResponse",
     "ReviewerSessionScopeResponse",

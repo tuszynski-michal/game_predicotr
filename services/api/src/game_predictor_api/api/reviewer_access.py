@@ -15,6 +15,7 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessService,
     ReviewerAccessSession,
 )
+from game_predictor_api.application.reviewer_ingress import ReviewerIngressService
 from game_predictor_api.schemas.catalog import (
     ErrorResponse,
     GameResponse,
@@ -22,6 +23,8 @@ from game_predictor_api.schemas.catalog import (
 )
 from game_predictor_api.schemas.jobs import JobResponse
 from game_predictor_api.schemas.reviewer_access import (
+    ReviewerIngressCommand,
+    ReviewerIngressStatusResponse,
     ReviewerSessionCreate,
     ReviewerSessionCreatedResponse,
     ReviewerSessionScopeResponse,
@@ -34,14 +37,53 @@ def create_reviewer_access_router(
     service_dependency: Callable[..., object],
     catalog_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
+    ingress_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(tags=["reviewer-access"])
     service_parameter = Depends(service_dependency)
     catalog_parameter = Depends(catalog_service_dependency)
     job_parameter = Depends(job_service_dependency)
+    ingress_parameter = Depends(ingress_service_dependency)
     authorized_session_parameter = Depends(
         create_required_reviewer_session_dependency(service_dependency)
     )
+
+    @router.get(
+        "/admin/reviewer-ingress",
+        response_model=ReviewerIngressStatusResponse,
+        operation_id="getReviewerIngressStatus",
+        summary="Read the controlled public Reviewer ingress status",
+    )
+    def get_reviewer_ingress_status(
+        ingress: Annotated[ReviewerIngressService, ingress_parameter],
+    ) -> ReviewerIngressStatusResponse:
+        return ReviewerIngressStatusResponse.from_domain(ingress.status())
+
+    @router.post(
+        "/admin/reviewer-ingress/start",
+        response_model=ReviewerIngressStatusResponse,
+        operation_id="startReviewerIngress",
+        summary="Start the standalone Reviewer and its outbound-only HTTPS tunnel",
+        responses={503: {"model": ErrorResponse}},
+    )
+    def start_reviewer_ingress(
+        _payload: ReviewerIngressCommand,
+        ingress: Annotated[ReviewerIngressService, ingress_parameter],
+    ) -> ReviewerIngressStatusResponse:
+        return ReviewerIngressStatusResponse.from_domain(ingress.start())
+
+    @router.post(
+        "/admin/reviewer-ingress/stop",
+        response_model=ReviewerIngressStatusResponse,
+        operation_id="stopReviewerIngress",
+        summary="Stop public exposure of the standalone Reviewer",
+        responses={503: {"model": ErrorResponse}},
+    )
+    def stop_reviewer_ingress(
+        _payload: ReviewerIngressCommand,
+        ingress: Annotated[ReviewerIngressService, ingress_parameter],
+    ) -> ReviewerIngressStatusResponse:
+        return ReviewerIngressStatusResponse.from_domain(ingress.stop())
 
     @router.post(
         "/admin/reviewer-sessions",

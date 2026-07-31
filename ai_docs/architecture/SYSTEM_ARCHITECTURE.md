@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Architektura systemu
@@ -18,6 +18,14 @@ błędnych kodach. Opaque token jest hashowany w bazie i przechowywany przez
 przeglądarkę w HttpOnly cookie. Backend nadpisuje aktora decyzji identyfikatorem
 sesji. Szczegóły:
 `../security/REMOTE_REVIEWER_THREAT_MODEL.md`.
+
+Admin udostępnia kontrolę tego opcjonalnego ingressu przyciskami. FastAPI może
+wykonać tylko trzy stałe operacje `start/status/stop` przez przypięte skrypty
+PowerShell z timeoutem; request nie dostarcza komendy ani parametrów procesu.
+Start uruchamia w razie potrzeby produkcyjny Reviewer, odrzuca działający tryb
+developerski i dopiero potem tworzy Quick Tunnel. Stop zamyka wyłącznie
+publiczną ekspozycję; PostgreSQL, API i Admin przez cały czas pozostają na
+loopback.
 
 ## Kontekst
 
@@ -89,6 +97,11 @@ Admin API nie wykonuje długiego importu, pełnego precomputingu ani Android bui
 Wyjątkiem jest jawnie ograniczony mock M2: dokładnie 1000 małych layoutów
 tworzonych synchronicznie i atomowo. Limit nie może zostać zwiększony do skali
 produkcyjnej; większe generowanie przechodzi przez worker/job.
+
+Drugim ograniczonym wyjątkiem operacyjnym jest start/stop Reviewera i Quick
+Tunnel: stały kontroler ma maksymalnie 25 sekund, nie przetwarza danych
+domenowych i nie przyjmuje dowolnej komendy. Długi build Reviewera nie odbywa
+się w request — artefakt produkcyjny musi już istnieć.
 
 ### Worker / CLI
 
@@ -960,17 +973,17 @@ każdym spinie.
 - domyślny binding panelu, API i PostgreSQL wyłącznie do loopback,
 - brak publicznego hostingu i chmury w lokalnej bramce M6.5.
 
-Admin web tworzy lokalną, wygasającą sesję Reviewera oraz pokazuje link i kod
-osobno. Kod jest zwracany tylko podczas tworzenia i przechowywany w pamięci
-procesu API jako hash. Ta brama porządkuje lokalny przepływ i nie jest jeszcze
-internetowym mechanizmem autoryzacji.
+Admin web tworzy trwałą, wygasającą sesję Reviewera oraz pokazuje link i kod
+osobno. Kod jest zwracany tylko podczas tworzenia, a PostgreSQL przechowuje
+wyłącznie jego hash. Przycisk publikacji uruchamia produkcyjny Reviewer i
+Quick Tunnel przez typowane lokalne API; osobny przycisk unieważnia bieżącą
+sesję i zatrzymuje tunel.
 
-Przyszły zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do
-PostgreSQL, workera ani pełnego Admin API. Jawnie włączona brama HTTPS
-udostępnia tylko game-scoped review API po odwoływalnej sesji, kodzie, limicie
-prób i czasie wygaśnięcia. Surowe przekierowanie portu routera nie jest
-wspierane. Domyślny tryb loopback oraz całkowicie offline aplikacja mobilna nie
-zmieniają się.
+Zdalny recenzent jest osobną granicą M8.7. Nie otrzymuje dostępu do PostgreSQL,
+workera ani pełnego Admin API. Jawnie włączona brama HTTPS udostępnia tylko
+game-scoped review API po odwoływalnej sesji, kodzie, limicie prób i czasie
+wygaśnięcia. Surowe przekierowanie portu routera nie jest wspierane. Domyślny
+tryb loopback oraz całkowicie offline aplikacja mobilna nie zmieniają się.
 
 ## Integralność i bezpieczeństwo publikacji
 

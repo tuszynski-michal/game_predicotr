@@ -1,7 +1,7 @@
 ---
 title: Secure ingress runbook and remote end-to-end acceptance
 status: in_progress
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # TASK-0115 — Secure ingress runbook and remote end-to-end acceptance
@@ -30,6 +30,8 @@ i potwierdzić pełny zdalny scenariusz bez otwierania surowego portu routera.
 - skonfigurować zaakceptowany tunel HTTPS albo VPN,
 - zachować lokalny loopback jako tryb domyślny,
 - dodać kontrolowane start/stop/status i rotację adresu,
+- umożliwić uruchomienie produkcyjnego Reviewera i tunelu jednym przyciskiem
+  Admina oraz zatrzymanie publicznej ekspozycji drugim przyciskiem,
 - opisać generowanie linku, oddzielne przekazanie kodu i odwołanie sesji,
 - przeprowadzić test z urządzenia poza domową siecią,
 - sprawdzić brak ekspozycji Admin, PostgreSQL i pozostałych endpointów.
@@ -48,7 +50,9 @@ i potwierdzić pełny zdalny scenariusz bez otwierania surowego portu routera.
 - [ ] odwołanie sesji działa natychmiast,
 - [ ] skan ekspozycji nie wykazuje Admin, bazy ani nieobjętych endpointów,
 - [x] runbook zawiera start, stop, status, odzyskanie i reakcję na incydent,
-- [ ] lokalny tryb po wyłączeniu ingress nadal działa wyłącznie na loopback.
+- [x] Admin ma typowane przyciski start/stop, jawny stan i publiczny URL,
+- [x] start blokuje serwer developerski i nie przyjmuje dowolnej komendy,
+- [x] lokalny tryb po wyłączeniu ingress nadal działa wyłącznie na loopback.
 
 ## Verification
 
@@ -71,6 +75,31 @@ runbook. Skrypty mają bounded 10-sekundowy start, zapis PID i walidację proces
 Reviewer nadal binduje loopback, a publiczny proxy ma testowaną allowlistę i
 nagłówki CSP/anti-clickjacking.
 
-Na życzenie właściciela testowanie odłożono. Kryteria wymagające urządzenia w
-zewnętrznej sieci, rzeczywistego TLS oraz potwierdzenia natychmiastowego revoke
-pozostają niezaznaczone; do tego czasu TASK-0115 i G8.7 nie są zamknięte.
+Rozszerzenie 2026-07-31 dodaje do lokalnego Admin API trzy typowane operacje
+ingressu i przyciski `Utwórz link i wystaw online` oraz
+`Zatrzymaj udostępnianie`. API uruchamia tylko stałe skrypty z timeoutem,
+nie przyjmuje komendy ani portu, zapewnia produkcyjny Reviewer i blokuje
+publikację trybu developerskiego. Stop próbuje unieważnić bieżącą sesję i
+zamyka tunel również przy błędzie revoke; decyzje i audyt pozostają w bazie.
+
+Lokalny odbiór 2026-07-31 potwierdził cały lifecycle UI:
+
+- pierwszy start bez `cloudflared` zakończył się kontrolowanym błędem,
+- oficjalny `cloudflared 2026.7.3` został zainstalowany przez winget, a skrypt
+  znajduje również trwałą lokalizację instalacji bez restartu terminala,
+- start utworzył publiczny HTTPS origin i scoped link bez kodu w URL,
+- publiczny ekran pokazał bramę kodu bez danych gry,
+- stop unieważnił bieżącą sesję, usunął stan tunelu i stary URL zwrócił
+  Cloudflare `1033`,
+- kolejny start wygenerował nowy URL i nową sesję,
+- Admin, Reviewer i API słuchają wyłącznie na `127.0.0.1`.
+
+Na Windows komunikacja API ze skryptem używa krótkiego pliku wyniku w
+`.runtime`, a nie odziedziczonego stdout. Usuwa to możliwość utrzymania requestu
+przez proces potomny; plik jest bez BOM, nadpisywany pod lockiem i usuwany po
+odczycie.
+
+Test zewnętrzny został rozpoczęty: aktywny link oczekuje na wejście właściciela
+z drugiego komputera w innej sieci. Kryteria wymagające zewnętrznego klienta,
+odczytu właściwego scope, zapisu decyzji i natychmiastowego revoke pozostają
+niezaznaczone; do tego czasu TASK-0115 i G8.7 nie są zamknięte.

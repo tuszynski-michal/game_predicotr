@@ -461,6 +461,21 @@ def test_verified_cohort_openapi_exposes_explicit_freeze_and_history() -> None:
     assert parameters["limit"]["schema"]["maximum"] == 100
 
 
+def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    status_path = schema["paths"]["/api/v1/admin/reviewer-ingress"]
+    start_path = schema["paths"]["/api/v1/admin/reviewer-ingress/start"]
+    stop_path = schema["paths"]["/api/v1/admin/reviewer-ingress/stop"]
+
+    assert status_path["get"]["operationId"] == "getReviewerIngressStatus"
+    assert start_path["post"]["operationId"] == "startReviewerIngress"
+    assert stop_path["post"]["operationId"] == "stopReviewerIngress"
+    command = schema["components"]["schemas"]["ReviewerIngressCommand"]
+    assert set(command["required"]) == {"confirmed", "target"}
+    assert command["properties"]["confirmed"]["const"] is True
+    assert command["properties"]["target"]["const"] == "remote-reviewer"
+
+
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     report_path = "/api/v1/admin/layout-import-validations/{validation_job_id}/integrity-report"

@@ -70,6 +70,7 @@ export interface ForecastInput {
   readonly algorithmVersion: string;
   readonly startSequenceNumber: number;
   readonly layoutCount: number;
+  readonly targetScanLimit: number;
   readonly spinCost: number;
   readonly sequencePayouts: readonly SequencePayout[];
 }
@@ -90,6 +91,7 @@ export interface ForecastResult {
   readonly rulesVersion: number;
   readonly algorithmVersion: string;
   readonly startSequenceNumber: number;
+  readonly targetScanLimit: number;
   readonly evaluatedSpinCount: number;
   readonly spinCost: number;
   readonly finalCumulativePayout: number;

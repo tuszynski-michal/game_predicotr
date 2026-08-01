@@ -1,5 +1,12 @@
 import type { LocalGameConfig } from '@/data/local-layout-repository';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { boardColors } from './board-theme';
 
@@ -7,6 +14,7 @@ type Props = {
   canNext: boolean;
   canUndo: boolean;
   games: readonly LocalGameConfig[];
+  nextLoading?: boolean;
   onNext?: () => void;
   onReset: () => void;
   onSelectGame: (gameId: string) => void;
@@ -19,6 +27,7 @@ export function GameHeader({
   canNext,
   canUndo,
   games,
+  nextLoading = false,
   onNext,
   onReset,
   onSelectGame,
@@ -74,10 +83,10 @@ export function GameHeader({
 
       <View style={styles.actions} testID="header-actions">
         <Pressable
-          accessibilityHint="Nawigacja zostanie udostępniona po jednoznacznym ustaleniu pozycji sekwencji."
+          accessibilityHint="Ładuje dokładny kolejny rekord cyklicznej sekwencji."
           accessibilityLabel="Przejdź do następnego layoutu"
           accessibilityRole="button"
-          accessibilityState={{ disabled: !canNext }}
+          accessibilityState={{ busy: nextLoading, disabled: !canNext }}
           disabled={!canNext}
           onPress={onNext}
           style={({ pressed }) => [
@@ -87,11 +96,19 @@ export function GameHeader({
           ]}
           testID="next-button"
         >
-          <Text
-            style={[styles.actionText, !canNext && styles.actionTextDisabled]}
-          >
-            Next
-          </Text>
+          {nextLoading ? (
+            <ActivityIndicator
+              color={boardColors.primary}
+              size="small"
+              testID="next-loading"
+            />
+          ) : (
+            <Text
+              style={[styles.actionText, !canNext && styles.actionTextDisabled]}
+            >
+              Next
+            </Text>
+          )}
         </Pressable>
         <Pressable
           accessibilityLabel="Cofnij ostatnią operację"

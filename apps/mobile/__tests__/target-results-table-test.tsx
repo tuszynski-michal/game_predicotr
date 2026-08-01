@@ -1,6 +1,6 @@
 import type { ForecastPeak, SequencePayout } from '@game-predictor/shared-ts';
 import type { ReactElement } from 'react';
-import { FlatList, ScrollView, View } from 'react-native';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import type { SnapshotDiagnostics } from '@/data/bundled-snapshot';
@@ -79,6 +79,11 @@ function repository(
       status: 'unique',
     }),
     readCyclicPayouts: jest.fn().mockResolvedValue(payouts),
+    readLayoutBySequence: jest
+      .fn()
+      .mockRejectedValue(
+        new Error('Next navigation is not used in this test.'),
+      ),
   };
 }
 
@@ -235,10 +240,14 @@ describe('Target results table', () => {
         .accessibilityLabel,
     ).toContain('wynik netto 180');
     expect(
-      renderer.root.findByProps({ testID: 'target-final-payout' }).props,
-    ).toBeDefined();
-    expect(JSON.stringify(renderer.toJSON())).toContain('9990');
-    expect(JSON.stringify(renderer.toJSON())).toContain('-9680');
+      renderer.root.findAllByProps({ testID: 'target-final-payout' }),
+    ).toHaveLength(0);
+
+    await press(renderer, 'result-details-toggle');
+
+    const expandedSummary = JSON.stringify(renderer.toJSON());
+    expect(expandedSummary).toContain('9990');
+    expect(expandedSummary).toContain('-9680');
 
     act(() => renderer.unmount());
   });
@@ -325,6 +334,89 @@ describe('Target results table', () => {
     expect(
       renderer.root.findByProps({ testID: 'target-results-list' }).props.data,
     ).toHaveLength(100);
+
+    act(() => renderer.unmount());
+  });
+
+  test('shows an accessible scroll-to-top control at the results boundary and scrolls the main list', async () => {
+    const game = gameWithLayoutCount(5);
+    const payouts: readonly SequencePayout[] = [
+      { payoutCredits: 20, sequenceNumber: 3 },
+      { payoutCredits: 0, sequenceNumber: 4 },
+      { payoutCredits: 0, sequenceNumber: 5 },
+      { payoutCredits: 0, sequenceNumber: 1 },
+    ];
+    const renderer = render(
+      <GameWorkspaceScreen
+        diagnostics={diagnostics}
+        games={[game]}
+        repository={repository(payouts)}
+      />,
+    );
+
+    expect(
+      renderer.root.findAllByProps({ testID: 'scroll-to-top-button' }),
+    ).toHaveLength(0);
+
+    await completeBoard(renderer);
+
+    const anchor = renderer.root.findByProps({
+      testID: 'target-results-anchor',
+    });
+    const resultList = renderer.root.findByProps({
+      testID: 'target-results-list',
+    });
+    const resultListInstance = renderer.root.findByType(FlatList)
+      .instance as FlatList<ForecastPeak>;
+    const scrollToOffset = jest
+      .spyOn(resultListInstance, 'scrollToOffset')
+      .mockImplementation(() => undefined);
+
+    act(() => {
+      anchor.props.onLayout({
+        nativeEvent: {
+          layout: { height: 48, width: 360, x: 0, y: 640 },
+        },
+      });
+      resultList.props.onScroll({
+        nativeEvent: { contentOffset: { x: 0, y: 639 } },
+      });
+    });
+
+    expect(
+      renderer.root.findAllByProps({ testID: 'scroll-to-top-button' }),
+    ).toHaveLength(0);
+
+    act(() => {
+      resultList.props.onScroll({
+        nativeEvent: { contentOffset: { x: 0, y: 640 } },
+      });
+    });
+
+    const button = renderer.root.find(
+      (node) =>
+        node.props.testID === 'scroll-to-top-button' &&
+        node.props.style !== undefined,
+    );
+    const buttonStyle = StyleSheet.flatten(
+      typeof button.props.style === 'function'
+        ? button.props.style({ pressed: false })
+        : button.props.style,
+    );
+    expect(button.props.accessibilityRole).toBe('button');
+    expect(button.props.accessibilityLabel).toBe('Wróć na górę');
+    expect(buttonStyle.height).toBeGreaterThanOrEqual(44);
+    expect(buttonStyle.width).toBeGreaterThanOrEqual(44);
+
+    await press(renderer, 'scroll-to-top-button');
+
+    expect(scrollToOffset).toHaveBeenCalledWith({
+      animated: true,
+      offset: 0,
+    });
+    expect(
+      renderer.root.findAllByProps({ testID: 'scroll-to-top-button' }),
+    ).toHaveLength(0);
 
     act(() => renderer.unmount());
   });

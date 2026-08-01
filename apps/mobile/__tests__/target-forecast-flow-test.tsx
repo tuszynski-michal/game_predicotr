@@ -1,6 +1,6 @@
 import type { SequencePayout } from '@game-predictor/shared-ts';
 import type { ReactElement } from 'react';
-import { Text, View } from 'react-native';
+import { Text, TextInput, View } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import type { SnapshotDiagnostics } from '@/data/bundled-snapshot';
@@ -13,6 +13,7 @@ import {
   type MatchingRepository,
 } from '@/features/board/game-workspace-screen';
 import { calculateSnapshotTargetForecast } from '@/features/target/use-target-forecast';
+import { parseTargetScanLimit } from '@/features/target/target-scan-limit-input';
 
 const game: LocalGameConfig = {
   code: 'game-1',
@@ -94,6 +95,11 @@ function repository(
       .mockResolvedValue({ candidateCount: 2, suggestion: null }),
     findExact,
     readCyclicPayouts,
+    readLayoutBySequence: jest
+      .fn()
+      .mockRejectedValue(
+        new Error('Next navigation is not used in this test.'),
+      ),
   };
 }
 
@@ -115,6 +121,17 @@ async function press(
   });
 }
 
+async function changeText(
+  renderer: ReactTestRenderer,
+  testID: string,
+  value: string,
+): Promise<void> {
+  await act(async () => {
+    renderer.root.findByProps({ testID }).props.onChangeText(value);
+    await Promise.resolve();
+  });
+}
+
 async function completeBoard(renderer: ReactTestRenderer): Promise<void> {
   await press(renderer, 'symbol-1');
   await press(renderer, 'symbol-2');
@@ -127,6 +144,10 @@ function visibleTestIdCount(
   return renderer.root.findAll(
     (node) => node.type === View && node.props.testID === testID,
   ).length;
+}
+
+function testIdCount(renderer: ReactTestRenderer, testID: string): number {
+  return renderer.root.findAll((node) => node.props.testID === testID).length;
 }
 
 function summaryValue(renderer: ReactTestRenderer, testID: string): string {
@@ -153,10 +174,20 @@ function deferred<T>(): Deferred<T> {
 }
 
 describe('Target forecast integration', () => {
+  test('accepts exact production limits and rejects incomplete drafts', () => {
+    expect(parseTargetScanLimit('1000')).toBe(1_000);
+    expect(parseTargetScanLimit('12345')).toBe(12_345);
+    expect(parseTargetScanLimit('500000')).toBe(500_000);
+    for (const value of ['', '999', '500001', '1.5', 'abc']) {
+      expect(parseTargetScanLimit(value)).toBeNull();
+    }
+  });
+
   test('passes verified release and game metadata to the shared full-cycle engine', () => {
     const result = calculateSnapshotTargetForecast(
       game,
       2,
+      500_000,
       diagnostics,
       payoutsFromTwo,
     );
@@ -188,6 +219,26 @@ describe('Target forecast integration', () => {
     ]);
   });
 
+  test('calculates only the requested bounded window', () => {
+    const result = calculateSnapshotTargetForecast(
+      game,
+      2,
+      2,
+      diagnostics,
+      payoutsFromTwo.slice(0, 2),
+    );
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        evaluatedSpinCount: 2,
+        finalCumulativeCost: 20,
+        finalCumulativePayout: 40,
+        finalNetCredits: 20,
+        targetScanLimit: 2,
+      }),
+    );
+  });
+
   test('evaluates the M1 fixture shape as exactly 999 spins without revisiting spin 0', () => {
     const fixtureGame = {
       ...game,
@@ -205,6 +256,7 @@ describe('Target forecast integration', () => {
     const result = calculateSnapshotTargetForecast(
       fixtureGame,
       startSequenceNumber,
+      500_000,
       diagnostics,
       sequencePayouts,
     );
@@ -239,25 +291,48 @@ describe('Target forecast integration', () => {
     await completeBoard(renderer);
 
     expect(readCyclicPayouts).toHaveBeenCalledTimes(1);
-    expect(readCyclicPayouts).toHaveBeenCalledWith(game, 2);
-    expect(visibleTestIdCount(renderer, 'target-loading')).toBeGreaterThan(0);
+    expect(readCyclicPayouts).toHaveBeenCalledWith(game, 2, 10_000);
+    expect(testIdCount(renderer, 'result-status-loading')).toBeGreaterThan(0);
 
     await act(async () => {
       payoutRequest.resolve(payoutsFromTwo);
       await payoutRequest.promise;
     });
 
-    expect(visibleTestIdCount(renderer, 'target-ready')).toBeGreaterThan(0);
-    expect(summaryValue(renderer, 'target-evaluated-spin-count')).toContain(
-      '4',
-    );
-    expect(summaryValue(renderer, 'target-final-payout')).toContain('40');
-    expect(summaryValue(renderer, 'target-final-cost')).toContain('40');
-    expect(summaryValue(renderer, 'target-final-net')).toContain('0');
-    expect(summaryValue(renderer, 'target-peak-count')).toContain('1');
-    expect(JSON.stringify(renderer.toJSON())).toContain(
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
+    expect(visibleTestIdCount(renderer, 'result-details')).toBe(0);
+    const collapsedOutput = JSON.stringify(renderer.toJSON());
+    expect(collapsedOutput).toContain('Układ znaleziony i obliczony');
+    expect(collapsedOutput).not.toContain('Target obliczony');
+    expect(collapsedOutput).not.toContain('Ocenione spiny');
+    expect(collapsedOutput).not.toContain('Łączny payout');
+    expect(collapsedOutput).not.toContain('Dodatnie szczyty');
+    expect(collapsedOutput).not.toContain(
       'Szczegółowe dodatnie lokalne maksima znajdują się w tabeli poniżej',
     );
+    expect(
+      renderer.root.findByProps({ testID: 'result-details-toggle' }).props
+        .accessibilityState,
+    ).toEqual({ expanded: false });
+
+    await press(renderer, 'result-details-toggle');
+
+    expect(
+      renderer.root.findByProps({ testID: 'result-details-toggle' }).props
+        .accessibilityState,
+    ).toEqual({ expanded: true });
+    expect(summaryValue(renderer, 'target-spin-cost')).toContain('10');
+    expect(summaryValue(renderer, 'target-final-cost')).toContain('40');
+    expect(summaryValue(renderer, 'target-final-net')).toContain('0');
+    const expandedOutput = JSON.stringify(renderer.toJSON());
+    expect(expandedOutput).toContain('Koszt spinu');
+    expect(expandedOutput).toContain('Koszt');
+    expect(expandedOutput).toContain('Suma końcowa');
+    expect(expandedOutput).not.toContain('Ocenione spiny');
+    expect(expandedOutput).not.toContain('Łączny payout');
+    expect(expandedOutput).not.toContain('Dodatnie szczyty');
+    expect(expandedOutput).not.toContain('Wynik końcowy');
     expect(
       visibleTestIdCount(renderer, 'target-results-header'),
     ).toBeGreaterThan(0);
@@ -267,6 +342,78 @@ describe('Target forecast integration', () => {
 
     act(() => renderer.unmount());
   }, 15_000);
+
+  test('validates the production input and recalculates with a new exact limit', async () => {
+    const readCyclicPayouts = jest.fn().mockResolvedValue(payoutsFromTwo);
+    const renderer = render(
+      <GameWorkspaceScreen
+        diagnostics={diagnostics}
+        games={[game]}
+        repository={repository(
+          jest.fn().mockResolvedValue(uniqueResult(2)),
+          readCyclicPayouts,
+        )}
+      />,
+    );
+
+    expect(renderer.root.findByType(TextInput).props.value).toBe('10000');
+    await changeText(renderer, 'target-scan-limit-input', '999');
+    expect(
+      renderer.root.findAll(
+        (node) =>
+          node.type === Text && node.props.testID === 'target-scan-limit-error',
+      ),
+    ).toHaveLength(1);
+
+    await completeBoard(renderer);
+    expect(readCyclicPayouts).not.toHaveBeenCalled();
+    expect(testIdCount(renderer, 'result-status-success')).toBe(0);
+    expect(testIdCount(renderer, 'result-status-pending')).toBeGreaterThan(0);
+
+    await changeText(renderer, 'target-scan-limit-input', '1000');
+    expect(readCyclicPayouts).toHaveBeenCalledWith(game, 2, 1_000);
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
+
+    act(() => renderer.unmount());
+  });
+
+  test('ignores the previous response after the scan limit changes', async () => {
+    const first = deferred<readonly SequencePayout[]>();
+    const second = deferred<readonly SequencePayout[]>();
+    const readCyclicPayouts = jest
+      .fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const renderer = render(
+      <GameWorkspaceScreen
+        diagnostics={diagnostics}
+        games={[game]}
+        repository={repository(
+          jest.fn().mockResolvedValue(uniqueResult(2)),
+          readCyclicPayouts,
+        )}
+      />,
+    );
+
+    await completeBoard(renderer);
+    await changeText(renderer, 'target-scan-limit-input', '1000');
+    expect(readCyclicPayouts).toHaveBeenNthCalledWith(1, game, 2, 10_000);
+    expect(readCyclicPayouts).toHaveBeenNthCalledWith(2, game, 2, 1_000);
+
+    await act(async () => {
+      first.resolve(payoutsFromTwo);
+      await first.promise;
+    });
+    expect(testIdCount(renderer, 'result-status-success')).toBe(0);
+
+    await act(async () => {
+      second.resolve(payoutsFromTwo);
+      await second.promise;
+    });
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
+
+    act(() => renderer.unmount());
+  });
 
   test.each([
     [{ status: 'not_found' } as const, 'not_found'],
@@ -296,8 +443,8 @@ describe('Target forecast integration', () => {
       await completeBoard(renderer);
 
       expect(readCyclicPayouts).not.toHaveBeenCalled();
-      expect(visibleTestIdCount(renderer, 'target-loading')).toBe(0);
-      expect(visibleTestIdCount(renderer, 'target-ready')).toBe(0);
+      expect(testIdCount(renderer, 'result-status-loading')).toBe(0);
+      expect(testIdCount(renderer, 'result-status-success')).toBe(0);
       act(() => renderer.unmount());
     },
   );
@@ -320,16 +467,15 @@ describe('Target forecast integration', () => {
 
     await completeBoard(renderer);
 
-    expect(visibleTestIdCount(renderer, 'target-error')).toBeGreaterThan(0);
+    expect(testIdCount(renderer, 'result-status-error')).toBeGreaterThan(0);
     expect(JSON.stringify(renderer.toJSON())).toContain('local_data_error');
 
     await press(renderer, 'target-retry-button');
 
     expect(readCyclicPayouts).toHaveBeenCalledTimes(2);
-    expect(visibleTestIdCount(renderer, 'target-ready')).toBeGreaterThan(0);
-    expect(summaryValue(renderer, 'target-evaluated-spin-count')).toContain(
-      '4',
-    );
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
+    await press(renderer, 'result-details-toggle');
+    expect(summaryValue(renderer, 'target-final-cost')).toContain('40');
     act(() => renderer.unmount());
   });
 
@@ -350,7 +496,7 @@ describe('Target forecast integration', () => {
 
     await completeBoard(renderer);
 
-    expect(visibleTestIdCount(renderer, 'target-error')).toBeGreaterThan(0);
+    expect(testIdCount(renderer, 'result-status-error')).toBeGreaterThan(0);
     expect(JSON.stringify(renderer.toJSON())).toContain('local_data_error');
     expect(JSON.stringify(renderer.toJSON())).toContain(
       'Spin 2 must use sequence 4',
@@ -372,14 +518,14 @@ describe('Target forecast integration', () => {
     );
 
     await completeBoard(renderer);
-    expect(visibleTestIdCount(renderer, 'target-ready')).toBeGreaterThan(0);
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
     expect(visibleTestIdCount(renderer, 'target-peak-row-2')).toBeGreaterThan(
       0,
     );
 
     await press(renderer, 'reset-button');
 
-    expect(visibleTestIdCount(renderer, 'target-ready')).toBe(0);
+    expect(testIdCount(renderer, 'result-status-success')).toBe(0);
     expect(visibleTestIdCount(renderer, 'target-peak-row-2')).toBe(0);
     expect(readCyclicPayouts).toHaveBeenCalledTimes(1);
     act(() => renderer.unmount());
@@ -399,11 +545,11 @@ describe('Target forecast integration', () => {
     );
 
     await completeBoard(renderer);
-    expect(visibleTestIdCount(renderer, 'target-ready')).toBeGreaterThan(0);
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
 
     await press(renderer, 'game-option-game-2');
 
-    expect(visibleTestIdCount(renderer, 'target-ready')).toBe(0);
+    expect(testIdCount(renderer, 'result-status-success')).toBe(0);
     expect(visibleTestIdCount(renderer, 'prefix-idle')).toBeGreaterThan(0);
     expect(readCyclicPayouts).toHaveBeenCalledTimes(1);
     act(() => renderer.unmount());
@@ -436,7 +582,7 @@ describe('Target forecast integration', () => {
     await press(renderer, 'undo-button');
     await press(renderer, 'symbol-1');
 
-    expect(readCyclicPayouts).toHaveBeenNthCalledWith(2, game, 3);
+    expect(readCyclicPayouts).toHaveBeenNthCalledWith(2, game, 3, 10_000);
 
     const payoutsFromThree: readonly SequencePayout[] = [
       { payoutCredits: 0, sequenceNumber: 4 },
@@ -448,13 +594,14 @@ describe('Target forecast integration', () => {
       second.resolve(payoutsFromThree);
       await second.promise;
     });
-    expect(summaryValue(renderer, 'target-final-payout')).toContain('0');
+    expect(testIdCount(renderer, 'result-status-success')).toBeGreaterThan(0);
+    await press(renderer, 'result-details-toggle');
+    expect(summaryValue(renderer, 'target-final-net')).toContain('-40');
 
     await act(async () => {
       first.resolve(payoutsFromTwo);
       await first.promise;
     });
-    expect(summaryValue(renderer, 'target-final-payout')).toContain('0');
     expect(summaryValue(renderer, 'target-final-net')).toContain('-40');
 
     act(() => renderer.unmount());

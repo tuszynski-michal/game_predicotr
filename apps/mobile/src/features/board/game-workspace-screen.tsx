@@ -1,8 +1,15 @@
-import type { ForecastPeak } from '@game-predictor/shared-ts';
-import { useReducer } from 'react';
+import {
+  TARGET_SCAN_LIMIT_DEFAULT,
+  type ForecastPeak,
+} from '@game-predictor/shared-ts';
+import { useCallback, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -19,7 +26,10 @@ import {
   TargetResultsEmpty,
   TargetResultsHeader,
 } from '@/features/target/target-results-header';
-import { TargetSummaryCard } from '@/features/target/target-summary-card';
+import {
+  parseTargetScanLimit,
+  TargetScanLimitInput,
+} from '@/features/target/target-scan-limit-input';
 import {
   useTargetForecast,
   type TargetForecastRepository,
@@ -38,12 +48,16 @@ import {
 import { boardColors } from './board-theme';
 import { CandidateLayoutModal } from './candidate-layout-modal';
 import { GameHeader } from './game-header';
-import { MatchResultCard } from './match-result-card';
+import { ResultSummaryCard } from './result-summary-card';
 import { SymbolSelection } from './symbol-selection';
 import {
   useExactMatching,
   type ExactMatchRepository,
 } from './use-exact-matching';
+import {
+  useNextLayoutNavigation,
+  type NextLayoutRepository,
+} from './use-next-layout-navigation';
 import {
   usePrefixMatching,
   type PrefixMatchRepository,
@@ -51,6 +65,7 @@ import {
 } from './use-prefix-matching';
 
 export type MatchingRepository = ExactMatchRepository &
+  NextLayoutRepository &
   PrefixMatchRepository &
   TargetForecastRepository;
 
@@ -125,7 +140,17 @@ function PrefixStatus({ state }: PrefixStatusProps) {
 }
 
 export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
+  const targetResultsListRef = useRef<FlatList<ForecastPeak>>(null);
+  const latestScrollOffsetRef = useRef(0);
   const [state, dispatch] = useReducer(boardReducer, games, initialState);
+  const [targetScanLimitDraft, setTargetScanLimitDraft] = useState(
+    String(TARGET_SCAN_LIMIT_DEFAULT),
+  );
+  const [targetResultsStartY, setTargetResultsStartY] = useState<number | null>(
+    null,
+  );
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const targetScanLimit = parseTargetScanLimit(targetScanLimitDraft);
   const selectedGame =
     games.find((game) => game.id === state.selectedGameId) ?? null;
   const enteredCount = enteredCellCount(state);
@@ -137,7 +162,12 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
     state.rejectedSuggestionPrefix,
     !boardFull,
   );
-  const exactMatching = useExactMatching(repository, selectedGame, state.cells);
+  const exactMatching = useExactMatching(
+    repository,
+    selectedGame,
+    state.cells,
+    state.anchorSequenceNumber,
+  );
   const uniqueSequenceNumber =
     exactMatching.status === 'ready' &&
     exactMatching.result?.status === 'unique'
@@ -147,7 +177,28 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
     repository,
     selectedGame,
     uniqueSequenceNumber,
+    targetScanLimit,
     diagnostics,
+  );
+  const handleLoadNextLayout = useCallback(
+    (candidate: {
+      readonly cells: readonly number[];
+      readonly sequenceNumber: number;
+    }) => {
+      dispatch({
+        cells: candidate.cells,
+        sequenceNumber: candidate.sequenceNumber,
+        type: 'load_anchored_layout',
+      });
+    },
+    [],
+  );
+  const nextNavigation = useNextLayoutNavigation(
+    repository,
+    selectedGame,
+    uniqueSequenceNumber,
+    exactMatching.signature,
+    handleLoadNextLayout,
   );
   const targetPeaks =
     targetForecast.state.status === 'ready' &&
@@ -175,6 +226,43 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
     }
   };
 
+  const updateScrollToTopVisibility = useCallback(
+    (scrollOffset: number, resultsStartY: number | null) => {
+      const shouldShow =
+        targetReady && resultsStartY !== null && scrollOffset >= resultsStartY;
+      setShowScrollToTop((current) =>
+        current === shouldShow ? current : shouldShow,
+      );
+    },
+    [targetReady],
+  );
+
+  const handleTargetResultsLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const resultsStartY = event.nativeEvent.layout.y;
+      setTargetResultsStartY(resultsStartY);
+      updateScrollToTopVisibility(latestScrollOffsetRef.current, resultsStartY);
+    },
+    [updateScrollToTopVisibility],
+  );
+
+  const handleResultsScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const scrollOffset = event.nativeEvent.contentOffset.y;
+      latestScrollOffsetRef.current = scrollOffset;
+      updateScrollToTopVisibility(scrollOffset, targetResultsStartY);
+    },
+    [targetResultsStartY, updateScrollToTopVisibility],
+  );
+
+  const handleScrollToTop = useCallback(() => {
+    targetResultsListRef.current?.scrollToOffset({
+      animated: true,
+      offset: 0,
+    });
+    setShowScrollToTop(false);
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
@@ -187,15 +275,35 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
         ListHeaderComponent={() => (
           <View testID="workspace-list-header">
             <GameHeader
-              canNext={false}
+              canNext={
+                uniqueSequenceNumber !== null &&
+                nextNavigation.state.status !== 'loading'
+              }
               canUndo={canUndo(state)}
               games={games}
+              nextLoading={nextNavigation.state.status === 'loading'}
+              onNext={nextNavigation.navigate}
               onReset={() => dispatch({ type: 'reset' })}
               onSelectGame={handleSelectGame}
               onUndo={() => dispatch({ type: 'undo' })}
               releaseVersion={diagnostics.releaseVersion}
               selectedGameId={state.selectedGameId}
             />
+
+            {nextNavigation.state.status === 'error' ? (
+              <View
+                accessibilityLiveRegion="assertive"
+                style={styles.nextError}
+                testID="next-error"
+              >
+                <Text style={styles.nextErrorCode}>
+                  {nextNavigation.state.error.code}
+                </Text>
+                <Text style={styles.nextErrorText}>
+                  {nextNavigation.state.error.message}
+                </Text>
+              </View>
+            ) : null}
 
             {selectedGame === null ? (
               <View style={styles.emptyCard}>
@@ -225,36 +333,69 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
                   />
                 </View>
 
+                <View style={styles.targetLimitSection}>
+                  <TargetScanLimitInput
+                    onChangeText={setTargetScanLimitDraft}
+                    value={targetScanLimitDraft}
+                  />
+                </View>
+
                 <View style={styles.section}>
                   {boardFull ? (
-                    <MatchResultCard state={exactMatching} />
+                    <ResultSummaryCard
+                      exactState={exactMatching}
+                      onRetryTarget={targetForecast.retry}
+                      targetState={targetForecast.state}
+                    />
                   ) : (
                     <PrefixStatus state={prefixMatching} />
                   )}
                 </View>
-                {uniqueSequenceNumber === null ? null : (
-                  <View style={styles.section}>
-                    <TargetSummaryCard
-                      onRetry={targetForecast.retry}
-                      state={targetForecast.state}
-                    />
-                  </View>
-                )}
               </>
             )}
 
             {targetReady ? (
-              <TargetResultsHeader peakCount={targetPeaks.length} />
+              <View
+                onLayout={handleTargetResultsLayout}
+                testID="target-results-anchor"
+              >
+                <TargetResultsHeader peakCount={targetPeaks.length} />
+              </View>
             ) : null}
           </View>
         )}
         maxToRenderPerBatch={8}
+        onScroll={handleResultsScroll}
+        ref={targetResultsListRef}
         removeClippedSubviews
         renderItem={({ item }) => <TargetPeakRow peak={item} />}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         testID="target-results-list"
         windowSize={5}
       />
+      {targetReady && showScrollToTop ? (
+        <Pressable
+          accessibilityHint="Przewija ekran do wyboru gry i planszy."
+          accessibilityLabel="Wróć na górę"
+          accessibilityRole="button"
+          hitSlop={6}
+          onPress={handleScrollToTop}
+          style={({ pressed }) => [
+            styles.scrollToTopButton,
+            pressed ? styles.scrollToTopButtonPressed : null,
+          ]}
+          testID="scroll-to-top-button"
+        >
+          <Text
+            accessibilityElementsHidden
+            importantForAccessibility="no"
+            style={styles.scrollToTopIcon}
+          >
+            ↑
+          </Text>
+        </Pressable>
+      ) : null}
       {selectedGame === null ? null : (
         <CandidateLayoutModal
           game={selectedGame}
@@ -309,7 +450,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   listFooter: {
-    height: 36,
+    height: 88,
   },
   matchCard: {
     alignItems: 'center',
@@ -364,15 +505,66 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+  nextError: {
+    backgroundColor: '#3b1720',
+    borderBottomColor: '#b91c1c',
+    borderBottomWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  nextErrorCode: {
+    color: '#fca5a5',
+    fontFamily: 'monospace',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  nextErrorText: {
+    color: '#fecaca',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 3,
+  },
   safeArea: {
     backgroundColor: boardColors.background,
     flex: 1,
+  },
+  scrollToTopButton: {
+    alignItems: 'center',
+    backgroundColor: boardColors.primary,
+    borderColor: '#bfdbfe',
+    borderRadius: 26,
+    borderWidth: 1,
+    bottom: 16,
+    elevation: 6,
+    height: 52,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 16,
+    shadowColor: '#000000',
+    shadowOffset: { height: 3, width: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    width: 52,
+    zIndex: 10,
+  },
+  scrollToTopButtonPressed: {
+    opacity: 0.78,
+  },
+  scrollToTopIcon: {
+    color: '#07111f',
+    fontSize: 28,
+    fontWeight: '900',
+    lineHeight: 32,
   },
   section: {
     marginHorizontal: 18,
     marginTop: 24,
   },
   selectionSection: {
+    marginHorizontal: 12,
+    marginTop: 10,
+  },
+  targetLimitSection: {
     marginHorizontal: 12,
     marginTop: 10,
   },

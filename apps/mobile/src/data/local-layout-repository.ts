@@ -1,5 +1,7 @@
 import {
   decodeSignature,
+  TARGET_SCAN_LIMIT_ENGINE_MIN,
+  TARGET_SCAN_LIMIT_MAX,
   type GameConfig,
   type SequencePayout,
   type SymbolDefinition,
@@ -177,6 +179,13 @@ const DUPLICATE_SEQUENCE_QUERY = `
   LIMIT ?
 `;
 
+const LAYOUT_BY_SEQUENCE_QUERY = `
+  SELECT sequence_number, signature
+  FROM layouts
+  WHERE game_id = ? AND sequence_number = ?
+  LIMIT 1
+`;
+
 const CYCLIC_PAYOUT_QUERY = `
   SELECT sequence_number, payout, cycle_segment
   FROM (
@@ -191,6 +200,7 @@ const CYCLIC_PAYOUT_QUERY = `
     WHERE game_id = ? AND sequence_number < ?
   )
   ORDER BY cycle_segment, sequence_number
+  LIMIT ?
 `;
 
 function requireString(value: unknown, label: string): string {
@@ -565,9 +575,41 @@ export class LocalLayoutRepository {
     }
   }
 
+  async readLayoutBySequence(
+    game: LocalGameConfig,
+    sequenceNumber: number,
+  ): Promise<LayoutCandidate> {
+    try {
+      validateSelectedGame(game);
+      requireInteger(sequenceNumber, 'Layout sequence number', 1);
+      if (sequenceNumber > game.layoutCount) {
+        throw new LocalDataError(
+          'Layout sequence number exceeds the game layout count.',
+        );
+      }
+
+      const candidate = readCandidate(
+        await this.database.getFirstAsync<LayoutRow>(LAYOUT_BY_SEQUENCE_QUERY, [
+          game.databaseId,
+          sequenceNumber,
+        ]),
+        game,
+      );
+      if (candidate.sequenceNumber !== sequenceNumber) {
+        throw new LocalDataError(
+          'Sequence query returned a different layout position.',
+        );
+      }
+      return candidate;
+    } catch (error: unknown) {
+      throw asLocalDataError(error, 'Could not read layout by sequence');
+    }
+  }
+
   async readCyclicPayouts(
     game: LocalGameConfig,
     startSequenceNumber: number,
+    targetScanLimit: number,
   ): Promise<readonly SequencePayout[]> {
     try {
       validateSelectedGame(game);
@@ -577,6 +619,15 @@ export class LocalLayoutRepository {
           'Start sequence number exceeds the game layout count.',
         );
       }
+      requireInteger(
+        targetScanLimit,
+        'Target scan limit',
+        TARGET_SCAN_LIMIT_ENGINE_MIN,
+      );
+      if (targetScanLimit > TARGET_SCAN_LIMIT_MAX) {
+        throw new LocalDataError('Target scan limit must not exceed 500000.');
+      }
+      const expectedLength = Math.min(targetScanLimit, game.layoutCount - 1);
 
       const rows = await this.database.getAllAsync<PayoutRow>(
         CYCLIC_PAYOUT_QUERY,
@@ -585,9 +636,9 @@ export class LocalLayoutRepository {
           startSequenceNumber,
           game.databaseId,
           startSequenceNumber,
+          expectedLength,
         ],
       );
-      const expectedLength = game.layoutCount - 1;
       if (rows.length !== expectedLength) {
         throw new LocalDataError(
           `Cyclic payout stream contains ${rows.length} rows; expected ${expectedLength}.`,

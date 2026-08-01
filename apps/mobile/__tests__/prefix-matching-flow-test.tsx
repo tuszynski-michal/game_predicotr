@@ -135,6 +135,11 @@ function withExact(repository: PrefixMatchRepository): MatchingRepository {
     ...repository,
     findExact: jest.fn().mockResolvedValue({ status: 'not_found' }),
     readCyclicPayouts: jest.fn().mockResolvedValue([]),
+    readLayoutBySequence: jest
+      .fn()
+      .mockRejectedValue(
+        new Error('Next navigation is not used in this test.'),
+      ),
   };
 }
 
@@ -227,6 +232,11 @@ describe('prefix matching flow', () => {
         status: 'duplicate',
       }),
       readCyclicPayouts,
+      readLayoutBySequence: jest
+        .fn()
+        .mockRejectedValue(
+          new Error('Next navigation is not used in this test.'),
+        ),
     };
     const renderer = render(
       <GameWorkspaceScreen

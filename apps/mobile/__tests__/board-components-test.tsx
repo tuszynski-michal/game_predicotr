@@ -105,6 +105,12 @@ const pendingMatchingRepository: MatchingRepository = {
         // TASK-0009 component tests do not exercise Target.
       }),
   ),
+  readLayoutBySequence: jest.fn(
+    () =>
+      new Promise(() => {
+        // TASK-0138 component tests do not exercise Next navigation.
+      }),
+  ),
 };
 
 function render(element: ReactElement): ReactTestRenderer {
@@ -186,7 +192,7 @@ describe('board components', () => {
     expect(renderer.root.findByProps({ testID: 'next-button' }).props).toEqual(
       expect.objectContaining({
         accessibilityLabel: 'Przejdź do następnego layoutu',
-        accessibilityState: { disabled: true },
+        accessibilityState: { busy: false, disabled: true },
         disabled: true,
       }),
     );

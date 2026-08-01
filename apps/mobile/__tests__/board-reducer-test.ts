@@ -12,6 +12,7 @@ describe('board reducer', () => {
     const state = createBoardState('game-1', 2, 3);
 
     expect(state).toEqual({
+      anchorSequenceNumber: null,
       cells: [null, null, null, null, null, null],
       columns: 3,
       history: [],
@@ -87,6 +88,7 @@ describe('board reducer', () => {
     const reset = boardReducer(state, { type: 'reset' });
 
     expect(reset).toEqual({
+      anchorSequenceNumber: null,
       cells: [null, null, null],
       columns: 3,
       history: [],
@@ -132,6 +134,29 @@ describe('board reducer', () => {
     expect(state.cells).toEqual([1, 2]);
   });
 
+  test('loads an anchored layout as one operation and Undo restores its previous anchor', () => {
+    const initial = createBoardState('game-1', 1, 2);
+    const firstAnchor = boardReducer(initial, {
+      cells: [1, 2],
+      sequenceNumber: 3,
+      type: 'load_anchored_layout',
+    });
+    const secondAnchor = boardReducer(firstAnchor, {
+      cells: [2, 1],
+      sequenceNumber: 4,
+      type: 'load_anchored_layout',
+    });
+
+    expect(secondAnchor.cells).toEqual([2, 1]);
+    expect(secondAnchor.anchorSequenceNumber).toBe(4);
+    expect(secondAnchor.history).toHaveLength(2);
+
+    const undone = boardReducer(secondAnchor, { type: 'undo' });
+    expect(undone.cells).toEqual([1, 2]);
+    expect(undone.anchorSequenceNumber).toBe(3);
+    expect(canUndo(undone)).toBe(true);
+  });
+
   test('changing the board clears a rejected suggestion prefix', () => {
     const rejected = boardReducer(createBoardState('game-1', 1, 2), {
       signaturePrefix: '01',
@@ -144,6 +169,7 @@ describe('board reducer', () => {
     });
 
     expect(changed.rejectedSuggestionPrefix).toBeNull();
+    expect(changed.anchorSequenceNumber).toBeNull();
   });
 
   test('rejects an invalid completion or symbol code', () => {

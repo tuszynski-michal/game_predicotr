@@ -23,6 +23,7 @@ export type DomainErrorCode =
   | 'invalid_sequence_number'
   | 'invalid_signature'
   | 'invalid_spin_cost'
+  | 'invalid_target_scan_limit'
   | 'invalid_symbol'
   | 'invalid_symbol_code'
   | 'forecast_numeric_overflow'

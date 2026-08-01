@@ -13,6 +13,7 @@ export interface TargetForecastRepository {
   readCyclicPayouts(
     game: LocalGameConfig,
     startSequenceNumber: number,
+    targetScanLimit: number,
   ): Promise<readonly SequencePayout[]>;
 }
 
@@ -37,6 +38,7 @@ type StoredTargetState = TargetForecastState & {
   readonly attempt: number;
   readonly gameId: string | null;
   readonly startSequenceNumber: number | null;
+  readonly targetScanLimit: number | null;
 };
 
 type UseTargetForecastResult = {
@@ -47,6 +49,7 @@ type UseTargetForecastResult = {
 export function calculateSnapshotTargetForecast(
   game: LocalGameConfig,
   startSequenceNumber: number,
+  targetScanLimit: number,
   diagnostics: SnapshotDiagnostics,
   sequencePayouts: readonly SequencePayout[],
 ): ForecastResult {
@@ -60,6 +63,7 @@ export function calculateSnapshotTargetForecast(
     snapshotChecksum: diagnostics.logicalContentSha256,
     spinCost: game.spinCost,
     startSequenceNumber,
+    targetScanLimit,
   });
 }
 
@@ -71,6 +75,7 @@ function idleState(): StoredTargetState {
     result: null,
     startSequenceNumber: null,
     status: 'idle',
+    targetScanLimit: null,
   };
 }
 
@@ -86,24 +91,30 @@ export function useTargetForecast(
   repository: TargetForecastRepository,
   game: LocalGameConfig | null,
   startSequenceNumber: number | null,
+  targetScanLimit: number | null,
   diagnostics: SnapshotDiagnostics,
 ): UseTargetForecastResult {
   const [attempt, setAttempt] = useState(0);
   const [storedState, setStoredState] = useState<StoredTargetState>(idleState);
 
   useEffect(() => {
-    if (game === null || startSequenceNumber === null) {
+    if (
+      game === null ||
+      startSequenceNumber === null ||
+      targetScanLimit === null
+    ) {
       return;
     }
 
     let isCurrentRequest = true;
 
     void repository
-      .readCyclicPayouts(game, startSequenceNumber)
+      .readCyclicPayouts(game, startSequenceNumber, targetScanLimit)
       .then((sequencePayouts) =>
         calculateSnapshotTargetForecast(
           game,
           startSequenceNumber,
+          targetScanLimit,
           diagnostics,
           sequencePayouts,
         ),
@@ -119,6 +130,7 @@ export function useTargetForecast(
           result,
           startSequenceNumber,
           status: 'ready',
+          targetScanLimit,
         });
       })
       .catch((error: unknown) => {
@@ -132,27 +144,44 @@ export function useTargetForecast(
           result: null,
           startSequenceNumber,
           status: 'error',
+          targetScanLimit,
         });
       });
 
     return () => {
       isCurrentRequest = false;
     };
-  }, [attempt, diagnostics, game, repository, startSequenceNumber]);
+  }, [
+    attempt,
+    diagnostics,
+    game,
+    repository,
+    startSequenceNumber,
+    targetScanLimit,
+  ]);
 
   const retry = useCallback(() => {
-    if (game !== null && startSequenceNumber !== null) {
+    if (
+      game !== null &&
+      startSequenceNumber !== null &&
+      targetScanLimit !== null
+    ) {
       setAttempt((currentAttempt) => currentAttempt + 1);
     }
-  }, [game, startSequenceNumber]);
+  }, [game, startSequenceNumber, targetScanLimit]);
 
-  if (game === null || startSequenceNumber === null) {
+  if (
+    game === null ||
+    startSequenceNumber === null ||
+    targetScanLimit === null
+  ) {
     return { retry, state: idleState() };
   }
   if (
     storedState.attempt !== attempt ||
     storedState.gameId !== game.id ||
-    storedState.startSequenceNumber !== startSequenceNumber
+    storedState.startSequenceNumber !== startSequenceNumber ||
+    storedState.targetScanLimit !== targetScanLimit
   ) {
     return { retry, state: loadingState() };
   }

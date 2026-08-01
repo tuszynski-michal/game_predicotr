@@ -103,16 +103,29 @@ końcowych testów dużych zbiorów. Ten zakres przechodzi do wersji 0.4.
 3. **TASK-0137 — Configurable bounded Target scan**
    - kontrakt limitu, input 1 000–500 000, domyślne 10 000, anulowanie i
      deterministyczne wyniki ograniczonego okna.
+   - status: ukończony 2026-08-01; engine, adapter SQLite i Mobile używają
+     dokładnego limitu, a zmiana wartości unieważnia poprzedni wynik.
 4. **TASK-0138 — Anchored Next navigation and recalculation**
    - jednoznaczny anchor sekwencji, zawijanie, ponowne obliczenie i atomowe
      Undo.
+   - status: ukończony 2026-08-01; odczyt po dokładnym `sequence_number`, anchor
+     w historii planszy, wrap-around, ponowne obliczenie Targetu oraz
+     fail-closed loading/error przeszły pełną regresję Mobile 81/81.
 5. **TASK-0139 — Consolidated matching and Target result summary**
    - wspólny komunikat, statusy, kompaktowe szczegóły i usunięcie powtórzeń.
+   - status: ukończony 2026-08-01; jedna karta składa stan matchingu i Targetu,
+     a rozwijane szczegóły zawierają wyłącznie koszt spinu, koszt i sumę
+     końcową. Pełna regresja Mobile przechodzi 81/81.
 6. **TASK-0140 — Results-aware scroll-to-top control**
    - widoczność zależna od pozycji, safe area, dostępność i powrót na górę.
+   - ukończone 2026-08-01: próg wynika z pomiaru kotwicy wyników, przycisk
+     przewija ten sam `FlatList` do początku, a dodatkowy footer chroni końcowe
+     wiersze. Pełna regresja Mobile przechodzi 82/82.
 7. **TASK-0141 — Version 0.3 mobile regression and Pixel acceptance**
    - testy jednostkowe/integracyjne, statyczna weryfikacja APK i odbiór offline
      na Google Pixel 10 Pro XL.
+   - status: w toku; automatyczna regresja oraz statyczny audyt APK `0.3.0 (7)`
+     są zakończone, a instalacja i manualny odbiór czekają na podłączenie Pixela.
 
 Każde zadanie jest osobnym pionem. TASK-0137 i TASK-0138 zmieniają zachowanie
 domenowe, dlatego wymagają testów bezpośrednio po implementacji; pozostałe

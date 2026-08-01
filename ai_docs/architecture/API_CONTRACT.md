@@ -556,13 +556,39 @@ ten endpoint; odrzucanie importu pozostaje osobną operacją workflow importu.
 
 ## Kontrolowany import folderu zdjęć
 
-### POST `/api/v1/admin/image-imports/folder-selection`
+### POST `/api/v1/admin/image-imports/browser-selections`
 
-Otwiera stały natywny dialog Windows wyłącznie na lokalnym backendzie. Request
-nie zawiera ścieżki ani parametrów procesu. Anulowanie zwraca `status =
-cancelled`. Poprawny wybór wykonuje lekki preflight i zwraca zatwierdzoną
-ścieżkę do prezentacji, liczbę plików JPEG oraz losowy `selectionToken` ważny 15
-minut. Token jest przechowywany tylko w pamięci API i po restarcie wygasa.
+Rozpoczyna kontrolowany upload folderu wybranego standardowym selektorem
+przeglądarki. Przyjmuje nazwę prezentacyjną katalogu, dokładną liczbę JPEG-ów i
+ich łączny rozmiar. Zwraca `uploadId` oraz liczniki postępu. Nie przyjmuje
+lokalnej ścieżki bezwzględnej i nie uruchamia procesu systemowego.
+
+### PUT `/api/v1/admin/image-imports/browser-selections/{uploadId}/files/{fileIndex}`
+
+Przesyła jeden plik jako `application/octet-stream`. Nagłówek
+`X-Image-Relative-Path` zawiera wyłącznie względną nazwę pochodzącą z wyboru
+przeglądarki. API odrzuca traversal, rozszerzenia inne niż JPEG, pustą lub
+nieczytelną zawartość, powtórzony indeks i przekroczenie zadeklarowanego
+rozmiaru. Odpowiedź zwraca aktualny postęp liczby plików i bajtów.
+
+### POST `/api/v1/admin/image-imports/browser-selections/{uploadId}/finalize`
+
+Finalizacja wymaga dokładnej zgodności przesłanej liczby plików i bajtów.
+Zwraca losowy, jednorazowy `selectionToken` ważny 15 minut. Token jest
+przechowywany tylko w pamięci API i po restarcie wygasa. Staging znajduje się w
+kontrolowanym `import_root/browser-selections`; wygasłe i anulowane wybory są
+sprzątane.
+
+### DELETE `/api/v1/admin/image-imports/browser-selections/{uploadId}`
+
+Anuluje upload i usuwa jego kontrolowany staging. Operacja jest idempotentna z
+perspektywy klienta.
+
+### POST `/api/v1/admin/image-imports/folder-selection` (legacy)
+
+Starszy loopback-only kontrakt otwierający dialog Windows pozostaje tymczasowo
+dla zgodności technicznej. Admin `0.2` go nie wywołuje; głównym kontraktem jest
+przeglądarkowy upload opisany wyżej.
 
 ### POST `/api/v1/admin/image-imports`
 
@@ -1272,7 +1298,7 @@ Obie mutacje wymagają jawnego payloadu:
 
 Nie można przekazać komendy, pliku wykonywalnego, argumentów powłoki, portu ani
 docelowego URL. Backend uruchamia wyłącznie przypięte skrypty start/status/stop
-z ograniczonym timeoutem. Start zapewnia produkcyjny Reviewer na loopback,
+z ograniczonym timeoutem do 60 sekund. Start zapewnia produkcyjny Reviewer na loopback,
 blokuje wykryty serwer developerski, uruchamia outbound-only Quick Tunnel i
 zwraca stan, publiczny origin, lokalny target, czas startu i gotowość Reviewera.
 
@@ -1284,6 +1310,69 @@ Panel wykonuje start przed `POST /admin/reviewer-sessions`, dzięki czemu nowa
 sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
 próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
 zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
+
+## Planowany Admin API M6.6 — jakość modelu symboli
+
+Endpointy tego rozdziału są planowanym kontraktem TASK-0143–0149 i nie są
+jeszcze dostępne w wersji 0.2. Odpowiedzi zostaną dodane do OpenAPI backendu, a
+frontend użyje wyłącznie wygenerowanego klienta.
+
+### GET `/api/v1/admin/games/{gameId}/model-quality`
+
+Zwraca aktywny model, liczby zweryfikowanych plansz ogółem i od ostatniej
+kohorty, pokrycie symboli i źródeł, bieżącą iterację oraz dozwolone akcje.
+
+### GET `/api/v1/admin/games/{gameId}/verified-training-cohorts/preview`
+
+Zwraca dokładne liczniki elementów kwalifikujących, wykluczonych i chronionych,
+manifest preview oraz ostrzeżenia o małym pokryciu. Progi 100 i 1000 są
+informacją, nie warunkiem endpointu.
+
+### POST `/api/v1/admin/games/{gameId}/verified-training-cohorts`
+
+Z kluczem idempotencji zamraża pełną, skumulowaną kohortę jednej gry. Nie
+uruchamia treningu i nie zmienia review.
+
+### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations`
+
+Tworzy trwały job treningowy dla wskazanej kohorty i wersjonowanej konfiguracji.
+Odpowiedź zawiera `jobId` oraz `modelIterationId`; request nie wykonuje treningu
+w procesie API.
+
+### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations`
+
+Zwraca bounded historię wersji, statusy, checksumy i skrócone metryki.
+
+### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}`
+
+Zwraca manifest, pełne metryki kandydata, porównanie z aktywnym modelem oraz
+stan bramki. Nie zwraca absolutnych ścieżek ani danych obrazu.
+
+### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/activate`
+
+Po preview i jawnym potwierdzeniu aktywuje wyłącznie `candidate_ready`.
+Komenda jest audytowalna i nie wpływa na model przypięty do trwającego importu.
+
+### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/reject`
+
+Odrzuca kandydata z przyczyną bez zmiany aktywnego modelu.
+
+### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/rollback`
+
+Tworzy nowe zdarzenie aktywacji wcześniej poprawnej wersji. Nie nadpisuje
+historii i nie przelicza danych.
+
+### GET `/api/v1/admin/games/{gameId}/pending-reinference-preview`
+
+Zwraca liczbę aktualnych `pending`, chronionych decyzji człowieka i elementów
+wykluczonych z powodu cropu lub geometrii.
+
+### POST `/api/v1/admin/games/{gameId}/pending-reinference-jobs`
+
+Tworzy wznawialny job przypięty do konkretnej aktywnej wersji. Backend i worker
+ponownie sprawdzają status oraz rewizję przy zapisie. `accepted`, `corrected` i
+`rejected` są pomijane nawet wtedy, gdy zostały rozwiązane już po starcie joba.
+Wyniki są append-only rewizjami predykcji.
 
 ## Mobile release
 

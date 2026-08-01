@@ -1,9 +1,14 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from game_predictor_api.domain.jobs import JobType, create_job
+from game_predictor_api.domain.jobs import (
+    JobType,
+    checkpoint_job,
+    create_job,
+    start_job,
+)
 from game_predictor_worker.images.source_ingestion import (
     SOURCE_INGESTION_CONTRACT,
     ImageSourceIngestionHandler,
@@ -63,7 +68,32 @@ def test_ingestion_deduplicates_bytes_and_survives_removed_source(
     assert final["current"] == 1
     checkpoint = final["checkpoint_payload"]
     assert isinstance(checkpoint, dict)
+    assert checkpoint["schema_version"] == 1
     assert checkpoint["contractVersion"] == SOURCE_INGESTION_CONTRACT
+
+    lease_token = uuid4()
+    claimed = start_job(
+        job,
+        worker_version="worker-test",
+        worker_id="source-ingestion-test",
+        lease_token=lease_token,
+        lease_expires_at=NOW + timedelta(seconds=60),
+        started_at=NOW,
+    )
+    persisted = checkpoint_job(
+        claimed,
+        lease_token=lease_token,
+        checkpoint_payload=checkpoint,
+        stage=str(final["stage"]),
+        current=int(final["current"]),
+        total=int(final["total"]),
+        success_count=int(final["success_count"]),
+        failure_count=int(final["failure_count"]),
+        review_count=int(final["review_count"]),
+        updated_at=NOW,
+    )
+    assert persisted.progress_current == 1
+    assert persisted.checkpoint_payload == checkpoint
 
     (source / "a.jpg").unlink()
     (source / "b.jpeg").unlink()

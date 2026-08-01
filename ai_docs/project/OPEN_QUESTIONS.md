@@ -88,11 +88,12 @@ liczba danych pokaże taką potrzebę.
 
 ### Q-025 — Wybór folderu zdjęć
 
-**Status: closed 2026-07-31.** Podstawowy workflow udostępnia przycisk
-`Wybierz folder`, który przez kontrolowany lokalny backend otwiera standardowe
-okno wyboru folderu Windows na komputerze właściciela. Po wyborze backend
-sprawdza, czy katalog istnieje, jest dostępny i zawiera obsługiwane pliki.
-Ręczne wklejanie ścieżki nie jest wymagane w podstawowym interfejsie `0.2`.
+**Status: closed 2026-08-01.** Podstawowy workflow udostępnia przycisk
+`Wybierz folder`, który otwiera standardowy selektor folderu przeglądarki i
+przesyła wybrane JPEG-i do kontrolowanego lokalnego stagingu. Nie uruchamia
+PowerShella ani blokującego requestu wyboru. Backend waliduje liczbę, rozmiar,
+nazwy i zawartość plików przed wydaniem jednorazowego tokenu. Ręczne wklejanie
+ścieżki nie jest wymagane w interfejsie `0.2`.
 
 ### Q-026 — Jeden widoczny zestaw reguł
 

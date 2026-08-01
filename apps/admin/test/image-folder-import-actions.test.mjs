@@ -3,10 +3,10 @@ import test from 'node:test';
 
 import {
   createImageFolderImport,
-  selectImageFolder,
+  uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
 
-test('selects a validated local folder through the typed client', async () => {
+test('uploads a browser-native folder and returns a validated selection', async () => {
   const selection = {
     expiresAt: '2026-07-31T12:15:00Z',
     path: 'C:\\photos',
@@ -14,12 +14,64 @@ test('selects a validated local folder through the typed client', async () => {
     status: 'selected',
     supportedFileCount: 12,
   };
-
-  const result = await selectImageFolder({
-    selectLocalImageFolder: async () => ({ data: selection }),
+  const file = new File(['jpeg'], 'layout.jpg', { type: 'image/jpeg' });
+  Object.defineProperty(file, 'webkitRelativePath', {
+    value: 'photos/layout.jpg',
   });
+  const calls = [];
 
-  assert.deepEqual(result, { ok: true, selection });
+  const result = await uploadImageFolder(
+    {
+      cancelBrowserImageSelection: async () => ({ data: undefined }),
+      createBrowserImageSelection: async (body) => {
+        calls.push(['create', body]);
+        return {
+          data: {
+            expectedFileCount: 1,
+            expectedTotalBytes: file.size,
+            uploadId: 'upload-1',
+            uploadedBytes: 0,
+            uploadedFileCount: 0,
+          },
+        };
+      },
+      finalizeBrowserImageSelection: async (uploadId) => {
+        calls.push(['finalize', uploadId]);
+        return { data: selection };
+      },
+      uploadBrowserImageSelectionFile: async (...args) => {
+        calls.push(['upload', ...args]);
+        return {
+          data: {
+            expectedFileCount: 1,
+            expectedTotalBytes: file.size,
+            uploadId: 'upload-1',
+            uploadedBytes: file.size,
+            uploadedFileCount: 1,
+          },
+        };
+      },
+    },
+    [file],
+  );
+
+  assert.deepEqual(result, { displayName: 'photos', ok: true, selection });
+  assert.deepEqual(calls[0], [
+    'create',
+    {
+      displayName: 'photos',
+      expectedFileCount: 1,
+      expectedTotalBytes: file.size,
+    },
+  ]);
+  assert.deepEqual(calls[1].slice(0, 5), [
+    'upload',
+    'upload-1',
+    0,
+    'photos/layout.jpg',
+    file,
+  ]);
+  assert.deepEqual(calls[2], ['finalize', 'upload-1']);
 });
 
 test('creates an image import only from the approved selection token', async () => {
@@ -49,16 +101,20 @@ test('creates an image import only from the approved selection token', async () 
   assert.deepEqual(result, { job, ok: true });
 });
 
-test('preserves a stable folder validation error', async () => {
-  const result = await selectImageFolder({
-    selectLocalImageFolder: async () => ({
-      error: {
-        code: 'IMAGE_FOLDER_EMPTY',
-        details: {},
-        message: 'No supported files.',
-      },
-    }),
-  });
+test('preserves a stable browser folder validation error', async () => {
+  const file = new File(['jpeg'], 'layout.jpg', { type: 'image/jpeg' });
+  const result = await uploadImageFolder(
+    {
+      createBrowserImageSelection: async () => ({
+        error: {
+          code: 'IMAGE_FOLDER_EMPTY',
+          details: {},
+          message: 'No supported files.',
+        },
+      }),
+    },
+    [file],
+  );
 
   assert.deepEqual(result, {
     error: 'No supported files. (IMAGE_FOLDER_EMPTY)',

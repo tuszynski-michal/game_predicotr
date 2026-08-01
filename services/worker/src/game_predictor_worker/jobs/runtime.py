@@ -12,6 +12,7 @@ from uuid import UUID
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
+    JobError,
     JobStatus,
     JobType,
 )
@@ -277,7 +278,7 @@ class LocalJobWorker:
         try:
             code, message = (
                 (error.code, error.message)
-                if isinstance(error, JobHandlerError)
+                if isinstance(error, JobHandlerError | JobError)
                 else (
                     "JOB_EXECUTION_FAILED",
                     f"Handler failed with {type(error).__name__}.",

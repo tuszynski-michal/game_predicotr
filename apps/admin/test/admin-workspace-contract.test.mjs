@@ -33,3 +33,12 @@ test('does not expose duplicate Dataset or Manual Review workspaces', () => {
   assert.match(workspaceSource, /ImageFolderImportPanel/);
   assert.match(workspaceSource, /ReviewerAccessLauncher/);
 });
+
+test('keeps destructive game cleanup after every ordinary game section', () => {
+  const gameSectionsIndex = workspaceSource.indexOf('{GAME_SECTION_OPTIONS.map');
+  const cleanupIndex = workspaceSource.indexOf('<CleanupControl');
+
+  assert.notEqual(gameSectionsIndex, -1);
+  assert.notEqual(cleanupIndex, -1);
+  assert.ok(cleanupIndex > gameSectionsIndex);
+});

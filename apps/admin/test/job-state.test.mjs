@@ -8,12 +8,14 @@ import {
   formatImageThroughput,
   formatJobTimestamp,
   formatStorageBytes,
+  imageImportAutomationTiming,
   isActiveJob,
   isImageImportJob,
   jobContextLabel,
   jobErrorSummary,
   jobProgressLabel,
   jobProgressPercent,
+  jobProgressPresentation,
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
@@ -99,6 +101,43 @@ test('formats determinate and unknown progress without hiding counts', () => {
   assert.match(jobProgressLabel(unknown), /250/);
 });
 
+test('presents two-phase image imports as real image counts', () => {
+  const imageImport = job({
+    inputPayload: {
+      schemaVersion: 1,
+      importKind: 'image_directory',
+      pipelineFingerprint: 'a'.repeat(64),
+    },
+    jobType: 'import',
+    progress: {
+      current: 1021,
+      failed: 106,
+      review: 176,
+      stage: 'image_pipeline:sequence_ocr',
+      succeeded: 739,
+      total: 1478,
+    },
+  });
+
+  assert.deepEqual(jobProgressPresentation(imageImport), {
+    current: 282,
+    total: 739,
+    label: 'Pipeline: 282 / 739 zdjęć',
+  });
+  assert.equal(jobProgressLabel(imageImport), 'Pipeline: 282 / 739 zdjęć');
+  assert.equal(jobProgressPercent(imageImport), (282 / 739) * 100);
+
+  const sourcePhase = job({
+    ...imageImport,
+    progress: {
+      ...imageImport.progress,
+      current: 500,
+      stage: 'image_source:image_originals_copied',
+    },
+  });
+  assert.equal(jobProgressLabel(sourcePhase), 'Oryginały: 500 / 739 zdjęć');
+});
+
 test('summarizes job context and errors for the compact list', () => {
   assert.equal(jobContextLabel(job()), 'Gra game-1');
   assert.equal(
@@ -174,8 +213,41 @@ test('recognizes image imports and formats operational metrics', () => {
   assert.equal(formatElapsedSeconds(null), 'Nie rozpoczęto');
   assert.equal(formatElapsedSeconds(42.4), '42 s');
   assert.equal(formatElapsedSeconds(125), '2 min 5 s');
+  assert.equal(formatElapsedSeconds(3725), '1 godz. 2 min 5 s');
   assert.equal(formatImageThroughput(null), 'Brak pomiaru');
   assert.match(formatImageThroughput(12.5), /12,5 plików\/min/);
   assert.equal(formatStorageBytes(512), '512 B');
   assert.match(formatStorageBytes(1536), /1,5 KB/);
+});
+
+test('ends image import automation when the pipeline reaches manual review', () => {
+  const waiting = job({
+    inputPayload: {
+      schemaVersion: 1,
+      importKind: 'image_directory',
+      pipelineFingerprint: 'a'.repeat(64),
+    },
+    jobType: 'import',
+    progress: {
+      current: 1478,
+      failed: 289,
+      review: 450,
+      stage: 'image_pipeline:manual_review',
+      succeeded: 739,
+      total: 1478,
+    },
+    startedAt: '2026-07-27T10:00:00Z',
+    status: 'waiting_for_review',
+    updatedAt: '2026-07-27T10:46:05Z',
+  });
+
+  assert.deepEqual(imageImportAutomationTiming(waiting), {
+    completedAt: '2026-07-27T10:46:05Z',
+    durationSeconds: 2765,
+  });
+  assert.equal(
+    imageImportAutomationTiming(job({ ...waiting, status: 'processing' })),
+    null,
+  );
+  assert.equal(imageImportAutomationTiming(job()), null);
 });

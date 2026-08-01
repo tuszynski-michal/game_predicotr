@@ -30,9 +30,15 @@ import type {
   BuildMobileReleaseData,
   BuildMobileReleaseErrors,
   BuildMobileReleaseResponses,
+  CancelBrowserImageSelectionData,
+  CancelBrowserImageSelectionErrors,
+  CancelBrowserImageSelectionResponses,
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  CreateBrowserImageSelectionData,
+  CreateBrowserImageSelectionErrors,
+  CreateBrowserImageSelectionResponses,
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
@@ -81,6 +87,9 @@ import type {
   DownloadMobileReleaseApkData,
   DownloadMobileReleaseApkErrors,
   DownloadMobileReleaseApkResponses,
+  FinalizeBrowserImageSelectionData,
+  FinalizeBrowserImageSelectionErrors,
+  FinalizeBrowserImageSelectionResponses,
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
@@ -325,6 +334,9 @@ import type {
   UpdateSymbolData,
   UpdateSymbolErrors,
   UpdateSymbolResponses,
+  UploadBrowserImageSelectionFileData,
+  UploadBrowserImageSelectionFileErrors,
+  UploadBrowserImageSelectionFileResponses,
 } from './types.gen';
 
 export type Options<
@@ -894,6 +906,103 @@ export const createImageFolderImport = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Start a browser-native image folder upload
+ */
+export const createBrowserImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBrowserImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CreateBrowserImageSelectionResponses,
+  CreateBrowserImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBrowserImageSelectionResponses,
+    CreateBrowserImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Cancel and remove a browser-native image folder selection
+ */
+export const cancelBrowserImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CancelBrowserImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CancelBrowserImageSelectionResponses,
+  CancelBrowserImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    CancelBrowserImageSelectionResponses,
+    CancelBrowserImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}',
+    ...options,
+  });
+
+/**
+ * Upload one JPEG from a browser-native folder selection
+ */
+export const uploadBrowserImageSelectionFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UploadBrowserImageSelectionFileData, ThrowOnError>,
+): RequestResult<
+  UploadBrowserImageSelectionFileResponses,
+  UploadBrowserImageSelectionFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UploadBrowserImageSelectionFileResponses,
+    UploadBrowserImageSelectionFileErrors,
+    ThrowOnError
+  >({
+    bodySerializer: null,
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/files/{file_index}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Finalize a browser-native image folder selection
+ */
+export const finalizeBrowserImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<FinalizeBrowserImageSelectionData, ThrowOnError>,
+): RequestResult<
+  FinalizeBrowserImageSelectionResponses,
+  FinalizeBrowserImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FinalizeBrowserImageSelectionResponses,
+    FinalizeBrowserImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
+    ...options,
   });
 
 /**

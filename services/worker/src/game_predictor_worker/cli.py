@@ -17,10 +17,7 @@ from game_predictor_api.storage.database import (
     create_session_factory,
 )
 
-from game_predictor_worker.images.source_ingestion import (
-    ImageSourceIngestionHandler,
-    ManagedOriginalStore,
-)
+from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 from game_predictor_worker.imports.dispatch import ImportJobDispatchHandler
 from game_predictor_worker.imports.handler import LayoutImportStagingHandler
 from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingStore
@@ -102,7 +99,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
         ),
     )
     import_validation_handler = LayoutImportValidationHandler(import_store)
-    image_import_handler = ImageSourceIngestionHandler(ManagedOriginalStore(artifact_root))
+    image_import_handler = ProductionImageImportWorkflow(
+        session_factory,
+        artifact_root,
+        repository_root=Path.cwd(),
+    )
     import_dispatch_handler = ImportJobDispatchHandler(
         import_handler,
         image_import_handler,

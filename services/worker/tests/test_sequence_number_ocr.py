@@ -40,6 +40,44 @@ class FakeRecognizer:
         return Recognition(next(self._values), 0.9)
 
 
+class _BatchInputHandle:
+    def __init__(self) -> None:
+        self.shape: tuple[int, ...] | None = None
+        self.batch: NDArray[np.float32] | None = None
+
+    def reshape(self, shape: tuple[int, ...]) -> None:
+        self.shape = shape
+
+    def copy_from_cpu(self, batch: NDArray[np.float32]) -> None:
+        self.batch = batch.copy()
+
+
+class _BatchOutputHandle:
+    def __init__(self, output: NDArray[np.float32]) -> None:
+        self._output = output
+
+    def copy_to_cpu(self) -> NDArray[np.float32]:
+        return self._output.copy()
+
+
+class _BatchPredictor:
+    def __init__(self, output: NDArray[np.float32]) -> None:
+        self.input = _BatchInputHandle()
+        self.output = _BatchOutputHandle(output)
+        self.run_count = 0
+
+    def get_input_handle(self, name: str) -> _BatchInputHandle:
+        assert name == "input"
+        return self.input
+
+    def get_output_handle(self, name: str) -> _BatchOutputHandle:
+        assert name == "output"
+        return self.output
+
+    def run(self) -> None:
+        self.run_count += 1
+
+
 def _board_quad() -> Quad:
     return (
         Point(80, 80),
@@ -232,6 +270,31 @@ def test_missing_local_model_has_stable_error_without_runtime_initialization(
         PaddleSequenceNumberRecognizer(tmp_path / "missing-model")
 
     assert raised.value.code == "SEQUENCE_OCR_MODEL_NOT_FOUND"
+
+
+def test_paddle_recognizer_processes_page_numbers_in_one_inference_batch() -> None:
+    output = np.zeros((2, 4, 11), dtype=np.float32)
+    for batch_index, classes in enumerate(((2, 2, 0, 3), (5, 5, 0, 6))):
+        for time_index, class_index in enumerate(classes):
+            output[batch_index, time_index, class_index] = 0.9
+    predictor = _BatchPredictor(output)
+    recognizer = object.__new__(PaddleSequenceNumberRecognizer)
+    recognizer._characters = tuple("0123456789")
+    recognizer._predictor = predictor
+    recognizer._input_name = "input"
+    recognizer._output_name = "output"
+
+    results = recognizer.recognize_many(
+        (
+            np.full((32, 80, 3), 127, dtype=np.uint8),
+            np.full((48, 120, 3), 255, dtype=np.uint8),
+        )
+    )
+
+    assert [result.raw_text for result in results] == ["12", "45"]
+    assert predictor.run_count == 1
+    assert predictor.input.shape == (2, 3, 48, 320)
+    assert predictor.input.batch is not None
 
 
 def test_corpus_runner_is_complete_and_reuses_identical_artifacts(

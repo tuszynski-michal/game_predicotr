@@ -112,6 +112,79 @@ test('generated client selects a folder and creates its image import', async () 
   );
 });
 
+test('generated client uploads a browser-native folder selection', async () => {
+  const requests = [];
+  const uploadId = '44444444-4444-4444-8444-444444444444';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const path = new URL(request.url).pathname;
+    if (path.endsWith('/finalize')) {
+      return Response.json({
+        expiresAt: '2026-08-01T12:15:00Z',
+        path: 'C:\\imports\\browser-selections\\upload',
+        selectionToken: 'approved-token',
+        status: 'selected',
+        supportedFileCount: 1,
+      });
+    }
+    if (request.method === 'DELETE') {
+      return new Response(null, { status: 204 });
+    }
+    return Response.json(
+      {
+        expectedFileCount: 1,
+        expectedTotalBytes: 4,
+        uploadId,
+        uploadedBytes: request.method === 'PUT' ? 4 : 0,
+        uploadedFileCount: request.method === 'PUT' ? 1 : 0,
+      },
+      { status: request.method === 'POST' ? 201 : 200 },
+    );
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.createBrowserImageSelection({
+    displayName: 'photos',
+    expectedFileCount: 1,
+    expectedTotalBytes: 4,
+  });
+  await client.uploadBrowserImageSelectionFile(
+    uploadId,
+    0,
+    'photos/layout.jpg',
+    new Blob(['jpeg'], { type: 'image/jpeg' }),
+  );
+  await client.finalizeBrowserImageSelection(uploadId);
+  await client.cancelBrowserImageSelection(uploadId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/image-imports/browser-selections'],
+      [
+        'PUT',
+        `/api/v1/admin/image-imports/browser-selections/${uploadId}/files/0`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-imports/browser-selections/${uploadId}/finalize`,
+      ],
+      ['DELETE', `/api/v1/admin/image-imports/browser-selections/${uploadId}`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Image-Relative-Path'),
+    'photos/layout.jpg',
+  );
+  assert.equal(
+    requests[1].headers.get('Content-Type'),
+    'application/octet-stream',
+  );
+});
+
 test('generated client reads completeness and controls a sequence source override', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

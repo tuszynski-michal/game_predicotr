@@ -12,6 +12,9 @@ import {
   operationalReviewAssetUrl,
   operationalReviewKeyboardAction,
   operationalReviewGeometryCorners,
+  operationalReviewGeometryViewport,
+  operationalReviewPointInGeometryViewport,
+  operationalReviewPointInSourceImage,
   operationalReviewResolutionAction,
   operationalReviewSequence,
   operationalReviewStatusLabel,
@@ -296,5 +299,31 @@ test('parses manual geometry corners and binds preview/save to both revisions', 
       expectedResolutionRevision: 3,
       idempotencyKey: '11111111-1111-4111-8111-111111111111',
     },
+  );
+});
+
+test('limits geometry editing to one board viewport and preserves source coordinates', () => {
+  const corners = [
+    { x: 300, y: 200 },
+    { x: 800, y: 210 },
+    { x: 810, y: 510 },
+    { x: 290, y: 500 },
+  ];
+  const viewport = operationalReviewGeometryViewport(corners, 1200, 900);
+
+  assert.deepEqual(viewport, {
+    height: 466,
+    width: 780,
+    x: 160,
+    y: 122,
+  });
+  const visiblePoint = operationalReviewPointInGeometryViewport(
+    corners[0],
+    viewport,
+  );
+  assert.deepEqual(visiblePoint, { x: 140, y: 78 });
+  assert.deepEqual(
+    operationalReviewPointInSourceImage(visiblePoint, viewport, 1200, 900),
+    corners[0],
   );
 });

@@ -40,11 +40,18 @@ interface Props {
 
 type ResolutionRow = SymbolBootstrapDefinitionCommand;
 
-export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: Props) {
+export function SymbolBootstrapPanel({
+  client,
+  gameId,
+  hasSymbols,
+  onApplied,
+}: Props) {
   const [expectedCount, setExpectedCount] = useState('8');
   const [run, setRun] = useState<SymbolBootstrapRunResponse | null>(null);
   const [rows, setRows] = useState<ResolutionRow[]>([]);
-  const [state, setState] = useState<'loading' | 'ready' | 'submitting'>('loading');
+  const [state, setState] = useState<'loading' | 'ready' | 'submitting'>(
+    'loading',
+  );
   const [error, setError] = useState('');
   const requestId = useRef(0);
 
@@ -56,7 +63,12 @@ export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: 
       const result = await client.getLatestSymbolBootstrap(gameId);
       if (current !== requestId.current) return;
       if (result.error !== undefined) {
-        setError(apiErrorMessage(result.error, 'Nie udało się pobrać bootstrapu symboli.'));
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się pobrać bootstrapu symboli.',
+          ),
+        );
       } else {
         setRun(result.data ?? null);
         if (result.data?.status === 'conflict') {
@@ -65,7 +77,8 @@ export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: 
         }
       }
     } catch {
-      if (current === requestId.current) setError('Połączenie z Admin API zostało przerwane.');
+      if (current === requestId.current)
+        setError('Połączenie z Admin API zostało przerwane.');
     } finally {
       if (current === requestId.current) setState('ready');
     }
@@ -95,7 +108,9 @@ export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: 
       expectedSymbolCount: count,
     });
     if (result.error !== undefined || result.data === undefined) {
-      setError(apiErrorMessage(result.error, 'Nie udało się przeanalizować cropów.'));
+      setError(
+        apiErrorMessage(result.error, 'Nie udało się przeanalizować cropów.'),
+      );
       setState('ready');
       return;
     }
@@ -109,9 +124,13 @@ export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: 
     if (!run || run.status !== 'conflict') return;
     setState('submitting');
     setError('');
-    const result = await client.resolveSymbolBootstrap(gameId, run.id, { symbols: rows });
+    const result = await client.resolveSymbolBootstrap(gameId, run.id, {
+      symbols: rows,
+    });
     if (result.error !== undefined || result.data === undefined) {
-      setError(apiErrorMessage(result.error, 'Nie udało się zapisać rozstrzygnięcia.'));
+      setError(
+        apiErrorMessage(result.error, 'Nie udało się zapisać rozstrzygnięcia.'),
+      );
       setState('ready');
       return;
     }
@@ -123,42 +142,109 @@ export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: 
   if (hasSymbols && run?.status !== 'conflict') return null;
 
   return (
-    <section className="editorPanel" data-testid="symbol-bootstrap-panel">
-      <p className="eyebrow">Automatyczny katalog</p>
-      <h2>Utwórz symbole z zaimportowanych cropów</h2>
-      <p>Analiza zachowuje rzeczywisty obraz, checksumę, liczność i confidence każdej grupy.</p>
-      {error ? <p className="formError" role="alert">{error}</p> : null}
-      {state === 'loading' ? <p role="status">Wczytywanie bootstrapu…</p> : null}
+    <section
+      className="editorPanel symbolBootstrapPanel"
+      data-testid="symbol-bootstrap-panel"
+    >
+      {error ? (
+        <p className="formError" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {state === 'loading' ? (
+        <p role="status">Wczytywanie bootstrapu…</p>
+      ) : null}
       {state !== 'loading' && run?.status !== 'conflict' ? (
-        <div className="formActions">
-          <label>
-            <span>Oczekiwana liczba symboli</span>
-            <input min={1} max={32767} onChange={(event) => setExpectedCount(event.currentTarget.value)} type="number" value={expectedCount} />
+        <div className="symbolBootstrapControls">
+          <label className="symbolBootstrapCountField">
+            <span>Liczba symboli</span>
+            <input
+              inputMode="numeric"
+              max={32767}
+              min={1}
+              onChange={(event) => setExpectedCount(event.currentTarget.value)}
+              type="number"
+              value={expectedCount}
+            />
           </label>
-          <button className="primaryButton" disabled={state === 'submitting'} onClick={() => void start()} type="button">
+          <button
+            className="primaryButton"
+            disabled={state === 'submitting'}
+            onClick={() => void start()}
+            type="button"
+          >
             {state === 'submitting' ? 'Analizowanie…' : 'Wykryj symbole'}
           </button>
         </div>
       ) : null}
       {run?.status === 'conflict' ? (
         <div>
-          <p role="alert">Wykryto {run.detectedClusterCount} grup, oczekiwano {run.expectedSymbolCount}. Przypisz każdą grupę; tę samą można wybrać ponownie tylko przy rozdzielaniu.</p>
+          <p role="alert">
+            Wykryto {run.detectedClusterCount} grup, oczekiwano{' '}
+            {run.expectedSymbolCount}. Przypisz każdą grupę; tę samą można
+            wybrać ponownie tylko przy rozdzielaniu.
+          </p>
           <div className="symbolsList">
             {rows.map((row, index) => (
               <div className="symbolCard" key={row.mobileCode}>
                 <strong>Symbol {row.mobileCode}</strong>
-                <label><span>Kod</span><input value={row.code} onChange={(event) => updateRow(setRows, index, { code: event.currentTarget.value })} /></label>
-                <label><span>Nazwa</span><input value={row.name} onChange={(event) => updateRow(setRows, index, { name: event.currentTarget.value })} /></label>
+                <label>
+                  <span>Kod</span>
+                  <input
+                    value={row.code}
+                    onChange={(event) =>
+                      updateRow(setRows, index, {
+                        code: event.currentTarget.value,
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  <span>Nazwa</span>
+                  <input
+                    value={row.name}
+                    onChange={(event) =>
+                      updateRow(setRows, index, {
+                        name: event.currentTarget.value,
+                      })
+                    }
+                  />
+                </label>
                 <label>
                   <span>Grupy źródłowe</span>
-                  <select multiple value={row.candidateIds} onChange={(event) => updateRow(setRows, index, { candidateIds: [...event.currentTarget.selectedOptions].map((option) => option.value) })}>
-                    {run.candidates.map((candidate) => <option key={candidate.candidateId} value={candidate.candidateId}>{candidate.proposedName} · {candidate.sampleCount} cropów · {(candidate.meanConfidence * 100).toFixed(1)}%</option>)}
+                  <select
+                    multiple
+                    value={row.candidateIds}
+                    onChange={(event) =>
+                      updateRow(setRows, index, {
+                        candidateIds: [
+                          ...event.currentTarget.selectedOptions,
+                        ].map((option) => option.value),
+                      })
+                    }
+                  >
+                    {run.candidates.map((candidate) => (
+                      <option
+                        key={candidate.candidateId}
+                        value={candidate.candidateId}
+                      >
+                        {candidate.proposedName} · {candidate.sampleCount}{' '}
+                        cropów · {(candidate.meanConfidence * 100).toFixed(1)}%
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
             ))}
           </div>
-          <button className="primaryButton" disabled={state === 'submitting'} onClick={() => void resolve()} type="button">Zapisz rozstrzygnięcie</button>
+          <button
+            className="primaryButton"
+            disabled={state === 'submitting'}
+            onClick={() => void resolve()}
+            type="button"
+          >
+            Zapisz rozstrzygnięcie
+          </button>
         </div>
       ) : null}
     </section>
@@ -168,7 +254,12 @@ export function SymbolBootstrapPanel({ client, gameId, hasSymbols, onApplied }: 
 function initialRows(run: SymbolBootstrapRunResponse): ResolutionRow[] {
   const result = Array.from({ length: run.expectedSymbolCount }, (_, index) => {
     const source = run.candidates[Math.min(index, run.candidates.length - 1)];
-    return { mobileCode: index + 1, code: source?.proposedCode ?? `SYMBOL_${index + 1}`, name: source?.proposedName ?? `Symbol ${index + 1}`, candidateIds: source ? [source.candidateId] : [] };
+    return {
+      mobileCode: index + 1,
+      code: source?.proposedCode ?? `SYMBOL_${index + 1}`,
+      name: source?.proposedName ?? `Symbol ${index + 1}`,
+      candidateIds: source ? [source.candidateId] : [],
+    };
   });
   run.candidates.slice(run.expectedSymbolCount).forEach((candidate) => {
     result[result.length - 1]?.candidateIds.push(candidate.candidateId);
@@ -176,6 +267,14 @@ function initialRows(run: SymbolBootstrapRunResponse): ResolutionRow[] {
   return result;
 }
 
-function updateRow(setRows: Dispatch<SetStateAction<ResolutionRow[]>>, index: number, patch: Partial<ResolutionRow>) {
-  setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
+function updateRow(
+  setRows: Dispatch<SetStateAction<ResolutionRow[]>>,
+  index: number,
+  patch: Partial<ResolutionRow>,
+) {
+  setRows((current) =>
+    current.map((row, rowIndex) =>
+      rowIndex === index ? { ...row, ...patch } : row,
+    ),
+  );
 }

@@ -9,6 +9,7 @@ from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressError,
     ReviewerIngressService,
     ReviewerIngressStatus,
+    _normalized_subprocess_environment,
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
@@ -23,6 +24,29 @@ def _completed(
         stdout=json.dumps(payload),
         stderr="",
     )
+
+
+def test_windows_command_environment_collapses_path_casing() -> None:
+    normalized = _normalized_subprocess_environment(
+        {
+            "Path": r"C:\Windows;C:\Tools",
+            "PATH": r"c:\tools;C:\Project",
+            "TEMP": r"C:\Temp-A",
+            "temp": r"C:\Temp-B",
+        },
+        windows=True,
+    )
+
+    assert [key for key in normalized if key.casefold() == "path"] == ["Path"]
+    assert normalized["Path"] == r"C:\Windows;C:\Tools;C:\Project"
+    assert len([key for key in normalized if key.casefold() == "temp"]) == 1
+    assert normalized["TEMP"] == r"C:\Temp-B"
+
+
+def test_non_windows_command_environment_preserves_case_distinct_names() -> None:
+    environment = {"Path": "/first", "PATH": "/second"}
+
+    assert _normalized_subprocess_environment(environment, windows=False) == environment
 
 
 def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> None:
@@ -77,7 +101,7 @@ def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> N
                 str(tmp_path / ".runtime" / "reviewer-ingress-controller-result.json"),
             ],
             tmp_path,
-            25,
+            60,
         )
     ]
 

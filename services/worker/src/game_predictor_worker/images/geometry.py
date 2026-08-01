@@ -108,6 +108,7 @@ class PageBoardDetector(Protocol):
         *,
         expected_board_count: int = EXPECTED_BOARD_COUNT,
         allow_grid_recovery: bool = False,
+        allow_occluded_grid_recovery: bool = False,
     ) -> DetectionResult:
         """Detect a supported page variant without mutating the input."""
 
@@ -288,6 +289,7 @@ def _recover_expected_grid(
     candidates: Sequence[_Candidate],
     *,
     expected_board_count: int,
+    allow_occluded_cells: bool = False,
 ) -> tuple[_Candidate, ...] | None:
     """Recover only an explicitly expected contiguous row-major page variant."""
 
@@ -296,10 +298,11 @@ def _recover_expected_grid(
         return None
     median_width = statistics.median(candidate.width for candidate in candidates)
     median_height = statistics.median(candidate.height for candidate in candidates)
+    minimum_usable_border_score = 0.18 if allow_occluded_cells else 0.28
     usable = [
         candidate
         for candidate in candidates
-        if candidate.red_border_score >= 0.28
+        if candidate.red_border_score >= minimum_usable_border_score
         and 0.55 <= candidate.width / median_width <= 1.55
         and 0.55 <= candidate.height / median_height <= 1.55
         and candidate.center_x < image_width * 0.95
@@ -356,16 +359,56 @@ def _recover_expected_grid(
     for position in range(expected_board_count):
         row = position // 3
         column = position % 3
+        predicted_center_x = column_centers[column] + row_x_offsets[row]
+        predicted_center_y = row_centers[row] + column_y_offsets[column]
+        if allow_occluded_cells:
+            assigned = [
+                candidate
+                for assigned_row, assigned_column, candidate in assignments
+                if assigned_row == row and assigned_column == column
+            ]
+            if assigned:
+                candidate = min(
+                    assigned,
+                    key=lambda item: (
+                        abs(item.center_x - predicted_center_x)
+                        + abs(item.center_y - predicted_center_y),
+                        -item.red_border_score,
+                    ),
+                )
+            else:
+                candidate = _Candidate(
+                    x=max(
+                        0,
+                        min(
+                            image_width - target_width,
+                            int(round(predicted_center_x - target_width / 2)),
+                        ),
+                    ),
+                    y=max(
+                        0,
+                        min(
+                            image_height - target_height,
+                            int(round(predicted_center_y - target_height / 2)),
+                        ),
+                    ),
+                    width=target_width,
+                    height=target_height,
+                    red_border_score=0.0,
+                    refined_from_grid=True,
+                )
+            recovered.append(candidate)
+            continue
         candidate = _search_refined_candidate(
             mask,
-            center_x=column_centers[column] + row_x_offsets[row],
-            center_y=row_centers[row] + column_y_offsets[column],
+            center_x=predicted_center_x,
+            center_y=predicted_center_y,
             target_width=target_width,
             target_height=target_height,
             search_fraction_x=0.15,
             search_fraction_y=0.15,
         )
-        if candidate.red_border_score < 0.20:
+        if candidate.red_border_score < 0.20 and not allow_occluded_cells:
             return None
         recovered.append(candidate)
     if any(
@@ -486,6 +529,17 @@ def _page_quad(
     )
 
 
+def _candidate_bounding_quad(candidate: _Candidate) -> Quad:
+    """Use the fitted lattice window when an occluder removed border evidence."""
+
+    return (
+        Point(candidate.x, candidate.y),
+        Point(candidate.x + candidate.width - 1, candidate.y),
+        Point(candidate.x + candidate.width - 1, candidate.y + candidate.height - 1),
+        Point(candidate.x, candidate.y + candidate.height - 1),
+    )
+
+
 class ClassicalPageBoardDetector:
     """HSV/contour detector for the explicitly supported red-frame 3 Ã— 3 page."""
 
@@ -497,6 +551,7 @@ class ClassicalPageBoardDetector:
         *,
         expected_board_count: int = EXPECTED_BOARD_COUNT,
         allow_grid_recovery: bool = False,
+        allow_occluded_grid_recovery: bool = False,
     ) -> DetectionResult:
         if rgb_image.ndim != 3 or rgb_image.shape[2] != 3 or rgb_image.dtype != np.uint8:
             raise GeometryDetectionError(
@@ -517,6 +572,7 @@ class ClassicalPageBoardDetector:
                     mask,
                     candidates,
                     expected_board_count=expected_board_count,
+                    allow_occluded_cells=allow_occluded_grid_recovery,
                 )
                 if allow_grid_recovery
                 else None
@@ -550,6 +606,7 @@ class ClassicalPageBoardDetector:
                 mask,
                 candidates,
                 expected_board_count=expected_board_count,
+                allow_occluded_cells=allow_occluded_grid_recovery,
             )
             if recovered is None:
                 return DetectionResult(
@@ -640,6 +697,7 @@ class ClassicalPageBoardDetector:
                 mask,
                 candidates,
                 expected_board_count=expected_board_count,
+                allow_occluded_cells=allow_occluded_grid_recovery,
             )
             if recovered is not None:
                 return self._detected_recovered(
@@ -701,7 +759,11 @@ class ClassicalPageBoardDetector:
         boards = tuple(
             BoardDetection(
                 position_index=index,
-                quad=_candidate_quad(mask, candidate),
+                quad=(
+                    _candidate_quad(mask, candidate)
+                    if candidate.red_border_score >= 0.20
+                    else _candidate_bounding_quad(candidate)
+                ),
                 bounding_box=(
                     candidate.x,
                     candidate.y,

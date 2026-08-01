@@ -45,6 +45,13 @@ równoważnego deterministycznego mechanizmu.
   zarządzania grą ani wydań Android,
 - lista pokazuje co najmniej typ, kontekst/identyfikator, aktualny status,
   czytelny postęp, czas utworzenia i krótki błąd dla niepowodzenia,
+- dwufazowy image import prezentuje rzeczywistą liczbę zdjęć w aktywnej fazie,
+  np. `Pipeline: 282 / 739 zdjęć`; techniczna suma jednostek source + pipeline
+  nie może być opisana jak liczba różnych plików,
+- po przejściu image importu do `Wymaga review` lista pokazuje datę i godzinę
+  zakończenia automatycznego importu wraz z pipeline'em oraz czas od rozpoczęcia
+  joba do tej granicy; ręczne review nie jest doliczane do czasu automatycznego
+  przetwarzania,
 - prosty filtr statusu pozwala wybrać `Wszystkie` albo jeden ze statusów
   zwracanych przez kontrakt API,
 - kliknięcie joba może rozwinąć istniejące szczegóły diagnostyczne, ale `0.2`
@@ -77,8 +84,16 @@ krok zamiast pustego formularza.
 
 - lista pokazuje liczbę gier oraz filtr `Aktywne`, `Szkice`,
   `Zarchiwizowane`,
+- kliknięcie dowolnego miejsca aktywnego lub roboczego kafelka gry, z wyjątkiem
+  osobnych przycisków akcji, wybiera tę grę jako bieżący kontekst,
 - wybrana gra ma jednoznaczne podświetlenie i jest jedynym kontekstem sekcji
   poniżej,
+- kafelek gry pokazuje nazwę jako informację główną, mniejszy stabilny kod
+  bezpośrednio pod nią oraz oddzielony odstępem cel layoutów przy dolnej części
+  zawartości kafelka,
+- edycja nazwy, statusu i oczekiwanej liczby layoutów zapisuje oraz potwierdza
+  rzeczywisty stan backendu; przejściowa utrata odpowiedzi po udanym zapisie nie
+  może powodować fałszywego komunikatu o błędzie,
 - usunięty zostaje opis o wszystkich rekordach i stabilnym kodzie z nagłówka;
   walidacja stabilnego kodu nadal obowiązuje w formularzu i API,
 - `Archiwizuj` pozostaje operacją odwracalną,
@@ -86,14 +101,24 @@ krok zamiast pustego formularza.
   wysokiego wpływu kasującą grę wraz z należącymi do niej rekordami,
 - kontrakt kaskadowego usuwania, jego dokładny zakres oraz zabezpieczenia
   powstaną w osobnym zadaniu późniejszej wersji.
+- kontrola `Wyczyść dane layoutów gry` jest ostatnim elementem konfiguracji
+  aktywnej gry, poniżej wszystkich zwykłych sekcji accordiona.
 
 ### Import layoutów
 
-- administrator używa przycisku `Wybierz folder`, który przez kontrolowany
-  lokalny backend otwiera standardowe okno wyboru folderu Windows;
+- administrator używa przycisku `Wybierz folder`, który synchronicznie z gestu
+  użytkownika otwiera standardowy selektor folderu przeglądarki;
   `examples/imgs` nie jest ścieżką specjalną,
-- po wyborze backend sprawdza dostępność katalogu i obecność obsługiwanych
-  plików przed utworzeniem importu,
+- wybór nie uruchamia PowerShella ani blokującego requestu API; anulowanie
+  selektora nie pozostawia stanu `Otwieranie…` ani blokady kolejnej próby,
+- wybór folderu, token, postęp przesyłania i stan przycisków są izolowane per
+  gra; zmiana aktywnej gry nie może przenieść ich do innej gry,
+- przeglądarka przekazuje wyłącznie obrazy JPEG, a UI pokazuje postęp liczbowy;
+  API waliduje zadeklarowaną liczbę, łączny rozmiar, względne nazwy i zawartość
+  każdego pliku,
+- pliki wyboru są stagingowane w kontrolowanym `import_root/browser-selections`;
+  anulowane, nieukończone lub wygasłe wybory są usuwane, a dopiero finalizacja
+  tworzy jednorazowy token importu ważny 15 minut,
 - import działa wyłącznie na obrazach; nie ma importu layoutów z Excela,
 - nowy import może utworzyć pierwszy zestaw albo uzupełnić brakujące sekwencje,
 - ponowne napotkanie już istniejącej sekwencji nie tworzy drugiej pozycji,
@@ -102,8 +127,18 @@ krok zamiast pustego formularza.
   pozwala obejrzeć kandydatów oraz ręcznie zmienić wybór,
 - oryginalne pliki są kopiowane do kontrolowanego content-addressed storage;
   rekord zachowuje checksumę i pochodzenie z wybranego folderu,
+- kliknięcie `Rozpocznij import` tworzy jeden wznawialny job obejmujący zarówno
+  zapis oryginałów, jak i pełny wersjonowany pipeline: normalizację, detekcję
+  plansz, cropy komórek, OCR numerów oraz klasyfikację symboli; samo skopiowanie
+  oryginałów nie jest poprawnym zakończeniem importu,
+- poprawnie przetworzone plansze i cropy są projekcjami tego samego joba;
+  dopiero stan `waiting_for_review` albo `completed` może odblokować katalog
+  symboli i wejście do Reviewera,
 - oczekiwana liczba layoutów jest prostą konfiguracją, domyślnie `500 000`; w
   `0.2` testowy dataset jawnie ustawia mniejszą wartość,
+- akcje `Wybierz folder`, `Rozpocznij import` i `Odśwież status` mają spójny,
+  responsywny układ oraz dostępną legendę pod ikoną pomocy; brak wybranego
+  folderu jest zwykłą blokadą warunkową, a nie stanem trwającej operacji,
 - status `Brakujące layouty: X` otwiera modal z bounded/stronicowaną listą
   brakujących zakresów i numerów,
 - `Doładuj layouty` wznawia ten sam logiczny zbiór i dodaje wyłącznie brakujące
@@ -124,7 +159,10 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 
 ### Symbole
 
-- przed uruchomieniem administrator podaje oczekiwaną liczbę symboli,
+- wejście do automatycznego katalogu nie powtarza tytułu i opisu istniejącej
+  sekcji; administrator od razu widzi zwartą kontrolkę `Liczba symboli` oraz
+  akcję `Wykryj symbole`,
+- przed uruchomieniem administrator podaje liczbę symboli,
 - pipeline wybiera reprezentatywne klastry/cropy z części importu i tworzy
   propozycje względem oczekiwanej liczby,
 - jeżeli liczba klastrów jest inna, katalog nie powstaje automatycznie:
@@ -161,6 +199,9 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 - bez layoutów pokazuje komunikat i akcję prowadzącą do `Import layoutów`,
 - otwiera istniejącą osobną aplikację Reviewer; nie kopiuje jej rozbudowanego
   ekranu do Admina,
+- edycja siatki w Reviewerze pracuje na powiększonym widoku pojedynczego
+  layoutu z marginesem; nie wymaga ustawiania narożników na całym zdjęciu
+  zawierającym wiele plansz,
 - lokalne i zdalne sesje, kod, revoke oraz audyt pozostają zgodne z v0.1.
 
 ## Wersje Android

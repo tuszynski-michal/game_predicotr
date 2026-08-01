@@ -180,6 +180,11 @@ zakończyła się powodzeniem, zachowała pierwotny `firstInstallTime`, a aktywn
 launchera została uruchomiona. Ten zapis potwierdza instalację artefaktu, ale
 nie zastępuje ręcznych scenariuszy offline wymaganych przez TASK-0119.
 
+2026-08-01 właściciel wykonał końcowy odbiór TASK-0119 na reprezentatywnym
+wydaniu `0.1.5 (6)` i potwierdził poprawne działanie podstawowych scenariuszy
+Mobile bez błędu blokującego. Wersja 0.1 jest odebrana. Zmiany planowane dla
+0.3 podlegają osobnemu, ponownemu odbiorowi na tym samym Pixelu.
+
 ## Wynik końcowy
 
 Właściciel zaakceptował G6 i M1 2026-07-26, ponieważ aplikacja działała zgodnie

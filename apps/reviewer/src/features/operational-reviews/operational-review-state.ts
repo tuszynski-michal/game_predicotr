@@ -199,6 +199,13 @@ export type OperationalReviewGeometryCorners = [
   OperationalImageReviewGeometryPoint,
 ];
 
+export interface OperationalReviewGeometryViewport {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
+}
+
 export function operationalReviewGeometryCorners(
   item: OperationalImageReviewItemResponse,
   imageWidth: number,
@@ -221,6 +228,60 @@ export function operationalReviewGeometryCorners(
     { x: imageWidth - insetX - 1, y: imageHeight - insetY - 1 },
     { x: insetX, y: imageHeight - insetY - 1 },
   ];
+}
+
+export function operationalReviewGeometryViewport(
+  corners: OperationalReviewGeometryCorners,
+  imageWidth: number,
+  imageHeight: number,
+  paddingRatio = 0.25,
+): OperationalReviewGeometryViewport {
+  const boundedWidth = Math.max(1, Math.round(imageWidth));
+  const boundedHeight = Math.max(1, Math.round(imageHeight));
+  const xs = corners.map((point) =>
+    Math.min(boundedWidth - 1, Math.max(0, point.x)),
+  );
+  const ys = corners.map((point) =>
+    Math.min(boundedHeight - 1, Math.max(0, point.y)),
+  );
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const boardWidth = Math.max(1, maxX - minX);
+  const boardHeight = Math.max(1, maxY - minY);
+  const paddingX = Math.max(16, Math.round(boardWidth * paddingRatio));
+  const paddingY = Math.max(16, Math.round(boardHeight * paddingRatio));
+  const x = Math.max(0, Math.floor(minX - paddingX));
+  const y = Math.max(0, Math.floor(minY - paddingY));
+  const right = Math.min(boundedWidth, Math.ceil(maxX + paddingX));
+  const bottom = Math.min(boundedHeight, Math.ceil(maxY + paddingY));
+  return {
+    height: Math.max(1, bottom - y),
+    width: Math.max(1, right - x),
+    x,
+    y,
+  };
+}
+
+export function operationalReviewPointInGeometryViewport(
+  point: OperationalImageReviewGeometryPoint,
+  viewport: OperationalReviewGeometryViewport,
+): OperationalImageReviewGeometryPoint {
+  return { x: point.x - viewport.x, y: point.y - viewport.y };
+}
+
+export function operationalReviewPointInSourceImage(
+  point: OperationalImageReviewGeometryPoint,
+  viewport: OperationalReviewGeometryViewport,
+  imageWidth: number,
+  imageHeight: number,
+): OperationalImageReviewGeometryPoint {
+  return clampOperationalReviewGeometryPoint(
+    { x: point.x + viewport.x, y: point.y + viewport.y },
+    imageWidth,
+    imageHeight,
+  );
 }
 
 export function buildOperationalReviewGeometryPreviewCommand(

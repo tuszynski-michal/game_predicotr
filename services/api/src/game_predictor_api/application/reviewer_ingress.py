@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,51 @@ _SCRIPT_BY_ACTION: Final = {
     "status": "get_remote_reviewer_tunnel_status.ps1",
     "stop": "stop_remote_reviewer_tunnel.ps1",
 }
+
+
+def _normalized_subprocess_environment(
+    environment: Mapping[str, str],
+    *,
+    windows: bool | None = None,
+) -> dict[str, str]:
+    """Return an environment without case-colliding Windows variable names."""
+
+    is_windows = os.name == "nt" if windows is None else windows
+    if not is_windows:
+        return dict(environment)
+
+    normalized: dict[str, str] = {}
+    key_by_folded_name: dict[str, str] = {}
+    path_values: list[str] = []
+    path_was_present = False
+    for key, value in environment.items():
+        folded_name = key.casefold()
+        if folded_name == "path":
+            path_was_present = True
+            path_values.append(value)
+            continue
+        existing_key = key_by_folded_name.get(folded_name)
+        if existing_key is None:
+            key_by_folded_name[folded_name] = key
+            normalized[key] = value
+        else:
+            normalized[existing_key] = value
+
+    if path_was_present:
+        path_entries: list[str] = []
+        seen_entries: set[str] = set()
+        for path_value in path_values:
+            for raw_entry in path_value.split(";"):
+                entry = raw_entry.strip()
+                if not entry:
+                    continue
+                identity = entry.rstrip("\\/").casefold()
+                if identity in seen_entries:
+                    continue
+                seen_entries.add(identity)
+                path_entries.append(entry)
+        normalized["Path"] = ";".join(path_entries)
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +98,7 @@ def _run_command(
     return subprocess.run(
         command,
         cwd=working_directory,
+        env=_normalized_subprocess_environment(os.environ),
         check=False,
         stderr=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
@@ -79,7 +126,7 @@ class ReviewerIngressService:
         return self._execute("status", timeout_seconds=8)
 
     def start(self) -> ReviewerIngressStatus:
-        return self._execute("start", timeout_seconds=25)
+        return self._execute("start", timeout_seconds=60)
 
     def stop(self) -> ReviewerIngressStatus:
         return self._execute("stop", timeout_seconds=8)

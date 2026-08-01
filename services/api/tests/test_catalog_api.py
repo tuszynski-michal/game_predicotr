@@ -136,6 +136,18 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
         assert game["name"] == "Blazing Hot"
         assert game["status"] == "draft"
 
+        game_update = client.patch(
+            f"/api/v1/admin/games/{game_id}",
+            json={
+                "name": "Blazing Hot v0.2",
+                "status": "draft",
+                "expectedLayoutCount": 750_000,
+            },
+        )
+        assert game_update.status_code == 200
+        assert game_update.json()["name"] == "Blazing Hot v0.2"
+        assert game_update.json()["expectedLayoutCount"] == 750_000
+
         symbol_response = client.post(
             f"/api/v1/admin/games/{game_id}/symbols",
             json={

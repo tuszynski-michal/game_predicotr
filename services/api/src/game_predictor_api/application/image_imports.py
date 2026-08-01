@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from secrets import token_urlsafe
 from threading import Lock
 from uuid import UUID, uuid4
@@ -20,11 +21,12 @@ from game_predictor_worker.images.pipeline_contract import (
 )
 
 from game_predictor_api.application.jobs import JobService
-from game_predictor_api.domain.jobs import Job, JobError
+from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
 SELECTION_TTL = timedelta(minutes=15)
 MAX_PREFLIGHT_FILES = 1_000_000
+IMAGE_RELATIVE_PATH_HEADER = "X-Image-Relative-Path"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +36,20 @@ class SelectedImageFolder:
     path: Path
     supported_file_count: int
     expires_at: datetime
+    display_name: str
+    managed: bool = False
+
+
+@dataclass(slots=True)
+class BrowserImageUpload:
+    upload_id: UUID
+    path: Path
+    display_name: str
+    expected_file_count: int
+    expected_total_bytes: int
+    created_at: datetime
+    uploaded_indexes: set[int]
+    uploaded_bytes: int = 0
 
 
 class WindowsFolderPicker:
@@ -54,6 +70,9 @@ class WindowsFolderPicker:
                 "IMAGE_FOLDER_PICKER_UNAVAILABLE",
                 "The controlled folder picker helper is missing.",
             )
+        startup_info = subprocess.STARTUPINFO()
+        startup_info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup_info.wShowWindow = 1  # SW_SHOWNORMAL; override a hidden API parent.
         try:
             result = subprocess.run(
                 [
@@ -70,6 +89,7 @@ class WindowsFolderPicker:
                 encoding="utf-8-sig",
                 errors="strict",
                 shell=False,
+                startupinfo=startup_info,
                 timeout=self._timeout_seconds,
             )
         except subprocess.TimeoutExpired as error:
@@ -117,11 +137,27 @@ class ImageFolderSelectionService:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._selections: dict[str, SelectedImageFolder] = {}
         self._lock = Lock()
+        self._picker_lock = Lock()
 
     def select(self) -> SelectedImageFolder | None:
-        path = self._picker()
-        if path is None:
-            return None
+        if not self._picker_lock.acquire(blocking=False):
+            raise JobConflictError(
+                "IMAGE_FOLDER_PICKER_ALREADY_OPEN",
+                "A folder selection window is already open.",
+            )
+        try:
+            path = self._picker()
+        finally:
+            self._picker_lock.release()
+        return None if path is None else self.approve(path)
+
+    def approve(
+        self,
+        path: Path,
+        *,
+        display_name: str | None = None,
+        managed: bool = False,
+    ) -> SelectedImageFolder:
         resolved, count = inspect_image_folder(path)
         now = self._clock()
         selected = SelectedImageFolder(
@@ -130,6 +166,8 @@ class ImageFolderSelectionService:
             path=resolved,
             supported_file_count=count,
             expires_at=now + SELECTION_TTL,
+            display_name=display_name or resolved.name,
+            managed=managed,
         )
         with self._lock:
             self._remove_expired(now)
@@ -162,7 +200,7 @@ class ImageFolderSelectionService:
             game_id=game_id,
             selection_id=selected.selection_id,
             source_directory=selected.path,
-            source_display_name=selected.path.name,
+            source_display_name=selected.display_name,
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
         )
         with self._lock:
@@ -171,10 +209,182 @@ class ImageFolderSelectionService:
 
     def _remove_expired(self, now: datetime) -> None:
         expired = [
-            token for token, selection in self._selections.items() if selection.expires_at <= now
+            (token, selection)
+            for token, selection in self._selections.items()
+            if selection.expires_at <= now
         ]
-        for token in expired:
+        for token, selection in expired:
             self._selections.pop(token, None)
+            if selection.managed:
+                shutil.rmtree(selection.path, ignore_errors=True)
+
+
+class BrowserImageSelectionService:
+    """Stage files chosen by the browser and mint the existing import token."""
+
+    def __init__(
+        self,
+        selection_service: ImageFolderSelectionService,
+        upload_root: Path,
+        *,
+        max_bytes: int,
+        clock: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._selection_service = selection_service
+        self._upload_root = upload_root.resolve() / "browser-selections"
+        self._max_bytes = max_bytes
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._uploads: dict[UUID, BrowserImageUpload] = {}
+        self._lock = Lock()
+
+    def begin(
+        self,
+        *,
+        display_name: str,
+        expected_file_count: int,
+        expected_total_bytes: int,
+    ) -> BrowserImageUpload:
+        normalized_name = display_name.strip()
+        if (
+            not normalized_name
+            or len(normalized_name) > 200
+            or "/" in normalized_name
+            or "\\" in normalized_name
+        ):
+            raise JobError(
+                "IMAGE_BROWSER_SELECTION_NAME_INVALID",
+                "The selected folder name is invalid.",
+            )
+        if not 1 <= expected_file_count <= MAX_PREFLIGHT_FILES:
+            raise JobError(
+                "IMAGE_BROWSER_SELECTION_COUNT_INVALID",
+                "The browser selection must contain at least one supported file.",
+            )
+        if not 1 <= expected_total_bytes <= self._max_bytes:
+            raise JobError(
+                "IMAGE_BROWSER_SELECTION_SIZE_INVALID",
+                "The browser selection exceeds the configured import size limit.",
+            )
+        now = self._clock()
+        with self._lock:
+            self._remove_expired(now)
+        upload_id = uuid4()
+        upload_path = self._upload_root / str(upload_id)
+        upload_path.mkdir(parents=True, exist_ok=False)
+        upload = BrowserImageUpload(
+            upload_id=upload_id,
+            path=upload_path,
+            display_name=normalized_name,
+            expected_file_count=expected_file_count,
+            expected_total_bytes=expected_total_bytes,
+            created_at=now,
+            uploaded_indexes=set(),
+        )
+        with self._lock:
+            self._uploads[upload_id] = upload
+        return upload
+
+    def upload_file(
+        self,
+        upload_id: UUID,
+        file_index: int,
+        *,
+        relative_path: str,
+        content: bytes,
+    ) -> BrowserImageUpload:
+        normalized_path = PurePosixPath(relative_path.replace("\\", "/"))
+        if (
+            normalized_path.is_absolute()
+            or not normalized_path.name
+            or any(part in {"", ".", ".."} for part in normalized_path.parts)
+            or normalized_path.suffix.casefold() not in SUPPORTED_IMAGE_SUFFIXES
+        ):
+            raise JobError(
+                "IMAGE_BROWSER_FILE_PATH_INVALID",
+                "The browser supplied an invalid image path.",
+            )
+        if not content:
+            raise JobError(
+                "IMAGE_BROWSER_FILE_EMPTY",
+                "The uploaded image file is empty.",
+            )
+        with self._lock:
+            upload = self._get_upload(upload_id)
+            if not 0 <= file_index < upload.expected_file_count:
+                raise JobError(
+                    "IMAGE_BROWSER_FILE_INDEX_INVALID",
+                    "The uploaded image index is outside the declared selection.",
+                )
+            if file_index in upload.uploaded_indexes:
+                raise JobConflictError(
+                    "IMAGE_BROWSER_FILE_ALREADY_UPLOADED",
+                    "This browser image file has already been uploaded.",
+                )
+            if upload.uploaded_bytes + len(content) > upload.expected_total_bytes:
+                raise JobError(
+                    "IMAGE_BROWSER_SELECTION_SIZE_MISMATCH",
+                    "Uploaded bytes exceed the declared browser selection size.",
+                )
+            suffix = normalized_path.suffix.casefold()
+            target = upload.path / f"{file_index + 1:08d}{suffix}"
+            temporary = upload.path / f".{file_index + 1:08d}.part"
+            try:
+                temporary.write_bytes(content)
+                read_jpeg_dimensions(temporary)
+                temporary.replace(target)
+            except (OSError, ImageFileError) as error:
+                temporary.unlink(missing_ok=True)
+                raise JobError(
+                    "IMAGE_BROWSER_FILE_INVALID",
+                    "The uploaded file is not a readable JPEG image.",
+                ) from error
+            upload.uploaded_indexes.add(file_index)
+            upload.uploaded_bytes += len(content)
+            return upload
+
+    def finalize(self, upload_id: UUID) -> SelectedImageFolder:
+        with self._lock:
+            upload = self._get_upload(upload_id)
+            if (
+                len(upload.uploaded_indexes) != upload.expected_file_count
+                or upload.uploaded_bytes != upload.expected_total_bytes
+            ):
+                raise JobConflictError(
+                    "IMAGE_BROWSER_SELECTION_INCOMPLETE",
+                    "The browser selection has not uploaded every declared image.",
+                )
+            selected = self._selection_service.approve(
+                upload.path,
+                display_name=upload.display_name,
+                managed=True,
+            )
+            self._uploads.pop(upload_id, None)
+            return selected
+
+    def cancel(self, upload_id: UUID) -> None:
+        with self._lock:
+            upload = self._uploads.pop(upload_id, None)
+        if upload is not None:
+            shutil.rmtree(upload.path, ignore_errors=True)
+
+    def _get_upload(self, upload_id: UUID) -> BrowserImageUpload:
+        upload = self._uploads.get(upload_id)
+        if upload is None:
+            raise JobError(
+                "IMAGE_BROWSER_SELECTION_NOT_FOUND",
+                "The browser image selection does not exist or has expired.",
+            )
+        return upload
+
+    def _remove_expired(self, now: datetime) -> None:
+        expired_ids = [
+            upload_id
+            for upload_id, upload in self._uploads.items()
+            if upload.created_at + SELECTION_TTL <= now
+        ]
+        for upload_id in expired_ids:
+            upload = self._uploads.pop(upload_id)
+            shutil.rmtree(upload.path, ignore_errors=True)
 
 
 def inspect_image_folder(path: Path) -> tuple[Path, int]:
@@ -229,6 +439,9 @@ def inspect_image_folder(path: Path) -> tuple[Path, int]:
 
 
 __all__ = [
+    "BrowserImageSelectionService",
+    "BrowserImageUpload",
+    "IMAGE_RELATIVE_PATH_HEADER",
     "ImageFolderSelectionService",
     "SelectedImageFolder",
     "WindowsFolderPicker",

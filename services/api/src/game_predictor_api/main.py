@@ -22,6 +22,8 @@ from game_predictor_api.application.cleanup import (
 )
 from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.image_imports import (
+    IMAGE_RELATIVE_PATH_HEADER,
+    BrowserImageSelectionService,
     ImageFolderSelectionService,
     WindowsFolderPicker,
 )
@@ -156,6 +158,7 @@ def create_app(
     job_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
+    browser_image_selection_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -253,6 +256,15 @@ def create_app(
     )
     resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
         lambda: default_image_folder_selection_service
+    )
+    default_browser_image_selection_service = BrowserImageSelectionService(
+        default_image_folder_selection_service,
+        resolved_settings.import_root,
+        max_bytes=resolved_settings.import_max_bytes,
+    )
+    resolved_browser_image_selection_dependency = (
+        browser_image_selection_service_dependency
+        or (lambda: default_browser_image_selection_service)
     )
 
     def default_image_job_service_dependency() -> Iterator[ImageJobOperationsService]:
@@ -402,11 +414,12 @@ def create_app(
             resolved_settings.reviewer_origin,
         ],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=[
             "Accept",
             "Authorization",
             "Content-Type",
+            IMAGE_RELATIVE_PATH_HEADER,
             ADMIN_INTENT_HEADER,
             ADMIN_CONFIRMATION_HEADER,
             ADMIN_TARGET_HEADER,
@@ -428,6 +441,7 @@ def create_app(
             resolved_job_dependency,
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
+            resolved_browser_image_selection_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_review_cohort_dependency,

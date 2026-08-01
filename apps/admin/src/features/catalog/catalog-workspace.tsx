@@ -237,16 +237,6 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                   <code>{activeGame.code}</code>
                 </header>
 
-                <CleanupControl
-                  apiBaseUrl={apiBaseUrl}
-                  onCompleted={() => {
-                    setGamesRevision((revision) => revision + 1);
-                    commitNavigation({ ...navigation, section: null });
-                  }}
-                  target={{ id: activeGame.id, kind: 'game-layout-data' }}
-                  targetLabel={`${activeGame.name} · ${activeGame.code}`}
-                />
-
                 {GAME_SECTION_OPTIONS.map((section) => {
                   const expanded = navigation.section === section.id;
                   return (
@@ -284,6 +274,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            key={activeGame.id}
                           />
                         ) : null}
                         {section.id === 'symbols' ? (
@@ -311,6 +302,16 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                     </article>
                   );
                 })}
+
+                <CleanupControl
+                  apiBaseUrl={apiBaseUrl}
+                  onCompleted={() => {
+                    setGamesRevision((revision) => revision + 1);
+                    commitNavigation({ ...navigation, section: null });
+                  }}
+                  target={{ id: activeGame.id, kind: 'game-layout-data' }}
+                  targetLabel={`${activeGame.name} · ${activeGame.code}`}
+                />
               </section>
             ) : null}
           </div>

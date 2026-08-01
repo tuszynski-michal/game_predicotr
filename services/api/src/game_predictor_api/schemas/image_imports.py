@@ -40,3 +40,17 @@ class ImageFolderImportCreate(ApiModel):
 
 class ImageFolderImportResponse(ApiModel):
     job: JobResponse
+
+
+class BrowserImageSelectionCreate(ApiModel):
+    display_name: str = Field(min_length=1, max_length=200)
+    expected_file_count: int = Field(ge=1, le=1_000_000)
+    expected_total_bytes: int = Field(ge=1)
+
+
+class BrowserImageSelectionUploadResponse(ApiModel):
+    upload_id: UUID
+    expected_file_count: int
+    uploaded_file_count: int
+    expected_total_bytes: int
+    uploaded_bytes: int

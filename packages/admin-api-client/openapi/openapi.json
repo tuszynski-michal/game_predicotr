@@ -53,6 +53,70 @@
         "title": "AndroidBuildJobPayload",
         "type": "object"
       },
+      "BrowserImageSelectionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "displayName": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Displayname",
+            "type": "string"
+          },
+          "expectedFileCount": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Expectedfilecount",
+            "type": "integer"
+          },
+          "expectedTotalBytes": {
+            "minimum": 1.0,
+            "title": "Expectedtotalbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "displayName",
+          "expectedFileCount",
+          "expectedTotalBytes"
+        ],
+        "title": "BrowserImageSelectionCreate",
+        "type": "object"
+      },
+      "BrowserImageSelectionUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedFileCount": {
+            "title": "Expectedfilecount",
+            "type": "integer"
+          },
+          "expectedTotalBytes": {
+            "title": "Expectedtotalbytes",
+            "type": "integer"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "uploadedBytes": {
+            "title": "Uploadedbytes",
+            "type": "integer"
+          },
+          "uploadedFileCount": {
+            "title": "Uploadedfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploadId",
+          "expectedFileCount",
+          "uploadedFileCount",
+          "expectedTotalBytes",
+          "uploadedBytes"
+        ],
+        "title": "BrowserImageSelectionUploadResponse",
+        "type": "object"
+      },
       "CleanupCommandRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8582,6 +8646,342 @@
           }
         ],
         "summary": "Create an image import from an approved local folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections": {
+      "post": {
+        "operationId": "createBrowserImageSelection",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrowserImageSelectionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageSelectionUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start a browser-native image folder upload",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}": {
+      "delete": {
+        "operationId": "cancelBrowserImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Cancel and remove a browser-native image folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/files/{file_index}": {
+      "put": {
+        "operationId": "uploadBrowserImageSelectionFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_index",
+            "required": true,
+            "schema": {
+              "title": "File Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Image-Relative-Path",
+            "required": true,
+            "schema": {
+              "maxLength": 1000,
+              "minLength": 1,
+              "title": "X-Image-Relative-Path",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "contentMediaType": "application/octet-stream",
+                "title": "Payload",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserImageSelectionUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Upload one JPEG from a browser-native folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize": {
+      "post": {
+        "operationId": "finalizeBrowserImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Upload Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageFolderSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Finalize a browser-native image folder selection",
         "tags": [
           "image-imports"
         ]

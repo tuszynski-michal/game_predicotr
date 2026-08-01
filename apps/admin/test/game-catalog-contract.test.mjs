@@ -17,3 +17,17 @@ test('game catalog does not expose physical deletion', () => {
   assert.doesNotMatch(source, />\s*Usuń\s*</);
   assert.doesNotMatch(source, /deleteGame/);
 });
+
+test('the complete selectable game card activates its game context', () => {
+  assert.match(source, /data-selectable=\{selectable\}/);
+  assert.match(source, /onClick=\{handleRowClick\}/);
+  assert.match(
+    source,
+    /target\.closest\('button, input, select, textarea, a'\)/,
+  );
+});
+
+test('game card keeps the stable code compact and separates the layout goal', () => {
+  assert.match(source, /className="gameStableCode"/);
+  assert.match(source, /className="gameLayoutGoal"/);
+});

@@ -2854,6 +2854,81 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   dla danych bez lokalizacji. Istniejące APK i snapshot v2 pozostają niezmienne.
 - **Supersedes:** brak.
 
+## D-118 — Folder zdjęć wybiera przeglądarka, a API przyjmuje kontrolowany upload
+
+- **Status:** accepted
+- **Date:** 2026-08-01
+- **Decision:** Admin `0.2` otwiera selektor folderu synchronicznie przez ukryty
+  `input type=file` z wyborem katalogu. JPEG-i są przesyłane pojedynczo do
+  kontrolowanego stagingu API, walidowane i finalizowane do jednorazowego
+  capability tokenu. Główny UI nie uruchamia PowerShella ani systemowego
+  dialogu przez blokujący request backendu.
+- **Context:** dialog Windows uruchamiany przez ukryty proces API nie pojawiał
+  się użytkownikowi, pozostawiał request w stanie `Otwieranie…` i globalną
+  blokadę `IMAGE_FOLDER_PICKER_ALREADY_OPEN` także po zmianie gry.
+- **Reason:** standardowy selektor przeglądarki jest bezpośrednio związany z
+  gestem użytkownika, nie dziedziczy widoczności procesu backendu i nie może
+  pozostawić osieroconego procesu wyboru.
+- **Alternatives:** dalsze dostrajanie właściciela okna PowerShell, ręczne pole
+  ścieżki albo aplikacja desktopowa Electron/Tauri.
+- **Consequences:** wybór wymaga lokalnej kopii plików do stagingu i jawnego
+  postępu. API ogranicza liczbę oraz rozmiar, waliduje każdy JPEG, sprząta
+  anulowane i wygasłe wybory, a CORS dopuszcza kontrolowany `PUT` oraz nagłówek
+  `X-Image-Relative-Path`. Legacy endpoint Windows pozostaje chwilowo zgodny,
+  lecz nie jest używany przez Admin UI.
+- **Supersedes:** zastępuje D-105 oraz część D-113 dotyczącą sposobu otwierania
+  dialogu; zachowuje jednorazowy token i lokalną granicę bezpieczeństwa.
+
+## D-119 — Iteracyjne uczenie jest skumulowane, per gra i nie zmienia decyzji człowieka
+
+- **Status:** accepted
+- **Date:** 2026-08-01
+- **Decision:** Ulepszanie klasyfikatora symboli działa jako jawny batchowy
+  trening od początku na całej zamrożonej, skumulowanej kohorcie jednej gry.
+  `accepted` i `corrected` są kanonicznymi przykładami treningowymi,
+  `rejected` pozostaje chronioną decyzją bez udziału w treningu, a tylko
+  aktualne `pending` może otrzymać nową rewizję predykcji. Kandydat wymaga
+  osobnej bramki i jawnej aktywacji; import przypina model przy tworzeniu joba.
+- **Context:** właściciel chce poprawiać dokładność po około 100, następnie 1000
+  i kolejnych ręcznie zweryfikowanych planszach oraz używać lepszego modelu dla
+  nowych zdjęć, bez ryzyka utraty pewnych danych człowieka.
+- **Reason:** skumulowany trening od początku ogranicza zapominanie klas i jest
+  łatwiejszy do odtworzenia niż online fine-tuning. Oddzielenie treningu,
+  bramki i aktywacji zapobiega wdrożeniu regresji, a warunkowy zapis tylko dla
+  `pending` chroni równoległą pracę Reviewera.
+- **Alternatives:** uczenie online po każdej decyzji, fine-tuning tylko na
+  ostatniej delcie, automatyczna aktywacja albo przeliczenie wszystkich plansz.
+- **Consequences:** potrzebne są TASK-0143–0150, rejestr modeli, niezmienne
+  manifesty, source-aware split i trwałe joby. Progi 100/1000 są doradcze.
+  Geometria i OCR pozostają osobnymi pętlami. M6.6 jest bramką przed pełnym
+  automatycznym importem 0.4.
+- **Supersedes:** rozszerza D-086 i zachowuje jej ochronę decyzji człowieka.
+
+## D-120 — Kontroler Reviewera normalizuje środowisko Windows i ma 60 sekund na zimny start
+
+- **Status:** accepted
+- **Date:** 2026-08-01
+- **Decision:** API rekonstruuje środowisko kontrolera bez nazw zmiennych
+  kolidujących wielkością liter, a skrypt startowy scala odziedziczone `Path` i
+  `PATH` do jednego kanonicznego `Path` przed każdym `Start-Process`. Zimny start
+  produkcyjnego Reviewera i Quick Tunnel pozostaje synchroniczny, ale ma
+  twardy timeout 60 sekund: do 20 sekund na Reviewer i do 30 sekund na URL
+  Cloudflare oraz ograniczony narzut kontrolera.
+- **Context:** Windows odziedziczył jednocześnie `Path` i `PATH`. PowerShell
+  przy przekierowaniu logów próbował dodać oba do case-insensitive dictionary i
+  przerywał start kodem `REVIEWER_INGRESS_COMMAND_FAILED`. Pomiar zimnego Next.js
+  wyniósł 8,1 sekundy, a Quick Tunnel może przekroczyć dotychczasowe 10 sekund.
+- **Reason:** Windows ma jedną semantyczną zmienną ścieżki; normalizacja usuwa
+  przyczynę niezależnie od terminala i restartu. Nadal ograniczony timeout
+  uwzględnia rzeczywisty zimny start bez wprowadzania joba ani dowolnego runnera.
+- **Alternatives:** wymaganie restartu komputera, jednorazowe usunięcie `PATH` w
+  terminalu, pozostawienie 25 sekund albo asynchroniczny job dla małej operacji.
+- **Consequences:** ręczny CLI i kliknięcie w Adminie używają wspólnego helpera.
+  Dodano regresję uruchamiającą proces z przekierowaniem logów. Błąd sieci nadal
+  kończy się najpóźniej po 60 sekundach i nie tworzy aktywnego publicznego stanu.
+- **Supersedes:** zmienia wyłącznie limit 25 sekund z D-098; zachowuje wszystkie
+  jej granice bezpieczeństwa i stałe komendy start/status/stop.
+
 ## Szablon nowej decyzji
 
 ```text

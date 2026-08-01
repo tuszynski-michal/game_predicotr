@@ -34,6 +34,50 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * BrowserImageSelectionCreate
+ */
+export type BrowserImageSelectionCreate = {
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Expectedfilecount
+   */
+  expectedFileCount: number;
+  /**
+   * Expectedtotalbytes
+   */
+  expectedTotalBytes: number;
+};
+
+/**
+ * BrowserImageSelectionUploadResponse
+ */
+export type BrowserImageSelectionUploadResponse = {
+  /**
+   * Expectedfilecount
+   */
+  expectedFileCount: number;
+  /**
+   * Expectedtotalbytes
+   */
+  expectedTotalBytes: number;
+  /**
+   * Uploadid
+   */
+  uploadId: string;
+  /**
+   * Uploadedbytes
+   */
+  uploadedBytes: number;
+  /**
+   * Uploadedfilecount
+   */
+  uploadedFileCount: number;
+};
+
+/**
  * CleanupCommandRequest
  */
 export type CleanupCommandRequest = {
@@ -5019,6 +5063,190 @@ export type CreateImageFolderImportResponses = {
 
 export type CreateImageFolderImportResponse =
   CreateImageFolderImportResponses[keyof CreateImageFolderImportResponses];
+
+export type CreateBrowserImageSelectionData = {
+  body: BrowserImageSelectionCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections';
+};
+
+export type CreateBrowserImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateBrowserImageSelectionError =
+  CreateBrowserImageSelectionErrors[keyof CreateBrowserImageSelectionErrors];
+
+export type CreateBrowserImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  201: BrowserImageSelectionUploadResponse;
+};
+
+export type CreateBrowserImageSelectionResponse =
+  CreateBrowserImageSelectionResponses[keyof CreateBrowserImageSelectionResponses];
+
+export type CancelBrowserImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}';
+};
+
+export type CancelBrowserImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CancelBrowserImageSelectionError =
+  CancelBrowserImageSelectionErrors[keyof CancelBrowserImageSelectionErrors];
+
+export type CancelBrowserImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type CancelBrowserImageSelectionResponse =
+  CancelBrowserImageSelectionResponses[keyof CancelBrowserImageSelectionResponses];
+
+export type UploadBrowserImageSelectionFileData = {
+  /**
+   * Payload
+   */
+  body: Blob | File;
+  headers: {
+    /**
+     * X-Image-Relative-Path
+     */
+    'X-Image-Relative-Path': string;
+  };
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+    /**
+     * File Index
+     */
+    file_index: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/files/{file_index}';
+};
+
+export type UploadBrowserImageSelectionFileErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UploadBrowserImageSelectionFileError =
+  UploadBrowserImageSelectionFileErrors[keyof UploadBrowserImageSelectionFileErrors];
+
+export type UploadBrowserImageSelectionFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserImageSelectionUploadResponse;
+};
+
+export type UploadBrowserImageSelectionFileResponse =
+  UploadBrowserImageSelectionFileResponses[keyof UploadBrowserImageSelectionFileResponses];
+
+export type FinalizeBrowserImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize';
+};
+
+export type FinalizeBrowserImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type FinalizeBrowserImageSelectionError =
+  FinalizeBrowserImageSelectionErrors[keyof FinalizeBrowserImageSelectionErrors];
+
+export type FinalizeBrowserImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageFolderSelectionResponse;
+};
+
+export type FinalizeBrowserImageSelectionResponse =
+  FinalizeBrowserImageSelectionResponses[keyof FinalizeBrowserImageSelectionResponses];
 
 export type SelectLocalImageFolderData = {
   body?: never;

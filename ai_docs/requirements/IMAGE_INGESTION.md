@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -383,6 +383,13 @@ skorygować cztery narożniki ramy i sprawdzić wynikową siatkę perspektywiczn
 przed etykietowaniem; decyzji symbolu nie zapisuje się dla cropu z
 niezaakceptowaną geometrią.
 
+Edytor geometrii pokazuje wyłącznie viewport jednej wybranej planszy z
+kontrolowanym marginesem, a nie całą stronę zawierającą wiele layoutów.
+Viewport jest tylko projekcją UI: cztery narożniki nadal są przechowywane we
+współrzędnych oryginalnego zdjęcia, a preview i zapis ponownie wycinają planszę
+bezpośrednio z tego oryginału. Dzięki marginesowi reviewer może przesunąć
+narożnik poza poprzedni błędny crop i odzyskać ucięte piksele symbolu.
+
 Przed pierwszym modelem pole `prediction/confidence` jest jawnie nieobecne.
 Bootstrap nie zgaduje klas: administrator wybiera komórkę na pełnej planszy,
 przypisuje znany symbol, odrzuca ją albo cofa decyzję. Filtry i licznik plansz
@@ -395,11 +402,18 @@ numer, geometrię i dokładnie 15 symboli. Kolejna wersja modelu może obliczyć
 nowe sugestie tylko dla elementów nierozwiązanych; nie może nadpisać decyzji
 człowieka ani istniejącego stagingu.
 
+Szczegółowy kontrakt skumulowanych kohort, treningu, aktywacji i ponownej
+inferencji definiuje `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`. Statusy
+`accepted`, `corrected` i `rejected` są chronione; automatyczna nowa predykcja
+jest dozwolona wyłącznie dla aktualnego `pending`.
+
 Zmiana geometrii zaakceptowanej albo oczekującej planszy tworzy nowy
 wersjonowany zestaw cropów. Etykiety związane ze starym `cropSampleId` nie są
 przenoszone niejawnie, a plansza wraca do review. Zaakceptowane korekty
 geometrii można później zebrać w osobny, niezmienny materiał do ulepszenia
 profilu, ale zastosowanie nowego profilu wymaga jawnej wersji pipeline'u.
+Samo zapisanie jednej lub wielu korekt nie trenuje modelu online i nie zmienia
+wyniku cięcia kolejnych layoutów w trwającym imporcie.
 
 ### 9. Walidacja i commit
 

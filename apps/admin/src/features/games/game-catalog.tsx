@@ -6,6 +6,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 import {
   type FormEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -595,10 +596,27 @@ function GameRow({
   selectable,
   selected,
 }: GameRowProps) {
+  function handleRowClick(event: MouseEvent<HTMLElement>) {
+    if (!selectable) {
+      return;
+    }
+
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest('button, input, select, textarea, a')
+    ) {
+      return;
+    }
+    onSelect();
+  }
+
   return (
     <article
       className={selected ? 'gameRow gameRowSelected' : 'gameRow'}
+      data-selectable={selectable}
       data-testid={`game-row-${game.id}`}
+      onClick={handleRowClick}
     >
       <button
         aria-disabled={!selectable}
@@ -614,15 +632,15 @@ function GameRow({
         <span className="gameMonogram" aria-hidden="true">
           {game.name.slice(0, 2).toUpperCase()}
         </span>
-        <div>
+        <div className="gameIdentityDetails">
           <div className="gameTitleLine">
             <h3>{game.name}</h3>
             <span className={`gameStatus gameStatus-${game.status}`}>
               {GAME_STATUS_LABELS[game.status]}
             </span>
           </div>
-          <code>{game.code}</code>
-          <small>
+          <code className="gameStableCode">{game.code}</code>
+          <small className="gameLayoutGoal">
             Cel: {game.expectedLayoutCount.toLocaleString('pl-PL')} layoutów
           </small>
         </div>

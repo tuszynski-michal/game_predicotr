@@ -175,29 +175,42 @@ class PaddleSequenceNumberRecognizer:
         self._output_name = str(output_names[0])
 
     def recognize(self, rgb_image: NDArray[np.uint8]) -> Recognition:
-        if rgb_image.ndim != 3 or rgb_image.shape[2] != 3 or rgb_image.dtype != np.uint8:
+        return self.recognize_many((rgb_image,))[0]
+
+    def recognize_many(
+        self,
+        rgb_images: Sequence[NDArray[np.uint8]],
+    ) -> tuple[Recognition, ...]:
+        """Recognize one page of sequence crops in one CPU inference call."""
+
+        if not rgb_images or len(rgb_images) > MAX_BOARD_COUNT:
             raise SequenceOcrError(
-                "SEQUENCE_OCR_INVALID_IMAGE",
-                "Recognizer input must be an RGB uint8 image.",
+                "SEQUENCE_OCR_BATCH_INVALID",
+                "Recognizer batch must contain between one and nine images.",
             )
-        height, width = rgb_image.shape[:2]
-        resized_width = min(
-            MODEL_INPUT_WIDTH,
-            max(1, int(np.ceil(MODEL_INPUT_HEIGHT * width / height))),
-        )
-        bgr = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
-        resized = cv2.resize(
-            bgr,
-            (resized_width, MODEL_INPUT_HEIGHT),
-            interpolation=cv2.INTER_LINEAR,
-        )
-        normalized = resized.astype(np.float32).transpose((2, 0, 1)) / 255.0
-        normalized = (normalized - 0.5) / 0.5
-        batch = np.zeros(
-            (1, 3, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH),
+        batch: NDArray[np.float32] = np.zeros(
+            (len(rgb_images), 3, MODEL_INPUT_HEIGHT, MODEL_INPUT_WIDTH),
             dtype=np.float32,
         )
-        batch[0, :, :, :resized_width] = normalized
+        for batch_index, rgb_image in enumerate(rgb_images):
+            if rgb_image.ndim != 3 or rgb_image.shape[2] != 3 or rgb_image.dtype != np.uint8:
+                raise SequenceOcrError(
+                    "SEQUENCE_OCR_INVALID_IMAGE",
+                    "Recognizer input must be an RGB uint8 image.",
+                )
+            height, width = rgb_image.shape[:2]
+            resized_width = min(
+                MODEL_INPUT_WIDTH,
+                max(1, int(np.ceil(MODEL_INPUT_HEIGHT * width / height))),
+            )
+            bgr = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
+            resized = cv2.resize(
+                bgr,
+                (resized_width, MODEL_INPUT_HEIGHT),
+                interpolation=cv2.INTER_LINEAR,
+            )
+            normalized = resized.astype(np.float32).transpose((2, 0, 1)) / 255.0
+            batch[batch_index, :, :, :resized_width] = (normalized - 0.5) / 0.5
         input_handle = self._predictor.get_input_handle(self._input_name)
         input_handle.reshape(batch.shape)
         input_handle.copy_from_cpu(batch)
@@ -206,17 +219,20 @@ class PaddleSequenceNumberRecognizer:
             NDArray[np.float32],
             self._predictor.get_output_handle(self._output_name).copy_to_cpu(),
         )
-        if output.ndim != 3 or output.shape[0] != 1:
+        if output.ndim != 3 or output.shape[0] != len(rgb_images):
             raise SequenceOcrError(
                 "SEQUENCE_OCR_MODEL_OUTPUT_INVALID",
-                "OCR model output must have shape [1, time, classes].",
+                "OCR model output must have shape [batch, time, classes].",
             )
         if output.shape[2] != len(self._characters) + 1:
             raise SequenceOcrError(
                 "SEQUENCE_OCR_MODEL_OUTPUT_INVALID",
                 "OCR model class count differs from its character dictionary.",
             )
-        digit_classes = output[0, :, :11]
+        return tuple(self._decode_output(item) for item in output)
+
+    def _decode_output(self, output: NDArray[np.float32]) -> Recognition:
+        digit_classes = output[:, :11]
         indices = np.argmax(digit_classes, axis=1)
         probabilities = np.max(digit_classes, axis=1)
         text: list[str] = []

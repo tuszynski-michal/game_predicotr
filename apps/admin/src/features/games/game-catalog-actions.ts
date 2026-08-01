@@ -10,7 +10,7 @@ import type { GameDraft } from './game-catalog-state.ts';
 
 export type GamesClient = Pick<
   AdminApiClient,
-  'archiveGame' | 'createGame' | 'listGames' | 'updateGame'
+  'archiveGame' | 'createGame' | 'getGame' | 'listGames' | 'updateGame'
 >;
 
 export type SaveGameIntent =
@@ -26,6 +26,7 @@ export async function saveGameIdentity(
   intent: SaveGameIntent,
   draft: GameDraft,
 ): Promise<SaveGameResult> {
+  const fallbackError = 'Nie udało się zapisać gry.';
   try {
     const result =
       intent.mode === 'create'
@@ -41,20 +42,58 @@ export async function saveGameIdentity(
             expectedLayoutCount: Number(draft.expectedLayoutCount),
           } satisfies GameUpdate);
 
-    if (result.error !== undefined || result.data === undefined) {
-      return {
-        error: apiErrorMessage(result.error, 'Nie udało się zapisać gry.'),
-        ok: false,
-      };
+    const mutationError = result.error;
+    if (mutationError === undefined && result.data !== undefined) {
+      return { game: result.data, ok: true };
     }
-    return { game: result.data, ok: true };
+
+    const reconciled = await reconcileEditedGame(api, intent, draft);
+    if (reconciled !== null) {
+      return reconciled;
+    }
+
+    return {
+      error: apiErrorMessage(mutationError, fallbackError),
+      ok: false,
+    };
   } catch {
+    const reconciled = await reconcileEditedGame(api, intent, draft);
+    if (reconciled !== null) {
+      return reconciled;
+    }
     return {
       error:
         'Połączenie z lokalnym Admin API zostało przerwane. Spróbuj ponownie.',
       ok: false,
     };
   }
+}
+
+async function reconcileEditedGame(
+  api: GamesClient,
+  intent: SaveGameIntent,
+  draft: GameDraft,
+): Promise<SaveGameResult | null> {
+  if (intent.mode !== 'edit') {
+    return null;
+  }
+
+  try {
+    const verification = await api.getGame(intent.gameId);
+    const game = verification.data;
+    if (
+      verification.error === undefined &&
+      game !== undefined &&
+      game.name === draft.name &&
+      game.status === draft.status &&
+      game.expectedLayoutCount === Number(draft.expectedLayoutCount)
+    ) {
+      return { game, ok: true };
+    }
+  } catch {
+    // Preserve the original mutation error when read-back is unavailable.
+  }
+  return null;
 }
 
 export type ArchiveGameResult =

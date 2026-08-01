@@ -18,10 +18,13 @@ import {
 import {
   buildOperationalReviewGeometryCommand,
   buildOperationalReviewGeometryPreviewCommand,
-  clampOperationalReviewGeometryPoint,
   operationalReviewAssetUrl,
   operationalReviewGeometryCorners,
+  operationalReviewGeometryViewport,
+  operationalReviewPointInGeometryViewport,
+  operationalReviewPointInSourceImage,
   type OperationalReviewGeometryCorners,
+  type OperationalReviewGeometryViewport,
 } from './operational-review-state';
 
 interface OperationalReviewGeometryEditorProps {
@@ -48,6 +51,8 @@ export function OperationalReviewGeometryEditor({
   const [imageSize, setImageSize] = useState({ height: 0, width: 0 });
   const [corners, setCorners] =
     useState<OperationalReviewGeometryCorners | null>(null);
+  const [viewport, setViewport] =
+    useState<OperationalReviewGeometryViewport | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState('');
   const [loadingSource, setLoadingSource] = useState(false);
@@ -70,28 +75,47 @@ export function OperationalReviewGeometryEditor({
   const drawSource = useCallback(() => {
     const canvas = canvasRef.current;
     const image = sourceImageRef.current;
-    if (canvas === null || image === null || corners === null) return;
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
+    if (
+      canvas === null ||
+      image === null ||
+      corners === null ||
+      viewport === null
+    )
+      return;
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
     const context2d = canvas.getContext('2d');
     if (context2d === null) return;
     context2d.clearRect(0, 0, canvas.width, canvas.height);
-    context2d.drawImage(image, 0, 0);
+    context2d.drawImage(
+      image,
+      viewport.x,
+      viewport.y,
+      viewport.width,
+      viewport.height,
+      0,
+      0,
+      viewport.width,
+      viewport.height,
+    );
+    const visibleCorners = corners.map((point) =>
+      operationalReviewPointInGeometryViewport(point, viewport),
+    );
     context2d.lineWidth = Math.max(2, canvas.width / 500);
     context2d.strokeStyle = '#f4d35e';
     for (let column = 0; column <= 5; column += 1) {
       const ratio = column / 5;
-      const top = interpolate(corners[0], corners[1], ratio);
-      const bottom = interpolate(corners[3], corners[2], ratio);
+      const top = interpolate(visibleCorners[0], visibleCorners[1], ratio);
+      const bottom = interpolate(visibleCorners[3], visibleCorners[2], ratio);
       drawLine(context2d, top, bottom);
     }
     for (let row = 0; row <= 3; row += 1) {
       const ratio = row / 3;
-      const left = interpolate(corners[0], corners[3], ratio);
-      const right = interpolate(corners[1], corners[2], ratio);
+      const left = interpolate(visibleCorners[0], visibleCorners[3], ratio);
+      const right = interpolate(visibleCorners[1], visibleCorners[2], ratio);
       drawLine(context2d, left, right);
     }
-    corners.forEach((point, index) => {
+    visibleCorners.forEach((point, index) => {
       context2d.beginPath();
       context2d.fillStyle = '#fffaf0';
       context2d.strokeStyle = '#b42318';
@@ -108,7 +132,7 @@ export function OperationalReviewGeometryEditor({
       context2d.font = `bold ${Math.max(12, canvas.width / 65)}px sans-serif`;
       context2d.fillText(String(index + 1), point.x + 10, point.y - 10);
     });
-  }, [corners]);
+  }, [corners, viewport]);
 
   useEffect(() => {
     drawSource();
@@ -128,9 +152,15 @@ export function OperationalReviewGeometryEditor({
     image.onload = () => {
       sourceImageRef.current = image;
       setImageSize({ height: image.naturalHeight, width: image.naturalWidth });
-      setCorners(
-        operationalReviewGeometryCorners(
-          item,
+      const initialCorners = operationalReviewGeometryCorners(
+        item,
+        image.naturalWidth,
+        image.naturalHeight,
+      );
+      setCorners(initialCorners);
+      setViewport(
+        operationalReviewGeometryViewport(
+          initialCorners,
           image.naturalWidth,
           image.naturalHeight,
         ),
@@ -220,16 +250,18 @@ export function OperationalReviewGeometryEditor({
       index === null ||
       canvas === null ||
       corners === null ||
+      viewport === null ||
       imageSize.width === 0
     ) {
       return;
     }
     const rect = canvas.getBoundingClientRect();
-    const point = clampOperationalReviewGeometryPoint(
+    const point = operationalReviewPointInSourceImage(
       {
-        x: ((event.clientX - rect.left) / rect.width) * imageSize.width,
-        y: ((event.clientY - rect.top) / rect.height) * imageSize.height,
+        x: ((event.clientX - rect.left) / rect.width) * viewport.width,
+        y: ((event.clientY - rect.top) / rect.height) * viewport.height,
       },
+      viewport,
       imageSize.width,
       imageSize.height,
     );
@@ -244,7 +276,7 @@ export function OperationalReviewGeometryEditor({
   }
 
   function startDragging(event: ReactPointerEvent<HTMLCanvasElement>) {
-    if (corners === null) return;
+    if (corners === null || viewport === null) return;
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const point = {
@@ -253,6 +285,9 @@ export function OperationalReviewGeometryEditor({
     };
     const threshold = (28 / rect.width) * canvas.width;
     const candidate = corners
+      .map((corner) =>
+        operationalReviewPointInGeometryViewport(corner, viewport),
+      )
       .map((corner, index) => ({
         distance: Math.hypot(corner.x - point.x, corner.y - point.y),
         index,
@@ -268,6 +303,7 @@ export function OperationalReviewGeometryEditor({
     dragIndexRef.current = null;
     setOpen(false);
     setCorners(null);
+    setViewport(null);
     setError('');
   }
 
@@ -280,6 +316,7 @@ export function OperationalReviewGeometryEditor({
     setError('');
     setPreviewUrl(null);
     setPreviewKey('');
+    setViewport(null);
     setOpen(true);
   }
 
@@ -307,7 +344,10 @@ export function OperationalReviewGeometryEditor({
             <h2 id="operational-review-geometry-title">
               Ustaw cztery narożniki planszy
             </h2>
-            <p>Kolejność: lewy górny, prawy górny, prawy dolny, lewy dolny.</p>
+            <p>
+              Przesuwaj narożniki pojedynczego layoutu: lewy górny, prawy górny,
+              prawy dolny, lewy dolny.
+            </p>
           </div>
           <button
             aria-label="Zamknij edytor siatki"
@@ -321,10 +361,10 @@ export function OperationalReviewGeometryEditor({
 
         <div className="operationalReviewGeometryBody">
           <section>
-            <h3>Oryginał i ukośna siatka 5 × 3</h3>
+            <h3>Pojedynczy layout z marginesem i siatką 5 × 3</h3>
             {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
             <canvas
-              aria-label="Oryginalny obraz z edytowalną siatką"
+              aria-label="Pojedynczy layout z edytowalną siatką"
               className="operationalReviewGeometryCanvas"
               onPointerCancel={() => {
                 dragIndexRef.current = null;
@@ -337,8 +377,8 @@ export function OperationalReviewGeometryEditor({
               ref={canvasRef}
               style={{
                 aspectRatio:
-                  imageSize.width > 0
-                    ? `${imageSize.width} / ${imageSize.height}`
+                  viewport !== null
+                    ? `${viewport.width} / ${viewport.height}`
                     : undefined,
               }}
             />

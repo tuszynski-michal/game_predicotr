@@ -908,6 +908,99 @@ retry, lecz `apk_path`, `apk_checksum` i `ready_at` są zapisywane dopiero po
 pełnej weryfikacji APK. Wydanie `ready` jest niezmienne. Błąd albo anulowanie
 ustawia `failed` i nie tworzy nowego joba; jawny retry wznawia `build_job_id`.
 
+## Planowane encje M6.6 — iteracyjne ulepszanie modelu symboli
+
+Szczegółową semantykę definiuje
+`architecture/SUPERVISED_MODEL_IMPROVEMENT.md`. Encje zostaną dodane wyłącznie
+przez migracje Alembic w TASK-0143 i TASK-0148.
+
+### verified_training_cohorts
+
+```text
+id UUID PRIMARY KEY
+game_id UUID NOT NULL REFERENCES games(id)
+iteration_number INTEGER NOT NULL
+manifest_schema_version INTEGER NOT NULL
+manifest_checksum_sha256 TEXT NOT NULL
+resolved_layout_count INTEGER NOT NULL
+cell_sample_count INTEGER NOT NULL
+source_image_count INTEGER NOT NULL
+artifact_relative_path TEXT NOT NULL
+created_by TEXT NOT NULL
+created_at TIMESTAMPTZ NOT NULL
+UNIQUE (game_id, iteration_number)
+UNIQUE (game_id, manifest_checksum_sha256)
+```
+
+Pozycje kohorty wiążą dokładną rewizję review i geometrii, `cropSampleId`,
+checksumę cropu, kod symbolu człowieka, zdjęcie źródłowe i import. Kohorta jest
+append-only. `accepted` i `corrected` mogą wejść do treningu; `rejected` oraz
+`pending` nie mogą.
+
+### symbol_model_iterations
+
+```text
+id UUID PRIMARY KEY
+game_id UUID NOT NULL REFERENCES games(id)
+cohort_id UUID NOT NULL REFERENCES verified_training_cohorts(id)
+iteration_number INTEGER NOT NULL
+status TEXT NOT NULL
+configuration_fingerprint TEXT NOT NULL
+dataset_manifest_checksum_sha256 TEXT nullable
+checkpoint_checksum_sha256 TEXT nullable
+onnx_checksum_sha256 TEXT nullable
+quality_report_checksum_sha256 TEXT nullable
+artifact_relative_path TEXT nullable
+created_at TIMESTAMPTZ NOT NULL
+updated_at TIMESTAMPTZ NOT NULL
+UNIQUE (game_id, iteration_number)
+```
+
+Status należy do automatu opisanego w architekturze M6.6. Artefakty są
+niezmienne i content-addressed; tabela przechowuje ścieżki oraz metadata.
+
+### game_symbol_model_activations
+
+```text
+id UUID PRIMARY KEY
+game_id UUID NOT NULL REFERENCES games(id)
+model_iteration_id UUID NOT NULL REFERENCES symbol_model_iterations(id)
+previous_model_iteration_id UUID nullable
+action TEXT NOT NULL
+actor TEXT NOT NULL
+reason TEXT nullable
+created_at TIMESTAMPTZ NOT NULL
+```
+
+Bieżący aktywny model jest projekcją ostatniego skutecznego zdarzenia. Aktywacja
+i rollback są append-only i nie zmieniają historycznych iteracji.
+
+### symbol_prediction_revisions
+
+```text
+id UUID PRIMARY KEY
+game_id UUID NOT NULL REFERENCES games(id)
+review_item_id UUID NOT NULL
+crop_sample_id TEXT NOT NULL
+crop_checksum_sha256 TEXT NOT NULL
+model_iteration_id UUID NOT NULL REFERENCES symbol_model_iterations(id)
+prediction_payload JSONB NOT NULL
+prediction_checksum_sha256 TEXT NOT NULL
+job_id UUID nullable REFERENCES jobs(id)
+created_at TIMESTAMPTZ NOT NULL
+UNIQUE (review_item_id, crop_sample_id, model_iteration_id,
+        prediction_checksum_sha256)
+```
+
+Tabela jest append-only i nie przechowuje decyzji użytkownika. Zapis nowej
+rewizji jest dozwolony wyłącznie po warunkowym sprawdzeniu, że item nadal ma
+status `pending`, oczekiwaną rewizję i zgodny crop. Rozstrzygnięcia `accepted`,
+`corrected` i `rejected` nie są aktualizowane przez operacje modelu.
+
+Image import job zapisuje przypięte `model_iteration_id`, manifest SHA-256 i
+fingerprint inferencji. Aktywacja innej wersji podczas joba nie zmienia tego
+snapshotu.
+
 ## SQLite — snapshot mobilny
 
 Snapshot jest generowany, nie migrowany przez mobile jako baza robocza. Minimalny logiczny schemat:

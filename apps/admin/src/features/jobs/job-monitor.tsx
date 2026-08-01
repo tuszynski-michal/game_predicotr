@@ -30,12 +30,14 @@ import {
   formatElapsedSeconds,
   formatImageThroughput,
   formatStorageBytes,
+  imageImportAutomationTiming,
   isActiveJob,
   isImageImportJob,
   jobContextLabel,
   jobErrorSummary,
   jobProgressLabel,
   jobProgressPercent,
+  jobProgressPresentation,
   jobStageLabel,
   jobStatusLabel,
   jobTypeLabel,
@@ -275,8 +277,10 @@ function JobCard({
   readonly onCancelConfirmationClose: () => void;
   readonly onRetry: () => void;
 }) {
+  const progress = jobProgressPresentation(job);
   const percent = jobProgressPercent(job);
   const errorSummary = jobErrorSummary(job);
+  const automationTiming = imageImportAutomationTiming(job);
   const cancellationPending =
     job.status === 'processing' && job.cancelRequestedAt !== null;
 
@@ -303,9 +307,9 @@ function JobCard({
           </span>
           <span
             aria-label={`Postęp: ${jobProgressLabel(job)}`}
-            aria-valuemax={job.progress.total ?? undefined}
+            aria-valuemax={progress.total ?? undefined}
             aria-valuemin={0}
-            aria-valuenow={job.progress.current}
+            aria-valuenow={progress.current}
             className={`jobProgressTrack ${
               percent === null ? 'jobProgressTrackIndeterminate' : ''
             }`}
@@ -315,9 +319,11 @@ function JobCard({
           </span>
         </span>
         <span className="jobSummaryCreated">
-          <small>Utworzono</small>
-          <time dateTime={job.createdAt}>
-            {formatJobTimestamp(job.createdAt)}
+          <small>
+            {automationTiming === null ? 'Utworzono' : 'Automatyka zakończona'}
+          </small>
+          <time dateTime={automationTiming?.completedAt ?? job.createdAt}>
+            {formatJobTimestamp(automationTiming?.completedAt ?? job.createdAt)}
           </time>
         </span>
         <span className="jobSummaryChevron" aria-hidden="true">
@@ -419,7 +425,22 @@ function JobCard({
 
         <dl className="jobMetadata">
           <JobTime label="Rozpoczęto" value={job.startedAt} />
-          <JobTime label="Zakończono" value={job.finishedAt} />
+          {automationTiming === null ? (
+            <JobTime label="Zakończono" value={job.finishedAt} />
+          ) : (
+            <>
+              <JobTime
+                label="Import i pipeline zakończone"
+                value={automationTiming.completedAt}
+              />
+              <div>
+                <dt>Czas automatycznego przetwarzania</dt>
+                <dd>
+                  {formatElapsedSeconds(automationTiming.durationSeconds)}
+                </dd>
+              </div>
+            </>
+          )}
           <JobTime label="Heartbeat" value={job.heartbeatAt} />
           <JobTime label="Lease do" value={job.leaseExpiresAt} />
           <div>

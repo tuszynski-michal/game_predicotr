@@ -7,13 +7,16 @@ import {
   archiveRulesVersion as archiveGeneratedRulesVersion,
   archiveSymbol as archiveGeneratedSymbol,
   buildMobileRelease as buildGeneratedMobileRelease,
+  cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
+  createBrowserImageSelection as createGeneratedBrowserImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
   createImageDiagnosticExport as createGeneratedImageDiagnosticExport,
   createOperationalImageReviewGeometryRevision as createGeneratedOperationalImageReviewGeometryRevision,
   freezeVerifiedImageReviewCohort as freezeGeneratedVerifiedImageReviewCohort,
+  finalizeBrowserImageSelection as finalizeGeneratedBrowserImageSelection,
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
   downloadMobileReleaseApk as downloadGeneratedMobileReleaseApk,
@@ -96,9 +99,11 @@ import {
   updateRulesVersion as updateGeneratedRulesVersion,
   updateRulesVersionSymbol as updateGeneratedRulesVersionSymbol,
   updateSymbol as updateGeneratedSymbol,
+  uploadBrowserImageSelectionFile as uploadGeneratedBrowserImageSelectionFile,
   unlockReviewerSession as unlockGeneratedReviewerSession,
 } from './generated/sdk.gen';
 import type {
+  BrowserImageSelectionCreate,
   CreateJobData,
   CleanupCommandRequest,
   ImageJobFileRetryRequest,
@@ -140,6 +145,8 @@ import type {
 export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
+  BrowserImageSelectionCreate,
+  BrowserImageSelectionUploadResponse,
   CleanupCommandRequest,
   CleanupCountResponse,
   CleanupPreviewResponse,
@@ -386,6 +393,30 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       selectGeneratedLocalImageFolder({
         client,
         headers: confirmedTargetHeaders('image-folder:select'),
+      }),
+    createBrowserImageSelection: (body: BrowserImageSelectionCreate) =>
+      createGeneratedBrowserImageSelection({ body, client }),
+    uploadBrowserImageSelectionFile: (
+      uploadId: string,
+      fileIndex: number,
+      relativePath: string,
+      file: Blob | File,
+    ) =>
+      uploadGeneratedBrowserImageSelectionFile({
+        body: file,
+        client,
+        headers: { 'X-Image-Relative-Path': relativePath },
+        path: { file_index: fileIndex, upload_id: uploadId },
+      }),
+    finalizeBrowserImageSelection: (uploadId: string) =>
+      finalizeGeneratedBrowserImageSelection({
+        client,
+        path: { upload_id: uploadId },
+      }),
+    cancelBrowserImageSelection: (uploadId: string) =>
+      cancelGeneratedBrowserImageSelection({
+        client,
+        path: { upload_id: uploadId },
       }),
     createImageFolderImport: (body: ImageFolderImportCreate) =>
       createGeneratedImageFolderImport({

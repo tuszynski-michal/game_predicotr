@@ -59,6 +59,11 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(actions, /IMAGE_REVIEW_REVISION_CONFLICT/);
   assert.match(source, /OperationalReviewGeometryEditor/);
   assert.match(geometryEditor, /Edytuj siatkę/);
+  assert.match(geometryEditor, /Pojedynczy layout z marginesem/);
+  assert.doesNotMatch(geometryEditor, /Oryginał i ukośna siatka/);
+  assert.match(geometryEditor, /operationalReviewGeometryViewport/);
+  assert.match(geometryEditor, /viewport\.x/);
+  assert.match(geometryEditor, /operationalReviewPointInSourceImage/);
   assert.match(geometryEditor, /onPointerMove/);
   assert.match(geometryEditor, /for \(let column = 0; column <= 5/);
   assert.match(geometryEditor, /for \(let row = 0; row <= 3/);

@@ -137,6 +137,19 @@ def test_grid_recovery_does_not_invent_truly_missing_board() -> None:
     assert result.review_reasons == ("BOARD_CANDIDATE_COUNT",)
 
 
+def test_explicit_occlusion_recovery_fits_missing_cell_from_visible_grid() -> None:
+    result = ClassicalPageBoardDetector().detect(
+        _grid_image(missing=(1, 1)),
+        expected_board_count=9,
+        allow_grid_recovery=True,
+        allow_occluded_grid_recovery=True,
+    )
+
+    assert result.status == "detected"
+    assert [board.position_index for board in result.boards] == list(range(9))
+    assert result.boards[4].refined_from_grid is True
+
+
 def test_corpus_runner_verifies_input_and_reuses_identical_overlay(
     tmp_path: Path,
 ) -> None:

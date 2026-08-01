@@ -83,8 +83,9 @@ częścią zwykłego startu wersji 0.2.
 ## V0.2.2 — Mały import zdjęć i katalog symboli
 
 - `TASK-0123 — Local image folder source and resumable test ingestion`
-  — natywny dialog `Wybierz folder` na Windows, walidacja katalogu, discovery,
-  manifest i wznowienie.
+  — przeglądarkowy dialog `Wybierz folder`, kontrolowany upload JPEG-ów,
+  walidacja, discovery, manifest i wznowienie. Pierwotny wariant z dialogiem
+  Windows uruchamianym przez backend został zastąpiony w odbiorze TASK-0142.
 - `TASK-0124 — Test dataset completeness, gaps and source quality selection`
   — konfigurowalny oczekiwany zakres, brakujące numery, opcjonalna ręczna
   korekta numeru, doładowanie zdjęć oraz automatyczny/ręczny wybór źródła.

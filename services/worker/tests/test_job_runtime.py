@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from game_predictor_api.domain.jobs import (
     Job,
+    JobError,
     JobStatus,
     JobType,
     acknowledge_job_cancellation,
@@ -349,6 +350,26 @@ def test_worker_preserves_operator_safe_handler_error() -> None:
     failed = store.jobs[job.id]
     assert failed.error_code == "PAYOUT_SOURCE_NOT_FOUND"
     assert failed.error_message == "The payout source does not exist."
+
+
+def test_worker_preserves_operator_safe_domain_job_error() -> None:
+    clock = MutableClock()
+    job = _job(clock)
+    store = MemoryWorkerJobStore([job])
+
+    def fail_domain_validation(_context: JobExecutionContext, _job: Job) -> None:
+        raise JobError(
+            "UNSUPPORTED_JOB_CHECKPOINT_VERSION",
+            "checkpointPayload must use schemaVersion 1.",
+        )
+
+    assert (
+        _worker(store, clock, fail_domain_validation).run_once()
+        is JobExecutionResult.FAILED
+    )
+    failed = store.jobs[job.id]
+    assert failed.error_code == "UNSUPPORTED_JOB_CHECKPOINT_VERSION"
+    assert failed.error_message == "checkpointPayload must use schemaVersion 1."
 
 
 def test_expired_worker_is_fenced_and_same_job_is_resumed() -> None:

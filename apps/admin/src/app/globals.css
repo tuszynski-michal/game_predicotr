@@ -58,8 +58,12 @@ button {
 }
 
 button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.58;
+}
+
+button[aria-busy='true'] {
+  cursor: progress;
 }
 
 a {
@@ -413,11 +417,17 @@ nav {
 }
 
 .gameIdentityButton {
+  align-self: stretch;
+  flex: 1 1 auto;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
   text-align: left;
+}
+
+.gameRow[data-selectable='true'] {
+  cursor: pointer;
 }
 
 .gameIdentityButton:focus-visible {
@@ -595,7 +605,7 @@ h1 {
 }
 
 .gameAccordion > .cleanupControl {
-  margin-bottom: 14px;
+  margin: 18px 22px 22px;
 }
 
 .cleanupControlHeader {
@@ -830,6 +840,67 @@ a:focus-visible {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+.symbolBootstrapPanel {
+  padding-top: 22px;
+}
+
+.symbolBootstrapControls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.symbolBootstrapCountField {
+  display: grid;
+  width: min(100%, 220px);
+  gap: 8px;
+  color: #d9e4f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.symbolBootstrapCountField input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  outline: none;
+  background: rgba(5, 12, 22, 0.62);
+  color: var(--text);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background 140ms ease;
+}
+
+.symbolBootstrapCountField input:hover {
+  border-color: rgba(170, 196, 230, 0.4);
+  background: rgba(5, 12, 22, 0.78);
+}
+
+.symbolBootstrapCountField input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.symbolBootstrapCountField input:disabled {
+  color: #8294aa;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .symbolBootstrapControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .symbolBootstrapCountField,
+  .symbolBootstrapControls .primaryButton {
+    width: 100%;
+  }
 }
 
 .rulesForm {
@@ -2837,7 +2908,7 @@ div.imageJobInlineError {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 7px;
+  margin-bottom: 2px;
 }
 
 .gameTitleLine h3 {
@@ -2848,9 +2919,28 @@ div.imageJobInlineError {
   white-space: nowrap;
 }
 
-.gameIdentity code {
+.gameIdentityDetails {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  padding: 2px 0 4px;
+}
+
+.gameStableCode {
+  overflow: hidden;
   color: #8093aa;
+  font-size: 9px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gameLayoutGoal {
+  margin-top: 8px;
+  padding-bottom: 2px;
+  color: var(--muted);
   font-size: 11px;
+  line-height: 1.4;
 }
 
 .symbolMetadata {
@@ -3847,6 +3937,286 @@ div.imageJobInlineError {
   gap: 16px;
 }
 
+.importActionToolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.importActionButtons {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.importActionButtons button {
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+.importActionHelp {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.importHelpTrigger {
+  display: grid;
+  width: 36px;
+  min-height: 36px;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--accent);
+  font-weight: 850;
+}
+
+.importHelpTrigger:hover,
+.importHelpTrigger:focus-visible {
+  border-color: rgba(112, 225, 180, 0.55);
+  background: var(--accent-soft);
+}
+
+.importHelpTooltip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(360px, calc(100vw - 64px));
+  padding: 16px;
+  border: 1px solid rgba(112, 225, 180, 0.3);
+  border-radius: 12px;
+  background: #101f34;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.38);
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.importActionHelp:hover .importHelpTooltip,
+.importActionHelp:focus-within .importHelpTooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.importHelpTooltip > strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.importHelpTooltip dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.importHelpTooltip dl > div {
+  display: grid;
+  gap: 2px;
+}
+
+.importHelpTooltip dt {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.importHelpTooltip dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.importCompletenessCard,
+.importSourceInspector,
+.importHistorySection {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.24);
+}
+
+.importCompletenessHeader {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.importCompletenessHeader h3,
+.importCompletenessHeader p,
+.importSubsectionHeader p {
+  margin-bottom: 0;
+}
+
+.importCompletionBadge {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid rgba(112, 225, 180, 0.24);
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+}
+
+.importMetrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 16px 20px;
+}
+
+.importMetric {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.importMetric dt {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.importMetric dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 800;
+}
+
+.importMissingSequences {
+  margin: 0 20px 20px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.importMissingSequences summary {
+  padding: 12px 14px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.importMissingSequences[open] summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+
+.importMissingSequenceChips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  gap: 7px;
+  max-height: 190px;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.importMissingSequenceChips span {
+  min-width: 0;
+  padding: 5px 7px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(5, 12, 22, 0.5);
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.importSubsectionHeader {
+  display: grid;
+  gap: 5px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.importSubsectionHeader > p:last-child {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.importSourceControls {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) max-content max-content;
+  align-items: end;
+  gap: 10px;
+  padding: 16px 20px;
+}
+
+.importSourceControls label {
+  min-width: 0;
+}
+
+.importSourceControls button {
+  white-space: nowrap;
+}
+
+.importCompactList {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.importCompactList li {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.importCompactList li > span,
+.importCompactList li > small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+}
+
+.importCompactList li > small {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+}
+
+.importCompactList li > button {
+  justify-self: start;
+  margin-top: 5px;
+}
+
+.importEmptyState {
+  margin: 0;
+  padding: 18px 20px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .importComposer label,
 .importReportControls label,
 .importRowFilters label,
@@ -4255,6 +4625,32 @@ div.imageJobInlineError {
   }
 
   .importStats {
+    grid-template-columns: 1fr;
+  }
+
+  .importActionToolbar,
+  .importCompletenessHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .importActionHelp {
+    align-self: flex-end;
+  }
+
+  .importActionButtons {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .importActionButtons button,
+  .importSourceControls button {
+    width: 100%;
+  }
+
+  .importMetrics,
+  .importSourceControls {
     grid-template-columns: 1fr;
   }
 

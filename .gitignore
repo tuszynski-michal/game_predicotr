@@ -1,9 +1,11 @@
 # JavaScript
 node_modules/
+.pnpm-store/
 .expo/
 .next/
 dist/
 coverage/
+*.tsbuildinfo
 
 # Android generated project and build output
 apps/mobile/android/
@@ -14,6 +16,8 @@ apps/mobile/android/
 .venv/
 __pycache__/
 .pytest_cache/
+.pytest-tmp/
+.test-tmp/
 .mypy_cache/
 .ruff_cache/
 *.py[cod]

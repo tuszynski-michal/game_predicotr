@@ -6,12 +6,21 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$processEnvironmentScript = Join-Path $PSScriptRoot "windows_process_environment.ps1"
+if (-not (Test-Path -LiteralPath $processEnvironmentScript -PathType Leaf)) {
+    throw "Windows process environment helper is unavailable: $processEnvironmentScript"
+}
+. $processEnvironmentScript
+Repair-WindowsProcessPath
+
 $runtimeDirectory = Join-Path $projectRoot ".runtime"
 $statePath = Join-Path $runtimeDirectory "remote-reviewer.json"
 $logPath = Join-Path $runtimeDirectory "remote-reviewer-cloudflared.log"
 $reviewerOutPath = Join-Path $runtimeDirectory "remote-reviewer-app.out.log"
 $reviewerErrorPath = Join-Path $runtimeDirectory "remote-reviewer-app.error.log"
 $reviewerUrl = "http://127.0.0.1:3001"
+$reviewerStartupAttempts = 40
+$tunnelStartupAttempts = 60
 
 New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
 
@@ -87,7 +96,7 @@ try {
             -PassThru `
             -WindowStyle Hidden
         $reviewerManagedPid = $reviewerProcess.Id
-        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        for ($attempt = 0; $attempt -lt $reviewerStartupAttempts; $attempt++) {
             Start-Sleep -Milliseconds 500
             if ($reviewerProcess.HasExited) {
                 break
@@ -100,7 +109,7 @@ try {
             if (-not $reviewerProcess.HasExited) {
                 Stop-Process -Id $reviewerProcess.Id
             }
-            throw "Reviewer did not become ready within 10 seconds. Check .runtime remote-reviewer-app logs."
+            throw "Reviewer did not become ready within 20 seconds. Check .runtime remote-reviewer-app logs."
         }
     }
 
@@ -152,7 +161,7 @@ try {
     $process = Start-Process -FilePath $cloudflaredPath -ArgumentList $arguments -PassThru -WindowStyle Hidden
 
     $publicOrigin = $null
-    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+    for ($attempt = 0; $attempt -lt $tunnelStartupAttempts; $attempt++) {
         Start-Sleep -Milliseconds 500
         if ($process.HasExited) {
             break
@@ -170,7 +179,7 @@ try {
         if (-not $process.HasExited) {
             Stop-Process -Id $process.Id
         }
-        throw "Cloudflare did not return an HTTPS URL within 10 seconds. Check: $logPath"
+        throw "Cloudflare did not return an HTTPS URL within 30 seconds. Check: $logPath"
     }
 
     $startedAt = [DateTimeOffset]::Now.ToString("o")

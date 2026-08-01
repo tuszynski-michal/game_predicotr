@@ -21,7 +21,10 @@ test('shows operational essentials before expanding technical details', () => {
   assert.match(monitorSource, /jobContextLabel\(job\)/);
   assert.match(monitorSource, /jobErrorSummary\(job\)/);
   assert.match(monitorSource, /jobProgressLabel\(job\)/);
-  assert.match(monitorSource, /formatJobTimestamp\(job\.createdAt\)/);
+  assert.match(monitorSource, /imageImportAutomationTiming\(job\)/);
+  assert.match(monitorSource, /Automatyka zakończona/);
+  assert.match(monitorSource, /Import i pipeline zakończone/);
+  assert.match(monitorSource, /Czas automatycznego przetwarzania/);
   assert.match(monitorSource, /className="jobCardDetails"/);
 });
 

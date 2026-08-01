@@ -90,6 +90,42 @@ export function isImageImportJob(job: JobResponse): boolean {
   );
 }
 
+export interface ImageImportAutomationTiming {
+  readonly completedAt: string;
+  readonly durationSeconds: number | null;
+}
+
+export function imageImportAutomationTiming(
+  job: JobResponse,
+): ImageImportAutomationTiming | null {
+  if (
+    !isImageImportJob(job) ||
+    job.progress.stage?.startsWith('image_pipeline:') !== true
+  ) {
+    return null;
+  }
+  const completedAt =
+    job.status === 'waiting_for_review'
+      ? job.updatedAt
+      : job.status === 'completed'
+        ? job.finishedAt
+        : null;
+  if (completedAt === null) return null;
+
+  const completed = new Date(completedAt);
+  if (Number.isNaN(completed.valueOf())) return null;
+  if (job.startedAt === null) {
+    return { completedAt, durationSeconds: null };
+  }
+  const started = new Date(job.startedAt);
+  return {
+    completedAt,
+    durationSeconds: Number.isNaN(started.valueOf())
+      ? null
+      : Math.max(0, (completed.valueOf() - started.valueOf()) / 1000),
+  };
+}
+
 export function formatImageThroughput(filesPerMinute: number | null): string {
   if (filesPerMinute === null) return 'Brak pomiaru';
   return `${filesPerMinute.toLocaleString('pl-PL', {
@@ -99,9 +135,12 @@ export function formatImageThroughput(filesPerMinute: number | null): string {
 
 export function formatElapsedSeconds(value: number | null): string {
   if (value === null) return 'Nie rozpoczęto';
-  if (value < 60) return `${Math.round(value)} s`;
-  const minutes = Math.floor(value / 60);
-  const seconds = Math.round(value % 60);
+  const rounded = Math.max(0, Math.round(value));
+  if (rounded < 60) return `${rounded} s`;
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const seconds = rounded % 60;
+  if (hours > 0) return `${hours} godz. ${minutes} min ${seconds} s`;
   return `${minutes} min ${seconds} s`;
 }
 
@@ -119,17 +158,57 @@ export function formatStorageBytes(value: number): string {
   })} ${units[unitIndex]}`;
 }
 
+export interface JobProgressPresentation {
+  readonly current: number;
+  readonly total: number | null;
+  readonly label: string;
+}
+
+export function jobProgressPresentation(
+  job: JobResponse,
+): JobProgressPresentation {
+  const { current, stage, total } = job.progress;
+  const isTwoPhaseImageImport =
+    isImageImportJob(job) &&
+    total !== null &&
+    total > 0 &&
+    total % 2 === 0 &&
+    (stage?.startsWith('image_source:') === true ||
+      stage?.startsWith('image_pipeline:') === true);
+
+  if (isTwoPhaseImageImport) {
+    const imageTotal = total / 2;
+    const pipelinePhase = stage?.startsWith('image_pipeline:') === true;
+    const imageCurrent = Math.min(
+      imageTotal,
+      Math.max(0, pipelinePhase ? current - imageTotal : current),
+    );
+    const phase = pipelinePhase ? 'Pipeline' : 'Oryginały';
+    return {
+      current: imageCurrent,
+      total: imageTotal,
+      label: `${phase}: ${imageCurrent.toLocaleString('pl-PL')} / ${imageTotal.toLocaleString('pl-PL')} zdjęć`,
+    };
+  }
+
+  return {
+    current,
+    total,
+    label:
+      total === null
+        ? `${current.toLocaleString('pl-PL')} przetworzonych`
+        : `${current.toLocaleString('pl-PL')} / ${total.toLocaleString('pl-PL')}`,
+  };
+}
+
 export function jobProgressPercent(job: JobResponse): number | null {
-  const { current, total } = job.progress;
+  const { current, total } = jobProgressPresentation(job);
   if (total === null || total <= 0) return null;
   return Math.min(100, Math.max(0, (current / total) * 100));
 }
 
 export function jobProgressLabel(job: JobResponse): string {
-  const { current, total } = job.progress;
-  return total === null
-    ? `${current.toLocaleString('pl-PL')} przetworzonych`
-    : `${current.toLocaleString('pl-PL')} / ${total.toLocaleString('pl-PL')}`;
+  return jobProgressPresentation(job).label;
 }
 
 export function replaceJob(

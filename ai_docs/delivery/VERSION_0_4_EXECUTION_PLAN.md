@@ -24,6 +24,8 @@ bramką końcowych testów dużych zbiorów, wydajności i pełnego hardeningu.
 - import wszystkich dostępnych layoutów dla pierwszej gry,
 - dojście do docelowej kompletności, domyślnie około 500 000 layoutów na grę,
 - ponowna kalibracja jakości, retraining i bramka `massImportAllowed`,
+- TASK-0143–0150, czyli M6.6: skumulowane kohorty zweryfikowane przez człowieka,
+  trening kandydatów, kontrolowana aktywacja i przeliczenie tylko `pending`,
 - wykonanie TASK-0076 i zamknięcie pełnej bramki M7,
 - dodawanie nowych gier oraz różniących się katalogów symboli i reguł,
 - wielogrowy snapshot i wydanie Android,
@@ -53,8 +55,16 @@ bramką końcowych testów dużych zbiorów, wydajności i pełnego hardeningu.
 - wymagane urządzenia przechodzą regresję offline,
 - właściciel akceptuje produkt i pozostałe ograniczenia.
 
+## Tor M6.6 przed pełnym importem
+
+Plan `MILESTONE_06_6_EXECUTION_PLAN.md` jest obowiązkową bramką jakości modelu
+symboli przed TASK-0076. Decyzje `accepted`, `corrected` i `rejected` nie mogą
+zostać zmienione przez trening, aktywację ani ponowną inferencję. Nowe wersje
+modelu tworzą sugestie wyłącznie dla `pending`, a nowe importy przypinają model
+aktywny w chwili utworzenia joba.
+
 ## Istniejące zadania
 
-TASK-0076 i TASK-0080–0089 zachowują swoje numery oraz wymagania. Dalsze
-zadania, liczba nowych gier i finalna macierz urządzeń zostaną doprecyzowane po
-bramce wejścia do 0.4.
+TASK-0076, TASK-0080–0089 oraz TASK-0143–0150 zachowują swoje numery i
+wymagania. Liczba nowych gier i finalna macierz urządzeń zostaną doprecyzowane
+po bramce wejścia do 0.4.

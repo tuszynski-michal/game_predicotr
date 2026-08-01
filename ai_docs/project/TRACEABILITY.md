@@ -51,6 +51,9 @@ last_updated: 2026-08-01
 | Klawiatura, tooltip sugestii i pojedynczy zapis Enter | `requirements/ADMIN_APP.md` | M6.5 |
 | Wersjonowana korekta geometrii z recrop | `requirements/IMAGE_INGESTION.md`, `architecture/DATA_MODEL.md` | M6.5 |
 | Ochrona decyzji człowieka przed retrainingiem | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5 |
+| Skumulowany trening na pełnych ręcznych rozstrzygnięciach | `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`, `architecture/SUPERVISED_MODEL_IMPROVEMENT.md`, D-119 | TASK-0143–0147 |
+| Jawna aktywacja modelu per gra i rollback | `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`, `architecture/SUPERVISED_MODEL_IMPROVEMENT.md`, D-119 | TASK-0148 |
+| Ponowna inferencja wyłącznie dla `pending` | `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`, D-119 | TASK-0149–0150 |
 | Kontrolowana publikacja ręcznie zweryfikowanego zakresu | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5, M7 |
 | Ograniczony zdalny link i kod review | `requirements/ADMIN_APP.md`, D-087 | M8.7 |
 | Masowy wznawialny import | `requirements/IMAGE_INGESTION.md` | M7 |
@@ -72,6 +75,7 @@ last_updated: 2026-08-01
 - M5: `delivery/MILESTONE_05_EXECUTION_PLAN.md`,
 - M6: `delivery/MILESTONE_06_EXECUTION_PLAN.md`,
 - M6.5: `delivery/MILESTONE_06_5_EXECUTION_PLAN.md`,
+- M6.6: `delivery/MILESTONE_06_6_EXECUTION_PLAN.md`,
 - M7: `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
 - M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`,
 - wydanie 0.1: `delivery/VERSION_0_1_RELEASE_PLAN.md`,

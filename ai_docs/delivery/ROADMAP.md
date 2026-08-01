@@ -261,6 +261,33 @@ zweryfikowany zbiór oraz publikować jego ciągłe podzbiory bez czekania na
 perfekcyjny auto-accept. Automatyczny masowy import nadal podlega osobnej
 bramce jakości.
 
+## M6.6 — Iterative supervised model improvement
+
+Plan wykonania:
+[MILESTONE_06_6_EXECUTION_PLAN.md](MILESTONE_06_6_EXECUTION_PLAN.md)
+
+M6.6 jest realizowany przez TASK-0143–0150 i domyka pętlę ręcznej weryfikacji,
+skumulowanego treningu, bramki kandydata, jawnej aktywacji oraz bezpiecznej
+ponownej inferencji.
+
+### Zakres
+
+- niezmienne kohorty pełnych `accepted` i `corrected` plansz per gra,
+- trening od początku na skumulowanym zbiorze z podziałem według źródła,
+- ONNX, kalibracja i regresja względem aktywnego modelu,
+- wersjonowany rejestr, jawna aktywacja i rollback,
+- przypięcie modelu do importu w chwili utworzenia joba,
+- nowe sugestie wyłącznie dla aktualnego `pending`.
+
+### Nienaruszalna bramka
+
+Automatyczny proces nie może przeliczyć ani zmienić `accepted`, `corrected` lub
+`rejected`. Milestone przechodzi dopiero po dwóch iteracjach potwierdzających
+identyczne checksumy wszystkich decyzji człowieka przed i po operacjach modelu.
+
+M6.6 należy do toru przygotowania danych 0.4 i musi zakończyć się przed pełnym
+automatycznym importem M7.
+
 ## M7 — Large-scale resumable image import
 
 Plan wykonania:

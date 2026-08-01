@@ -97,6 +97,12 @@ diagnostyka importu są ładowane lub prezentowane w rozwijanych szczegółach.
 Aktywne joby zachowują polling; UI nie wprowadza własnej kolejki, retencji ani
 automatycznego cleanupu.
 
+Dla image importu przejście do `waiting_for_review` jest trwałą granicą końca
+automatycznego workflow. `updatedAt` tej projekcji oznacza zakończenie importu i
+pipeline'u, natomiast `finishedAt` pozostaje znacznikiem terminalnego końca
+całego joba. Admin oblicza czas automatycznego przetwarzania od `startedAt` do
+tej granicy i nie dolicza czasu zależnego od ręcznej pracy reviewera.
+
 ### Reviewer web
 
 - osobna aplikacja przeglądarkowa uruchamiana na innym porcie niż Admin web,
@@ -128,7 +134,7 @@ tworzonych synchronicznie i atomowo. Limit nie może zostać zwiększony do skal
 produkcyjnej; większe generowanie przechodzi przez worker/job.
 
 Drugim ograniczonym wyjątkiem operacyjnym jest start/stop Reviewera i Quick
-Tunnel: stały kontroler ma maksymalnie 25 sekund, nie przetwarza danych
+Tunnel: stały kontroler ma maksymalnie 60 sekund, nie przetwarza danych
 domenowych i nie przyjmuje dowolnej komendy. Długi build Reviewera nie odbywa
 się w request — artefakt produkcyjny musi już istnieć.
 
@@ -440,6 +446,17 @@ mogą równolegle usunąć oraz skopiować stagingu.
 5. Admin zatwierdza poprawki.
 6. Worker wykonuje walidację ciągłości.
 7. Zatwierdzony staging tworzy nową wersję datasetu.
+
+Produkcyjny handler `image_directory` zarejestrowany w lokalnym CLI nie kończy
+się po source ingestion. Jedno kliknięcie `Rozpocznij import` uruchamia w tym
+samym trwałym jobie zapis managed originals, rejestrację plików oraz adaptery
+`discovery` → `normalization` → `board_detection` → `board_crops` →
+`sequence_ocr` → `symbol_inference`. Wyniki tworzą job-scoped projekcje
+`source_images`, `recognized_boards`, `cell_observations` i
+`image_review_items`. Checkpoint źródła oraz checkpoint per plik umożliwiają
+wznowienie po restarcie workera bez ponownego uploadu i bez nadpisywania
+ukończonych etapów. OCR numerów jednej strony jest wykonywany jako jeden batch
+od jednego do dziewięciu cropów.
 
 TASK-0068 scala wersje etapów w kanoniczny
 `image-pipeline-manifest-v1`. Manifest nie jest konfigurowalnym skrótem typu
@@ -969,6 +986,14 @@ eventy pozostają w audycie; nie ma automatycznej migracji etykiety na nowe
 bajty cropu. Zbiór korekt geometrii może wejść do późniejszego benchmarku
 profilu, ale nie zmienia aktywnego pipeline'u bez nowego fingerprintu.
 
+Reviewer renderuje geometrię w stałym lokalnym viewportcie obejmującym tylko
+wybraną planszę i margines potrzebny do korekty. Jest to wyłącznie transformacja
+prezentacji: przeciągnięcia są mapowane z viewportu do współrzędnych pełnego
+obrazu źródłowego. Backend nie otrzymuje współrzędnych lokalnego cropu i zawsze
+wykonuje preview oraz materializację z oryginalnego assetu. Nie wolno używać
+istniejącego board cropu jako źródła korekty, ponieważ nie zawiera pikseli już
+odciętych przez wcześniejszą błędną geometrię.
+
 Adapter `manual-review-geometry-v1` przyjmuje wyłącznie uporządkowany quad
 źródłowy, ponownie używa kontraktu logicznych slotów v2 (500 × 300, siatka
 5 × 3, inset 5 px) i zapisuje artefakty content-addressed. Endpoint preview
@@ -990,6 +1015,13 @@ przechowuje wyłącznie checksumy, względną ścieżkę, liczniki i audyt. Stan
 blokowany w jednej transakcji per import job, a istniejący artefakt jest
 ponownie sprawdzany po SHA-256 przed idempotentną odpowiedzią. Endpoint nie ma
 parametru treningu ani publikacji.
+
+M6.6 rozwija ten fundament przez osobny, game-scoped rejestr skumulowanych
+kohort i wersji modeli opisany w
+`architecture/SUPERVISED_MODEL_IMPROVEMENT.md`. Trening i aktywacja pozostają
+jawnymi operacjami. Ponowna inferencja dopisuje rewizję wyłącznie do itemu,
+który w chwili warunkowego zapisu nadal jest `pending`; `accepted`, `corrected`
+i `rejected` nie są przeliczane ani modyfikowane.
 
 TASK-0067 składa te granice w bounded pion odbioru, ale nie tworzy nowego
 runtime ani magazynu decyzji. Runner ponownie buduje

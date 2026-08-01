@@ -38,6 +38,7 @@ def create_api_router(
     job_service_dependency: Callable[..., object],
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
+    browser_image_selection_service_dependency: Callable[..., object],
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
@@ -72,6 +73,7 @@ def create_api_router(
     router.include_router(
         create_image_imports_router(
             image_folder_selection_service_dependency,
+            browser_image_selection_service_dependency,
             job_service_dependency,
         )
     )

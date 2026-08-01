@@ -66,7 +66,16 @@ Skrypt zapisuje:
 - `JAVA_HOME`,
 - `ANDROID_HOME` i `ANDROID_SDK_ROOT`,
 - `GAME_PREDICTOR_GRADLE_USER_HOME`,
-- wpisy `PATH` dla Node, Javy, ADB, Android command-line tools i Docker CLI.
+- wpisy jednego kanonicznego `Path` dla Node, Javy, ADB, Android command-line
+  tools i Docker CLI.
+
+Windows traktuje nazwy `Path` i `PATH` jako tę samą zmienną. Repozytorium nie
+wymaga dwóch wpisów i normalizuje odziedziczony proces do jednego `Path`.
+Regresję uruchamiania procesu z przekierowanymi logami można sprawdzić przez:
+
+```powershell
+npm run windows:environment:smoke
+```
 
 Zamknij wszystkie stare okna PowerShell i otwórz nowe. Następnie sprawdź:
 
@@ -423,7 +432,9 @@ ponieważ serwer developerski nie może zostać wystawiony online. W Adminie:
 Przycisk uruchamia brakujący produkcyjny Reviewer, czeka na gotowość, otwiera
 Quick Tunnel i tworzy sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz
 komunikat o trybie developerskim, zatrzymaj okno z `reviewer:dev` i kliknij
-ponownie. Awaryjny odpowiednik CLI:
+ponownie. Zimny start ma twardy limit 60 sekund; nie wymaga restartu komputera.
+Po zmianie kodu API wystarczy zrestartować tylko `npm run api:dev`. Awaryjny
+odpowiednik CLI:
 
 ```powershell
 npm run reviewer:remote:start

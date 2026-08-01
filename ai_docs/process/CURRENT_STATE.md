@@ -22,10 +22,10 @@ last_updated: 2026-08-01
   `ddbfa90e673811efe2acad8e8049acc2435389bbbcaf256715573a744ef66de8`,
 - APK `0.1.5 (6)` zainstalowano aktualizacyjnie na Google Pixel 10 Pro XL;
   Android potwierdził wersję, zachowany `firstInstallTime` i poprawny start,
-- TASK-0119 — ręczne testy offline i końcowy odbiór Pixela — pozostaje otwarty,
-- test wstępny 0.1 potwierdził start aplikacji i wykonywanie obliczeń; dokładna
-  weryfikacja poprawności zostanie dokończona później przez właściciela,
-- błędy znalezione w odbiorze 0.1 będą naprawiane równolegle z pracą nad 0.2.
+- TASK-0119 został ukończony 2026-08-01: właściciel potwierdził podstawowe
+  scenariusze offline, matching, duplikaty, Target, Undo/Reset, restart i
+  płynność tabeli bez błędu blokującego,
+- wersja 0.1 jest odebrana; ponowny test Mobile nastąpi po zmianach 0.3.
 
 ### Wersja 0.2
 
@@ -35,9 +35,10 @@ last_updated: 2026-08-01
   i accordion zależnych sekcji ze stanem w URL,
 - TASK-0122 dodał trzy filtry katalogu gier, spójny wybór kontekstu oraz
   odwracalne przywrócenie zarchiwizowanej gry jako szkicu,
-- TASK-0123 dodał natywny wybór folderu Windows, jednorazowy token zatwierdzonej
-  ścieżki, typowany image import oraz wznawialne kopiowanie JPEG-ów do
-  content-addressed `data/originals` z niezmiennym manifestem,
+- TASK-0123 dodał źródło folderu, jednorazowy token, typowany image import oraz
+  wznawialne kopiowanie JPEG-ów do content-addressed `data/originals` z
+  niezmiennym manifestem; pierwotny dialog Windows został zastąpiony podczas
+  odbioru przez przeglądarkowy wybór i kontrolowany upload,
 - TASK-0124 dodał konfigurowalny cel liczby layoutów, raport kompletności i luk,
   walidację ręcznych numerów sekwencji oraz deterministyczny wybór najlepszego
   źródła z audytowalnym ręcznym override,
@@ -74,6 +75,32 @@ last_updated: 2026-08-01
   izolowanego PostgreSQL, 126 testów Admina, TypeScript, ESLint, OpenAPI i
   produkcyjny build przeszły, a przeglądarka przy 1366 × 768 potwierdziła trzy
   workspace'y, URL, puste stany, czystą konsolę i brak poziomego overflow,
+- TASK-0142 jest aktywnym zadaniem stabilizacyjnym odbioru właściciela; pierwszy
+  pion poprawił layout, style, pomoc i stany operacji sekcji `Import layoutów`;
+  trzeci rozszerzył wybór gry na cały kafelek i dodał uzgadnianie skutecznego
+  zapisu edycji; piąty uprościł wejście do sekcji symboli; szósty ostatecznie
+  zastąpił zawodny dialog Windows standardowym selektorem przeglądarki,
+  kontrolowanym uploadem JPEG-ów, postępem i sprzątanym stagingiem. Historyczne
+  próby drugiego i czwartego pionu zostały supersedowane; siódmy uporządkował
+  hierarchię kafelka gry i przeniósł czyszczenie na dół konfiguracji. Przechodzi
+  138 testów Admina, 24 testy klienta i siedem skupionych testów API importu.
+  Ósmy pion poprawił kontrakt checkpointu image importu i diagnostykę domenowych
+  błędów workera. Dziewiąty podłączył pod tę samą akcję istniejący pełny
+  pipeline obrazu i batchowy OCR strony; naprawczy job `777` jest wznawiany z
+  checkpointu bez ponownego uploadu i tworzy cropy oraz pozycje review. Panel
+  `Joby` mapuje techniczne dwie fazy na rzeczywiste `X / 739 zdjęć`. Dziesiąty
+  pion usunął konflikt Windows `Path`/`PATH` przy generowaniu publicznego linku:
+  API i skrypt używają wspólnej normalizacji, smoke test uruchamia proces z
+  przekierowanymi logami, a nadal ograniczony cold-start ma do 60 sekund.
+  Rzeczywisty start uzyskał HTTPS Quick Tunnel i został kontrolowanie
+  zatrzymany; trwały profil użytkownika ma jeden `Path` oraz zweryfikowane
+  zmienne Node/JDK/Android/Gradle. Jedenasty pion ograniczył edytor geometrii
+  Reviewera do pojedynczego layoutu z marginesem, zachowując mapowanie narożników
+  do współrzędnych oryginału oraz istniejący immutable recrop. Korekta poprawia
+  bieżący layout, ale nie trenuje automatycznie globalnego profilu geometrii.
+  Dwunasty pion rozdzielił koniec automatycznego image importu od terminalnego
+  końca joba: `Wymaga review` pokazuje teraz datę, godzinę i czas zakończonego
+  importu z pipeline'em, bez doliczania ręcznego zatwierdzania.
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -92,7 +119,14 @@ last_updated: 2026-08-01
 
 - obejmuje pełne dane, nowe gry, wielogrowe wydanie, pełną skalę, końcowe testy
   dużych zbiorów i hardening,
-- TASK-0076 oraz TASK-0080–0089 są przypisane do 0.4.
+- M6.6 został zaakceptowany jako obowiązkowy tor iteracyjnego ulepszania modelu
+  symboli przed pełnym automatycznym importem,
+- TASK-0143–0150 obejmują skumulowane kohorty per gra, panel jakości,
+  source-aware dataset, trwały trening, bramkę ONNX, kontrolowaną aktywację,
+  przeliczenie wyłącznie `pending` oraz odbiór dwóch iteracji,
+- `accepted`, `corrected` i `rejected` są nienaruszalnymi decyzjami człowieka;
+  żadna automatyczna operacja modelu nie może ich przeliczyć ani zmienić,
+- TASK-0076, TASK-0080–0089 oraz TASK-0143–0150 są przypisane do 0.4.
 
 ## Dane i artefakty
 
@@ -111,7 +145,9 @@ last_updated: 2026-08-01
 
 - PostgreSQL jest na migracji `0024_cleanup_operations`; przed rozpoczęciem pionu
   importu 0.2 baza nie zawierała rekordów domenowych,
-- nie istnieją aktywne joby, sesje Reviewera, gry, datasety ani wydania,
+- podczas odbioru utworzono roboczą grę `777` i image import; job naprawczy
+  `65d6ca14-dacc-4341-b015-c187f2d7af36` przetwarza 739 zdjęć przez pełny
+  pipeline i pozostaje kontrolowanym procesem w tle,
 - dane poprzedniej iteracji są dostępne wyłącznie w kontrolowanym dumpie
   pre-reset; nie należy go automatycznie importować do workflow 0.2,
 - `apps/mobile/assets/snapshot/m1-snapshot.db` jest małym fixture’em
@@ -148,15 +184,18 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 - TASK-0076 pozostaje zablokowany przez `massImportAllowed = false` i należy do
   0.4,
 - TASK-0080–0089 należą do pełnego hardeningu 0.4,
+- TASK-0143–0150 są zaplanowane w M6.6; nie rozpoczynają się przed zakończeniem
+  odbioru workflow importu i Reviewera 0.2,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Wykonać krótki odbiór właściciela według
-`ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md`. Po potwierdzeniu nawigacji, małego
-workflow, jednego wydania i preview cleanup można zamknąć produktową bramkę 0.2;
-następny zaplanowany pion to TASK-0135 z wersji 0.3. Regresje blokujące odbiór
-0.1 lub 0.2 pozostają jawnie śledzone.
+Kontynuować odbiór właściciela według
+`ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` i dopisywać regresje do aktywnego
+TASK-0142. Po potwierdzeniu nawigacji, małego workflow, jednego wydania i preview
+cleanup można zamknąć produktową bramkę 0.2; następny zaplanowany pion to
+TASK-0135 z wersji 0.3. Niezależny tor danych rozpocznie TASK-0143 z M6.6 po
+spełnieniu jego warunków wejścia; nie zastępuje on odbioru 0.2.
 
 ## Do not start yet
 

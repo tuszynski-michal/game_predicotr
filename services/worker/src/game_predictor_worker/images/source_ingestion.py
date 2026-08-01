@@ -249,6 +249,15 @@ class ImageSourceIngestionHandler:
         self._store = store
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
+        self.ingest(context, job)
+
+    def ingest(
+        self,
+        context: JobExecutionContext,
+        job: Job,
+    ) -> ManagedSourceManifest:
+        """Copy managed originals and return their immutable manifest to the pipeline."""
+
         payload = job.input_payload
         if payload.get("import_kind") != "image_directory":
             raise JobHandlerError(
@@ -280,6 +289,7 @@ class ImageSourceIngestionHandler:
             if index % COPY_CHECKPOINT_BATCH_SIZE == 0 or index == total:
                 context.checkpoint(
                     checkpoint_payload={
+                        "schema_version": 1,
                         "contractVersion": SOURCE_INGESTION_CONTRACT,
                         "manifestChecksumSha256": manifest.checksum_sha256,
                         "manifestRelativePath": manifest.relative_path,
@@ -293,6 +303,7 @@ class ImageSourceIngestionHandler:
                     failure_count=0,
                     review_count=0,
                 )
+        return manifest
 
 
 def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:

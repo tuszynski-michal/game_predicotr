@@ -21,6 +21,7 @@ function createClient(overrides = {}) {
   return {
     archiveGame: async () => ({ data: undefined }),
     createGame: async () => ({ data: savedGame }),
+    getGame: async () => ({ data: savedGame }),
     listGames: async () => ({ data: [] }),
     updateGame: async () => ({ data: savedGame }),
     ...overrides,
@@ -85,6 +86,30 @@ test('edits only mutable game identity fields and never sends the stable code', 
     status: 'draft',
   });
   assert.equal(result.ok, true);
+});
+
+test('reconciles an edit when the server saved it but the mutation response was lost', async () => {
+  const editedGame = {
+    ...savedGame,
+    expectedLayoutCount: 750000,
+    name: 'Game 1 edited',
+    status: 'draft',
+  };
+  const result = await saveGameIdentity(
+    createClient({
+      getGame: async () => ({ data: editedGame }),
+      updateGame: async () => ({ data: undefined }),
+    }),
+    { gameId: savedGame.id, mode: 'edit' },
+    {
+      code: savedGame.code,
+      expectedLayoutCount: '750000',
+      name: 'Game 1 edited',
+      status: 'draft',
+    },
+  );
+
+  assert.deepEqual(result, { game: editedGame, ok: true });
 });
 
 test('archives by identifier and preserves a stable API error for the UI', async () => {

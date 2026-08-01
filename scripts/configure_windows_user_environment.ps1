@@ -7,6 +7,13 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+$processEnvironmentScript = Join-Path $PSScriptRoot 'windows_process_environment.ps1'
+if (-not (Test-Path -LiteralPath $processEnvironmentScript -PathType Leaf)) {
+    throw "Windows process environment helper is unavailable: $processEnvironmentScript"
+}
+. $processEnvironmentScript
+Repair-WindowsProcessPath
+
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $nodeRoot = Join-Path $repositoryRoot '.tooling\node'
 $jdkHome = Get-ChildItem -LiteralPath (Join-Path $repositoryRoot '.tooling\jdk') -Directory |
@@ -138,7 +145,7 @@ if (-not $CheckOnly) {
     }
     $persistedPath = ($mergedPath -join ';') + ';'
     [Environment]::SetEnvironmentVariable('Path', $persistedPath, 'User')
-    $env:PATH = ($pathEntries -join ';') + ';' + $env:PATH
+    Repair-WindowsProcessPath -PreferredEntries $pathEntries
 
     Add-Type @'
 using System;

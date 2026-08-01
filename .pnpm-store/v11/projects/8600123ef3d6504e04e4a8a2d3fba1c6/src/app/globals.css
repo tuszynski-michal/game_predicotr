@@ -580,6 +580,177 @@ h1 {
   color: var(--danger);
 }
 
+.dangerButton:hover:not(:disabled) {
+  border-color: rgba(255, 139, 139, 0.62);
+  background: rgba(255, 139, 139, 0.16);
+}
+
+.cleanupControl {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(255, 139, 139, 0.22);
+  border-radius: 13px;
+  background: rgba(255, 139, 139, 0.035);
+}
+
+.gameAccordion > .cleanupControl {
+  margin-bottom: 14px;
+}
+
+.cleanupControlHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.cleanupControlHeader h3,
+.cleanupControlHeader p,
+.cleanupPreviewSummary dl,
+.cleanupArtifacts p,
+.cleanupBlockers ul {
+  margin: 0;
+}
+
+.cleanupControlHeader h3 {
+  margin-bottom: 5px;
+  font-size: 15px;
+}
+
+.cleanupControlHeader > div > p:last-child,
+.cleanupArtifacts,
+.cleanupBlockers,
+.cleanupConfirmation {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.cleanupPreview {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 139, 139, 0.18);
+}
+
+.cleanupPreviewSummary {
+  display: grid;
+  gap: 7px;
+}
+
+.cleanupPreviewSummary > code,
+.cleanupConfirmation label > code {
+  overflow-wrap: anywhere;
+  color: var(--danger);
+  font-size: 10px;
+}
+
+.cleanupPreviewSummary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.cleanupPreviewSummary dl div {
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.3);
+}
+
+.cleanupPreviewSummary dt {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.cleanupPreviewSummary dd {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.cleanupArtifacts,
+.cleanupBlockers,
+.cleanupConfirmation {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.28);
+}
+
+.cleanupArtifacts summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 750;
+}
+
+.cleanupArtifacts ul,
+.cleanupBlockers ul {
+  padding-left: 18px;
+}
+
+.cleanupArtifacts code {
+  overflow-wrap: anywhere;
+  font-size: 9px;
+}
+
+.cleanupBlockers {
+  border-color: rgba(242, 198, 109, 0.3);
+  color: var(--warning);
+}
+
+.cleanupBlockers .secondaryButton {
+  margin-top: 10px;
+}
+
+.cleanupConfirmation {
+  display: grid;
+  gap: 12px;
+}
+
+.cleanupConfirmation > label:first-child {
+  display: grid;
+  gap: 7px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.cleanupConfirmation input[type='text'],
+.cleanupConfirmation label:first-child > input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.62);
+  color: var(--text);
+  font-family: var(--font-mono), monospace;
+}
+
+.cleanupAcknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.cleanupAcknowledgement input {
+  margin-top: 3px;
+}
+
+.cleanupConfirmation .rowActions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .cleanupControlHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .iconButton {
   width: 42px;
   padding: 0;
@@ -618,6 +789,7 @@ a:focus-visible {
 .gamesPanel,
 .symbolsPanel,
 .rulesPanel,
+.rulesWorkspacePanel,
 .statePanel {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1195,6 +1367,136 @@ a:focus-visible {
   font-size: 12px;
 }
 
+.rulesWorkspacePanel {
+  overflow: hidden;
+}
+
+.rulesWorkspaceHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rulesWorkspaceHeader h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.rulesInternalVersion {
+  margin: 0;
+  color: #71869f;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+}
+
+.rulesWorkspaceActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 22px 26px;
+}
+
+.rulesWorkspaceNote {
+  margin: 0;
+  padding: 0 26px 24px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.payoutComputationPanel {
+  display: grid;
+  gap: 14px;
+  margin: 0 26px 22px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.payoutComputationPanel > header,
+.payoutJobStatus > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.payoutComputationPanel h3,
+.payoutComputationPanel p {
+  margin: 0;
+}
+
+.algorithmBadge {
+  padding: 5px 8px;
+  border: 1px solid rgba(91, 177, 255, 0.3);
+  border-radius: 999px;
+  color: #9fd2ff;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10px;
+}
+
+.payoutSourceSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.payoutSourceSummary > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.payoutSourceSummary dt {
+  color: #758aa3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payoutSourceSummary dd {
+  margin: 5px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.payoutBlocker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 190, 77, 0.24);
+  border-radius: 9px;
+  color: #ffd790;
+  font-size: 12px;
+}
+
+.payoutJobStatus {
+  display: grid;
+  gap: 10px;
+}
+
+.payoutJobStatus span,
+.payoutJobStatus > p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.payoutJobStatus progress {
+  width: 100%;
+}
+
+.payoutComputationPanel .rulesWorkspaceNote {
+  padding: 0;
+}
+
 .immutableLabel {
   color: #8294aa;
   font-size: 11px;
@@ -1207,7 +1509,7 @@ a:focus-visible {
 
 .jobFilters {
   display: grid;
-  grid-template-columns: minmax(180px, 0.35fr) minmax(220px, 0.45fr) 1fr;
+  grid-template-columns: minmax(220px, 0.35fr) 1fr;
   gap: 14px;
   align-items: end;
   margin-bottom: 18px;
@@ -1247,15 +1549,112 @@ a:focus-visible {
 }
 
 .jobCard {
-  display: grid;
-  gap: 18px;
-  padding: 22px;
+  display: block;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-left: 3px solid #52657b;
   border-radius: 16px;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent),
     var(--panel);
+}
+
+.jobCardSummary {
+  display: grid;
+  grid-template-columns:
+    44px minmax(190px, 0.85fr) auto minmax(180px, 0.65fr)
+    minmax(130px, auto) 22px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.jobCardSummary::-webkit-details-marker {
+  display: none;
+}
+
+.jobCardSummary:hover,
+.jobCard[open] > .jobCardSummary {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.jobSummaryIdentity {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.jobSummaryIdentity strong {
+  font-size: 14px;
+}
+
+.jobSummaryIdentity code,
+.jobSummaryIdentity small {
+  overflow: hidden;
+  color: #71849d;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jobSummaryProgress {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.jobSummaryProgress > span:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+}
+
+.jobSummaryProgress small {
+  color: var(--muted);
+}
+
+.jobSummaryCreated {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.jobSummaryCreated time {
+  color: #c5d2e1;
+}
+
+.jobSummaryChevron {
+  color: var(--muted);
+  font-size: 20px;
+  text-align: center;
+  transition: transform 160ms ease;
+}
+
+.jobCard[open] .jobSummaryChevron {
+  transform: rotate(45deg);
+}
+
+.jobErrorSummary {
+  grid-column: 2 / -2;
+  overflow: hidden;
+  color: var(--danger);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jobCardDetails {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-top: 1px solid var(--line);
 }
 
 .jobCard-processing {
@@ -1282,28 +1681,6 @@ a:focus-visible {
   gap: 24px;
 }
 
-.jobTitleLine {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 12px;
-}
-
-.jobTitleLine h2 {
-  margin: 0 0 4px;
-  font-size: 17px;
-}
-
-.jobTitleLine code {
-  display: block;
-  overflow: hidden;
-  max-width: 330px;
-  color: #71849d;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .jobTypeMark {
   display: grid;
   width: 44px;
@@ -1323,7 +1700,7 @@ a:focus-visible {
   display: inline-flex;
   min-height: 24px;
   align-items: center;
-  margin-left: 5px;
+  margin-left: 0;
   padding: 0 9px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1354,7 +1731,7 @@ a:focus-visible {
 }
 
 .jobStage {
-  margin: 12px 0 0 56px;
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
   text-transform: capitalize;
@@ -2281,6 +2658,166 @@ div.imageJobInlineError {
   color: var(--warning);
 }
 
+.symbolImageButton {
+  position: relative;
+  display: grid;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background: var(--panel-raised);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.symbolImageButton img {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.symbolImageButton:hover:not(:disabled),
+.symbolImageButton:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(112, 225, 180, 0.13);
+}
+
+.symbolImageButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.symbolImageFallback {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.symbolImageEditMark {
+  position: absolute;
+  z-index: 2;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 7px;
+  background: rgba(3, 8, 15, 0.86);
+  color: #fff;
+  font-size: 11px;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.symbolImageButton:hover:not(:disabled) .symbolImageEditMark,
+.symbolImageButton:focus-visible .symbolImageEditMark {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.symbolImagePickerCard {
+  width: min(920px, 100%);
+}
+
+.symbolImageNameField {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 22px;
+}
+
+.symbolImageNameField input {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgba(3, 8, 15, 0.38);
+  color: var(--text);
+}
+
+.symbolImageNameField small,
+.symbolImagePickerEnd {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.symbolImageCandidateGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.symbolImageCandidate {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(5, 12, 22, 0.35);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.symbolImageCandidate img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.symbolImageCandidate:hover:not(:disabled),
+.symbolImageCandidate:focus-visible,
+.symbolImageCandidateSelected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.symbolImageCandidateSelected {
+  box-shadow: 0 0 0 3px rgba(112, 225, 180, 0.13);
+}
+
+.symbolImagePickerError {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 114, 128, 0.3);
+  border-radius: 10px;
+  color: var(--danger);
+}
+
+.symbolImagePickerError p {
+  margin: 0 0 10px;
+}
+
+.symbolImagePickerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+@media (max-width: 720px) {
+  .symbolImageCandidateGrid {
+    grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
+
+  .symbolImagePickerActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .gameMonogram {
   display: grid;
   width: 48px;
@@ -2574,10 +3111,20 @@ div.imageJobInlineError {
   .gameRow,
   .symbolRow,
   .rulesRow,
+  .rulesWorkspaceHeader,
   .payoutSymbolRow,
   .archiveConfirmation {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .rulesWorkspaceActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .payoutSourceSummary {
+    grid-template-columns: 1fr;
   }
 
   .datasetValidationMetrics {
@@ -2611,7 +3158,6 @@ div.imageJobInlineError {
     width: 100%;
   }
 
-  .jobFilters,
   .jobCounters,
   .jobMetadata,
   .imageJobSummary,
@@ -2619,21 +3165,26 @@ div.imageJobInlineError {
     grid-template-columns: 1fr 1fr;
   }
 
+  .jobFilters {
+    grid-template-columns: 1fr;
+  }
+
   .jobFilters p {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
-  .jobTitleLine {
-    flex-wrap: wrap;
+  .jobCardSummary {
+    grid-template-columns: 44px minmax(0, 1fr) auto 22px;
   }
 
-  .jobTitleLine > div {
-    min-width: 0;
-    flex: 1;
+  .jobSummaryProgress,
+  .jobSummaryCreated,
+  .jobErrorSummary {
+    grid-column: 2 / -1;
   }
 
-  .jobStatus {
-    margin-left: 56px;
+  .jobSummaryCreated {
+    text-align: left;
   }
 
   .jobActions {
@@ -2758,6 +3309,21 @@ div.imageJobInlineError {
     margin-left: 0;
   }
 
+  .jobCardSummary {
+    grid-template-columns: 38px minmax(0, 1fr) 22px;
+  }
+
+  .jobCardSummary > .jobStatus {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+
+  .jobSummaryProgress,
+  .jobSummaryCreated,
+  .jobErrorSummary {
+    grid-column: 1 / -1;
+  }
+
   .jobProgressSummary {
     align-items: flex-start;
     flex-direction: column;
@@ -2819,7 +3385,7 @@ div.imageJobInlineError {
 }
 
 .releaseVersionField input,
-.releaseSourceRow select {
+.releaseGameField select {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;
@@ -2829,66 +3395,59 @@ div.imageJobInlineError {
   color: var(--text);
 }
 
-.releaseSourceList {
+.releaseControlledSource {
   display: grid;
-  gap: 10px;
-}
-
-.releaseSourceRow {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(230px, 1fr) minmax(
-      230px,
-      1fr
-    );
-  gap: 14px;
+  grid-template-columns: minmax(240px, 0.7fr) minmax(0, 1.3fr);
+  align-items: end;
+  gap: 16px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 13px;
-  background: rgba(5, 12, 22, 0.3);
-}
-
-.releaseSourceRowIncluded {
   border-color: rgba(112, 225, 180, 0.3);
   background: rgba(112, 225, 180, 0.055);
 }
 
-.releaseSourceRow label {
+.releaseGameField {
   display: grid;
-  align-content: start;
-  gap: 7px;
+  gap: 8px;
   color: #d9e4f1;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 750;
 }
 
-.releaseSourceRow .releaseGameToggle {
-  display: flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 11px;
+.releaseSourceSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
 }
 
-.releaseGameToggle input {
-  width: 19px;
-  height: 19px;
-  accent-color: var(--accent);
+.releaseSourceSummary div {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.28);
 }
 
-.releaseGameToggle span,
-.releaseGameToggle strong,
-.releaseGameToggle small {
-  display: block;
-}
-
-.releaseGameToggle small {
-  margin-top: 4px;
+.releaseSourceSummary dt {
   color: var(--muted);
-  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
-.releaseSourceRow > p {
-  grid-column: 2 / -1;
-  margin: -5px 0 0;
+.releaseSourceSummary dd {
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.releaseSourceWarning {
+  margin: 0;
   color: var(--warning);
   font-size: 11px;
 }
@@ -2913,6 +3472,47 @@ div.imageJobInlineError {
   grid-template-columns: minmax(240px, 0.38fr) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
+}
+
+.releaseHistoryDisclosure {
+  display: grid;
+  gap: 14px;
+}
+
+.releaseHistoryDisclosure > summary {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(14, 26, 44, 0.72);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  list-style: none;
+}
+
+.releaseHistoryDisclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.releaseHistoryDisclosure > summary strong {
+  display: grid;
+  min-width: 28px;
+  min-height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.releaseHistoryDisclosure[open] > summary {
+  margin-bottom: 14px;
+  border-color: rgba(112, 225, 180, 0.24);
 }
 
 .releaseHistoryPanel {
@@ -3184,12 +3784,8 @@ div.imageJobInlineError {
 }
 
 @media (max-width: 1050px) {
-  .releaseSourceRow {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .releaseGameToggle {
-    grid-column: 1 / -1;
+  .releaseControlledSource {
+    grid-template-columns: 1fr;
   }
 
   .releaseWorkspace {
@@ -3221,19 +3817,12 @@ div.imageJobInlineError {
     width: 100%;
   }
 
-  .releaseSourceRow,
+  .releaseControlledSource,
+  .releaseSourceSummary,
   .releaseMetadata,
   .releaseArtifacts,
   .releaseHistoryList {
     grid-template-columns: 1fr;
-  }
-
-  .releaseGameToggle {
-    grid-column: auto;
-  }
-
-  .releaseSourceRow > p {
-    grid-column: auto;
   }
 
   .releaseDetailActions {
@@ -4353,6 +4942,52 @@ div.imageJobInlineError {
   color: var(--danger);
 }
 
+.reviewerPrerequisite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid rgba(255, 190, 77, 0.24);
+  border-radius: 10px;
+  background: rgba(255, 190, 77, 0.06);
+}
+
+.reviewerPrerequisite p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.reviewerReadinessSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.reviewerReadinessSummary > div {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.reviewerReadinessSummary dt {
+  color: #758aa3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.reviewerReadinessSummary dd {
+  margin: 5px 0 0;
+  font-size: 15px;
+  font-weight: 800;
+}
+
 .reviewerIngressStatus {
   display: flex;
   gap: 12px;
@@ -4426,8 +5061,14 @@ div.imageJobInlineError {
 
 @media (max-width: 860px) {
   .reviewerLauncherControls,
-  .reviewerSessionResult {
+  .reviewerSessionResult,
+  .reviewerReadinessSummary {
     grid-template-columns: 1fr;
+  }
+
+  .reviewerPrerequisite {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .reviewerIngressStatus {

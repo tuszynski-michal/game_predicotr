@@ -1,7 +1,7 @@
 ---
 title: Version 0.1 release plan
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Plan wydania 0.1 — reprezentatywna aplikacja offline z 500 000 layoutów
@@ -12,7 +12,7 @@ Zamknąć pierwszą kompletną wersję demonstracyjną jako instalowalne APK dla
 Google Pixel 10 Pro XL. Wydanie ma pokazać rzeczywisty interfejs symboli,
 matching, obsługę duplikatów oraz pełny Target na 500 000 layoutów, bez
 oczekiwania na docelowy automatyczny import wszystkich zdjęć i pełny hardening
-operacyjny `0.3`.
+operacyjny `0.4`.
 
 ## Zamrożony zakres
 
@@ -72,7 +72,7 @@ zadanie zamyka bramkę wydania `0.1`.
 - mały workflow testowy uruchamiany od czystego PostgreSQL,
 - kontekstowe joby i bezpieczne czyszczenie danych roboczych.
 
-## Świadomie odłożone do 0.3
+## Świadomie odłożone do 0.4
 
 - automatyczna publikacja 500 000 rzeczywistych layoutów ze zdjęć,
 - nowe gry i wielogrowe wydanie mobilne,

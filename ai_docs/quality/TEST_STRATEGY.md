@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Strategia testów
@@ -322,6 +322,11 @@ nie zastępuje krótkiego odbioru właściciela opisanego w
 - zmiana gry,
 - pełna plansza,
 - odrzucona propozycja prefiksu.
+- `Next` tylko z jednoznacznym anchorem, zawinięcie `N → 1` i atomowe Undo,
+- walidacja limitu Targetu oraz
+  `evaluated_spin_count = min(target_scan_limit, N - 1)`,
+- anulowanie lub unieważnienie poprzedniego skanu po zmianie limitu,
+- maksima, koszt i payout liczone wyłącznie w ocenianym oknie.
 
 ### Component/integration
 
@@ -334,6 +339,13 @@ nie zastępuje krótkiego odbioru właściciela opisanego w
 - postęp długiego skanu,
 - tabela na dole,
 - wirtualizacja i stabilne klucze wierszy.
+- kolejność `ver`, wybór gry, `Next`/`Undo`/`Reset` i brak usuniętych etykiet,
+- zawijany Selection bez poziomego overflow, z krótszą nazwą, polskim remisem,
+  fallbackiem `name` i ellipsis,
+- skonsolidowane statusy unique/duplicate/not_found/local_data_error bez
+  polegania wyłącznie na kolorze,
+- kompaktowe szczegóły `Koszt spinu`, `Koszt`, `Suma końcowa`,
+- przycisk powrotu na górę widoczny przy wynikach, z safe area i dostępną nazwą.
 
 ### Device smoke
 
@@ -341,6 +353,10 @@ Wersja `0.1` wymaga testu na Google Pixel 10 Pro XL. Samsung Galaxy S21 Ultra
 pozostaje urządzeniem późniejszego testu kompatybilności i nie blokuje `0.1`.
 
 Scenariusz działa w trybie samolotowym i po ponownym uruchomieniu aplikacji. E2E automatyzujemy dopiero po ustabilizowaniu UI; manualny protokół urządzenia jest obowiązkowy wcześniej.
+
+Wersja 0.3 przechodzi regresję kompaktowego ekranu, `Next`, limitu Targetu,
+statusów i powrotu na górę na Google Pixel 10 Pro XL. Końcowe benchmarki pełnych
+rzeczywistych zbiorów, nowe gry i rozszerzona macierz urządzeń należą do 0.4.
 
 Finalne APK M1 przechodzi również statyczną kontrolę manifestu potwierdzającą
 brak uprawnienia `INTERNET`.
@@ -358,6 +374,8 @@ brak uprawnienia `INTERNET`.
 - poprzednie wydanie nie jest nadpisywane,
 - gotowe APK zawiera wskazany snapshot,
 - aplikacja mobilna akceptuje produkcyjny manifest schema v1 bez pól fixture,
+- wydanie 0.3 generuje i waliduje snapshot schema v3 z opcjonalnymi
+  `name_pl`/`name_en`, bez zmiany zachowanego snapshotu v2,
 - instalacja nowego APK nad starszą wersją aktywuje nowy snapshot,
 - aplikacja nie otwiera starej kopii bazy po zmianie release version/checksum,
 - signing key pozostaje poza repozytorium i jest używany konsekwentnie dla
@@ -558,13 +576,14 @@ brak uprawnienia `INTERNET`.
 - jawne przypadki 5–10 duplikatów treści na grę,
 - mały fixture do unit tests,
 - M1: 3 × 1000 layoutów,
-- benchmark: co najmniej 500 000 layoutów w jednej grze,
+- benchmark: co najmniej 500 000 layoutów w jednej grze; końcowa bramka na
+  dużym rzeczywistym zbiorze należy do wersji 0.4,
 - test rozmiaru dla estymacji 12–15 gier,
 - golden przebiegi payout/forecast wyliczone niezależnie od kodu mobile.
 
 ## Robocze budżety wydajności
 
-Do zatwierdzenia po benchmarku na słabszym z urządzeń testowych:
+Do zatwierdzenia w wersji 0.4 po benchmarku na słabszym z urządzeń testowych:
 
 - exact match 500 000 layoutów: p95 poniżej 200 ms,
 - typowy prefix match: p95 poniżej 300 ms,

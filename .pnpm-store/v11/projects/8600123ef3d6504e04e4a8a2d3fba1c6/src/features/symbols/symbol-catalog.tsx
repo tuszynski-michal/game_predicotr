@@ -5,6 +5,7 @@ import type {
   SymbolResponse,
   SymbolStatus,
 } from '@game-predictor/admin-api-client';
+import Image from 'next/image';
 import {
   type FormEvent,
   useCallback,
@@ -31,6 +32,8 @@ import {
   upsertSymbol,
   validateSymbolDraft,
 } from '@/features/symbols/symbol-catalog-state';
+import { SymbolBootstrapPanel } from '@/features/symbols/symbol-bootstrap-panel';
+import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type EditorState =
@@ -76,6 +79,8 @@ export function SymbolCatalog({
     null,
   );
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [imagePickerSymbol, setImagePickerSymbol] =
+    useState<SymbolResponse | null>(null);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -191,16 +196,7 @@ export function SymbolCatalog({
     setFormError('');
     setFeedback(null);
     setArchiveCandidateId(null);
-  }
-
-  function openCreateEditor() {
-    if (!selectedGameId) {
-      return;
-    }
-    setDraft(EMPTY_SYMBOL_DRAFT);
-    setFormError('');
-    setFeedback(null);
-    setEditor({ mode: 'create' });
+    setImagePickerSymbol(null);
   }
 
   function openEditEditor(symbol: SymbolResponse) {
@@ -293,6 +289,15 @@ export function SymbolCatalog({
     }
   }
 
+  function imageSelected(symbol: SymbolResponse) {
+    setSymbols((current) => upsertSymbol(current, symbol));
+    setImagePickerSymbol(null);
+    setFeedback({
+      kind: 'success',
+      text: `Zapisano grafikę reprezentatywną symbolu „${symbol.name}”.`,
+    });
+  }
+
   return (
     <section className="catalogSection" id="symbols">
       <header className="pageHeader symbolPageHeader">
@@ -304,16 +309,6 @@ export function SymbolCatalog({
             względną ścieżkę lokalnego obrazu referencyjnego.
           </p>
         </div>
-        <button
-          className="primaryButton"
-          data-testid="symbol-create-open"
-          disabled={!selectedGameId || gamesState !== 'ready'}
-          onClick={openCreateEditor}
-          type="button"
-        >
-          <span aria-hidden="true">+</span>
-          Nowy symbol
-        </button>
       </header>
 
       {gamesState === 'loading' ? (
@@ -368,6 +363,15 @@ export function SymbolCatalog({
             </p>
           ) : null}
 
+          {selectedGameId ? (
+            <SymbolBootstrapPanel
+              client={api}
+              gameId={selectedGameId}
+              hasSymbols={symbols.length > 0}
+              onApplied={() => void loadSymbols(selectedGameId)}
+            />
+          ) : null}
+
           {editor.mode !== 'closed' ? (
             <SymbolEditor
               draft={draft}
@@ -396,7 +400,7 @@ export function SymbolCatalog({
               />
             ) : null}
             {symbolsState === 'ready' && symbols.length === 0 ? (
-              <SymbolsEmpty onCreate={openCreateEditor} />
+              <SymbolsEmpty />
             ) : null}
             {symbolsState === 'ready' && symbols.length > 0 ? (
               <SymbolsList
@@ -406,10 +410,24 @@ export function SymbolCatalog({
                 onArchiveCancel={() => setArchiveCandidateId(null)}
                 onArchiveConfirm={(symbol) => void confirmArchive(symbol)}
                 onEdit={openEditEditor}
+                onImageEdit={setImagePickerSymbol}
+                symbolImageAssetUrl={(symbol) =>
+                  api.symbolImageAssetUrl(symbol.gameId, symbol.id)
+                }
                 symbols={symbols}
               />
             ) : null}
           </div>
+
+          {selectedGameId && imagePickerSymbol ? (
+            <SymbolImagePickerModal
+              api={api}
+              gameId={selectedGameId}
+              onClose={() => setImagePickerSymbol(null)}
+              onSelected={imageSelected}
+              symbol={imagePickerSymbol}
+            />
+          ) : null}
         </>
       ) : null}
     </section>
@@ -631,6 +649,8 @@ interface SymbolsListProps {
   readonly onArchiveCancel: () => void;
   readonly onArchiveConfirm: (symbol: SymbolResponse) => void;
   readonly onEdit: (symbol: SymbolResponse) => void;
+  readonly onImageEdit: (symbol: SymbolResponse) => void;
+  readonly symbolImageAssetUrl: (symbol: SymbolResponse) => string;
   readonly symbols: readonly SymbolResponse[];
 }
 
@@ -641,6 +661,8 @@ function SymbolsList({
   onArchiveCancel,
   onArchiveConfirm,
   onEdit,
+  onImageEdit,
+  symbolImageAssetUrl,
   symbols,
 }: SymbolsListProps) {
   return (
@@ -667,18 +689,43 @@ function SymbolsList({
               key={symbol.id}
             >
               <div className="symbolIdentity">
-                <span
+                <button
+                  aria-label={`Zmień grafikę symbolu ${symbol.name}`}
                   className={
                     symbol.isWildcard
-                      ? 'symbolTile symbolTileWildcard'
-                      : 'symbolTile'
+                      ? 'symbolImageButton symbolTileWildcard'
+                      : 'symbolImageButton'
                   }
-                  aria-hidden="true"
+                  disabled={symbol.imagePath === null}
+                  onClick={() => onImageEdit(symbol)}
+                  title={
+                    symbol.imagePath === null
+                      ? 'Brak cropów dostępnych dla tego symbolu'
+                      : 'Wybierz inną grafikę reprezentatywną'
+                  }
+                  type="button"
                 >
-                  {symbol.isWildcard
-                    ? 'W'
-                    : String(symbol.mobileCode).padStart(2, '0')}
-                </span>
+                  <span aria-hidden="true" className="symbolImageFallback">
+                    {symbol.isWildcard
+                      ? 'W'
+                      : String(symbol.mobileCode).padStart(2, '0')}
+                  </span>
+                  {symbol.imagePath ? (
+                    <Image
+                      alt=""
+                      height={64}
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                      }}
+                      src={symbolImageAssetUrl(symbol)}
+                      unoptimized
+                      width={64}
+                    />
+                  ) : null}
+                  <span aria-hidden="true" className="symbolImageEditMark">
+                    ✎
+                  </span>
+                </button>
                 <div>
                   <div className="gameTitleLine">
                     <h3>{symbol.name}</h3>
@@ -813,7 +860,7 @@ function NoGames() {
   );
 }
 
-function SymbolsEmpty({ onCreate }: { readonly onCreate: () => void }) {
+function SymbolsEmpty() {
   return (
     <div className="statePanel statePanelEmpty" data-testid="symbols-empty">
       <span className="stateIcon" aria-hidden="true">
@@ -822,12 +869,9 @@ function SymbolsEmpty({ onCreate }: { readonly onCreate: () => void }) {
       <div>
         <h2>Ta gra nie ma jeszcze symboli</h2>
         <p>
-          Dodaj pierwszy symbol. Kod stabilny i kod mobilny pozostaną
-          nieedytowalne po zapisie.
+          Uruchom automatyczne wykrywanie powyżej. Symbole zostaną utworzone z
+          rzeczywistych cropów importu.
         </p>
-        <button className="secondaryButton" onClick={onCreate} type="button">
-          Utwórz pierwszy symbol
-        </button>
       </div>
     </div>
   );

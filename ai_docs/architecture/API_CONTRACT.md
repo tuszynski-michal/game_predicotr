@@ -1340,7 +1340,7 @@ gry i mieć zgodne wymiary.
 
 Admin 0.2 wysyła dokładnie jedną grę testową i natychmiast po poprawnym POST
 wywołuje endpoint builda. Zakres 1–15 w API pozostaje bez zmian jako kontrakt
-backendowy dla późniejszego wydania wielogrowego 0.3. Jeżeli drugi request nie
+backendowy dla późniejszego wydania wielogrowego 0.4. Jeżeli drugi request nie
 powiedzie się, utworzony draft pozostaje dostępny do jawnego wznowienia.
 
 ### GET `/api/v1/admin/mobile-releases`

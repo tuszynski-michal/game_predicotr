@@ -42,6 +42,24 @@ export function jobTypeLabel(jobType: JobType): string {
   return JOB_TYPE_LABELS[jobType];
 }
 
+export function jobContextLabel(job: JobResponse): string {
+  if (job.gameId !== null) return `Gra ${job.gameId}`;
+  if ('mobileReleaseId' in job.inputPayload) {
+    return `Wydanie ${job.inputPayload.mobileReleaseId}`;
+  }
+  if ('datasetVersionId' in job.inputPayload) {
+    return `Dataset ${job.inputPayload.datasetVersionId}`;
+  }
+  return 'Proces globalny';
+}
+
+export function jobErrorSummary(job: JobResponse, limit = 140): string | null {
+  if (job.error === null) return null;
+  const summary = `${job.error.code}: ${job.error.message}`;
+  if (summary.length <= limit) return summary;
+  return `${summary.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+}
+
 export function jobStageLabel(stage: string | null): string {
   if (stage === null) return 'Etap nie został jeszcze rozpoczęty';
   return stage.replaceAll('_', ' ');

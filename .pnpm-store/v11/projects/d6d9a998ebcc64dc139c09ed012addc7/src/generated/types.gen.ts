@@ -34,6 +34,118 @@ export type AndroidBuildJobPayload = {
 };
 
 /**
+ * CleanupCommandRequest
+ */
+export type CleanupCommandRequest = {
+  /**
+   * Confirmationtarget
+   */
+  confirmationTarget: string;
+  /**
+   * Confirmed
+   */
+  confirmed: boolean;
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+};
+
+/**
+ * CleanupCountResponse
+ */
+export type CleanupCountResponse = {
+  /**
+   * Count
+   */
+  count: number;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * CleanupPreviewResponse
+ */
+export type CleanupPreviewResponse = {
+  /**
+   * Artifactpaths
+   */
+  artifactPaths: Array<string>;
+  /**
+   * Blockers
+   */
+  blockers: Array<string>;
+  /**
+   * Confirmationtarget
+   */
+  confirmationTarget: string;
+  /**
+   * Counts
+   */
+  counts: Array<CleanupCountResponse>;
+  /**
+   * Kind
+   */
+  kind: 'mobile_release' | 'game_layout_data';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Retainedsharedartifactcount
+   */
+  retainedSharedArtifactCount: number;
+  /**
+   * Targetid
+   */
+  targetId: string;
+  /**
+   * Targetlabel
+   */
+  targetLabel: string;
+};
+
+/**
+ * CleanupResultResponse
+ */
+export type CleanupResultResponse = {
+  /**
+   * Alreadycompleted
+   */
+  alreadyCompleted: boolean;
+  /**
+   * Deletedartifactcount
+   */
+  deletedArtifactCount: number;
+  /**
+   * Deletedcounts
+   */
+  deletedCounts: Array<CleanupCountResponse>;
+  /**
+   * Kind
+   */
+  kind: 'mobile_release' | 'game_layout_data';
+  /**
+   * Previewtoken
+   */
+  previewToken: string;
+  /**
+   * Retainedsharedartifactcount
+   */
+  retainedSharedArtifactCount: number;
+  /**
+   * Targetid
+   */
+  targetId: string;
+  /**
+   * Targetlabel
+   */
+  targetLabel: string;
+};
+
+/**
  * DatasetLayoutPageResponse
  */
 export type DatasetLayoutPageResponse = {
@@ -202,6 +314,10 @@ export type DatasetVersionResponse = {
    */
   createdAt: string;
   /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
    * Gameid
    */
   gameId: string;
@@ -300,6 +416,10 @@ export type GameCreate = {
    */
   code: string;
   /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount?: number;
+  /**
    * Name
    */
   name: string;
@@ -318,6 +438,10 @@ export type GameResponse = {
    * Createdat
    */
   createdAt: string;
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
   /**
    * Id
    */
@@ -342,6 +466,10 @@ export type GameStatus = 'draft' | 'active' | 'archived';
  * GameUpdate
  */
 export type GameUpdate = {
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount?: number | null;
   /**
    * Name
    */
@@ -371,6 +499,56 @@ export type HealthResponse = {
    * Version
    */
   version: string;
+};
+
+/**
+ * ImageDatasetCompletenessResponse
+ */
+export type ImageDatasetCompletenessResponse = {
+  /**
+   * Acceptedboardcount
+   */
+  acceptedBoardCount: number;
+  /**
+   * Completionpercentage
+   */
+  completionPercentage: number;
+  /**
+   * Duplicatesequencecount
+   */
+  duplicateSequenceCount: number;
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manualoverridecount
+   */
+  manualOverrideCount: number;
+  /**
+   * Missingsequencecount
+   */
+  missingSequenceCount: number;
+  /**
+   * Missingsequencenumbers
+   */
+  missingSequenceNumbers: Array<number>;
+  /**
+   * Missingsequencenumberstruncated
+   */
+  missingSequenceNumbersTruncated: boolean;
+  /**
+   * Outofrangesequencecount
+   */
+  outOfRangeSequenceCount: number;
+  /**
+   * Uniquesequencecount
+   */
+  uniqueSequenceCount: number;
 };
 
 /**
@@ -651,6 +829,112 @@ export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
  * ImageReviewView
  */
 export type ImageReviewView = 'pending' | 'completed' | 'all';
+
+/**
+ * ImageSequenceSourceCandidateResponse
+ */
+export type ImageSequenceSourceCandidateResponse = {
+  /**
+   * Automaticrank
+   */
+  automaticRank: number;
+  /**
+   * Boardconfidence
+   */
+  boardConfidence: number;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Qualityscore
+   */
+  qualityScore: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Selected
+   */
+  selected: boolean;
+  /**
+   * Selectedmanually
+   */
+  selectedManually: boolean;
+  /**
+   * Sequenceconfidence
+   */
+  sequenceConfidence: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcerelativepath
+   */
+  sourceRelativePath: string;
+  /**
+   * Width
+   */
+  width: number;
+};
+
+/**
+ * ImageSequenceSourceOverrideCommand
+ */
+export type ImageSequenceSourceOverrideCommand = {
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Selectedby
+   */
+  selectedBy: string;
+};
+
+/**
+ * ImageSequenceSourceSelectionResponse
+ */
+export type ImageSequenceSourceSelectionResponse = {
+  /**
+   * Candidates
+   */
+  candidates: Array<ImageSequenceSourceCandidateResponse>;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Manualoverridereviewitemid
+   */
+  manualOverrideReviewItemId: string | null;
+  /**
+   * Overriderevision
+   */
+  overrideRevision: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
 
 /**
  * ImageStorageInventoryResponse
@@ -3041,6 +3325,168 @@ export type SnapshotJobPayload = {
 };
 
 /**
+ * SymbolBootstrapCandidateResponse
+ */
+export type SymbolBootstrapCandidateResponse = {
+  /**
+   * Candidateid
+   */
+  candidateId: string;
+  /**
+   * Meanconfidence
+   */
+  meanConfidence: number;
+  /**
+   * Predictedsymbolcode
+   */
+  predictedSymbolCode: string;
+  /**
+   * Proposedcode
+   */
+  proposedCode: string;
+  /**
+   * Proposedname
+   */
+  proposedName: string;
+  /**
+   * Representativecropchecksumsha256
+   */
+  representativeCropChecksumSha256: string;
+  /**
+   * Representativecroprelativepath
+   */
+  representativeCropRelativePath: string;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+};
+
+/**
+ * SymbolBootstrapDefinitionCommand
+ */
+export type SymbolBootstrapDefinitionCommand = {
+  /**
+   * Candidateids
+   */
+  candidateIds: Array<string>;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * SymbolBootstrapDefinitionResponse
+ */
+export type SymbolBootstrapDefinitionResponse = {
+  /**
+   * Candidateids
+   */
+  candidateIds: Array<string>;
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Imagepath
+   */
+  imagePath: string;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * SymbolBootstrapResolveCommand
+ */
+export type SymbolBootstrapResolveCommand = {
+  /**
+   * Symbols
+   */
+  symbols: Array<SymbolBootstrapDefinitionCommand>;
+};
+
+/**
+ * SymbolBootstrapRunResponse
+ */
+export type SymbolBootstrapRunResponse = {
+  /**
+   * Appliedat
+   */
+  appliedAt: string | null;
+  /**
+   * Candidates
+   */
+  candidates: Array<SymbolBootstrapCandidateResponse>;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Detectedclustercount
+   */
+  detectedClusterCount: number;
+  /**
+   * Expectedsymbolcount
+   */
+  expectedSymbolCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Resolution
+   */
+  resolution: Array<SymbolBootstrapDefinitionResponse>;
+  /**
+   * Sourcestatesha256
+   */
+  sourceStateSha256: string;
+  status: SymbolBootstrapStatus;
+};
+
+/**
+ * SymbolBootstrapStartCommand
+ */
+export type SymbolBootstrapStartCommand = {
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Expectedsymbolcount
+   */
+  expectedSymbolCount: number;
+};
+
+/**
+ * SymbolBootstrapStatus
+ */
+export type SymbolBootstrapStatus = 'ready' | 'conflict' | 'applied';
+
+/**
  * SymbolCreate
  */
 export type SymbolCreate = {
@@ -3069,6 +3515,48 @@ export type SymbolCreate = {
    */
   name: string;
   status?: SymbolStatus;
+};
+
+/**
+ * SymbolImageCandidatePageResponse
+ */
+export type SymbolImageCandidatePageResponse = {
+  /**
+   * Items
+   */
+  items: Array<SymbolImageCandidateResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * SymbolImageCandidateResponse
+ */
+export type SymbolImageCandidateResponse = {
+  /**
+   * Confidence
+   */
+  confidence: number;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string;
+  /**
+   * Observationid
+   */
+  observationId: string;
+};
+
+/**
+ * SymbolImageSelectionCommand
+ */
+export type SymbolImageSelectionCommand = {
+  /**
+   * Name
+   */
+  name: string;
 };
 
 /**
@@ -3770,6 +4258,94 @@ export type GenerateMockDatasetResponses = {
 export type GenerateMockDatasetResponse =
   GenerateMockDatasetResponses[keyof GenerateMockDatasetResponses];
 
+export type ResetGameLayoutDataData = {
+  body: CleanupCommandRequest;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/layout-data';
+};
+
+export type ResetGameLayoutDataErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResetGameLayoutDataError =
+  ResetGameLayoutDataErrors[keyof ResetGameLayoutDataErrors];
+
+export type ResetGameLayoutDataResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupResultResponse;
+};
+
+export type ResetGameLayoutDataResponse =
+  ResetGameLayoutDataResponses[keyof ResetGameLayoutDataResponses];
+
+export type PreviewGameLayoutDataResetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/layout-data-reset-preview';
+};
+
+export type PreviewGameLayoutDataResetErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewGameLayoutDataResetError =
+  PreviewGameLayoutDataResetErrors[keyof PreviewGameLayoutDataResetErrors];
+
+export type PreviewGameLayoutDataResetResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupPreviewResponse;
+};
+
+export type PreviewGameLayoutDataResetResponse =
+  PreviewGameLayoutDataResetResponses[keyof PreviewGameLayoutDataResetResponses];
+
 export type ListRulesVersionsData = {
   body?: never;
   path: {
@@ -3855,6 +4431,140 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type GetLatestSymbolBootstrapData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap';
+};
+
+export type GetLatestSymbolBootstrapErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetLatestSymbolBootstrapError =
+  GetLatestSymbolBootstrapErrors[keyof GetLatestSymbolBootstrapErrors];
+
+export type GetLatestSymbolBootstrapResponses = {
+  /**
+   * Response Getlatestsymbolbootstrap
+   *
+   * Successful Response
+   */
+  200: SymbolBootstrapRunResponse | null;
+};
+
+export type GetLatestSymbolBootstrapResponse =
+  GetLatestSymbolBootstrapResponses[keyof GetLatestSymbolBootstrapResponses];
+
+export type StartSymbolBootstrapData = {
+  body: SymbolBootstrapStartCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap';
+};
+
+export type StartSymbolBootstrapErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type StartSymbolBootstrapError =
+  StartSymbolBootstrapErrors[keyof StartSymbolBootstrapErrors];
+
+export type StartSymbolBootstrapResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolBootstrapRunResponse;
+};
+
+export type StartSymbolBootstrapResponse =
+  StartSymbolBootstrapResponses[keyof StartSymbolBootstrapResponses];
+
+export type ResolveSymbolBootstrapData = {
+  body: SymbolBootstrapResolveCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Bootstrap Id
+     */
+    bootstrap_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution';
+};
+
+export type ResolveSymbolBootstrapErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ResolveSymbolBootstrapError =
+  ResolveSymbolBootstrapErrors[keyof ResolveSymbolBootstrapErrors];
+
+export type ResolveSymbolBootstrapResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolBootstrapRunResponse;
+};
+
+export type ResolveSymbolBootstrapResponse =
+  ResolveSymbolBootstrapResponses[keyof ResolveSymbolBootstrapResponses];
 
 export type ListSymbolsData = {
   body?: never;
@@ -4079,6 +4789,197 @@ export type UpdateSymbolResponses = {
 
 export type UpdateSymbolResponse =
   UpdateSymbolResponses[keyof UpdateSymbolResponses];
+
+export type ListSymbolImageCandidatesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: {
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates';
+};
+
+export type ListSymbolImageCandidatesErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolImageCandidatesError =
+  ListSymbolImageCandidatesErrors[keyof ListSymbolImageCandidatesErrors];
+
+export type ListSymbolImageCandidatesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolImageCandidatePageResponse;
+};
+
+export type ListSymbolImageCandidatesResponse =
+  ListSymbolImageCandidatesResponses[keyof ListSymbolImageCandidatesResponses];
+
+export type GetSymbolImageCandidateAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+    /**
+     * Observation Id
+     */
+    observation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/asset';
+};
+
+export type GetSymbolImageCandidateAssetErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolImageCandidateAssetError =
+  GetSymbolImageCandidateAssetErrors[keyof GetSymbolImageCandidateAssetErrors];
+
+export type GetSymbolImageCandidateAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type SelectSymbolImageCandidateData = {
+  body: SymbolImageSelectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+    /**
+     * Observation Id
+     */
+    observation_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection';
+};
+
+export type SelectSymbolImageCandidateErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSymbolImageCandidateError =
+  SelectSymbolImageCandidateErrors[keyof SelectSymbolImageCandidateErrors];
+
+export type SelectSymbolImageCandidateResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type SelectSymbolImageCandidateResponse =
+  SelectSymbolImageCandidateResponses[keyof SelectSymbolImageCandidateResponses];
+
+export type GetSymbolImageAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset';
+};
+
+export type GetSymbolImageAssetErrors = {
+  /**
+   * Game or bootstrap not found
+   */
+  404: ErrorResponse;
+  /**
+   * Bootstrap conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolImageAssetError =
+  GetSymbolImageAssetErrors[keyof GetSymbolImageAssetErrors];
+
+export type GetSymbolImageAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type CreateImageFolderImportData = {
   body: ImageFolderImportCreate;
@@ -4545,6 +5446,138 @@ export type ListOperationalImageReviewItemsResponses = {
 
 export type ListOperationalImageReviewItemsResponse =
   ListOperationalImageReviewItemsResponses[keyof ListOperationalImageReviewItemsResponses];
+
+export type GetImageDatasetCompletenessData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}';
+};
+
+export type GetImageDatasetCompletenessErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageDatasetCompletenessError =
+  GetImageDatasetCompletenessErrors[keyof GetImageDatasetCompletenessErrors];
+
+export type GetImageDatasetCompletenessResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageDatasetCompletenessResponse;
+};
+
+export type GetImageDatasetCompletenessResponse =
+  GetImageDatasetCompletenessResponses[keyof GetImageDatasetCompletenessResponses];
+
+export type GetImageSequenceSourceSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}';
+};
+
+export type GetImageSequenceSourceSelectionErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSequenceSourceSelectionError =
+  GetImageSequenceSourceSelectionErrors[keyof GetImageSequenceSourceSelectionErrors];
+
+export type GetImageSequenceSourceSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSequenceSourceSelectionResponse;
+};
+
+export type GetImageSequenceSourceSelectionResponse =
+  GetImageSequenceSourceSelectionResponses[keyof GetImageSequenceSourceSelectionResponses];
+
+export type SelectImageSequenceSourceData = {
+  body: ImageSequenceSourceOverrideCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}/override';
+};
+
+export type SelectImageSequenceSourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectImageSequenceSourceError =
+  SelectImageSequenceSourceErrors[keyof SelectImageSequenceSourceErrors];
+
+export type SelectImageSequenceSourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSequenceSourceSelectionResponse;
+};
+
+export type SelectImageSequenceSourceResponse =
+  SelectImageSequenceSourceResponses[keyof SelectImageSequenceSourceResponses];
 
 export type GetOperationalImageReviewItemData = {
   body?: never;
@@ -5478,6 +6511,54 @@ export type CreateMobileReleaseResponses = {
 export type CreateMobileReleaseResponse =
   CreateMobileReleaseResponses[keyof CreateMobileReleaseResponses];
 
+export type DeleteMobileReleaseData = {
+  body: CleanupCommandRequest;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}';
+};
+
+export type DeleteMobileReleaseErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteMobileReleaseError =
+  DeleteMobileReleaseErrors[keyof DeleteMobileReleaseErrors];
+
+export type DeleteMobileReleaseResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupResultResponse;
+};
+
+export type DeleteMobileReleaseResponse =
+  DeleteMobileReleaseResponses[keyof DeleteMobileReleaseResponses];
+
 export type GetMobileReleaseData = {
   body?: never;
   path: {
@@ -5605,6 +6686,46 @@ export type BuildMobileReleaseResponses = {
 
 export type BuildMobileReleaseResponse =
   BuildMobileReleaseResponses[keyof BuildMobileReleaseResponses];
+
+export type PreviewMobileReleaseDeletionData = {
+  body?: never;
+  path: {
+    /**
+     * Mobile Release Id
+     */
+    mobile_release_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/mobile-releases/{mobile_release_id}/deletion-preview';
+};
+
+export type PreviewMobileReleaseDeletionErrors = {
+  /**
+   * Cleanup target not found
+   */
+  404: ErrorResponse;
+  /**
+   * Cleanup state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewMobileReleaseDeletionError =
+  PreviewMobileReleaseDeletionErrors[keyof PreviewMobileReleaseDeletionErrors];
+
+export type PreviewMobileReleaseDeletionResponses = {
+  /**
+   * Successful Response
+   */
+  200: CleanupPreviewResponse;
+};
+
+export type PreviewMobileReleaseDeletionResponse =
+  PreviewMobileReleaseDeletionResponses[keyof PreviewMobileReleaseDeletionResponses];
 
 export type ListReviewBatchesData = {
   body?: never;
@@ -6446,6 +7567,50 @@ export type UpdateRulesVersionResponses = {
 
 export type UpdateRulesVersionResponse =
   UpdateRulesVersionResponses[keyof UpdateRulesVersionResponses];
+
+export type CreateRulesDraftFromPublishedData = {
+  body?: never;
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/draft';
+};
+
+export type CreateRulesDraftFromPublishedErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateRulesDraftFromPublishedError =
+  CreateRulesDraftFromPublishedErrors[keyof CreateRulesDraftFromPublishedErrors];
+
+export type CreateRulesDraftFromPublishedResponses = {
+  /**
+   * Successful Response
+   */
+  200: RulesVersionResponse;
+};
+
+export type CreateRulesDraftFromPublishedResponse =
+  CreateRulesDraftFromPublishedResponses[keyof CreateRulesDraftFromPublishedResponses];
 
 export type ListPaylinesData = {
   body?: never;

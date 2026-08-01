@@ -63,12 +63,18 @@ import type {
   CreateReviewFeedbackExportData,
   CreateReviewFeedbackExportErrors,
   CreateReviewFeedbackExportResponses,
+  CreateRulesDraftFromPublishedData,
+  CreateRulesDraftFromPublishedErrors,
+  CreateRulesDraftFromPublishedResponses,
   CreateRulesVersionData,
   CreateRulesVersionErrors,
   CreateRulesVersionResponses,
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  DeleteMobileReleaseData,
+  DeleteMobileReleaseErrors,
+  DeleteMobileReleaseResponses,
   DownloadImageDiagnosticExportData,
   DownloadImageDiagnosticExportErrors,
   DownloadImageDiagnosticExportResponses,
@@ -92,15 +98,24 @@ import type {
   GetGameResponses,
   GetHealthData,
   GetHealthResponses,
+  GetImageDatasetCompletenessData,
+  GetImageDatasetCompletenessErrors,
+  GetImageDatasetCompletenessResponses,
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
+  GetImageSequenceSourceSelectionData,
+  GetImageSequenceSourceSelectionErrors,
+  GetImageSequenceSourceSelectionResponses,
   GetImageStorageInventoryData,
   GetImageStorageInventoryErrors,
   GetImageStorageInventoryResponses,
   GetJobData,
   GetJobErrors,
   GetJobResponses,
+  GetLatestSymbolBootstrapData,
+  GetLatestSymbolBootstrapErrors,
+  GetLatestSymbolBootstrapResponses,
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
@@ -153,6 +168,12 @@ import type {
   GetRulesVersionResponses,
   GetSymbolData,
   GetSymbolErrors,
+  GetSymbolImageAssetData,
+  GetSymbolImageAssetErrors,
+  GetSymbolImageAssetResponses,
+  GetSymbolImageCandidateAssetData,
+  GetSymbolImageCandidateAssetErrors,
+  GetSymbolImageCandidateAssetResponses,
   GetSymbolResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
@@ -214,12 +235,21 @@ import type {
   ListRulesVersionSymbolsData,
   ListRulesVersionSymbolsErrors,
   ListRulesVersionSymbolsResponses,
+  ListSymbolImageCandidatesData,
+  ListSymbolImageCandidatesErrors,
+  ListSymbolImageCandidatesResponses,
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
+  PreviewGameLayoutDataResetData,
+  PreviewGameLayoutDataResetErrors,
+  PreviewGameLayoutDataResetResponses,
+  PreviewMobileReleaseDeletionData,
+  PreviewMobileReleaseDeletionErrors,
+  PreviewMobileReleaseDeletionResponses,
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
@@ -235,12 +265,18 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ResetGameLayoutDataData,
+  ResetGameLayoutDataErrors,
+  ResetGameLayoutDataResponses,
   ResolveOperationalImageReviewItemData,
   ResolveOperationalImageReviewItemErrors,
   ResolveOperationalImageReviewItemResponses,
   ResolveReviewItemData,
   ResolveReviewItemErrors,
   ResolveReviewItemResponses,
+  ResolveSymbolBootstrapData,
+  ResolveSymbolBootstrapErrors,
+  ResolveSymbolBootstrapResponses,
   RetryImageJobFileData,
   RetryImageJobFileErrors,
   RetryImageJobFileResponses,
@@ -250,12 +286,21 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  SelectImageSequenceSourceData,
+  SelectImageSequenceSourceErrors,
+  SelectImageSequenceSourceResponses,
   SelectLocalImageFolderData,
   SelectLocalImageFolderErrors,
   SelectLocalImageFolderResponses,
+  SelectSymbolImageCandidateData,
+  SelectSymbolImageCandidateErrors,
+  SelectSymbolImageCandidateResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
+  StartSymbolBootstrapData,
+  StartSymbolBootstrapErrors,
+  StartSymbolBootstrapResponses,
   StopReviewerIngressData,
   StopReviewerIngressErrors,
   StopReviewerIngressResponses,
@@ -514,6 +559,51 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Reset all layout workflow data for one game
+ */
+export const resetGameLayoutData = <ThrowOnError extends boolean = false>(
+  options: Options<ResetGameLayoutDataData, ThrowOnError>,
+): RequestResult<
+  ResetGameLayoutDataResponses,
+  ResetGameLayoutDataErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    ResetGameLayoutDataResponses,
+    ResetGameLayoutDataErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/layout-data',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview reset of all layout workflow data for one game
+ */
+export const previewGameLayoutDataReset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGameLayoutDataResetData, ThrowOnError>,
+): RequestResult<
+  PreviewGameLayoutDataResetResponses,
+  PreviewGameLayoutDataResetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGameLayoutDataResetResponses,
+    PreviewGameLayoutDataResetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/layout-data-reset-preview',
+    ...options,
+  });
+
+/**
  * List game rules versions
  */
 export const listRulesVersions = <ThrowOnError extends boolean = false>(
@@ -546,6 +636,70 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/rules-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get the latest symbol bootstrap run
+ */
+export const getLatestSymbolBootstrap = <ThrowOnError extends boolean = false>(
+  options: Options<GetLatestSymbolBootstrapData, ThrowOnError>,
+): RequestResult<
+  GetLatestSymbolBootstrapResponses,
+  GetLatestSymbolBootstrapErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetLatestSymbolBootstrapResponses,
+    GetLatestSymbolBootstrapErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/symbol-bootstrap', ...options });
+
+/**
+ * Build symbol proposals from imported crops
+ */
+export const startSymbolBootstrap = <ThrowOnError extends boolean = false>(
+  options: Options<StartSymbolBootstrapData, ThrowOnError>,
+): RequestResult<
+  StartSymbolBootstrapResponses,
+  StartSymbolBootstrapErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartSymbolBootstrapResponses,
+    StartSymbolBootstrapErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-bootstrap',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resolve a symbol cluster-count conflict
+ */
+export const resolveSymbolBootstrap = <ThrowOnError extends boolean = false>(
+  options: Options<ResolveSymbolBootstrapData, ThrowOnError>,
+): RequestResult<
+  ResolveSymbolBootstrapResponses,
+  ResolveSymbolBootstrapErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ResolveSymbolBootstrapResponses,
+    ResolveSymbolBootstrapErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -631,6 +785,91 @@ export const updateSymbol = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List a bounded page of actual crop candidates
+ */
+export const listSymbolImageCandidates = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolImageCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListSymbolImageCandidatesResponses,
+  ListSymbolImageCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolImageCandidatesResponses,
+    ListSymbolImageCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates',
+    ...options,
+  });
+
+/**
+ * Read one checksum-bound symbol crop candidate
+ */
+export const getSymbolImageCandidateAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetSymbolImageCandidateAssetData, ThrowOnError>,
+): RequestResult<
+  GetSymbolImageCandidateAssetResponses,
+  GetSymbolImageCandidateAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolImageCandidateAssetResponses,
+    GetSymbolImageCandidateAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/asset',
+    ...options,
+  });
+
+/**
+ * Select a checksum-bound crop as the symbol reference image
+ */
+export const selectSymbolImageCandidate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SelectSymbolImageCandidateData, ThrowOnError>,
+): RequestResult<
+  SelectSymbolImageCandidateResponses,
+  SelectSymbolImageCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectSymbolImageCandidateResponses,
+    SelectSymbolImageCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates/{observation_id}/selection',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the current checksum-bound symbol reference image
+ */
+export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolImageAssetData, ThrowOnError>,
+): RequestResult<
+  GetSymbolImageAssetResponses,
+  GetSymbolImageAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolImageAssetResponses,
+    GetSymbolImageAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset',
+    ...options,
   });
 
 /**
@@ -845,6 +1084,72 @@ export const listOperationalImageReviewItems = <
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items',
     ...options,
+  });
+
+/**
+ * Get accepted image sequence completeness for one game
+ */
+export const getImageDatasetCompleteness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageDatasetCompletenessData, ThrowOnError>,
+): RequestResult<
+  GetImageDatasetCompletenessResponses,
+  GetImageDatasetCompletenessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageDatasetCompletenessResponses,
+    GetImageDatasetCompletenessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Get ranked accepted sources for one game sequence
+ */
+export const getImageSequenceSourceSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSequenceSourceSelectionData, ThrowOnError>,
+): RequestResult<
+  GetImageSequenceSourceSelectionResponses,
+  GetImageSequenceSourceSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSequenceSourceSelectionResponses,
+    GetImageSequenceSourceSelectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Select or clear the manual source override for one sequence
+ */
+export const selectImageSequenceSource = <ThrowOnError extends boolean = false>(
+  options: Options<SelectImageSequenceSourceData, ThrowOnError>,
+): RequestResult<
+  SelectImageSequenceSourceResponses,
+  SelectImageSequenceSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectImageSequenceSourceResponses,
+    SelectImageSequenceSourceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/sequence-sources/{game_id}/{sequence_number}/override',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -1257,6 +1562,30 @@ export const createMobileRelease = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Delete one mobile release and its dedicated artifacts
+ */
+export const deleteMobileRelease = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteMobileReleaseData, ThrowOnError>,
+): RequestResult<
+  DeleteMobileReleaseResponses,
+  DeleteMobileReleaseErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteMobileReleaseResponses,
+    DeleteMobileReleaseErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/mobile-releases/{mobile_release_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Get an immutable mobile release
  */
 export const getMobileRelease = <ThrowOnError extends boolean = false>(
@@ -1308,6 +1637,27 @@ export const buildMobileRelease = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/mobile-releases/{mobile_release_id}/build',
+    ...options,
+  });
+
+/**
+ * Preview complete deletion of one mobile release
+ */
+export const previewMobileReleaseDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewMobileReleaseDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewMobileReleaseDeletionResponses,
+  PreviewMobileReleaseDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewMobileReleaseDeletionResponses,
+    PreviewMobileReleaseDeletionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/mobile-releases/{mobile_release_id}/deletion-preview',
     ...options,
   });
 
@@ -1720,6 +2070,28 @@ export const updateRulesVersion = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Open the one current draft copied from a published version
+ */
+export const createRulesDraftFromPublished = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateRulesDraftFromPublishedData, ThrowOnError>,
+): RequestResult<
+  CreateRulesDraftFromPublishedResponses,
+  CreateRulesDraftFromPublishedErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateRulesDraftFromPublishedResponses,
+    CreateRulesDraftFromPublishedErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/draft',
+    ...options,
   });
 
 /**

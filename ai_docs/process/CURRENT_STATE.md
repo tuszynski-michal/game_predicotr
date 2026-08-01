@@ -81,9 +81,18 @@ last_updated: 2026-08-01
 
 ### Wersja 0.3
 
-- startuje dopiero po odbiorze 0.1 i 0.2 oraz wymaganych poprawkach,
-- obejmuje pełne dane, nowe gry, wielogrowe wydanie, pełną skalę i hardening,
-- TASK-0076 oraz TASK-0080–0089 są przypisane do 0.3.
+- obejmuje dostosowanie aplikacji mobilnej: kompaktowy header, planszę i
+  Selection, `Next`, wybierany zasięg Targetu, skonsolidowany wynik i powrót na
+  górę,
+- zakres jest rozpisany jako TASK-0135–0141,
+- odbiór kończy się testem offline na Google Pixel 10 Pro XL,
+- nie obejmuje końcowych testów dużych rzeczywistych zbiorów.
+
+### Wersja 0.4
+
+- obejmuje pełne dane, nowe gry, wielogrowe wydanie, pełną skalę, końcowe testy
+  dużych zbiorów i hardening,
+- TASK-0076 oraz TASK-0080–0089 są przypisane do 0.4.
 
 ## Dane i artefakty
 
@@ -129,16 +138,16 @@ Szczegółowe wyniki historyczne znajdują się w `tasks/completed/`,
 - Q-020 — dozwolony zakres analizy aplikacji referencyjnej,
 - Q-022–Q-032 zostały rozstrzygnięte; Admin 0.2 nie ma otwartego pytania
   blokującego rozpoczęcie TASK-0122,
-- finalny model OCR i nazwa sekcji `Result`/`Target` nie blokują najbliższego
-  pionu nawigacji Admina.
+- finalny model OCR nie blokuje najbliższego pionu mobilnego; nazwa i sposób
+  prezentacji wyniku zostały rozstrzygnięte dla 0.3.
 
 Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Blocked / deferred
 
 - TASK-0076 pozostaje zablokowany przez `massImportAllowed = false` i należy do
-  0.3,
-- TASK-0080–0089 należą do pełnego hardeningu 0.3,
+  0.4,
+- TASK-0080–0089 należą do pełnego hardeningu 0.4,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
@@ -146,12 +155,13 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 Wykonać krótki odbiór właściciela według
 `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md`. Po potwierdzeniu nawigacji, małego
 workflow, jednego wydania i preview cleanup można zamknąć produktową bramkę 0.2;
-ewentualne regresje należy poprawić przed rozpoczęciem zakresu 0.3.
+następny zaplanowany pion to TASK-0135 z wersji 0.3. Regresje blokujące odbiór
+0.1 lub 0.2 pozostają jawnie śledzone.
 
 ## Do not start yet
 
 - pełnego importu około 500 000 rzeczywistych layoutów,
 - dodawania i testowania kolejnych gier,
 - wielogrowego wydania mobilnego,
-- pełnej macierzy urządzeń i hardeningu przypisanego do 0.3,
+- pełnej macierzy urządzeń i hardeningu przypisanego do 0.4,
 - Celery/Redis, mikroserwisów, chmury, Google Play lub publicznego Admin API.

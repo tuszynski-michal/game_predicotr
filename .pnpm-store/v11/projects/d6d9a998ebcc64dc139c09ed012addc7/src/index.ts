@@ -20,15 +20,19 @@ import {
   downloadImageDiagnosticExport as downloadGeneratedImageDiagnosticExport,
   createPayline as createGeneratedPayline,
   createPayoutRule as createGeneratedPayoutRule,
+  createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createSymbol as createGeneratedSymbol,
+  deleteMobileRelease as deleteGeneratedMobileRelease,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
   getDatasetVersion as getGeneratedDatasetVersion,
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
+  getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getJob as getGeneratedJob,
   getLayoutImportIntegrityReport as getGeneratedLayoutImportIntegrityReport,
@@ -41,6 +45,7 @@ import {
   getPayoutRule as getGeneratedPayoutRule,
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
+  getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
@@ -64,17 +69,25 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listSymbols as listGeneratedSymbols,
+  listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
   publishRulesVersion as publishGeneratedRulesVersion,
+  previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
+  previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   publishDatasetVersion as publishGeneratedDatasetVersion,
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  resetGameLayoutData as resetGeneratedGameLayoutData,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
   resolveOperationalImageReviewItem as resolveGeneratedOperationalImageReviewItem,
   selectLocalImageFolder as selectGeneratedLocalImageFolder,
+  selectImageSequenceSource as selectGeneratedImageSequenceSource,
+  selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
+  resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
+  startSymbolBootstrap as startGeneratedSymbolBootstrap,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
@@ -87,8 +100,10 @@ import {
 } from './generated/sdk.gen';
 import type {
   CreateJobData,
+  CleanupCommandRequest,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
+  ImageSequenceSourceOverrideCommand,
   JobStatus,
   JobType,
   ImageReviewView,
@@ -116,12 +131,19 @@ import type {
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
   SymbolCreate,
+  SymbolBootstrapResolveCommand,
+  SymbolBootstrapStartCommand,
+  SymbolImageSelectionCommand,
   SymbolUpdate,
 } from './generated/types.gen';
 
 export type {
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
+  CleanupCommandRequest,
+  CleanupCountResponse,
+  CleanupPreviewResponse,
+  CleanupResultResponse,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -143,6 +165,7 @@ export type {
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
   ImageDiagnosticExportCreationResponse,
+  ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
@@ -153,6 +176,9 @@ export type {
   ImageStorageNamespaceResponse,
   ImageReviewAction,
   ImageReviewView,
+  ImageSequenceSourceCandidateResponse,
+  ImageSequenceSourceOverrideCommand,
+  ImageSequenceSourceSelectionResponse,
   JobErrorResponse,
   JobProgressResponse,
   JobResponse,
@@ -235,6 +261,16 @@ export type {
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
   SymbolCreate,
+  SymbolBootstrapCandidateResponse,
+  SymbolBootstrapDefinitionCommand,
+  SymbolBootstrapDefinitionResponse,
+  SymbolBootstrapResolveCommand,
+  SymbolBootstrapRunResponse,
+  SymbolBootstrapStartCommand,
+  SymbolBootstrapStatus,
+  SymbolImageCandidatePageResponse,
+  SymbolImageCandidateResponse,
+  SymbolImageSelectionCommand,
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
@@ -402,6 +438,91 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getImageStorageInventory: () =>
       getGeneratedImageStorageInventory({ client }),
+    getLatestSymbolBootstrap: (gameId: string) =>
+      getGeneratedLatestSymbolBootstrap({
+        client,
+        path: { game_id: gameId },
+      }),
+    startSymbolBootstrap: (gameId: string, body: SymbolBootstrapStartCommand) =>
+      startGeneratedSymbolBootstrap({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-bootstrap:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    resolveSymbolBootstrap: (
+      gameId: string,
+      bootstrapId: string,
+      body: SymbolBootstrapResolveCommand,
+    ) =>
+      resolveGeneratedSymbolBootstrap({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-bootstrap:${bootstrapId}`),
+        path: { bootstrap_id: bootstrapId, game_id: gameId },
+      }),
+    listSymbolImageCandidates: (
+      gameId: string,
+      symbolId: string,
+      afterCursor?: string,
+    ) =>
+      listGeneratedSymbolImageCandidates({
+        client,
+        path: { game_id: gameId, symbol_id: symbolId },
+        query: {
+          limit: 10,
+          ...(afterCursor === undefined ? {} : { afterCursor }),
+        },
+      }),
+    symbolImageCandidateAssetUrl: (
+      gameId: string,
+      symbolId: string,
+      observationId: string,
+    ) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image-candidates/${encodeURIComponent(observationId)}/asset`,
+    symbolImageAssetUrl: (gameId: string, symbolId: string) =>
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
+    selectSymbolImageCandidate: (
+      gameId: string,
+      symbolId: string,
+      observationId: string,
+      body: SymbolImageSelectionCommand,
+    ) =>
+      selectGeneratedSymbolImageCandidate({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `symbol-image:${gameId}:${symbolId}:${observationId}`,
+        ),
+        path: {
+          game_id: gameId,
+          observation_id: observationId,
+          symbol_id: symbolId,
+        },
+      }),
+    getImageDatasetCompleteness: (gameId: string) =>
+      getGeneratedImageDatasetCompleteness({
+        client,
+        path: { game_id: gameId },
+      }),
+    getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
+      getGeneratedImageSequenceSourceSelection({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    selectImageSequenceSource: (
+      gameId: string,
+      sequenceNumber: number,
+      body: ImageSequenceSourceOverrideCommand,
+    ) =>
+      selectGeneratedImageSequenceSource({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-sequence-source:${gameId}:${sequenceNumber}`,
+        ),
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
     listOperationalImageReviewItems: (
       filters: ListOperationalImageReviewItemsOptions,
     ) =>
@@ -590,6 +711,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { mobile_release_id: mobileReleaseId },
       }),
+    previewMobileReleaseDeletion: (mobileReleaseId: string) =>
+      previewGeneratedMobileReleaseDeletion({
+        client,
+        path: { mobile_release_id: mobileReleaseId },
+      }),
+    deleteMobileRelease: (
+      mobileReleaseId: string,
+      body: CleanupCommandRequest,
+    ) =>
+      deleteGeneratedMobileRelease({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`mobile-release:${mobileReleaseId}`),
+        path: { mobile_release_id: mobileReleaseId },
+      }),
     downloadMobileReleaseApk: (mobileReleaseId: string) =>
       downloadGeneratedMobileReleaseApk({
         client,
@@ -653,6 +789,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { feedback_export_id: feedbackExportId },
       }),
     listGames: () => listGeneratedGames({ client }),
+    previewGameLayoutDataReset: (gameId: string) =>
+      previewGeneratedGameLayoutDataReset({
+        client,
+        path: { game_id: gameId },
+      }),
+    resetGameLayoutData: (gameId: string, body: CleanupCommandRequest) =>
+      resetGeneratedGameLayoutData({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`game-layout-data:${gameId}`),
+        path: { game_id: gameId },
+      }),
     createGame: (body: GameCreate) => createGeneratedGame({ body, client }),
     getGame: (gameId: string) =>
       getGeneratedGame({ client, path: { game_id: gameId } }),
@@ -671,6 +819,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         path: { game_id: gameId },
+      }),
+    createRulesDraftFromPublished: (rulesVersionId: string) =>
+      createGeneratedRulesDraftFromPublished({
+        client,
+        path: { rules_version_id: rulesVersionId },
       }),
     getRulesVersion: (rulesVersionId: string) =>
       getGeneratedRulesVersion({

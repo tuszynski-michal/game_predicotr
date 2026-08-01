@@ -17,8 +17,9 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { PaylineManagerModal } from '@/features/rules/payline-manager-modal';
 import { PayoutRulesManagerModal } from '@/features/rules/payout-rules-manager-modal';
+import { PayoutComputationPanel } from '@/features/rules/payout-computation-panel';
 import {
-  archiveRulesVersion,
+  createEditableRulesDraft,
   saveRulesVersion,
   type RulesVersionsClient,
 } from '@/features/rules/rules-version-actions';
@@ -27,6 +28,7 @@ import {
   DEFAULT_RULES_VERSION_DRAFT,
   RULES_VERSION_STATUS_LABELS,
   rulesVersionToDraft,
+  selectCurrentRulesVersion,
   selectRulesGameId,
   type RulesVersionDraft,
   upsertRulesVersion,
@@ -78,10 +80,7 @@ export function RulesVersionCatalog({
     useState<RulesVersionResponse | null>(null);
   const [publicationRulesVersion, setPublicationRulesVersion] =
     useState<RulesVersionResponse | null>(null);
-  const [archiveCandidateId, setArchiveCandidateId] = useState<string | null>(
-    null,
-  );
-  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const gamesRequestId = useRef(0);
   const rulesRequestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -181,7 +180,6 @@ export function RulesVersionCatalog({
     setManagedRulesVersion(null);
     setManagedPayoutRulesVersion(null);
     setPublicationRulesVersion(null);
-    setArchiveCandidateId(null);
   }
 
   function openCreate() {
@@ -237,8 +235,8 @@ export function RulesVersionCatalog({
     setEditor({ mode: 'closed' });
     setFeedback(
       editor.mode === 'create'
-        ? `Utworzono draft wersji ${result.rulesVersion.version}.`
-        : `Zapisano wersję ${result.rulesVersion.version}.`,
+        ? 'Utworzono pierwszą konfigurację reguł.'
+        : 'Zapisano bieżące reguły.',
     );
   }
 
@@ -246,18 +244,22 @@ export function RulesVersionCatalog({
     setRulesVersions((current) => upsertRulesVersion(current, rulesVersion));
     setPublicationRulesVersion(null);
     setFeedback(
-      `Opublikowano wersję ${rulesVersion.version}. Jest teraz tylko do odczytu.`,
+      'Opublikowano reguły. Konfiguracja jest teraz tylko do odczytu.',
     );
   }
 
-  async function confirmArchive(rulesVersion: RulesVersionResponse) {
+  const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
+  const currentRulesVersion = selectCurrentRulesVersion(rulesVersions);
+
+  async function beginPublishedEdit(rulesVersion: RulesVersionResponse) {
     if (mutationInProgress.current) return;
     mutationInProgress.current = true;
-    setArchivingId(rulesVersion.id);
+    setIsCreatingDraft(true);
     setError('');
-    const result = await archiveRulesVersion(api, rulesVersion);
+    setFeedback('');
+    const result = await createEditableRulesDraft(api, rulesVersion.id);
     mutationInProgress.current = false;
-    setArchivingId(null);
+    setIsCreatingDraft(false);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -265,31 +267,24 @@ export function RulesVersionCatalog({
     setRulesVersions((current) =>
       upsertRulesVersion(current, result.rulesVersion),
     );
-    setArchiveCandidateId(null);
-    setFeedback(`Zarchiwizowano wersję ${rulesVersion.version}.`);
+    openEdit(result.rulesVersion);
+    setFeedback(
+      'Przygotowano kopię roboczą. Opublikowana konfiguracja pozostała bez zmian.',
+    );
   }
-
-  const selectedGame = games.find((game) => game.id === selectedGameId) ?? null;
 
   return (
     <section className="catalogSection" id="rules">
       <header className="pageHeader">
         <div>
-          <p className="eyebrow">M2.3 · wersjonowana konfiguracja</p>
-          <h1>Wersje reguł</h1>
+          <p className="eyebrow">M2.3 · bieżąca konfiguracja</p>
+          <h1>Reguły gry</h1>
           <p className="lead">
-            Wymiary planszy i koszt spinu należą do konkretnej wersji. Numer
-            nadaje serwer, a edytować można wyłącznie draft.
+            Zarządzaj wymiarami, kosztem spinu, wzorcami i payoutami w jednym
+            miejscu. Wersjonowanie działa wewnętrznie i chroni opublikowane
+            konfiguracje.
           </p>
         </div>
-        <button
-          className="primaryButton"
-          disabled={selectedGameId === null || gamesState !== 'ready'}
-          onClick={openCreate}
-          type="button"
-        >
-          + Nowy draft
-        </button>
       </header>
 
       {feedback ? <p className="feedbackBanner">{feedback}</p> : null}
@@ -343,8 +338,8 @@ export function RulesVersionCatalog({
                 <div>
                   <p className="eyebrow">
                     {editor.mode === 'create'
-                      ? 'Nowa wersja'
-                      : `Wersja ${editor.rulesVersion.version}`}
+                      ? 'Pierwsza konfiguracja'
+                      : 'Edycja bieżących reguł'}
                   </p>
                   <h2>Wymiary i ekonomia spinu</h2>
                 </div>
@@ -422,7 +417,7 @@ export function RulesVersionCatalog({
                   disabled={isSubmitting}
                   type="submit"
                 >
-                  {isSubmitting ? 'Zapisywanie…' : 'Zapisz draft'}
+                  {isSubmitting ? 'Zapisywanie…' : 'Zapisz reguły'}
                 </button>
               </div>
             </form>
@@ -442,105 +437,96 @@ export function RulesVersionCatalog({
               text={error}
               title="Nie udało się wczytać wersji"
             />
-          ) : rulesVersions.length === 0 ? (
+          ) : currentRulesVersion === null ? (
             <StatePanel
               onRetry={openCreate}
               text="Utwórz pierwszy draft, na przykład 3 × 5 z kosztem spinu 10."
-              title="Ta gra nie ma wersji reguł"
+              title="Ta gra nie ma jeszcze reguł"
             />
           ) : (
-            <div className="rulesPanel">
-              <div className="listHeader">
-                <h2>Historia wersji</h2>
-                <p>Najnowszy numer jest pokazany jako pierwszy.</p>
+            <div className="rulesWorkspacePanel">
+              <header className="rulesWorkspaceHeader">
+                <div>
+                  <p className="eyebrow">Bieżące reguły</p>
+                  <div className="gameTitleLine">
+                    <h2>Konfiguracja gry</h2>
+                    <span
+                      className={`gameStatus gameStatus-${currentRulesVersion.status}`}
+                    >
+                      {RULES_VERSION_STATUS_LABELS[currentRulesVersion.status]}
+                    </span>
+                  </div>
+                  <p className="rulesMetadata">
+                    {currentRulesVersion.rows} × {currentRulesVersion.columns}
+                    <span>·</span>
+                    spin {currentRulesVersion.spinCost} kredytów
+                  </p>
+                </div>
+                <p className="rulesInternalVersion">
+                  Wewnętrzna wersja {currentRulesVersion.version}
+                </p>
+              </header>
+
+              <div className="rulesWorkspaceActions">
+                <button
+                  className="secondaryButton"
+                  onClick={() => setManagedRulesVersion(currentRulesVersion)}
+                  type="button"
+                >
+                  Wzorce
+                </button>
+                <button
+                  className="secondaryButton"
+                  onClick={() =>
+                    setManagedPayoutRulesVersion(currentRulesVersion)
+                  }
+                  type="button"
+                >
+                  Payouty
+                </button>
+                {currentRulesVersion.status === 'draft' ? (
+                  <>
+                    <button
+                      className="secondaryButton"
+                      onClick={() => openEdit(currentRulesVersion)}
+                      type="button"
+                    >
+                      Wymiary i koszt
+                    </button>
+                    <button
+                      className="primaryButton"
+                      onClick={() =>
+                        setPublicationRulesVersion(currentRulesVersion)
+                      }
+                      type="button"
+                    >
+                      Publikuj reguły
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="primaryButton"
+                    disabled={isCreatingDraft}
+                    onClick={() => void beginPublishedEdit(currentRulesVersion)}
+                    type="button"
+                  >
+                    {isCreatingDraft ? 'Przygotowywanie…' : 'Rozpocznij edycję'}
+                  </button>
+                )}
               </div>
-              {rulesVersions.map((rulesVersion) => (
-                <article className="rulesRow" key={rulesVersion.id}>
-                  <div>
-                    <div className="gameTitleLine">
-                      <h3>Wersja {rulesVersion.version}</h3>
-                      <span
-                        className={`gameStatus gameStatus-${rulesVersion.status}`}
-                      >
-                        {RULES_VERSION_STATUS_LABELS[rulesVersion.status]}
-                      </span>
-                    </div>
-                    <p className="rulesMetadata">
-                      {rulesVersion.rows} × {rulesVersion.columns}
-                      <span>·</span>
-                      spin {rulesVersion.spinCost} kredytów
-                    </p>
-                  </div>
-                  <div className="rowActions">
-                    <button
-                      className="secondaryButton"
-                      onClick={() => setManagedRulesVersion(rulesVersion)}
-                      type="button"
-                    >
-                      Wzorce
-                    </button>
-                    <button
-                      className="secondaryButton"
-                      onClick={() => setManagedPayoutRulesVersion(rulesVersion)}
-                      type="button"
-                    >
-                      Payouty
-                    </button>
-                    {rulesVersion.status === 'draft' ? (
-                      <>
-                        <button
-                          className="primaryButton"
-                          onClick={() =>
-                            setPublicationRulesVersion(rulesVersion)
-                          }
-                          type="button"
-                        >
-                          Publikuj
-                        </button>
-                        <button
-                          className="textButton"
-                          onClick={() => openEdit(rulesVersion)}
-                          type="button"
-                        >
-                          Edytuj draft
-                        </button>
-                      </>
-                    ) : rulesVersion.status === 'published' &&
-                      archiveCandidateId === rulesVersion.id ? (
-                      <>
-                        <button
-                          className="textButton"
-                          disabled={archivingId === rulesVersion.id}
-                          onClick={() => setArchiveCandidateId(null)}
-                          type="button"
-                        >
-                          Anuluj
-                        </button>
-                        <button
-                          className="dangerButton"
-                          disabled={archivingId === rulesVersion.id}
-                          onClick={() => void confirmArchive(rulesVersion)}
-                          type="button"
-                        >
-                          {archivingId === rulesVersion.id
-                            ? 'Archiwizowanie…'
-                            : 'Potwierdź archiwizację'}
-                        </button>
-                      </>
-                    ) : rulesVersion.status === 'published' ? (
-                      <button
-                        className="textButton"
-                        onClick={() => setArchiveCandidateId(rulesVersion.id)}
-                        type="button"
-                      >
-                        Archiwizuj
-                      </button>
-                    ) : (
-                      <span className="immutableLabel">Tylko do odczytu</span>
-                    )}
-                  </div>
-                </article>
-              ))}
+
+              <p className="rulesWorkspaceNote">
+                {currentRulesVersion.status === 'draft'
+                  ? 'Zmiany dotyczą wyłącznie bieżącego draftu. Publikacja utworzy niezmienną wersję.'
+                  : 'Ta konfiguracja jest niezmienna. Rozpoczęcie edycji utworzy pełną kopię roboczą.'}
+              </p>
+              {selectedGameId ? (
+                <PayoutComputationPanel
+                  api={api}
+                  gameId={selectedGameId}
+                  rulesVersion={currentRulesVersion}
+                />
+              ) : null}
             </div>
           )}
         </>
@@ -596,7 +582,7 @@ function StatePanel({
         <p>{text}</p>
         {onRetry ? (
           <button className="secondaryButton" onClick={onRetry} type="button">
-            {error ? 'Spróbuj ponownie' : 'Utwórz draft'}
+            {error ? 'Spróbuj ponownie' : 'Utwórz reguły'}
           </button>
         ) : null}
       </div>

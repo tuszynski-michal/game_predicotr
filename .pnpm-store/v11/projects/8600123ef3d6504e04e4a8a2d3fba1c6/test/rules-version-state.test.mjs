@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   rulesVersionToDraft,
+  selectCurrentRulesVersion,
   selectRulesGameId,
   upsertRulesVersion,
   validateRulesVersionDraft,
@@ -94,4 +95,30 @@ test('chooses an available game and keeps rules versions newest first', () => {
     [2, 1],
   );
   assert.equal(updated[1].spinCost, 25);
+});
+
+test('current rules workspace prefers the newest draft then the newest published version', () => {
+  const published = { ...versionOne, status: 'published' };
+  const newerPublished = {
+    ...published,
+    id: 'published-2',
+    version: 2,
+  };
+  const draft = { ...versionOne, id: 'draft-3', version: 3 };
+  const archived = {
+    ...versionOne,
+    id: 'archived-4',
+    status: 'archived',
+    version: 4,
+  };
+
+  assert.equal(
+    selectCurrentRulesVersion([published, newerPublished, draft, archived])?.id,
+    draft.id,
+  );
+  assert.equal(
+    selectCurrentRulesVersion([published, newerPublished, archived])?.id,
+    newerPublished.id,
+  );
+  assert.equal(selectCurrentRulesVersion([archived]), null);
 });

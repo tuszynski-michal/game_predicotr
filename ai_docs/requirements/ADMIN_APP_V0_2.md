@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements for version 0.2
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Wymagania panelu Admin — wersja 0.2
@@ -25,7 +25,7 @@ D-102–D-112.
   źródłowych zdjęć poza bazą,
 - workflow `0.2` jest testowany na jednej grze i małym kontrolowanym zbiorze,
 - pełne 500 000 rzeczywistych layoutów, dodatkowe gry i wielogrowe wydanie
-  należą do `0.3`.
+  należą do `0.4`.
 
 ## Główna nawigacja
 
@@ -166,7 +166,7 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 ## Wersje Android
 
 - administrator przygotowuje wydanie dla jednej aktywnej gry testowej; wybór
-  wielu gier jest świadomie odłożony do `0.3`,
+  wielu gier jest świadomie odłożony do `0.4`,
 - utworzenie wydania uruchamia potrzebne walidacje, precomputing, snapshot i
   build jako jeden obserwowalny workflow,
 - utworzenie technicznego joba jest sygnalizowane przy wydaniu lub imporcie,

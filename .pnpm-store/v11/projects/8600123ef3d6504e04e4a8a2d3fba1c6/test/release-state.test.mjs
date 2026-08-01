@@ -8,6 +8,7 @@ import {
   formatReleaseTimestamp,
   hasCompatibleReleasePair,
   releaseStatusLabel,
+  selectControlledReleaseGame,
   upsertRelease,
   validateReleaseDraft,
 } from '../src/features/releases/release-state.ts';
@@ -93,27 +94,70 @@ test('builds a typed immutable selection and rejects incomplete drafts', () => {
   assert.deepEqual(selection, {
     datasetVersionId: 'dataset-1',
     gameId: 'game-1',
-    included: false,
+    included: true,
     rulesVersionId: 'rules-1',
   });
 
   assert.equal(
-    validateReleaseDraft(
-      { selections: [{ ...selection, included: true }], version: 'm3.4.1' },
-      [source],
-    ).valid,
-    true,
-  );
-  assert.equal(
     validateReleaseDraft({ selections: [selection], version: 'm3.4.1' }, [
       source,
     ]).valid,
+    true,
+  );
+  assert.equal(
+    validateReleaseDraft(
+      {
+        selections: [{ ...selection, included: false }],
+        version: 'm3.4.1',
+      },
+      [source],
+    ).valid,
     false,
   );
   assert.equal(
     validateReleaseDraft(
       { selections: [{ ...selection, included: true }], version: '../bad' },
       [source],
+    ).valid,
+    false,
+  );
+});
+
+test('keeps exactly one controlled test game selected', () => {
+  const secondSource = {
+    ...source,
+    game: { ...game, code: 'game-2', id: 'game-2', name: 'Game Two' },
+    datasets: [dataset({ gameId: 'game-2', id: 'dataset-2' })],
+    rulesVersions: [rules({ gameId: 'game-2', id: 'rules-2' })],
+  };
+  const selections = selectControlledReleaseGame(
+    [source, secondSource],
+    secondSource.game.id,
+  );
+
+  assert.deepEqual(
+    selections
+      .filter((selection) => selection.included)
+      .map((item) => item.gameId),
+    ['game-2'],
+  );
+  assert.equal(
+    validateReleaseDraft({ selections, version: '0.2-test' }, [
+      source,
+      secondSource,
+    ]).valid,
+    true,
+  );
+  assert.equal(
+    validateReleaseDraft(
+      {
+        selections: selections.map((selection) => ({
+          ...selection,
+          included: true,
+        })),
+        version: '0.2-multi-game',
+      },
+      [source, secondSource],
     ).valid,
     false,
   );

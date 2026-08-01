@@ -33,10 +33,12 @@ export async function saveGameIdentity(
             code: draft.code,
             name: draft.name,
             status: draft.status,
+            expectedLayoutCount: Number(draft.expectedLayoutCount),
           } satisfies GameCreate)
         : await api.updateGame(intent.gameId, {
             name: draft.name,
             status: draft.status,
+            expectedLayoutCount: Number(draft.expectedLayoutCount),
           } satisfies GameUpdate);
 
     if (result.error !== undefined || result.data === undefined) {
@@ -91,6 +93,7 @@ export async function restoreGameIdentity(
     const result = await api.updateGame(game.id, {
       name: game.name,
       status: 'draft',
+      expectedLayoutCount: game.expectedLayoutCount,
     } satisfies GameUpdate);
     if (result.error !== undefined || result.data === undefined) {
       return {

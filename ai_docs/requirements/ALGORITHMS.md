@@ -1,7 +1,7 @@
 ---
 title: Algorithms specification
 status: accepted
-last_updated: 2026-07-30
+last_updated: 2026-08-01
 ---
 
 # Specyfikacja algorytmów
@@ -212,15 +212,27 @@ rules_version
 algorithm_version
 start_sequence_number
 layout_count
+target_scan_limit
 spin_cost
 sequence_payouts[]:
   sequence_number
   payout_credits
 ```
 
-`sequence_payouts` zawiera dokładnie `layout_count - 1` rekordów już
+Efektywna liczba spinów wynosi:
+
+```text
+evaluated_spin_count = min(target_scan_limit, layout_count - 1)
+```
+
+`sequence_payouts` zawiera dokładnie `evaluated_spin_count` rekordów już
 uporządkowanych cyklicznie przez adapter danych. Czysty engine weryfikuje każdy
 oczekiwany numer sekwencji; nie ufa długości ani kolejności wejścia.
+
+Od wersji 0.3 `target_scan_limit` jest konfigurowany przez użytkownika w
+przedziale 1 000–500 000, domyślnie 10 000. Dla testów domenowych i mniejszych
+fixture engine może otrzymać mniejszy jawny limit, ale produkcyjny UI egzekwuje
+powyższy zakres.
 
 ### Warunki startu
 
@@ -240,6 +252,14 @@ spin N - 1: pozycja bezpośrednio przed spinem 0
 ```
 
 Numer pozycji zawija się cyklicznie z `N` do `1`. Spin 0 nie jest oceniany ponownie.
+
+### Zakres ograniczony
+
+Jeżeli `target_scan_limit < N - 1`, algorytm ocenia pierwsze
+`target_scan_limit` przyszłych pozycji według tej samej cyklicznej kolejności i
+kończy przed powrotem do spin 0. Zwiększenie limitu do co najmniej `N - 1`
+odtwarza definicję pełnego cyklu. Limit nie zmienia `sequence_number`, payoutu
+ani kosztu pojedynczego spinu; ogranicza wyłącznie okno prognozy.
 
 ### Kumulacja
 
@@ -277,7 +297,8 @@ Taki punkt nie jest dodatni i nie trafia do tabeli.
 
 Tabela nie pokazuje każdego dodatniego spinu ani wyłącznie nowych rekordów globalnych.
 
-Lokalny szczyt jest określany na przebiegu `net[1..N-1]`:
+Lokalny szczyt jest określany na przebiegu
+`net[1..evaluated_spin_count]`:
 
 1. znajdź odcinek, na którym wynik wzrósł ponad wartość poprzedzającą,
 2. jeżeli po wzroście występuje plateau, traktuj całe plateau jako jeden szczyt,
@@ -303,7 +324,8 @@ Późniejszy lokalny szczyt 18 jest pokazywany nawet wtedy, gdy wcześniej wyst�
 
 ```text
 start_sequence_number
-evaluated_spin_count = layout_count - 1
+target_scan_limit
+evaluated_spin_count = min(target_scan_limit, layout_count - 1)
 spin_cost
 mobile_release_version
 snapshot_checksum

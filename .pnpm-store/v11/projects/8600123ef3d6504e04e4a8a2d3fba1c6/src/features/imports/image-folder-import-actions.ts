@@ -8,7 +8,12 @@ import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 
 export type ImageFolderImportClient = Pick<
   AdminApiClient,
-  'createImageFolderImport' | 'listJobs' | 'selectLocalImageFolder'
+  | 'createImageFolderImport'
+  | 'getImageDatasetCompleteness'
+  | 'getImageSequenceSourceSelection'
+  | 'listJobs'
+  | 'selectImageSequenceSource'
+  | 'selectLocalImageFolder'
 >;
 
 type Failure = { readonly error: string; readonly ok: false };

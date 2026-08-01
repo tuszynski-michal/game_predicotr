@@ -112,6 +112,70 @@ test('generated client selects a folder and creates its image import', async () 
   );
 });
 
+test('generated client reads completeness and controls a sequence source override', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const reviewItemId = '22222222-2222-4222-8222-222222222222';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    const path = new URL(request.url).pathname;
+    if (path.includes('dataset-completeness')) {
+      return Response.json({
+        acceptedBoardCount: 2,
+        completionPercentage: 1,
+        duplicateSequenceCount: 0,
+        expectedLayoutCount: 200,
+        gameId,
+        manualOverrideCount: 0,
+        missingSequenceCount: 198,
+        missingSequenceNumbers: [3, 4],
+        missingSequenceNumbersTruncated: true,
+        outOfRangeSequenceCount: 0,
+        uniqueSequenceCount: 2,
+      });
+    }
+    return Response.json({
+      candidates: [],
+      gameId,
+      manualOverrideReviewItemId: path.endsWith('/override')
+        ? reviewItemId
+        : null,
+      overrideRevision: path.endsWith('/override') ? 1 : 0,
+      sequenceNumber: 7,
+    });
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.getImageDatasetCompleteness(gameId);
+  await client.getImageSequenceSourceSelection(gameId, 7);
+  await client.selectImageSequenceSource(gameId, 7, {
+    reviewItemId,
+    selectedBy: 'local-owner',
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/image-review-items/dataset-completeness/${gameId}`,
+      ],
+      ['GET', `/api/v1/admin/image-review-items/sequence-sources/${gameId}/7`],
+      [
+        'POST',
+        `/api/v1/admin/image-review-items/sequence-sources/${gameId}/7/override`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[2].headers.get('X-Admin-Target'),
+    `image-sequence-source:${gameId}:7`,
+  );
+});
+
 test('generated client controls only the explicit Reviewer ingress target', async () => {
   const requests = [];
   const status = {
@@ -789,15 +853,18 @@ test('generated client sends rules publication workflow requests', async () => {
     fetch: mockFetch,
   });
 
+  const draft = await client.createRulesDraftFromPublished(rulesVersionId);
   const readiness = await client.getRulesPublicationReadiness(rulesVersionId);
   const published = await client.publishRulesVersion(rulesVersionId);
   await client.archiveRulesVersion(rulesVersionId);
 
+  assert.equal(draft.data?.id, rulesVersionId);
   assert.equal(readiness.data?.ready, true);
   assert.equal(published.data?.status, 'published');
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
     [
+      ['POST', `/api/v1/admin/rules-versions/${rulesVersionId}/draft`],
       [
         'GET',
         `/api/v1/admin/rules-versions/${rulesVersionId}/publication-readiness`,
@@ -1282,4 +1349,161 @@ test('operational review client forwards resume-at-first-pending in the all queu
   assert.equal(query.get('view'), 'all');
   assert.equal(query.get('limit'), '1');
   assert.equal(query.get('resumeAtFirstPending'), 'true');
+});
+
+test('symbol bootstrap keeps the game scope and explicit mutation target', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const bootstrapId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(null, { status: 200 });
+    },
+  });
+
+  await client.getLatestSymbolBootstrap(gameId);
+  await client.startSymbolBootstrap(gameId, {
+    createdBy: 'local-admin',
+    expectedSymbolCount: 8,
+  });
+  await client.resolveSymbolBootstrap(gameId, bootstrapId, {
+    symbols: [
+      {
+        candidateIds: ['a'.repeat(64)],
+        code: 'lemon',
+        mobileCode: 1,
+        name: 'Lemon',
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/games/${gameId}/symbol-bootstrap`],
+      ['POST', `/api/v1/admin/games/${gameId}/symbol-bootstrap`],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/symbol-bootstrap/${bootstrapId}/resolution`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `symbol-bootstrap:${gameId}`,
+  );
+  assert.equal(
+    requests[2].headers.get('X-Admin-Target'),
+    `symbol-bootstrap:${bootstrapId}`,
+  );
+});
+
+test('symbol image picker pages candidates and selects only a scoped observation', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const symbolId = '33333333-3333-4333-8333-333333333333';
+  const observationId = '44444444-4444-4444-8444-444444444444';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        request.method === 'GET'
+          ? { items: [], nextCursor: null }
+          : {
+              code: 'lemon',
+              displayOrder: 0,
+              gameId,
+              id: symbolId,
+              imagePath: 'data/crops/lemon.png',
+              isWildcard: false,
+              mobileCode: 1,
+              name: 'Lemon',
+              status: 'active',
+            },
+        { status: 200 },
+      );
+    },
+  });
+
+  await client.listSymbolImageCandidates(gameId, symbolId, 'opaque-cursor');
+  await client.selectSymbolImageCandidate(gameId, symbolId, observationId, {
+    name: 'Lemon',
+  });
+
+  assert.equal(
+    client.symbolImageCandidateAssetUrl(gameId, symbolId, observationId),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/symbols/${symbolId}/image-candidates/${observationId}/asset`,
+  );
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/games/${gameId}/symbols/${symbolId}/image-candidates`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/games/${gameId}/symbols/${symbolId}/image-candidates/${observationId}/selection`,
+      ],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '10');
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('afterCursor'),
+    'opaque-cursor',
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `symbol-image:${gameId}:${symbolId}:${observationId}`,
+  );
+  assert.deepEqual(await requests[1].clone().json(), { name: 'Lemon' });
+});
+
+test('cleanup client binds previews and destructive calls to exact targets', async () => {
+  const requests = [];
+  const releaseId = '22222222-2222-4222-8222-222222222222';
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const body = {
+    confirmationTarget: releaseId,
+    confirmed: true,
+    previewToken: 'a'.repeat(64),
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+
+  await client.previewMobileReleaseDeletion(releaseId);
+  await client.deleteMobileRelease(releaseId, body);
+  await client.previewGameLayoutDataReset(gameId);
+  await client.resetGameLayoutData(gameId, {
+    ...body,
+    confirmationTarget: gameId,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/mobile-releases/${releaseId}/deletion-preview`],
+      ['DELETE', `/api/v1/admin/mobile-releases/${releaseId}`],
+      ['GET', `/api/v1/admin/games/${gameId}/layout-data-reset-preview`],
+      ['DELETE', `/api/v1/admin/games/${gameId}/layout-data`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `mobile-release:${releaseId}`,
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `game-layout-data:${gameId}`,
+  );
+  assert.equal(requests[1].headers.get('X-Admin-Confirmation'), 'confirmed');
+  assert.deepEqual(await requests[1].clone().json(), body);
 });

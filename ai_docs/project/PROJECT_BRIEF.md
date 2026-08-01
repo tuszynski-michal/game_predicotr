@@ -1,7 +1,7 @@
 ---
 title: Project brief
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Project brief
@@ -99,7 +99,7 @@ Pierwsza wersja ma:
 - synchronizacja mobilna, chmura i publiczna infrastruktura,
 - produkcyjna autoryzacja wielu administratorów.
 
-## Strategia wydań 0.1, 0.2 i 0.3
+## Strategia wydań 0.1, 0.2, 0.3 i 0.4
 
 - `0.1` jest kompletną wersją demonstracyjną dla Google Pixel 10 Pro XL:
   jedna gra, rzeczywiste grafiki symboli, chroniony podzbiór ponad 100
@@ -109,12 +109,15 @@ Pierwsza wersja ma:
 - `0.2` zaczyna od czystego PostgreSQL, upraszcza Admina do prowadzonego
   workflow i sprawdza folderowy import, katalog symboli, reguły, review oraz
   testowe wydanie na małym kontrolowanym zbiorze jednej gry.
-- `0.3` obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe wydanie,
-  pełną skalę, stały podpis, backup/restore, recovery, rollback i uzgodnioną
-  macierz urządzeń.
+- `0.3` dostosowuje aplikację mobilną: upraszcza ekran, dodaje deterministyczne
+  `Next`, wybierany zasięg Targetu, kompaktowy wynik i nawigację długiej tabeli.
+- `0.4` obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe wydanie,
+  końcowe testy dużych zbiorów, pełną skalę, stały podpis, backup/restore,
+  recovery, rollback i uzgodnioną macierz urządzeń.
 - Szczegółowe zakresy są zapisane w `delivery/VERSION_0_1_RELEASE_PLAN.md` i
   planach `delivery/VERSION_0_2_EXECUTION_PLAN.md` oraz
-  `delivery/VERSION_0_3_EXECUTION_PLAN.md`.
+  `delivery/VERSION_0_3_EXECUTION_PLAN.md` oraz
+  `delivery/VERSION_0_4_EXECUTION_PLAN.md`.
 
 ## Najważniejsze ograniczenia
 

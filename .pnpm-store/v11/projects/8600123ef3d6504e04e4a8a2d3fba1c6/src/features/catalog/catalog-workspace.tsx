@@ -11,7 +11,7 @@ import {
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
-import { DatasetCatalog } from '@/features/datasets/dataset-catalog';
+import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { JobMonitor } from '@/features/jobs/job-monitor';
@@ -58,7 +58,7 @@ const GAME_SECTION_OPTIONS: readonly {
   {
     id: 'imports',
     title: 'Import layoutów',
-    description: 'Źródła, staging, walidacja i datasety gry.',
+    description: 'Wybór folderu, postęp importu i kompletność layoutów.',
   },
   {
     id: 'symbols',
@@ -166,6 +166,16 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
     }
   }
 
+  function openSection(section: GameSection) {
+    commitNavigation({ ...navigation, section });
+    window.requestAnimationFrame(() => {
+      sectionHeaderRefs.current[section]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+  }
+
   return (
     <div className="adminWorkspace">
       <header className="workspaceHeader">
@@ -227,10 +237,23 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                   <code>{activeGame.code}</code>
                 </header>
 
+                <CleanupControl
+                  apiBaseUrl={apiBaseUrl}
+                  onCompleted={() => {
+                    setGamesRevision((revision) => revision + 1);
+                    commitNavigation({ ...navigation, section: null });
+                  }}
+                  target={{ id: activeGame.id, kind: 'game-layout-data' }}
+                  targetLabel={`${activeGame.name} · ${activeGame.code}`}
+                />
+
                 {GAME_SECTION_OPTIONS.map((section) => {
                   const expanded = navigation.section === section.id;
                   return (
-                    <article className="gameAccordionItem" key={section.id}>
+                    <article
+                      className="gameAccordionItem"
+                      key={`${section.id}-${gamesRevision}`}
+                    >
                       <h2 className="gameAccordionHeading">
                         <button
                           aria-controls={`game-section-${section.id}`}
@@ -258,17 +281,10 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                         id={`game-section-${section.id}`}
                       >
                         {section.id === 'imports' ? (
-                          <>
-                            <DatasetCatalog
-                              apiBaseUrl={apiBaseUrl}
-                              gameId={activeGame.id}
-                              gamesRevision={gamesRevision}
-                            />
-                            <ImageFolderImportPanel
-                              apiBaseUrl={apiBaseUrl}
-                              gameId={activeGame.id}
-                            />
-                          </>
+                          <ImageFolderImportPanel
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                          />
                         ) : null}
                         {section.id === 'symbols' ? (
                           <SymbolCatalog
@@ -288,6 +304,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                           <ReviewerAccessLauncher
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            onOpenImports={() => openSection('imports')}
                           />
                         ) : null}
                       </div>
@@ -300,7 +317,10 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
 
         {navigation.workspace === 'releases' ? (
-          <ReleasePanel apiBaseUrl={apiBaseUrl} />
+          <ReleasePanel
+            apiBaseUrl={apiBaseUrl}
+            onOpenJobs={() => selectWorkspace('jobs')}
+          />
         ) : null}
         {navigation.workspace === 'jobs' ? (
           <JobMonitor apiBaseUrl={apiBaseUrl} />

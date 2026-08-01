@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   archiveRulesVersion,
+  createEditableRulesDraft,
   loadPublicationReadiness,
   publishRulesVersion,
   saveRulesVersion,
@@ -27,6 +28,14 @@ function createClient(overrides = {}) {
     archiveRulesVersion: async () => ({ data: undefined }),
     archivePayline: async () => ({ data: undefined }),
     createRulesVersion: async () => ({ data: savedRulesVersion }),
+    createRulesDraftFromPublished: async () => ({
+      data: {
+        ...savedRulesVersion,
+        id: 'draft-copy',
+        status: 'draft',
+        version: 2,
+      },
+    }),
     createPayline: async () => ({ data: undefined }),
     getRulesPublicationReadiness: async () => ({
       data: { issues: [], ready: true, rulesVersionId: savedRulesVersion.id },
@@ -46,6 +55,30 @@ function createClient(overrides = {}) {
     ...overrides,
   };
 }
+
+test('opens one editable draft copied from the published workspace', async () => {
+  let receivedId;
+  const result = await createEditableRulesDraft(
+    createClient({
+      createRulesDraftFromPublished: async (rulesVersionId) => {
+        receivedId = rulesVersionId;
+        return {
+          data: {
+            ...savedRulesVersion,
+            id: 'draft-copy',
+            status: 'draft',
+            version: 2,
+          },
+        };
+      },
+    }),
+    savedRulesVersion.id,
+  );
+
+  assert.equal(receivedId, savedRulesVersion.id);
+  assert.equal(result.ok, true);
+  assert.equal(result.rulesVersion?.id, 'draft-copy');
+});
 
 test('creates a server-numbered rules draft with dimensions and cost only', async () => {
   let receivedGameId;

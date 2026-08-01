@@ -10,6 +10,8 @@ import {
   formatStorageBytes,
   isActiveJob,
   isImageImportJob,
+  jobContextLabel,
+  jobErrorSummary,
   jobProgressLabel,
   jobProgressPercent,
   jobStageLabel,
@@ -95,6 +97,48 @@ test('formats determinate and unknown progress without hiding counts', () => {
   });
   assert.equal(jobProgressPercent(unknown), null);
   assert.match(jobProgressLabel(unknown), /250/);
+});
+
+test('summarizes job context and errors for the compact list', () => {
+  assert.equal(jobContextLabel(job()), 'Gra game-1');
+  assert.equal(
+    jobContextLabel(
+      job({
+        gameId: null,
+        inputPayload: { schemaVersion: 1, mobileReleaseId: 'release-1' },
+      }),
+    ),
+    'Wydanie release-1',
+  );
+  assert.equal(
+    jobContextLabel(
+      job({
+        gameId: null,
+        inputPayload: { schemaVersion: 1, datasetVersionId: 'dataset-2' },
+      }),
+    ),
+    'Dataset dataset-2',
+  );
+  assert.equal(
+    jobContextLabel(job({ gameId: null, inputPayload: { schemaVersion: 1 } })),
+    'Proces globalny',
+  );
+
+  assert.equal(jobErrorSummary(job()), null);
+  assert.equal(
+    jobErrorSummary(
+      job({
+        error: { code: 'IMPORT_FAILED', message: 'Nie znaleziono pliku.' },
+      }),
+    ),
+    'IMPORT_FAILED: Nie znaleziono pliku.',
+  );
+  const shortened = jobErrorSummary(
+    job({ error: { code: 'IMPORT_FAILED', message: 'x'.repeat(100) } }),
+    32,
+  );
+  assert.equal(shortened?.length, 32);
+  assert.match(shortened ?? '', /…$/);
 });
 
 test('replaces a mutated job without reordering the server list', () => {

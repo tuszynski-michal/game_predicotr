@@ -58,13 +58,23 @@ Najważniejsza granica: Android nie komunikuje się z Admin API ani PostgreSQL. 
 ### Mobile app
 
 - odczyt konfiguracji i symboli z lokalnego SQLite,
-- stan planszy, undo i reset,
+- stan planszy, jednoznaczny anchor pozycji sekwencji, next, undo i reset,
 - lokalny exact/prefix matching,
 - wykrycie duplikatu bez arbitralnego wyboru pozycji,
-- skan gotowych payoutów dla pełnego cyklu,
+- ograniczony lub pełnocyklowy skan gotowych payoutów,
 - wykrycie dodatnich lokalnych maksimów,
 - prezentacja wyniku i wirtualizowanej tabeli,
 - diagnostyka wersji i integralności snapshotu.
+
+`Next` nie wyprowadza pozycji z samej zduplikowanej sygnatury. Może przejść do
+następnego rekordu wyłącznie z jednoznacznego `sequence_number`, po czym jawnie
+załadowana pozycja staje się nowym anchorem. Operacja zachowuje anchor, planszę,
+limit skanu i wynik jako jeden odwracalny krok. Target otrzymuje
+`target_scan_limit`, a adapter SQLite dostarcza najwyżej
+`min(target_scan_limit, layout_count - 1)` kolejnych payoutów z zawinięciem.
+Powtórzona sygnatura rekordu załadowanego przez `Next` nie unieważnia znanej
+pozycji sesji; zakaz Targetu nadal obowiązuje dla duplikatu rozpoznanego z
+ręcznego wejścia bez takiego anchora.
 
 ### Admin web
 
@@ -365,7 +375,7 @@ utrwala globalnie unikalną wersję oraz 1–15 dokładnych wyborów dataset/rul
 Serwer ustala obsługiwany algorytm i schema, blokuje źródła, wymaga statusu
 `published`, wspólnej aktywnej gry oraz zgodnych wymiarów i zapisuje wszystkie
 rekordy w jednej transakcji. Dopiero TASK-0037 tworzy job i zmienia lifecycle.
-Zakres 1–15 pozostaje kontraktem backendowym przygotowanym dla 0.3; Admin 0.2
+Zakres 1–15 pozostaje kontraktem backendowym przygotowanym dla 0.4; Admin 0.2
 wysyła dokładnie jeden wybór.
 
 ## Przepływ ręcznego importu layoutów

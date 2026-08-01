@@ -7,6 +7,7 @@ export interface GameDraft {
   readonly code: string;
   readonly name: string;
   readonly status: GameStatus;
+  readonly expectedLayoutCount: string;
 }
 
 export type ValidatedGameDraft =
@@ -23,6 +24,7 @@ export const EMPTY_GAME_DRAFT: GameDraft = {
   code: '',
   name: '',
   status: 'draft',
+  expectedLayoutCount: '500000',
 };
 
 export const GAME_STATUS_LABELS: Record<GameStatus, string> = {
@@ -63,9 +65,20 @@ export function filterGamesByStatus(
 export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
   const code = draft.code.trim();
   const name = draft.name.trim();
+  const expectedLayoutCount = Number(draft.expectedLayoutCount);
   if (!code || !name) {
     return {
       error: 'Kod i nazwa gry są wymagane.',
+      valid: false,
+    };
+  }
+  if (
+    !Number.isSafeInteger(expectedLayoutCount) ||
+    expectedLayoutCount < 1 ||
+    expectedLayoutCount > 10_000_000
+  ) {
+    return {
+      error: 'Oczekiwana liczba layoutów musi być liczbą od 1 do 10 000 000.',
       valid: false,
     };
   }
@@ -75,6 +88,7 @@ export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
       code,
       name,
       status: draft.status,
+      expectedLayoutCount: String(expectedLayoutCount),
     },
   };
 }

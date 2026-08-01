@@ -3,6 +3,7 @@
 import type {
   GameResponse,
   JobResponse,
+  OperationalImageReviewCountsResponse,
   ReviewerIngressStatusResponse,
   ReviewerSessionCreatedResponse,
 } from '@game-predictor/admin-api-client';
@@ -11,21 +12,33 @@ import { useEffect, useMemo, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
+  type ReviewerLauncherClient,
   loadReviewerIngress,
   publishReviewerSession,
   stopReviewerPublishing,
 } from '@/features/reviewer-access/reviewer-access-actions';
+import {
+  hasImageImport,
+  isImageImport,
+  reviewJobLabel,
+  reviewReadyImports,
+  selectReviewImportId,
+} from '@/features/reviewer-access/reviewer-access-state';
 
 export function ReviewerAccessLauncher({
   apiBaseUrl,
+  client,
   gameId: controlledGameId,
+  onOpenImports,
 }: {
   readonly apiBaseUrl: string;
+  readonly client?: ReviewerLauncherClient;
   readonly gameId?: string;
+  readonly onOpenImports?: () => void;
 }) {
   const api = useMemo(
-    () => createConfiguredAdminApiClient(apiBaseUrl),
-    [apiBaseUrl],
+    () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
+    [apiBaseUrl, client],
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
@@ -40,6 +53,9 @@ export function ReviewerAccessLauncher({
   );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [reviewContextLoading, setReviewContextLoading] = useState(false);
+  const [reviewCounts, setReviewCounts] =
+    useState<OperationalImageReviewCountsResponse | null>(null);
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [stopping, setStopping] = useState(false);
@@ -50,10 +66,18 @@ export function ReviewerAccessLauncher({
     async function load() {
       setLoading(true);
       setError('');
+      setReviewCounts(null);
+      setReviewContextLoading(false);
       try {
         const [gamesResult, jobsResult, ingressResult] = await Promise.all([
           api.listGames(),
-          api.listJobs({ jobType: 'import', limit: 200 }),
+          api.listJobs({
+            jobType: 'import',
+            limit: 200,
+            ...(controlledGameId === undefined
+              ? {}
+              : { gameId: controlledGameId }),
+          }),
           loadReviewerIngress(api),
         ]);
         if (!active) return;
@@ -75,12 +99,7 @@ export function ReviewerAccessLauncher({
           (game) => game.status === 'active',
         );
         setGames(activeGames);
-        const imageJobs = jobsResult.data.filter(
-          (job) =>
-            job.jobType === 'import' &&
-            'importKind' in job.inputPayload &&
-            job.inputPayload.importKind === 'image_directory',
-        );
+        const imageJobs = jobsResult.data.filter(isImageImport);
         const firstGameId =
           activeGames.find((game) =>
             imageJobs.some((job) => job.gameId === game.id),
@@ -92,9 +111,7 @@ export function ReviewerAccessLauncher({
         if (controlledGameId === undefined) {
           setGameId(firstGameId);
         }
-        setJobId(
-          imageJobs.find((job) => job.gameId === selectedGameId)?.id ?? '',
-        );
+        setJobId(selectReviewImportId(imageJobs, selectedGameId, ''));
         if (ingressResult.ok) {
           setIngress(ingressResult.ingress);
         } else {
@@ -114,10 +131,60 @@ export function ReviewerAccessLauncher({
     };
   }, [api, controlledGameId]);
 
-  const availableJobs = jobs.filter((job) => job.gameId === gameId);
+  const availableJobs = reviewReadyImports(jobs, gameId);
+  const gameHasImageImport = hasImageImport(jobs, gameId);
+
+  useEffect(() => {
+    let active = true;
+    async function loadReviewContext() {
+      setReviewCounts(null);
+      if (gameId === '' || jobId === '') {
+        setReviewContextLoading(false);
+        return;
+      }
+      setReviewContextLoading(true);
+      setError('');
+      try {
+        const result = await api.listOperationalImageReviewItems({
+          gameId,
+          importJobId: jobId,
+          limit: 1,
+          view: 'all',
+        });
+        if (!active) return;
+        if (result.error !== undefined || result.data === undefined) {
+          setError(
+            apiErrorMessage(
+              result.error,
+              'Nie udało się sprawdzić plansz wybranego importu.',
+            ),
+          );
+          return;
+        }
+        setReviewCounts(result.data.counts);
+      } catch {
+        if (active) {
+          setError('Połączenie z lokalnym Admin API zostało przerwane.');
+        }
+      } finally {
+        if (active) setReviewContextLoading(false);
+      }
+    }
+    void loadReviewContext();
+    return () => {
+      active = false;
+    };
+  }, [api, gameId, jobId]);
 
   async function createSession() {
-    if (gameId === '' || jobId === '' || creating) return;
+    if (
+      gameId === '' ||
+      jobId === '' ||
+      reviewCounts === null ||
+      reviewCounts.total === 0 ||
+      creating
+    )
+      return;
     setCreating(true);
     setError('');
     setSession(null);
@@ -220,9 +287,8 @@ export function ReviewerAccessLauncher({
                 onChange={(event) => {
                   const nextGameId = event.target.value;
                   setGameId(nextGameId);
-                  setJobId(
-                    jobs.find((job) => job.gameId === nextGameId)?.id ?? '',
-                  );
+                  setJobId(selectReviewImportId(jobs, nextGameId, ''));
+                  setReviewCounts(null);
                   setSession(null);
                 }}
                 value={gameId}
@@ -235,31 +301,38 @@ export function ReviewerAccessLauncher({
               </select>
             </label>
           ) : null}
-          <label>
-            Import zdjęć
-            <select
-              disabled={loading || creating || availableJobs.length === 0}
-              onChange={(event) => {
-                setJobId(event.target.value);
-                setSession(null);
-              }}
-              value={jobId}
-            >
-              {availableJobs.length === 0 ? (
-                <option value="">Brak importów</option>
-              ) : (
-                availableJobs.map((job) => (
+          {availableJobs.length > 0 ? (
+            <label>
+              Gotowy import zdjęć
+              <select
+                disabled={loading || creating || reviewContextLoading}
+                onChange={(event) => {
+                  setJobId(event.target.value);
+                  setReviewCounts(null);
+                  setSession(null);
+                  setCopied(null);
+                }}
+                value={jobId}
+              >
+                {availableJobs.map((job) => (
                   <option key={job.id} value={job.id}>
-                    {job.id.slice(0, 8)} · {job.status}
+                    {reviewJobLabel(job)}
                   </option>
-                ))
-              )}
-            </select>
-          </label>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <button
             className="primaryButton"
             disabled={
-              loading || creating || stopping || gameId === '' || jobId === ''
+              loading ||
+              creating ||
+              stopping ||
+              gameId === '' ||
+              jobId === '' ||
+              reviewContextLoading ||
+              reviewCounts?.total === 0 ||
+              reviewCounts === null
             }
             onClick={() => void createSession()}
             type="button"
@@ -285,6 +358,70 @@ export function ReviewerAccessLauncher({
             {stopping ? 'Zatrzymywanie…' : 'Zatrzymaj udostępnianie'}
           </button>
         </div>
+
+        {!loading && availableJobs.length === 0 ? (
+          <div className="reviewerPrerequisite" role="status">
+            <div>
+              <strong>
+                {gameHasImageImport
+                  ? 'Import nie jest jeszcze gotowy do zatwierdzania'
+                  : 'Brak importu zdjęć dla tej gry'}
+              </strong>
+              <p>
+                {gameHasImageImport
+                  ? 'Poczekaj na etap zatwierdzania albo sprawdź błąd w zakładce Joby.'
+                  : 'Wczytaj zdjęcia i zakończ ich przetwarzanie, aby otworzyć Reviewer.'}
+              </p>
+            </div>
+            {onOpenImports ? (
+              <button
+                className="secondaryButton"
+                onClick={onOpenImports}
+                type="button"
+              >
+                Przejdź do Import layoutów
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {reviewContextLoading ? (
+          <p className="mutedText">Sprawdzam plansze wybranego importu…</p>
+        ) : reviewCounts?.total === 0 ? (
+          <div className="reviewerPrerequisite" role="status">
+            <div>
+              <strong>Wybrany import nie zawiera plansz</strong>
+              <p>Doładuj zdjęcia lub wybierz inny gotowy import.</p>
+            </div>
+            {onOpenImports ? (
+              <button
+                className="secondaryButton"
+                onClick={onOpenImports}
+                type="button"
+              >
+                Przejdź do Import layoutów
+              </button>
+            ) : null}
+          </div>
+        ) : reviewCounts ? (
+          <dl
+            className="reviewerReadinessSummary"
+            aria-label="Stan plansz importu"
+          >
+            <div>
+              <dt>Wszystkie plansze</dt>
+              <dd>{reviewCounts.total.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Do zatwierdzenia</dt>
+              <dd>{reviewCounts.pending.toLocaleString('pl-PL')}</dd>
+            </div>
+            <div>
+              <dt>Zakończone</dt>
+              <dd>{reviewCounts.completed.toLocaleString('pl-PL')}</dd>
+            </div>
+          </dl>
+        ) : null}
 
         {ingress ? (
           <div

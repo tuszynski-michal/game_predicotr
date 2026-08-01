@@ -1,7 +1,7 @@
 ---
 title: Version 0.2 execution plan
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Plan wykonania wersji 0.2
@@ -124,7 +124,7 @@ częścią zwykłego startu wersji 0.2.
 ## V0.2.4 — Testowe wydanie i odbiór workflow
 
 - `TASK-0131 — Android release workspace for the controlled test game`
-  — jedna orkiestracja dla aktywnej gry; test wielu gier należy do `0.3`.
+  — jedna orkiestracja dla aktywnej gry; test wielu gier należy do `0.4`.
 - `TASK-0132 — Simple Jobs workspace and status filters`
   — osobna lista jobów, postęp, prosty filtr statusu i kompaktowa diagnostyka
   bez dodatkowej logiki retencji.
@@ -155,7 +155,7 @@ częścią zwykłego startu wersji 0.2.
 - pełne benchmarki skali, rozszerzona macierz urządzeń i finalny hardening,
 - TASK-0076 oraz TASK-0080–0089.
 
-Powyższy zakres należy do [wersji 0.3](VERSION_0_3_EXECUTION_PLAN.md).
+Powyższy zakres należy do [wersji 0.4](VERSION_0_4_EXECUTION_PLAN.md).
 
 ## Poza zakresem bez nowej decyzji
 

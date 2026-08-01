@@ -59,7 +59,9 @@ potwierdzeniem skutku domenowego.
 | game_id | UUID | FK games |
 | mobile_code | smallint | stabilny mały kod w ramach gry |
 | code | varchar | np. S1 |
-| name | varchar | |
+| name | varchar | wymagana nazwa kompatybilnościowa |
+| name_pl | varchar nullable | polska etykieta prezentacyjna od 0.3 |
+| name_en | varchar nullable | angielska etykieta prezentacyjna od 0.3 |
 | image_path | varchar nullable | ścieżka względna |
 | is_wildcard | boolean | |
 | display_order | integer | |
@@ -72,6 +74,10 @@ Unikalność:
 
 Walidacja: `1 <= mobile_code <= 32767`. Wartość `0` jest zarezerwowana i nie
 jest kodem symbolu.
+
+Opcjonalne `name_pl` i `name_en` są dodawane migracją Alembic. Wartości puste po
+trimowaniu są odrzucane. `name` pozostaje wymaganym fallbackiem dla danych
+utworzonych przed 0.3 oraz klientów starszego kontraktu.
 
 Symbol nie jest fizycznie usuwany przez publiczne Admin API. `DELETE` oznacza
 archiwizację i nie zmienia historycznego kodu. Po dodaniu wersji reguł i
@@ -910,6 +916,11 @@ Finalny kontrakt M1 ma `snapshot_schema_version = 2`,
 `PRAGMA user_version = 2` i `PRAGMA application_id = 0x47505244`. Schema `1`
 była wyłącznie diagnostycznym spike’em M1.1 i nie jest kompatybilna.
 
+Wersja 0.3 wprowadza `snapshot_schema_version = 3` i `PRAGMA user_version = 3`
+wyłącznie przez dodanie opcjonalnych etykiet `name_pl` i `name_en` do tabeli
+`symbols`. Generator, manifest i mobile muszą zgadzać się co do schema v3;
+starsze APK nadal używają własnego niezmiennego snapshotu schema v2.
+
 ### metadata
 
 ```text
@@ -977,6 +988,8 @@ game_id INTEGER
 mobile_code INTEGER
 code TEXT
 name TEXT
+name_pl TEXT nullable
+name_en TEXT nullable
 is_wildcard INTEGER
 display_order INTEGER
 image_asset_key TEXT nullable

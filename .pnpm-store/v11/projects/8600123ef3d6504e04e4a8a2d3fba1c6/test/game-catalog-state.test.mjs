@@ -15,6 +15,7 @@ const game = {
   code: 'game-1',
   createdAt: '2026-07-26T10:00:00Z',
   id: '11111111-1111-4111-8111-111111111111',
+  expectedLayoutCount: 500000,
   name: 'Game 1',
   status: 'active',
   updatedAt: '2026-07-26T10:00:00Z',
@@ -28,6 +29,7 @@ test('validates and normalizes the game identity draft', () => {
   assert.deepEqual(
     validateGameDraft({
       code: ' game-1 ',
+      expectedLayoutCount: '500000',
       name: ' Game 1 ',
       status: 'draft',
     }),
@@ -35,13 +37,19 @@ test('validates and normalizes the game identity draft', () => {
       valid: true,
       value: {
         code: 'game-1',
+        expectedLayoutCount: '500000',
         name: 'Game 1',
         status: 'draft',
       },
     },
   );
   assert.deepEqual(
-    validateGameDraft({ code: 'game-1', name: '  ', status: 'draft' }),
+    validateGameDraft({
+      code: 'game-1',
+      expectedLayoutCount: '500000',
+      name: '  ',
+      status: 'draft',
+    }),
     {
       error: 'Kod i nazwa gry są wymagane.',
       valid: false,

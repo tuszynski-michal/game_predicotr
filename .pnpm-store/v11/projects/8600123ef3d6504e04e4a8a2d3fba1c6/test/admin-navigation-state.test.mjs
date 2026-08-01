@@ -37,6 +37,19 @@ test('does not restore a dependent section without a game', () => {
   });
 });
 
+test('rejects removed Dataset and Manual Review section URLs', () => {
+  for (const section of ['datasets', 'manual-review']) {
+    assert.deepEqual(
+      parseAdminNavigation(`?game=game-123&section=${section}`),
+      {
+        workspace: 'games',
+        gameId: 'game-123',
+        section: null,
+      },
+    );
+  }
+});
+
 test('serializes deterministic navigation without dropping unrelated params', () => {
   assert.equal(
     serializeAdminNavigation('?unrelated=kept', {

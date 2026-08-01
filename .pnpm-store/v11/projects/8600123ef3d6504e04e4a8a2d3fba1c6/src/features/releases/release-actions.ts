@@ -13,6 +13,7 @@ export type ReleasesClient = Pick<
   AdminApiClient,
   | 'buildMobileRelease'
   | 'createMobileRelease'
+  | 'deleteMobileRelease'
   | 'downloadMobileReleaseApk'
   | 'getJob'
   | 'getMobileRelease'
@@ -20,6 +21,9 @@ export type ReleasesClient = Pick<
   | 'listGames'
   | 'listMobileReleases'
   | 'listRulesVersions'
+  | 'previewMobileReleaseDeletion'
+  | 'previewGameLayoutDataReset'
+  | 'resetGameLayoutData'
   | 'retryJob'
 >;
 
@@ -162,6 +166,41 @@ export async function startReleaseBuild(
       ok: false,
     };
   }
+}
+
+export type CreateAndStartReleaseResult =
+  | {
+      readonly build: MobileReleaseBuildResponse;
+      readonly ok: true;
+      readonly release: MobileReleaseResponse;
+    }
+  | {
+      readonly error: string;
+      readonly ok: false;
+      readonly release: MobileReleaseResponse | null;
+    };
+
+export async function createAndStartRelease(
+  api: ReleasesClient,
+  body: MobileReleaseCreate,
+): Promise<CreateAndStartReleaseResult> {
+  const created = await createRelease(api, body);
+  if (!created.ok) {
+    return { error: created.error, ok: false, release: null };
+  }
+  const started = await startReleaseBuild(api, created.release.id);
+  if (!started.ok) {
+    return {
+      error: started.error,
+      ok: false,
+      release: created.release,
+    };
+  }
+  return {
+    build: started.build,
+    ok: true,
+    release: created.release,
+  };
 }
 
 export type RefreshReleaseResult =

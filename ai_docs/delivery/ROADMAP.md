@@ -1,14 +1,14 @@
 ---
 title: Delivery roadmap
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-01
 ---
 
 # Roadmap
 
 Każdy milestone kończy się działającym pionem funkcjonalnym. Mobile działa offline od pierwszego pionu. Nie rozpoczynamy masowego rozpoznawania zdjęć przed ustabilizowaniem modelu danych, ręcznego importu i procesu publikacji.
 
-## Podział wydań 0.1, 0.2 i 0.3
+## Podział wydań 0.1, 0.2, 0.3 i 0.4
 
 - **Wersja 0.1** zamyka kompletny demonstracyjny przepływ mobilny dla jednej
   gry i dokładnie 500 000 layoutów. Ponad 100 layoutów zatwierdzonych przez
@@ -20,9 +20,13 @@ Każdy milestone kończy się działającym pionem funkcjonalnym. Mobile działa
   folderowy import oraz pełny workflow na małym testowym zbiorze jednej gry.
   Nie jest bramką pełnych danych ani skali. Zakres i kolejność opisuje
   [VERSION_0_2_EXECUTION_PLAN.md](VERSION_0_2_EXECUTION_PLAN.md).
-- **Wersja 0.3** obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe
-  wydanie, pełny hardening i szerszą regresję. Zakres opisuje
+- **Wersja 0.3** dostosowuje aplikację mobilną: upraszcza ekran, dodaje `Next`,
+  wybierany zasięg Targetu, kompaktowy wynik i powrót na górę. Zakres opisuje
   [VERSION_0_3_EXECUTION_PLAN.md](VERSION_0_3_EXECUTION_PLAN.md).
+- **Wersja 0.4** obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe
+  wydanie, końcowe testy dużych zbiorów, pełny hardening i szerszą regresję.
+  Zakres opisuje
+  [VERSION_0_4_EXECUTION_PLAN.md](VERSION_0_4_EXECUTION_PLAN.md).
 - Ukończone zabezpieczenie lokalnego Admina i zdalnego Reviewera pozostaje
   częścią 0.1. Reset danych 0.2 nie cofa tych zabezpieczeń ani nie usuwa
   artefaktów wydania 0.1.
@@ -266,7 +270,8 @@ Plan wykonania:
 
 M7.1–M7.4 są ukończone w zakresie fundamentów i kontrolowanego review.
 TASK-0076 pozostaje zablokowany bramką `massImportAllowed = false` i został
-zaplanowany dla wersji 0.3; nie blokuje wersji 0.1 ani małego workflow 0.2.
+zaplanowany dla wersji 0.4; nie blokuje wersji 0.1, małego workflow 0.2 ani
+dostosowania mobilnego 0.3.
 
 M7 jest realizowany przez:
 
@@ -294,8 +299,8 @@ Plan wykonania:
 ### Status wydania
 
 M8.1 oraz M8.7 są ukończone i zachowane w 0.1. M8.2–M8.6, czyli TASK-0080–0089,
-zostały świadomie przeniesione do wersji 0.3. Odbiór TASK-0119 na Pixelu jest
-bramką 0.1, ale nie zastępuje pełnej bramki G8 planowanej dla 0.3.
+zostały świadomie przeniesione do wersji 0.4. Odbiór TASK-0119 na Pixelu jest
+bramką 0.1, ale nie zastępuje pełnej bramki G8 planowanej dla 0.4.
 
 M8 jest realizowany przez:
 

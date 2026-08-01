@@ -2798,6 +2798,62 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Consequences:** TASK-0127 dodaje jawną operację kopiowania wersji; nie
   usuwa historii ani nie zmienia kontraktu istniejących mutacji draftu.
 
+## D-115 — Wersja 0.3 dostosowuje Mobile, a pełna skala przechodzi do 0.4
+
+- **Status:** accepted
+- **Date:** 2026-08-01
+- **Decision:** wersja 0.3 obejmuje kompaktowy interfejs i usprawnienia
+  przepływu aplikacji mobilnej. Pełny rzeczywisty dataset, nowe gry, końcowe
+  testy dużych zbiorów, TASK-0076 i TASK-0080–0089 należą do wersji 0.4.
+- **Context:** przed kosztowną bramką danych użytkownik chce poprawić ergonomię
+  działającej aplikacji i wykonywać Target na wybieranym oknie.
+- **Reason:** rozdzielenie zmian UX od masowego importu ogranicza zakres regresji
+  i pozwala ocenić zachowanie interfejsu na istniejącym artefakcie.
+- **Alternatives:** zachowanie pełnej skali w 0.3 albo wdrożenie UX i danych w
+  jednym wydaniu.
+- **Consequences:** plan 0.3 otrzymuje TASK-0135–0141, a dotychczasowy zakres
+  0.3 zostaje zachowany w planie 0.4.
+- **Supersedes:** zmienia wyłącznie przypisanie wersji w D-101; nie zmienia
+  zasad danych ani bramek jakości M7/M8.
+
+## D-116 — Mobile używa dokładnego limitu Targetu i anchora dla Next
+
+- **Status:** accepted
+- **Date:** 2026-08-01
+- **Decision:** użytkownik podaje `target_scan_limit` w polu liczbowym: domyślnie
+  10 000, minimum 1 000, maksimum 500 000. Engine ocenia
+  `min(target_scan_limit, N - 1)` przyszłych spinów. `Next` działa wyłącznie z
+  jednoznacznego anchora `sequence_number`, przechodzi cyklicznie do następnej
+  pozycji, przelicza Target i jest jednym krokiem Undo.
+- **Context:** liniowy suwak dla zakresu 500:1 byłby nieprecyzyjny, a duplikat
+  layoutu nadal nie może arbitralnie wybrać pozycji sekwencji.
+- **Reason:** input pozwala podać dokładny zasięg przy małej wysokości UI, a
+  anchor zachowuje deterministyczność nawigacji i obliczeń.
+- **Alternatives:** suwak, zawsze pełny cykl albo Next wybierający pierwsze
+  wystąpienie duplikatu.
+- **Consequences:** adapter SQLite dostarcza ograniczone okno payoutów, wynik
+  jawnie opisuje ocenioną liczbę spinów, a zmiana limitu unieważnia poprzedni
+  skan. Pełny cykl pozostaje dostępny przez limit co najmniej `N - 1`.
+- **Supersedes:** rozszerza D-003 i D-004 bez zmiany definicji pełnego cyklu.
+
+## D-117 — Mobilny symbol ma opcjonalne etykiety polską i angielską
+
+- **Status:** accepted
+- **Date:** 2026-08-01
+- **Decision:** kanoniczny symbol i snapshot schema v3 otrzymują opcjonalne
+  `name_pl` oraz `name_en`. Selection pokazuje krótszą niepustą etykietę, przy
+  remisie polską, a wymagane dotychczas `name` pozostaje fallbackiem.
+- **Context:** obecny kontrakt przenosi tylko jedną nazwę, więc UI nie może
+  deterministycznie wybrać krótszej wersji językowej.
+- **Reason:** jawne dane są odtwarzalne i skalują się na nowe symbole; UI nie
+  powinien zgadywać tłumaczeń ani utrzymywać słownika zależnego od gry.
+- **Alternatives:** wbudowany słownik w aplikacji, automatyczne tłumaczenie albo
+  używanie zawsze jednej dotychczasowej nazwy.
+- **Consequences:** TASK-0136 obejmuje migrację Alembic, pola w istniejącym
+  kontrakcie i formularzu symbolu, generator i walidator schema v3 oraz fallback
+  dla danych bez lokalizacji. Istniejące APK i snapshot v2 pozostają niezmienne.
+- **Supersedes:** brak.
+
 ## Szablon nowej decyzji
 
 ```text

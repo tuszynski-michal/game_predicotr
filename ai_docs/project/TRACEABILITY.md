@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-07-30
+last_updated: 2026-08-01
 ---
 
 # Mapa śledzenia wymagań
@@ -32,6 +32,11 @@ last_updated: 2026-07-30
 | Kumulacja wszystkich payoutów po drodze | `requirements/ALGORITHMS.md` | M1 |
 | Dodatnie lokalne maksima i plateau | `requirements/ALGORITHMS.md`, D-009 | M1 |
 | Tabela Target na dole i wirtualizacja | `requirements/MOBILE_APP.md` | M1 |
+| Kompaktowy mobilny header, plansza i Selection | `requirements/MOBILE_APP.md`, `architecture/DATA_MODEL.md`, `delivery/VERSION_0_3_EXECUTION_PLAN.md`, D-117 | TASK-0135–0136 |
+| Konfigurowalny zasięg Targetu 1 000–500 000 | `requirements/ALGORITHMS.md`, `requirements/MOBILE_APP.md`, D-116 | TASK-0137 |
+| Deterministyczne `Next` z anchorem i Undo | `requirements/MOBILE_APP.md`, `architecture/SYSTEM_ARCHITECTURE.md`, D-116 | TASK-0138 |
+| Skonsolidowany wynik i powrót na górę | `requirements/MOBILE_APP.md`, `delivery/VERSION_0_3_EXECUTION_PLAN.md` | TASK-0139–0140 |
+| Odbiór mobilnego UX 0.3 na Pixelu | `delivery/VERSION_0_3_EXECUTION_PLAN.md`, `quality/TEST_STRATEGY.md` | TASK-0141 |
 | Admin gier, symboli i reguł | `requirements/ADMIN_APP.md` | M2 |
 | PostgreSQL jako baza kanoniczna | `architecture/DATA_MODEL.md`, D-005 | M2 |
 | Precomputed payout i SQLite | `architecture/DATA_MODEL.md`, D-005 | M1, M3 |
@@ -55,8 +60,8 @@ last_updated: 2026-07-30
 | Czysty baseline PostgreSQL 0.2 | `delivery/VERSION_0_2_EXECUTION_PLAN.md` | TASK-0120 |
 | Nawigacja i mały workflow Admina 0.2 | `requirements/ADMIN_APP_V0_2.md` | TASK-0121–0134 |
 | Folderowy import i katalog symboli 0.2 | `requirements/ADMIN_APP_V0_2.md`, `requirements/IMAGE_INGESTION.md` | TASK-0123–0126 |
-| Pełne dane i nowe gry 0.3 | `delivery/VERSION_0_3_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, nowe zadania 0.3 |
-| Hardening, backup i recovery 0.3 | `delivery/VERSION_0_3_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
+| Pełne dane i nowe gry 0.4 | `delivery/VERSION_0_4_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, nowe zadania 0.4 |
+| Hardening, backup i recovery 0.4 | `delivery/VERSION_0_4_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
 
 ## Plany wykonawcze
 
@@ -71,7 +76,8 @@ last_updated: 2026-07-30
 - M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`,
 - wydanie 0.1: `delivery/VERSION_0_1_RELEASE_PLAN.md`,
 - wersja 0.2: `delivery/VERSION_0_2_EXECUTION_PLAN.md`,
-- wersja 0.3: `delivery/VERSION_0_3_EXECUTION_PLAN.md`.
+- wersja 0.3: `delivery/VERSION_0_3_EXECUTION_PLAN.md`,
+- wersja 0.4: `delivery/VERSION_0_4_EXECUTION_PLAN.md`.
 
 Plany wykonawcze mapują wymagania na kolejność podetapów, zadania i bramki, ale
 nie zastępują dokumentów źródła prawdy wskazanych w tabeli.

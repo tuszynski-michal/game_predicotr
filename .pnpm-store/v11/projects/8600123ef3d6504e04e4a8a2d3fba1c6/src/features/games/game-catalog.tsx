@@ -141,6 +141,7 @@ export function GameCatalog({
       code: game.code,
       name: game.name,
       status: game.status,
+      expectedLayoutCount: String(game.expectedLayoutCount),
     });
     setFormError('');
     setNotice('');
@@ -165,7 +166,7 @@ export function GameCatalog({
       setFormError(validation.error);
       return;
     }
-    const { code, name, status } = validation.value;
+    const { code, expectedLayoutCount, name, status } = validation.value;
 
     mutationInProgress.current = true;
     setIsSubmitting(true);
@@ -178,7 +179,7 @@ export function GameCatalog({
         editor.mode === 'create'
           ? { mode: 'create' }
           : { gameId: editor.game.id, mode: 'edit' },
-        { code, name, status },
+        { code, expectedLayoutCount, name, status },
       );
 
       if (!result.ok) {
@@ -489,6 +490,30 @@ function GameEditor({
         </label>
 
         <label>
+          <span>Oczekiwana liczba layoutów</span>
+          <input
+            disabled={isSubmitting}
+            inputMode="numeric"
+            max={10_000_000}
+            min={1}
+            name="expectedLayoutCount"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                expectedLayoutCount: event.currentTarget.value,
+              })
+            }
+            required
+            type="number"
+            value={draft.expectedLayoutCount}
+          />
+          <small>
+            Cel kompletności dla tej gry. Wersja testowa może używać mniejszej
+            liczby; domyślnie jest to 500 000.
+          </small>
+        </label>
+
+        <label>
           <span>Status</span>
           <select
             disabled={isSubmitting}
@@ -597,6 +622,9 @@ function GameRow({
             </span>
           </div>
           <code>{game.code}</code>
+          <small>
+            Cel: {game.expectedLayoutCount.toLocaleString('pl-PL')} layoutów
+          </small>
         </div>
       </button>
 

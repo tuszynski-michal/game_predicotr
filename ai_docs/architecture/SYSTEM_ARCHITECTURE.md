@@ -261,11 +261,15 @@ komórki, jokery i ich interpretacje bez ładowania całego pliku do pamięci.
 
 ### Production SQLite generation
 
-Generator schema v2 przyjmuje jawne wybory
+Generator schema v3 przyjmuje jawne wybory
 `(dataset_version_id, rules_version_id, algorithm_version)` oraz deterministyczne
 metadata wydania. Każdy wybór przechodzi bramkę kompletności M3.2. Źródła są
 porządkowane po stabilnym kodzie gry, a mobilne identyfikatory techniczne są
 przydzielane dopiero po tym sortowaniu.
+
+Schema v3 rozszerza katalog symboli o nullable `name_pl` i `name_en`. Obie
+etykiety uczestniczą w logicznym checksumie snapshotu, a wymagane `name`
+pozostaje fallbackiem zgodności. Mobile 0.3 nie otwiera snapshotu v2.
 
 Katalog gier i symboli jest mały i powstaje przed zapisem. Layouty z dokładnie
 wybraną wersją payoutu są odczytywane z PostgreSQL keysetowo i zapisywane do

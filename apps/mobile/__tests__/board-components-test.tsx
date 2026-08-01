@@ -15,7 +15,10 @@ import {
   type MatchingRepository,
 } from '@/features/board/game-workspace-screen';
 import { GameHeader } from '@/features/board/game-header';
-import { SymbolSelection } from '@/features/board/symbol-selection';
+import {
+  selectSymbolLabel,
+  SymbolSelection,
+} from '@/features/board/symbol-selection';
 
 const symbols = [
   {
@@ -24,6 +27,8 @@ const symbols = [
     isWildcard: false,
     mobileCode: 1,
     name: 'Symbol 1',
+    nameEn: 'Lemon',
+    namePl: 'Cytryna',
   },
   {
     code: 'W',
@@ -31,6 +36,8 @@ const symbols = [
     isWildcard: true,
     mobileCode: 2,
     name: 'Wild',
+    nameEn: 'Wild',
+    namePl: 'Dziki',
   },
 ] as const;
 
@@ -75,7 +82,7 @@ const diagnostics: SnapshotDiagnostics = {
   logicalContentSha256: 'b'.repeat(64),
   releaseVersion: 'm1-test',
   rulesVersion: 1,
-  schemaVersion: 2,
+  schemaVersion: 3,
   snapshotFileSha256: 'a'.repeat(64),
 };
 
@@ -199,7 +206,7 @@ describe('board components', () => {
     act(() => renderer.unmount());
   });
 
-  test('marks every symbol disabled on a full board and labels joker in text', () => {
+  test('marks every symbol disabled and exposes one localized label per tile', () => {
     const renderer = render(
       <SymbolSelection disabled onSelectSymbol={jest.fn()} symbols={symbols} />,
     );
@@ -212,9 +219,38 @@ describe('board components', () => {
       renderer.root.findByProps({ testID: 'symbol-2' }).props
         .accessibilityLabel,
     ).toBe('Wild, joker');
-    expect(JSON.stringify(renderer.toJSON())).toContain('JOKER');
+    expect(
+      renderer.root
+        .findByProps({ testID: 'symbol-1' })
+        .findAllByType(Text)
+        .map((node) => node.props.children),
+    ).toEqual(['Lemon']);
+    expect(
+      renderer.root
+        .findByProps({ testID: 'symbol-2' })
+        .findAllByType(Text)
+        .map((node) => node.props.children),
+    ).toEqual(['Wild']);
+    expect(JSON.stringify(renderer.toJSON())).not.toContain('RCTScrollView');
 
     act(() => renderer.unmount());
+  });
+
+  test('uses Polish for equal labels and compatibility name as fallback', () => {
+    expect(
+      selectSymbolLabel({
+        ...symbols[0],
+        nameEn: 'Pear',
+        namePl: 'Lipa',
+      }),
+    ).toBe('Lipa');
+    expect(
+      selectSymbolLabel({
+        ...symbols[0],
+        nameEn: undefined,
+        namePl: undefined,
+      }),
+    ).toBe('Symbol 1');
   });
 
   test('connects symbol input, Undo, Reset and game change in one session', () => {

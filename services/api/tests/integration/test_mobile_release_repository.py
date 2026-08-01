@@ -103,6 +103,7 @@ def _add_published_source(
         rows=3,
         columns=5,
         signature_cell_width=2,
+        expected_layout_count=1000,
         layout_count=1000,
         status=DatasetVersionStatus.PUBLISHED,
         generation_seed=7,
@@ -149,7 +150,7 @@ def test_mobile_release_repository_persists_atomic_immutable_selection(
 
             assert release.status is MobileReleaseStatus.DRAFT
             assert release.algorithm_version == "payout-v2"
-            assert release.snapshot_schema_version == 2
+            assert release.snapshot_schema_version == 3
             assert [game.game_code for game in release.games] == [
                 "game-a",
                 "game-z",

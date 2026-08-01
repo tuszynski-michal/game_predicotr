@@ -53,6 +53,8 @@ const symbols: readonly SymbolDefinition[] = [
     isWildcard: false,
     mobileCode: 1,
     name: 'Symbol 1',
+    nameEn: 'Lemon',
+    namePl: 'Cytryna',
   },
   {
     code: 'symbol-2',
@@ -109,6 +111,8 @@ describe('LocalLayoutRepository game catalog', () => {
           is_wildcard: 0,
           mobile_code: 1,
           name: 'Symbol 1',
+          name_en: 'Lemon',
+          name_pl: 'Cytryna',
         },
         {
           code: 'symbol-2',
@@ -117,6 +121,8 @@ describe('LocalLayoutRepository game catalog', () => {
           is_wildcard: 1,
           mobile_code: 2,
           name: 'Symbol 2',
+          name_en: null,
+          name_pl: null,
         },
       ],
     ]);

@@ -119,6 +119,10 @@ last_updated: 2026-08-01
   status gotowości danych oraz opis Selection. `Next` pozostaje nieaktywnym
   kontraktem UI do TASK-0138. Testy Mobile przeszły 67/67 wraz z typecheckiem i
   lintem,
+- TASK-0136 został ukończony 2026-08-01: opcjonalne nazwy PL/EN przechodzą przez
+  PostgreSQL, Admin API/OpenAPI, snapshot SQLite schema v3 i Mobile; Selection
+  wybiera krótszą nazwę (remis: PL), używa fallbacku `name` i zawija pojedynczo
+  opisane kafelki bez poziomego przewijania. Testy Mobile przeszły 68/68,
 - odbiór kończy się testem offline na Google Pixel 10 Pro XL,
 - nie obejmuje końcowych testów dużych rzeczywistych zbiorów.
 
@@ -199,7 +203,7 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 Kontynuować odbiór właściciela według
 `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` i dopisywać regresje do aktywnego
-TASK-0142. Niezależny tor Mobile kontynuuje TASK-0136 na branchu
+TASK-0142. Niezależny tor Mobile kontynuuje TASK-0137 na branchu
 `ft/change-mobile-app`; nie wymaga formalnego zamknięcia odbioru Admina.
 Niezależny tor danych rozpocznie TASK-0143 z M6.6 po spełnieniu jego warunków
 wejścia; nie zastępuje on odbioru 0.2.

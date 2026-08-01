@@ -70,7 +70,7 @@ jest.mock('@/data/bundled-snapshot', () => {
       logicalContentSha256: 'b'.repeat(64),
       releaseVersion: 'm1-fixture.2',
       rulesVersion: 2,
-      schemaVersion: 2,
+      schemaVersion: 3,
       snapshotFileSha256: 'a'.repeat(64),
     }),
     snapshotAssetId: 1,

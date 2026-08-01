@@ -97,6 +97,9 @@ końcowych testów dużych zbiorów. Ten zakres przechodzi do wersji 0.4.
      formularzu symbolu, snapshot schema v3, zawijana siatka, deterministyczny
      wybór krótszej nazwy, ellipsis, rozmiary dotykowe i brak poziomego
      przewijania.
+   - status: ukończony 2026-08-01; snapshot v3, pełny kontrakt nazw i kompaktowa
+     siatka zostały zweryfikowane automatycznie, a odbiór na Pixelu pozostaje w
+     TASK-0141.
 3. **TASK-0137 — Configurable bounded Target scan**
    - kontrakt limitu, input 1 000–500 000, domyślne 10 000, anulowanie i
      deterministyczne wyniki ograniczonego okna.

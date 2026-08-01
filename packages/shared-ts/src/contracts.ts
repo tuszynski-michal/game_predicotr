@@ -2,6 +2,8 @@ export interface SymbolDefinition {
   readonly mobileCode: number;
   readonly code: string;
   readonly name: string;
+  readonly namePl?: string;
+  readonly nameEn?: string;
   readonly isWildcard: boolean;
   readonly displayOrder: number;
   readonly imageAssetKey?: string;

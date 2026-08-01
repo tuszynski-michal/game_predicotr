@@ -60,7 +60,7 @@ const diagnostics: SnapshotDiagnostics = {
   logicalContentSha256: 'b'.repeat(64),
   releaseVersion: 'm1-test',
   rulesVersion: 1,
-  schemaVersion: 2,
+  schemaVersion: 3,
   snapshotFileSha256: 'a'.repeat(64),
 };
 

@@ -145,6 +145,14 @@ class SymbolModel(Base):
             "display_order >= 0",
             name="ck_symbols_display_order_nonnegative",
         ),
+        CheckConstraint(
+            "name_pl IS NULL OR length(btrim(name_pl)) > 0",
+            name="ck_symbols_name_pl_nonblank",
+        ),
+        CheckConstraint(
+            "name_en IS NULL OR length(btrim(name_en)) > 0",
+            name="ck_symbols_name_en_nonblank",
+        ),
         UniqueConstraint("game_id", "mobile_code", name="uq_symbols_game_mobile_code"),
         UniqueConstraint("game_id", "code", name="uq_symbols_game_code"),
     )
@@ -158,6 +166,8 @@ class SymbolModel(Base):
     mobile_code: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name_pl: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    name_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_wildcard: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)

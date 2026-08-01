@@ -10,6 +10,7 @@ from game_predictor_api.domain.catalog import (
     Symbol,
     SymbolStatus,
     validate_image_path,
+    validate_optional_name,
 )
 
 
@@ -55,6 +56,8 @@ class EmptyCatalogRepository(CatalogRepository):
         mobile_code: int,
         code: str,
         name: str,
+        name_pl: str | None,
+        name_en: str | None,
         image_path: str | None,
         is_wildcard: bool,
         display_order: int,
@@ -107,3 +110,14 @@ def test_reference_image_path_must_be_relative_and_portable(image_path: str) -> 
         validate_image_path(image_path)
 
     assert error.value.code == "INVALID_IMAGE_PATH"
+
+
+def test_optional_localized_name_is_trimmed_or_can_be_absent() -> None:
+    assert validate_optional_name(None, field_name="namePl") is None
+    assert validate_optional_name(" Cytryna ", field_name="namePl") == "Cytryna"
+
+    with pytest.raises(CatalogError) as error:
+        validate_optional_name("   ", field_name="nameEn")
+
+    assert error.value.code == "INVALID_NAME"
+    assert error.value.details == {"field": "nameEn"}

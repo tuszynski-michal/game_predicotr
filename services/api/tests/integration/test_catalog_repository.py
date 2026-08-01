@@ -84,6 +84,53 @@ def isolated_catalog_database() -> Iterator[URL]:
         maintenance_engine.dispose()
 
 
+def test_symbol_localized_names_survive_real_database_round_trip(
+    isolated_catalog_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_catalog_database), "head")
+    engine = create_engine(isolated_catalog_database, pool_pre_ping=True)
+
+    try:
+        columns = {column["name"] for column in inspect(engine).get_columns("symbols")}
+        assert {"name_pl", "name_en"} <= columns
+
+        with Session(engine, expire_on_commit=False) as session:
+            service = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = service.create_game(
+                code="localized-game",
+                name="Localized Game",
+                status=GameStatus.ACTIVE,
+            )
+            symbol = service.create_symbol(
+                game.id,
+                mobile_code=1,
+                code="LEMON",
+                name="Lemon fallback",
+                name_pl="Cytryna",
+                name_en="Lemon",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            session.commit()
+
+            persisted = service.get_symbol(game.id, symbol.id)
+            assert persisted.name_pl == "Cytryna"
+            assert persisted.name_en == "Lemon"
+            cleared = service.update_symbol(
+                game.id,
+                symbol.id,
+                name_pl=None,
+                update_name_pl=True,
+            )
+            session.commit()
+            assert cleared.name_pl is None
+            assert cleared.name_en == "Lemon"
+    finally:
+        engine.dispose()
+
+
 def test_catalog_repository_uses_real_constraints(
     isolated_catalog_database: URL,
 ) -> None:
@@ -264,8 +311,7 @@ def test_catalog_repository_uses_real_constraints(
             )
             assert symbol_config.minimum_match_length == 2
             assert [
-                item.match_length
-                for item in rules_service.list_payout_rules(first_rules.id)
+                item.match_length for item in rules_service.list_payout_rules(first_rules.id)
             ] == [2, 5]
             rules_service.update_rules_version_symbol(
                 first_rules.id,
@@ -339,9 +385,7 @@ def test_catalog_repository_uses_real_constraints(
             assert immutable_error.value.code == "RULES_VERSION_IMMUTABLE"
             session.rollback()
 
-            dataset_service = DatasetService(
-                SqlAlchemyDatasetRepository(session)
-            )
+            dataset_service = DatasetService(SqlAlchemyDatasetRepository(session))
             first_dataset = dataset_service.generate_mock_dataset(
                 game.id,
                 rules_version_id=first_rules.id,
@@ -358,27 +402,19 @@ def test_catalog_repository_uses_real_constraints(
             first_layouts = list(
                 session.scalars(
                     select(LayoutModel)
-                    .where(
-                        LayoutModel.dataset_version_id == first_dataset.id
-                    )
+                    .where(LayoutModel.dataset_version_id == first_dataset.id)
                     .order_by(LayoutModel.sequence_number)
                 )
             )
             second_layouts = list(
                 session.scalars(
                     select(LayoutModel)
-                    .where(
-                        LayoutModel.dataset_version_id == second_dataset.id
-                    )
+                    .where(LayoutModel.dataset_version_id == second_dataset.id)
                     .order_by(LayoutModel.sequence_number)
                 )
             )
-            assert [item.sequence_number for item in first_layouts] == list(
-                range(1, 1001)
-            )
-            assert [
-                (item.signature, item.cells) for item in first_layouts
-            ] == [
+            assert [item.sequence_number for item in first_layouts] == list(range(1, 1001))
+            assert [(item.signature, item.cells) for item in first_layouts] == [
                 (item.signature, item.cells) for item in second_layouts
             ]
             assert len({item.signature for item in first_layouts}) == 994
@@ -386,10 +422,7 @@ def test_catalog_repository_uses_real_constraints(
             assert report.ready_for_publication
             assert report.duplicate_signature_group_count == 6
             assert report.duplicate_signature_affected_layout_count == 12
-            assert {
-                group.sequence_numbers
-                for group in report.duplicate_signatures
-            } == {
+            assert {group.sequence_numbers for group in report.duplicate_signatures} == {
                 (101, 995),
                 (102, 996),
                 (103, 997),
@@ -404,23 +437,13 @@ def test_catalog_repository_uses_real_constraints(
             )
             second_page = dataset_service.list_layouts(
                 first_dataset.id,
-                after_sequence_number=(
-                    first_page.next_after_sequence_number or 0
-                ),
+                after_sequence_number=(first_page.next_after_sequence_number or 0),
                 limit=10,
             )
-            assert [item.sequence_number for item in first_page.items] == list(
-                range(1, 11)
-            )
-            assert [item.sequence_number for item in second_page.items] == list(
-                range(11, 21)
-            )
-            published_dataset = dataset_service.publish_dataset_version(
-                first_dataset.id
-            )
-            assert (
-                published_dataset.status is DatasetVersionStatus.PUBLISHED
-            )
+            assert [item.sequence_number for item in first_page.items] == list(range(1, 11))
+            assert [item.sequence_number for item in second_page.items] == list(range(11, 21))
+            published_dataset = dataset_service.publish_dataset_version(first_dataset.id)
+            assert published_dataset.status is DatasetVersionStatus.PUBLISHED
             assert published_dataset.published_at is not None
             session.commit()
 
@@ -429,9 +452,7 @@ def test_catalog_repository_uses_real_constraints(
             corrupted.cells = [32767] * 14
             corrupted.signature = "broken"
             session.flush()
-            blocked_report = dataset_service.get_validation_report(
-                second_dataset.id
-            )
+            blocked_report = dataset_service.get_validation_report(second_dataset.id)
             blocked_codes = {
                 check.code.value
                 for check in blocked_report.checks
@@ -447,30 +468,19 @@ def test_catalog_repository_uses_real_constraints(
             }
             with pytest.raises(DatasetConflictError) as publication_error:
                 dataset_service.publish_dataset_version(second_dataset.id)
-            assert (
-                publication_error.value.code == "DATASET_VERSION_NOT_READY"
-            )
+            assert publication_error.value.code == "DATASET_VERSION_NOT_READY"
             session.rollback()
 
-            archived_dataset = dataset_service.archive_dataset_version(
-                first_dataset.id
-            )
+            archived_dataset = dataset_service.archive_dataset_version(first_dataset.id)
             assert archived_dataset.status is DatasetVersionStatus.ARCHIVED
-            assert (
-                archived_dataset.published_at
-                == published_dataset.published_at
-            )
-            assert (
-                dataset_service.archive_dataset_version(first_dataset.id)
-                == archived_dataset
-            )
+            assert archived_dataset.published_at == published_dataset.published_at
+            assert dataset_service.archive_dataset_version(first_dataset.id) == archived_dataset
             assert (
                 len(
                     list(
                         session.scalars(
                             select(LayoutModel).where(
-                                LayoutModel.dataset_version_id
-                                == first_dataset.id
+                                LayoutModel.dataset_version_id == first_dataset.id
                             )
                         )
                     )

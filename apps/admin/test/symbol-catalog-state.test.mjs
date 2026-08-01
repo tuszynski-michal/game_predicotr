@@ -27,6 +27,8 @@ const symbol = {
   isWildcard: false,
   mobileCode: 1,
   name: 'Symbol 1',
+  nameEn: 'Lemon',
+  namePl: 'Cytryna',
   status: 'active',
 };
 
@@ -39,6 +41,8 @@ test('validates and normalizes all symbol contract fields', () => {
       isWildcard: false,
       mobileCode: ' 1 ',
       name: ' Symbol 1 ',
+      nameEn: ' Lemon ',
+      namePl: ' Cytryna ',
       status: 'active',
     }),
     {
@@ -50,11 +54,14 @@ test('validates and normalizes all symbol contract fields', () => {
         isWildcard: false,
         mobileCode: 1,
         name: 'Symbol 1',
+        nameEn: 'Lemon',
+        namePl: 'Cytryna',
         status: 'active',
       },
     },
   );
   assert.equal(symbolToDraft(symbol).mobileCode, '1');
+  assert.equal(symbolToDraft(symbol).namePl, 'Cytryna');
 });
 
 test('rejects invalid mobile codes, display order and stable code', () => {
@@ -65,6 +72,8 @@ test('rejects invalid mobile codes, display order and stable code', () => {
     isWildcard: false,
     mobileCode: '1',
     name: 'Symbol 1',
+    nameEn: '',
+    namePl: '',
     status: 'active',
   };
 
@@ -88,6 +97,8 @@ test('accepts an empty image path and rejects unsafe local paths', () => {
     isWildcard: false,
     mobileCode: '1',
     name: 'Symbol 1',
+    nameEn: '',
+    namePl: '',
     status: 'active',
   };
 

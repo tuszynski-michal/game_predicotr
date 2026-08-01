@@ -16,6 +16,8 @@ const savedSymbol = {
   isWildcard: false,
   mobileCode: 1,
   name: 'Symbol 1',
+  nameEn: 'Lemon',
+  namePl: 'Cytryna',
   status: 'active',
 };
 const draft = {
@@ -25,6 +27,8 @@ const draft = {
   isWildcard: false,
   mobileCode: 1,
   name: 'Symbol 1',
+  nameEn: 'Lemon',
+  namePl: 'Cytryna',
   status: 'active',
 };
 
@@ -63,6 +67,8 @@ test('creates a symbol with the complete typed contract', async () => {
     isWildcard: false,
     mobileCode: 1,
     name: 'Symbol 1',
+    nameEn: 'Lemon',
+    namePl: 'Cytryna',
     status: 'active',
   });
   assert.deepEqual(result, { ok: true, symbol: savedSymbol });
@@ -95,6 +101,8 @@ test('updates mutable fields without sending stable code or mobileCode', async (
     imagePath: null,
     isWildcard: true,
     name: 'Symbol 1',
+    nameEn: 'Lemon',
+    namePl: 'Cytryna',
     status: 'active',
   });
   assert.equal(result.ok, true);

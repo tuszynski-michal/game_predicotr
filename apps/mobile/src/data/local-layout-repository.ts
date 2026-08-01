@@ -89,6 +89,8 @@ interface SymbolRow {
   is_wildcard: number;
   mobile_code: number;
   name: string;
+  name_en: string | null;
+  name_pl: string | null;
 }
 
 interface CountRow {
@@ -124,8 +126,8 @@ const GAME_QUERY = `
 
 const SYMBOL_QUERY = `
   SELECT
-    game_id, mobile_code, code, name, is_wildcard, display_order,
-    image_asset_key
+    game_id, mobile_code, code, name, name_pl, name_en, is_wildcard,
+    display_order, image_asset_key
   FROM symbols
   ORDER BY game_id, display_order, mobile_code
 `;
@@ -348,6 +350,12 @@ export class LocalLayoutRepository {
           isWildcard: wildcard === 1,
           mobileCode: requireInteger(row.mobile_code, 'Symbol mobile code', 1),
           name: requireString(row.name, 'Symbol name'),
+          ...(row.name_pl === null || row.name_pl === undefined
+            ? {}
+            : { namePl: requireString(row.name_pl, 'Polish symbol name') }),
+          ...(row.name_en === null || row.name_en === undefined
+            ? {}
+            : { nameEn: requireString(row.name_en, 'English symbol name') }),
           ...(row.image_asset_key === null || row.image_asset_key === undefined
             ? {}
             : {

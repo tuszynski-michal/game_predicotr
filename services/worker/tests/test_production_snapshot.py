@@ -63,7 +63,16 @@ def _source(
         signature_cell_width=2,
         layout_count=layout_count,
         symbols=(
-            SnapshotSymbol(2, "S2", "Symbol 2", False, 2, "symbols/s2.png"),
+            SnapshotSymbol(
+                2,
+                "S2",
+                "Symbol 2",
+                False,
+                2,
+                "symbols/s2.png",
+                name_pl="Dwójka",
+                name_en="Two",
+            ),
             SnapshotSymbol(1, "S1", "Symbol 1", False, 1, None),
         ),
     )
@@ -114,8 +123,7 @@ class FakeSnapshotRepository:
             ZETA_SELECTION: ZETA_LAYOUTS,
         }
         self.facts = facts or {
-            selection: _complete_facts(source)
-            for selection, source in self.sources.items()
+            selection: _complete_facts(source) for selection, source in self.sources.items()
         }
         self.batch_calls: list[tuple[SnapshotGameSelection, int, int]] = []
 
@@ -222,7 +230,7 @@ def test_generator_writes_production_schema_and_bounded_ordered_content(
         ).fetchall()
         symbols = connection.execute(
             """
-            SELECT game_id, mobile_code, image_asset_key
+            SELECT game_id, mobile_code, name_pl, name_en, image_asset_key
             FROM symbols
             ORDER BY game_id, mobile_code
             """
@@ -285,15 +293,15 @@ def test_generator_writes_production_schema_and_bounded_ordered_content(
         "game_count": "2",
         "layout_count": "5",
         "release_version": "release-2026.07.27",
-        "snapshot_schema_version": "2",
+        "snapshot_schema_version": "3",
     }
     assert not any(key.startswith("fixture_") for key in metadata)
     assert games == [(1, "alpha", 11, 21, 3), (2, "zeta", 12, 22, 2)]
     assert symbols == [
-        (1, 1, None),
-        (1, 2, "symbols/s2.png"),
-        (2, 1, None),
-        (2, 2, "symbols/s2.png"),
+        (1, 1, None, None, None),
+        (1, 2, "Dwójka", "Two", "symbols/s2.png"),
+        (2, 1, None, None, None),
+        (2, 2, "Dwójka", "Two", "symbols/s2.png"),
     ]
     assert alpha_duplicates == [(1,), (2,)]
     assert alpha_prefix == [(1,), (2,)]

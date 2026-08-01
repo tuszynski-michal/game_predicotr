@@ -23,7 +23,7 @@ from game_predictor_worker.fixtures import (
 )
 
 RELEASE_VERSION: Final = "m1-fixture.2"
-SCHEMA_VERSION: Final = 2
+SCHEMA_VERSION: Final = 3
 CREATED_AT: Final = "2026-07-24T00:00:00Z"
 SNAPSHOT_FILE: Final = "m1-snapshot.db"
 SQLITE_APPLICATION_ID: Final = 0x47505244
@@ -34,7 +34,17 @@ _REQUIRED_TABLES = frozenset({"metadata", "games", "symbols", "layouts"})
 _SIGNATURE_INDEX = "idx_layouts_game_signature"
 
 GameRow = tuple[int, str, str, int, int, int, int, int, int, int]
-SymbolRow = tuple[int, int, str, str, int, int, str | None]
+SymbolRow = tuple[
+    int,
+    int,
+    str,
+    str,
+    str | None,
+    str | None,
+    int,
+    int,
+    str | None,
+]
 LayoutRow = tuple[int, int, str, int]
 
 
@@ -152,6 +162,8 @@ def _database_rows(
                 symbol.mobile_code,
                 symbol.code,
                 symbol.name,
+                None,
+                None,
                 int(symbol.is_wildcard),
                 symbol.display_order,
                 None,
@@ -341,6 +353,8 @@ def _create_database(
                         CHECK (mobile_code BETWEEN 1 AND 32767),
                     code TEXT NOT NULL,
                     name TEXT NOT NULL,
+                    name_pl TEXT CHECK (name_pl IS NULL OR length(trim(name_pl)) > 0),
+                    name_en TEXT CHECK (name_en IS NULL OR length(trim(name_en)) > 0),
                     is_wildcard INTEGER NOT NULL CHECK (is_wildcard IN (0, 1)),
                     display_order INTEGER NOT NULL CHECK (display_order >= 0),
                     image_asset_key TEXT,
@@ -379,9 +393,9 @@ def _create_database(
             connection.executemany(
                 """
                 INSERT INTO symbols(
-                    game_id, mobile_code, code, name, is_wildcard,
-                    display_order, image_asset_key
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    game_id, mobile_code, code, name, name_pl, name_en,
+                    is_wildcard, display_order, image_asset_key
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 symbol_rows,
             )
@@ -750,8 +764,8 @@ def _read_database(
                     connection.execute(
                         """
                         SELECT
-                            game_id, mobile_code, code, name, is_wildcard,
-                            display_order, image_asset_key
+                            game_id, mobile_code, code, name, name_pl, name_en,
+                            is_wildcard, display_order, image_asset_key
                         FROM symbols
                         ORDER BY game_id, mobile_code
                         """

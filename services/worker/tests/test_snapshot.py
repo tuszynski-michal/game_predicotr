@@ -45,7 +45,7 @@ def test_generate_and_validate_complete_snapshot(tmp_path: Path) -> None:
     validated = validate_snapshot(database_path, manifest_path)
 
     assert validated == generated
-    assert generated["schemaVersion"] == 2
+    assert generated["schemaVersion"] == 3
     assert generated["gameCount"] == 3
     assert generated["layoutCount"] == 3_000
     assert generated["fixtureFingerprint"] == (

@@ -75,6 +75,8 @@ class MemoryCatalogRepository(CatalogRepository):
         mobile_code: int,
         code: str,
         name: str,
+        name_pl: str | None,
+        name_en: str | None,
         image_path: str | None,
         is_wildcard: bool,
         display_order: int,
@@ -97,6 +99,8 @@ class MemoryCatalogRepository(CatalogRepository):
             mobile_code=mobile_code,
             code=code,
             name=name,
+            name_pl=name_pl,
+            name_en=name_en,
             image_path=image_path,
             is_wildcard=is_wildcard,
             display_order=display_order,
@@ -154,6 +158,8 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
                 "mobileCode": 12,
                 "code": "WILD",
                 "name": "Wildcard",
+                "namePl": " Dziki ",
+                "nameEn": " Wild ",
                 "imagePath": "symbols/blazing-hot/wild.png",
                 "isWildcard": True,
                 "displayOrder": 5,
@@ -164,6 +170,8 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
         symbol_id = symbol["id"]
         assert symbol["gameId"] == game_id
         assert symbol["mobileCode"] == 12
+        assert symbol["namePl"] == "Dziki"
+        assert symbol["nameEn"] == "Wild"
 
         repository.rules_symbol_ids.add(UUID(symbol_id))
         identity_change = client.patch(
@@ -175,10 +183,18 @@ def test_game_and_symbol_crud_archives_without_physical_deletion() -> None:
 
         updated = client.patch(
             f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}",
-            json={"name": "Wild", "imagePath": None, "displayOrder": 1},
+            json={
+                "name": "Wild",
+                "namePl": None,
+                "nameEn": "Wildcard",
+                "imagePath": None,
+                "displayOrder": 1,
+            },
         )
         assert updated.status_code == 200
         assert updated.json()["name"] == "Wild"
+        assert updated.json()["namePl"] is None
+        assert updated.json()["nameEn"] == "Wildcard"
         assert updated.json()["imagePath"] is None
 
         listed = client.get(f"/api/v1/admin/games/{game_id}/symbols")

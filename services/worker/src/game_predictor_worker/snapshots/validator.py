@@ -53,6 +53,8 @@ _EXPECTED_COLUMNS = {
         ("mobile_code", "INTEGER", 2),
         ("code", "TEXT", 0),
         ("name", "TEXT", 0),
+        ("name_pl", "TEXT", 0),
+        ("name_en", "TEXT", 0),
         ("is_wildcard", "INTEGER", 0),
         ("display_order", "INTEGER", 0),
         ("image_asset_key", "TEXT", 0),
@@ -200,8 +202,8 @@ def _validate_database(
                     connection.execute(
                         """
                         SELECT
-                            game_id, mobile_code, code, name, is_wildcard,
-                            display_order, image_asset_key
+                            game_id, mobile_code, code, name, name_pl, name_en,
+                            is_wildcard, display_order, image_asset_key
                         FROM symbols
                         ORDER BY game_id, mobile_code
                         """
@@ -302,10 +304,7 @@ def _validate_pragmas_and_schema(
                 f"The SQLite {table} columns are invalid.",
             )
     index_columns = tuple(
-        name
-        for _, _, name in connection.execute(
-            f"PRAGMA index_info('{SIGNATURE_INDEX_NAME}')"
-        )
+        name for _, _, name in connection.execute(f"PRAGMA index_info('{SIGNATURE_INDEX_NAME}')")
     )
     if index_columns != ("game_id", "signature"):
         raise SnapshotArtifactError(
@@ -366,6 +365,8 @@ def _validate_catalog(
         mobile_code,
         code,
         name,
+        name_pl,
+        name_en,
         is_wildcard,
         display_order,
         image_asset_key,
@@ -375,6 +376,8 @@ def _validate_catalog(
             or mobile_code > 32767
             or not code
             or not name
+            or (name_pl is not None and not name_pl.strip())
+            or (name_en is not None and not name_en.strip())
             or is_wildcard not in (0, 1)
             or display_order < 0
             or (image_asset_key is not None and not image_asset_key)
@@ -504,9 +507,7 @@ def _validate_layouts(
                     "SNAPSHOT_SYMBOL_REFERENCE_INVALID",
                     "A SQLite layout signature references an unknown symbol.",
                 )
-            logical_checksum.add_layout(
-                (game_id, sequence_number, signature, payout)
-            )
+            logical_checksum.add_layout((game_id, sequence_number, signature, payout))
             expected_sequence[game_id] += 1
             observed_counts[game_id] += 1
 

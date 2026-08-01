@@ -91,6 +91,7 @@ końcowych testów dużych zbiorów. Ten zakres przechodzi do wersji 0.4.
 1. **TASK-0135 — Compact mobile header and board shell**
    - wersja, wybór gry, rząd akcji oraz usunięcie zbędnych tytułów, liczników i
      statusu gotowości danych.
+   - status: ukończony 2026-08-01; funkcjonalne `Next` pozostaje w TASK-0138.
 2. **TASK-0136 — Responsive compact Selection grid and labels**
    - migracja opcjonalnych nazw PL/EN, ich pola w istniejącym kontrakcie i
      formularzu symbolu, snapshot schema v3, zawijana siatka, deterministyczny

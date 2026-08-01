@@ -187,6 +187,7 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
         ListHeaderComponent={() => (
           <View testID="workspace-list-header">
             <GameHeader
+              canNext={false}
               canUndo={canUndo(state)}
               games={games}
               onReset={() => dispatch({ type: 'reset' })}
@@ -205,15 +206,7 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
               </View>
             ) : (
               <>
-                <View style={styles.section}>
-                  <View style={styles.sectionHeading}>
-                    <Text accessibilityRole="header" style={styles.heading}>
-                      Layout
-                    </Text>
-                    <Text style={styles.progress}>
-                      {enteredCount}/{state.cells.length}
-                    </Text>
-                  </View>
+                <View style={styles.boardSection}>
                   <BoardGrid
                     cells={state.cells}
                     columns={state.columns}
@@ -222,7 +215,7 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
                   />
                 </View>
 
-                <View style={styles.section}>
+                <View style={styles.selectionSection}>
                   <SymbolSelection
                     disabled={boardFull || prefixMatching.status === 'error'}
                     onSelectSymbol={(mobileCode) =>
@@ -249,17 +242,6 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
                 )}
               </>
             )}
-
-            <View style={styles.statusCard}>
-              <Text style={styles.statusTitle}>Dane lokalne gotowe</Text>
-              <Text style={styles.statusText}>
-                {diagnostics.gameCount} gry · {diagnostics.layoutCount} layoutów
-                · schema {diagnostics.schemaVersion}
-              </Text>
-              <Text style={styles.statusNote}>
-                Matching, pełny cykl Target i tabela wyników działają lokalnie.
-              </Text>
-            </View>
 
             {targetReady ? (
               <TargetResultsHeader peakCount={targetPeaks.length} />
@@ -300,6 +282,10 @@ export function GameWorkspaceScreen({ diagnostics, games, repository }: Props) {
 }
 
 const styles = StyleSheet.create({
+  boardSection: {
+    marginHorizontal: 12,
+    marginTop: 12,
+  },
   content: {
     paddingBottom: 36,
   },
@@ -320,11 +306,6 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: '#fff1f2',
     fontSize: 17,
-    fontWeight: '800',
-  },
-  heading: {
-    color: boardColors.text,
-    fontSize: 20,
     fontWeight: '800',
   },
   listFooter: {
@@ -383,11 +364,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
-  progress: {
-    color: boardColors.primary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
   safeArea: {
     backgroundColor: boardColors.background,
     flex: 1,
@@ -396,35 +372,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginTop: 24,
   },
-  sectionHeading: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  statusCard: {
-    backgroundColor: '#0c1d32',
-    borderColor: boardColors.border,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginHorizontal: 18,
-    marginTop: 26,
-    padding: 16,
-  },
-  statusNote: {
-    color: boardColors.muted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 9,
-  },
-  statusText: {
-    color: boardColors.muted,
-    fontSize: 12,
-    marginTop: 5,
-  },
-  statusTitle: {
-    color: '#86efac',
-    fontSize: 14,
-    fontWeight: '800',
+  selectionSection: {
+    marginHorizontal: 12,
+    marginTop: 10,
   },
 });

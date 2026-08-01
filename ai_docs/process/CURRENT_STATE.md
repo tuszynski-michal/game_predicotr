@@ -8,7 +8,7 @@ last_updated: 2026-08-01
 
 ## Phase
 
-`Version 0.2 technically complete — owner acceptance pending`
+`Version 0.3 mobile implementation in progress — Admin 0.2 acceptance continues independently`
 
 ## Aktywne tory wydań
 
@@ -108,10 +108,17 @@ last_updated: 2026-08-01
 
 ### Wersja 0.3
 
+- właściciel dopuścił niezależne rozpoczęcie Mobile 0.3 na branchu
+  `ft/change-mobile-app`; trwający odbiór Admina 0.2 nie blokuje tego toru,
 - obejmuje dostosowanie aplikacji mobilnej: kompaktowy header, planszę i
   Selection, `Next`, wybierany zasięg Targetu, skonsolidowany wynik i powrót na
   górę,
 - zakres jest rozpisany jako TASK-0135–0141,
+- TASK-0135 został ukończony 2026-08-01: nagłówek pokazuje `ver {releaseVersion}`,
+  wybór gry i rząd `Next`, `Undo`, `Reset`; usunięto tytuły i liczniki planszy,
+  status gotowości danych oraz opis Selection. `Next` pozostaje nieaktywnym
+  kontraktem UI do TASK-0138. Testy Mobile przeszły 67/67 wraz z typecheckiem i
+  lintem,
 - odbiór kończy się testem offline na Google Pixel 10 Pro XL,
 - nie obejmuje końcowych testów dużych rzeczywistych zbiorów.
 
@@ -192,10 +199,10 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 Kontynuować odbiór właściciela według
 `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` i dopisywać regresje do aktywnego
-TASK-0142. Po potwierdzeniu nawigacji, małego workflow, jednego wydania i preview
-cleanup można zamknąć produktową bramkę 0.2; następny zaplanowany pion to
-TASK-0135 z wersji 0.3. Niezależny tor danych rozpocznie TASK-0143 z M6.6 po
-spełnieniu jego warunków wejścia; nie zastępuje on odbioru 0.2.
+TASK-0142. Niezależny tor Mobile kontynuuje TASK-0136 na branchu
+`ft/change-mobile-app`; nie wymaga formalnego zamknięcia odbioru Admina.
+Niezależny tor danych rozpocznie TASK-0143 z M6.6 po spełnieniu jego warunków
+wejścia; nie zastępuje on odbioru 0.2.
 
 ## Do not start yet
 

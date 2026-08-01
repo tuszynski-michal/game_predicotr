@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { View } from 'react-native';
+import { Text, View } from 'react-native';
 import {
   act,
   create,
@@ -151,6 +151,7 @@ describe('board components', () => {
   test('exposes selected game and disabled Undo state without using color alone', () => {
     const renderer = render(
       <GameHeader
+        canNext={false}
         canUndo={false}
         games={games}
         onReset={jest.fn()}
@@ -159,6 +160,28 @@ describe('board components', () => {
         releaseVersion="m1-test"
         selectedGameId="game-1"
       />,
+    );
+
+    const renderedHeader = JSON.stringify(renderer.toJSON());
+    expect(
+      renderer.root
+        .findByProps({ testID: 'release-version' })
+        .props.children.join(''),
+    ).toBe('ver m1-test');
+    expect(renderedHeader).not.toContain('Sequence Target');
+    expect(renderedHeader).not.toContain('OFFLINE');
+
+    const actionLabels = renderer.root
+      .findByProps({ testID: 'header-actions' })
+      .findAllByType(Text)
+      .map((node) => node.props.children);
+    expect(actionLabels).toEqual(['Next', 'Undo', 'Reset']);
+    expect(renderer.root.findByProps({ testID: 'next-button' }).props).toEqual(
+      expect.objectContaining({
+        accessibilityLabel: 'Przejdź do następnego layoutu',
+        accessibilityState: { disabled: true },
+        disabled: true,
+      }),
     );
 
     expect(renderer.root.findByProps({ testID: 'undo-button' }).props).toEqual(
@@ -202,6 +225,13 @@ describe('board components', () => {
         repository={pendingMatchingRepository}
       />,
     );
+
+    const compactShell = JSON.stringify(renderer.toJSON());
+    expect(compactShell).not.toContain('Sequence Target');
+    expect(compactShell).not.toContain('OFFLINE');
+    expect(compactShell).not.toContain('Dane lokalne gotowe');
+    expect(compactShell).not.toContain('Selection');
+    expect(compactShell).not.toContain('selected/total');
 
     expect(boardCells(renderer.root)).toHaveLength(2);
     expect(

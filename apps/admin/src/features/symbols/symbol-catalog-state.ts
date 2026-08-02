@@ -14,6 +14,8 @@ export interface SymbolDraft {
   readonly isWildcard: boolean;
   readonly mobileCode: string;
   readonly name: string;
+  readonly nameEn: string;
+  readonly namePl: string;
   readonly status: SymbolStatus;
 }
 
@@ -24,6 +26,8 @@ export interface ValidatedSymbolDraft {
   readonly isWildcard: boolean;
   readonly mobileCode: number;
   readonly name: string;
+  readonly nameEn: string | null;
+  readonly namePl: string | null;
   readonly status: SymbolStatus;
 }
 
@@ -38,6 +42,8 @@ export const EMPTY_SYMBOL_DRAFT: SymbolDraft = {
   isWildcard: false,
   mobileCode: '',
   name: '',
+  nameEn: '',
+  namePl: '',
   status: 'active',
 };
 
@@ -54,6 +60,8 @@ export function symbolToDraft(symbol: SymbolResponse): SymbolDraft {
     isWildcard: symbol.isWildcard,
     mobileCode: String(symbol.mobileCode),
     name: symbol.name,
+    nameEn: symbol.nameEn ?? '',
+    namePl: symbol.namePl ?? '',
     status: symbol.status,
   };
 }
@@ -61,6 +69,8 @@ export function symbolToDraft(symbol: SymbolResponse): SymbolDraft {
 export function validateSymbolDraft(draft: SymbolDraft): SymbolDraftValidation {
   const code = draft.code.trim();
   const name = draft.name.trim();
+  const nameEn = draft.nameEn.trim();
+  const namePl = draft.namePl.trim();
   const imagePath = draft.imagePath.trim();
 
   if (!code || !name || !draft.mobileCode.trim()) {
@@ -73,6 +83,12 @@ export function validateSymbolDraft(draft: SymbolDraft): SymbolDraftValidation {
     return {
       error:
         'Kod stabilny musi mieć 1–64 znaki: litery, cyfry, myślnik lub podkreślenie.',
+      valid: false,
+    };
+  }
+  if (namePl.length > 200 || nameEn.length > 200) {
+    return {
+      error: 'Polska i angielska nazwa mogą mieć maksymalnie 200 znaków.',
       valid: false,
     };
   }
@@ -114,6 +130,8 @@ export function validateSymbolDraft(draft: SymbolDraft): SymbolDraftValidation {
       isWildcard: draft.isWildcard,
       mobileCode,
       name,
+      nameEn: nameEn || null,
+      namePl: namePl || null,
       status: draft.status,
     },
   };

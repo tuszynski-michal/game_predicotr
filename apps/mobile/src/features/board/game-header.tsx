@@ -1,11 +1,21 @@
 import type { LocalGameConfig } from '@/data/local-layout-repository';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { boardColors } from './board-theme';
 
 type Props = {
+  canNext: boolean;
   canUndo: boolean;
   games: readonly LocalGameConfig[];
+  nextLoading?: boolean;
+  onNext?: () => void;
   onReset: () => void;
   onSelectGame: (gameId: string) => void;
   onUndo: () => void;
@@ -14,8 +24,11 @@ type Props = {
 };
 
 export function GameHeader({
+  canNext,
   canUndo,
   games,
+  nextLoading = false,
+  onNext,
   onReset,
   onSelectGame,
   onUndo,
@@ -24,47 +37,9 @@ export function GameHeader({
 }: Props) {
   return (
     <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.eyebrow}>OFFLINE · {releaseVersion}</Text>
-          <Text accessibilityRole="header" style={styles.title}>
-            Sequence Target
-          </Text>
-        </View>
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityLabel="Cofnij ostatnią operację"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canUndo }}
-            disabled={!canUndo}
-            onPress={onUndo}
-            style={({ pressed }) => [
-              styles.actionButton,
-              !canUndo && styles.actionButtonDisabled,
-              pressed && canUndo && styles.actionButtonPressed,
-            ]}
-            testID="undo-button"
-          >
-            <Text
-              style={[styles.actionText, !canUndo && styles.actionTextDisabled]}
-            >
-              Undo
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Wyczyść planszę"
-            accessibilityRole="button"
-            onPress={onReset}
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.actionButtonPressed,
-            ]}
-            testID="reset-button"
-          >
-            <Text style={styles.actionText}>Reset</Text>
-          </Pressable>
-        </View>
-      </View>
+      <Text style={styles.version} testID="release-version">
+        ver {releaseVersion}
+      </Text>
 
       <Text style={styles.label}>Gra</Text>
       <ScrollView
@@ -105,6 +80,68 @@ export function GameHeader({
           );
         })}
       </ScrollView>
+
+      <View style={styles.actions} testID="header-actions">
+        <Pressable
+          accessibilityHint="Ładuje dokładny kolejny rekord cyklicznej sekwencji."
+          accessibilityLabel="Przejdź do następnego layoutu"
+          accessibilityRole="button"
+          accessibilityState={{ busy: nextLoading, disabled: !canNext }}
+          disabled={!canNext}
+          onPress={onNext}
+          style={({ pressed }) => [
+            styles.actionButton,
+            !canNext && styles.actionButtonDisabled,
+            pressed && canNext && styles.actionButtonPressed,
+          ]}
+          testID="next-button"
+        >
+          {nextLoading ? (
+            <ActivityIndicator
+              color={boardColors.primary}
+              size="small"
+              testID="next-loading"
+            />
+          ) : (
+            <Text
+              style={[styles.actionText, !canNext && styles.actionTextDisabled]}
+            >
+              Next
+            </Text>
+          )}
+        </Pressable>
+        <Pressable
+          accessibilityLabel="Cofnij ostatnią operację"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canUndo }}
+          disabled={!canUndo}
+          onPress={onUndo}
+          style={({ pressed }) => [
+            styles.actionButton,
+            !canUndo && styles.actionButtonDisabled,
+            pressed && canUndo && styles.actionButtonPressed,
+          ]}
+          testID="undo-button"
+        >
+          <Text
+            style={[styles.actionText, !canUndo && styles.actionTextDisabled]}
+          >
+            Undo
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="Wyczyść planszę"
+          accessibilityRole="button"
+          onPress={onReset}
+          style={({ pressed }) => [
+            styles.actionButton,
+            pressed && styles.actionButtonPressed,
+          ]}
+          testID="reset-button"
+        >
+          <Text style={styles.actionText}>Reset</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -115,10 +152,10 @@ const styles = StyleSheet.create({
     borderColor: boardColors.border,
     borderRadius: 12,
     borderWidth: 1,
+    flex: 1,
     justifyContent: 'center',
     minHeight: 44,
-    minWidth: 68,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
   actionButtonDisabled: {
     opacity: 0.45,
@@ -137,30 +174,25 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 12,
   },
   container: {
     backgroundColor: boardColors.card,
     borderBottomColor: boardColors.border,
     borderBottomWidth: 1,
-    paddingBottom: 18,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-  },
-  eyebrow: {
-    color: boardColors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.9,
+    paddingBottom: 12,
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
   gameButton: {
     backgroundColor: '#182f4b',
     borderColor: boardColors.border,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    minHeight: 58,
-    minWidth: 110,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    minHeight: 52,
+    minWidth: 104,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   gameButtonPressed: {
     backgroundColor: '#203c5e',
@@ -178,38 +210,29 @@ const styles = StyleSheet.create({
     color: boardColors.textDark,
   },
   gameList: {
-    gap: 10,
-    paddingRight: 18,
+    gap: 8,
+    paddingRight: 12,
   },
   gameMeta: {
     color: boardColors.muted,
     fontSize: 11,
-    marginTop: 3,
+    marginTop: 2,
   },
   gameMetaSelected: {
     color: '#164e63',
   },
   label: {
     color: boardColors.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    marginBottom: 8,
-    marginTop: 18,
+    marginBottom: 6,
+    marginTop: 8,
     textTransform: 'uppercase',
   },
-  title: {
-    color: boardColors.text,
-    fontSize: 24,
+  version: {
+    color: boardColors.primary,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: -0.5,
-    marginTop: 3,
-  },
-  titleBlock: {
-    flex: 1,
-    marginRight: 12,
-  },
-  titleRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
+    letterSpacing: 0.4,
   },
 });

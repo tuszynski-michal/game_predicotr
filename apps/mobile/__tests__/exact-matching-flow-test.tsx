@@ -60,7 +60,7 @@ const diagnostics: SnapshotDiagnostics = {
   logicalContentSha256: 'b'.repeat(64),
   releaseVersion: 'm1-test',
   rulesVersion: 1,
-  schemaVersion: 2,
+  schemaVersion: 3,
   snapshotFileSha256: 'a'.repeat(64),
 };
 
@@ -96,6 +96,11 @@ function matchingRepository(
           ),
         ),
     ),
+    readLayoutBySequence: jest
+      .fn()
+      .mockRejectedValue(
+        new Error('Next navigation is not used in this test.'),
+      ),
   };
 }
 
@@ -166,11 +171,15 @@ describe('exact matching flow', () => {
     await press(renderer, 'symbol-1');
     expect(repository.findByPrefix).toHaveBeenCalledWith(game, '01');
     expect(repository.findExact).not.toHaveBeenCalled();
+    expect(
+      renderer.root.findByProps({ testID: 'next-button' }).props.disabled,
+    ).toBe(true);
 
     await press(renderer, 'symbol-2');
     expect(repository.findByPrefix).toHaveBeenCalledTimes(1);
     expect(repository.findExact).toHaveBeenCalledWith(game, '0102');
-    expect(visibleTestIdCount(renderer, 'exact-loading')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
+    expect(JSON.stringify(renderer.toJSON())).toContain('Wyszukiwanie układu');
 
     await act(async () => {
       exact.resolve(uniqueResult(7));
@@ -194,11 +203,14 @@ describe('exact matching flow', () => {
     await press(renderer, 'symbol-1');
     await press(renderer, 'symbol-2');
 
-    expect(visibleTestIdCount(renderer, 'exact-unique')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
     const output = JSON.stringify(renderer.toJSON());
+    expect(output).toContain('Układ znaleziony i obliczony');
+    expect(output).not.toContain('Target obliczony');
+    expect(output).not.toContain('Jednoznaczny układ uruchamia');
     expect(output).toContain('Układ: ');
     expect(output).toContain('7');
-    expect(repository.readCyclicPayouts).toHaveBeenCalledWith(game, 7);
+    expect(repository.readCyclicPayouts).toHaveBeenCalledWith(game, 7, 10_000);
 
     act(() => renderer.unmount());
   });
@@ -222,15 +234,19 @@ describe('exact matching flow', () => {
     await press(renderer, 'symbol-1');
     await press(renderer, 'symbol-2');
 
-    expect(visibleTestIdCount(renderer, 'exact-duplicate')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
     const duplicateOutput = JSON.stringify(renderer.toJSON());
+    expect(duplicateOutput).toContain('Duplikat layoutu');
     expect(duplicateOutput).toContain('Liczba wystąpień: ');
     expect(duplicateOutput).toContain('Pozycje: ');
     expect(duplicateOutput).toContain('2, 8');
     expect(duplicateOutput).not.toContain('Układ: ');
+    expect(
+      renderer.root.findByProps({ testID: 'next-button' }).props.disabled,
+    ).toBe(true);
 
     await press(renderer, 'reset-button');
-    expect(visibleTestIdCount(renderer, 'exact-duplicate')).toBe(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(0);
     expect(visibleTestIdCount(renderer, 'prefix-idle')).toBeGreaterThan(0);
     expect(repository.findExact).toHaveBeenCalledTimes(1);
 
@@ -277,16 +293,22 @@ describe('exact matching flow', () => {
     await press(renderer, 'symbol-1');
     await press(renderer, 'symbol-2');
 
-    expect(visibleTestIdCount(renderer, 'exact-not-found')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
+    expect(JSON.stringify(renderer.toJSON())).toContain(
+      'Nie znaleziono layoutu',
+    );
     expect(
       boardCellLabels(renderer, 1).some((label) => label.includes('Symbol 2')),
     ).toBe(true);
     expect(
       renderer.root.findByProps({ testID: 'undo-button' }).props.disabled,
     ).toBe(false);
+    expect(
+      renderer.root.findByProps({ testID: 'next-button' }).props.disabled,
+    ).toBe(true);
 
     await press(renderer, 'undo-button');
-    expect(visibleTestIdCount(renderer, 'exact-not-found')).toBe(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(0);
     expect(
       boardCellLabels(renderer, 1).some((label) =>
         label.includes('Puste pole'),
@@ -311,10 +333,16 @@ describe('exact matching flow', () => {
     await press(renderer, 'symbol-1');
     await press(renderer, 'symbol-2');
 
-    expect(visibleTestIdCount(renderer, 'exact-error')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
+    expect(JSON.stringify(renderer.toJSON())).toContain(
+      'Błąd danych lokalnych',
+    );
     expect(JSON.stringify(renderer.toJSON())).toContain('local_data_error');
     expect(
       boardCellLabels(renderer, 1).some((label) => label.includes('Symbol 2')),
+    ).toBe(true);
+    expect(
+      renderer.root.findByProps({ testID: 'next-button' }).props.disabled,
     ).toBe(true);
 
     act(() => renderer.unmount());
@@ -379,10 +407,10 @@ describe('exact matching flow', () => {
 
     await press(renderer, 'symbol-1');
     await press(renderer, 'symbol-2');
-    expect(visibleTestIdCount(renderer, 'exact-unique')).toBeGreaterThan(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(1);
 
     await press(renderer, 'game-option-game-2');
-    expect(visibleTestIdCount(renderer, 'exact-unique')).toBe(0);
+    expect(visibleTestIdCount(renderer, 'result-summary')).toBe(0);
     expect(visibleTestIdCount(renderer, 'prefix-idle')).toBeGreaterThan(0);
     expect(
       boardCellLabels(renderer, 0).some((label) =>

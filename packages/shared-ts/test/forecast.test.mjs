@@ -37,6 +37,7 @@ function assertMetadata(result, input) {
   assert.equal(result.rulesVersion, input.rulesVersion);
   assert.equal(result.algorithmVersion, input.algorithmVersion);
   assert.equal(result.startSequenceNumber, input.startSequenceNumber);
+  assert.equal(result.targetScanLimit, input.targetScanLimit);
   assert.equal(result.spinCost, input.spinCost);
 }
 
@@ -133,6 +134,12 @@ test('Target rejects invalid domain values and metadata', () => {
   assertDomainError('invalid_spin_cost', () =>
     calculateTargetForecast({ ...valid, spinCost: -1 }),
   );
+  assertDomainError('invalid_target_scan_limit', () =>
+    calculateTargetForecast({ ...valid, targetScanLimit: 0 }),
+  );
+  assertDomainError('invalid_target_scan_limit', () =>
+    calculateTargetForecast({ ...valid, targetScanLimit: 500_001 }),
+  );
   assertDomainError('invalid_sequence_number', () =>
     calculateTargetForecast({ ...valid, startSequenceNumber: 0 }),
   );
@@ -154,6 +161,7 @@ test('Target rejects cumulative values outside safe integer range', () => {
     ...fixture.metadata,
     startSequenceNumber: 1,
     layoutCount: 3,
+    targetScanLimit: 2,
     spinCost: maximum,
     sequencePayouts: [
       { sequenceNumber: 2, payoutCredits: maximum },
@@ -164,4 +172,36 @@ test('Target rejects cumulative values outside safe integer range', () => {
   assertDomainError('forecast_numeric_overflow', () =>
     calculateTargetForecast(input),
   );
+});
+
+test('Target evaluates only the bounded cyclic prefix', () => {
+  const input = {
+    ...fixture.metadata,
+    layoutCount: 6,
+    startSequenceNumber: 5,
+    targetScanLimit: 3,
+    sequencePayouts: [
+      { sequenceNumber: 6, payoutCredits: 20 },
+      { sequenceNumber: 1, payoutCredits: 20 },
+      { sequenceNumber: 2, payoutCredits: 0 },
+    ],
+  };
+
+  const result = calculateTargetForecast(input);
+
+  assert.equal(result.targetScanLimit, 3);
+  assert.equal(result.evaluatedSpinCount, 3);
+  assert.equal(result.finalCumulativePayout, 40);
+  assert.equal(result.finalCumulativeCost, 30);
+  assert.equal(result.finalNetCredits, 10);
+  assert.deepEqual(result.positiveLocalPeaks, [
+    {
+      cumulativeCost: 20,
+      cumulativePayout: 40,
+      netCredits: 20,
+      sequenceNumber: 1,
+      spinNumber: 2,
+      spinPayout: 20,
+    },
+  ]);
 });

@@ -17,7 +17,7 @@ const manifest: SnapshotManifest = {
   logicalContentSha256: 'b'.repeat(64),
   releaseVersion: 'm1-fixture.2',
   rulesVersion: 2,
-  schemaVersion: 2,
+  schemaVersion: 3,
   snapshotFile: 'm1-snapshot.db',
   snapshotFileSha256: 'a'.repeat(64),
   targetGoldenCases: [],
@@ -40,7 +40,7 @@ const metadata = {
 describe('bundled snapshot contract', () => {
   test('derives a stable local database name from the snapshot checksum', () => {
     expect(buildLocalDatabaseName(manifest)).toBe(
-      'snapshot-v2-aaaaaaaaaaaaaaaa.db',
+      'snapshot-v3-aaaaaaaaaaaaaaaa.db',
     );
   });
 
@@ -88,7 +88,7 @@ describe('bundled snapshot contract', () => {
       releaseVersion: 'release-1',
       snapshotFile: 'snapshot.db',
       snapshotFileSha256: 'e'.repeat(64),
-      snapshotSchemaVersion: 2,
+      snapshotSchemaVersion: 3,
       symbolCount: 10,
     };
     const productionMetadata = {
@@ -98,7 +98,7 @@ describe('bundled snapshot contract', () => {
       game_count: '1',
       layout_count: '500000',
       release_version: productionManifest.releaseVersion,
-      snapshot_schema_version: '2',
+      snapshot_schema_version: '3',
     };
 
     expect(() =>
@@ -110,7 +110,7 @@ describe('bundled snapshot contract', () => {
       ),
     ).not.toThrow();
     expect(buildLocalDatabaseName(productionManifest)).toBe(
-      'snapshot-v2-eeeeeeeeeeeeeeee.db',
+      'snapshot-v3-eeeeeeeeeeeeeeee.db',
     );
   });
 

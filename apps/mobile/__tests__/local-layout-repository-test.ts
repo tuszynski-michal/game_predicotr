@@ -53,6 +53,8 @@ const symbols: readonly SymbolDefinition[] = [
     isWildcard: false,
     mobileCode: 1,
     name: 'Symbol 1',
+    nameEn: 'Lemon',
+    namePl: 'Cytryna',
   },
   {
     code: 'symbol-2',
@@ -109,6 +111,8 @@ describe('LocalLayoutRepository game catalog', () => {
           is_wildcard: 0,
           mobile_code: 1,
           name: 'Symbol 1',
+          name_en: 'Lemon',
+          name_pl: 'Cytryna',
         },
         {
           code: 'symbol-2',
@@ -117,6 +121,8 @@ describe('LocalLayoutRepository game catalog', () => {
           is_wildcard: 1,
           mobile_code: 2,
           name: 'Symbol 2',
+          name_en: null,
+          name_pl: null,
         },
       ],
     ]);
@@ -303,6 +309,37 @@ describe('LocalLayoutRepository exact matching', () => {
   });
 });
 
+describe('LocalLayoutRepository sequence navigation', () => {
+  test('reads the exact requested layout position without signature matching', async () => {
+    const database = new FakeDatabase([], [{ sequence_number: 3, signature }]);
+
+    await expect(
+      new LocalLayoutRepository(database).readLayoutBySequence(game, 3),
+    ).resolves.toEqual({
+      cells: [1, 2, 1, 2],
+      sequenceNumber: 3,
+      signature,
+    });
+    expect(database.firstQueries).toHaveLength(1);
+    expect(database.firstQueries[0]?.params).toEqual([7, 3]);
+    expect(database.firstQueries[0]?.source).toContain('sequence_number = ?');
+  });
+
+  test('fails closed for a missing or out-of-range sequence position', async () => {
+    const missingDatabase = new FakeDatabase([], [null]);
+
+    await expect(
+      new LocalLayoutRepository(missingDatabase).readLayoutBySequence(game, 3),
+    ).rejects.toMatchObject({ code: 'local_data_error' });
+    await expect(
+      new LocalLayoutRepository(new FakeDatabase()).readLayoutBySequence(
+        game,
+        5,
+      ),
+    ).rejects.toMatchObject({ code: 'local_data_error' });
+  });
+});
+
 describe('LocalLayoutRepository cyclic payouts', () => {
   test('reads N-1 payouts in one query and wraps from layout 4 to 1', async () => {
     const database = new FakeDatabase([
@@ -314,7 +351,7 @@ describe('LocalLayoutRepository cyclic payouts', () => {
     ]);
 
     await expect(
-      new LocalLayoutRepository(database).readCyclicPayouts(game, 3),
+      new LocalLayoutRepository(database).readCyclicPayouts(game, 3, 500_000),
     ).resolves.toEqual([
       { payoutCredits: 20, sequenceNumber: 4 },
       { payoutCredits: 0, sequenceNumber: 1 },
@@ -322,7 +359,25 @@ describe('LocalLayoutRepository cyclic payouts', () => {
     ]);
     expect(database.allQueries).toHaveLength(1);
     expect(database.allQueries[0]?.source).toContain('UNION ALL');
-    expect(database.allQueries[0]?.params).toEqual([7, 3, 7, 3]);
+    expect(database.allQueries[0]?.source).toContain('LIMIT ?');
+    expect(database.allQueries[0]?.params).toEqual([7, 3, 7, 3, 3]);
+  });
+
+  test('limits the cyclic read to the requested future window', async () => {
+    const database = new FakeDatabase([
+      [
+        { cycle_segment: 0, payout: 20, sequence_number: 4 },
+        { cycle_segment: 1, payout: 0, sequence_number: 1 },
+      ],
+    ]);
+
+    await expect(
+      new LocalLayoutRepository(database).readCyclicPayouts(game, 3, 2),
+    ).resolves.toEqual([
+      { payoutCredits: 20, sequenceNumber: 4 },
+      { payoutCredits: 0, sequenceNumber: 1 },
+    ]);
+    expect(database.allQueries[0]?.params).toEqual([7, 3, 7, 3, 2]);
   });
 
   test('rejects an incomplete or incorrectly ordered payout stream', async () => {
@@ -335,7 +390,16 @@ describe('LocalLayoutRepository cyclic payouts', () => {
     ]);
 
     await expect(
-      new LocalLayoutRepository(database).readCyclicPayouts(game, 3),
+      new LocalLayoutRepository(database).readCyclicPayouts(game, 3, 3),
     ).rejects.toMatchObject({ code: 'local_data_error' });
+  });
+
+  test('rejects a Target limit outside the engine boundary', async () => {
+    const database = new FakeDatabase([]);
+
+    await expect(
+      new LocalLayoutRepository(database).readCyclicPayouts(game, 3, 500_001),
+    ).rejects.toMatchObject({ code: 'local_data_error' });
+    expect(database.allQueries).toHaveLength(0);
   });
 });

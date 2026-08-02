@@ -7,7 +7,17 @@ import json
 from pathlib import Path
 
 GameRow = tuple[int, str, str, int, int, int, int, int, int, int]
-SymbolRow = tuple[int, int, str, str, int, int, str | None]
+SymbolRow = tuple[
+    int,
+    int,
+    str,
+    str,
+    str | None,
+    str | None,
+    int,
+    int,
+    str | None,
+]
 LayoutRow = tuple[int, int, str, int]
 
 
@@ -66,4 +76,3 @@ def file_sha256(path: Path) -> str:
         for chunk in iter(lambda: file.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-

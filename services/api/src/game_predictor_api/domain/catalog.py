@@ -74,6 +74,8 @@ class Symbol:
     is_wildcard: bool
     display_order: int
     status: SymbolStatus
+    name_pl: str | None = None
+    name_en: str | None = None
 
 
 def validate_stable_code(value: str, *, field_name: str) -> str:
@@ -97,6 +99,19 @@ def validate_name(value: str) -> str:
     return normalized
 
 
+def validate_optional_name(value: str | None, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized or len(normalized) > _MAX_NAME_LENGTH:
+        raise CatalogError(
+            "INVALID_NAME",
+            "Localized name must contain 1-200 non-whitespace characters.",
+            details={"field": field_name},
+        )
+    return normalized
+
+
 def validate_mobile_code(value: int) -> int:
     if not 1 <= value <= 32767:
         raise CatalogError(
@@ -108,10 +123,7 @@ def validate_mobile_code(value: int) -> int:
 
 
 def validate_expected_layout_count(value: int) -> int:
-    if (
-        isinstance(value, bool)
-        or not 1 <= value <= MAX_EXPECTED_LAYOUT_COUNT
-    ):
+    if isinstance(value, bool) or not 1 <= value <= MAX_EXPECTED_LAYOUT_COUNT:
         raise CatalogError(
             "INVALID_EXPECTED_LAYOUT_COUNT",
             "expectedLayoutCount must be between 1 and 10000000.",

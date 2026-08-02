@@ -8,7 +8,7 @@ last_updated: 2026-08-01
 
 ## Phase
 
-`Version 0.2 technically complete — owner acceptance pending`
+`Version 0.3 mobile implementation in progress — Admin 0.2 acceptance continues independently`
 
 ## Aktywne tory wydań
 
@@ -108,10 +108,52 @@ last_updated: 2026-08-01
 
 ### Wersja 0.3
 
+- właściciel dopuścił niezależne rozpoczęcie Mobile 0.3 na branchu
+  `ft/change-mobile-app`; trwający odbiór Admina 0.2 nie blokuje tego toru,
 - obejmuje dostosowanie aplikacji mobilnej: kompaktowy header, planszę i
   Selection, `Next`, wybierany zasięg Targetu, skonsolidowany wynik i powrót na
   górę,
 - zakres jest rozpisany jako TASK-0135–0141,
+- TASK-0135 został ukończony 2026-08-01: nagłówek pokazuje `ver {releaseVersion}`,
+  wybór gry i rząd `Next`, `Undo`, `Reset`; usunięto tytuły i liczniki planszy,
+  status gotowości danych oraz opis Selection. `Next` pozostaje nieaktywnym
+  kontraktem UI do TASK-0138. Testy Mobile przeszły 67/67 wraz z typecheckiem i
+  lintem,
+- TASK-0136 został ukończony 2026-08-01: opcjonalne nazwy PL/EN przechodzą przez
+  PostgreSQL, Admin API/OpenAPI, snapshot SQLite schema v3 i Mobile; Selection
+  wybiera krótszą nazwę (remis: PL), używa fallbacku `name` i zawija pojedynczo
+  opisane kafelki bez poziomego przewijania. Testy Mobile przeszły 68/68,
+- TASK-0137 został ukończony 2026-08-01: kontrolowany input zaczyna od 10 000 i
+  dopuszcza dowolną liczbę całkowitą 1 000–500 000; engine oraz pojedynczy
+  cykliczny odczyt SQLite oceniają `min(limit, N - 1)` spinów. Zmiana limitu
+  unieważnia stary wynik i ignoruje spóźnioną odpowiedź. Testy Mobile przeszły
+  74/74, a shared engine 24/24,
+- TASK-0138 został ukończony 2026-08-01: `Next` działa wyłącznie od
+  jednoznacznego anchora, czyta dokładny kolejny rekord po `sequence_number`,
+  zawija ostatni rekord do pierwszego i uruchamia Target dla bieżącego limitu.
+  Anchor jest częścią atomowej historii `Undo`; jawnie załadowany duplikat nie
+  traci znanej pozycji, a błąd lub spóźniona odpowiedź nie zmienia planszy.
+  Pełna regresja Mobile przeszła 81/81 wraz z typecheckiem, lintem i formatem,
+- TASK-0139 został ukończony 2026-08-01: osobne karty matchingu i Targetu
+  zastąpiła jedna dostępna karta. Sukces pokazuje `Układ znaleziony i obliczony`
+  oraz numer; rozwijane szczegóły zawierają tylko koszt spinu, koszt i sumę
+  końcową. Duplikat jest ostrzeżeniem, brak layoutu i błędy mają czerwony stan z
+  opisem, a retry Targetu pozostał dostępny. Usunięto powtarzane wartości i
+  opisy bez zmiany algorytmu ani tabeli. Regresja Mobile przeszła 81/81 wraz z
+  typecheckiem, lintem i formatem,
+- TASK-0140 został ukończony 2026-08-01: pływający przycisk powrotu na górę
+  pojawia się po osiągnięciu zmierzonej kotwicy wyników Targetu, przewija ten
+  sam wirtualizowany `FlatList` do początku i nie zasłania końca tabeli dzięki
+  powiększonemu footerowi. Przycisk pozostaje w safe area i ma dostępny obszar
+  52 × 52. Regresja Mobile przeszła 82/82 wraz z typecheckiem i lintem,
+- TASK-0141 jest aktywny: Mobile przechodzi 82/82, shared engine 24/24,
+  typecheck, lint, format zmienionych plików i walidację snapshotu schema 3.
+  Podpisane APK `0.3.0 (7)` ma 42 267 190 bajtów i SHA-256
+  `80dfb99fa85c466689d69901f0aea57d3fdf03d425c46fd71bb0f883569e1332`.
+  Statyczny audyt potwierdził `arm64-v8a`, bundle JS, zgodny snapshot i brak
+  `INTERNET`; lokalne wydanie wraz z manifestem, checksumą i instrukcją jest
+  zachowane w `artifacts/v03-ready-for-pixel/`. Instalacja i manualny odbiór
+  czekają na podłączenie Pixela,
 - odbiór kończy się testem offline na Google Pixel 10 Pro XL,
 - nie obejmuje końcowych testów dużych rzeczywistych zbiorów.
 
@@ -192,10 +234,10 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 Kontynuować odbiór właściciela według
 `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` i dopisywać regresje do aktywnego
-TASK-0142. Po potwierdzeniu nawigacji, małego workflow, jednego wydania i preview
-cleanup można zamknąć produktową bramkę 0.2; następny zaplanowany pion to
-TASK-0135 z wersji 0.3. Niezależny tor danych rozpocznie TASK-0143 z M6.6 po
-spełnieniu jego warunków wejścia; nie zastępuje on odbioru 0.2.
+TASK-0142. Niezależny tor Mobile kończy odbiór TASK-0141 na branchu
+`ft/change-mobile-app`; nie wymaga formalnego zamknięcia odbioru Admina.
+Niezależny tor danych rozpocznie TASK-0143 z M6.6 po spełnieniu jego warunków
+wejścia; nie zastępuje on odbioru 0.2.
 
 ## Do not start yet
 

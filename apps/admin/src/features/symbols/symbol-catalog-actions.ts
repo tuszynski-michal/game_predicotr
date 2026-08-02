@@ -48,6 +48,8 @@ export async function saveSymbol(
             isWildcard: draft.isWildcard,
             mobileCode: draft.mobileCode,
             name: draft.name,
+            nameEn: draft.nameEn,
+            namePl: draft.namePl,
             status: draft.status,
           } satisfies SymbolCreate)
         : await api.updateSymbol(gameId, intent.symbolId, {
@@ -55,6 +57,8 @@ export async function saveSymbol(
             imagePath: draft.imagePath,
             isWildcard: draft.isWildcard,
             name: draft.name,
+            nameEn: draft.nameEn,
+            namePl: draft.namePl,
             status: draft.status,
           } satisfies SymbolUpdate);
 

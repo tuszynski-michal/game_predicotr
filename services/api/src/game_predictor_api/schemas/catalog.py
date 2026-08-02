@@ -64,10 +64,7 @@ class GameUpdate(ApiModel):
             raise ValueError("name cannot be null.")
         if "status" in self.model_fields_set and self.status is None:
             raise ValueError("status cannot be null.")
-        if (
-            "expected_layout_count" in self.model_fields_set
-            and self.expected_layout_count is None
-        ):
+        if "expected_layout_count" in self.model_fields_set and self.expected_layout_count is None:
             raise ValueError("expectedLayoutCount cannot be null.")
         return self
 
@@ -86,6 +83,8 @@ class SymbolCreate(ApiModel):
     mobile_code: int = Field(ge=1, le=32767)
     code: str = Field(min_length=1, max_length=64)
     name: str = Field(min_length=1, max_length=200)
+    name_pl: str | None = Field(default=None, min_length=1, max_length=200)
+    name_en: str | None = Field(default=None, min_length=1, max_length=200)
     image_path: str | None = Field(default=None, max_length=500)
     is_wildcard: bool = False
     display_order: int = Field(ge=0)
@@ -94,6 +93,8 @@ class SymbolCreate(ApiModel):
 
 class SymbolUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
+    name_pl: str | None = Field(default=None, min_length=1, max_length=200)
+    name_en: str | None = Field(default=None, min_length=1, max_length=200)
     image_path: str | None = Field(default=None, max_length=500)
     is_wildcard: bool | None = None
     display_order: int | None = Field(default=None, ge=0)
@@ -115,6 +116,8 @@ class SymbolResponse(ApiModel):
     mobile_code: int
     code: str
     name: str
+    name_pl: str | None
+    name_en: str | None
     image_path: str | None
     is_wildcard: bool
     display_order: int

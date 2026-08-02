@@ -53,7 +53,7 @@ const DIAGNOSTICS: SnapshotDiagnostics = {
   logicalContentSha256: 'a'.repeat(64),
   releaseVersion: 'm35-benchmark.1',
   rulesVersion: null,
-  schemaVersion: 2,
+  schemaVersion: 3,
   snapshotFileSha256: 'b'.repeat(64),
 };
 

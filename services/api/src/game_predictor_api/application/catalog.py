@@ -20,6 +20,7 @@ from game_predictor_api.domain.catalog import (
     validate_image_path,
     validate_mobile_code,
     validate_name,
+    validate_optional_name,
     validate_stable_code,
 )
 
@@ -51,6 +52,8 @@ class CatalogRepository(Protocol):
         mobile_code: int,
         code: str,
         name: str,
+        name_pl: str | None,
+        name_en: str | None,
         image_path: str | None,
         is_wildcard: bool,
         display_order: int,
@@ -93,9 +96,7 @@ class CatalogService:
             code=validate_stable_code(code, field_name="code"),
             name=validate_name(name),
             status=status,
-            expected_layout_count=validate_expected_layout_count(
-                expected_layout_count
-            ),
+            expected_layout_count=validate_expected_layout_count(expected_layout_count),
         )
 
     def update_game(
@@ -148,6 +149,8 @@ class CatalogService:
         is_wildcard: bool,
         display_order: int,
         status: SymbolStatus,
+        name_pl: str | None = None,
+        name_en: str | None = None,
     ) -> Symbol:
         self.get_game(game_id)
         return self._repository.add_symbol(
@@ -155,6 +158,8 @@ class CatalogService:
             mobile_code=validate_mobile_code(mobile_code),
             code=validate_stable_code(code, field_name="code"),
             name=validate_name(name),
+            name_pl=validate_optional_name(name_pl, field_name="namePl"),
+            name_en=validate_optional_name(name_en, field_name="nameEn"),
             image_path=validate_image_path(image_path),
             is_wildcard=is_wildcard,
             display_order=validate_display_order(display_order),
@@ -167,6 +172,10 @@ class CatalogService:
         symbol_id: UUID,
         *,
         name: str | None = None,
+        name_pl: str | None = None,
+        update_name_pl: bool = False,
+        name_en: str | None = None,
+        update_name_en: bool = False,
         image_path: str | None = None,
         update_image_path: bool = False,
         is_wildcard: bool | None = None,
@@ -181,13 +190,22 @@ class CatalogService:
         ):
             raise CatalogConflictError(
                 "SYMBOL_RULES_IDENTITY_IN_USE",
-                "Wildcard identity cannot change after the symbol is used "
-                "in a rules version.",
+                "Wildcard identity cannot change after the symbol is used in a rules version.",
                 details={"symbolId": str(symbol_id)},
             )
         updated = replace(
             symbol,
             name=symbol.name if name is None else validate_name(name),
+            name_pl=(
+                symbol.name_pl
+                if not update_name_pl
+                else validate_optional_name(name_pl, field_name="namePl")
+            ),
+            name_en=(
+                symbol.name_en
+                if not update_name_en
+                else validate_optional_name(name_en, field_name="nameEn")
+            ),
             image_path=(
                 symbol.image_path if not update_image_path else validate_image_path(image_path)
             ),

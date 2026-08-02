@@ -98,7 +98,7 @@ type CountRow = {
   layout_count: number;
 };
 
-const EXPECTED_SCHEMA_VERSION = 2;
+const EXPECTED_SCHEMA_VERSION = 3;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 export const snapshotManifest = manifestJson satisfies SnapshotManifest;

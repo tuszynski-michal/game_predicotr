@@ -1,0 +1,86 @@
+{
+  "annotationFingerprint": "7c948a1979aedca11b8526503bd522801b74c01697ff3166014ae0dc8dc898bb",
+  "benchmarkContract": "image-selection-scale-benchmark-v1",
+  "cleanup": {
+    "partialManifestPublished": false,
+    "workRootPolicy": "always-remove-on-exit"
+  },
+  "fixture": {
+    "elapsedSeconds": 0.327426,
+    "inputLogicalBytes": 7260960,
+    "stagingMode": "hardlink",
+    "uniquePhysicalFileIds": 1
+  },
+  "inputCount": 240,
+  "memory": {
+    "baselineRssBytes": 116752384,
+    "peakRssBytes": 135229440,
+    "peakRssDeltaBytes": 18477056,
+    "peakTracedPythonBytes": 16750105
+  },
+  "metrics": {
+    "boundedVerification": {
+      "maxAllowed": 36,
+      "passed": true,
+      "sparseRangeVerificationCount": 36,
+      "topK": 3
+    },
+    "comparisonWithFullPipeline": {
+      "estimatedCuratedInputCount": 12,
+      "estimatedInputReductionFactor": 20.0,
+      "fullPipelineInputCount": 240
+    },
+    "coverage": 1.0,
+    "groupingPrecision": 1.0,
+    "groupingRecall": 1.0,
+    "manualRate": 0.083333,
+    "outputStorage": {
+      "estimatedLogicalBytes": 363048,
+      "representativeCount": 12
+    },
+    "quality": {
+      "automaticCount": 11,
+      "automaticSelectionPrecision": 1.0,
+      "falseMergeCount": 0,
+      "falseSplitCount": 0,
+      "manualCount": 1,
+      "rangeErrorCount": 0,
+      "selectedOrderIndexSample": [
+        0,
+        20,
+        40,
+        60,
+        80,
+        100,
+        120,
+        140,
+        160,
+        180,
+        200
+      ],
+      "statusErrorCount": 0,
+      "unsafeAutomaticCount": 0
+    },
+    "runtime": {
+      "maxProcessingSeconds": 120.0,
+      "passed": true,
+      "processingSeconds": 6.110191,
+      "throughputFilesPerSecond": 39.2786
+    },
+    "storageBudget": {
+      "peakRssBudgetBytes": 805306368,
+      "peakRssPassed": true
+    },
+    "technicalGatePassed": true
+  },
+  "profile": "smoke",
+  "rangeVerificationMode": "deterministic-annotation-with-production-cheap-scan",
+  "schemaVersion": 1,
+  "selectorFingerprint": "dc968e65d94170ab5011ccc4d1474a01ef7f4f143bdf93f59700859f50b34982",
+  "selectorVersion": "fast-image-selector-v1",
+  "sourceIntegrity": {
+    "afterInventorySha256": "7504f934ae9e427bb8167e7e22a80477b601baf596ab16c4745b79ce30d6e67a",
+    "beforeInventorySha256": "7504f934ae9e427bb8167e7e22a80477b601baf596ab16c4745b79ce30d6e67a",
+    "sourceUnchanged": true
+  }
+}

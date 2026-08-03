@@ -8,7 +8,7 @@ last_updated: 2026-08-03
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156 complete; TASK-0157 next; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156 complete; TASK-0157 in progress; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -202,6 +202,12 @@ last_updated: 2026-08-03
   pokazuje pliki X/N, grupy, wybory, manual, błędy i top-k, a czas uploadu jest
   oddzielony od czasu aktywnych obliczeń. Diagnostyka jest checksumowana,
   bounded i nie zawiera obrazów ani ścieżek absolutnych,
+- techniczna część TASK-0157 przeszła 2026-08-03: profil 10k zakończył skan w
+  252,51 s przy +76,2 MiB peak RSS, a profil 30k w 792,43 s przy +194,0 MiB.
+  Oba mają zero fałszywych scaleń, pełne grouping/auto-selection precision,
+  bounded `grupy × top-k` sparse verification, niezmienione źródła i pełny
+  cleanup. Decyzja techniczna to `ready`; krótki odbiór właściciela pozostaje
+  ostatnią otwartą częścią TASK-0157,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego
@@ -292,17 +298,19 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
 - TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
   przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
-- TASK-0151–0156 są ukończone, a TASK-0157 pozostaje końcową bramką M7.0;
-  nie zastępuje odbioru 0.2 ani 0.3,
+- TASK-0151–0156 są ukończone, a techniczna część TASK-0157 jest zaliczona;
+  manualny odbiór właściciela pozostaje końcową bramką M7.0 i nie zastępuje
+  odbioru 0.2 ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Rozpocząć TASK-0157 jako końcową bramkę M7.0 wersji 0.4. Odbiór właściciela
-Admina według `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` pozostaje niezależnym
-torem TASK-0142. Kod Mobile 0.3 jest scalony do `main`, ale TASK-0141 nadal
-czeka na instalację i manualny odbiór na Google Pixel 10 Pro XL. Dopiero po
-TASK-0157 wersja 0.5 może rozpocząć M6.6 i duże dane.
+Przeprowadzić krótki odbiór właściciela TASK-0157 według
+`ai_docs/quality/IMAGE_SELECTION_ACCEPTANCE.md`; benchmarków 10k/30k nie trzeba
+powtarzać. Odbiór Admina według `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md`
+pozostaje niezależnym torem TASK-0142. Kod Mobile 0.3 jest scalony do `main`, ale
+TASK-0141 nadal czeka na instalację i manualny odbiór na Google Pixel 10 Pro XL.
+Po odbiorze TASK-0157 wersja 0.5 może rozpocząć M6.6 i duże dane.
 
 ## Do not start yet
 

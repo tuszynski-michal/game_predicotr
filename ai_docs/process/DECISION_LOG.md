@@ -3061,6 +3061,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** doprecyzowuje wykonanie D-121 i korzysta z globalnego modelu
   lease/fencing opisanego przez D-028–D-030.
 
+## D-127 — Selekcja 10k/30k przechodzi techniczną bramkę skali
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** `fast-image-selector-v1` otrzymuje techniczną decyzję `ready` po
+  profilach 10 000 i 30 000 na komputerze właściciela. Bramka wymaga nadal
+  krótkiego odbioru workspace'u, manualnego fallbacku, outputu i handoffu przez
+  właściciela; do tego czasu TASK-0157 i wersja 0.4 pozostają otwarte.
+- **Context:** profil 10k zakończył selekcję w 252,51 s przy +76,2 MiB peak RSS,
+  a 30k w 792,43 s przy +194,0 MiB. Oba uzyskały zero fałszywych scaleń,
+  grouping i auto-selection precision równe 1 oraz nie zmieniły źródłowego
+  inventory. Sparse verification wyniosło odpowiednio 375 i 1200, czyli
+  dokładnie `grupy × top-k`, a nie N.
+- **Reason:** pomiar udowadnia liniowy, bounded tani skan z dużym zapasem wobec
+  limitów 15/45 minut i redukcję wejść pełnego pipeline'u odpowiednio
+  10 000 → 122 oraz 30 000 → 389.
+- **Alternatives:** rozpoczęcie dużych danych bez pomiaru, przeniesienie bramki
+  10k/30k do 0.5 albo dodanie Redis/Celery. Odrzucono je, ponieważ lokalny
+  pojedynczy worker spełnia obecny budżet.
+- **Consequences:** nie ma przesłanki do zmiany kolejki ani architektury.
+  TASK-0076 pozostaje zablokowany przez odbiór właściciela oraz osobne bramki
+  `massImportAllowed` i rzeczywistych danych wersji 0.5. Benchmark range
+  verification używa niezależnych adnotacji bez prywatnego modelu OCR; raport
+  nie jest pomiarem jakości OCR ani klasyfikatora symboli.
+- **Supersedes:** doprecyzowuje bramkę D-123 bez zmiany zakresu 0.4/0.5.
+
 ## Szablon nowej decyzji
 
 ```text

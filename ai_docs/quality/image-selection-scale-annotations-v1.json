@@ -1,0 +1,47 @@
+{
+  "candidateCycle": [
+    "complete_sharp",
+    "angled_complete",
+    "blurred",
+    "glare",
+    "occluded",
+    "clipped"
+  ],
+  "contract": "image-selection-scale-annotations-v1",
+  "expectedAutomaticLabels": [
+    "complete_sharp",
+    "angled_complete"
+  ],
+  "finalPageBoardCount": 5,
+  "manualGroupPolicy": {
+    "divisor": 23,
+    "remainder": 11
+  },
+  "profiles": {
+    "10000": {
+      "groupSize": 80,
+      "inputCount": 10000,
+      "maxProcessingSeconds": 900
+    },
+    "30000": {
+      "groupSize": 75,
+      "inputCount": 30000,
+      "maxProcessingSeconds": 2700
+    },
+    "smoke": {
+      "groupSize": 20,
+      "inputCount": 240,
+      "maxProcessingSeconds": 120
+    }
+  },
+  "rangePolicy": {
+    "duplicateDivisor": 37,
+    "duplicateOffset": 10,
+    "duplicateRemainder": 20,
+    "jumpOffset": 10000,
+    "pageSize": 9
+  },
+  "schemaVersion": 1,
+  "seed": 157,
+  "source": "Independent deterministic annotations for M7.0 grouping, representative safety and scale measurements."
+}

@@ -14,6 +14,7 @@ from game_predictor_api.api.image_review_cohorts import (
     create_image_review_cohort_router,
 )
 from game_predictor_api.api.image_reviews import create_image_reviews_router
+from game_predictor_api.api.image_selections import create_image_selections_router
 from game_predictor_api.api.image_storage import create_image_storage_router
 from game_predictor_api.api.jobs import create_jobs_router
 from game_predictor_api.api.layout_import_reports import (
@@ -36,6 +37,7 @@ def create_api_router(
     rules_service_dependency: Callable[..., object],
     dataset_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
+    image_selection_service_dependency: Callable[..., object],
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
@@ -70,6 +72,12 @@ def create_api_router(
     router.include_router(create_rules_router(rules_service_dependency))
     router.include_router(create_datasets_router(dataset_service_dependency))
     router.include_router(create_jobs_router(job_service_dependency))
+    router.include_router(
+        create_image_selections_router(
+            image_selection_service_dependency,
+            image_folder_selection_service_dependency,
+        )
+    )
     router.include_router(
         create_image_imports_router(
             image_folder_selection_service_dependency,

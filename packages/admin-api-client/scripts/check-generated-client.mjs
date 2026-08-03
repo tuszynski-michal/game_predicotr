@@ -3,6 +3,7 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { generateAdminApiClient, generatedDirectory } from './generation.mjs';
+import { assertSameGeneratedEntries } from './generated-client-drift.mjs';
 
 const currentDirectory = generatedDirectory;
 const toolingDirectory = fileURLToPath(
@@ -41,33 +42,8 @@ try {
   const current = await filesByRelativePath(currentDirectory);
   const expected = await filesByRelativePath(temporaryDirectory);
 
-  assertSameEntries(current, expected);
+  assertSameGeneratedEntries(current, expected);
   console.log('Generated Admin API client is current.');
 } finally {
   await rm(temporaryDirectory, { recursive: true, force: true });
-}
-
-function assertSameEntries(current, expected) {
-  const currentKeys = [...current.keys()].sort();
-  const expectedKeys = [...expected.keys()].sort();
-
-  if (JSON.stringify(currentKeys) !== JSON.stringify(expectedKeys)) {
-    throw new Error(
-      'Generated Admin API file set is stale. Run: npm run openapi:generate',
-    );
-  }
-
-  for (const path of expectedKeys) {
-    if (current.get(path) !== expected.get(path)) {
-      const currentContent = current.get(path) ?? '';
-      const expectedContent = expected.get(path) ?? '';
-      const firstDifference = [...expectedContent].findIndex(
-        (character, index) => character !== currentContent[index],
-      );
-      throw new Error(
-        `Generated Admin API file is stale: ${path} at character ${firstDifference}. ` +
-          'Run: npm run openapi:generate',
-      );
-    }
-  }
 }

@@ -104,10 +104,15 @@ class JobService:
         game_id: UUID | None,
         input_payload: dict[str, object],
     ) -> Job:
-        if job_type is JobType.IMPORT:
+        if job_type in {JobType.IMPORT, JobType.IMAGE_SELECTION}:
+            code = (
+                "IMPORT_SOURCE_NOT_ATTESTED"
+                if job_type is JobType.IMPORT
+                else "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID"
+            )
             raise JobError(
-                "IMPORT_SOURCE_NOT_ATTESTED",
-                "Import jobs must be created through the validated source workflow.",
+                code,
+                "Source-bound jobs must be created through their validated workflow.",
             )
         return self._persist_job(
             job_type,

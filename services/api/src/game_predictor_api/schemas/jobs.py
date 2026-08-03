@@ -37,6 +37,14 @@ class ImageImportJobPayload(ApiModel):
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class ImageSelectionJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    source_selection_id: UUID
+    input_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selector_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    contract_version: Literal[1]
+
+
 class ValidateJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     dataset_version_id: UUID
@@ -108,6 +116,7 @@ JobCreateRequest = Annotated[
 JobPayloadResponse = (
     ImportJobPayload
     | ImageImportJobPayload
+    | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PayoutJobPayload
@@ -188,6 +197,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         if job.input_payload.get("import_kind") == "image_directory":
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.IMAGE_SELECTION:
+        return ImageSelectionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
         if job.input_payload.get("validation_kind") == "layout_import":
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)

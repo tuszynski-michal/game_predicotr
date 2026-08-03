@@ -322,7 +322,7 @@ rosnących numerów brakujących sekwencji.
 | Pole | Typ | Uwagi |
 |---|---|---|
 | id | UUID | |
-| job_type | enum | import/validate/payout/snapshot/android_build |
+| job_type | enum | import/image_selection/validate/payout/snapshot/android_build |
 | game_id | UUID nullable | |
 | status | enum | created/processing/waiting_for_review/completed/failed/cancelled |
 | input_payload | JSONB | wersjonowany kontrakt |
@@ -376,6 +376,71 @@ checkpoint ma `schema_version = 1`. Wygaśnięcie lease usuwa pola wykonawcze i
 przywraca ten sam rekord do `created`, zachowując checkpoint i liczniki.
 `attempt_count` rośnie przy kolejnym przejęciu. Token lease jest wyłącznie
 wewnętrzną ochroną zapisu i nie może być zwracany panelowi.
+
+### image_selection_runs, image_selection_groups i image_selection_candidates
+
+Migracja `0025_image_selection` wprowadza trzy lekkie projekcje. Wszystkie UUID
+są kluczami technicznymi, a kolejność domenowa pozostaje jawna.
+
+#### image_selection_runs
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| game_id | UUID | FK `games`, `RESTRICT` |
+| job_id | UUID | unikalny FK `jobs`, dokładnie jeden job `image_selection` |
+| source_selection_id | UUID | unikalna referencja do kontrolowanego stagingu; poświadczenie purpose dodaje TASK-0152 |
+| input_manifest_sha256 | varchar(64) | małe litery hex |
+| selector_fingerprint | varchar(64) | małe litery hex |
+| ordering_policy | varchar(100) | zawsze `natural_relative_path_v1` |
+| contract_version | smallint | zawsze `1` |
+| output_manifest_sha256 | varchar(64) nullable | oba pola outputu są `null` albo kompletne |
+| output_manifest_relative_path | varchar(1000) nullable | bezpieczna względna ścieżka POSIX |
+| created_at / updated_at | timestamptz | |
+
+Idempotency key runu to unikalne
+`(game_id, input_manifest_sha256, selector_fingerprint)`. Ten sam manifest
+przeliczony inną wersją selektora może utworzyć nowy run. Jeden staging może
+zostać przejęty tylko przez jeden run.
+
+#### image_selection_groups
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| run_id | UUID | FK run, `CASCADE` |
+| group_order | bigint | nieujemna deterministyczna kolejność, unikalna w runie |
+| range_start / range_end | bigint nullable | oba `null` albo dodatnie i `start <= end` |
+| fingerprint_sha256 | varchar(64) nullable | małe litery hex |
+| board_count_consensus | smallint nullable | 1–9 |
+| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `skipped_existing_range` |
+| created_at / updated_at | timestamptz | |
+
+Częściowy indeks unikalny blokuje dwa wybrane outputy tego samego
+`(run_id, range_start, range_end)`, ale pozwala zachować późniejsze pominięte
+wystąpienia w audycie.
+
+#### image_selection_candidates
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| id | UUID | PK |
+| run_id | UUID | FK run, `CASCADE` |
+| group_id | UUID nullable | złożony FK gwarantuje grupę z tego samego runu |
+| order_index | bigint | nieujemny i unikalny w runie |
+| source_relative_path | varchar(1000) | względna ścieżka POSIX, unikalna w runie |
+| checksum_sha256 | varchar(64) | małe litery hex |
+| width / height | integer | dodatnie |
+| quality_metrics | JSONB | obiekt z metrykami selektora |
+| range_confidence | float nullable | 0–1 |
+| reason_codes | JSONB | tablica stabilnych kodów diagnostycznych |
+| decision | varchar | `eligible`, `rejected`, `selected_automatic`, `selected_manual` |
+| created_at | timestamptz | |
+
+Wybrany kandydat musi należeć do grupy. Częściowy indeks unikalny pozwala na
+dokładnie jedną decyzję `selected_automatic` albo `selected_manual` w grupie;
+`selected_candidate_id` w API jest projekcją tej decyzji, a nie dodatkowym
+cyrkularnym kluczem obcym. Żadna tabela nie przechowuje JPEG jako BLOB.
 
 ### image_file_executions
 

@@ -44,8 +44,11 @@ def create_image_imports_router(
             upload_id=upload.upload_id,
             expected_file_count=upload.expected_file_count,
             uploaded_file_count=len(upload.uploaded_indexes),
+            uploaded_file_indexes=sorted(upload.uploaded_indexes),
             expected_total_bytes=upload.expected_total_bytes,
             uploaded_bytes=upload.uploaded_bytes,
+            purpose=upload.purpose,
+            game_id=upload.game_id,
         )
 
     @router.post(
@@ -65,8 +68,23 @@ def create_image_imports_router(
                 display_name=payload.display_name,
                 expected_file_count=payload.expected_file_count,
                 expected_total_bytes=payload.expected_total_bytes,
+                purpose=payload.purpose,
+                game_id=payload.game_id,
             )
         )
+
+    @router.get(
+        "/browser-selections/{upload_id}",
+        response_model=BrowserImageSelectionUploadResponse,
+        operation_id="getBrowserImageSelection",
+        summary="Restore progress for an unfinished browser folder upload",
+        responses=responses,
+    )
+    def get_browser_selection(
+        upload_id: UUID,
+        service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
+    ) -> BrowserImageSelectionUploadResponse:
+        return upload_response(service.get(upload_id))
 
     @router.put(
         "/browser-selections/{upload_id}/files/{file_index}",

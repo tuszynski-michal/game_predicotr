@@ -1,14 +1,14 @@
 ---
 title: Delivery roadmap
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Roadmap
 
 Każdy milestone kończy się działającym pionem funkcjonalnym. Mobile działa offline od pierwszego pionu. Nie rozpoczynamy masowego rozpoznawania zdjęć przed ustabilizowaniem modelu danych, ręcznego importu i procesu publikacji.
 
-## Podział wydań 0.1, 0.2, 0.3 i 0.4
+## Podział wydań 0.1, 0.2, 0.3, 0.4 i 0.5
 
 - **Wersja 0.1** zamyka kompletny demonstracyjny przepływ mobilny dla jednej
   gry i dokładnie 500 000 layoutów. Ponad 100 layoutów zatwierdzonych przez
@@ -23,10 +23,15 @@ Każdy milestone kończy się działającym pionem funkcjonalnym. Mobile działa
 - **Wersja 0.3** dostosowuje aplikację mobilną: upraszcza ekran, dodaje `Next`,
   wybierany zasięg Targetu, kompaktowy wynik i powrót na górę. Zakres opisuje
   [VERSION_0_3_EXECUTION_PLAN.md](VERSION_0_3_EXECUTION_PLAN.md).
-- **Wersja 0.4** obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe
-  wydanie, końcowe testy dużych zbiorów, pełny hardening i szerszą regresję.
-  Zakres opisuje
+- **Wersja 0.4** obejmuje wyłącznie M7.0 i TASK-0151–0157: niedestrukcyjną
+  selekcję jednego reprezentatywnego zdjęcia na zakres z katalogów
+  10 000–30 000 duplikatów, manualny fallback, manifest i handoff. Benchmark
+  10k/30k mierzy sam selektor, a nie pełny import layoutów. Zakres opisuje
   [VERSION_0_4_EXECUTION_PLAN.md](VERSION_0_4_EXECUTION_PLAN.md).
+- **Wersja 0.5** rozpoczyna pracę na większych rzeczywistych datasetach:
+  realizuje M6.6, pełny import TASK-0076, kolejne gry, wielogrowe wydanie,
+  końcowe testy dużych zbiorów oraz hardening TASK-0080–0089. Zakres opisuje
+  [VERSION_0_5_EXECUTION_PLAN.md](VERSION_0_5_EXECUTION_PLAN.md).
 - Ukończone zabezpieczenie lokalnego Admina i zdalnego Reviewera pozostaje
   częścią 0.1. Reset danych 0.2 nie cofa tych zabezpieczeń ani nie usuwa
   artefaktów wydania 0.1.
@@ -285,32 +290,39 @@ Automatyczny proces nie może przeliczyć ani zmienić `accepted`, `corrected` l
 `rejected`. Milestone przechodzi dopiero po dwóch iteracjach potwierdzających
 identyczne checksumy wszystkich decyzji człowieka przed i po operacjach modelu.
 
-M6.6 należy do toru przygotowania danych 0.4 i musi zakończyć się przed pełnym
-automatycznym importem M7.
+M6.6 należy do toru przygotowania danych 0.5. Rozpoczyna się po zaakceptowaniu
+selektora 0.4 i musi zakończyć się przed pełnym automatycznym importem M7.
 
 ## M7 — Large-scale resumable image import
 
 Plan wykonania:
 [MILESTONE_07_EXECUTION_PLAN.md](MILESTONE_07_EXECUTION_PLAN.md)
 
+Plan preselektora poprzedzającego pełny pipeline:
+[MILESTONE_07_0_EXECUTION_PLAN.md](MILESTONE_07_0_EXECUTION_PLAN.md)
+
 ### Status wydania
 
 M7.1–M7.4 są ukończone w zakresie fundamentów i kontrolowanego review.
 TASK-0076 pozostaje zablokowany bramką `massImportAllowed = false` i został
-zaplanowany dla wersji 0.4; nie blokuje wersji 0.1, małego workflow 0.2 ani
-dostosowania mobilnego 0.3.
+zaplanowany dla wersji 0.5; nie blokuje wersji 0.1, małego workflow 0.2,
+dostosowania mobilnego 0.3 ani samodzielnego selektora 0.4.
 
 M7 jest realizowany przez:
 
-1. **M7.1** — kontrakt i orkiestrację pipeline’u,
-2. **M7.2** — integrację etapów i izolację błędów,
-3. **M7.3** — operacje, statystyki i storage,
-4. **M7.4** — testy obciążeniowe i jakość operacyjną,
-5. **M7.5** — publikację dużej wersji danych.
+1. **M7.0** — preselektor reprezentatywnych zdjęć przed pełnym pipeline'em,
+2. **M7.1** — kontrakt i orkiestrację pipeline’u,
+3. **M7.2** — integrację etapów i izolację błędów,
+4. **M7.3** — operacje, statystyki i storage,
+5. **M7.4** — testy obciążeniowe i jakość operacyjną,
+6. **M7.5** — publikację dużej wersji danych.
 
 ### Zakres
 
-- pełny wersjonowany pipeline,
+- w wersji 0.4: czwarty workspace `Selekcja zdjęć` i TASK-0151–0157,
+- szybkie grupowanie 10 000–30 000 kolejnych ujęć i wybór jednego JPEG-a na
+  unikalny zakres bez modyfikacji folderu źródłowego,
+- w wersji 0.5: pełny wersjonowany pipeline,
 - batch processing,
 - wznowienia i anulowanie,
 - statystyki,
@@ -326,8 +338,8 @@ Plan wykonania:
 ### Status wydania
 
 M8.1 oraz M8.7 są ukończone i zachowane w 0.1. M8.2–M8.6, czyli TASK-0080–0089,
-zostały świadomie przeniesione do wersji 0.4. Odbiór TASK-0119 na Pixelu jest
-bramką 0.1, ale nie zastępuje pełnej bramki G8 planowanej dla 0.4.
+zostały świadomie przeniesione do wersji 0.5. Odbiór TASK-0119 na Pixelu jest
+bramką 0.1, ale nie zastępuje pełnej bramki G8 planowanej dla 0.5.
 
 M8 jest realizowany przez:
 

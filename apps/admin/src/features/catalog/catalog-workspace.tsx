@@ -1,7 +1,9 @@
 'use client';
 
 import type { GameResponse } from '@game-predictor/admin-api-client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
 import {
   DEFAULT_ADMIN_NAVIGATION,
@@ -14,6 +16,7 @@ import {
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
+import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
 import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
@@ -48,6 +51,12 @@ const WORKSPACE_OPTIONS: readonly {
     description: 'Postęp oraz błędy procesów w tle.',
     index: '03',
   },
+  {
+    id: 'image-selection',
+    label: 'Selekcja zdjęć',
+    description: 'Szybki wybór reprezentatywnych zdjęć przed importem.',
+    index: '04',
+  },
 ];
 
 const GAME_SECTION_OPTIONS: readonly {
@@ -78,6 +87,10 @@ const GAME_SECTION_OPTIONS: readonly {
 ];
 
 export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
+  const api = useMemo(
+    () => createConfiguredAdminApiClient(apiBaseUrl),
+    [apiBaseUrl],
+  );
   const [navigation, setNavigation] = useState<AdminNavigationState>(
     DEFAULT_ADMIN_NAVIGATION,
   );
@@ -131,6 +144,18 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
     },
     [commitNavigation],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void api.listGames().then((result) => {
+      if (!cancelled && result.error === undefined) {
+        handleGamesLoaded(result.data ?? []);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, handleGamesLoaded]);
 
   const activeGame =
     games.find(
@@ -325,6 +350,32 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
         {navigation.workspace === 'jobs' ? (
           <JobMonitor apiBaseUrl={apiBaseUrl} />
+        ) : null}
+        {navigation.workspace === 'image-selection' ? (
+          activeGame === null ? (
+            <section className="catalogEmptyState">
+              <p className="eyebrow">Brak aktywnego kontekstu</p>
+              <h2>Najpierw wybierz grę</h2>
+              <p>
+                Wróć do Zarządzania grami, wybierz szkic lub aktywną grę, a
+                następnie otwórz ponownie Selekcję zdjęć.
+              </p>
+              <button
+                className="primaryButton"
+                onClick={() => selectWorkspace('games')}
+                type="button"
+              >
+                Przejdź do gier
+              </button>
+            </section>
+          ) : (
+            <ImageSelectionWorkspace
+              apiBaseUrl={apiBaseUrl}
+              gameId={activeGame.id}
+              gameName={activeGame.name}
+              key={activeGame.id}
+            />
+          )
         ) : null}
       </div>
     </div>

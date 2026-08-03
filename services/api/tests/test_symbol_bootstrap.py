@@ -25,6 +25,8 @@ from game_predictor_api.domain.symbol_bootstrap import (
     SymbolImageCandidate,
 )
 from game_predictor_api.main import create_app
+from game_predictor_api.storage.models import SymbolBootstrapRunModel
+from sqlalchemy.dialects import postgresql
 
 
 class MemoryBootstrapRepository:
@@ -165,6 +167,14 @@ def _observation(code: str, number: int, confidence: float = 0.9) -> SymbolBoots
         predicted_symbol_code=code,
         confidence=confidence,
     )
+
+
+def test_optional_bootstrap_resolution_binds_none_as_sql_null() -> None:
+    resolution_type = SymbolBootstrapRunModel.__table__.c.resolution.type
+    processor = resolution_type.bind_processor(postgresql.dialect())
+
+    assert processor is not None
+    assert processor(None) is None
 
 
 def test_matching_cluster_count_applies_once_and_preserves_actual_crops() -> None:

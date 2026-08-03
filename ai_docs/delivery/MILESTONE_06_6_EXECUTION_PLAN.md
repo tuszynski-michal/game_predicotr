@@ -1,7 +1,7 @@
 ---
 title: Milestone 06.6 execution plan
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # M6.6 — Iterative supervised model improvement
@@ -12,9 +12,9 @@ Zamknąć kontrolowaną pętlę: ręczna weryfikacja → skumulowana kohorta →
 kandydata → bramka jakości → jawna aktywacja → lepsze sugestie dla nowych i
 wyłącznie oczekujących plansz.
 
-Milestone należy do toru przygotowania danych wersji 0.4. Może być realizowany
-po odbiorze 0.2 niezależnie od zmian mobilnych 0.3, ale musi zostać ukończony
-przed odblokowaniem pełnego automatycznego importu i `massImportAllowed`.
+Milestone należy do toru przygotowania danych wersji 0.5. Rozpoczyna się po
+zaakceptowaniu selektora 0.4 i musi zostać ukończony przed odblokowaniem pełnego
+automatycznego importu i `massImportAllowed`.
 
 ## Twarda granica
 

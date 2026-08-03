@@ -62,6 +62,7 @@ test('presents every lifecycle value as explicit text', () => {
   assert.equal(jobStatusLabel('failed'), 'Błąd');
   assert.equal(jobStatusLabel('cancelled'), 'Anulowane');
   assert.equal(jobTypeLabel('android_build'), 'Build APK');
+  assert.equal(jobTypeLabel('image_selection'), 'Selekcja zdjęć');
   assert.equal(jobStageLabel('writing_layouts'), 'writing layouts');
   assert.equal(jobStageLabel(null), 'Etap nie został jeszcze rozpoczęty');
 });

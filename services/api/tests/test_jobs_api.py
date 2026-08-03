@@ -236,7 +236,7 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
             limit=20,
         )
     )
-    assert {job.job_type for job in jobs} == set(JobType)
+    assert {job.job_type for job in jobs} == set(JobType) - {JobType.IMAGE_SELECTION}
     assert all(job.status is JobStatus.CREATED for job in jobs)
 
 

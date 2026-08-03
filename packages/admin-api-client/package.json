@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "generate": "node scripts/generate-client.mjs",
     "check:generated": "node scripts/check-generated-client.mjs",
-    "lint": "node --check scripts/check-generated-client.mjs && node --check scripts/generate-client.mjs && node --check scripts/generation.mjs",
+    "lint": "node --check scripts/check-generated-client.mjs && node --check scripts/generate-client.mjs && node --check scripts/generated-client-drift.mjs && node --check scripts/generation.mjs",
     "test": "npm run build && tsx --test test/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },

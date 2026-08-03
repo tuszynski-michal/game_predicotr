@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Mapa śledzenia wymagań
@@ -57,14 +57,16 @@ last_updated: 2026-08-01
 | Kontrolowana publikacja ręcznie zweryfikowanego zakresu | `requirements/IMAGE_INGESTION.md`, D-086 | M6.5, M7 |
 | Ograniczony zdalny link i kod review | `requirements/ADMIN_APP.md`, D-087 | M8.7 |
 | Masowy wznawialny import | `requirements/IMAGE_INGESTION.md` | M7 |
+| Selekcja jednego reprezentatywnego zdjęcia na zakres 0.4 | `requirements/IMAGE_SELECTION.md`, `architecture/IMAGE_SELECTION.md`, D-121 | M7.0, TASK-0151–0157 |
+| Niedestrukcyjny output i handoff do Importu layoutów | `requirements/IMAGE_SELECTION.md`, D-121 | TASK-0154–0155 |
 | Skala 500 000 layoutów na grę | `project/PROJECT_BRIEF.md`, `quality/TEST_STRATEGY.md` | M3, M7 |
 | Analiza aplikacji referencyjnej | `reverse_engineering/REFERENCE_APP_ANALYSIS.md`, Q-020 | opcjonalne |
 | Reprezentatywne wydanie 0.1 z 500 000 layoutów | `delivery/VERSION_0_1_RELEASE_PLAN.md` | TASK-0118–0119 |
 | Czysty baseline PostgreSQL 0.2 | `delivery/VERSION_0_2_EXECUTION_PLAN.md` | TASK-0120 |
 | Nawigacja i mały workflow Admina 0.2 | `requirements/ADMIN_APP_V0_2.md` | TASK-0121–0134 |
 | Folderowy import i katalog symboli 0.2 | `requirements/ADMIN_APP_V0_2.md`, `requirements/IMAGE_INGESTION.md` | TASK-0123–0126 |
-| Pełne dane i nowe gry 0.4 | `delivery/VERSION_0_4_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, nowe zadania 0.4 |
-| Hardening, backup i recovery 0.4 | `delivery/VERSION_0_4_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
+| Pełne dane i nowe gry 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, nowe zadania 0.5 |
+| Hardening, backup i recovery 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
 
 ## Plany wykonawcze
 
@@ -77,11 +79,13 @@ last_updated: 2026-08-01
 - M6.5: `delivery/MILESTONE_06_5_EXECUTION_PLAN.md`,
 - M6.6: `delivery/MILESTONE_06_6_EXECUTION_PLAN.md`,
 - M7: `delivery/MILESTONE_07_EXECUTION_PLAN.md`,
+- M7.0: `delivery/MILESTONE_07_0_EXECUTION_PLAN.md`,
 - M8: `delivery/MILESTONE_08_EXECUTION_PLAN.md`,
 - wydanie 0.1: `delivery/VERSION_0_1_RELEASE_PLAN.md`,
 - wersja 0.2: `delivery/VERSION_0_2_EXECUTION_PLAN.md`,
 - wersja 0.3: `delivery/VERSION_0_3_EXECUTION_PLAN.md`,
-- wersja 0.4: `delivery/VERSION_0_4_EXECUTION_PLAN.md`.
+- wersja 0.4: `delivery/VERSION_0_4_EXECUTION_PLAN.md`,
+- wersja 0.5: `delivery/VERSION_0_5_EXECUTION_PLAN.md`.
 
 Plany wykonawcze mapują wymagania na kolejność podetapów, zadania i bramki, ale
 nie zastępują dokumentów źródła prawdy wskazanych w tabeli.

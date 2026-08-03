@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -34,6 +34,12 @@ przez Git.
 ## Ważne założenie
 
 Import nie jest pojedynczym endpointem HTTP. Jest długotrwałym, wznawialnym pipeline'em uruchamianym przez osobny lokalny proces Python. Worker nie korzysta z chmury i nie pobiera modeli podczas przetwarzania.
+
+Przed dużym importem M7.0 może wykonać osobny preselektor opisany w
+`requirements/IMAGE_SELECTION.md`. Preselektor redukuje wiele kolejnych ujęć
+tego samego ekranu do jednego checksumowanego reprezentanta i nie uruchamia
+cropów komórek ani klasyfikacji symboli. Nie zmienia kontraktu pełnego pipeline'u;
+jego output jest poświadczonym źródłem wejściowym dla etapu discovery.
 
 ## Zaakceptowany stos prototypu
 

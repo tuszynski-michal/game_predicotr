@@ -1,7 +1,7 @@
 ---
 title: AI documentation index
 status: active
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Dokumentacja AI Driven Development
@@ -41,6 +41,7 @@ implementacyjnym.
 - [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
 - [Algorithms](requirements/ALGORITHMS.md)
 - [Image ingestion](requirements/IMAGE_INGESTION.md)
+- [Fast representative image selection](requirements/IMAGE_SELECTION.md)
 - [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
 - [Iterative supervised model improvement](requirements/SUPERVISED_MODEL_IMPROVEMENT.md)
 
@@ -51,6 +52,7 @@ implementacyjnym.
 - [Data model](architecture/DATA_MODEL.md)
 - [API contract](architecture/API_CONTRACT.md)
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
+- [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
 
 ### Dostarczanie
 
@@ -65,11 +67,13 @@ implementacyjnym.
 - [Milestone 06.5 execution plan](delivery/MILESTONE_06_5_EXECUTION_PLAN.md)
 - [Milestone 06.6 execution plan](delivery/MILESTONE_06_6_EXECUTION_PLAN.md)
 - [Milestone 07 execution plan](delivery/MILESTONE_07_EXECUTION_PLAN.md)
+- [Milestone 07.0 image selection execution plan](delivery/MILESTONE_07_0_EXECUTION_PLAN.md)
 - [Milestone 08 execution plan](delivery/MILESTONE_08_EXECUTION_PLAN.md)
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
 - [Version 0.2 execution plan](delivery/VERSION_0_2_EXECUTION_PLAN.md)
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
 - [Version 0.4 execution plan](delivery/VERSION_0_4_EXECUTION_PLAN.md)
+- [Version 0.5 execution plan](delivery/VERSION_0_5_EXECUTION_PLAN.md)
 
 ### Proces i jakość
 

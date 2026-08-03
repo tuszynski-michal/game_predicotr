@@ -1,7 +1,7 @@
 ---
 title: Version 0.3 execution plan
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Plan zakresu wersji 0.3
@@ -11,7 +11,8 @@ last_updated: 2026-08-01
 Uprościć i zagęścić interfejs aplikacji mobilnej oraz skrócić najczęstszy
 przepływ: wybór gry → wprowadzenie lub przejście do layoutu → obliczenie Targetu
 → powrót do góry. Wersja 0.3 nie jest bramką pełnego rzeczywistego datasetu ani
-końcowych testów dużych zbiorów. Ten zakres przechodzi do wersji 0.4.
+końcowych testów dużych zbiorów. Ten zakres przechodzi do wersji 0.5; wersja
+0.4 wcześniej dostarcza sam moduł selekcji reprezentatywnych zdjęć.
 
 ## Warunki rozpoczęcia
 
@@ -155,4 +156,4 @@ zmiany UI mogą zostać zebrane do jednego końcowego odbioru TASK-0141.
   urządzeń.
 
 Powyższy zakres należy do
-[wersji 0.4](VERSION_0_4_EXECUTION_PLAN.md).
+[wersji 0.5](VERSION_0_5_EXECUTION_PLAN.md).

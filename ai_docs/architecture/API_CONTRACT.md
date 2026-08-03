@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Kontrakty API i danych mobilnych
@@ -58,6 +58,7 @@ Format błędu:
 /games/{gameId}/dataset-versions
 /dataset-versions/{datasetVersionId}/layouts
 /jobs
+/image-selections
 /image-imports
 /import-jobs
 /layout-import-validations
@@ -557,6 +558,82 @@ DELETE jest idempotentną archiwizacją wersji opublikowanej i zwraca `204`.
 Zachowuje `publishedAt` i wszystkie layouty. Wersji stagingowej nie archiwizuje
 ten endpoint; odrzucanie importu pozostaje osobną operacją workflow importu.
 
+## Selekcja reprezentatywnych zdjęć M7.0
+
+Nowy kontrakt jest game-scoped i korzysta z browser selection poświadczonego
+purpose `photo_selection`. Nie przyjmuje ścieżki absolutnej użytkownika.
+
+```text
+POST /api/v1/admin/image-selections
+GET  /api/v1/admin/image-selections/{runId}
+GET  /api/v1/admin/image-selections/{runId}/groups
+```
+
+TASK-0151 zamraża pierwsze trzy endpointy. POST przyjmuje:
+
+```json
+{
+  "gameId": "uuid",
+  "sourceSelectionId": "uuid",
+  "inputManifestSha256": "64 lowercase hex",
+  "selectorFingerprint": "64 lowercase hex",
+  "contractVersion": 1
+}
+```
+
+Odpowiedź zawiera `run` wraz z typowanym jobem `image_selection` oraz
+`created`. Idempotency key to
+`(gameId, inputManifestSha256, selectorFingerprint)`, dlatego ponowienie zwraca
+ten sam run z `created = false`. `orderingPolicy` jest ustawiane wyłącznie przez
+serwer na `natural_relative_path_v1`. W TASK-0151 `sourceSelectionId` jest tylko
+trwałą referencją; TASK-0152 wiąże ją z finalizowanym browser stagingiem i
+egzekwuje purpose `photo_selection`, zanim worker uzyska dostęp do plików.
+
+GET runu zwraca lifecycle przez zagnieżdżony `job`. GET grup przyjmuje opcjonalny
+`status`, kursor `afterGroupOrder` (domyślnie `-1`) i `limit` 1–100 (domyślnie
+25). Odpowiedź ma `items` oraz opcjonalny `nextAfterGroupOrder`. Endpoint nie
+zwraca pełnej listy kandydatów.
+
+Stabilne błędy dostarczone w TASK-0151:
+
+```text
+GAME_NOT_FOUND
+IMAGE_SELECTION_NOT_FOUND
+IMAGE_SELECTION_CONFIGURATION_INVALID
+IMAGE_SELECTION_RANGE_INVALID
+IMAGE_SELECTION_PATH_UNSAFE
+IMAGE_SELECTION_PERSISTENCE_CONFLICT
+```
+
+Kolejne zadania rozszerzają kontrakt o:
+
+```text
+PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
+POST /api/v1/admin/image-selections/{runId}/handoff
+```
+
+Manual file przyjmuje jeden JPEG, bezpieczną nazwę względną oraz opcjonalny
+dodatni zakres dla grupy unknown. Approve wymaga UUID idempotencji. Handoff
+działa wyłącznie dla kompletnego checksumowanego manifestu i zwraca
+poświadczone źródło do istniejącego `POST /image-imports`; nie uruchamia sam
+ciężkiego pipeline'u.
+
+Stabilne rodziny błędów:
+
+```text
+IMAGE_SELECTION_SOURCE_PURPOSE_INVALID
+IMAGE_SELECTION_GROUP_NOT_FOUND
+IMAGE_SELECTION_RANGE_CONFLICT
+IMAGE_SELECTION_MANUAL_FILE_REQUIRED
+IMAGE_SELECTION_NOT_READY
+IMAGE_SELECTION_MANIFEST_MISMATCH
+```
+
+Schematy są rozwijane w TASK-0151–0155 i generowane z backendu do klienta.
+Dokument architektury `IMAGE_SELECTION.md` definiuje lifecycle oraz
+idempotencję.
+
 ## Kontrolowany import folderu zdjęć
 
 ### POST `/api/v1/admin/image-imports/browser-selections`
@@ -624,6 +701,8 @@ jest dyskryminowany przez `jobType`; każdy `inputPayload` ma
 
 Typowane payloady:
 
+- `image_selection`: `sourceSelectionId`, `inputManifestSha256`,
+  `selectorFingerprint`, `contractVersion = 1`,
 - `import` request: `sourcePath`, `contractVersion = 1`,
 - `validate` datasetu: `datasetVersionId`,
 - `validate` layout importu: `validationKind = layout_import`, `importJobId`,
@@ -631,6 +710,10 @@ Typowane payloady:
 - `payout`: `datasetVersionId`, `rulesVersionId`, `algorithmVersion`,
 - `snapshot`: `mobileReleaseId`,
 - `android_build`: `mobileReleaseId`.
+
+Payload `image_selection` jest widoczny w odpowiedziach wspólnego monitora
+jobów, ale nie może być utworzony przez ogólne `POST /jobs`; enqueue należy do
+dedykowanego `POST /image-selections`, a poświadczenie stagingu do TASK-0152.
 
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu
@@ -1432,7 +1515,7 @@ gry i mieć zgodne wymiary.
 
 Admin 0.2 wysyła dokładnie jedną grę testową i natychmiast po poprawnym POST
 wywołuje endpoint builda. Zakres 1–15 w API pozostaje bez zmian jako kontrakt
-backendowy dla późniejszego wydania wielogrowego 0.4. Jeżeli drugi request nie
+backendowy dla późniejszego wydania wielogrowego 0.5. Jeżeli drugi request nie
 powiedzie się, utworzony draft pozostaje dostępny do jawnego wznowienia.
 
 ### GET `/api/v1/admin/mobile-releases`

@@ -347,7 +347,7 @@ export function OperationalReviewWorkspace({
 
       {gamesState === 'loading' ? (
         <OperationalReviewState
-          text="Pobieram aktywne gry z lokalnego panelu."
+          text="Pobieram grę przypisaną do tej sesji."
           title="Wczytywanie gier"
         />
       ) : gamesState === 'error' ? (
@@ -359,8 +359,8 @@ export function OperationalReviewWorkspace({
         />
       ) : games.length === 0 ? (
         <OperationalReviewState
-          text="Dodaj aktywną grę, zanim rozpoczniesz weryfikację plansz."
-          title="Brak aktywnych gier"
+          text="Sesja nie wskazuje dostępnej gry. Sprawdź, czy gra nie została zarchiwizowana, albo utwórz nowy link."
+          title="Brak dostępnej gry"
         />
       ) : (
         <>

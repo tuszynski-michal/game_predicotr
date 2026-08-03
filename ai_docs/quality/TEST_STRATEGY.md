@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Strategia testów
@@ -356,7 +356,7 @@ Scenariusz działa w trybie samolotowym i po ponownym uruchomieniu aplikacji. E2
 
 Wersja 0.3 przechodzi regresję kompaktowego ekranu, `Next`, limitu Targetu,
 statusów i powrotu na górę na Google Pixel 10 Pro XL. Końcowe benchmarki pełnych
-rzeczywistych zbiorów, nowe gry i rozszerzona macierz urządzeń należą do 0.4.
+rzeczywistych zbiorów, nowe gry i rozszerzona macierz urządzeń należą do 0.5.
 
 Finalne APK M1 przechodzi również statyczną kontrolę manifestu potwierdzającą
 brak uprawnienia `INTERNET`.
@@ -570,6 +570,24 @@ brak uprawnienia `INTERNET`.
 - lokalne wagi bez pobierania w runtime,
 - wznowienie i idempotencja.
 
+## Image selection tests M7.0
+
+- golden niezależnie opisuje kolejność plików, granice grup, zakresy oraz
+  dopuszczalne automatyczne reprezentanty,
+- przypadki obejmują kąty, blur, refleks, zasłonięcie, clipping, strony 1–9,
+  końcową stronę krótszą, późniejsze duplikaty i skoki numeracji,
+- fałszywe scalenie dwóch zakresów ma tolerancję zero; wątpliwość ma przejść do
+  `manual_required`,
+- test portów udowadnia, że selektor nie wywołuje croppera 3×5 ani symbol ONNX,
+- test klawiatury wymaga, aby strzałki tylko nawigowały, a Enter zatwierdzał
+  dokładnie jedną idempotentną decyzję,
+- profile 10 000 i 30 000 mierzą osobno upload oraz obliczenia, liczbę OCR,
+  throughput, peak RSS, storage i cleanup po timeout/crash,
+- provisionalna bramka na komputerze właściciela wynosi odpowiednio 15 i 45
+  minut; każda komenda benchmarku ma własny twardy timeout,
+- źródłowy folder jest hashowany/inwentaryzowany przed i po teście, aby
+  potwierdzić brak move/delete/modyfikacji.
+
 ## Test data
 
 - stałe seedy,
@@ -577,13 +595,13 @@ brak uprawnienia `INTERNET`.
 - mały fixture do unit tests,
 - M1: 3 × 1000 layoutów,
 - benchmark: co najmniej 500 000 layoutów w jednej grze; końcowa bramka na
-  dużym rzeczywistym zbiorze należy do wersji 0.4,
+  dużym rzeczywistym zbiorze należy do wersji 0.5,
 - test rozmiaru dla estymacji 12–15 gier,
 - golden przebiegi payout/forecast wyliczone niezależnie od kodu mobile.
 
 ## Robocze budżety wydajności
 
-Do zatwierdzenia w wersji 0.4 po benchmarku na słabszym z urządzeń testowych:
+Do zatwierdzenia w wersji 0.5 po benchmarku na słabszym z urządzeń testowych:
 
 - exact match 500 000 layoutów: p95 poniżej 200 ms,
 - typowy prefix match: p95 poniżej 300 ms,

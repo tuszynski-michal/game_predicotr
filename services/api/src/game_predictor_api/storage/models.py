@@ -29,6 +29,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
+from game_predictor_api.domain.image_selections import (
+    IMAGE_SELECTION_ORDERING_POLICY,
+    ImageSelectionCandidateDecision,
+    ImageSelectionGroupStatus,
+)
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.domain.reviews import (
@@ -227,7 +232,7 @@ class SymbolBootstrapRunModel(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     candidates: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
     resolution: Mapped[list[dict[str, object]] | None] = mapped_column(
-        JSONB,
+        JSONB(none_as_null=True),
         nullable=True,
     )
     created_by: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -556,6 +561,282 @@ class JobModel(Base):
     cancel_requested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+
+
+class ImageSelectionRunModel(Base):
+    __tablename__ = "image_selection_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "input_manifest_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_selection_runs_input_manifest_sha256",
+        ),
+        CheckConstraint(
+            "selector_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_image_selection_runs_selector_fingerprint",
+        ),
+        CheckConstraint(
+            "contract_version = 1",
+            name="ck_image_selection_runs_contract_version",
+        ),
+        CheckConstraint(
+            f"ordering_policy = '{IMAGE_SELECTION_ORDERING_POLICY}'",
+            name="ck_image_selection_runs_ordering_policy",
+        ),
+        CheckConstraint(
+            "(output_manifest_sha256 IS NULL AND "
+            "output_manifest_relative_path IS NULL) OR "
+            "(output_manifest_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "output_manifest_relative_path IS NOT NULL)",
+            name="ck_image_selection_runs_output_manifest_state",
+        ),
+        CheckConstraint(
+            "output_manifest_relative_path IS NULL OR "
+            "(output_manifest_relative_path !~ '(^|/)\\.\\.(/|$)' AND "
+            "output_manifest_relative_path !~ '^[A-Za-z]:' AND "
+            "output_manifest_relative_path NOT LIKE '/%' AND "
+            "output_manifest_relative_path NOT LIKE '%\\\\%')",
+            name="ck_image_selection_runs_output_path_safe",
+        ),
+        UniqueConstraint("job_id", name="uq_image_selection_runs_job_id"),
+        UniqueConstraint(
+            "source_selection_id",
+            name="uq_image_selection_runs_source_selection_id",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "input_manifest_sha256",
+            "selector_fingerprint",
+            name="uq_image_selection_runs_identity",
+        ),
+        Index(
+            "ix_image_selection_runs_game_created",
+            "game_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_selection_id: Mapped[UUID] = mapped_column(nullable=False)
+    input_manifest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    selector_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    ordering_policy: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default=IMAGE_SELECTION_ORDERING_POLICY,
+    )
+    contract_version: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+    )
+    output_manifest_sha256: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+    output_manifest_relative_path: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSelectionGroupModel(Base):
+    __tablename__ = "image_selection_groups"
+    __table_args__ = (
+        CheckConstraint(
+            "group_order >= 0",
+            name="ck_image_selection_groups_order_nonnegative",
+        ),
+        CheckConstraint(
+            "(range_start IS NULL AND range_end IS NULL) OR "
+            "(range_start >= 1 AND range_end >= range_start)",
+            name="ck_image_selection_groups_range",
+        ),
+        CheckConstraint(
+            "fingerprint_sha256 IS NULL OR fingerprint_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_selection_groups_fingerprint_sha256",
+        ),
+        CheckConstraint(
+            "board_count_consensus IS NULL OR board_count_consensus BETWEEN 1 AND 9",
+            name="ck_image_selection_groups_board_count",
+        ),
+        CheckConstraint(
+            "status IN ('collecting', 'auto_selected', 'manual_required', "
+            "'manually_selected', 'skipped_existing_range')",
+            name="ck_image_selection_groups_status",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "group_order",
+            name="uq_image_selection_groups_run_order",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "id",
+            name="uq_image_selection_groups_run_id_id",
+        ),
+        Index(
+            "uq_image_selection_groups_selected_range",
+            "run_id",
+            "range_start",
+            "range_end",
+            unique=True,
+            postgresql_where=text(
+                "status IN ('auto_selected', 'manually_selected') "
+                "AND range_start IS NOT NULL"
+            ),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    group_order: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    range_start: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    range_end: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    fingerprint_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    board_count_consensus: Mapped[int | None] = mapped_column(
+        SmallInteger,
+        nullable=True,
+    )
+    status: Mapped[ImageSelectionGroupStatus] = mapped_column(
+        String(40),
+        nullable=False,
+        default=ImageSelectionGroupStatus.COLLECTING,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSelectionCandidateModel(Base):
+    __tablename__ = "image_selection_candidates"
+    __table_args__ = (
+        CheckConstraint(
+            "order_index >= 0",
+            name="ck_image_selection_candidates_order_nonnegative",
+        ),
+        CheckConstraint(
+            "source_relative_path !~ '(^|/)\\.\\.(/|$)' AND "
+            "source_relative_path !~ '^[A-Za-z]:' AND "
+            "source_relative_path NOT LIKE '/%' AND "
+            "source_relative_path NOT LIKE '%\\\\%'",
+            name="ck_image_selection_candidates_source_path_safe",
+        ),
+        CheckConstraint(
+            "checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_selection_candidates_checksum_sha256",
+        ),
+        CheckConstraint(
+            "width >= 1 AND height >= 1",
+            name="ck_image_selection_candidates_dimensions",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(quality_metrics) = 'object'",
+            name="ck_image_selection_candidates_quality_metrics",
+        ),
+        CheckConstraint(
+            "range_confidence IS NULL OR range_confidence BETWEEN 0 AND 1",
+            name="ck_image_selection_candidates_range_confidence",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(reason_codes) = 'array'",
+            name="ck_image_selection_candidates_reason_codes",
+        ),
+        CheckConstraint(
+            "decision IN ('eligible', 'rejected', 'selected_automatic', "
+            "'selected_manual')",
+            name="ck_image_selection_candidates_decision",
+        ),
+        CheckConstraint(
+            "decision NOT IN ('selected_automatic', 'selected_manual') OR "
+            "group_id IS NOT NULL",
+            name="ck_image_selection_candidates_selected_group",
+        ),
+        ForeignKeyConstraint(
+            ["run_id", "group_id"],
+            ["image_selection_groups.run_id", "image_selection_groups.id"],
+            name="fk_image_selection_candidates_run_group",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "order_index",
+            name="uq_image_selection_candidates_run_order",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "source_relative_path",
+            name="uq_image_selection_candidates_run_path",
+        ),
+        Index(
+            "ix_image_selection_candidates_group_order",
+            "run_id",
+            "group_id",
+            "order_index",
+        ),
+        Index(
+            "uq_image_selection_candidates_selected_group",
+            "run_id",
+            "group_id",
+            unique=True,
+            postgresql_where=text(
+                "decision IN ('selected_automatic', 'selected_manual')"
+            ),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    group_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    order_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    quality_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    range_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason_codes: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    decision: Mapped[ImageSelectionCandidateDecision] = mapped_column(
+        String(40),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
 
 

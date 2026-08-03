@@ -20,6 +20,7 @@ import {
 import {
   hasImageImport,
   isImageImport,
+  reviewableGames,
   reviewJobLabel,
   reviewReadyImports,
   selectReviewImportId,
@@ -95,16 +96,14 @@ export function ReviewerAccessLauncher({
           );
           return;
         }
-        const activeGames = gamesResult.data.filter(
-          (game) => game.status === 'active',
-        );
-        setGames(activeGames);
+        const availableGames = reviewableGames(gamesResult.data);
+        setGames(availableGames);
         const imageJobs = jobsResult.data.filter(isImageImport);
         const firstGameId =
-          activeGames.find((game) =>
+          availableGames.find((game) =>
             imageJobs.some((job) => job.gameId === game.id),
           )?.id ??
-          activeGames[0]?.id ??
+          availableGames[0]?.id ??
           '';
         setJobs(imageJobs);
         const selectedGameId = controlledGameId ?? firstGameId;

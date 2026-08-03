@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 class JobType(StrEnum):
     IMPORT = "import"
+    IMAGE_SELECTION = "image_selection"
     VALIDATE = "validate"
     PAYOUT = "payout"
     SNAPSHOT = "snapshot"

@@ -14,13 +14,16 @@ from game_predictor_api.application import image_imports as image_imports_module
 from game_predictor_api.application.image_imports import (
     BrowserImageSelectionService,
     ImageFolderSelectionService,
+    ImageSelectionPurpose,
     WindowsFolderPicker,
 )
+from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.main import create_app
 from PIL import Image
+from test_image_selections import MemoryImageSelectionRepository
 from test_jobs_domain import MemoryJobRepository
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=UTC)
@@ -99,6 +102,8 @@ def test_cancelled_picker_does_not_create_selection(tmp_path: Path) -> None:
         "path": None,
         "supportedFileCount": 0,
         "expiresAt": None,
+        "purpose": None,
+        "inputManifestSha256": None,
     }
 
 
@@ -261,3 +266,140 @@ def test_browser_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
     assert response.status_code == 200
     allowed_headers = response.headers["access-control-allow-headers"].casefold()
     assert "x-image-relative-path" in allowed_headers
+
+
+def test_photo_selection_staging_is_resumable_after_service_recreation(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    upload_root = tmp_path / "imports"
+    first_service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    upload = first_service.begin(
+        display_name="Duzy folder",
+        expected_file_count=2,
+        expected_total_bytes=len(content) * 2,
+        purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        game_id=game_id,
+    )
+    first_service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="Duzy folder/photo-1.jpg",
+        content=content,
+    )
+
+    resumed_service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    resumed = resumed_service.get(upload.upload_id)
+    duplicate_retry = resumed_service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="Duzy folder/photo-1.jpg",
+        content=content,
+    )
+
+    assert resumed.uploaded_indexes == {0}
+    assert resumed.uploaded_bytes == len(content)
+    assert duplicate_retry.uploaded_indexes == {0}
+
+
+def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    job_service = JobService(MemoryJobRepository(game_id))
+    run_service = ImageSelectionService(MemoryImageSelectionRepository(game_id))
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (50, 60, 70)).save(stream, "JPEG")
+    content = stream.getvalue()
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: job_service,
+            image_selection_service_dependency=lambda: run_service,
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+        )
+    )
+
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "Zdjecia do selekcji",
+                "expectedFileCount": 1,
+                "expectedTotalBytes": len(content),
+                "purpose": "photo_selection",
+                "gameId": str(game_id),
+            },
+        )
+        upload_id = created.json()["uploadId"]
+        uploaded = client.put(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/files/0",
+            content=content,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-Relative-Path": "Zdjecia do selekcji/photo.jpg",
+            },
+        )
+        restored = client.get(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}"
+        )
+        finalized = client.post(
+            f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
+        )
+        selection_token = finalized.json()["selectionToken"]
+        wrong_purpose = client.post(
+            "/api/v1/admin/image-imports",
+            json={"gameId": str(game_id), "selectionToken": selection_token},
+        )
+        run = client.post(
+            "/api/v1/admin/image-selections",
+            json={
+                "gameId": str(game_id),
+                "selectionToken": selection_token,
+                "contractVersion": 1,
+            },
+        )
+
+    assert created.status_code == 201
+    assert uploaded.status_code == 200
+    assert restored.status_code == 200
+    assert restored.json()["uploadedFileIndexes"] == [0]
+    assert finalized.status_code == 200
+    assert finalized.json()["purpose"] == "photo_selection"
+    assert finalized.json()["path"] is None
+    assert len(finalized.json()["inputManifestSha256"]) == 64
+    assert wrong_purpose.status_code == 422
+    assert wrong_purpose.json()["code"] == "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID"
+    assert run.status_code == 200
+    assert run.json()["created"] is True
+    assert run.json()["run"]["job"]["jobType"] == "image_selection"

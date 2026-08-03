@@ -1,9 +1,18 @@
-import type { JobResponse } from '@game-predictor/admin-api-client';
+import type {
+  GameResponse,
+  JobResponse,
+} from '@game-predictor/admin-api-client';
 
 const REVIEW_READY_STATUSES = new Set<JobResponse['status']>([
   'waiting_for_review',
   'completed',
 ]);
+
+export function reviewableGames(
+  games: readonly GameResponse[],
+): readonly GameResponse[] {
+  return games.filter((game) => game.status !== 'archived');
+}
 
 export function isImageImport(job: JobResponse): boolean {
   return (

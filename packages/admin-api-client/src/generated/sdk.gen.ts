@@ -48,6 +48,9 @@ import type {
   CreateImageFolderImportData,
   CreateImageFolderImportErrors,
   CreateImageFolderImportResponses,
+  CreateImageSelectionData,
+  CreateImageSelectionErrors,
+  CreateImageSelectionResponses,
   CreateJobData,
   CreateJobErrors,
   CreateJobResponses,
@@ -96,6 +99,9 @@ import type {
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
+  GetBrowserImageSelectionData,
+  GetBrowserImageSelectionErrors,
+  GetBrowserImageSelectionResponses,
   GetDatasetValidationReportData,
   GetDatasetValidationReportErrors,
   GetDatasetValidationReportResponses,
@@ -113,6 +119,9 @@ import type {
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
+  GetImageSelectionData,
+  GetImageSelectionErrors,
+  GetImageSelectionResponses,
   GetImageSequenceSourceSelectionData,
   GetImageSequenceSourceSelectionErrors,
   GetImageSequenceSourceSelectionResponses,
@@ -198,6 +207,9 @@ import type {
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageSelectionGroupsData,
+  ListImageSelectionGroupsErrors,
+  ListImageSelectionGroupsResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -957,6 +969,25 @@ export const cancelBrowserImageSelection = <
   });
 
 /**
+ * Restore progress for an unfinished browser folder upload
+ */
+export const getBrowserImageSelection = <ThrowOnError extends boolean = false>(
+  options: Options<GetBrowserImageSelectionData, ThrowOnError>,
+): RequestResult<
+  GetBrowserImageSelectionResponses,
+  GetBrowserImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBrowserImageSelectionResponses,
+    GetBrowserImageSelectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/browser-selections/{upload_id}',
+    ...options,
+  });
+
+/**
  * Upload one JPEG from a browser-native folder selection
  */
 export const uploadBrowserImageSelectionFile = <
@@ -1454,6 +1485,62 @@ export const listOperationalImageReviewResolutionEvents = <
     url: '/api/v1/admin/image-review-items/{review_item_id}/resolution-events',
     ...options,
   });
+
+/**
+ * Create or return an idempotent image-selection run
+ */
+export const createImageSelection = <ThrowOnError extends boolean = false>(
+  options: Options<CreateImageSelectionData, ThrowOnError>,
+): RequestResult<
+  CreateImageSelectionResponses,
+  CreateImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateImageSelectionResponses,
+    CreateImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get one durable image-selection run
+ */
+export const getImageSelection = <ThrowOnError extends boolean = false>(
+  options: Options<GetImageSelectionData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionResponses,
+  GetImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionResponses,
+    GetImageSelectionErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-selections/{run_id}', ...options });
+
+/**
+ * List a bounded page of image-selection groups
+ */
+export const listImageSelectionGroups = <ThrowOnError extends boolean = false>(
+  options: Options<ListImageSelectionGroupsData, ThrowOnError>,
+): RequestResult<
+  ListImageSelectionGroupsResponses,
+  ListImageSelectionGroupsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageSelectionGroupsResponses,
+    ListImageSelectionGroupsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-selections/{run_id}/groups', ...options });
 
 /**
  * Get read-only managed image storage inventory

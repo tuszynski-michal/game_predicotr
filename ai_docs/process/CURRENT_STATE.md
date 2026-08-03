@@ -213,6 +213,10 @@ last_updated: 2026-08-03
   polling kończy się po stanie terminalnym lub zmianie gry, a powtarzające się
   błędy są widoczne bez blokowania panelu. Dzięki temu zakończenie workera i
   gotowy manifest nie wymagają ręcznego odświeżenia strony,
+- ostatnia decyzja manualna TASK-0157 automatycznie wznawia ten sam job z
+  checkpointu. Backend serializuje akceptacje blokadą `FOR UPDATE`, nie ponawia
+  jobów `failed`, a Admin po zapisie odczytuje nowy stan i ponownie uruchamia
+  bounded polling bez przechodzenia do workspace'u `Joby`,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego

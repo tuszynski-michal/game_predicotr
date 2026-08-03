@@ -208,6 +208,10 @@ zgodnej pełniejszej geometrii i pewnych kotwic zakresu kończy jako
 - `waiting_for_review` zwalnia lease i ciężki slot. Po manualnym uzupełnieniu
   ten sam job wraca do checkpointu; ogólny licznik review pozostaje monotoniczny,
   a `progress.imageSelection.manual` pokazuje bieżącą liczbę nierozwiązanych grup.
+- API serializuje równoległe decyzje manualne blokadą rekordu joba `FOR UPDATE`.
+  Transakcja ostatniej decyzji sprawdza brak grup `collecting` i
+  `manual_required`, po czym idempotentnie wykonuje przejście
+  `waiting_for_review -> created`. Joby `failed` nie są wznawiane automatycznie.
 - Bounded diagnostyka nie zawiera obrazów ani ścieżek absolutnych. Kanoniczny
   JSON jest adresowany checksumą pod
   `data/exports/is-job-diagnostics/<sha256>.json`; API ujawnia tylko checksumę.

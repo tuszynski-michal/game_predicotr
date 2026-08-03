@@ -128,6 +128,11 @@ kopiowany do właściwego katalogu wyniku. Dla nierozpoznanej grupy użytkownik
 podaje dodatni początek i koniec zakresu; bez tego manifest nie może zostać
 zatwierdzony ani przekazany do właściwego importu.
 
+Po zatwierdzeniu ostatniej nierozwiązanej grupy ten sam job w stanie
+`waiting_for_review` jest automatycznie wznawiany od zapisanego checkpointu.
+Użytkownik nie przechodzi do `Jobów` i nie klika ręcznie `Ponów`. Automatyczne
+wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
+
 ## Integracja z Importem layoutów
 
 - Tylko run bez nierozwiązanych grup może zostać przekazany dalej.

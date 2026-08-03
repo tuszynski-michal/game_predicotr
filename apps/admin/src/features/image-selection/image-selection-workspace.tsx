@@ -284,6 +284,31 @@ export function ImageSelectionWorkspace({
     setManualGroups((groups) =>
       groups.map((group) => (group.id === updated.id ? updated : group)),
     );
+    if (activeRunId !== null) {
+      void refreshRunAfterManualApproval(activeRunId);
+    }
+  }
+
+  async function refreshRunAfterManualApproval(runId: string) {
+    try {
+      const result = await getImageSelectionWithTimeout(api, runId);
+      if (
+        result.error !== undefined ||
+        result.data === undefined ||
+        window.localStorage.getItem(storageKey(gameId)) !== runId
+      ) {
+        setRefreshWarning(
+          'Decyzja została zapisana, ale nie udało się odświeżyć procesu.',
+        );
+        return;
+      }
+      setRefreshWarning('');
+      setRun(result.data);
+    } catch {
+      setRefreshWarning(
+        'Decyzja została zapisana, ale nie udało się odświeżyć procesu.',
+      );
+    }
   }
 
   const percentage =

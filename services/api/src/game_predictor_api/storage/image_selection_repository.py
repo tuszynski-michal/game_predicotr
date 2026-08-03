@@ -18,7 +18,9 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionManualDecision,
     ImageSelectionRun,
 )
+from game_predictor_api.domain.jobs import Job
 from game_predictor_api.storage.job_repository import (
+    SqlAlchemyJobRepository,
     job_from_record,
     job_record_from_domain,
 )
@@ -38,6 +40,12 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
 
     def game_exists(self, game_id: UUID) -> bool:
         return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
+
+    def get_job_for_update(self, job_id: UUID) -> Job | None:
+        return SqlAlchemyJobRepository(self._session).get_job_for_update(job_id)
+
+    def save_job(self, job: Job) -> Job:
+        return SqlAlchemyJobRepository(self._session).save_job(job)
 
     def find_run_by_identity(
         self,

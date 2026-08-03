@@ -34,6 +34,7 @@ from game_predictor_api.domain.image_selections import (
     safe_relative_path,
     validate_candidate,
 )
+from game_predictor_api.domain.jobs import Job, JobStatus, requeue_job
 
 MAX_MANUAL_IMAGE_BYTES = 50 * 1024 * 1024
 
@@ -258,6 +259,10 @@ class ImageSelectionRepository(Protocol):
         decision: ImageSelectionManualDecision,
     ) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]: ...
 
+    def get_job_for_update(self, job_id: UUID) -> Job | None: ...
+
+    def save_job(self, job: Job) -> Job: ...
+
 
 class ImageSelectionService:
     def __init__(
@@ -429,6 +434,14 @@ class ImageSelectionService:
         range_start: int | None,
         range_end: int | None,
     ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._repository.get_job_for_update(run.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_JOB_MISSING",
+                "The image-selection job no longer exists.",
+            )
+        run = self.get_run(run_id)
         group = self._get_manual_group(run_id=run_id, group_id=group_id)
         candidate = self._repository.get_candidate(
             run_id=run_id,
@@ -474,8 +487,11 @@ class ImageSelectionService:
                 created_at=group.created_at,
                 updated_at=existing.created_at,
             )
+            self._resume_completed_manual_review(
+                run_id=run_id,
+                locked_job=locked_job,
+            )
             return ImageSelectionManualApproval(replay_group, existing)
-        run = self.get_run(run_id)
         if run.output_manifest_sha256 is not None:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_ALREADY_PUBLISHED",
@@ -505,6 +521,10 @@ class ImageSelectionService:
                 run_id=run_id,
                 decisions=self._repository.list_manual_decisions(run_id=run_id),
             )
+        self._resume_completed_manual_review(
+            run_id=run_id,
+            locked_job=locked_job,
+        )
         return ImageSelectionManualApproval(saved_group, saved_decision)
 
     def get_manual_file(
@@ -613,6 +633,22 @@ class ImageSelectionService:
                 break
             after_group_order = page[-1].group_order
         return tuple(values)
+
+    def _resume_completed_manual_review(
+        self,
+        *,
+        run_id: UUID,
+        locked_job: Job,
+    ) -> None:
+        if locked_job.status is not JobStatus.WAITING_FOR_REVIEW:
+            return
+        unresolved = {
+            ImageSelectionGroupStatus.COLLECTING,
+            ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        }
+        if any(group.status in unresolved for group in self._all_groups(run_id)):
+            return
+        self._repository.save_job(requeue_job(locked_job))
 
     def _get_manual_group(self, *, run_id: UUID, group_id: UUID) -> ImageSelectionGroup:
         self.get_run(run_id)

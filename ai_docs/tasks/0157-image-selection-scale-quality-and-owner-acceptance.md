@@ -120,3 +120,9 @@ jest odpytywany co 2 s, pojedynczy request jest anulowany po 10 s, a cała sesja
 pollingu ma limit 45 minut i cleanup przy zmianie gry lub stanu terminalnego.
 Klient API jawnie przekazuje `AbortSignal`; powtarzające się błędy odświeżania są
 widoczne, ale nie blokują pozostałych akcji.
+
+Cykl manualnego fallbacku został również domknięty transakcyjnie. Ostatnia
+decyzja dla runu blokuje rekord joba, potwierdza brak nierozwiązanych grup i
+wykonuje idempotentne `waiting_for_review -> created` z zachowaniem checkpointu
+oraz liczników. Admin natychmiast odczytuje ten stan i kontynuuje polling; ręczne
+`Ponów` w osobnym workspace nie jest potrzebne.

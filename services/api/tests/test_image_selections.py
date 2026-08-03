@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -25,7 +26,7 @@ from game_predictor_api.domain.image_selections import (
     validate_candidate,
     validate_image_selection_group,
 )
-from game_predictor_api.domain.jobs import JobType
+from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.main import create_app
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
@@ -88,6 +89,19 @@ class MemoryImageSelectionRepository:
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         self.runs[run.id] = run
         return run
+
+    def get_job_for_update(self, job_id: UUID) -> Job | None:
+        return next(
+            (run.job for run in self.runs.values() if run.job.id == job_id),
+            None,
+        )
+
+    def save_job(self, job: Job) -> Job:
+        for run_id, run in self.runs.items():
+            if run.job.id == job.id:
+                self.runs[run_id] = replace(run, job=job)
+                return job
+        raise AssertionError("job missing")
 
     def list_groups(
         self,
@@ -250,6 +264,28 @@ def _group(
     )
 
 
+def _manual_candidate(
+    run_id: UUID,
+    group_id: UUID,
+    order_index: int,
+) -> ImageSelectionCandidate:
+    return ImageSelectionCandidate(
+        id=uuid4(),
+        run_id=run_id,
+        group_id=group_id,
+        order_index=order_index,
+        source_relative_path=f"manual/{order_index}.jpg",
+        checksum_sha256=f"{order_index + 1:064x}",
+        width=1280,
+        height=720,
+        quality_metrics={"displayName": f"manual-{order_index}.jpg"},
+        range_confidence=None,
+        reason_codes=("manual_upload",),
+        decision=ImageSelectionCandidateDecision.ELIGIBLE,
+        created_at=datetime(2026, 8, 3, tzinfo=UTC),
+    )
+
+
 def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
     game_id = uuid4()
     repository = MemoryImageSelectionRepository(game_id)
@@ -324,6 +360,82 @@ def test_group_page_is_cursor_bounded_and_filterable() -> None:
     assert [item.group_order for item in second_page.items] == [2]
     assert second_page.next_after_group_order is None
     assert [item.group_order for item in manual.items] == [1]
+
+
+def test_last_manual_decision_requeues_the_waiting_job_exactly_once() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="c" * 64,
+        selector_fingerprint="d" * 64,
+    )
+    checkpoint = {"workflow": "image_selection", "next_order_index": 32}
+    waiting_job = replace(
+        run.job,
+        status=JobStatus.WAITING_FOR_REVIEW,
+        stage="image_selection:manual_review",
+        progress_current=32,
+        progress_total=32,
+        review_count=2,
+        checkpoint_payload=checkpoint,
+    )
+    repository.runs[run.id] = replace(run, job=waiting_job)
+    first_group = _group(
+        run.id,
+        0,
+        status=ImageSelectionGroupStatus.MANUAL_REQUIRED,
+    )
+    second_group = _group(
+        run.id,
+        1,
+        status=ImageSelectionGroupStatus.MANUAL_REQUIRED,
+    )
+    first_candidate = _manual_candidate(run.id, first_group.id, 0)
+    second_candidate = _manual_candidate(run.id, second_group.id, 1)
+    repository.groups.extend((first_group, second_group))
+    repository.candidates.extend((first_candidate, second_candidate))
+
+    service.approve_manual_file(
+        run_id=run.id,
+        group_id=first_group.id,
+        candidate_id=first_candidate.id,
+        idempotency_key=uuid4(),
+        range_start=1,
+        range_end=9,
+    )
+
+    after_first = repository.get_run(run.id)
+    assert after_first is not None
+    assert after_first.job.status is JobStatus.WAITING_FOR_REVIEW
+
+    final_idempotency_key = uuid4()
+    service.approve_manual_file(
+        run_id=run.id,
+        group_id=second_group.id,
+        candidate_id=second_candidate.id,
+        idempotency_key=final_idempotency_key,
+        range_start=10,
+        range_end=18,
+    )
+    service.approve_manual_file(
+        run_id=run.id,
+        group_id=second_group.id,
+        candidate_id=second_candidate.id,
+        idempotency_key=final_idempotency_key,
+        range_start=10,
+        range_end=18,
+    )
+
+    resumed = repository.get_run(run.id)
+    assert resumed is not None
+    assert resumed.job.status is JobStatus.CREATED
+    assert resumed.job.checkpoint_payload == checkpoint
+    assert resumed.job.progress_current == 32
+    assert resumed.job.review_count == 2
+    assert len(repository.manual_decisions) == 2
 
 
 def test_domain_rejects_unsafe_paths_and_invalid_ranges() -> None:
@@ -490,7 +602,7 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
         first = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
         repeated = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
 
-    assert first.status_code == 200
+    assert first.status_code == 200, first.text
     assert repeated.status_code == 200
     assert repeated.json() == first.json()
     assert first.json()["selectionId"] == str(run.id)

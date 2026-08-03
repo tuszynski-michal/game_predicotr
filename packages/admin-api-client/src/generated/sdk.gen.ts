@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ApproveManualImageSelectionData,
+  ApproveManualImageSelectionErrors,
+  ApproveManualImageSelectionResponses,
   ArchiveDatasetVersionData,
   ArchiveDatasetVersionErrors,
   ArchiveDatasetVersionResponses,
@@ -137,6 +140,9 @@ import type {
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
+  GetManualImageSelectionFileData,
+  GetManualImageSelectionFileErrors,
+  GetManualImageSelectionFileResponses,
   GetMobileReleaseData,
   GetMobileReleaseErrors,
   GetMobileReleaseResponses,
@@ -352,6 +358,9 @@ import type {
   UploadBrowserImageSelectionFileData,
   UploadBrowserImageSelectionFileErrors,
   UploadBrowserImageSelectionFileResponses,
+  UploadManualImageSelectionFileData,
+  UploadManualImageSelectionFileErrors,
+  UploadManualImageSelectionFileResponses,
 } from './types.gen';
 
 export type Options<
@@ -1544,6 +1553,80 @@ export const listImageSelectionGroups = <ThrowOnError extends boolean = false>(
     ListImageSelectionGroupsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/image-selections/{run_id}/groups', ...options });
+
+/**
+ * Append one idempotent manual representative decision
+ */
+export const approveManualImageSelection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ApproveManualImageSelectionData, ThrowOnError>,
+): RequestResult<
+  ApproveManualImageSelectionResponses,
+  ApproveManualImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ApproveManualImageSelectionResponses,
+    ApproveManualImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/approve',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Copy one browser-selected JPEG into managed manual-review storage
+ */
+export const uploadManualImageSelectionFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UploadManualImageSelectionFileData, ThrowOnError>,
+): RequestResult<
+  UploadManualImageSelectionFileResponses,
+  UploadManualImageSelectionFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UploadManualImageSelectionFileResponses,
+    UploadManualImageSelectionFileErrors,
+    ThrowOnError
+  >({
+    bodySerializer: null,
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-file',
+    ...options,
+    headers: {
+      'Content-Type': 'application/octet-stream',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one managed manual-review JPEG
+ */
+export const getManualImageSelectionFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetManualImageSelectionFileData, ThrowOnError>,
+): RequestResult<
+  GetManualImageSelectionFileResponses,
+  GetManualImageSelectionFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManualImageSelectionFileResponses,
+    GetManualImageSelectionFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-files/{candidate_id}',
+    ...options,
+  });
 
 /**
  * Verify and hand curated images to the explicit layout import step

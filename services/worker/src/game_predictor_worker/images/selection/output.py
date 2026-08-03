@@ -120,6 +120,8 @@ class CuratedImageOutputPublisher:
         source_root: Path,
         input_manifest_sha256: str,
         result: ImageSelectionResult,
+        source_resolver: Callable[[CandidateResult], Path] | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> PublishedImageSelection:
         source = source_root.resolve(strict=True)
         if not source.is_dir():
@@ -133,7 +135,11 @@ class CuratedImageOutputPublisher:
             candidate = group.selected_candidate
             recognized = group.range
             if (
-                group.status is not SelectionGroupStatus.AUTO_SELECTED
+                group.status
+                not in {
+                    SelectionGroupStatus.AUTO_SELECTED,
+                    SelectionGroupStatus.MANUALLY_SELECTED,
+                }
                 or recognized is None
                 or candidate is None
             ):
@@ -157,8 +163,17 @@ class CuratedImageOutputPublisher:
         images_root.mkdir(parents=True, exist_ok=False)
         entries: list[CuratedImageEntry] = []
         try:
-            for candidate, recognized in selected_groups:
-                source_path = _safe_child(source, candidate.source.stored_relative_path)
+            for completed, (candidate, recognized) in enumerate(selected_groups, start=1):
+                source_path = (
+                    _safe_child(source, candidate.source.stored_relative_path)
+                    if source_resolver is None
+                    else source_resolver(candidate).resolve(strict=True)
+                )
+                if not source_path.is_file():
+                    _fail(
+                        "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                        "A selected source is not a regular file.",
+                    )
                 source_checksum = _sha256_file(source_path)
                 if source_checksum != candidate.source.checksum_sha256:
                     _fail(
@@ -199,6 +214,8 @@ class CuratedImageOutputPublisher:
                         quality_metrics=candidate.quality.to_dict(),
                     )
                 )
+                if progress_callback is not None:
+                    progress_callback(completed, len(selected_groups))
             manifest = CuratedImageManifest(
                 run_id=run_id,
                 input_manifest_sha256=input_manifest_sha256,

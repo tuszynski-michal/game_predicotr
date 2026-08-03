@@ -1,6 +1,7 @@
 import type {
   AdminApiClient,
   ImageSelectionCreateResponse,
+  ImageSelectionGroupResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -22,6 +23,9 @@ export type ImageSelectionClient = Pick<
   | 'createImageSelection'
   | 'getImageSelection'
   | 'handoffImageSelection'
+  | 'listImageSelectionGroups'
+  | 'uploadManualImageSelectionFile'
+  | 'approveManualImageSelection'
 >;
 
 export interface ImageSelectionUploadProgress {
@@ -233,6 +237,32 @@ export async function cancelPhotoSelectionUpload(
   upload: ResumableImageSelectionUpload,
 ): Promise<void> {
   await api.cancelBrowserImageSelection(upload.uploadId);
+}
+
+export async function loadManualImageSelectionGroups(
+  api: ImageSelectionClient,
+  runId: string,
+): Promise<ImageSelectionGroupResponse[]> {
+  const groups: ImageSelectionGroupResponse[] = [];
+  let afterGroupOrder: number | undefined;
+  do {
+    const result = await api.listImageSelectionGroups(runId, {
+      ...(afterGroupOrder === undefined ? {} : { afterGroupOrder }),
+      limit: 100,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      throw new Error('IMAGE_SELECTION_GROUPS_UNAVAILABLE');
+    }
+    groups.push(
+      ...result.data.items.filter(
+        (group) =>
+          group.status === 'manual_required' ||
+          group.status === 'manually_selected',
+      ),
+    );
+    afterGroupOrder = result.data.nextAfterGroupOrder ?? undefined;
+  } while (afterGroupOrder !== undefined);
+  return groups;
 }
 
 function relativePath(file: File | undefined): string {

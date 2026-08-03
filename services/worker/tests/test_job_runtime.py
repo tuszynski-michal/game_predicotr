@@ -299,6 +299,33 @@ def test_cancel_request_stops_handler_at_safe_checkpoint() -> None:
     assert store.jobs[job.id].progress_current == 10
 
 
+def test_waiting_for_review_releases_the_single_execution_slot() -> None:
+    clock = MutableClock()
+    waiting_job = _job(clock)
+    next_job = _job(clock, offset_seconds=1)
+    store = MemoryWorkerJobStore([waiting_job, next_job])
+
+    def pause_handler(context: JobExecutionContext, _job: Job) -> None:
+        context.wait_for_review()
+
+    assert (
+        _worker(store, clock, pause_handler).run_once()
+        is JobExecutionResult.WAITING_FOR_REVIEW
+    )
+    paused = store.jobs[waiting_job.id]
+    assert paused.status is JobStatus.WAITING_FOR_REVIEW
+    assert paused.execution_slot is None
+    assert paused.lease_token is None
+
+    processed: list[UUID] = []
+
+    def next_handler(_context: JobExecutionContext, job: Job) -> None:
+        processed.append(job.id)
+
+    assert _worker(store, clock, next_handler).run_once() is JobExecutionResult.COMPLETED
+    assert processed == [next_job.id]
+
+
 def test_handler_failure_and_missing_registration_release_slot() -> None:
     clock = MutableClock()
     failed_job = _job(clock)

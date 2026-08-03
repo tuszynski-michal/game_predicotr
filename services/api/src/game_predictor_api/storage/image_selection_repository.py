@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -15,6 +15,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionConflictError,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
+    ImageSelectionManualDecision,
     ImageSelectionRun,
 )
 from game_predictor_api.storage.job_repository import (
@@ -25,6 +26,7 @@ from game_predictor_api.storage.models import (
     GameModel,
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
+    ImageSelectionManualDecisionModel,
     ImageSelectionRunModel,
     JobModel,
 )
@@ -104,13 +106,9 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 "IMAGE_SELECTION_NOT_FOUND",
                 "Image selection run no longer exists.",
             )
-        if (
-            record.output_manifest_sha256 is not None
-            and (
-                record.output_manifest_sha256 != run.output_manifest_sha256
-                or record.output_manifest_relative_path
-                != run.output_manifest_relative_path
-            )
+        if record.output_manifest_sha256 is not None and (
+            record.output_manifest_sha256 != run.output_manifest_sha256
+            or record.output_manifest_relative_path != run.output_manifest_relative_path
         ):
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_MANIFEST_MISMATCH",
@@ -197,6 +195,161 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         self._flush_or_conflict()
         return _candidate_from_record(record)
 
+    def get_group(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+    ) -> ImageSelectionGroup | None:
+        selected = aliased(ImageSelectionCandidateModel)
+        row = self._session.execute(
+            select(ImageSelectionGroupModel, selected.id)
+            .outerjoin(
+                selected,
+                (selected.run_id == ImageSelectionGroupModel.run_id)
+                & (selected.group_id == ImageSelectionGroupModel.id)
+                & selected.decision.in_(
+                    (
+                        ImageSelectionCandidateDecision.SELECTED_AUTOMATIC.value,
+                        ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+                    )
+                ),
+            )
+            .where(
+                ImageSelectionGroupModel.run_id == run_id,
+                ImageSelectionGroupModel.id == group_id,
+            )
+        ).one_or_none()
+        return None if row is None else _group_from_record(*row)
+
+    def get_candidate(
+        self,
+        *,
+        run_id: UUID,
+        candidate_id: UUID,
+    ) -> ImageSelectionCandidate | None:
+        record = self._session.scalar(
+            select(ImageSelectionCandidateModel).where(
+                ImageSelectionCandidateModel.run_id == run_id,
+                ImageSelectionCandidateModel.id == candidate_id,
+            )
+        )
+        return None if record is None else _candidate_from_record(record)
+
+    def find_candidate_by_checksum(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        checksum_sha256: str,
+    ) -> ImageSelectionCandidate | None:
+        record = self._session.scalar(
+            select(ImageSelectionCandidateModel)
+            .where(
+                ImageSelectionCandidateModel.run_id == run_id,
+                ImageSelectionCandidateModel.group_id == group_id,
+                ImageSelectionCandidateModel.checksum_sha256 == checksum_sha256,
+                ImageSelectionCandidateModel.reason_codes.contains(["manual_upload"]),
+            )
+            .order_by(ImageSelectionCandidateModel.created_at)
+            .limit(1)
+        )
+        return None if record is None else _candidate_from_record(record)
+
+    def next_candidate_order(self, run_id: UUID) -> int:
+        value = self._session.scalar(
+            select(func.max(ImageSelectionCandidateModel.order_index)).where(
+                ImageSelectionCandidateModel.run_id == run_id
+            )
+        )
+        return 0 if value is None else int(value) + 1
+
+    def get_manual_decision(
+        self,
+        idempotency_key: UUID,
+    ) -> ImageSelectionManualDecision | None:
+        record = self._session.get(ImageSelectionManualDecisionModel, idempotency_key)
+        return None if record is None else _manual_decision_from_record(record)
+
+    def list_manual_decisions(
+        self,
+        *,
+        run_id: UUID,
+    ) -> list[ImageSelectionManualDecision]:
+        records = self._session.scalars(
+            select(ImageSelectionManualDecisionModel)
+            .where(ImageSelectionManualDecisionModel.run_id == run_id)
+            .order_by(
+                ImageSelectionManualDecisionModel.group_id,
+                ImageSelectionManualDecisionModel.revision,
+            )
+        )
+        return [_manual_decision_from_record(record) for record in records]
+
+    def next_manual_revision(self, *, run_id: UUID, group_id: UUID) -> int:
+        value = self._session.scalar(
+            select(func.max(ImageSelectionManualDecisionModel.revision)).where(
+                ImageSelectionManualDecisionModel.run_id == run_id,
+                ImageSelectionManualDecisionModel.group_id == group_id,
+            )
+        )
+        return 1 if value is None else int(value) + 1
+
+    def save_manual_decision(
+        self,
+        *,
+        group: ImageSelectionGroup,
+        decision: ImageSelectionManualDecision,
+    ) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+        record = self._session.scalar(
+            select(ImageSelectionGroupModel)
+            .where(
+                ImageSelectionGroupModel.run_id == group.run_id,
+                ImageSelectionGroupModel.id == group.id,
+            )
+            .with_for_update()
+        )
+        if record is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_GROUP_NOT_FOUND",
+                "Image-selection group no longer exists.",
+            )
+        self._session.execute(
+            update(ImageSelectionCandidateModel)
+            .where(
+                ImageSelectionCandidateModel.run_id == group.run_id,
+                ImageSelectionCandidateModel.group_id == group.id,
+                ImageSelectionCandidateModel.decision
+                == ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+            )
+            .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
+        )
+        selected = self._session.get(ImageSelectionCandidateModel, decision.candidate_id)
+        if selected is None or selected.run_id != group.run_id or selected.group_id != group.id:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_CANDIDATE_MISMATCH",
+                "The selected JPEG no longer belongs to this group.",
+            )
+        selected.decision = ImageSelectionCandidateDecision.SELECTED_MANUAL
+        record.range_start = group.range_start
+        record.range_end = group.range_end
+        record.status = group.status
+        record.updated_at = group.updated_at
+        event = ImageSelectionManualDecisionModel(
+            idempotency_key=decision.idempotency_key,
+            run_id=decision.run_id,
+            group_id=decision.group_id,
+            candidate_id=decision.candidate_id,
+            range_start=decision.range_start,
+            range_end=decision.range_end,
+            revision=decision.revision,
+            payload_sha256=decision.payload_sha256,
+            created_at=decision.created_at,
+        )
+        self._session.add(event)
+        self._flush_or_conflict()
+        return _group_from_record(record, selected.id), _manual_decision_from_record(event)
+
     def _flush_or_conflict(self) -> None:
         try:
             self._session.flush()
@@ -267,6 +420,22 @@ def _candidate_from_record(
         range_confidence=record.range_confidence,
         reason_codes=tuple(record.reason_codes),
         decision=ImageSelectionCandidateDecision(record.decision),
+        created_at=record.created_at,
+    )
+
+
+def _manual_decision_from_record(
+    record: ImageSelectionManualDecisionModel,
+) -> ImageSelectionManualDecision:
+    return ImageSelectionManualDecision(
+        idempotency_key=record.idempotency_key,
+        run_id=record.run_id,
+        group_id=record.group_id,
+        candidate_id=record.candidate_id,
+        range_start=record.range_start,
+        range_end=record.range_end,
+        revision=record.revision,
+        payload_sha256=record.payload_sha256,
         created_at=record.created_at,
     )
 

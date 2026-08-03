@@ -2,9 +2,49 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  loadManualImageSelectionGroups,
   orderImageSelectionFiles,
   uploadPhotoSelectionFolder,
 } from '../src/features/image-selection/image-selection-actions.ts';
+
+test('loads the bounded group cursor and keeps only manual queue items', async () => {
+  const cursors = [];
+  const api = {
+    listImageSelectionGroups: async (_runId, options) => {
+      cursors.push(options.afterGroupOrder);
+      return options.afterGroupOrder === undefined
+        ? {
+            data: {
+              items: [
+                { groupOrder: 0, id: 'auto', status: 'auto_selected' },
+                { groupOrder: 1, id: 'pending', status: 'manual_required' },
+              ],
+              nextAfterGroupOrder: 1,
+            },
+          }
+        : {
+            data: {
+              items: [
+                {
+                  groupOrder: 2,
+                  id: 'approved',
+                  status: 'manually_selected',
+                },
+              ],
+              nextAfterGroupOrder: null,
+            },
+          };
+    },
+  };
+
+  const result = await loadManualImageSelectionGroups(api, 'run-1');
+
+  assert.deepEqual(cursors, [undefined, 1]);
+  assert.deepEqual(
+    result.map((group) => group.id),
+    ['pending', 'approved'],
+  );
+});
 
 function imageFile(name, relativePath = `photos/${name}`) {
   const file = new File(['jpeg'], name, { type: 'image/jpeg' });
@@ -24,7 +64,9 @@ function uploadState(files, uploadedIndexes = []) {
       0,
     ),
     uploadedFileCount: uploadedIndexes.length,
-    uploadedFileIndexes: [...uploadedIndexes].sort((left, right) => left - right),
+    uploadedFileIndexes: [...uploadedIndexes].sort(
+      (left, right) => left - right,
+    ),
   };
 }
 

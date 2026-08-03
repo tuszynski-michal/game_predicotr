@@ -8,7 +8,7 @@ last_updated: 2026-08-03
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0153 complete; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156 complete; TASK-0157 next; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -190,6 +190,18 @@ last_updated: 2026-08-03
   Handoff jest idempotentny przez `selectionId = runId`, blokuje nierozwiązane
   grupy i checksum drift, przenosi token do `Importu layoutów`, ale nie uruchamia
   ciężkiego pipeline'u. Job importu zachowuje `imageSelectionRunId`,
+- TASK-0155 dodał kompaktowy modal wyjątków manualnych z pojedynczym pickerem
+  JPEG, podglądem, nawigacją strzałkami i idempotentnym zatwierdzeniem Enterem.
+  Nieznany zakres wymaga dodatnich numerów, korekty zachowują append-only audyt,
+  a opublikowany output pozostaje niezmienny. Przy 1366×768 modal nie wymaga
+  przewijania i zachowuje widoczny focus,
+- TASK-0156 podłączył selektor do trwałego workera z lease/fencing,
+  checkpointem bounded stanu, uzgadnianiem projekcji po awarii, retry od
+  następnego potwierdzonego pliku, anulowaniem w safe poincie i zwalnianiem slotu
+  w `waiting_for_review`. Pojedynczy uszkodzony JPEG jest izolowany, panel Joby
+  pokazuje pliki X/N, grupy, wybory, manual, błędy i top-k, a czas uploadu jest
+  oddzielony od czasu aktywnych obliczeń. Diagnostyka jest checksumowana,
+  bounded i nie zawiera obrazów ani ścieżek absolutnych,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego
@@ -232,10 +244,12 @@ last_updated: 2026-08-03
 
 ### Robocze
 
-- PostgreSQL ma w repozytorium wspólny head
-  `0026_merge_v03_v04_heads`; łączy on niezależne migracje
+- PostgreSQL ma w repozytorium head
+  `0027_image_selection_manual_decisions`; jego poprzednik
+  `0026_merge_v03_v04_heads` łączy niezależne migracje
   `0025_symbol_localized_names` i `0025_image_selection` bez przepisywania
-  historii baz, które mogły zastosować już jeden z tych pionów,
+  historii baz, które mogły zastosować już jeden z tych pionów. Migracja 0027
+  dodaje append-only audyt ręcznych decyzji selektora,
 - podczas odbioru utworzono roboczą grę `777` i image import; job naprawczy
   `65d6ca14-dacc-4341-b015-c187f2d7af36` zakończył automatykę w stanie
   `waiting_for_review`: 739 źródeł, 4050 plansz, 60 750 cropów i 4050 pozycji
@@ -278,13 +292,13 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
 - TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
   przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
-- TASK-0151–0154 są ukończone, a TASK-0155–0157 pozostają kolejnymi pionami
-  M7.0; nie zastępują odbioru 0.2 ani 0.3,
+- TASK-0151–0156 są ukończone, a TASK-0157 pozostaje końcową bramką M7.0;
+  nie zastępuje odbioru 0.2 ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Kontynuować TASK-0155 jako następny pion M7.0 wersji 0.4. Odbiór właściciela
+Rozpocząć TASK-0157 jako końcową bramkę M7.0 wersji 0.4. Odbiór właściciela
 Admina według `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` pozostaje niezależnym
 torem TASK-0142. Kod Mobile 0.3 jest scalony do `main`, ale TASK-0141 nadal
 czeka na instalację i manualny odbiór na Google Pixel 10 Pro XL. Dopiero po

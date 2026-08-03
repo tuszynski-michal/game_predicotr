@@ -17,6 +17,17 @@ const styleSource = await readFile(
   new URL('../src/app/globals.css', import.meta.url),
   'utf8',
 );
+const manualModalSource = await readFile(
+  new URL(
+    '../src/features/image-selection/manual-image-selection-modal.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
+const jobMonitorSource = await readFile(
+  new URL('../src/features/jobs/job-monitor.tsx', import.meta.url),
+  'utf8',
+);
 
 test('uses a browser-native directory picker directly from the owner action', () => {
   assert.match(workspaceSource, /folderInputRef\.current\?\.click\(\)/);
@@ -54,4 +65,49 @@ test('hands a verified output to the explicit import step without starting it', 
   assert.match(workspaceSource, /run\.outputManifestSha256 === null/);
   assert.match(catalogSource, /section: 'imports'/);
   assert.match(catalogSource, /initialHandoff=/);
+});
+
+test('manual fallback uses one JPEG, bounded navigation and idempotent approval', () => {
+  assert.match(manualModalSource, /accept="\.jpg,\.jpeg,image\/jpeg"/);
+  assert.doesNotMatch(manualModalSource, /multiple/);
+  assert.match(manualModalSource, /event\.key === 'ArrowLeft'/);
+  assert.match(manualModalSource, /event\.key === 'ArrowRight'/);
+  assert.match(manualModalSource, /event\.key === 'Enter' && !event\.repeat/);
+  assert.match(manualModalSource, /approvalInFlightRef/);
+  assert.match(manualModalSource, /idempotencyKey/);
+  assert.match(
+    manualModalSource,
+    /event\.key === 'ArrowRight'[^}]*navigate\(1\)/s,
+  );
+});
+
+test('manual fallback exposes compact accessible controls and visible focus', () => {
+  assert.match(manualModalSource, /aria-modal="true"/);
+  assert.match(manualModalSource, /role="dialog"/);
+  assert.match(manualModalSource, /Poprzedni wyjątek/);
+  assert.match(manualModalSource, /Następny wyjątek/);
+  assert.match(manualModalSource, /Początek zakresu/);
+  assert.match(manualModalSource, /Koniec zakresu/);
+  assert.match(styleSource, /\.manualSelectionDialog:focus-visible/);
+  assert.match(
+    styleSource,
+    /max-height: calc\(100vh - 32px\)[^}]*overflow: hidden/s,
+  );
+});
+
+test('job monitor exposes bounded image-selection counters and separate timings', () => {
+  assert.match(jobMonitorSource, /job\.progress\.imageSelection/);
+  assert.match(jobMonitorSource, /imageSelectionProgress\?\.groups/);
+  assert.match(jobMonitorSource, /imageSelectionProgress\?\.selected/);
+  assert.match(jobMonitorSource, /imageSelectionProgress\?\.manual/);
+  assert.match(jobMonitorSource, /imageSelectionProgress\?\.errors/);
+  assert.match(jobMonitorSource, /imageSelectionProgress\.verifications/);
+  assert.match(
+    jobMonitorSource,
+    /imageSelectionProgress\.uploadDurationSeconds/,
+  );
+  assert.match(
+    jobMonitorSource,
+    /imageSelectionProgress\.processingDurationSeconds/,
+  );
 });

@@ -442,6 +442,25 @@ dokładnie jedną decyzję `selected_automatic` albo `selected_manual` w grupie;
 `selected_candidate_id` w API jest projekcją tej decyzji, a nie dodatkowym
 cyrkularnym kluczem obcym. Żadna tabela nie przechowuje JPEG jako BLOB.
 
+#### image_selection_manual_decisions
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| idempotency_key | UUID | PK przekazany przez klienta; retry tego samego payloadu nie tworzy rewizji |
+| run_id | UUID | FK run, `CASCADE` |
+| group_id | UUID | złożony FK gwarantuje grupę z tego samego runu |
+| candidate_id | UUID | FK kandydata, `RESTRICT` |
+| range_start / range_end | bigint | dodatnie i `start <= end` |
+| revision | integer | dodatnia, rośnie osobno dla każdej grupy |
+| payload_sha256 | varchar(64) | SHA-256 kanonicznej decyzji |
+| created_at | timestamptz | czas append-only zdarzenia |
+
+Migracja `0027_image_selection_manual_decisions` dodaje append-only audyt
+ręcznych zatwierdzeń. Unikalne `(run_id, group_id, revision)` zachowuje historię
+korekt, a bieżący stan grupy i decyzja `selected_manual` kandydata pozostają
+projekcją ostatniej rewizji. Plik JPEG jest przechowywany w kontrolowanym
+storage; tabela zawiera wyłącznie identyfikatory, zakres i checksumę payloadu.
+
 ### image_file_executions
 
 | Pole | Typ | Uwagi |

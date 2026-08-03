@@ -23,6 +23,7 @@ class SelectionContractError(ValueError):
 class SelectionGroupStatus(StrEnum):
     AUTO_SELECTED = "auto_selected"
     MANUAL_REQUIRED = "manual_required"
+    MANUALLY_SELECTED = "manually_selected"
     SKIPPED_EXISTING_RANGE = "skipped_existing_range"
 
 
@@ -30,6 +31,7 @@ class CandidateDecision(StrEnum):
     ELIGIBLE = "eligible"
     REJECTED = "rejected"
     SELECTED_AUTOMATIC = "selected_automatic"
+    SELECTED_MANUAL = "selected_manual"
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +93,31 @@ class ImageSelectionSource:
                 "Selection source checksum must be a lowercase SHA-256 value.",
             )
 
+    def to_dict(self) -> dict[str, int | str]:
+        return {
+            "checksumSha256": self.checksum_sha256,
+            "orderIndex": self.order_index,
+            "relativePath": self.relative_path,
+            "sizeBytes": self.size_bytes,
+            "storedRelativePath": self.stored_relative_path,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> ImageSelectionSource:
+        try:
+            return cls(
+                order_index=_int_value(value["orderIndex"]),
+                relative_path=str(value["relativePath"]),
+                stored_relative_path=str(value["storedRelativePath"]),
+                checksum_sha256=str(value["checksumSha256"]),
+                size_bytes=_int_value(value["sizeBytes"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint contains an invalid source.",
+            ) from error
+
 
 @dataclass(frozen=True, slots=True)
 class ImageQualityMetrics:
@@ -134,6 +161,25 @@ class ImageQualityMetrics:
             "sharpness": self.sharpness,
         }
 
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> ImageQualityMetrics:
+        try:
+            return cls(
+                sharpness=_float_value(value["sharpness"]),
+                exposure=_float_value(value["exposure"]),
+                highlight_retention=_float_value(value["highlightRetention"]),
+                glare_resistance=_float_value(value["glareResistance"]),
+                perspective=_float_value(value["perspective"]),
+                border_margin=_float_value(value["borderMargin"]),
+                board_visibility=_float_value(value["boardVisibility"]),
+                overall_score=_float_value(value["overallScore"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint contains invalid quality metrics.",
+            ) from error
+
 
 @dataclass(frozen=True, slots=True)
 class CheapImageObservation:
@@ -169,6 +215,52 @@ class CheapImageObservation:
                 "Geometry confidence must be between zero and one.",
             )
 
+    def to_checkpoint_dict(self) -> dict[str, object]:
+        return {
+            "boardCount": self.board_count,
+            "fingerprintHex": self.fingerprint_hex,
+            "geometryConfidence": self.geometry_confidence,
+            "geometrySignature": list(self.geometry_signature),
+            "height": self.height,
+            "qualityMetrics": self.quality.to_dict(),
+            "reasonCodes": list(self.reason_codes),
+            "source": self.source.to_dict(),
+            "width": self.width,
+        }
+
+    @classmethod
+    def from_checkpoint_dict(cls, value: dict[str, object]) -> CheapImageObservation:
+        try:
+            source_value = value["source"]
+            quality_value = value["qualityMetrics"]
+            signature_value = value["geometrySignature"]
+            reasons_value = value["reasonCodes"]
+            if not isinstance(source_value, dict) or not isinstance(quality_value, dict):
+                raise TypeError
+            if not isinstance(signature_value, list) or not isinstance(reasons_value, list):
+                raise TypeError
+            board_count_value = value.get("boardCount")
+            return cls(
+                source=ImageSelectionSource.from_dict(source_value),
+                width=_int_value(value["width"]),
+                height=_int_value(value["height"]),
+                fingerprint_hex=str(value["fingerprintHex"]),
+                geometry_signature=tuple(_float_value(item) for item in signature_value),
+                board_count=(
+                    None if board_count_value is None else _int_value(board_count_value)
+                ),
+                geometry_confidence=_float_value(value["geometryConfidence"]),
+                quality=ImageQualityMetrics.from_dict(quality_value),
+                reason_codes=tuple(str(item) for item in reasons_value),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            if isinstance(error, SelectionContractError):
+                raise
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint contains an invalid observation.",
+            ) from error
+
 
 @dataclass(frozen=True, slots=True)
 class CandidateVerification:
@@ -186,6 +278,8 @@ class CandidateResult:
     quality: ImageQualityMetrics
     recognized_range: SequenceRange | None
     reason_codes: tuple[str, ...]
+    width: int = 1
+    height: int = 1
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -196,6 +290,8 @@ class CandidateResult:
             "range": (None if self.recognized_range is None else self.recognized_range.to_dict()),
             "reasonCodes": list(self.reason_codes),
             "sourceRelativePath": self.source.relative_path,
+            "width": self.width,
+            "height": self.height,
         }
 
 
@@ -210,6 +306,7 @@ class SelectionGroupResult:
     selected_candidate: CandidateResult | None
     top_candidates: tuple[CandidateResult, ...]
     duplicate_of_group_order: int | None = None
+    reference_fingerprint_hex: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -224,6 +321,7 @@ class SelectionGroupResult:
             "sourceCount": self.source_count,
             "status": self.status.value,
             "topCandidates": [candidate.to_dict() for candidate in self.top_candidates],
+            "referenceFingerprintHex": self.reference_fingerprint_hex,
         }
 
 
@@ -243,6 +341,163 @@ class SelectorCheckpoint:
             "schemaVersion": self.schema_version,
             "selectorFingerprint": self.selector_fingerprint,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class SelectorOpenGroupState:
+    group_order: int
+    source_count: int
+    top_observations: tuple[CheapImageObservation, ...]
+    board_counts: tuple[tuple[int, int], ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "boardCounts": [
+                {"boardCount": board_count, "count": count}
+                for board_count, count in self.board_counts
+            ],
+            "groupOrder": self.group_order,
+            "sourceCount": self.source_count,
+            "topObservations": [
+                observation.to_checkpoint_dict() for observation in self.top_observations
+            ],
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> SelectorOpenGroupState:
+        try:
+            observations_value = value["topObservations"]
+            board_counts_value = value["boardCounts"]
+            if not isinstance(observations_value, list) or not isinstance(
+                board_counts_value, list
+            ):
+                raise TypeError
+            if any(not isinstance(item, dict) for item in observations_value):
+                raise TypeError
+            board_counts: list[tuple[int, int]] = []
+            for item in board_counts_value:
+                if not isinstance(item, dict):
+                    raise TypeError
+                board_counts.append(
+                    (_int_value(item["boardCount"]), _int_value(item["count"]))
+                )
+            state = cls(
+                group_order=_int_value(value["groupOrder"]),
+                source_count=_int_value(value["sourceCount"]),
+                top_observations=tuple(
+                    CheapImageObservation.from_checkpoint_dict(item)
+                    for item in observations_value
+                    if isinstance(item, dict)
+                ),
+                board_counts=tuple(board_counts),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            if isinstance(error, SelectionContractError):
+                raise
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint contains an invalid open group.",
+            ) from error
+        if (
+            state.group_order < 0
+            or state.source_count < 1
+            or not state.top_observations
+            or any(board_count < 1 or count < 1 for board_count, count in state.board_counts)
+            or sum(count for _, count in state.board_counts) > state.source_count
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint open group is inconsistent.",
+            )
+        return state
+
+
+@dataclass(frozen=True, slots=True)
+class SelectorResumeState:
+    checkpoint: SelectorCheckpoint
+    current_group: SelectorOpenGroupState | None
+    pending_observations: tuple[CheapImageObservation, ...]
+    scan_failure_count: int
+    verification_count: int
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "checkpoint": self.checkpoint.to_dict(),
+            "currentGroup": (
+                None if self.current_group is None else self.current_group.to_dict()
+            ),
+            "pendingObservations": [
+                observation.to_checkpoint_dict()
+                for observation in self.pending_observations
+            ],
+            "scanFailureCount": self.scan_failure_count,
+            "verificationCount": self.verification_count,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, object]) -> SelectorResumeState:
+        try:
+            checkpoint_value = value["checkpoint"]
+            pending_value = value["pendingObservations"]
+            current_value = value.get("currentGroup")
+            if not isinstance(checkpoint_value, dict) or not isinstance(
+                pending_value, list
+            ):
+                raise TypeError
+            if any(not isinstance(item, dict) for item in pending_value):
+                raise TypeError
+            checkpoint = SelectorCheckpoint(
+                schema_version=_int_value(checkpoint_value["schemaVersion"]),
+                selector_fingerprint=str(checkpoint_value["selectorFingerprint"]),
+                next_order_index=_int_value(checkpoint_value["nextOrderIndex"]),
+                processed_count=_int_value(checkpoint_value["processedCount"]),
+                finalized_group_count=_int_value(
+                    checkpoint_value["finalizedGroupCount"]
+                ),
+            )
+            return cls(
+                checkpoint=checkpoint,
+                current_group=(
+                    None
+                    if current_value is None
+                    else SelectorOpenGroupState.from_dict(current_value)
+                    if isinstance(current_value, dict)
+                    else _invalid_open_group()
+                ),
+                pending_observations=tuple(
+                    CheapImageObservation.from_checkpoint_dict(item)
+                    for item in pending_value
+                    if isinstance(item, dict)
+                ),
+                scan_failure_count=_int_value(value["scanFailureCount"]),
+                verification_count=_int_value(value["verificationCount"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            if isinstance(error, SelectionContractError):
+                raise
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint cannot be restored.",
+            ) from error
+
+
+def _invalid_open_group() -> SelectorOpenGroupState:
+    raise SelectionContractError(
+        "IMAGE_SELECTION_CHECKPOINT_INVALID",
+        "The selector checkpoint contains an invalid open group.",
+    )
+
+
+def _int_value(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        raise TypeError
+    return int(value)
+
+
+def _float_value(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        raise TypeError
+    return float(value)
 
 
 @dataclass(frozen=True, slots=True)
@@ -331,5 +586,7 @@ __all__ = [
     "SelectionGroupResult",
     "SelectionGroupStatus",
     "SelectorCheckpoint",
+    "SelectorOpenGroupState",
+    "SelectorResumeState",
     "SequenceRange",
 ]

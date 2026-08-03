@@ -4,7 +4,8 @@ from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Header, Query
+from fastapi.responses import FileResponse
 
 from game_predictor_api.application.image_imports import (
     ImageFolderSelectionService,
@@ -22,10 +23,18 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionCreateResponse,
     ImageSelectionGroupPageResponse,
     ImageSelectionHandoffResponse,
+    ImageSelectionManualApprovalCommand,
+    ImageSelectionManualApprovalResponse,
+    ImageSelectionManualFileResponse,
     ImageSelectionRunResponse,
+    to_image_selection_candidate_response,
     to_image_selection_group_page_response,
+    to_image_selection_group_response,
     to_image_selection_run_response,
+    to_manual_decision_response,
 )
+
+MANUAL_FILE_NAME_HEADER = "X-Image-File-Name"
 
 ImageSelectionServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -109,6 +118,82 @@ def create_image_selections_router(
                 after_group_order=after_group_order,
                 limit=limit,
             )
+        )
+
+    @router.put(
+        "/{run_id}/groups/{group_id}/manual-file",
+        response_model=ImageSelectionManualFileResponse,
+        operation_id="uploadManualImageSelectionFile",
+        summary="Copy one browser-selected JPEG into managed manual-review storage",
+        responses=ERROR_RESPONSES,
+    )
+    def upload_manual_image_selection_file(
+        run_id: UUID,
+        group_id: UUID,
+        display_name: Annotated[
+            str,
+            Header(alias=MANUAL_FILE_NAME_HEADER, min_length=1, max_length=255),
+        ],
+        payload: Annotated[bytes, Body(media_type="application/octet-stream")],
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualFileResponse:
+        candidate = service.upload_manual_file(
+            run_id=run_id,
+            group_id=group_id,
+            display_name=display_name,
+            content=payload,
+        )
+        return ImageSelectionManualFileResponse(
+            candidate=to_image_selection_candidate_response(candidate)
+        )
+
+    @router.get(
+        "/{run_id}/groups/{group_id}/manual-files/{candidate_id}",
+        response_class=FileResponse,
+        operation_id="getManualImageSelectionFile",
+        summary="Read one managed manual-review JPEG",
+        responses=ERROR_RESPONSES,
+    )
+    def get_manual_image_selection_file(
+        run_id: UUID,
+        group_id: UUID,
+        candidate_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> FileResponse:
+        return FileResponse(
+            service.get_manual_file(
+                run_id=run_id,
+                group_id=group_id,
+                candidate_id=candidate_id,
+            ),
+            media_type="image/jpeg",
+            filename="manual-selection.jpg",
+        )
+
+    @router.post(
+        "/{run_id}/groups/{group_id}/approve",
+        response_model=ImageSelectionManualApprovalResponse,
+        operation_id="approveManualImageSelection",
+        summary="Append one idempotent manual representative decision",
+        responses=ERROR_RESPONSES,
+    )
+    def approve_manual_image_selection(
+        run_id: UUID,
+        group_id: UUID,
+        payload: ImageSelectionManualApprovalCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualApprovalResponse:
+        approved = service.approve_manual_file(
+            run_id=run_id,
+            group_id=group_id,
+            candidate_id=payload.candidate_id,
+            idempotency_key=payload.idempotency_key,
+            range_start=payload.range_start,
+            range_end=payload.range_end,
+        )
+        return ImageSelectionManualApprovalResponse(
+            group=to_image_selection_group_response(approved.group),
+            decision=to_manual_decision_response(approved.decision),
         )
 
     @router.post(

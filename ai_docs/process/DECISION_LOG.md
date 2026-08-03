@@ -3007,6 +3007,60 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   wewnątrz manifestu. Folder nie może być interpretowany bez manifestu.
 - **Supersedes:** doprecyzowuje wyłącznie planowaną ścieżkę storage w D-121.
 
+## D-125 — Ręczne korekty są append-only, a finalny output pozostaje niezmienny
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** każde zatwierdzenie albo poprawka grupy selektora zapisuje nową
+  rewizję `image_selection_manual_decisions` z UUID idempotencji. Aktualny wybór
+  grupy jest projekcją ostatniej rewizji, a atomowy `manual-decisions.json`
+  przechowuje kanoniczny stan roboczy. Pliki ręczne używają krótkiej ścieżki
+  `data/working/is-manual/<runPrefix>/<groupPrefix>/<checksumPrefix>.jpg`, ale
+  pełne UUID, checksumy i proweniencja pozostają w bazie. Po opublikowaniu
+  content-addressed outputu nie można go mutować; następna korekta wymaga nowego
+  runu.
+- **Context:** modal musi pozwalać poprawić wcześniejszy wybór, a handoff może
+  być ponawiany i konsumowany niezależnie. Nadpisanie finalnego manifestu
+  złamałoby checksumę, audyt oraz odtwarzalność istniejącego importu.
+- **Reason:** append-only historia łączy bezpieczny retry, audyt i edycję przed
+  publikacją, zachowując niezmienność kontraktu TASK-0154.
+- **Alternatives:** nadpisywanie jednej decyzji bez historii, mutowanie
+  opublikowanego manifestu albo tworzenie nowego runu przy każdej korekcie.
+- **Consequences:** UI może ponownie otworzyć grupę i dodać korektę do momentu
+  publikacji. Po publikacji API zwraca `IMAGE_SELECTION_ALREADY_PUBLISHED`, a
+  operator uruchamia nowy run. Krótkiej ścieżki pliku nie wolno używać jako
+  identyfikatora domenowego.
+- **Supersedes:** doprecyzowuje D-121 i zachowuje niezmienność z D-124.
+
+## D-126 — Checkpoint selektora potwierdza bounded kursor, a fencing chroni projekcje
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** produkcyjny `image_selection` używa wspólnego lease i
+  `execution_slot = 1`. JSON checkpointu przechowuje wyłącznie kursor, bounded
+  stan otwartej grupy, pending guard, top-k oraz liczniki; grupy i kandydaci są
+  trwałą projekcją PostgreSQL. Projekcja jest zapisywana przed checkpointem, a
+  retry przycina odczyt do `finalizedGroupCount` ostatniego potwierdzonego
+  checkpointu i idempotentnie odtwarza najwyżej jego niedomknięty ogon. Każdy
+  zapis grupy i finalnego outputu wymaga aktualnego tokenu fencing.
+- **Context:** zapis projekcji i checkpointu korzysta z istniejących, odrębnych
+  granic transakcji. Awaria pomiędzy nimi może pozostawić projekcję o bounded
+  partię przed kursorem, a zapis checkpointu jako pierwszy mógłby pozostawić
+  kursor przed brakującą projekcją.
+- **Reason:** kolejność projection-first nie pomija danych. Uzgodnienie do
+  potwierdzonego prefiksu pozwala bezpiecznie powtórzyć małą partię, zachowując
+  prosty lokalny worker bez nowego brokera ani rozproszonej transakcji.
+- **Alternatives:** jedna rozproszona transakcja obejmująca runtime i projekcję,
+  checkpoint przed projekcją, ponowne skanowanie całego katalogu albo nowa
+  kolejka Redis/Celery.
+- **Consequences:** crash po checkpointcie wznawia następny plik, a crash przed
+  nim powtarza najwyżej 32 pliki. `waiting_for_review` zwalnia slot; cancel jest
+  sprawdzany przy checkpointach skanu i publikacji. Diagnostyka pozostaje
+  bounded i content-addressed, a czas aktywnych prób nie obejmuje ręcznego
+  oczekiwania.
+- **Supersedes:** doprecyzowuje wykonanie D-121 i korzysta z globalnego modelu
+  lease/fencing opisanego przez D-028–D-030.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ImageSelectionGroupResponse,
   ImageSelectionHandoffResponse,
   ImageSelectionRunResponse,
 } from '@game-predictor/admin-api-client';
@@ -13,8 +14,10 @@ import {
   type ImageSelectionUploadProgress,
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
+  loadManualImageSelectionGroups,
   uploadPhotoSelectionFolder,
 } from './image-selection-actions';
+import { ManualImageSelectionModal } from './manual-image-selection-modal';
 
 interface ImageSelectionWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -48,6 +51,11 @@ export function ImageSelectionWorkspace({
     null,
   );
   const [run, setRun] = useState<ImageSelectionRunResponse | null>(null);
+  const [manualGroups, setManualGroups] = useState<
+    ImageSelectionGroupResponse[]
+  >([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -78,6 +86,24 @@ export function ImageSelectionWorkspace({
       cancelled = true;
     };
   }, [api, gameId]);
+
+  useEffect(() => {
+    if (run === null) return;
+    let cancelled = false;
+    queueMicrotask(async () => {
+      try {
+        const groups = await loadManualImageSelectionGroups(api, run.id);
+        if (!cancelled) setManualGroups(groups);
+      } catch {
+        if (!cancelled) {
+          setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, run]);
 
   async function startUpload(files: readonly File[], activeResume = resume) {
     if (busy) return;
@@ -158,6 +184,31 @@ export function ImageSelectionWorkspace({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openManualReview() {
+    if (run === null || manualLoading) return;
+    setManualLoading(true);
+    setError('');
+    try {
+      const groups = await loadManualImageSelectionGroups(api, run.id);
+      setManualGroups(groups);
+      if (groups.length === 0) {
+        setNotice('Ten run nie ma grup wymagających ręcznej decyzji.');
+      } else {
+        setManualOpen(true);
+      }
+    } catch {
+      setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
+    } finally {
+      setManualLoading(false);
+    }
+  }
+
+  function updateManualGroup(updated: ImageSelectionGroupResponse) {
+    setManualGroups((groups) =>
+      groups.map((group) => (group.id === updated.id ? updated : group)),
+    );
   }
 
   const percentage =
@@ -276,6 +327,16 @@ export function ImageSelectionWorkspace({
           </dl>
           <div className="imageSelectionRecoveryActions">
             <button
+              className="secondaryButton"
+              disabled={busy || manualLoading}
+              onClick={() => void openManualReview()}
+              type="button"
+            >
+              {manualLoading
+                ? 'Odczytywanie…'
+                : `Uzupełnij wyjątki${manualGroups.length > 0 ? ` (${manualGroups.length})` : ''}`}
+            </button>
+            <button
               aria-busy={busy}
               className="primaryButton"
               disabled={busy || run.outputManifestSha256 === null}
@@ -291,6 +352,16 @@ export function ImageSelectionWorkspace({
             ) : null}
           </div>
         </section>
+      ) : null}
+      {manualOpen && run !== null && manualGroups.length > 0 ? (
+        <ManualImageSelectionModal
+          apiBaseUrl={apiBaseUrl}
+          client={api}
+          groups={manualGroups}
+          onClose={() => setManualOpen(false)}
+          onGroupUpdated={updateManualGroup}
+          runId={run.id}
+        />
       ) : null}
     </section>
   );

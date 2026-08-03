@@ -428,6 +428,135 @@ nav {
   font-size: 12px;
 }
 
+.manualSelectionOverlay {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.manualSelectionDialog {
+  display: grid;
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 32px);
+  min-height: 0;
+  gap: 12px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  outline: none;
+  background: #0b1020;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.manualSelectionDialog:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(119, 147, 255, 0.28);
+}
+
+.manualSelectionHeader {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.manualSelectionHeader h2,
+.manualSelectionHeader p {
+  margin: 0;
+}
+
+.manualSelectionHeader nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manualSelectionHeader nav span {
+  min-width: 58px;
+  color: var(--muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.manualSelectionHeader nav button {
+  min-width: 42px;
+  padding-inline: 12px;
+  font-size: 18px;
+}
+
+.manualSelectionBody {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 14px;
+}
+
+.manualSelectionPreview {
+  display: grid;
+  min-width: 0;
+  min-height: 360px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #050812;
+}
+
+.manualSelectionPreview img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 190px);
+  object-fit: contain;
+}
+
+.manualSelectionPreview p {
+  max-width: 300px;
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+}
+
+.manualSelectionControls {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.manualSelectionControls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.manualSelectionControls input {
+  width: 100%;
+  min-width: 0;
+}
+
+.manualSelectionControls p,
+.manualSelectionFileName {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.manualSelectionFileName {
+  min-height: 36px;
+}
+
 .activeGameContext {
   display: flex;
   align-items: center;
@@ -607,6 +736,29 @@ nav {
 
   .imageSelectionRunCard dl {
     grid-template-columns: 1fr;
+  }
+
+  .manualSelectionDialog {
+    max-height: calc(100vh - 16px);
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .manualSelectionHeader,
+  .manualSelectionBody {
+    grid-template-columns: 1fr;
+  }
+
+  .manualSelectionHeader nav {
+    justify-content: space-between;
+  }
+
+  .manualSelectionPreview {
+    min-height: 240px;
+  }
+
+  .manualSelectionPreview img {
+    max-height: 50vh;
   }
 
   .gameStatusFilters {

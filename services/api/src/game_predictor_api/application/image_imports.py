@@ -36,6 +36,7 @@ MIN_FREE_SPACE_RESERVE_BYTES = 512 * 1024 * 1024
 IMAGE_RELATIVE_PATH_HEADER = "X-Image-Relative-Path"
 UPLOAD_STATE_FILE_NAME = "_upload_state.json"
 UPLOAD_MANIFEST_FILE_NAME = "_browser_manifest.json"
+UPLOAD_METRICS_FILE_NAME = "_upload_metrics.json"
 
 
 class ImageSelectionPurpose(StrEnum):
@@ -555,6 +556,28 @@ class BrowserImageSelectionService:
             temporary_manifest = upload.path / f".{UPLOAD_MANIFEST_FILE_NAME}.part"
             temporary_manifest.write_bytes(manifest_bytes)
             temporary_manifest.replace(manifest_path)
+            completed_at = self._clock()
+            upload_metrics = {
+                "completedAt": completed_at.isoformat(),
+                "durationSeconds": max(
+                    0.0,
+                    (completed_at - upload.created_at).total_seconds(),
+                ),
+                "schemaVersion": 1,
+                "startedAt": upload.created_at.isoformat(),
+            }
+            metrics_path = upload.path / UPLOAD_METRICS_FILE_NAME
+            temporary_metrics = upload.path / f".{UPLOAD_METRICS_FILE_NAME}.part"
+            temporary_metrics.write_text(
+                json.dumps(
+                    upload_metrics,
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            temporary_metrics.replace(metrics_path)
             selected = self._selection_service.approve(
                 upload.path,
                 display_name=upload.display_name,

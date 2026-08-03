@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
+
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobType
@@ -28,6 +29,10 @@ from game_predictor_worker.images.selection.engine import FastImageSelector
 from game_predictor_worker.images.selection.io import (
     JsonSelectionAuditSink,
     load_browser_selection_manifest,
+)
+from game_predictor_worker.images.selection.job import (
+    ImageSelectionJobHandler,
+    SqlAlchemyImageSelectionJobStore,
 )
 from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
 from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
@@ -54,7 +59,7 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 
-WORKER_VERSION = "worker-v5"
+WORKER_VERSION = "worker-v6"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -148,6 +153,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
         import_handler,
         image_import_handler,
     )
+    image_selection_handler = ImageSelectionJobHandler(
+        SqlAlchemyImageSelectionJobStore(session_factory),
+        browser_upload_root=settings.import_root,
+        artifact_root=artifact_root,
+        repository_root=Path.cwd(),
+    )
     snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
     release_handler = ReleaseWorkflowHandler(
         SqlAlchemyReleaseWorkflowStore(session_factory),
@@ -170,6 +181,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             JobType.VALIDATE: import_validation_handler,
             JobType.PAYOUT: payout_handler,
             JobType.ANDROID_BUILD: release_handler,
+            JobType.IMAGE_SELECTION: image_selection_handler,
         },
         worker_id=options.worker_id,
         worker_version=WORKER_VERSION,

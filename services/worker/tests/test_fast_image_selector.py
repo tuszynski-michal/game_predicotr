@@ -15,6 +15,7 @@ from game_predictor_worker.images.selection.contracts import (
     SelectionContractError,
     SelectionGroupResult,
     SelectorCheckpoint,
+    SelectorResumeState,
     SequenceRange,
 )
 from game_predictor_worker.images.selection.engine import FastImageSelector
@@ -244,3 +245,77 @@ def test_selector_streams_metrics_and_saves_bounded_batch_checkpoints() -> None:
     assert sink.checkpoint_counts == [2, 4, 4]
     assert sink.finalized_orders == [0, 1]
     assert result.checkpoint.next_order_index == len(observations)
+
+
+class _SimulatedCrash(RuntimeError):
+    pass
+
+
+@dataclass
+class _CrashAfterCheckpointSink(_TrackingSink):
+    crash_after_processed: int
+    resume_state: SelectorResumeState | None = None
+    finalized_groups: list[SelectionGroupResult] | None = None
+
+    def group_finalized(self, group: SelectionGroupResult) -> None:
+        super().group_finalized(group)
+        assert self.finalized_groups is not None
+        if group.group_order < len(self.finalized_groups):
+            self.finalized_groups[group.group_order] = group
+        else:
+            self.finalized_groups.append(group)
+
+    def selector_state_saved(self, state: SelectorResumeState) -> None:
+        if state.checkpoint.processed_count == self.crash_after_processed:
+            self.resume_state = state
+            raise _SimulatedCrash
+
+
+@dataclass
+class _CountingAnalyzer(GoldenAnalyzer):
+    calls: list[int] | None = None
+
+    def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
+        assert self.calls is not None
+        self.calls.append(source.order_index)
+        return super().analyze(source)
+
+
+def test_selector_resumes_at_the_next_file_after_a_durable_checkpoint() -> None:
+    case = _golden_cases()[1]
+    observations = tuple(cast(dict[str, Any], value) for value in case["observations"])
+    sources = _sources("resume-after-checkpoint", len(observations))
+    manifest = SelectorManifest(scan_batch_size=2)
+    sink = _CrashAfterCheckpointSink(
+        [],
+        [],
+        [],
+        crash_after_processed=4,
+        finalized_groups=[],
+    )
+
+    with pytest.raises(_SimulatedCrash):
+        FastImageSelector(manifest).select(
+            sources,
+            analyzer=GoldenAnalyzer(observations),
+            verifier=GoldenVerifier(observations),
+            audit_sink=sink,
+        )
+
+    assert sink.resume_state is not None
+    resumed_calls: list[int] = []
+    resumed = FastImageSelector(manifest).select(
+        sources,
+        analyzer=_CountingAnalyzer(observations, resumed_calls),
+        verifier=GoldenVerifier(observations),
+        resume_state=SelectorResumeState.from_dict(sink.resume_state.to_dict()),
+        existing_groups=tuple(sink.finalized_groups or ()),
+    )
+    uninterrupted = FastImageSelector(manifest).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert resumed_calls == [4, 5]
+    assert resumed.to_dict() == uninterrupted.to_dict()

@@ -126,6 +126,18 @@ JobPayloadResponse = (
 )
 
 
+class ImageSelectionJobProgressResponse(ApiModel):
+    groups: int
+    selected: int
+    manual: int
+    skipped: int
+    errors: int
+    verifications: int
+    upload_duration_seconds: float | None = None
+    processing_duration_seconds: float | None = None
+    diagnostic_checksum_sha256: str | None = None
+
+
 class JobProgressResponse(ApiModel):
     current: int
     total: int | None
@@ -133,6 +145,10 @@ class JobProgressResponse(ApiModel):
     succeeded: int
     failed: int
     review: int
+    image_selection: ImageSelectionJobProgressResponse | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
 
 
 class JobErrorResponse(ApiModel):
@@ -179,6 +195,7 @@ class JobResponse(ApiModel):
                 succeeded=job.success_count,
                 failed=job.failure_count,
                 review=job.review_count,
+                image_selection=_image_selection_progress(job),
             ),
             error=error,
             worker_version=job.worker_version,
@@ -191,6 +208,57 @@ class JobResponse(ApiModel):
             finished_at=job.finished_at,
             cancel_requested_at=job.cancel_requested_at,
         )
+
+
+def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | None:
+    if job.job_type is not JobType.IMAGE_SELECTION or job.checkpoint_payload is None:
+        return None
+    payload = job.checkpoint_payload
+    if payload.get("workflow") != "image_selection":
+        return None
+    diagnostic = payload.get("diagnostic")
+    checksum = (
+        diagnostic.get("checksumSha256")
+        if isinstance(diagnostic, dict)
+        else None
+    )
+    processing_seconds_value = payload.get("processing_duration_seconds")
+    try:
+        return ImageSelectionJobProgressResponse(
+            groups=_progress_integer(payload.get("group_count", 0)),
+            selected=_progress_integer(payload.get("selected_count", 0)),
+            manual=_progress_integer(payload.get("manual_count", 0)),
+            skipped=_progress_integer(payload.get("skipped_count", 0)),
+            errors=_progress_integer(payload.get("error_count", 0)),
+            verifications=_progress_integer(payload.get("verification_count", 0)),
+            upload_duration_seconds=(
+                None
+                if payload.get("upload_duration_seconds") is None
+                else _progress_float(payload["upload_duration_seconds"])
+            ),
+            processing_duration_seconds=(
+                None
+                if processing_seconds_value is None
+                else _progress_float(processing_seconds_value)
+            ),
+            diagnostic_checksum_sha256=(
+                checksum if isinstance(checksum, str) else None
+            ),
+        )
+    except (TypeError, ValueError):
+        return None
+
+
+def _progress_integer(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        raise TypeError
+    return int(value)
+
+
+def _progress_float(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        raise TypeError
+    return float(value)
 
 
 def _payload_from_domain(job: Job) -> JobPayloadResponse:

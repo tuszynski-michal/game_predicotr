@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -108,6 +110,19 @@ class ImageSelectionCandidate:
 
 
 @dataclass(frozen=True, slots=True)
+class ImageSelectionManualDecision:
+    idempotency_key: UUID
+    run_id: UUID
+    group_id: UUID
+    candidate_id: UUID
+    range_start: int
+    range_end: int
+    revision: int
+    payload_sha256: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ImageSelectionGroupPage:
     items: tuple[ImageSelectionGroup, ...]
     next_after_group_order: int | None
@@ -182,6 +197,8 @@ def record_image_selection_output(
         output_manifest_relative_path=relative_path,
         updated_at=updated_at or datetime.now(UTC),
     )
+
+
 def validate_image_selection_group(
     *,
     group_order: int,
@@ -240,6 +257,77 @@ def validate_candidate(
     return relative_path
 
 
+def create_manual_decision(
+    *,
+    idempotency_key: UUID,
+    group: ImageSelectionGroup,
+    candidate: ImageSelectionCandidate,
+    range_start: int | None,
+    range_end: int | None,
+    revision: int,
+    created_at: datetime | None = None,
+) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+    if idempotency_key.int == 0 or revision < 1:
+        _configuration_error("Manual decision identifiers and revision must be valid.")
+    if group.status not in {
+        ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.MANUALLY_SELECTED,
+    }:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_GROUP_NOT_MANUAL",
+            "Only a manual-review group can accept a manual representative.",
+        )
+    if candidate.run_id != group.run_id or candidate.group_id != group.id:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_CANDIDATE_MISMATCH",
+            "The selected JPEG does not belong to this image-selection group.",
+        )
+    resolved_start = group.range_start if range_start is None else range_start
+    resolved_end = group.range_end if range_end is None else range_end
+    validate_image_selection_group(
+        group_order=group.group_order,
+        range_start=resolved_start,
+        range_end=resolved_end,
+        fingerprint_sha256=group.fingerprint_sha256,
+        board_count_consensus=group.board_count_consensus,
+    )
+    if resolved_start is None or resolved_end is None:
+        raise ImageSelectionError(
+            "IMAGE_SELECTION_RANGE_REQUIRED",
+            "A positive sequence range is required for an unknown group.",
+        )
+    payload = {
+        "candidateId": str(candidate.id),
+        "groupId": str(group.id),
+        "rangeEnd": resolved_end,
+        "rangeStart": resolved_start,
+        "runId": str(group.run_id),
+    }
+    payload_sha256 = hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    now = created_at or datetime.now(UTC)
+    updated_group = replace(
+        group,
+        range_start=resolved_start,
+        range_end=resolved_end,
+        status=ImageSelectionGroupStatus.MANUALLY_SELECTED,
+        selected_candidate_id=candidate.id,
+        updated_at=now,
+    )
+    return updated_group, ImageSelectionManualDecision(
+        idempotency_key=idempotency_key,
+        run_id=group.run_id,
+        group_id=group.id,
+        candidate_id=candidate.id,
+        range_start=resolved_start,
+        range_end=resolved_end,
+        revision=revision,
+        payload_sha256=payload_sha256,
+        created_at=now,
+    )
+
+
 def validate_sha256(value: str, *, field: str) -> str:
     normalized = value.strip()
     if _SHA256_PATTERN.fullmatch(normalized) is None:
@@ -280,9 +368,11 @@ __all__ = [
     "ImageSelectionGroup",
     "ImageSelectionGroupPage",
     "ImageSelectionGroupStatus",
+    "ImageSelectionManualDecision",
     "ImageSelectionNotFoundError",
     "ImageSelectionRun",
     "create_image_selection_run",
+    "create_manual_decision",
     "record_image_selection_output",
     "safe_relative_path",
     "validate_candidate",

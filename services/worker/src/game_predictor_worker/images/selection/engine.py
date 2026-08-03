@@ -23,6 +23,8 @@ from .contracts import (
     SelectionGroupResult,
     SelectionGroupStatus,
     SelectorCheckpoint,
+    SelectorOpenGroupState,
+    SelectorResumeState,
     SequenceRange,
 )
 from .manifest import DEFAULT_SELECTOR_MANIFEST, SelectorManifest
@@ -76,6 +78,32 @@ class _OpenGroup:
             key=lambda value: (-self.board_counts[value], -value),
         )
 
+    def to_state(self) -> SelectorOpenGroupState:
+        return SelectorOpenGroupState(
+            group_order=self.group_order,
+            source_count=self.source_count,
+            top_observations=tuple(self.top_observations),
+            board_counts=tuple(sorted(self.board_counts.items())),
+        )
+
+    @classmethod
+    def from_state(cls, state: SelectorOpenGroupState, *, top_k: int) -> _OpenGroup:
+        if len(state.top_observations) > top_k:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint exceeds the configured top-k bound.",
+            )
+        group = cls(
+            group_order=state.group_order,
+            top_k=top_k,
+            source_count=state.source_count,
+            top_observations=list(state.top_observations),
+            board_counts=Counter(dict(state.board_counts)),
+        )
+        group.top_observations.sort(key=_observation_rank)
+        group.reference = group.top_observations[0]
+        return group
+
 
 def _observation_rank(observation: CheapImageObservation) -> tuple[float, int, str]:
     return (
@@ -110,19 +138,56 @@ class FastImageSelector:
         analyzer: CheapImageAnalyzer,
         verifier: CandidateVerifier,
         audit_sink: SelectionAuditSink | None = None,
+        resume_state: SelectorResumeState | None = None,
+        existing_groups: Iterable[SelectionGroupResult] = (),
     ) -> ImageSelectionResult:
         ordered_sources = tuple(sources)
         self._validate_source_order(ordered_sources)
         sink = audit_sink or NullSelectionAuditSink()
-        groups: list[SelectionGroupResult] = []
+        groups = list(existing_groups)
+        self._validate_resume(
+            ordered_sources,
+            groups=groups,
+            resume_state=resume_state,
+        )
         completed_ranges: dict[tuple[int, int], int] = {}
         unresolved_ranges: dict[tuple[int, int], int] = {}
         unresolved_fingerprints: dict[int, str] = {}
-        current: _OpenGroup | None = None
-        pending: list[CheapImageObservation] = []
-        processed_count = 0
-        scan_failure_count = 0
-        verification_count = 0
+        for group in groups:
+            if group.status in {
+                SelectionGroupStatus.AUTO_SELECTED,
+                SelectionGroupStatus.MANUALLY_SELECTED,
+            } and group.range is not None:
+                completed_ranges[(group.range.start, group.range.end)] = group.group_order
+            elif group.status is SelectionGroupStatus.MANUAL_REQUIRED:
+                if group.range is not None:
+                    unresolved_ranges[(group.range.start, group.range.end)] = group.group_order
+                if group.reference_fingerprint_hex is not None:
+                    unresolved_fingerprints[group.group_order] = (
+                        group.reference_fingerprint_hex
+                    )
+        current = (
+            None
+            if resume_state is None or resume_state.current_group is None
+            else _OpenGroup.from_state(
+                resume_state.current_group,
+                top_k=self.manifest.top_k,
+            )
+        )
+        pending = (
+            []
+            if resume_state is None
+            else list(resume_state.pending_observations)
+        )
+        processed_count = (
+            0 if resume_state is None else resume_state.checkpoint.processed_count
+        )
+        scan_failure_count = (
+            0 if resume_state is None else resume_state.scan_failure_count
+        )
+        verification_count = (
+            0 if resume_state is None else resume_state.verification_count
+        )
 
         def ingest(group: _OpenGroup, observation: CheapImageObservation) -> None:
             nonlocal scan_failure_count
@@ -133,6 +198,7 @@ class FastImageSelector:
 
         def finalize(group: _OpenGroup) -> None:
             nonlocal verification_count
+            previous_groups = tuple(groups)
             result, count = self._finalize_group(
                 group,
                 verifier=verifier,
@@ -142,6 +208,9 @@ class FastImageSelector:
                 unresolved_fingerprints=unresolved_fingerprints,
             )
             verification_count += count
+            for before, after in zip(previous_groups, groups, strict=True):
+                if before != after:
+                    sink.group_finalized(after)
             if result.status is SelectionGroupStatus.AUTO_SELECTED and result.range is not None:
                 completed_ranges[(result.range.start, result.range.end)] = result.group_order
             elif result.status is SelectionGroupStatus.MANUAL_REQUIRED:
@@ -152,7 +221,10 @@ class FastImageSelector:
             groups.append(result)
             sink.group_finalized(result)
 
-        for source in ordered_sources:
+        first_source_index = (
+            0 if resume_state is None else resume_state.checkpoint.next_order_index
+        )
+        for source in ordered_sources[first_source_index:]:
             observation = analyzer.analyze(source)
             processed_count += 1
             if current is None:
@@ -191,11 +263,14 @@ class FastImageSelector:
                 ingest(current, observation)
 
             if processed_count % self.manifest.scan_batch_size == 0:
-                sink.checkpoint_saved(
-                    self._checkpoint(
-                        processed_count=processed_count,
-                        finalized_group_count=len(groups),
-                    )
+                self._save_state(
+                    sink,
+                    processed_count=processed_count,
+                    groups=groups,
+                    current=current,
+                    pending=pending,
+                    scan_failure_count=scan_failure_count,
+                    verification_count=verification_count,
                 )
 
         if current is not None:
@@ -208,17 +283,21 @@ class FastImageSelector:
                 for observation in pending:
                     ingest(current, observation)
             finalize(current)
-        checkpoint = self._checkpoint(
+        state = self._save_state(
+            sink,
             processed_count=processed_count,
-            finalized_group_count=len(groups),
+            groups=groups,
+            current=None,
+            pending=[],
+            scan_failure_count=scan_failure_count,
+            verification_count=verification_count,
         )
-        sink.checkpoint_saved(checkpoint)
         return ImageSelectionResult(
             selector_version=self.manifest.algorithm_version,
             selector_fingerprint=self.manifest.fingerprint,
             input_count=len(ordered_sources),
             groups=tuple(groups),
-            checkpoint=checkpoint,
+            checkpoint=state.checkpoint,
             scan_failure_count=scan_failure_count,
             verification_count=verification_count,
         )
@@ -335,6 +414,7 @@ class FastImageSelector:
                         selected_candidate=None,
                         top_candidates=candidates,
                         duplicate_of_group_order=completed_ranges[range_key],
+                        reference_fingerprint_hex=group.reference.fingerprint_hex,
                     ),
                     len(verified),
                 )
@@ -359,6 +439,7 @@ class FastImageSelector:
                     status=SelectionGroupStatus.AUTO_SELECTED,
                     selected_candidate=selected,
                     top_candidates=combined,
+                    reference_fingerprint_hex=previous.reference_fingerprint_hex,
                 )
                 completed_ranges[range_key] = unresolved_order
                 unresolved_ranges.pop(range_key, None)
@@ -374,6 +455,7 @@ class FastImageSelector:
                         selected_candidate=None,
                         top_candidates=candidates,
                         duplicate_of_group_order=unresolved_order,
+                        reference_fingerprint_hex=group.reference.fingerprint_hex,
                     ),
                     len(verified),
                 )
@@ -387,6 +469,7 @@ class FastImageSelector:
                     status=SelectionGroupStatus.AUTO_SELECTED,
                     selected_candidate=selected,
                     top_candidates=candidates,
+                    reference_fingerprint_hex=group.reference.fingerprint_hex,
                 ),
                 len(verified),
             )
@@ -401,6 +484,7 @@ class FastImageSelector:
                 status=SelectionGroupStatus.MANUAL_REQUIRED,
                 selected_candidate=None,
                 top_candidates=candidates,
+                reference_fingerprint_hex=group.reference.fingerprint_hex,
             ),
             len(verified),
         )
@@ -455,6 +539,8 @@ class FastImageSelector:
             quality=quality,
             recognized_range=recognized_range,
             reason_codes=unique_reasons,
+            width=observation.width,
+            height=observation.height,
         )
 
     def _group_range(self, candidates: tuple[CandidateResult, ...]) -> SequenceRange | None:
@@ -502,6 +588,95 @@ class FastImageSelector:
             processed_count=processed_count,
             finalized_group_count=finalized_group_count,
         )
+
+    def _save_state(
+        self,
+        sink: SelectionAuditSink,
+        *,
+        processed_count: int,
+        groups: list[SelectionGroupResult],
+        current: _OpenGroup | None,
+        pending: list[CheapImageObservation],
+        scan_failure_count: int,
+        verification_count: int,
+    ) -> SelectorResumeState:
+        checkpoint = self._checkpoint(
+            processed_count=processed_count,
+            finalized_group_count=len(groups),
+        )
+        state = SelectorResumeState(
+            checkpoint=checkpoint,
+            current_group=None if current is None else current.to_state(),
+            pending_observations=tuple(pending),
+            scan_failure_count=scan_failure_count,
+            verification_count=verification_count,
+        )
+        sink.checkpoint_saved(checkpoint)
+        state_callback = getattr(sink, "selector_state_saved", None)
+        if callable(state_callback):
+            state_callback(state)
+        return state
+
+    def _validate_resume(
+        self,
+        sources: tuple[ImageSelectionSource, ...],
+        *,
+        groups: list[SelectionGroupResult],
+        resume_state: SelectorResumeState | None,
+    ) -> None:
+        for expected_order, group in enumerate(groups):
+            if group.group_order != expected_order:
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                    "Persisted groups are not contiguous in selector order.",
+                )
+        if resume_state is None:
+            if groups:
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                    "Persisted groups require a matching selector checkpoint.",
+                )
+            return
+        checkpoint = resume_state.checkpoint
+        if (
+            checkpoint.schema_version != 1
+            or checkpoint.selector_fingerprint != self.manifest.fingerprint
+            or checkpoint.next_order_index != checkpoint.processed_count
+            or not 0 <= checkpoint.next_order_index <= len(sources)
+            or checkpoint.finalized_group_count != len(groups)
+            or resume_state.scan_failure_count < 0
+            or resume_state.verification_count < 0
+            or len(resume_state.pending_observations)
+            >= self.manifest.boundary_confirmation_count
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint is inconsistent with its input and manifest.",
+            )
+        current = resume_state.current_group
+        if current is None:
+            if resume_state.pending_observations or checkpoint.next_order_index < len(sources):
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                    "An unfinished selector checkpoint is missing its open group.",
+                )
+        elif current.group_order != len(groups):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint open group has an invalid order.",
+            )
+        observed_indexes = [
+            observation.source.order_index
+            for observation in (
+                (() if current is None else current.top_observations)
+                + resume_state.pending_observations
+            )
+        ]
+        if any(index >= checkpoint.next_order_index for index in observed_indexes):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CHECKPOINT_INVALID",
+                "The selector checkpoint references an unprocessed source.",
+            )
 
     @staticmethod
     def _validate_source_order(sources: tuple[ImageSelectionSource, ...]) -> None:

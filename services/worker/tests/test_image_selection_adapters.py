@@ -111,6 +111,25 @@ def test_composed_scan_uses_explicit_ports_and_returns_bounded_observation(
     assert observation.quality.overall_score == 0.92
 
 
+def test_corrupted_jpeg_is_isolated_as_a_bounded_scan_observation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "00000001.jpg"
+    path.write_bytes(b"not-a-jpeg")
+    checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+    analyzer = ComposedCheapImageAnalyzer(
+        PillowThumbnailLoader(tmp_path, max_edge=320),
+        _FixedLatticeAnalyzer(),
+        _FixedQualityAnalyzer(),
+    )
+
+    observation = analyzer.analyze(_source(checksum))
+
+    assert observation.reason_codes == ("IMAGE_SELECTION_SCAN_DECODE_FAILED",)
+    assert observation.quality.overall_score == 0.0
+    assert (observation.width, observation.height) == (1, 1)
+
+
 def test_opencv_quality_scores_sharp_pattern_above_blurred_pattern() -> None:
     checker = np.indices((240, 320)).sum(axis=0) % 2
     sharp = np.repeat((checker * 255).astype(np.uint8)[:, :, None], 3, axis=2)

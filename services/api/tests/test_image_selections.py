@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionError,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
+    ImageSelectionManualDecision,
     ImageSelectionRun,
     safe_relative_path,
     validate_candidate,
@@ -46,6 +48,7 @@ class MemoryImageSelectionRepository:
         self.runs: dict[UUID, ImageSelectionRun] = {}
         self.groups: list[ImageSelectionGroup] = []
         self.candidates: list[ImageSelectionCandidate] = []
+        self.manual_decisions: list[ImageSelectionManualDecision] = []
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -113,6 +116,98 @@ class MemoryImageSelectionRepository:
     ) -> ImageSelectionCandidate:
         self.candidates.append(candidate)
         return candidate
+
+    def get_group(self, *, run_id: UUID, group_id: UUID) -> ImageSelectionGroup | None:
+        return next(
+            (group for group in self.groups if group.run_id == run_id and group.id == group_id),
+            None,
+        )
+
+    def get_candidate(self, *, run_id: UUID, candidate_id: UUID) -> ImageSelectionCandidate | None:
+        return next(
+            (
+                candidate
+                for candidate in self.candidates
+                if candidate.run_id == run_id and candidate.id == candidate_id
+            ),
+            None,
+        )
+
+    def find_candidate_by_checksum(
+        self, *, run_id: UUID, group_id: UUID, checksum_sha256: str
+    ) -> ImageSelectionCandidate | None:
+        return next(
+            (
+                candidate
+                for candidate in self.candidates
+                if candidate.run_id == run_id
+                and candidate.group_id == group_id
+                and candidate.checksum_sha256 == checksum_sha256
+                and "manual_upload" in candidate.reason_codes
+            ),
+            None,
+        )
+
+    def next_candidate_order(self, run_id: UUID) -> int:
+        orders = [item.order_index for item in self.candidates if item.run_id == run_id]
+        return max(orders, default=-1) + 1
+
+    def get_manual_decision(self, idempotency_key: UUID) -> ImageSelectionManualDecision | None:
+        return next(
+            (item for item in self.manual_decisions if item.idempotency_key == idempotency_key),
+            None,
+        )
+
+    def list_manual_decisions(self, *, run_id: UUID) -> Sequence[ImageSelectionManualDecision]:
+        return tuple(item for item in self.manual_decisions if item.run_id == run_id)
+
+    def next_manual_revision(self, *, run_id: UUID, group_id: UUID) -> int:
+        revisions = [
+            item.revision
+            for item in self.manual_decisions
+            if item.run_id == run_id and item.group_id == group_id
+        ]
+        return max(revisions, default=0) + 1
+
+    def save_manual_decision(
+        self,
+        *,
+        group: ImageSelectionGroup,
+        decision: ImageSelectionManualDecision,
+    ) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+        for index, existing in enumerate(self.groups):
+            if existing.id == group.id and existing.run_id == group.run_id:
+                self.groups[index] = group
+                break
+        for index, candidate in enumerate(self.candidates):
+            if candidate.run_id != group.run_id or candidate.group_id != group.id:
+                continue
+            expected = (
+                ImageSelectionCandidateDecision.SELECTED_MANUAL
+                if candidate.id == decision.candidate_id
+                else (
+                    ImageSelectionCandidateDecision.ELIGIBLE
+                    if candidate.decision is ImageSelectionCandidateDecision.SELECTED_MANUAL
+                    else candidate.decision
+                )
+            )
+            self.candidates[index] = ImageSelectionCandidate(
+                id=candidate.id,
+                run_id=candidate.run_id,
+                group_id=candidate.group_id,
+                order_index=candidate.order_index,
+                source_relative_path=candidate.source_relative_path,
+                checksum_sha256=candidate.checksum_sha256,
+                width=candidate.width,
+                height=candidate.height,
+                quality_metrics=candidate.quality_metrics,
+                range_confidence=candidate.range_confidence,
+                reason_codes=candidate.reason_codes,
+                decision=expected,
+                created_at=candidate.created_at,
+            )
+        self.manual_decisions.append(decision)
+        return group, decision
 
 
 class FakeAttestedPhotoSelection:
@@ -402,9 +497,7 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
     assert first.json()["gameId"] == str(game_id)
     assert first.json()["supportedFileCount"] == 1
 
-    repository.groups.append(
-        _group(run.id, 1, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
-    )
+    repository.groups.append(_group(run.id, 1, status=ImageSelectionGroupStatus.MANUAL_REQUIRED))
     with client:
         unresolved = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
     repository.groups.pop()
@@ -417,3 +510,110 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
         changed = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
     assert changed.status_code == 409
     assert changed.json()["code"] == "IMAGE_SELECTION_MANIFEST_MISMATCH"
+
+
+def test_manual_jpeg_approval_is_idempotent_revisable_and_audited(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository, artifact_root=tmp_path / "artifacts")
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="6" * 64,
+        selector_fingerprint="7" * 64,
+    )
+    group = _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
+    repository.groups.append(group)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    first_path = tmp_path / "first.jpg"
+    second_path = tmp_path / "second.jpg"
+    Image.new("RGB", (80, 60), (240, 180, 20)).save(first_path, format="JPEG")
+    Image.new("RGB", (96, 72), (180, 20, 240)).save(second_path, format="JPEG")
+
+    with client:
+        uploaded = client.put(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/manual-file",
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-File-Name": "first.jpg",
+            },
+            content=first_path.read_bytes(),
+        )
+        assert uploaded.status_code == 200, uploaded.text
+        candidate_id = uploaded.json()["candidate"]["id"]
+        missing_range = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/approve",
+            json={
+                "candidateId": candidate_id,
+                "idempotencyKey": str(uuid4()),
+            },
+        )
+        idempotency_key = uuid4()
+        command = {
+            "candidateId": candidate_id,
+            "idempotencyKey": str(idempotency_key),
+            "rangeStart": 1,
+            "rangeEnd": 9,
+        }
+        approved = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/approve",
+            json=command,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/approve",
+            json=command,
+        )
+        preview = client.get(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/manual-files/{candidate_id}"
+        )
+        replacement = client.put(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/manual-file",
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-File-Name": "second.jpeg",
+            },
+            content=second_path.read_bytes(),
+        )
+        corrected = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/approve",
+            json={
+                "candidateId": replacement.json()["candidate"]["id"],
+                "idempotencyKey": str(uuid4()),
+                "rangeStart": 10,
+                "rangeEnd": 18,
+            },
+        )
+
+    assert uploaded.status_code == 200
+    assert uploaded.json()["candidate"]["displayName"] == "first.jpg"
+    assert missing_range.status_code == 422
+    assert missing_range.json()["code"] == "IMAGE_SELECTION_RANGE_REQUIRED"
+    assert approved.status_code == 200
+    assert approved.json()["group"]["status"] == "manually_selected"
+    assert approved.json()["decision"]["revision"] == 1
+    assert replay.status_code == 200
+    assert replay.json() == approved.json()
+    assert preview.status_code == 200
+    assert preview.content == first_path.read_bytes()
+    assert corrected.status_code == 200
+    assert corrected.json()["decision"]["revision"] == 2
+    assert corrected.json()["group"]["rangeStart"] == 10
+    assert len(repository.manual_decisions) == 2
+    decision_manifest = (
+        tmp_path
+        / "artifacts"
+        / "data"
+        / "working"
+        / "is-manual"
+        / run.id.hex[:12]
+        / "manual-decisions.json"
+    )
+    assert decision_manifest.is_file()
+    assert len(json.loads(decision_manifest.read_text())["decisions"]) == 2

@@ -30,6 +30,14 @@ const archivedGame = {
   status: 'archived',
 };
 
+const draftGame = {
+  ...activeGame,
+  code: 'draft',
+  id: 'game-draft',
+  name: 'Szkic 777',
+  status: 'draft',
+};
+
 function job(id, importKind, createdAt) {
   return {
     attemptCount: 0,
@@ -73,11 +81,12 @@ function job(id, importKind, createdAt) {
   };
 }
 
-test('loads only active games and image-directory jobs in stable order', async () => {
+test('loads draft and active games but excludes archived games', async () => {
   const games = await loadOperationalReviewGames({
     listGames: async () => ({
       data: [
         archivedGame,
+        draftGame,
         { ...activeGame, id: 'game-3', name: 'Alpha' },
         activeGame,
       ],
@@ -86,7 +95,7 @@ test('loads only active games and image-directory jobs in stable order', async (
   assert.equal(games.ok, true);
   assert.deepEqual(
     games.games.map((game) => game.name),
-    ['Alpha', 'Blazing Hot'],
+    ['Alpha', 'Blazing Hot', 'Szkic 777'],
   );
 
   let receivedFilters;

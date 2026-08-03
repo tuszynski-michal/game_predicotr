@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Current State
 
 ## Phase
 
-`Version 0.2 technically complete — owner acceptance pending`
+`Version 0.4 in development — TASK-0151 complete; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -100,7 +100,16 @@ last_updated: 2026-08-01
   bieżący layout, ale nie trenuje automatycznie globalnego profilu geometrii.
   Dwunasty pion rozdzielił koniec automatycznego image importu od terminalnego
   końca joba: `Wymaga review` pokazuje teraz datę, godzinę i czas zakończonego
-  importu z pipeline'em, bez doliczania ręcznego zatwierdzania.
+  importu z pipeline'em, bez doliczania ręcznego zatwierdzania. Trzynasty pion
+  usunął zależny od checkoutu Windows fałszywy drift klienta OpenAPI: LF/CRLF
+  jest normalizowane przy porównaniu, ale zmiany semantyczne nadal blokują
+  bramkę. Powtórna pełna bramka przeszła 2026-08-02: PostgreSQL 4/4, Admin
+  140/140, klient API 26/26, typecheck, lint, OpenAPI i produkcyjny build.
+- Czternasty pion TASK-0142 naprawił odbiór rzeczywistego szkicu `777 v0.2`:
+  Reviewer i launcher dopuszczają `draft`/`active`, nadal wykluczając
+  `archived`, a bootstrap symboli mapuje `None` do SQL `NULL`. Rzeczywisty
+  bootstrap zakończył się `applied` i utworzył osiem symboli; produkcyjna sesja
+  pokazała układ #8 oraz pełną kolejkę 4050 plansz.
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -117,8 +126,26 @@ last_updated: 2026-08-01
 
 ### Wersja 0.4
 
-- obejmuje pełne dane, nowe gry, wielogrowe wydanie, pełną skalę, końcowe testy
-  dużych zbiorów i hardening,
+- TASK-0151 ukończył fundament domenowy na branchu
+  `codex/image-selection-domain-storage`: migracja `0025_image_selection`, job
+  `image_selection`, trzy lekkie tabele bez BLOB, idempotentne create/get runu,
+  stronicowana lista grup oraz wygenerowany klient OpenAPI,
+- obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
+  czwarty workspace
+  `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego
+  checksumowanego JPEG-a na dowolny rozpoznany zakres, a niepewne grupy kieruje
+  do małego manualnego modala,
+- TASK-0151–0157 obejmują model domenowy, skalowalny folder staging, szybki
+  selector, output i handoff, manual fallback, operacje oraz bramkę 10k/30k,
+- folder użytkownika pozostaje read-only; pełny pipeline dostaje jawnie
+  przekazany manifest wybranych kopii i nie jest uruchamiany przez sam selector,
+- testy 10k/30k mierzą sam selektor na surowych zdjęciach; nie są pełnym
+  importem layoutów i nie odblokowują `massImportAllowed`.
+
+### Wersja 0.5
+
+- rozpoczyna pracę na większych rzeczywistych datasetach po zaakceptowaniu
+  selektora 0.4,
 - M6.6 został zaakceptowany jako obowiązkowy tor iteracyjnego ulepszania modelu
   symboli przed pełnym automatycznym importem,
 - TASK-0143–0150 obejmują skumulowane kohorty per gra, panel jakości,
@@ -126,7 +153,9 @@ last_updated: 2026-08-01
   przeliczenie wyłącznie `pending` oraz odbiór dwóch iteracji,
 - `accepted`, `corrected` i `rejected` są nienaruszalnymi decyzjami człowieka;
   żadna automatyczna operacja modelu nie może ich przeliczyć ani zmienić,
-- TASK-0076, TASK-0080–0089 oraz TASK-0143–0150 są przypisane do 0.4.
+- TASK-0076 realizuje pełny import około 500 000 rzeczywistych layoutów na grę,
+- nowe gry, wielogrowy snapshot/APK, benchmarki pełnego pipeline'u i
+  TASK-0080–0089 domykają skalę oraz hardening 0.5.
 
 ## Dane i artefakty
 
@@ -143,11 +172,12 @@ last_updated: 2026-08-01
 
 ### Robocze
 
-- PostgreSQL jest na migracji `0024_cleanup_operations`; przed rozpoczęciem pionu
+- PostgreSQL ma w repozytorium head `0025_image_selection`; przed rozpoczęciem pionu
   importu 0.2 baza nie zawierała rekordów domenowych,
 - podczas odbioru utworzono roboczą grę `777` i image import; job naprawczy
-  `65d6ca14-dacc-4341-b015-c187f2d7af36` przetwarza 739 zdjęć przez pełny
-  pipeline i pozostaje kontrolowanym procesem w tle,
+  `65d6ca14-dacc-4341-b015-c187f2d7af36` zakończył automatykę w stanie
+  `waiting_for_review`: 739 źródeł, 4050 plansz, 60 750 cropów i 4050 pozycji
+  review; automatyczny bootstrap utworzył dla gry osiem symboli,
 - dane poprzedniej iteracji są dostępne wyłącznie w kontrolowanym dumpie
   pre-reset; nie należy go automatycznie importować do workflow 0.2,
 - `apps/mobile/assets/snapshot/m1-snapshot.db` jest małym fixture’em
@@ -182,25 +212,29 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 ## Blocked / deferred
 
 - TASK-0076 pozostaje zablokowany przez `massImportAllowed = false` i należy do
-  0.4,
-- TASK-0080–0089 należą do pełnego hardeningu 0.4,
-- TASK-0143–0150 są zaplanowane w M6.6; nie rozpoczynają się przed zakończeniem
-  odbioru workflow importu i Reviewera 0.2,
+  0.5,
+- TASK-0080–0089 należą do pełnego hardeningu 0.5,
+- TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
+  przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
+- TASK-0151–0157 są zaplanowane jako M7.0 i nie zmieniają bieżącego zakresu
+  TASK-0142; implementacja zaczyna się dopiero po osobnym poleceniu właściciela,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
 Kontynuować odbiór właściciela według
 `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` i dopisywać regresje do aktywnego
-TASK-0142. Po potwierdzeniu nawigacji, małego workflow, jednego wydania i preview
-cleanup można zamknąć produktową bramkę 0.2; następny zaplanowany pion to
-TASK-0135 z wersji 0.3. Niezależny tor danych rozpocznie TASK-0143 z M6.6 po
-spełnieniu jego warunków wejścia; nie zastępuje on odbioru 0.2.
+TASK-0142. Import, pipeline, Symbole, Reviewer i Joby są potwierdzone; po
+utworzeniu jednego wydania, kontroli klawiatury w Adminie i preview cleanup można
+zamknąć produktową bramkę 0.2. Następny zaplanowany pion to
+TASK-0135 z wersji 0.3. M7.0 wersji 0.4 rozpocznie TASK-0151 po osobnym
+poleceniu; dopiero po TASK-0157 wersja 0.5 może rozpocząć M6.6 i duże dane.
+Żaden z tych torów nie zastępuje odbioru 0.2.
 
 ## Do not start yet
 
 - pełnego importu około 500 000 rzeczywistych layoutów,
 - dodawania i testowania kolejnych gier,
 - wielogrowego wydania mobilnego,
-- pełnej macierzy urządzeń i hardeningu przypisanego do 0.4,
+- pełnej macierzy urządzeń i hardeningu przypisanego do 0.5,
 - Celery/Redis, mikroserwisów, chmury, Google Play lub publicznego Admin API.

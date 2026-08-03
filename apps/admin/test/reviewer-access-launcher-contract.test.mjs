@@ -19,4 +19,6 @@ test('launcher exposes explicit online start and stop controls', async () => {
   assert.match(source, /Przejdź do Import layoutów/);
   assert.match(source, /reviewCounts\?\.total === 0/);
   assert.match(source, /reviewReadyImports/);
+  assert.match(source, /reviewableGames/);
+  assert.doesNotMatch(source, /game\.status === 'active'/);
 });

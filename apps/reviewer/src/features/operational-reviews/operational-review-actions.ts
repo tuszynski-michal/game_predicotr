@@ -152,7 +152,7 @@ export async function loadOperationalReviewGames(
     }
     return {
       games: orderOperationalReviewGames(
-        result.data.filter((game) => game.status === 'active'),
+        result.data.filter((game) => game.status !== 'archived'),
       ),
       ok: true,
     };

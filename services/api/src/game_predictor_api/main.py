@@ -35,6 +35,7 @@ from game_predictor_api.application.image_review_cohorts import (
 from game_predictor_api.application.image_reviews import (
     OperationalImageReviewService,
 )
+from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
@@ -80,6 +81,11 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewError,
     ImageReviewNotFoundError,
+)
+from game_predictor_api.domain.image_selections import (
+    ImageSelectionConflictError,
+    ImageSelectionError,
+    ImageSelectionNotFoundError,
 )
 from game_predictor_api.domain.jobs import (
     JobConflictError,
@@ -129,6 +135,9 @@ from game_predictor_api.storage.image_review_cohort_repository import (
 from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
 )
+from game_predictor_api.storage.image_selection_repository import (
+    SqlAlchemyImageSelectionRepository,
+)
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.layout_import_report_repository import (
     SqlAlchemyLayoutImportReportRepository,
@@ -156,6 +165,7 @@ def create_app(
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
     job_service_dependency: Callable[..., object] | None = None,
+    image_selection_service_dependency: Callable[..., object] | None = None,
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
@@ -251,6 +261,19 @@ def create_app(
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency
 
+    def default_image_selection_service_dependency() -> Iterator[ImageSelectionService]:
+        with session_factory() as session:
+            try:
+                yield ImageSelectionService(SqlAlchemyImageSelectionRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_selection_dependency = (
+        image_selection_service_dependency or default_image_selection_service_dependency
+    )
+
     default_image_folder_selection_service = ImageFolderSelectionService(
         WindowsFolderPicker(Path.cwd() / "scripts" / "select_local_image_folder.ps1")
     )
@@ -261,6 +284,7 @@ def create_app(
         default_image_folder_selection_service,
         resolved_settings.import_root,
         max_bytes=resolved_settings.import_max_bytes,
+        photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
     )
     resolved_browser_image_selection_dependency = (
         browser_image_selection_service_dependency
@@ -439,6 +463,7 @@ def create_app(
             resolved_rules_dependency,
             resolved_dataset_dependency,
             resolved_job_dependency,
+            resolved_image_selection_dependency,
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
@@ -501,6 +526,25 @@ def create_app(
         if isinstance(error, ImageReviewNotFoundError):
             status_code = 404
         elif isinstance(error, ImageReviewConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(ImageSelectionError)
+    async def handle_image_selection_error(
+        _request: Request,
+        error: ImageSelectionError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, ImageSelectionNotFoundError):
+            status_code = 404
+        elif isinstance(error, ImageSelectionConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

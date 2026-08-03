@@ -1,0 +1,248 @@
+"""SQLAlchemy persistence for image-selection runs and bounded projections."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, aliased
+
+from game_predictor_api.application.image_selections import ImageSelectionRepository
+from game_predictor_api.domain.image_selections import (
+    ImageSelectionCandidate,
+    ImageSelectionCandidateDecision,
+    ImageSelectionConflictError,
+    ImageSelectionGroup,
+    ImageSelectionGroupStatus,
+    ImageSelectionRun,
+)
+from game_predictor_api.storage.job_repository import (
+    job_from_record,
+    job_record_from_domain,
+)
+from game_predictor_api.storage.models import (
+    GameModel,
+    ImageSelectionCandidateModel,
+    ImageSelectionGroupModel,
+    ImageSelectionRunModel,
+    JobModel,
+)
+
+
+class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def game_exists(self, game_id: UUID) -> bool:
+        return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
+
+    def find_run_by_identity(
+        self,
+        *,
+        game_id: UUID,
+        input_manifest_sha256: str,
+        selector_fingerprint: str,
+    ) -> ImageSelectionRun | None:
+        row = self._session.execute(
+            select(ImageSelectionRunModel, JobModel)
+            .join(JobModel, JobModel.id == ImageSelectionRunModel.job_id)
+            .where(
+                ImageSelectionRunModel.game_id == game_id,
+                ImageSelectionRunModel.input_manifest_sha256 == input_manifest_sha256,
+                ImageSelectionRunModel.selector_fingerprint == selector_fingerprint,
+            )
+        ).one_or_none()
+        return None if row is None else _run_from_records(*row)
+
+    def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]:
+        record = ImageSelectionRunModel(
+            id=run.id,
+            game_id=run.game_id,
+            job_id=run.job.id,
+            source_selection_id=run.source_selection_id,
+            input_manifest_sha256=run.input_manifest_sha256,
+            selector_fingerprint=run.selector_fingerprint,
+            ordering_policy=run.ordering_policy,
+            contract_version=run.contract_version,
+            output_manifest_sha256=run.output_manifest_sha256,
+            output_manifest_relative_path=run.output_manifest_relative_path,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+        )
+        try:
+            with self._session.begin_nested():
+                self._session.add(job_record_from_domain(run.job))
+                self._session.add(record)
+                self._session.flush()
+        except IntegrityError as error:
+            existing = self.find_run_by_identity(
+                game_id=run.game_id,
+                input_manifest_sha256=run.input_manifest_sha256,
+                selector_fingerprint=run.selector_fingerprint,
+            )
+            if existing is not None:
+                return existing, False
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                "Image selection run conflicts with persisted state.",
+            ) from error
+        return _run_from_records(record, self._session.get(JobModel, run.job.id)), True
+
+    def get_run(self, run_id: UUID) -> ImageSelectionRun | None:
+        row = self._session.execute(
+            select(ImageSelectionRunModel, JobModel)
+            .join(JobModel, JobModel.id == ImageSelectionRunModel.job_id)
+            .where(ImageSelectionRunModel.id == run_id)
+        ).one_or_none()
+        return None if row is None else _run_from_records(*row)
+
+    def list_groups(
+        self,
+        *,
+        run_id: UUID,
+        status: ImageSelectionGroupStatus | None,
+        after_group_order: int,
+        limit: int,
+    ) -> list[ImageSelectionGroup]:
+        selected = aliased(ImageSelectionCandidateModel)
+        statement = (
+            select(ImageSelectionGroupModel, selected.id)
+            .outerjoin(
+                selected,
+                (selected.run_id == ImageSelectionGroupModel.run_id)
+                & (selected.group_id == ImageSelectionGroupModel.id)
+                & selected.decision.in_(
+                    (
+                        ImageSelectionCandidateDecision.SELECTED_AUTOMATIC.value,
+                        ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+                    )
+                ),
+            )
+            .where(
+                ImageSelectionGroupModel.run_id == run_id,
+                ImageSelectionGroupModel.group_order > after_group_order,
+            )
+            .order_by(ImageSelectionGroupModel.group_order, ImageSelectionGroupModel.id)
+            .limit(limit)
+        )
+        if status is not None:
+            statement = statement.where(ImageSelectionGroupModel.status == status.value)
+        rows = self._session.execute(statement)
+        return [_group_from_record(record, selected_id) for record, selected_id in rows]
+
+    def add_group(self, group: ImageSelectionGroup) -> ImageSelectionGroup:
+        record = ImageSelectionGroupModel(
+            id=group.id,
+            run_id=group.run_id,
+            group_order=group.group_order,
+            range_start=group.range_start,
+            range_end=group.range_end,
+            fingerprint_sha256=group.fingerprint_sha256,
+            board_count_consensus=group.board_count_consensus,
+            status=group.status.value,
+            created_at=group.created_at,
+            updated_at=group.updated_at,
+        )
+        self._session.add(record)
+        self._flush_or_conflict()
+        return _group_from_record(record, group.selected_candidate_id)
+
+    def add_candidate(
+        self,
+        candidate: ImageSelectionCandidate,
+    ) -> ImageSelectionCandidate:
+        record = ImageSelectionCandidateModel(
+            id=candidate.id,
+            run_id=candidate.run_id,
+            group_id=candidate.group_id,
+            order_index=candidate.order_index,
+            source_relative_path=candidate.source_relative_path,
+            checksum_sha256=candidate.checksum_sha256,
+            width=candidate.width,
+            height=candidate.height,
+            quality_metrics=candidate.quality_metrics,
+            range_confidence=candidate.range_confidence,
+            reason_codes=list(candidate.reason_codes),
+            decision=candidate.decision.value,
+            created_at=candidate.created_at,
+        )
+        self._session.add(record)
+        self._flush_or_conflict()
+        return _candidate_from_record(record)
+
+    def _flush_or_conflict(self) -> None:
+        try:
+            self._session.flush()
+        except IntegrityError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                "Image selection data conflicts with persisted state.",
+            ) from error
+
+
+def _run_from_records(
+    record: ImageSelectionRunModel,
+    job_record: JobModel | None,
+) -> ImageSelectionRun:
+    if job_record is None:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+            "Image selection run has no durable job.",
+        )
+    return ImageSelectionRun(
+        id=record.id,
+        game_id=record.game_id,
+        job=job_from_record(job_record),
+        source_selection_id=record.source_selection_id,
+        input_manifest_sha256=record.input_manifest_sha256,
+        selector_fingerprint=record.selector_fingerprint,
+        ordering_policy=record.ordering_policy,
+        contract_version=record.contract_version,
+        output_manifest_sha256=record.output_manifest_sha256,
+        output_manifest_relative_path=record.output_manifest_relative_path,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _group_from_record(
+    record: ImageSelectionGroupModel,
+    selected_candidate_id: UUID | None,
+) -> ImageSelectionGroup:
+    return ImageSelectionGroup(
+        id=record.id,
+        run_id=record.run_id,
+        group_order=record.group_order,
+        range_start=record.range_start,
+        range_end=record.range_end,
+        fingerprint_sha256=record.fingerprint_sha256,
+        board_count_consensus=record.board_count_consensus,
+        status=ImageSelectionGroupStatus(record.status),
+        selected_candidate_id=selected_candidate_id,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
+
+
+def _candidate_from_record(
+    record: ImageSelectionCandidateModel,
+) -> ImageSelectionCandidate:
+    return ImageSelectionCandidate(
+        id=record.id,
+        run_id=record.run_id,
+        group_id=record.group_id,
+        order_index=record.order_index,
+        source_relative_path=record.source_relative_path,
+        checksum_sha256=record.checksum_sha256,
+        width=record.width,
+        height=record.height,
+        quality_metrics=dict(record.quality_metrics),
+        range_confidence=record.range_confidence,
+        reason_codes=tuple(record.reason_codes),
+        decision=ImageSelectionCandidateDecision(record.decision),
+        created_at=record.created_at,
+    )
+
+
+__all__ = ["SqlAlchemyImageSelectionRepository"]

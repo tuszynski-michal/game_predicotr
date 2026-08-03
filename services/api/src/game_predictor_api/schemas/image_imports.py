@@ -6,7 +6,10 @@ from uuid import UUID
 
 from pydantic import Field
 
-from game_predictor_api.application.image_imports import SelectedImageFolder
+from game_predictor_api.application.image_imports import (
+    ImageSelectionPurpose,
+    SelectedImageFolder,
+)
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -17,15 +20,22 @@ class ImageFolderSelectionResponse(ApiModel):
     path: str | None = None
     supported_file_count: int = 0
     expires_at: datetime | None = None
+    purpose: ImageSelectionPurpose | None = None
+    input_manifest_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
     @classmethod
     def selected(cls, value: SelectedImageFolder) -> "ImageFolderSelectionResponse":
         return cls(
             status="selected",
             selection_token=value.selection_token,
-            path=str(value.path),
+            path=None if value.managed else str(value.path),
             supported_file_count=value.supported_file_count,
             expires_at=value.expires_at,
+            purpose=value.purpose,
+            input_manifest_sha256=value.input_manifest_sha256,
         )
 
     @classmethod
@@ -46,11 +56,16 @@ class BrowserImageSelectionCreate(ApiModel):
     display_name: str = Field(min_length=1, max_length=200)
     expected_file_count: int = Field(ge=1, le=1_000_000)
     expected_total_bytes: int = Field(ge=1)
+    purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT
+    game_id: UUID | None = None
 
 
 class BrowserImageSelectionUploadResponse(ApiModel):
     upload_id: UUID
     expected_file_count: int
     uploaded_file_count: int
+    uploaded_file_indexes: list[int]
     expected_total_bytes: int
     uploaded_bytes: int
+    purpose: ImageSelectionPurpose
+    game_id: UUID | None

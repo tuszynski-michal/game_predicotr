@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-02
 ---
 
 # Decision Log
@@ -2798,9 +2798,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Consequences:** TASK-0127 dodaje jawną operację kopiowania wersji; nie
   usuwa historii ani nie zmienia kontraktu istniejących mutacji draftu.
 
-## D-115 — Wersja 0.3 dostosowuje Mobile, a pełna skala przechodzi do 0.4
+## D-115 — Wersja 0.3 dostosowuje Mobile, a pełna skala pierwotnie przechodzi do 0.4
 
-- **Status:** accepted
+- **Status:** superseded by D-123 for the full-scale release assignment
 - **Date:** 2026-08-01
 - **Decision:** wersja 0.3 obejmuje kompaktowy interfejs i usprawnienia
   przepływu aplikacji mobilnej. Pełny rzeczywisty dataset, nowe gry, końcowe
@@ -2812,7 +2812,8 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Alternatives:** zachowanie pełnej skali w 0.3 albo wdrożenie UX i danych w
   jednym wydaniu.
 - **Consequences:** plan 0.3 otrzymuje TASK-0135–0141, a dotychczasowy zakres
-  0.3 zostaje zachowany w planie 0.4.
+  0.3 został pierwotnie zachowany w planie 0.4; D-123 przesuwa pełną skalę do
+  0.5, nie zmieniając zakresu mobilnego 0.3.
 - **Supersedes:** zmienia wyłącznie przypisanie wersji w D-101; nie zmienia
   zasad danych ani bramek jakości M7/M8.
 
@@ -2901,7 +2902,7 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Consequences:** potrzebne są TASK-0143–0150, rejestr modeli, niezmienne
   manifesty, source-aware split i trwałe joby. Progi 100/1000 są doradcze.
   Geometria i OCR pozostają osobnymi pętlami. M6.6 jest bramką przed pełnym
-  automatycznym importem 0.4.
+  automatycznym importem 0.5.
 - **Supersedes:** rozszerza D-086 i zachowuje jej ochronę decyzji człowieka.
 
 ## D-120 — Kontroler Reviewera normalizuje środowisko Windows i ma 60 sekund na zimny start
@@ -2929,9 +2930,81 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zmienia wyłącznie limit 25 sekund z D-098; zachowuje wszystkie
   jej granice bezpieczeństwa i stałe komendy start/status/stop.
 
+## D-121 — Reprezentatywne zdjęcia wybiera osobny, niedestrukcyjny preselektor
+
+- **Status:** accepted
+- **Date:** 2026-08-02
+- **Decision:** Panel Admin otrzymuje czwarty workspace `Selekcja zdjęć`.
+  Osobny job `image_selection` wykonuje tani strumieniowy skan miniatur,
+  geometrii, jakości, fingerprintu i punktowego OCR, wybierając jedno zdjęcie na
+  dowolny rozpoznany zakres. Nie uruchamia cropów komórek ani klasyfikacji
+  symboli. Folder użytkownika pozostaje read-only; wynik jest kontrolowaną
+  kopią z checksumowanym manifestem i jawnym handoffem do `Importu layoutów`.
+- **Context:** katalog 10 000–30 000 zdjęć może zawierać 50–100 różnych ujęć
+  tego samego ekranu. Pełny pipeline na każdym pliku tworzyłby tysiące
+  zbędnych cropów i review oraz trwałby wiele godzin lub dni. Zakresy są zwykle
+  ułożone grupami, ale mogą skakać, na przykład z `19–27` do `400–408`.
+- **Reason:** osobny lifecycle umożliwia niezależny retry, benchmark i manualne
+  wyjątki. Strumieniowe grupowanie ogranicza kosztowne OCR/weryfikacje do
+  liczby grup × top-k, a kopia zamiast move/delete zachowuje odtwarzalność i
+  chroni przed utratą danych przy błędnej decyzji algorytmu.
+- **Alternatives:** usuwanie lub przenoszenie plików źródłowych, checkbox przed
+  pełnym pipeline'em w `Imporcie layoutów`, pełne rozpoznanie każdego zdjęcia,
+  model chmurowy albo nowy mikroserwis.
+- **Consequences:** TASK-0151–0157 tworzą M7.0 wersji 0.4. Historyczna wersja
+  0.2 zachowuje swoją bramkę trzech workspace'ów. Pełny import TASK-0076 należy
+  do 0.5, wymaga przejścia bramki selektora oraz nadal podlega M6.6. Niepewność
+  zwiększa manual review, ale nie może tworzyć błędnego automatycznego zakresu.
+- **Supersedes:** nie zastępuje D-118; reużywa jego browser-native upload i
+  dodaje poświadczony purpose dla preselektora.
+
+## D-123 — Wersja 0.4 dostarcza selektor, a duże datasety zaczynają się w 0.5
+
+- **Status:** accepted
+- **Date:** 2026-08-02
+- **Decision:** wersja 0.4 obejmuje wyłącznie M7.0 i TASK-0151–0157: osobny
+  moduł selekcji reprezentatywnych zdjęć, manualny fallback, bezpieczny output,
+  handoff oraz benchmark selektora 10k/30k. Wersja 0.5 rozpoczyna pracę na
+  większych rzeczywistych datasetach i obejmuje M6.6, TASK-0076, nowe gry,
+  wielogrowe wydanie, benchmarki pełnego pipeline'u i TASK-0080–0089.
+- **Context:** właściciel chce najpierw zamknąć i odebrać szybki preselektor,
+  zanim pełny pipeline otrzyma duże zbiory danych. Pozwala to ograniczyć liczbę
+  wejściowych zdjęć bez łączenia tej zmiany z treningiem, publikacją i
+  hardeningiem urządzeń.
+- **Reason:** selektor ma odrębny model kosztu, lifecycle i kryteria jakości.
+  Samodzielna bramka zmniejsza zakres regresji i tworzy kontrolowane wejście do
+  kosztowniejszych prac 0.5.
+- **Alternatives:** utrzymanie całej skali w 0.4 albo przesunięcie także testu
+  10k/30k do 0.5. Drugą opcję odrzucono, ponieważ 10k/30k mierzy wyłącznie
+  selektor surowych zdjęć, a nie pełny dataset layoutów.
+- **Consequences:** TASK-0151–0157 są kompletnym zakresem 0.4. TASK-0143–0150,
+  TASK-0076 oraz TASK-0080–0089 zachowują numery i przechodzą do 0.5. Pełny
+  import około 500 000 rzeczywistych layoutów na grę oraz nowe gry nie mogą
+  rozpocząć się w bramce 0.4.
+- **Supersedes:** zastępuje wyłącznie przypisanie pełnej skali do 0.4 w D-115;
+  zachowuje zakres mobilny 0.3 oraz architekturę selektora z D-121.
+
 ## Szablon nowej decyzji
 
 ```text
+## D-122 — Reviewer obsługuje szkic oraz aktywną grę przypisaną do sesji
+
+- **Status:** accepted
+- **Date:** 2026-08-02
+- **Decision:** sesja Reviewera może wskazywać grę w statusie `draft` albo
+  `active`; `archived` jest wykluczone. Scope `game_id + import_job_id`
+  egzekwowany przez backend pozostaje granicą autoryzacji, a frontend nie
+  filtruje poprawnego szkicu do pustego stanu.
+- **Context:** ręczne zatwierdzanie plansz i budowa katalogu symboli odbywają się
+  przed aktywacją gry. Wymaganie statusu `active` tworzyło błędne koło: szkicu
+  nie dało się zweryfikować, mimo prawidłowo utworzonej sesji i gotowego joba
+  `waiting_for_review`.
+- **Consequences:** Admin launcher i osobny Reviewer pokazują gry draft/active,
+  ale nie zarchiwizowane. Wydanie mobilne nadal ma osobną, bez zmian wymaganą
+  bramkę aktywnej gry.
+- **Alternatives:** aktywowanie gry przed review odrzucono, ponieważ miesza
+  przygotowanie danych z gotowością do wydania.
+
 ## D-XXX — Tytuł
 
 - Status:

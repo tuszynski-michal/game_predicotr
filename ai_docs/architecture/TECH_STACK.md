@@ -386,6 +386,12 @@ Zaakceptowany stos prototypu:
   `torch.export` z opset 18 oraz ONNX Runtime CPU `1.28.0` do lokalnej
   inferencji.
 
+M7.0 nie dodaje biblioteki ani procesu. `fast-image-selector-v1` reużywa Pillow
+do EXIF/miniatur, OpenCV i NumPy do jakości, geometrii oraz fingerprintu i
+istniejący wymienny port OCR wyłącznie dla bounded kotwic zakresu. Działa w tym
+samym pojedynczym workerze i PostgreSQL job queue. Celowo nie ładuje PyTorch,
+symbol ONNX ani croppera komórek podczas selekcji.
+
 Geometria, OCR i klasyfikator implementują osobne porty. Dla prototypu
 geometrii przypięto dojrzałą linię OpenCV 4.13 zamiast świeżego major 5, aby
 nie łączyć zmiany kontraktu biblioteki z eksperymentem algorytmicznym. Zgodnie

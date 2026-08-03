@@ -1,7 +1,7 @@
 ---
 title: Milestone 07 execution plan
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Plan wykonania Milestone 07 — Large-scale resumable image import
@@ -173,7 +173,7 @@ single worker, PostgreSQL jobs oraz `execution_slot = 1`; Redis/Celery i
 mikroserwisy nie mają uzasadnienia pomiarowego. G7 pozostaje niezaliczone do
 czasu wykonania TASK-0076.
 
-Zgodnie z aktualnym planem wydań TASK-0076 należy do wersji `0.4`. Wersja
+Zgodnie z aktualnym planem wydań TASK-0076 należy do wersji `0.5`. Wersja
 `0.1` używa chronionego podzbioru zatwierdzonych
 layoutów i deterministycznego dopełnienia testowego do 500 000 rekordów. Nie
 zalicza to TASK-0076 ani G7 i nie może być przedstawiane jako automatycznie

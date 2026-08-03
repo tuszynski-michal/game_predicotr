@@ -10,6 +10,7 @@ import {
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
+  createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
@@ -34,6 +35,8 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getBrowserImageSelection as getGeneratedBrowserImageSelection,
+  getImageSelection as getGeneratedImageSelection,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
@@ -55,6 +58,7 @@ import {
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
+  listImageSelectionGroups as listGeneratedImageSelectionGroups,
   listJobs as listGeneratedJobs,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
   listMobileReleases as listGeneratedMobileReleases,
@@ -108,6 +112,8 @@ import type {
   CleanupCommandRequest,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
+  ImageSelectionCreate,
+  ImageSelectionGroupStatus,
   ImageSequenceSourceOverrideCommand,
   JobStatus,
   JobType,
@@ -171,6 +177,13 @@ export type {
   ImageFolderImportCreate,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
+  ImageSelectionCreate,
+  ImageSelectionCreateResponse,
+  ImageSelectionGroupPageResponse,
+  ImageSelectionGroupResponse,
+  ImageSelectionGroupStatus,
+  ImageSelectionJobPayload,
+  ImageSelectionRunResponse,
   ImageDiagnosticExportCreationResponse,
   ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
@@ -396,6 +409,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createBrowserImageSelection: (body: BrowserImageSelectionCreate) =>
       createGeneratedBrowserImageSelection({ body, client }),
+    getBrowserImageSelection: (uploadId: string) =>
+      getGeneratedBrowserImageSelection({
+        client,
+        path: { upload_id: uploadId },
+      }),
     uploadBrowserImageSelectionFile: (
       uploadId: string,
       fileIndex: number,
@@ -417,6 +435,32 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       cancelGeneratedBrowserImageSelection({
         client,
         path: { upload_id: uploadId },
+      }),
+    createImageSelection: (body: ImageSelectionCreate) =>
+      createGeneratedImageSelection({ body, client }),
+    getImageSelection: (runId: string) =>
+      getGeneratedImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
+    listImageSelectionGroups: (
+      runId: string,
+      options: {
+        readonly status?: ImageSelectionGroupStatus;
+        readonly afterGroupOrder?: number;
+        readonly limit?: number;
+      } = {},
+    ) =>
+      listGeneratedImageSelectionGroups({
+        client,
+        path: { run_id: runId },
+        query: {
+          ...(options.status === undefined ? {} : { status: options.status }),
+          ...(options.afterGroupOrder === undefined
+            ? {}
+            : { afterGroupOrder: options.afterGroupOrder }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
       }),
     createImageFolderImport: (body: ImageFolderImportCreate) =>
       createGeneratedImageFolderImport({

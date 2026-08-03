@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Architektura systemu
@@ -89,6 +89,11 @@ ręcznego wejścia bez takiego anchora.
 - publikacja wersji datasetów i reguł,
 - zlecenie przygotowania snapshotu i APK.
 
+Powyższe trzy workspace'y są zamrożonym zakresem odbioru wersji 0.2. M7.0 w
+wersji 0.4 dodaje czwarty workspace `Selekcja zdjęć`. Korzysta on z tego samego
+game context i zleca osobny job `image_selection`; nie staje się accordionem
+`Importu layoutów` ani nie zmienia historycznej bramki 0.2.
+
 Workspace `Joby` jest prostą projekcją istniejącego kontraktu jobs. Główny
 widok pobiera ograniczoną listę, filtruje wyłącznie po jednym statusie i pokazuje
 typ, identyfikator/kontekst, status, postęp, czas utworzenia oraz krótki błąd.
@@ -104,6 +109,11 @@ całego joba. Admin oblicza czas automatycznego przetwarzania od `startedAt` do
 tej granicy i nie dolicza czasu zależnego od ręcznej pracy reviewera.
 
 ### Reviewer web
+
+Sesja Reviewera jest granicą dostępu do jednej gry i jednego importu. Gra może
+mieć status `draft` albo `active`, ponieważ ręczne zatwierdzanie jest częścią
+przygotowania danych przed publikacją. `archived` pozostaje niedostępne. Klient
+nie nakłada dodatkowego filtra `active` na scope zwrócony przez backend.
 
 - osobna aplikacja przeglądarkowa uruchamiana na innym porcie niż Admin web,
 - lokalna brama kodu przed pobraniem danych plansz,
@@ -381,7 +391,7 @@ utrwala globalnie unikalną wersję oraz 1–15 dokładnych wyborów dataset/rul
 Serwer ustala obsługiwany algorytm i schema, blokuje źródła, wymaga statusu
 `published`, wspólnej aktywnej gry oraz zgodnych wymiarów i zapisuje wszystkie
 rekordy w jednej transakcji. Dopiero TASK-0037 tworzy job i zmienia lifecycle.
-Zakres 1–15 pozostaje kontraktem backendowym przygotowanym dla 0.4; Admin 0.2
+Zakres 1–15 pozostaje kontraktem backendowym przygotowanym dla 0.5; Admin 0.2
 wysyła dokładnie jeden wybór.
 
 ## Przepływ ręcznego importu layoutów
@@ -436,6 +446,24 @@ Retry publikacji identyfikuje wynik przez unikalny
 `dataset_versions.source_job_id = validation_job_id` i zwraca tę samą wersję.
 Odrzucenie i publikacja blokują najpierw ten sam job importu, dzięki czemu nie
 mogą równolegle usunąć oraz skopiować stagingu.
+
+## Przepływ selekcji reprezentatywnych zdjęć
+
+1. Admin wybiera folder 10 000–30 000 JPEG-ów przez browser-native directory
+   input z poświadczonym purpose `photo_selection`.
+2. API tworzy game-scoped run i osobny job `image_selection`.
+3. Worker strumieniowo dekoduje miniatury, ocenia jakość oraz grupuje kolejne
+   ujęcia przez geometrię, fingerprint i sparse OCR.
+4. Dla każdego unikalnego dowolnego zakresu wybierany jest jeden bezpieczny
+   reprezentant; zakresy nie muszą być ciągłe.
+5. Niejednoznaczne grupy zwalniają worker w `waiting_for_review` i są
+   uzupełniane pojedynczym plikiem w Adminie.
+6. Kompletne wybrane JPEG-i oraz kanoniczny manifest są atomowo publikowane w
+   kontrolowanym storage bez zmiany folderu użytkownika.
+7. Jawny handoff tworzy poświadczone źródło dla istniejącego właściwego importu.
+
+Selektor nie wywołuje croppera komórek, symbol ONNX ani pełnego review plansz.
+Jego szczegółową granicę opisuje `architecture/IMAGE_SELECTION.md` i D-121.
 
 ## Przepływ importu zdjęć
 

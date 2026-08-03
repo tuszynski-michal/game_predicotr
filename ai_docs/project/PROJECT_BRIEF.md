@@ -1,7 +1,7 @@
 ---
 title: Project brief
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Project brief
@@ -99,7 +99,7 @@ Pierwsza wersja ma:
 - synchronizacja mobilna, chmura i publiczna infrastruktura,
 - produkcyjna autoryzacja wielu administratorów.
 
-## Strategia wydań 0.1, 0.2, 0.3 i 0.4
+## Strategia wydań 0.1, 0.2, 0.3, 0.4 i 0.5
 
 - `0.1` jest kompletną wersją demonstracyjną dla Google Pixel 10 Pro XL:
   jedna gra, rzeczywiste grafiki symboli, chroniony podzbiór ponad 100
@@ -111,13 +111,17 @@ Pierwsza wersja ma:
   testowe wydanie na małym kontrolowanym zbiorze jednej gry.
 - `0.3` dostosowuje aplikację mobilną: upraszcza ekran, dodaje deterministyczne
   `Next`, wybierany zasięg Targetu, kompaktowy wynik i nawigację długiej tabeli.
-- `0.4` obejmuje pełny rzeczywisty dataset, kolejne gry, wielogrowe wydanie,
-  końcowe testy dużych zbiorów, pełną skalę, stały podpis, backup/restore,
-  recovery, rollback i uzgodnioną macierz urządzeń.
+- `0.4` dostarcza M7.0: osobny, niedestrukcyjny moduł selekcji jednego
+  reprezentatywnego zdjęcia na rozpoznany zakres, manualny fallback, manifest,
+  handoff oraz benchmark samego selektora dla 10 000/30 000 zdjęć.
+- `0.5` rozpoczyna pracę na większych rzeczywistych datasetach: M6.6, pełny
+  import, kolejne gry, wielogrowe wydanie, końcowe testy dużych zbiorów, stały
+  podpis, backup/restore, recovery, rollback i uzgodnioną macierz urządzeń.
 - Szczegółowe zakresy są zapisane w `delivery/VERSION_0_1_RELEASE_PLAN.md` i
   planach `delivery/VERSION_0_2_EXECUTION_PLAN.md` oraz
   `delivery/VERSION_0_3_EXECUTION_PLAN.md` oraz
-  `delivery/VERSION_0_4_EXECUTION_PLAN.md`.
+  `delivery/VERSION_0_4_EXECUTION_PLAN.md` i
+  `delivery/VERSION_0_5_EXECUTION_PLAN.md`.
 
 ## Najważniejsze ograniczenia
 

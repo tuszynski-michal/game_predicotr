@@ -3,11 +3,32 @@ import test from 'node:test';
 
 import {
   hasImageImport,
+  reviewableGames,
   reviewReadyImports,
   selectReviewImportId,
 } from '../src/features/reviewer-access/reviewer-access-state.ts';
 
 const gameId = 'game-1';
+
+test('keeps draft and active games available for review', () => {
+  const game = {
+    code: 'game',
+    createdAt: '2026-08-01T10:00:00Z',
+    expectedLayoutCount: 500000,
+    id: gameId,
+    name: 'Game',
+    updatedAt: '2026-08-01T10:00:00Z',
+  };
+
+  assert.deepEqual(
+    reviewableGames([
+      { ...game, status: 'active' },
+      { ...game, id: 'game-draft', status: 'draft' },
+      { ...game, id: 'game-archived', status: 'archived' },
+    ]).map((item) => item.id),
+    [gameId, 'game-draft'],
+  );
+});
 
 function imageJob(overrides = {}) {
   return {

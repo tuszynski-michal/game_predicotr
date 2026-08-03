@@ -1,7 +1,7 @@
 ---
 title: Milestone 08 execution plan
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Plan wykonania Milestone 08 — Private distribution and hardening
@@ -19,7 +19,7 @@ game-scoped stanowisko review, bez wystawiania pełnej administracji.
 - M8.1 i M8.7 zostały ukończone przed wydaniem `0.1` i pozostają jego częścią.
 - Minimalną bramkę urządzeniową `0.1` realizuje TASK-0119 na Google Pixel 10
   Pro XL zgodnie z `VERSION_0_1_RELEASE_PLAN.md`.
-- M8.2–M8.6, czyli TASK-0080–0089, są odłożonym zakresem wersji `0.4`.
+- M8.2–M8.6, czyli TASK-0080–0089, są odłożonym zakresem wersji `0.5`.
   Dopiero ich ukończenie zamyka pełną bramkę G8 obejmującą stały podpis,
   backup/restore, recovery, formalny rollback i rozszerzoną kompatybilność.
 
@@ -44,10 +44,10 @@ właścicielem kolejności podetapów, rezerwacji zadań i bramek jakości M8.
 ## Warunki wejścia
 
 - pipeline M7 ma ukończone lokalne fundamenty; automatyczna publikacja
-  masowego importu w TASK-0076 pozostaje osobną bramką jakości wersji `0.4`,
+  masowego importu w TASK-0076 pozostaje osobną bramką jakości wersji `0.5`,
 - Q-019 jest zamknięte: docelowo decyzje review może zapisywać więcej niż jeden
   jawnie identyfikowany operator.
-- zakres urządzeń wymaganych dla pełnej bramki `0.4` zostanie zatwierdzony na
+- zakres urządzeń wymaganych dla pełnej bramki `0.5` zostanie zatwierdzony na
   początku tej wersji; odbiór samego `0.1` pozostaje w TASK-0119,
 - Wszystkie artefakty przeznaczone do zachowania mają ustaloną lokalizację.
 
@@ -165,7 +165,7 @@ używa aktora `local-owner`, a OpenAPI, klient i CSP Admina mają regresję.
 
 ### Zakres
 
-- macierz urządzeń wersji `0.4`, której obowiązkowy skład zostanie uzgodniony
+- macierz urządzeń wersji `0.5`, której obowiązkowy skład zostanie uzgodniony
   przed rozpoczęciem TASK-0085,
 - Google Pixel 10 Pro XL jako urządzenie bazowe z odebranej wersji `0.1`,
 - Galaxy S21 Ultra i ewentualne pozostałe urządzenia do łącznej liczby 3–5,
@@ -183,9 +183,9 @@ używa aktora `local-owner`, a OpenAPI, klient i CSP Admina mają regresję.
 
 ### Bramka G8.5
 
-- wszystkie urządzenia wskazane dla wersji `0.4` przechodzą obowiązkowy
+- wszystkie urządzenia wskazane dla wersji `0.5` przechodzą obowiązkowy
   scenariusz; wcześniejszy odbiór Pixela z TASK-0119 może być dowodem bazowym,
-  ale nie zastępuje regresji zmienionego artefaktu 0.4,
+  ale nie zastępuje regresji zmienionego artefaktu 0.5,
 - aktualizacja aktywuje nowy snapshot i nie używa starej kopii,
 - brak sieci nie zmienia funkcjonalności,
 - manifest nie ma `INTERNET`,
@@ -257,7 +257,7 @@ zamknięta.
 
 ### Bramka G8
 
-Pełna bramka G8 należy do wersji `0.4` i wymaga G8.1–G8.6. G8.7 zostało już
+Pełna bramka G8 należy do wersji `0.5` i wymaga G8.1–G8.6. G8.7 zostało już
 zamknięte i pozostaje dodatkowym, wąskim zakresem zdalnego review.
 
 ## Mapa zadań M8
@@ -276,7 +276,7 @@ zamknięte i pozostaje dodatkowym, wąskim zakresem zdalnego review.
 
 ## Zakończenie roadmapy
 
-Po przejściu G8 w wersji `0.4` system spełnia zaakceptowany zakres prywatnej
+Po przejściu G8 w wersji `0.5` system spełnia zaakceptowany zakres prywatnej
 dystrybucji i hardeningu.
 Publiczny backend ogólnego przeznaczenia, synchronizacja, Google Play, chmura
 i zdalny dostęp do pełnej administracji wymagają nowej decyzji właściciela.

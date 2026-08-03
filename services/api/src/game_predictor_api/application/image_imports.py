@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -9,6 +10,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from secrets import token_urlsafe
 from threading import Lock
@@ -20,13 +22,25 @@ from game_predictor_worker.images.pipeline_contract import (
     pipeline_fingerprint,
 )
 
+from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.domain.image_selections import ImageSelectionRun
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
 SELECTION_TTL = timedelta(minutes=15)
+BROWSER_UPLOAD_TTL = timedelta(hours=24)
 MAX_PREFLIGHT_FILES = 1_000_000
+MAX_PHOTO_SELECTION_FILES = 30_000
+MIN_FREE_SPACE_RESERVE_BYTES = 512 * 1024 * 1024
 IMAGE_RELATIVE_PATH_HEADER = "X-Image-Relative-Path"
+UPLOAD_STATE_FILE_NAME = "_upload_state.json"
+UPLOAD_MANIFEST_FILE_NAME = "_browser_manifest.json"
+
+
+class ImageSelectionPurpose(StrEnum):
+    LAYOUT_IMPORT = "layout_import"
+    PHOTO_SELECTION = "photo_selection"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,6 +51,9 @@ class SelectedImageFolder:
     supported_file_count: int
     expires_at: datetime
     display_name: str
+    purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT
+    game_id: UUID | None = None
+    input_manifest_sha256: str | None = None
     managed: bool = False
 
 
@@ -45,11 +62,23 @@ class BrowserImageUpload:
     upload_id: UUID
     path: Path
     display_name: str
+    purpose: ImageSelectionPurpose
+    game_id: UUID | None
     expected_file_count: int
     expected_total_bytes: int
     created_at: datetime
     uploaded_indexes: set[int]
+    uploaded_files: dict[int, BrowserUploadedFile]
     uploaded_bytes: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserUploadedFile:
+    file_index: int
+    relative_path: str
+    stored_file_name: str
+    size_bytes: int
+    checksum_sha256: str
 
 
 class WindowsFolderPicker:
@@ -156,9 +185,19 @@ class ImageFolderSelectionService:
         path: Path,
         *,
         display_name: str | None = None,
+        purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
+        game_id: UUID | None = None,
+        input_manifest_sha256: str | None = None,
         managed: bool = False,
     ) -> SelectedImageFolder:
         resolved, count = inspect_image_folder(path)
+        if purpose is ImageSelectionPurpose.PHOTO_SELECTION and (
+            game_id is None or input_manifest_sha256 is None
+        ):
+            raise JobError(
+                "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
+                "Photo-selection staging requires a game and an input manifest.",
+            )
         now = self._clock()
         selected = SelectedImageFolder(
             selection_token=token_urlsafe(32),
@@ -167,6 +206,9 @@ class ImageFolderSelectionService:
             supported_file_count=count,
             expires_at=now + SELECTION_TTL,
             display_name=display_name or resolved.name,
+            purpose=purpose,
+            game_id=game_id,
+            input_manifest_sha256=input_manifest_sha256,
             managed=managed,
         )
         with self._lock:
@@ -190,6 +232,11 @@ class ImageFolderSelectionService:
                 "IMAGE_FOLDER_SELECTION_INVALID",
                 "The folder selection is missing, expired, or already used.",
             )
+        if selected.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
+                "Photo-selection staging cannot be used as a layout import.",
+            )
         resolved, _count = inspect_image_folder(selected.path)
         if resolved != selected.path:
             raise JobError(
@@ -206,6 +253,50 @@ class ImageFolderSelectionService:
         with self._lock:
             self._selections.pop(selection_token, None)
         return job
+
+    def create_image_selection_run(
+        self,
+        image_selection_service: ImageSelectionService,
+        *,
+        game_id: UUID,
+        selection_token: str,
+        selector_fingerprint: str,
+    ) -> tuple[ImageSelectionRun, bool]:
+        now = self._clock()
+        with self._lock:
+            self._remove_expired(now)
+            selected = self._selections.get(selection_token)
+        if selected is None:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_INVALID",
+                "The folder selection is missing, expired, or already used.",
+            )
+        if (
+            selected.purpose is not ImageSelectionPurpose.PHOTO_SELECTION
+            or selected.game_id != game_id
+            or selected.input_manifest_sha256 is None
+        ):
+            raise JobError(
+                "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
+                "The staged folder is not approved for this game's photo selection.",
+            )
+        resolved, _count = inspect_image_folder(selected.path)
+        if resolved != selected.path:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_CHANGED",
+                "The selected image folder no longer resolves to the approved path.",
+            )
+        run, created = image_selection_service.create_run(
+            game_id=game_id,
+            source_selection_id=selected.selection_id,
+            input_manifest_sha256=selected.input_manifest_sha256,
+            selector_fingerprint=selector_fingerprint,
+        )
+        with self._lock:
+            self._selections.pop(selection_token, None)
+        if not created and selected.managed:
+            shutil.rmtree(selected.path, ignore_errors=True)
+        return run, created
 
     def _remove_expired(self, now: datetime) -> None:
         expired = [
@@ -228,11 +319,14 @@ class BrowserImageSelectionService:
         upload_root: Path,
         *,
         max_bytes: int,
+        photo_selection_max_bytes: int | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._selection_service = selection_service
         self._upload_root = upload_root.resolve() / "browser-selections"
+        self._upload_root.mkdir(parents=True, exist_ok=True)
         self._max_bytes = max_bytes
+        self._photo_selection_max_bytes = photo_selection_max_bytes or max_bytes
         self._clock = clock or (lambda: datetime.now(UTC))
         self._uploads: dict[UUID, BrowserImageUpload] = {}
         self._lock = Lock()
@@ -243,6 +337,8 @@ class BrowserImageSelectionService:
         display_name: str,
         expected_file_count: int,
         expected_total_bytes: int,
+        purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
+        game_id: UUID | None = None,
     ) -> BrowserImageUpload:
         normalized_name = display_name.strip()
         if (
@@ -255,31 +351,60 @@ class BrowserImageSelectionService:
                 "IMAGE_BROWSER_SELECTION_NAME_INVALID",
                 "The selected folder name is invalid.",
             )
-        if not 1 <= expected_file_count <= MAX_PREFLIGHT_FILES:
+        max_files = (
+            MAX_PHOTO_SELECTION_FILES
+            if purpose is ImageSelectionPurpose.PHOTO_SELECTION
+            else MAX_PREFLIGHT_FILES
+        )
+        if not 1 <= expected_file_count <= max_files:
             raise JobError(
                 "IMAGE_BROWSER_SELECTION_COUNT_INVALID",
-                "The browser selection must contain at least one supported file.",
+                f"The browser selection must contain between 1 and {max_files} files.",
             )
-        if not 1 <= expected_total_bytes <= self._max_bytes:
+        max_bytes = (
+            self._photo_selection_max_bytes
+            if purpose is ImageSelectionPurpose.PHOTO_SELECTION
+            else self._max_bytes
+        )
+        if not 1 <= expected_total_bytes <= max_bytes:
             raise JobError(
                 "IMAGE_BROWSER_SELECTION_SIZE_INVALID",
                 "The browser selection exceeds the configured import size limit.",
+            )
+        if purpose is ImageSelectionPurpose.PHOTO_SELECTION and game_id is None:
+            raise JobError(
+                "IMAGE_SELECTION_SOURCE_PURPOSE_INVALID",
+                "Photo-selection staging must be scoped to one game.",
             )
         now = self._clock()
         with self._lock:
             self._remove_expired(now)
         upload_id = uuid4()
         upload_path = self._upload_root / str(upload_id)
+        free_bytes = shutil.disk_usage(self._upload_root.parent).free
+        if expected_total_bytes + MIN_FREE_SPACE_RESERVE_BYTES > free_bytes:
+            raise JobError(
+                "IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT",
+                "There is not enough free space for the staged folder.",
+                details={
+                    "requiredBytes": expected_total_bytes,
+                    "availableBytes": max(0, free_bytes - MIN_FREE_SPACE_RESERVE_BYTES),
+                },
+            )
         upload_path.mkdir(parents=True, exist_ok=False)
         upload = BrowserImageUpload(
             upload_id=upload_id,
             path=upload_path,
             display_name=normalized_name,
+            purpose=purpose,
+            game_id=game_id,
             expected_file_count=expected_file_count,
             expected_total_bytes=expected_total_bytes,
             created_at=now,
             uploaded_indexes=set(),
+            uploaded_files={},
         )
+        self._write_upload_state(upload)
         with self._lock:
             self._uploads[upload_id] = upload
         return upload
@@ -308,6 +433,7 @@ class BrowserImageSelectionService:
                 "IMAGE_BROWSER_FILE_EMPTY",
                 "The uploaded image file is empty.",
             )
+        checksum_sha256 = hashlib.sha256(content).hexdigest()
         with self._lock:
             upload = self._get_upload(upload_id)
             if not 0 <= file_index < upload.expected_file_count:
@@ -316,9 +442,16 @@ class BrowserImageSelectionService:
                     "The uploaded image index is outside the declared selection.",
                 )
             if file_index in upload.uploaded_indexes:
+                existing = upload.uploaded_files[file_index]
+                if (
+                    existing.relative_path == normalized_path.as_posix()
+                    and existing.size_bytes == len(content)
+                    and existing.checksum_sha256 == checksum_sha256
+                ):
+                    return upload
                 raise JobConflictError(
                     "IMAGE_BROWSER_FILE_ALREADY_UPLOADED",
-                    "This browser image file has already been uploaded.",
+                    "This upload index already contains a different image file.",
                 )
             if upload.uploaded_bytes + len(content) > upload.expected_total_bytes:
                 raise JobError(
@@ -340,6 +473,14 @@ class BrowserImageSelectionService:
                 ) from error
             upload.uploaded_indexes.add(file_index)
             upload.uploaded_bytes += len(content)
+            upload.uploaded_files[file_index] = BrowserUploadedFile(
+                file_index=file_index,
+                relative_path=normalized_path.as_posix(),
+                stored_file_name=target.name,
+                size_bytes=len(content),
+                checksum_sha256=checksum_sha256,
+            )
+            self._write_upload_state(upload)
             return upload
 
     def finalize(self, upload_id: UUID) -> SelectedImageFolder:
@@ -353,22 +494,67 @@ class BrowserImageSelectionService:
                     "IMAGE_BROWSER_SELECTION_INCOMPLETE",
                     "The browser selection has not uploaded every declared image.",
                 )
+            manifest_payload = {
+                "schemaVersion": 1,
+                "purpose": upload.purpose.value,
+                "gameId": None if upload.game_id is None else str(upload.game_id),
+                "orderingPolicy": "natural_relative_path_v1",
+                "files": [
+                    {
+                        "orderIndex": value.file_index,
+                        "relativePath": value.relative_path,
+                        "storedFileName": value.stored_file_name,
+                        "sizeBytes": value.size_bytes,
+                        "checksumSha256": value.checksum_sha256,
+                    }
+                    for value in sorted(
+                        upload.uploaded_files.values(),
+                        key=lambda item: item.file_index,
+                    )
+                ],
+            }
+            manifest_bytes = json.dumps(
+                manifest_payload,
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+            manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+            manifest_path = upload.path / UPLOAD_MANIFEST_FILE_NAME
+            temporary_manifest = upload.path / f".{UPLOAD_MANIFEST_FILE_NAME}.part"
+            temporary_manifest.write_bytes(manifest_bytes)
+            temporary_manifest.replace(manifest_path)
             selected = self._selection_service.approve(
                 upload.path,
                 display_name=upload.display_name,
+                purpose=upload.purpose,
+                game_id=upload.game_id,
+                input_manifest_sha256=manifest_sha256,
                 managed=True,
             )
             self._uploads.pop(upload_id, None)
+            (upload.path / UPLOAD_STATE_FILE_NAME).unlink(missing_ok=True)
             return selected
+
+    def get(self, upload_id: UUID) -> BrowserImageUpload:
+        with self._lock:
+            return self._get_upload(upload_id)
 
     def cancel(self, upload_id: UUID) -> None:
         with self._lock:
             upload = self._uploads.pop(upload_id, None)
+            if upload is None:
+                upload = self._load_upload(upload_id)
+                self._uploads.pop(upload_id, None)
         if upload is not None:
             shutil.rmtree(upload.path, ignore_errors=True)
 
     def _get_upload(self, upload_id: UUID) -> BrowserImageUpload:
         upload = self._uploads.get(upload_id)
+        if upload is None:
+            upload = self._load_upload(upload_id)
+            if upload is not None:
+                self._uploads[upload_id] = upload
         if upload is None:
             raise JobError(
                 "IMAGE_BROWSER_SELECTION_NOT_FOUND",
@@ -376,11 +562,87 @@ class BrowserImageSelectionService:
             )
         return upload
 
+    def _write_upload_state(self, upload: BrowserImageUpload) -> None:
+        payload = {
+            "schemaVersion": 1,
+            "uploadId": str(upload.upload_id),
+            "displayName": upload.display_name,
+            "purpose": upload.purpose.value,
+            "gameId": None if upload.game_id is None else str(upload.game_id),
+            "expectedFileCount": upload.expected_file_count,
+            "expectedTotalBytes": upload.expected_total_bytes,
+            "createdAt": upload.created_at.isoformat(),
+            "files": [
+                {
+                    "fileIndex": value.file_index,
+                    "relativePath": value.relative_path,
+                    "storedFileName": value.stored_file_name,
+                    "sizeBytes": value.size_bytes,
+                    "checksumSha256": value.checksum_sha256,
+                }
+                for value in sorted(
+                    upload.uploaded_files.values(),
+                    key=lambda item: item.file_index,
+                )
+            ],
+        }
+        destination = upload.path / UPLOAD_STATE_FILE_NAME
+        temporary = upload.path / f".{UPLOAD_STATE_FILE_NAME}.part"
+        temporary.write_text(
+            json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True),
+            encoding="utf-8",
+        )
+        temporary.replace(destination)
+
+    def _load_upload(self, upload_id: UUID) -> BrowserImageUpload | None:
+        upload_path = (self._upload_root / str(upload_id)).resolve()
+        if not upload_path.is_relative_to(self._upload_root) or not upload_path.is_dir():
+            return None
+        state_path = upload_path / UPLOAD_STATE_FILE_NAME
+        try:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+            if payload.get("schemaVersion") != 1 or payload.get("uploadId") != str(upload_id):
+                return None
+            files = {
+                int(value["fileIndex"]): BrowserUploadedFile(
+                    file_index=int(value["fileIndex"]),
+                    relative_path=str(value["relativePath"]),
+                    stored_file_name=str(value["storedFileName"]),
+                    size_bytes=int(value["sizeBytes"]),
+                    checksum_sha256=str(value["checksumSha256"]),
+                )
+                for value in payload["files"]
+            }
+            created_at = datetime.fromisoformat(str(payload["createdAt"]))
+            upload = BrowserImageUpload(
+                upload_id=upload_id,
+                path=upload_path,
+                display_name=str(payload["displayName"]),
+                purpose=ImageSelectionPurpose(str(payload["purpose"])),
+                game_id=(
+                    None
+                    if payload.get("gameId") is None
+                    else UUID(str(payload["gameId"]))
+                ),
+                expected_file_count=int(payload["expectedFileCount"]),
+                expected_total_bytes=int(payload["expectedTotalBytes"]),
+                created_at=created_at,
+                uploaded_indexes=set(files),
+                uploaded_files=files,
+                uploaded_bytes=sum(value.size_bytes for value in files.values()),
+            )
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+            return None
+        if upload.created_at + BROWSER_UPLOAD_TTL <= self._clock():
+            shutil.rmtree(upload.path, ignore_errors=True)
+            return None
+        return upload
+
     def _remove_expired(self, now: datetime) -> None:
         expired_ids = [
             upload_id
             for upload_id, upload in self._uploads.items()
-            if upload.created_at + SELECTION_TTL <= now
+            if upload.created_at + BROWSER_UPLOAD_TTL <= now
         ]
         for upload_id in expired_ids:
             upload = self._uploads.pop(upload_id)
@@ -441,8 +703,11 @@ def inspect_image_folder(path: Path) -> tuple[Path, int]:
 __all__ = [
     "BrowserImageSelectionService",
     "BrowserImageUpload",
+    "BrowserUploadedFile",
+    "BROWSER_UPLOAD_TTL",
     "IMAGE_RELATIVE_PATH_HEADER",
     "ImageFolderSelectionService",
+    "ImageSelectionPurpose",
     "SelectedImageFolder",
     "WindowsFolderPicker",
     "inspect_image_folder",

@@ -1,4 +1,9 @@
-export const ADMIN_WORKSPACES = ['games', 'releases', 'jobs'] as const;
+export const ADMIN_WORKSPACES = [
+  'games',
+  'releases',
+  'jobs',
+  'image-selection',
+] as const;
 export type AdminWorkspace = (typeof ADMIN_WORKSPACES)[number];
 
 export const GAME_SECTIONS = [

@@ -49,6 +49,11 @@ export type BrowserImageSelectionCreate = {
    * Expectedtotalbytes
    */
   expectedTotalBytes: number;
+  /**
+   * Gameid
+   */
+  gameId?: string | null;
+  purpose?: ImageSelectionPurpose;
 };
 
 /**
@@ -64,6 +69,11 @@ export type BrowserImageSelectionUploadResponse = {
    */
   expectedTotalBytes: number;
   /**
+   * Gameid
+   */
+  gameId: string | null;
+  purpose: ImageSelectionPurpose;
+  /**
    * Uploadid
    */
   uploadId: string;
@@ -75,6 +85,10 @@ export type BrowserImageSelectionUploadResponse = {
    * Uploadedfilecount
    */
   uploadedFileCount: number;
+  /**
+   * Uploadedfileindexes
+   */
+  uploadedFileIndexes: Array<number>;
 };
 
 /**
@@ -674,9 +688,14 @@ export type ImageFolderSelectionResponse = {
    */
   expiresAt?: string | null;
   /**
+   * Inputmanifestsha256
+   */
+  inputManifestSha256?: string | null;
+  /**
    * Path
    */
   path?: string | null;
+  purpose?: ImageSelectionPurpose | null;
   /**
    * Selectiontoken
    */
@@ -873,6 +892,192 @@ export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
  * ImageReviewView
  */
 export type ImageReviewView = 'pending' | 'completed' | 'all';
+
+/**
+ * ImageSelectionCreate
+ */
+export type ImageSelectionCreate = {
+  /**
+   * Contractversion
+   */
+  contractVersion?: 1;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Selectiontoken
+   */
+  selectionToken: string;
+  /**
+   * Selectorfingerprint
+   */
+  selectorFingerprint: string;
+};
+
+/**
+ * ImageSelectionCreateResponse
+ */
+export type ImageSelectionCreateResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  run: ImageSelectionRunResponse;
+};
+
+/**
+ * ImageSelectionGroupPageResponse
+ */
+export type ImageSelectionGroupPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<ImageSelectionGroupResponse>;
+  /**
+   * Nextaftergrouporder
+   */
+  nextAfterGroupOrder?: number | null;
+};
+
+/**
+ * ImageSelectionGroupResponse
+ */
+export type ImageSelectionGroupResponse = {
+  /**
+   * Boardcountconsensus
+   */
+  boardCountConsensus?: number | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Fingerprintsha256
+   */
+  fingerprintSha256: string | null;
+  /**
+   * Grouporder
+   */
+  groupOrder: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd?: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart?: number | null;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Selectedcandidateid
+   */
+  selectedCandidateId: string | null;
+  status: ImageSelectionGroupStatus;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * ImageSelectionGroupStatus
+ */
+export type ImageSelectionGroupStatus =
+  | 'collecting'
+  | 'auto_selected'
+  | 'manual_required'
+  | 'manually_selected'
+  | 'skipped_existing_range';
+
+/**
+ * ImageSelectionJobPayload
+ */
+export type ImageSelectionJobPayload = {
+  /**
+   * Contractversion
+   */
+  contractVersion: 1;
+  /**
+   * Inputmanifestsha256
+   */
+  inputManifestSha256: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Selectorfingerprint
+   */
+  selectorFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+};
+
+/**
+ * ImageSelectionPurpose
+ */
+export type ImageSelectionPurpose = 'layout_import' | 'photo_selection';
+
+/**
+ * ImageSelectionRunResponse
+ */
+export type ImageSelectionRunResponse = {
+  /**
+   * Contractversion
+   */
+  contractVersion: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Inputmanifestsha256
+   */
+  inputManifestSha256: string;
+  job: JobResponse;
+  /**
+   * Orderingpolicy
+   */
+  orderingPolicy: string;
+  /**
+   * Outputmanifestrelativepath
+   */
+  outputManifestRelativePath: string | null;
+  /**
+   * Outputmanifestsha256
+   */
+  outputManifestSha256: string | null;
+  /**
+   * Selectorfingerprint
+   */
+  selectorFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
 
 /**
  * ImageSequenceSourceCandidateResponse
@@ -1190,6 +1395,7 @@ export type JobResponse = {
   inputPayload:
     | ImportJobPayload
     | ImageImportJobPayload
+    | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PayoutJobPayload
@@ -1231,7 +1437,12 @@ export type JobStatus =
  * JobType
  */
 export type JobType =
-  'import' | 'validate' | 'payout' | 'snapshot' | 'android_build';
+  | 'import'
+  | 'image_selection'
+  | 'validate'
+  | 'payout'
+  | 'snapshot'
+  | 'android_build';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -5147,6 +5358,46 @@ export type CancelBrowserImageSelectionResponses = {
 export type CancelBrowserImageSelectionResponse =
   CancelBrowserImageSelectionResponses[keyof CancelBrowserImageSelectionResponses];
 
+export type GetBrowserImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Upload Id
+     */
+    upload_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/browser-selections/{upload_id}';
+};
+
+export type GetBrowserImageSelectionErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetBrowserImageSelectionError =
+  GetBrowserImageSelectionErrors[keyof GetBrowserImageSelectionErrors];
+
+export type GetBrowserImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BrowserImageSelectionUploadResponse;
+};
+
+export type GetBrowserImageSelectionResponse =
+  GetBrowserImageSelectionResponses[keyof GetBrowserImageSelectionResponses];
+
 export type UploadBrowserImageSelectionFileData = {
   /**
    * Payload
@@ -6204,6 +6455,138 @@ export type ListOperationalImageReviewResolutionEventsResponses = {
 
 export type ListOperationalImageReviewResolutionEventsResponse =
   ListOperationalImageReviewResolutionEventsResponses[keyof ListOperationalImageReviewResolutionEventsResponses];
+
+export type CreateImageSelectionData = {
+  body: ImageSelectionCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-selections';
+};
+
+export type CreateImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateImageSelectionError =
+  CreateImageSelectionErrors[keyof CreateImageSelectionErrors];
+
+export type CreateImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionCreateResponse;
+};
+
+export type CreateImageSelectionResponse =
+  CreateImageSelectionResponses[keyof CreateImageSelectionResponses];
+
+export type GetImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}';
+};
+
+export type GetImageSelectionErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSelectionError =
+  GetImageSelectionErrors[keyof GetImageSelectionErrors];
+
+export type GetImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionRunResponse;
+};
+
+export type GetImageSelectionResponse =
+  GetImageSelectionResponses[keyof GetImageSelectionResponses];
+
+export type ListImageSelectionGroupsData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: {
+    /**
+     * Status
+     */
+    status?: ImageSelectionGroupStatus | null;
+    /**
+     * Aftergrouporder
+     */
+    afterGroupOrder?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-selections/{run_id}/groups';
+};
+
+export type ListImageSelectionGroupsErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListImageSelectionGroupsError =
+  ListImageSelectionGroupsErrors[keyof ListImageSelectionGroupsErrors];
+
+export type ListImageSelectionGroupsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionGroupPageResponse;
+};
+
+export type ListImageSelectionGroupsResponse =
+  ListImageSelectionGroupsResponses[keyof ListImageSelectionGroupsResponses];
 
 export type GetImageStorageInventoryData = {
   body?: never;

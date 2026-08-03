@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements for version 0.2
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Wymagania panelu Admin — wersja 0.2
@@ -25,7 +25,7 @@ D-102–D-112.
   źródłowych zdjęć poza bazą,
 - workflow `0.2` jest testowany na jednej grze i małym kontrolowanym zbiorze,
 - pełne 500 000 rzeczywistych layoutów, dodatkowe gry i wielogrowe wydanie
-  należą do `0.4`.
+  należą do `0.5`.
 
 ## Główna nawigacja
 
@@ -66,7 +66,7 @@ równoważnego deterministycznego mechanizmu.
 
 - `Gry` jest zawsze widoczne i zastępuje nazwę `Katalog gier`.
 - gdy nie wybrano gry, ekran pokazuje wyłącznie sekcję `Gry`; nagłówki sekcji
-  zależnych pojawiają się dopiero po wybraniu albo odtworzeniu aktywnej gry,
+  zależnych pojawiają się dopiero po wybraniu gry aktywnej albo szkicu,
 - Pozostałe sekcje są accordionem: jednocześnie rozwinięta jest najwyżej jedna.
 - Zwinięta sekcja pokazuje tytuł, krótki opis, stan gotowości i ewentualną
   blokadę.
@@ -194,8 +194,12 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 ### Zatwierdzanie plansz
 
 - zastępuje osobne pozycje `Manual Review` i dotychczasowe wejścia do review,
-- korzysta z aktywnej gry i ostatniego aktywnego importu albo pozwala jawnie
-  wybrać import w obrębie tej gry,
+- korzysta z wybranej gry aktywnej albo szkicu i ostatniego gotowego importu
+  albo pozwala jawnie wybrać import w obrębie tej gry; gra zarchiwizowana nie
+  może być otwierana w Reviewerze,
+- utworzona sesja jest wystarczającym, ograniczonym do `game_id` i
+  `import_job_id` kontekstem; osobna aplikacja Reviewer nie może ponownie
+  wymagać statusu `active` dla prawidłowego szkicu,
 - bez layoutów pokazuje komunikat i akcję prowadzącą do `Import layoutów`,
 - otwiera istniejącą osobną aplikację Reviewer; nie kopiuje jej rozbudowanego
   ekranu do Admina,
@@ -207,7 +211,7 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 ## Wersje Android
 
 - administrator przygotowuje wydanie dla jednej aktywnej gry testowej; wybór
-  wielu gier jest świadomie odłożony do `0.4`,
+  wielu gier jest świadomie odłożony do `0.5`,
 - utworzenie wydania uruchamia potrzebne walidacje, precomputing, snapshot i
   build jako jeden obserwowalny workflow,
 - utworzenie technicznego joba jest sygnalizowane przy wydaniu lub imporcie,

@@ -1,15 +1,15 @@
 ---
 title: Version 0.2 Admin acceptance
 status: awaiting_owner_acceptance
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Version 0.2 Admin acceptance
 
 ## Wynik techniczny
 
-Automatyczna i przeglądarkowa bramka techniczna Admina 0.2 przeszła
-`2026-08-01`. Test nie używał danych właściciela: każdy scenariusz PostgreSQL
+Automatyczna i przeglądarkowa bramka techniczna Admina 0.2 przeszła ponownie
+`2026-08-02`. Test nie używał danych właściciela: każdy scenariusz PostgreSQL
 tworzył osobną bazę, wykonywał migracje do `head` i usuwał bazę po teście.
 
 Powtarzalna komenda:
@@ -28,10 +28,11 @@ ani ścieżek wejściowych użytkownika.
 | Kontrola | Wynik | Zakres |
 | --- | --- | --- |
 | PostgreSQL integration | passed, 4 testy | publiczny przepływ M2, release i anulowanie, dwa scenariusze cleanup |
-| Admin tests | passed, 126 testów | trzy workspace'y, URL, loading/error/empty, akcje, joby, release i cleanup |
+| Admin tests | passed, 140 testów | trzy workspace'y, URL, loading/error/empty, akcje, joby, import, release i cleanup |
 | Admin typecheck | passed | TypeScript bez błędów |
 | Admin lint | passed | ESLint |
 | OpenAPI contract | passed | artefakt i generowany klient są aktualne |
+| Admin API client | passed, 26 testów | kontrakt, generowanie oraz regresja LF/CRLF na Windows |
 | Admin production build | passed | statyczny build Next.js |
 
 W trakcie pierwszego przebiegu bramka wykryła dwie rozbieżności fixture'ów po
@@ -62,16 +63,18 @@ Przed testem zatrzymano pozostawiony od 31 lipca stary proces Admina na porcie
 
 ## Odbiór właściciela
 
-Ostatnia bramka produktowa pozostaje do wykonania przez właściciela. Na małym
-kontrolowanym zestawie należy potwierdzić:
+Właściciel potwierdził już utworzenie i wybór gry, rzeczywisty import folderu,
+przejście pełnego pipeline'u do review, działanie Symboli, lokalnego i
+publicznego Reviewera oraz obserwację joba. Odczyt PostgreSQL z 2026-08-02
+potwierdził job `65d6ca14-dacc-4341-b015-c187f2d7af36` w stanie
+`waiting_for_review`, 739 źródeł, 4050 plansz, 60 750 cropów i 4050 pozycji
+review.
 
-1. utworzenie i wybór gry,
-2. import folderu, symbole i bieżące reguły,
-3. przejście do Reviewera i powrót do Admina,
-4. obserwację joba z filtrem statusu,
-5. utworzenie jednego testowego wydania,
-6. nawigację `Tab`, aktywację `Enter` i widoczność fokusu,
-7. preview cleanup bez wykonywania resetu, chyba że dane są świadomie
+Na małym kontrolowanym zestawie pozostaje potwierdzić:
+
+1. utworzenie jednego testowego wydania,
+2. nawigację `Tab`, aktywację `Enter` i widoczność fokusu w Adminie,
+3. preview cleanup bez wykonywania resetu, chyba że dane są świadomie
    przeznaczone do usunięcia.
 
 Wersja 0.2 nie jest zamknięta produktowo, dopóki właściciel nie potwierdzi tego
@@ -197,3 +200,21 @@ ręcznego review nie jest doliczany i nie blokuje wyświetlenia tych informacji.
 Pełne testy Admina przeszły 140/140; typecheck, lint i produkcyjny build
 zakończyły się powodzeniem. Kontrola przeglądarkowa na rzeczywistym jobie
 potwierdziła datę `1.08.2026, 12:49:00` i czas automatyki `45 min 53 s`.
+
+Trzynasty pion TASK-0142 usunął fałszywy drift wygenerowanego klienta OpenAPI
+na checkoutach Windows. Kontrola porównuje tę samą listę plików i ich treść po
+normalizacji wyłącznie końców linii; różnica LF/CRLF jest ignorowana, natomiast
+zmiana semantyczna nadal kończy bramkę błędem. Testy klienta przeszły 26/26,
+`openapi:check` przeszedł, a pełna komenda `v02:admin:acceptance` zakończyła się
+powodzeniem w 86,4 s: PostgreSQL 4/4, Admin 140/140, typecheck, lint, OpenAPI i
+produkcyjny build.
+
+Czternasty pion TASK-0142 usunął dwie regresje rzeczywistych danych. Reviewer i
+launcher Admina dopuszczają teraz grę `draft` albo `active` przypisaną do sesji,
+ale nadal wykluczają `archived`. Bootstrap symboli zapisuje opcjonalne
+`resolution=None` jako SQL `NULL`, a nie JSON `null`, więc zgodne osiem grup
+może atomowo przejść z `ready` do `applied`. Na jobie `65d6ca14` utworzono osiem
+symboli, a produkcyjny Reviewer pokazał szkic `777 v0.2`, układ #8, kolejkę 4050
+plansz i komplet symboli. Testy Admina przeszły 141/141, Reviewera 21/21, testy
+bootstrapu 10/10; typecheck/lint oraz produkcyjny build Reviewera również
+zakończyły się powodzeniem.

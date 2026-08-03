@@ -1,7 +1,7 @@
 ---
 title: TASK-0142 — Admin 0.2 owner acceptance regressions
 status: in_progress
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # TASK-0142 — Admin 0.2 owner acceptance regressions
@@ -60,6 +60,12 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
   zachowując zapis narożników względem pełnego obrazu źródłowego,
 - pokazać dla image importu datę, godzinę i czas zakończonego automatycznego
   workflow również wtedy, gdy cały job ma status `Wymaga review`,
+- uniezależnić kontrolę aktualności wygenerowanego klienta OpenAPI od różnic
+  końców linii LF/CRLF na Windows, bez ignorowania zmian semantycznych,
+- dopuścić w osobnym Reviewerze sesję przypisaną do gry `draft` albo `active`,
+  nadal wykluczając grę `archived`,
+- naprawić zapis automatycznego bootstrapu symboli, aby opcjonalna rozdzielczość
+  `None` była przekazywana do PostgreSQL jako SQL `NULL`, a nie JSON `null`,
 - zabezpieczyć naprawę testami oraz zweryfikować ją w przeglądarce.
 
 ## Out of scope
@@ -72,32 +78,32 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
 
 ## Acceptance criteria
 
-- [ ] `Wybierz folder`, `Rozpocznij import` i `Odśwież status` nie nachodzą na
+- [x] `Wybierz folder`, `Rozpocznij import` i `Odśwież status` nie nachodzą na
       siebie i mają spójne style.
-- [ ] Zablokowana akcja ma kursor `not-allowed`; kursor postępu występuje tylko
+- [x] Zablokowana akcja ma kursor `not-allowed`; kursor postępu występuje tylko
       dla faktycznie wykonywanej operacji.
-- [ ] Tooltip pod ikoną `?` wyjaśnia działanie wszystkich trzech akcji i jest
+- [x] Tooltip pod ikoną `?` wyjaśnia działanie wszystkich trzech akcji i jest
       dostępny również z klawiatury.
-- [ ] Liczniki kompletności i pierwsze luki pozostają wewnątrz karty przy
+- [x] Liczniki kompletności i pierwsze luki pozostają wewnątrz karty przy
       wąskim i szerokim widoku.
-- [ ] Pole numeru sekwencji i akcja `Pokaż źródła` mają czytelny, responsywny
+- [x] Pole numeru sekwencji i akcja `Pokaż źródła` mają czytelny, responsywny
       układ oraz spójne style.
 - [x] `Wybierz folder` synchronicznie otwiera standardowy dialog przeglądarki;
       nie uruchamia requestu ani procesu PowerShell przed wyborem plików.
-- [ ] Kolejność akcji to `Rozpocznij import`, `Wybierz folder`, `Odśwież status`.
-- [ ] Kliknięcie całego dostępnego kafelka wybiera grę, a przyciski `Edytuj` i
+- [x] Kolejność akcji to `Rozpocznij import`, `Wybierz folder`, `Odśwież status`.
+- [x] Kliknięcie całego dostępnego kafelka wybiera grę, a przyciski `Edytuj` i
       `Archiwizuj` zachowują własne działanie.
-- [ ] Edycja oczekiwanej liczby layoutów zapisuje się bez fałszywego błędu;
+- [x] Edycja oczekiwanej liczby layoutów zapisuje się bez fałszywego błędu;
       nietypowa utrata odpowiedzi jest uzgadniana przez odczyt stanu gry.
-- [ ] Anulowanie dialogu nie pozostawia stanu operacji, a zmiana gry nie
+- [x] Anulowanie dialogu nie pozostawia stanu operacji, a zmiana gry nie
       przenosi tokenu ani postępu uploadu poprzedniej gry.
-- [ ] UI pokazuje postęp `Przesyłanie X/Y…`; API waliduje JPEG-i i tworzy token
+- [x] UI pokazuje postęp `Przesyłanie X/Y…`; API waliduje JPEG-i i tworzy token
       dopiero po zgodnej finalizacji, a anulowane/wygasłe stagingi są sprzątane.
-- [ ] Sekcja `Symbole` nie powtarza nagłówka automatycznego katalogu, używa
+- [x] Sekcja `Symbole` nie powtarza nagłówka automatycznego katalogu, używa
       etykiety `Liczba symboli` i ma czytelny responsywny input liczbowy.
-- [ ] Kafelek gry pokazuje mały stabilny kod bezpośrednio pod nazwą, a cel
+- [x] Kafelek gry pokazuje mały stabilny kod bezpośrednio pod nazwą, a cel
       layoutów niżej z czytelnym odstępem od dolnej krawędzi.
-- [ ] `Wyczyść dane layoutów gry` znajduje się pod wszystkimi zwykłymi sekcjami
+- [x] `Wyczyść dane layoutów gry` znajduje się pod wszystkimi zwykłymi sekcjami
       konfiguracji aktywnej gry.
 - [x] Import folderu zapisuje pierwszy i kolejne checkpointy zgodnie ze wspólnym
       kontraktem jobów; retry wznawia ten sam job i nie wymaga ponownego uploadu.
@@ -125,9 +131,13 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
       modelu ani profilu geometrii.
 - [x] `Wymaga review` pokazuje datę i godzinę zakończenia importu z pipeline'em
       oraz czas automatycznego przetwarzania bez doliczania ręcznego review.
-- [ ] Rzeczywisty job dochodzi do `waiting_for_review`, po czym `Symbole` nie
+- [x] Rzeczywisty job dochodzi do `waiting_for_review`, po czym `Symbole` nie
       zwracają `SYMBOL_BOOTSTRAP_NO_CROPS`, a wejście do Reviewera jest aktywne.
-- [ ] Testy, lint, typecheck i kontrola przeglądarkowa zmienionego pionu
+- [x] Sesja ograniczona do szkicu gry pokazuje jego plansze i symbole; filtr
+      nadal usuwa gry zarchiwizowane.
+- [x] Automatyczny bootstrap przy zgodnej liczbie ośmiu grup zapisuje run jako
+      `applied` i tworzy osiem symboli bez błędu constraintu PostgreSQL.
+- [x] Testy, lint, typecheck i kontrola przeglądarkowa zmienionego pionu
       przechodzą.
 
 ## Technical notes
@@ -169,10 +179,21 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
 - `services/worker/tests/test_job_runtime.py`
 - `packages/admin-api-client/src/index.ts`
 - `packages/admin-api-client/openapi/openapi.json`
+- `packages/admin-api-client/scripts/check-generated-client.mjs`
+- `packages/admin-api-client/scripts/generated-client-drift.mjs`
+- `packages/admin-api-client/test/generated-client-drift.test.mjs`
 - `apps/reviewer/src/features/operational-reviews/operational-review-geometry-editor.tsx`
+- `apps/reviewer/src/features/operational-reviews/operational-review-actions.ts`
+- `apps/reviewer/src/features/operational-reviews/operational-review-workspace.tsx`
 - `apps/reviewer/src/features/operational-reviews/operational-review-state.ts`
+- `apps/reviewer/test/operational-review-actions.test.mjs`
 - `apps/reviewer/test/operational-review-state.test.mjs`
 - `apps/reviewer/test/operational-review-workspace-contract.test.mjs`
+- `apps/admin/src/features/reviewer-access/reviewer-access-launcher.tsx`
+- `apps/admin/src/features/reviewer-access/reviewer-access-state.ts`
+- `apps/admin/test/reviewer-access-state.test.mjs`
+- `services/api/src/game_predictor_api/storage/models.py`
+- `services/api/tests/test_symbol_bootstrap.py`
 - `ai_docs/requirements/IMAGE_INGESTION.md`
 - `ai_docs/requirements/ADMIN_APP_V0_2.md`
 - `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md`
@@ -194,11 +215,14 @@ npm.cmd run build --workspace @game-predictor/reviewer
 
 ## Risks / open questions
 
-- Odbiór właściciela trwa; zadanie pozostaje aktywne na kolejne zgłoszenia.
+- Kryteria techniczne regresji są spełnione. Zadanie pozostaje aktywne do
+  potwierdzenia przez właściciela jednego testowego wydania, obsługi klawiaturą
+  w Adminie i preview cleanup bez wykonywania destrukcyjnego resetu.
 
 ## Outcome
 
-Zadanie pozostaje aktywne na kolejne uwagi właściciela.
+Wszystkie zidentyfikowane regresje mają naprawy i dowody automatyczne. Zadanie
+pozostaje aktywne wyłącznie na trzy końcowe scenariusze odbioru właściciela.
 
 ### Changed
 
@@ -278,6 +302,23 @@ Zadanie pozostaje aktywne na kolejne uwagi właściciela.
   prezentacja granicy automatycznej korzysta z `updatedAt` zapisanego przy
   przejściu do `waiting_for_review`, więc ręczne zatwierdzanie nie powiększa
   pokazywanego czasu.
+- Kontrola wygenerowanego klienta OpenAPI normalizuje wyłącznie końce linii
+  przed porównaniem. Checkout CRLF na Windows nie daje fałszywego driftu, ale
+  zmiana semantyczna nadal przerywa bramkę i wskazuje pierwszy różny znak.
+- Odczytowy audyt PostgreSQL potwierdził rzeczywisty job
+  `65d6ca14-dacc-4341-b015-c187f2d7af36` w stanie `waiting_for_review`: 739
+  plików źródłowych, 4050 plansz, 60 750 obserwacji komórek i 4050 pozycji
+  review.
+- Usunięto filtr `active` z Reviewera i launchera Admina. Sesja może teraz
+  otworzyć grę `draft` albo `active`, ale nadal odrzuca `archived`.
+- Pole JSONB `resolution` bootstrapu symboli używa `none_as_null=True`.
+  Przejściowy run `ready` zapisuje więc SQL `NULL` zgodnie z istniejącym
+  constraintem, po czym atomowo przechodzi do `applied`.
+- Na rzeczywistym imporcie utworzono osiem symboli: `cherries`, `grapes`,
+  `lemon`, `orange`, `plum`, `seven`, `star`, `watermelon`.
+- Produkcyjny Reviewer został przebudowany i sprawdzony na sesji szkicu
+  `777 v0.2`: pokazał układ #8, wszystkie 4050 plansz oraz osiem aktywnych
+  symboli z sugestiami i skrótami.
 
 ### Verification results
 
@@ -321,13 +362,33 @@ Zadanie pozostaje aktywne na kolejne uwagi właściciela.
 - kontrola przeglądarkowa rzeczywistego joba `65d6ca14-dacc-4341-b015-c187f2d7af36`
   — passed; podsumowanie pokazuje `Automatyka zakończona` i datę, a szczegóły
   `Import i pipeline zakończone` oraz `45 min 53 s`.
+- `npm.cmd test --workspace @game-predictor/admin-api-client` — passed, 26/26;
+  obejmuje regresję LF/CRLF i wykrywanie rzeczywistej zmiany semantycznej.
+- `npm.cmd run openapi:check` — passed z checkoutem Windows CRLF.
+- `npm.cmd run v02:admin:acceptance` — passed 2026-08-02: PostgreSQL 4/4,
+  Admin 140/140, typecheck, lint, OpenAPI i produkcyjny build Next.js.
+- odczytowy audyt rzeczywistego PostgreSQL — passed; job image importu jest w
+  `waiting_for_review`, a cropy i pozycje review istnieją.
 - Pełny `python:typecheck` został przerwany po 60 sekundach bez wyniku; kontrola
   nie pozostawiła osieroconego procesu. Skupiony mypy ujawnił wyłącznie
   istniejące błędy konfiguracji importów i niezwiązane błędy innych modułów.
+- `npm.cmd test --workspace @game-predictor/admin` — passed, 141/141.
+- `npm.cmd run typecheck --workspace @game-predictor/admin` — passed.
+- `npm.cmd run lint --workspace @game-predictor/admin` — passed.
+- `npm.cmd test --workspace @game-predictor/reviewer` — passed, 21/21.
+- `npm.cmd run lint --workspace @game-predictor/reviewer` — passed.
+- `npm.cmd run build --workspace @game-predictor/reviewer` — passed.
+- `pytest services/api/tests/test_symbol_bootstrap.py` — passed, 10/10 z
+  repozytoryjnym `--basetemp`.
+- skupiony Ruff modeli i testu bootstrapu symboli — passed.
+- rzeczywisty `POST /symbol-bootstrap` — passed, status `applied`, osiem symboli.
+- produkcyjna sesja Reviewera dla draftu i joba `65d6ca14` — passed.
 
 ### Not completed
 
-- Pozostałe sekcje panelu nadal są w trakcie ręcznego odbioru.
+- Utworzenie jednego testowego wydania w bieżącym flow 0.2.
+- Kontrola `Tab`, `Enter` i widocznego fokusu w Adminie.
+- Preview cleanup bez wykonania resetu danych.
 
 ### Documentation updates
 

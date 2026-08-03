@@ -1,70 +1,70 @@
 ---
 title: Version 0.4 execution plan
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-02
 ---
 
 # Plan zakresu wersji 0.4
 
 ## Cel
 
-Przejść z zaakceptowanego workflow i dostosowanego interfejsu mobilnego do
-rzeczywistych danych, pełnej skali i obsługi kolejnych gier. Wersja 0.4 jest
-bramką końcowych testów dużych zbiorów, wydajności i pełnego hardeningu.
+Dostarczyć kompletny, osobny moduł `Selekcja zdjęć`, który redukuje katalog
+10 000–30 000 podobnych ujęć do jednego bezpiecznego reprezentanta na zakres,
+zanim w wersji 0.5 rozpocznie się pełny pipeline na dużych datasetach. Wersja
+0.4 jest zamkniętym zakresem M7.0 i TASK-0151–0157.
 
 ## Warunki rozpoczęcia
 
-- właściciel zaakceptował wymagane testy wersji 0.1, 0.2 i 0.3,
+- właściciel zaakceptował wymagane testy wcześniejszych wersji potrzebne do
+  pracy nad Adminem i pipeline'em,
 - błędy wymagane przed dalszym rozwojem zostały naprawione,
-- ograniczenia pozostawione po 0.3 są jawnie zaakceptowane,
-- istnieje plan danych, storage i urządzeń dla większego zakresu.
+- istniejące obrazy mogą być użyte jako mały korpus golden oraz fixture,
+- pełny import dużego datasetu pozostaje zablokowany do bramki 0.5.
 
 ## Zamrożony zakres wysokiego poziomu
 
-- import wszystkich dostępnych layoutów dla pierwszej gry,
-- dojście do docelowej kompletności, domyślnie około 500 000 layoutów na grę,
-- ponowna kalibracja jakości, retraining i bramka `massImportAllowed`,
-- TASK-0143–0150, czyli M6.6: skumulowane kohorty zweryfikowane przez człowieka,
-  trening kandydatów, kontrolowana aktywacja i przeliczenie tylko `pending`,
-- wykonanie TASK-0076 i zamknięcie pełnej bramki M7,
-- dodawanie nowych gier oraz różniących się katalogów symboli i reguł,
-- wielogrowy snapshot i wydanie Android,
-- końcowe benchmarki pełnego Targetu, wyszukiwania, generowania i storage na
-  dużych rzeczywistych zbiorach,
-- TASK-0080–0089: stały podpis, backup/restore, recovery, kompatybilność,
-  dystrybucja, rollback i disaster recovery,
-- rozszerzona regresja urządzeń ustalona przed rozpoczęciem bramki wydania.
+- TASK-0151–0157, czyli M7.0: osobny workspace selekcji zdjęć, szybkie
+  grupowanie duplikatów, quality gate, niedestrukcyjny output i handoff,
+- czwarty workspace Admina `Selekcja zdjęć`, spójny z istniejącym wyglądem,
+- kontrolowany upload dużego folderu bez ujawniania ścieżek absolutnych,
+- wersjonowany `fast-image-selector-v1`, checkpointy, retry, cancel i statystyki,
+- automatyczny wybór jednego JPEG-a per zakres i kolejka wyjątków manualnych,
+- checksumowany manifest oraz jawne przekazanie wyniku do `Importu layoutów`,
+- golden jakości i benchmark selektora dla 10 000 oraz 30 000 zdjęć,
+- odbiór właściciela obejmujący workspace, modal, output i handoff.
 
 ## Zasady danych
 
-- mały dataset 0.2 nie jest automatycznie promowany do danych produkcyjnych,
-- decyzje człowieka mogą zostać zachowane tylko z pełnym pochodzeniem i po
-  zgodności z nową grą/importem,
-- pełny import pozostaje wznawialny, wersjonowany i checksum-bound,
-- brakujące layouty, duplikaty i jakość źródeł są raportowane jawnie,
-- wydanie mobilne zawiera rekordy, grafiki symboli i payouty, bez zdjęć
-  źródłowych.
+- folder źródłowy selekcji pozostaje read-only,
+- baza przechowuje ścieżki, checksumy i metadane, a nie obrazy BLOB,
+- output jest content-addressed, niezmienny i atomowo publikowany,
+- ręczny fallback dotyczy wyłącznie nierozstrzygniętych grup,
+- wynik selekcji nie uruchamia pełnego pipeline'u bez jawnej akcji,
+- dane testu 10k/30k mierzą wyłącznie selektor; nie są pełnym datasetem layoutów
+  i nie odblokowują `massImportAllowed`.
 
 ## Bramka 0.4
 
-- co najmniej jedna gra przechodzi pełny rzeczywisty import i walidację,
-- kolejne gry są obsługiwane bez kopiowania logiki domenowej,
-- pełna skala mieści się w zaakceptowanych budżetach czasu, pamięci i miejsca,
-- ograniczony i pełnocyklowy Target przechodzą końcowe testy dużych zbiorów,
-- backup jest rzeczywiście odtworzony, a rollback przetestowany,
-- wymagane urządzenia przechodzą regresję offline,
-- właściciel akceptuje produkt i pozostałe ograniczenia.
+- TASK-0151–0157 mają status `done` i spełniają Definition of Done,
+- selekcja 10 000/30 000 zdjęć spełnia budżet czasu i nie scala błędnie
+  różnych zakresów,
+- niepewne przypadki trafiają do manual fallback zamiast do auto-selection,
+- źródłowy folder pozostaje bajtowo i strukturalnie niezmieniony,
+- restart, retry i cancel nie pozostawiają częściowego manifestu ani procesu,
+- gotowy manifest może zostać jawnie przekazany do istniejącego importu,
+- właściciel akceptuje workflow i raport TASK-0157 ze stanem
+  `ready | optimize | reject`.
 
-## Tor M6.6 przed pełnym importem
+## Granica z wersją 0.5
 
-Plan `MILESTONE_06_6_EXECUTION_PLAN.md` jest obowiązkową bramką jakości modelu
-symboli przed TASK-0076. Decyzje `accepted`, `corrected` i `rejected` nie mogą
-zostać zmienione przez trening, aktywację ani ponowną inferencję. Nowe wersje
-modelu tworzą sugestie wyłącznie dla `pending`, a nowe importy przypinają model
-aktywny w chwili utworzenia joba.
+Wersja 0.4 kończy się na zaakceptowanym selektorze i handoffie. Nie wykonuje
+pełnego importu około 500 000 rzeczywistych layoutów, nie dodaje kolejnych gier,
+nie uruchamia M6.6, TASK-0076 ani pełnego hardeningu M8. Te prace rozpoczynają
+się w [wersji 0.5](VERSION_0_5_EXECUTION_PLAN.md), wykorzystując wynik M7.0 jako
+kontrolowane wejście.
 
 ## Istniejące zadania
 
-TASK-0076, TASK-0080–0089 oraz TASK-0143–0150 zachowują swoje numery i
-wymagania. Liczba nowych gier i finalna macierz urządzeń zostaną doprecyzowane
-po bramce wejścia do 0.4.
+TASK-0151–0157 są kompletną listą zadań wersji 0.4. TASK-0143–0150, TASK-0076
+oraz TASK-0080–0089 zachowują numery, ale należą do wersji 0.5. Liczba nowych
+gier i finalna macierz urządzeń zostaną doprecyzowane dopiero przed bramką 0.5.

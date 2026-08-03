@@ -1,15 +1,15 @@
 ---
 title: TASK-0154 curated image output and layout import handoff
-status: todo
+status: done
 release: "0.4"
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # TASK-0154 — Curated image output and layout import handoff
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -30,7 +30,7 @@ ponowny upload wybranych zdjęć.
 - `ai_docs/architecture/IMAGE_SELECTION.md`
 - `ai_docs/requirements/IMAGE_INGESTION.md`
 - `ai_docs/architecture/API_CONTRACT.md`
-- `ai_docs/tasks/0153-fast-sequential-image-grouping-and-quality-selection.md`
+- `ai_docs/tasks/completed/0153-fast-sequential-image-grouping-and-quality-selection.md`
 
 ## Scope
 
@@ -52,14 +52,14 @@ ponowny upload wybranych zdjęć.
 
 ## Acceptance criteria
 
-- [ ] Każdy wybrany zakres występuje dokładnie raz w manifeście i katalogu.
-- [ ] Nazwa używa rzeczywistego dodatniego zakresu i checksumy.
-- [ ] Źródłowy folder jest bajtowo i strukturalnie niezmieniony.
-- [ ] Awaria przed atomowym commitem nie publikuje częściowego manifestu.
-- [ ] Handoff ponownie sprawdza manifest i checksumy wszystkich zdjęć.
-- [ ] Ten sam handoff jest idempotentny i nie duplikuje logicznego źródła.
-- [ ] `Rozpocznij import` pozostaje jawną osobną akcją użytkownika.
-- [ ] Właściwy image import zachowuje provenance runu selekcji.
+- [x] Każdy wybrany zakres występuje dokładnie raz w manifeście i katalogu.
+- [x] Nazwa używa rzeczywistego dodatniego zakresu i checksumy.
+- [x] Źródłowy folder jest bajtowo i strukturalnie niezmieniony.
+- [x] Awaria przed atomowym commitem nie publikuje częściowego manifestu.
+- [x] Handoff ponownie sprawdza manifest i checksumy wszystkich zdjęć.
+- [x] Ten sam handoff jest idempotentny i nie duplikuje logicznego źródła.
+- [x] `Rozpocznij import` pozostaje jawną osobną akcją użytkownika.
+- [x] Właściwy image import zachowuje provenance runu selekcji.
 
 ## Technical notes
 
@@ -94,4 +94,23 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Ukończono 2026-08-03.
+
+- Worker publikuje wybrane JPEG-i i kanoniczny manifest pod content address,
+  weryfikuje kopie odczytem i udostępnia wynik dopiero po atomowym rename.
+- Manifest nie zawiera czasu, hosta ani ścieżek absolutnych; nazwy JPEG używają
+  dodatniego zakresu i prefiksu checksumy, a retry identycznego wyniku jest
+  idempotentny.
+- API trwale zapisuje ścieżkę oraz SHA-256 outputu, a handoff ponownie sprawdza
+  manifest, wszystkie pliki, proweniencję i kompletność decyzji grup.
+- Handoff używa stabilnego logicznego `selectionId = runId`; import zapisuje
+  `imageSelectionRunId`, lecz pełny pipeline startuje dopiero po osobnym
+  kliknięciu użytkownika.
+- Admin pokazuje akcję dopiero dla opublikowanego outputu, przenosi poświadczony
+  token do sekcji `Import layoutów` i nie uruchamia importu automatycznie.
+- Weryfikacja: 22 testy selektora/outputu, 27 testów API związanych z runem,
+  stagingiem i jobami, 149 testów Admina, 27 testów klienta API, Ruff, typecheck
+  Admina, mypy nowego publishera oraz `openapi:check`.
+- Pełny repozytoryjny `format:check` pozostaje historycznie czerwony dla
+  niezwiązanych plików; wszystkie zmienione w tym zadaniu pliki frontendowe
+  zostały sformatowane osobno.

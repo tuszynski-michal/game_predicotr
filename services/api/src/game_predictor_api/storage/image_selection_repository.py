@@ -97,6 +97,32 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         ).one_or_none()
         return None if row is None else _run_from_records(*row)
 
+    def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
+        record = self._session.get(ImageSelectionRunModel, run.id)
+        if record is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_NOT_FOUND",
+                "Image selection run no longer exists.",
+            )
+        if (
+            record.output_manifest_sha256 is not None
+            and (
+                record.output_manifest_sha256 != run.output_manifest_sha256
+                or record.output_manifest_relative_path
+                != run.output_manifest_relative_path
+            )
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "Image selection run already references another output.",
+            )
+        record.output_manifest_sha256 = run.output_manifest_sha256
+        record.output_manifest_relative_path = run.output_manifest_relative_path
+        record.updated_at = run.updated_at
+        self._flush_or_conflict()
+        job_record = self._session.get(JobModel, run.job.id)
+        return _run_from_records(record, job_record)
+
     def list_groups(
         self,
         *,

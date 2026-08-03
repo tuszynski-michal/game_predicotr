@@ -2,21 +2,20 @@
 
 from __future__ import annotations
 
-import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
 from uuid import UUID, uuid4
 
+from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
+
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 
 IMAGE_SELECTION_CONTRACT_VERSION = 1
 IMAGE_SELECTION_ORDERING_POLICY = "natural_relative_path_v1"
-IMAGE_SELECTION_SELECTOR_FINGERPRINT = hashlib.sha256(
-    b"image-selection-staging-contract-v1"
-).hexdigest()
+IMAGE_SELECTION_SELECTOR_FINGERPRINT = DEFAULT_SELECTOR_MANIFEST.fingerprint
 IMAGE_SELECTION_GROUP_PAGE_DEFAULT = 25
 IMAGE_SELECTION_GROUP_PAGE_MAX = 100
 
@@ -158,6 +157,31 @@ def create_image_selection_run(
     )
 
 
+def record_image_selection_output(
+    run: ImageSelectionRun,
+    *,
+    manifest_sha256: str,
+    manifest_relative_path: str,
+    updated_at: datetime | None = None,
+) -> ImageSelectionRun:
+    checksum = validate_sha256(manifest_sha256, field="outputManifestSha256")
+    relative_path = safe_relative_path(manifest_relative_path)
+    if run.output_manifest_sha256 is not None:
+        if (
+            run.output_manifest_sha256 == checksum
+            and run.output_manifest_relative_path == relative_path
+        ):
+            return run
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_MANIFEST_MISMATCH",
+            "The run already references a different immutable output manifest.",
+        )
+    return replace(
+        run,
+        output_manifest_sha256=checksum,
+        output_manifest_relative_path=relative_path,
+        updated_at=updated_at or datetime.now(UTC),
+    )
 def validate_image_selection_group(
     *,
     group_order: int,
@@ -204,10 +228,14 @@ def validate_candidate(
         _configuration_error("Candidate dimensions must be positive.")
     if range_confidence is not None and not 0 <= range_confidence <= 1:
         _configuration_error("rangeConfidence must be between 0 and 1.")
-    if decision in {
-        ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
-        ImageSelectionCandidateDecision.SELECTED_MANUAL,
-    } and group_id is None:
+    if (
+        decision
+        in {
+            ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+            ImageSelectionCandidateDecision.SELECTED_MANUAL,
+        }
+        and group_id is None
+    ):
         _configuration_error("A selected candidate must belong to a group.")
     return relative_path
 
@@ -255,6 +283,7 @@ __all__ = [
     "ImageSelectionNotFoundError",
     "ImageSelectionRun",
     "create_image_selection_run",
+    "record_image_selection_output",
     "safe_relative_path",
     "validate_candidate",
     "validate_image_selection_group",

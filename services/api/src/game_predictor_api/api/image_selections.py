@@ -6,7 +6,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from game_predictor_api.application.image_imports import ImageFolderSelectionService
+from game_predictor_api.application.image_imports import (
+    ImageFolderSelectionService,
+    ImageSelectionPurpose,
+)
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.domain.image_selections import (
     IMAGE_SELECTION_GROUP_PAGE_DEFAULT,
@@ -18,6 +21,7 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionCreate,
     ImageSelectionCreateResponse,
     ImageSelectionGroupPageResponse,
+    ImageSelectionHandoffResponse,
     ImageSelectionRunResponse,
     to_image_selection_group_page_response,
     to_image_selection_run_response,
@@ -105,6 +109,40 @@ def create_image_selections_router(
                 after_group_order=after_group_order,
                 limit=limit,
             )
+        )
+
+    @router.post(
+        "/{run_id}/handoff",
+        response_model=ImageSelectionHandoffResponse,
+        operation_id="handoffImageSelection",
+        summary="Verify and hand curated images to the explicit layout import step",
+        responses=ERROR_RESPONSES,
+    )
+    def handoff_image_selection(
+        run_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+        folder_selection_service: Annotated[
+            ImageFolderSelectionService,
+            folder_selection_parameter,
+        ],
+    ) -> ImageSelectionHandoffResponse:
+        source = service.prepare_handoff(run_id)
+        selection = folder_selection_service.approve(
+            source.output_directory,
+            display_name=f"Wybrane zdjęcia · {run_id}",
+            purpose=ImageSelectionPurpose.LAYOUT_IMPORT,
+            game_id=source.run.game_id,
+            image_selection_run_id=source.run.id,
+            selection_id=source.run.id,
+            managed=False,
+        )
+        return ImageSelectionHandoffResponse(
+            run_id=source.run.id,
+            game_id=source.run.game_id,
+            selection_id=selection.selection_id,
+            selection_token=selection.selection_token,
+            supported_file_count=source.supported_file_count,
+            expires_at=selection.expires_at,
         )
 
     return router

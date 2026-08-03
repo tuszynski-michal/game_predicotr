@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from game_predictor_api.application.image_imports import ImageFolderSelectionService
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_selections import (
@@ -22,6 +25,19 @@ from game_predictor_api.domain.image_selections import (
 )
 from game_predictor_api.domain.jobs import JobType
 from game_predictor_api.main import create_app
+from game_predictor_worker.images.selection.contracts import (
+    CandidateDecision,
+    CandidateResult,
+    ImageQualityMetrics,
+    ImageSelectionResult,
+    ImageSelectionSource,
+    SelectionGroupResult,
+    SelectionGroupStatus,
+    SelectorCheckpoint,
+    SequenceRange,
+)
+from game_predictor_worker.images.selection.output import CuratedImageOutputPublisher
+from PIL import Image
 
 
 class MemoryImageSelectionRepository:
@@ -65,6 +81,10 @@ class MemoryImageSelectionRepository:
 
     def get_run(self, run_id: UUID) -> ImageSelectionRun | None:
         return self.runs.get(run_id)
+
+    def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
+        self.runs[run.id] = run
+        return run
 
     def list_groups(
         self,
@@ -280,3 +300,120 @@ def test_image_selection_api_create_get_and_bounded_groups() -> None:
     assert groups.json()["nextAfterGroupOrder"] == 1
     assert missing.status_code == 404
     assert missing.json()["code"] == "IMAGE_SELECTION_NOT_FOUND"
+
+
+def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    artifact_root = tmp_path / "artifacts"
+    service = ImageSelectionService(repository, artifact_root=artifact_root)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="1" * 64,
+        selector_fingerprint="2" * 64,
+    )
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    source_path = source_root / "one.jpg"
+    Image.new("RGB", (32, 24), (240, 180, 20)).save(source_path, format="JPEG")
+    content = source_path.read_bytes()
+    source = ImageSelectionSource(
+        0,
+        "photos/one.jpg",
+        "one.jpg",
+        hashlib.sha256(content).hexdigest(),
+        len(content),
+    )
+    quality = ImageQualityMetrics(*(0.9 for _value in range(8)))
+    candidate = CandidateResult(
+        source=source,
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        quality=quality,
+        recognized_range=SequenceRange(1, 9, 0.98),
+        reason_codes=(),
+    )
+    result = ImageSelectionResult(
+        selector_version="fast-image-selector-v1",
+        selector_fingerprint=run.selector_fingerprint,
+        input_count=1,
+        groups=(
+            SelectionGroupResult(
+                group_order=0,
+                source_count=1,
+                range=SequenceRange(1, 9, 0.98),
+                fingerprint_sha256="3" * 64,
+                board_count_consensus=9,
+                status=SelectionGroupStatus.AUTO_SELECTED,
+                selected_candidate=candidate,
+                top_candidates=(candidate,),
+            ),
+        ),
+        checkpoint=SelectorCheckpoint(1, run.selector_fingerprint, 1, 1, 1),
+        scan_failure_count=0,
+        verification_count=1,
+    )
+    published = CuratedImageOutputPublisher(artifact_root).publish(
+        run_id=run.id,
+        source_root=source_root,
+        input_manifest_sha256=run.input_manifest_sha256,
+        result=result,
+    )
+    now = datetime(2026, 8, 3, tzinfo=UTC)
+    repository.groups.append(
+        ImageSelectionGroup(
+            id=uuid4(),
+            run_id=run.id,
+            group_order=0,
+            range_start=1,
+            range_end=9,
+            fingerprint_sha256="3" * 64,
+            board_count_consensus=9,
+            status=ImageSelectionGroupStatus.AUTO_SELECTED,
+            selected_candidate_id=uuid4(),
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    service.record_output(
+        run_id=run.id,
+        manifest_sha256=published.manifest_sha256,
+        manifest_relative_path=published.manifest_relative_path,
+    )
+    folder_service = ImageFolderSelectionService(lambda: None)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+            image_folder_selection_service_dependency=lambda: folder_service,
+        )
+    )
+
+    with client:
+        first = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
+        repeated = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
+
+    assert first.status_code == 200
+    assert repeated.status_code == 200
+    assert repeated.json() == first.json()
+    assert first.json()["selectionId"] == str(run.id)
+    assert first.json()["gameId"] == str(game_id)
+    assert first.json()["supportedFileCount"] == 1
+
+    repository.groups.append(
+        _group(run.id, 1, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
+    )
+    with client:
+        unresolved = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
+    repository.groups.pop()
+    assert unresolved.status_code == 409
+    assert unresolved.json()["code"] == "IMAGE_SELECTION_NOT_READY"
+
+    selected_image = next((published.output_directory / "images").iterdir())
+    selected_image.write_bytes(selected_image.read_bytes() + b"changed")
+    with client:
+        changed = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
+    assert changed.status_code == 409
+    assert changed.json()["code"] == "IMAGE_SELECTION_MANIFEST_MISMATCH"

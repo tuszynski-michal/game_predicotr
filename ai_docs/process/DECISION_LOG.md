@@ -2984,6 +2984,29 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zastępuje wyłącznie przypisanie pełnej skali do 0.4 w D-115;
   zachowuje zakres mobilny 0.3 oraz architekturę selektora z D-121.
 
+## D-124 — Output selektora skraca ścieżkę Windows bez utraty tożsamości runu
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** niezmienny output selektora jest publikowany pod
+  `data/exports/image-selections/<manifestSha256>/`, a wybrane JPEG-i pod
+  `images/`. Kanoniczny manifest zawiera `runId`, wejściową checksumę i
+  fingerprint selektora, dlatego jego SHA-256 nadal jednoznacznie wiąże content
+  z runem. Nazwy JPEG używają dodatniego zakresu i 12 znaków checksumy źródła.
+- **Context:** zagnieżdżenie `<runId>/<manifestSha256>/selected/` wraz z długą
+  nazwą operatorską JPEG niepotrzebnie zbliżało lokalne ścieżki testowe i
+  operatorskie do klasycznego limitu Windows. `runId` już należy do
+  kanonicznych bajtów manifestu.
+- **Reason:** pojedynczy content address zachowuje niezmienność i idempotencję,
+  skraca ścieżkę o segment UUID i nadal pozwala zweryfikować właściciela runu
+  bez polegania na nazwie katalogu.
+- **Alternatives:** pozostawienie obu segmentów, skrócenie samej checksumy
+  katalogu albo globalne wymaganie włączenia long paths w Windows.
+- **Consequences:** lookup zawsze zaczyna się od ścieżki manifestu zapisanej w
+  `image_selection_runs`; handoff sprawdza zarówno SHA-256, jak i `runId`
+  wewnątrz manifestu. Folder nie może być interpretowany bez manifestu.
+- **Supersedes:** doprecyzowuje wyłącznie planowaną ścieżkę storage w D-121.
+
 ## Szablon nowej decyzji
 
 ```text

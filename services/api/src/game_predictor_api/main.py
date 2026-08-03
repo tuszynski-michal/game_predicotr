@@ -264,7 +264,10 @@ def create_app(
     def default_image_selection_service_dependency() -> Iterator[ImageSelectionService]:
         with session_factory() as session:
             try:
-                yield ImageSelectionService(SqlAlchemyImageSelectionRepository(session))
+                yield ImageSelectionService(
+                    SqlAlchemyImageSelectionRepository(session),
+                    artifact_root=resolved_settings.artifact_root,
+                )
                 session.commit()
             except BaseException:
                 session.rollback()

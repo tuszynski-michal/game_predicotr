@@ -35,6 +35,7 @@ class ImageImportJobPayload(ApiModel):
     source_directory: str | None = Field(default=None, min_length=1, max_length=2048)
     source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID | None = None
 
 
 class ImageSelectionJobPayload(ApiModel):

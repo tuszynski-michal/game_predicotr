@@ -619,6 +619,27 @@ działa wyłącznie dla kompletnego checksumowanego manifestu i zwraca
 poświadczone źródło do istniejącego `POST /image-imports`; nie uruchamia sam
 ciężkiego pipeline'u.
 
+TASK-0154 zamraża odpowiedź handoffu:
+
+```json
+{
+  "runId": "uuid",
+  "gameId": "uuid",
+  "selectionId": "uuid równy runId",
+  "selectionToken": "krótkotrwały sekret",
+  "supportedFileCount": 123,
+  "expiresAt": "2026-08-03T12:15:00Z",
+  "targetSection": "imports"
+}
+```
+
+Przed odpowiedzią API ponownie liczy checksumę kanonicznego manifestu, każdego
+JPEG-a, jego rozmiar i wymiary oraz porównuje zakresy z trwałymi grupami runu.
+`collecting`, `manual_required`, brak grupy albo rozjazd pliku blokują handoff.
+Ponowienie aktywnego handoffu zwraca ten sam token, a logiczne źródło zachowuje
+`selectionId = runId`. Panel przechodzi do `Importu layoutów`, lecz dopiero
+osobne kliknięcie `Rozpocznij import` konsumuje token i tworzy job.
+
 Stabilne rodziny błędów:
 
 ```text
@@ -676,6 +697,8 @@ Przyjmuje wyłącznie `gameId` oraz `selectionToken`. Backend ponownie sprawdza
 folder, konsumuje token po udanym zapisie i tworzy job `import` z
 `importKind = image_directory`, `sourceSelectionId`, zatwierdzonym
 `sourceDirectory`, bezpieczną nazwą folderu oraz `pipelineFingerprint`.
+Źródło pochodzące z selektora zapisuje dodatkowo `imageSelectionRunId`, dzięki
+czemu pełny pipeline zachowuje proweniencję niezmiennego outputu.
 Przeglądarka nie może utworzyć image importu przez przesłanie własnej ścieżki.
 
 ## Job status

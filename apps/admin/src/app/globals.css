@@ -247,7 +247,7 @@ nav {
 
 .workspaceNavigation {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -304,6 +304,128 @@ nav {
   margin-top: 0;
   padding-top: 0;
   border-top: 0;
+}
+
+.catalogEmptyState,
+.imageSelectionHeader,
+.imageSelectionProgress,
+.imageSelectionRunCard {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.catalogEmptyState {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 24px;
+}
+
+.catalogEmptyState h2,
+.catalogEmptyState p {
+  margin: 0;
+}
+
+.imageSelectionWorkspace {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.imageSelectionHeader {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.imageSelectionHeader > div {
+  min-width: 0;
+}
+
+.imageSelectionHeader h1,
+.imageSelectionHeader p {
+  margin-top: 0;
+}
+
+.imageSelectionHeader p:last-child {
+  max-width: 720px;
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.imageSelectionProgress {
+  display: grid;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.imageSelectionProgress > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+.imageSelectionProgress > div:first-child span {
+  color: var(--muted);
+}
+
+.imageSelectionProgress progress {
+  width: 100%;
+  height: 10px;
+  accent-color: var(--accent);
+}
+
+.imageSelectionRecoveryActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.imageSelectionRunCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 24px;
+  padding: 24px;
+}
+
+.imageSelectionRunCard h2,
+.imageSelectionRunCard p {
+  margin: 0;
+}
+
+.imageSelectionRunCard dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.imageSelectionRunCard dl > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.imageSelectionRunCard dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.imageSelectionRunCard dd {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
 }
 
 .activeGameContext {
@@ -454,6 +576,10 @@ nav {
   .sidebarSummary {
     display: none;
   }
+
+  .workspaceNavigation {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -463,6 +589,24 @@ nav {
 
   .workspaceTile {
     min-height: auto;
+  }
+
+  .imageSelectionHeader,
+  .imageSelectionRunCard {
+    grid-template-columns: 1fr;
+  }
+
+  .imageSelectionHeader {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .imageSelectionHeader .primaryButton {
+    width: 100%;
+  }
+
+  .imageSelectionRunCard dl {
+    grid-template-columns: 1fr;
   }
 
   .gameStatusFilters {

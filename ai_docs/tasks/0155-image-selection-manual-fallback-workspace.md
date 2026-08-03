@@ -29,7 +29,7 @@ automatycznego skanu.
 - `ai_docs/requirements/IMAGE_SELECTION.md`
 - `ai_docs/architecture/IMAGE_SELECTION.md`
 - `ai_docs/quality/TEST_STRATEGY.md`
-- `ai_docs/tasks/0154-curated-image-output-and-layout-import-handoff.md`
+- `ai_docs/tasks/completed/0154-curated-image-output-and-layout-import-handoff.md`
 
 ## Scope
 

@@ -2,7 +2,7 @@
 title: Fast representative image selection architecture
 status: accepted
 release: "0.4"
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # Architektura selekcji reprezentatywnych zdjęć
@@ -84,8 +84,11 @@ Alembic należą do TASK-0151.
 ### File storage
 
 - wejście przebywa w job-owned browser staging poza kanonicznym `data/`,
+- dla browser stagingu `sourceSelectionId` jest równy `uploadId`, więc worker
+  może odtworzyć kontrolowany root bez utrwalania ścieżki absolutnej klienta,
 - wybrane zdjęcia i manifest trafiają pod
-  `data/exports/image-selections/<runId>/<manifestSha256>/selected/`,
+  `data/exports/image-selections/<manifestSha256>/`; kanoniczny manifest zawiera
+  `runId`, a JPEG-i znajdują się w podkatalogu `images/`,
 - pliki wynikowe są niezmienne i sprawdzane checksumą,
 - unselected staging może zostać usunięty dopiero po atomowym commitcie wyniku
   albo po jawnym anulowaniu; źródłowy folder użytkownika jest read-only,
@@ -138,6 +141,21 @@ nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 Wagi, progi, rozmiar miniatury i guard interval są częścią wersjonowanego
 manifestu selektora. Nie mogą być ukrytymi stałymi rozproszonymi po UI i CLI.
 
+Implementacja `fast-image-selector-v1` utrzymuje manifest w jednym module,
+wylicza z jego kanonicznego JSON fingerprint
+`dc968e65d94170ab5011ccc4d1474a01ef7f4f143bdf93f59700859f50b34982`
+i używa tego samego fingerprintu przy tworzeniu runu przez API. Jawne porty
+oddzielają loader miniatury, metryki jakości, lattice/fingerprint oraz OCR
+zakresu. Samodzielny diagnostyczny przebieg CLI bez lokalnego modelu OCR używa
+innej wersji adaptera i fingerprintu, dlatego nie może zostać pomylony z
+produkcyjnym auto-wyborem.
+
+Skan zapisuje metryki kandydata strumieniowo, zachowuje w pamięci tylko bieżącą
+grupę, bounded pending guard i `topK = 3`, a checkpoint postępu powstaje co 32
+pliki. Pojedynczy silny kandydat granicy może utworzyć oddzielną grupę, ale bez
+zgodnej pełniejszej geometrii i pewnych kotwic zakresu kończy jako
+`manual_required`; priorytetem pozostaje brak fałszywego scalenia.
+
 ## Kontrakty i idempotencja
 
 - `selectorFingerprint` jest SHA-256 kanonicznego manifestu adapterów, progów i
@@ -149,8 +167,16 @@ manifestu selektora. Nie mogą być ukrytymi stałymi rozproszonymi po UI i CLI.
 - Zmiana pliku, kolejności albo wersji selektora tworzy nowy run.
 - Ręczna decyzja używa UUID idempotencji i append-only eventu albo równoważnej
   wersjonowanej historii; retry nie tworzy drugiej kopii pliku.
-- Handoff weryfikuje manifest oraz wszystkie wybrane checksumy przed wydaniem
-  jednorazowego tokenu do właściwego importu.
+- Publisher zapisuje JPEG-i i kanoniczny `manifest.json` do izolowanego
+  `.pending`, wykonuje ponowny odczyt checksum i wymiarów, a następnie publikuje
+  cały katalog jednym rename w tym samym filesystemie. Awaria przed rename nie
+  tworzy widocznego częściowego outputu.
+- Handoff weryfikuje checksumę manifestu, wszystkie wybrane pliki, proweniencję
+  runu oraz zgodność zakresów z trwałymi decyzjami grup przed wydaniem
+  krótkotrwałego tokenu do właściwego importu.
+- Identyfikator logicznego źródła handoffu jest równy `runId`; ponowienie nie
+  tworzy innego źródła, nawet jeżeli po skonsumowaniu poprzedniego tokenu trzeba
+  wydać nowy token sesyjny.
 
 ## Plan API
 

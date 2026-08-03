@@ -64,6 +64,7 @@ def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]
 
 
 def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
+    selection_run_id = uuid4()
     job = create_job(
         JobType.IMPORT,
         game_id=uuid4(),
@@ -74,6 +75,7 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
             "source_directory": r"C:\photos",
             "source_display_name": "photos",
             "pipeline_fingerprint": "a" * 64,
+            "image_selection_run_id": str(selection_run_id),
         },
         created_at=datetime(2026, 7, 29, tzinfo=UTC),
     )
@@ -87,7 +89,30 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
         "sourceDirectory": r"C:\photos",
         "sourceDisplayName": "photos",
         "pipelineFingerprint": "a" * 64,
+        "imageSelectionRunId": str(selection_run_id),
     }
+
+
+def test_curated_image_import_job_preserves_selection_run_provenance(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    curated_root = tmp_path / "curated"
+    curated_root.mkdir()
+    selection_id = uuid4()
+    selection_run_id = uuid4()
+
+    job = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=curated_root,
+        source_display_name="curated",
+        pipeline_fingerprint="a" * 64,
+        image_selection_run_id=selection_run_id,
+    )
+
+    assert job.input_payload["source_selection_id"] == str(selection_id)
+    assert job.input_payload["image_selection_run_id"] == str(selection_run_id)
 
 
 def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:

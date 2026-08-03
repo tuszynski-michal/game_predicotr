@@ -165,6 +165,7 @@ class JobService:
         source_directory: Path,
         source_display_name: str,
         pipeline_fingerprint: str,
+        image_selection_run_id: UUID | None = None,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -184,17 +185,20 @@ class JobService:
                 "IMAGE_FOLDER_NOT_DIRECTORY",
                 "The selected image source must be a directory.",
             )
+        input_payload: dict[str, object] = {
+            "schema_version": 1,
+            "import_kind": "image_directory",
+            "source_selection_id": str(selection_id),
+            "source_directory": str(resolved),
+            "source_display_name": source_display_name,
+            "pipeline_fingerprint": pipeline_fingerprint,
+        }
+        if image_selection_run_id is not None:
+            input_payload["image_selection_run_id"] = str(image_selection_run_id)
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
-            input_payload={
-                "schema_version": 1,
-                "import_kind": "image_directory",
-                "source_selection_id": str(selection_id),
-                "source_directory": str(resolved),
-                "source_display_name": source_display_name,
-                "pipeline_fingerprint": pipeline_fingerprint,
-            },
+            input_payload=input_payload,
             game_already_validated=True,
         )
 

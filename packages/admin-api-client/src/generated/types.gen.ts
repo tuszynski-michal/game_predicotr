@@ -715,6 +715,10 @@ export type ImageFolderSelectionResponse = {
  */
 export type ImageImportJobPayload = {
   /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
    * Importkind
    */
   importKind: 'image_directory';
@@ -992,6 +996,40 @@ export type ImageSelectionGroupStatus =
   | 'manual_required'
   | 'manually_selected'
   | 'skipped_existing_range';
+
+/**
+ * ImageSelectionHandoffResponse
+ */
+export type ImageSelectionHandoffResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Selectionid
+   */
+  selectionId: string;
+  /**
+   * Selectiontoken
+   */
+  selectionToken: string;
+  /**
+   * Supportedfilecount
+   */
+  supportedFileCount: number;
+  /**
+   * Targetsection
+   */
+  targetSection?: 'imports';
+};
 
 /**
  * ImageSelectionJobPayload
@@ -6607,6 +6645,50 @@ export type ListImageSelectionGroupsResponses = {
 
 export type ListImageSelectionGroupsResponse =
   ListImageSelectionGroupsResponses[keyof ListImageSelectionGroupsResponses];
+
+export type HandoffImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/handoff';
+};
+
+export type HandoffImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type HandoffImageSelectionError =
+  HandoffImageSelectionErrors[keyof HandoffImageSelectionErrors];
+
+export type HandoffImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionHandoffResponse;
+};
+
+export type HandoffImageSelectionResponse =
+  HandoffImageSelectionResponses[keyof HandoffImageSelectionResponses];
 
 export type GetImageStorageInventoryData = {
   body?: never;

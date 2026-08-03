@@ -2,7 +2,7 @@ import json
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from threading import Event
@@ -20,7 +20,7 @@ from game_predictor_api.application.image_imports import (
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.domain.jobs import JobConflictError, JobError
 from game_predictor_api.main import create_app
 from PIL import Image
 from test_image_selections import MemoryImageSelectionRepository
@@ -303,7 +303,7 @@ def test_photo_selection_staging_is_resumable_after_service_recreation(
         upload_root,
         max_bytes=1024,
         photo_selection_max_bytes=1024 * 1024,
-        clock=lambda: NOW,
+        clock=lambda: NOW + timedelta(minutes=20),
     )
     resumed = resumed_service.get(upload.upload_id)
     duplicate_retry = resumed_service.upload_file(
@@ -316,6 +316,40 @@ def test_photo_selection_staging_is_resumable_after_service_recreation(
     assert resumed.uploaded_indexes == {0}
     assert resumed.uploaded_bytes == len(content)
     assert duplicate_retry.uploaded_indexes == {0}
+
+
+def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=1024,
+        photo_selection_max_bytes=2048,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(JobError) as too_many_files:
+        service.begin(
+            display_name="Too many",
+            expected_file_count=30_001,
+            expected_total_bytes=1024,
+            purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+            game_id=game_id,
+        )
+    with pytest.raises(JobError) as too_many_bytes:
+        service.begin(
+            display_name="Too large",
+            expected_file_count=1,
+            expected_total_bytes=2049,
+            purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+            game_id=game_id,
+        )
+
+    assert too_many_files.value.code == "IMAGE_BROWSER_SELECTION_COUNT_INVALID"
+    assert too_many_bytes.value.code == "IMAGE_BROWSER_SELECTION_SIZE_INVALID"
 
 
 def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
@@ -403,3 +437,4 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
     assert run.status_code == 200
     assert run.json()["created"] is True
     assert run.json()["run"]["job"]["jobType"] == "image_selection"
+    assert run.json()["run"]["sourceSelectionId"] == upload_id

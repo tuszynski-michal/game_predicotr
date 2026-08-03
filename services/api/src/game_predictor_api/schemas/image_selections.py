@@ -46,6 +46,16 @@ class ImageSelectionCreateResponse(ApiModel):
     created: bool
 
 
+class ImageSelectionHandoffResponse(ApiModel):
+    run_id: UUID
+    game_id: UUID
+    selection_id: UUID
+    selection_token: str = Field(min_length=32, max_length=200)
+    supported_file_count: int = Field(ge=1)
+    expires_at: datetime
+    target_section: Literal["imports"] = "imports"
+
+
 class ImageSelectionGroupResponse(ApiModel):
     id: UUID
     run_id: UUID
@@ -117,6 +127,7 @@ __all__ = [
     "ImageSelectionGroupPageResponse",
     "ImageSelectionGroupResponse",
     "ImageSelectionRunResponse",
+    "ImageSelectionHandoffResponse",
     "to_image_selection_group_page_response",
     "to_image_selection_run_response",
 ]

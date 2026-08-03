@@ -54,6 +54,7 @@ class SelectedImageFolder:
     purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT
     game_id: UUID | None = None
     input_manifest_sha256: str | None = None
+    image_selection_run_id: UUID | None = None
     managed: bool = False
 
 
@@ -188,6 +189,8 @@ class ImageFolderSelectionService:
         purpose: ImageSelectionPurpose = ImageSelectionPurpose.LAYOUT_IMPORT,
         game_id: UUID | None = None,
         input_manifest_sha256: str | None = None,
+        image_selection_run_id: UUID | None = None,
+        selection_id: UUID | None = None,
         managed: bool = False,
     ) -> SelectedImageFolder:
         resolved, count = inspect_image_folder(path)
@@ -199,9 +202,10 @@ class ImageFolderSelectionService:
                 "Photo-selection staging requires a game and an input manifest.",
             )
         now = self._clock()
+        stable_selection_id = selection_id or uuid4()
         selected = SelectedImageFolder(
             selection_token=token_urlsafe(32),
-            selection_id=uuid4(),
+            selection_id=stable_selection_id,
             path=resolved,
             supported_file_count=count,
             expires_at=now + SELECTION_TTL,
@@ -209,10 +213,31 @@ class ImageFolderSelectionService:
             purpose=purpose,
             game_id=game_id,
             input_manifest_sha256=input_manifest_sha256,
+            image_selection_run_id=image_selection_run_id,
             managed=managed,
         )
         with self._lock:
             self._remove_expired(now)
+            existing = next(
+                (
+                    value
+                    for value in self._selections.values()
+                    if value.selection_id == stable_selection_id
+                ),
+                None,
+            )
+            if existing is not None:
+                if (
+                    existing.path != resolved
+                    or existing.purpose is not purpose
+                    or existing.game_id != game_id
+                    or existing.image_selection_run_id != image_selection_run_id
+                ):
+                    raise JobConflictError(
+                        "IMAGE_FOLDER_SELECTION_CONFLICT",
+                        "The stable folder selection already references another source.",
+                    )
+                return existing
             self._selections[selected.selection_token] = selected
         return selected
 
@@ -237,6 +262,11 @@ class ImageFolderSelectionService:
                 "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
                 "Photo-selection staging cannot be used as a layout import.",
             )
+        if selected.game_id is not None and selected.game_id != game_id:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                "The curated image selection belongs to a different game.",
+            )
         resolved, _count = inspect_image_folder(selected.path)
         if resolved != selected.path:
             raise JobError(
@@ -249,6 +279,7 @@ class ImageFolderSelectionService:
             source_directory=selected.path,
             source_display_name=selected.display_name,
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
+            image_selection_run_id=selected.image_selection_run_id,
         )
         with self._lock:
             self._selections.pop(selection_token, None)
@@ -530,6 +561,7 @@ class BrowserImageSelectionService:
                 purpose=upload.purpose,
                 game_id=upload.game_id,
                 input_manifest_sha256=manifest_sha256,
+                selection_id=upload.upload_id,
                 managed=True,
             )
             self._uploads.pop(upload_id, None)

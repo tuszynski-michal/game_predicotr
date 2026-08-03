@@ -8,7 +8,7 @@ last_updated: 2026-08-03
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151 complete, TASK-0152 in progress; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0153 complete; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -172,6 +172,24 @@ last_updated: 2026-08-03
   `codex/image-selection-domain-storage`: migracja `0025_image_selection`, job
   `image_selection`, trzy lekkie tabele bez BLOB, idempotentne create/get runu,
   stronicowana lista grup oraz wygenerowany klient OpenAPI,
+- TASK-0152 dodał czwarty responsywny workspace `Selekcja zdjęć`, naturalnie
+  uporządkowany i wznawialny browser staging do 30 000 JPEG-ów, postęp plików i
+  bajtów, bounded concurrency równe 4, 24-godzinny checkpoint oraz token
+  `photo_selection` izolowany per gra; selekcja nie uruchamia ciężkiego
+  pipeline'u layoutów,
+- TASK-0153 dodał wersjonowany `fast-image-selector-v1`: jawne porty miniatury,
+  jakości, lattice/fingerprint i zakresu, strumieniowe grupowanie z bounded
+  guardem, top-k równym 3, fail-closed quality gate, obsługę dowolnych skoków,
+  późniejszych duplikatów i końcowych stron 1–9. Pełniejsza geometria oraz trzy
+  kotwice OCR działają wyłącznie dla top-k. CLI zapisuje JSONL metryk, grupy i
+  checkpoint poza read-only stagingiem; run bez modelu OCR ma odmienny
+  fingerprint i pozostaje manualny. Golden syntetyczny oraz pięć prywatnych
+  obserwacji rzeczywistych przeszły, podobnie jak 469 testów workera,
+- TASK-0154 dodał atomowy content-addressed output z jednym JPEG-em na zakres,
+  kanoniczny checksumowany manifest i ponowną weryfikację wszystkich plików.
+  Handoff jest idempotentny przez `selectionId = runId`, blokuje nierozwiązane
+  grupy i checksum drift, przenosi token do `Importu layoutów`, ale nie uruchamia
+  ciężkiego pipeline'u. Job importu zachowuje `imageSelectionRunId`,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego
@@ -260,13 +278,13 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
 - TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
   przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
-- TASK-0151 jest ukończony, a TASK-0152–0157 są realizowane jako M7.0 po
-  osobnym poleceniu właściciela; nie zastępują odbioru 0.2 ani 0.3,
+- TASK-0151–0154 są ukończone, a TASK-0155–0157 pozostają kolejnymi pionami
+  M7.0; nie zastępują odbioru 0.2 ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Kontynuować TASK-0152 jako następny pion M7.0 wersji 0.4. Odbiór właściciela
+Kontynuować TASK-0155 jako następny pion M7.0 wersji 0.4. Odbiór właściciela
 Admina według `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` pozostaje niezależnym
 torem TASK-0142. Kod Mobile 0.3 jest scalony do `main`, ale TASK-0141 nadal
 czeka na instalację i manualny odbiór na Google Pixel 10 Pro XL. Dopiero po

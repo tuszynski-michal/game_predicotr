@@ -29,6 +29,25 @@ test('restores a valid workspace, game and accordion section', () => {
   );
 });
 
+test('restores the v0.4 image selection workspace with its game context', () => {
+  assert.deepEqual(
+    parseAdminNavigation('?workspace=image-selection&game=game-777'),
+    {
+      workspace: 'image-selection',
+      gameId: 'game-777',
+      section: null,
+    },
+  );
+  assert.equal(
+    serializeAdminNavigation('', {
+      workspace: 'image-selection',
+      gameId: 'game-777',
+      section: null,
+    }),
+    '?workspace=image-selection&game=game-777',
+  );
+});
+
 test('does not restore a dependent section without a game', () => {
   assert.deepEqual(parseAdminNavigation('?section=symbols'), {
     workspace: 'games',

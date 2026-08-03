@@ -1,6 +1,6 @@
 ---
 title: TASK-0153 fast sequential image grouping and quality selection
-status: todo
+status: done
 release: "0.4"
 last_updated: 2026-08-02
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-02
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -55,16 +55,16 @@ przy czym fałszywe scalenie jest niedopuszczalne.
 
 ## Acceptance criteria
 
-- [ ] Skok `19–27` do `400–408` tworzy dwie prawidłowe grupy bez raportu luki.
-- [ ] Powrót zakończonego zakresu jest pomijany, a nierozwiązany zakres może
+- [x] Skok `19–27` do `400–408` tworzy dwie prawidłowe grupy bez raportu luki.
+- [x] Powrót zakończonego zakresu jest pomijany, a nierozwiązany zakres może
       przyjąć późniejszego dobrego kandydata.
-- [ ] Kandydat zasłonięty, obcięty lub bez pełnej geometrii nie jest auto-selected.
-- [ ] Końcowa strona z mniej niż dziewięcioma planszami może zostać poprawnie
+- [x] Kandydat zasłonięty, obcięty lub bez pełnej geometrii nie jest auto-selected.
+- [x] Końcowa strona z mniej niż dziewięcioma planszami może zostać poprawnie
       wybrana.
-- [ ] Niepewny zakres daje `manual_required`, nie wymyślony numer.
-- [ ] Wynik dwóch przebiegów dla tych samych bajtów i manifestu jest identyczny.
-- [ ] Test udowadnia brak wywołania croppera komórek i symbol ONNX.
-- [ ] Liczba OCR/pełniejszych weryfikacji jest bounded przez grupy × top-k.
+- [x] Niepewny zakres daje `manual_required`, nie wymyślony numer.
+- [x] Wynik dwóch przebiegów dla tych samych bajtów i manifestu jest identyczny.
+- [x] Test udowadnia brak wywołania croppera komórek i symbol ONNX.
+- [x] Liczba OCR/pełniejszych weryfikacji jest bounded przez grupy × top-k.
 
 ## Technical notes
 
@@ -94,4 +94,28 @@ zasłonięcia, blur i nieciągłe zakresy.
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+- Dodano jeden kanoniczny manifest i fingerprint `fast-image-selector-v1` z
+  wersjami adapterów, progami, wagami, rozmiarem miniatury, batch size,
+  boundary guard oraz `topK = 3`; API używa tej samej tożsamości runu.
+- Dodano czyste kontrakty i osobne porty miniatury, jakości,
+  lattice/fingerprint oraz range recognizera. Adaptery Pillow/OpenCV pracują na
+  jednej miniaturze, a pełny obraz jest dekodowany tylko dla top-k.
+- State machine zachowuje naturalny `order_index`, wykrywa dowolne skoki,
+  rozdziela niepotwierdzone granice fail-closed, pomija późniejszy zakończony
+  zakres i pozwala późniejszemu dobremu kandydatowi uzupełnić grupę manualną.
+- Sparse OCR czyta batchowo wyłącznie pierwszą, środkową i ostatnią planszę;
+  zakres wymaga dodatnich, zgodnych kotwic i liczby pozycji. Brak lub niski
+  confidence kończy się `manual_required`.
+- Samodzielny tryb CLI czyta checksumowany browser manifest, nie zapisuje do
+  stagingu i publikuje `candidates.jsonl`, `groups.jsonl`, atomowy checkpoint
+  oraz deterministyczny raport. Tryb bez OCR ma osobny fingerprint i nie może
+  auto-wybrać zakresu.
+- Dodano golden skoków, duplikatów, blur/crop/occlusion, niepewnego OCR i strony
+  pięcioelementowej oraz pinned obserwacje pięciu prywatnych zdjęć z obu grup
+  jakości. Obrazy prywatne pozostają poza Git.
+- Weryfikacja: 469 testów workera przeszło w czterech ograniczonych czasowo
+  partiach, 14 skupionych testów API przeszło, Ruff przeszedł dla całego
+  workera, a mypy przeszedł dla dziewięciu zmienionych modułów.
+- Nie wykonywano benchmarku 10k/30k ani integracji trwałego joba z retry;
+  należą odpowiednio do TASK-0157 i TASK-0156. Immutable output oraz handoff są
+  zakresem następnego TASK-0154.

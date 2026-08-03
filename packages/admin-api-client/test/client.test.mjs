@@ -185,6 +185,33 @@ test('generated client uploads a browser-native folder selection', async () => {
   );
 });
 
+test('generated client requests an explicit image-selection handoff', async () => {
+  const requests = [];
+  const runId = '00000000-0000-4000-8000-000000000154';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        expiresAt: '2026-08-03T12:15:00Z',
+        gameId: '11111111-1111-4111-8111-111111111111',
+        runId,
+        selectionId: runId,
+        selectionToken: 'x'.repeat(32),
+        supportedFileCount: 3,
+        targetSection: 'imports',
+      });
+    },
+  });
+
+  await client.handoffImageSelection(runId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [['POST', `/api/v1/admin/image-selections/${runId}/handoff`]],
+  );
+});
+
 test('generated client reads completeness and controls a sequence source override', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

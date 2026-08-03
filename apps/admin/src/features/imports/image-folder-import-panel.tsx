@@ -3,6 +3,7 @@
 import type {
   ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
+  ImageSelectionHandoffResponse,
   ImageImportJobPayload,
   ImageSequenceSourceSelectionResponse,
   JobResponse,
@@ -28,6 +29,8 @@ interface ImageFolderImportPanelProps {
   readonly apiBaseUrl: string;
   readonly client?: ImageFolderImportClient;
   readonly gameId: string;
+  readonly initialHandoff?: ImageSelectionHandoffResponse | null;
+  readonly onHandoffConsumed?: () => void;
 }
 
 type ImageImportJob = JobResponse & {
@@ -52,18 +55,29 @@ export function ImageFolderImportPanel({
   apiBaseUrl,
   client,
   gameId,
+  initialHandoff = null,
+  onHandoffConsumed,
 }: ImageFolderImportPanelProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
+  const initialSelection = handoffFolderSelection(initialHandoff);
   const [selection, setSelection] =
-    useState<ImageFolderSelectionResponse | null>(null);
-  const [selectionDisplayName, setSelectionDisplayName] = useState('');
+    useState<ImageFolderSelectionResponse | null>(initialSelection);
+  const [selectionDisplayName, setSelectionDisplayName] = useState(
+    initialHandoff === null
+      ? ''
+      : `Wybrane zdjęcia · ${initialHandoff.runId.slice(0, 8)}`,
+  );
   const [jobs, setJobs] = useState<readonly ImageImportJob[]>([]);
   const [activeAction, setActiveAction] = useState<ImportAction | null>(null);
   const [error, setError] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState(
+    initialHandoff === null
+      ? ''
+      : 'Zweryfikowana paczka jest gotowa. Kliknij „Rozpocznij import”, aby jawnie uruchomić pipeline.',
+  );
   const [completeness, setCompleteness] =
     useState<ImageDatasetCompletenessResponse | null>(null);
   const [sequenceNumber, setSequenceNumber] = useState('');
@@ -167,6 +181,7 @@ export function ImageFolderImportPanel({
       }
       setSelection(null);
       setSelectionDisplayName('');
+      onHandoffConsumed?.();
       const imageJob = result.job;
       if (isImageImportJob(imageJob)) {
         setJobs((current) => [imageJob, ...current]);
@@ -513,4 +528,19 @@ export function ImageFolderImportPanel({
       </section>
     </section>
   );
+}
+
+function handoffFolderSelection(
+  handoff: ImageSelectionHandoffResponse | null,
+): ImageFolderSelectionResponse | null {
+  if (handoff === null) return null;
+  return {
+    expiresAt: handoff.expiresAt,
+    inputManifestSha256: null,
+    path: null,
+    purpose: 'layout_import',
+    selectionToken: handoff.selectionToken,
+    status: 'selected',
+    supportedFileCount: handoff.supportedFileCount,
+  };
 }

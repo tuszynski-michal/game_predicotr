@@ -193,6 +193,9 @@ import type {
   GetSymbolImageCandidateAssetErrors,
   GetSymbolImageCandidateAssetResponses,
   GetSymbolResponses,
+  HandoffImageSelectionData,
+  HandoffImageSelectionErrors,
+  HandoffImageSelectionResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
@@ -1541,6 +1544,26 @@ export const listImageSelectionGroups = <ThrowOnError extends boolean = false>(
     ListImageSelectionGroupsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/image-selections/{run_id}/groups', ...options });
+
+/**
+ * Verify and hand curated images to the explicit layout import step
+ */
+export const handoffImageSelection = <ThrowOnError extends boolean = false>(
+  options: Options<HandoffImageSelectionData, ThrowOnError>,
+): RequestResult<
+  HandoffImageSelectionResponses,
+  HandoffImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    HandoffImageSelectionResponses,
+    HandoffImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/handoff',
+    ...options,
+  });
 
 /**
  * Get read-only managed image storage inventory

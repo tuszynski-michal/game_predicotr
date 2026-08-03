@@ -1177,6 +1177,18 @@
       "ImageImportJobPayload": {
         "additionalProperties": false,
         "properties": {
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
           "importKind": {
             "const": "image_directory",
             "title": "Importkind",
@@ -1682,6 +1694,58 @@
         ],
         "title": "ImageSelectionGroupStatus",
         "type": "string"
+      },
+      "ImageSelectionHandoffResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "selectionId": {
+            "format": "uuid",
+            "title": "Selectionid",
+            "type": "string"
+          },
+          "selectionToken": {
+            "maxLength": 200,
+            "minLength": 32,
+            "title": "Selectiontoken",
+            "type": "string"
+          },
+          "supportedFileCount": {
+            "minimum": 1.0,
+            "title": "Supportedfilecount",
+            "type": "integer"
+          },
+          "targetSection": {
+            "const": "imports",
+            "default": "imports",
+            "title": "Targetsection",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "gameId",
+          "selectionId",
+          "selectionToken",
+          "supportedFileCount",
+          "expiresAt"
+        ],
+        "title": "ImageSelectionHandoffResponse",
+        "type": "object"
       },
       "ImageSelectionJobPayload": {
         "additionalProperties": false,
@@ -11548,6 +11612,84 @@
           }
         },
         "summary": "List a bounded page of image-selection groups",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/handoff": {
+      "post": {
+        "operationId": "handoffImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionHandoffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Verify and hand curated images to the explicit layout import step",
         "tags": [
           "image-selections"
         ]

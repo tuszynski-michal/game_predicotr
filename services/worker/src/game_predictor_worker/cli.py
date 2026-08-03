@@ -6,9 +6,9 @@ import argparse
 import os
 import socket
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
-
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobType
@@ -18,6 +18,19 @@ from game_predictor_api.storage.database import (
 )
 
 from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
+from game_predictor_worker.images.selection.adapters import (
+    AnchoredSequenceRangeRecognizer,
+    NoRangeRecognizer,
+    build_default_adapters,
+)
+from game_predictor_worker.images.selection.contracts import SelectionContractError
+from game_predictor_worker.images.selection.engine import FastImageSelector
+from game_predictor_worker.images.selection.io import (
+    JsonSelectionAuditSink,
+    load_browser_selection_manifest,
+)
+from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
+from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
 from game_predictor_worker.imports.dispatch import ImportJobDispatchHandler
 from game_predictor_worker.imports.handler import LayoutImportStagingHandler
 from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingStore
@@ -74,11 +87,38 @@ def main(arguments: Sequence[str] | None = None) -> int:
         default=Path("artifacts"),
         help="Local root for deterministic worker artifacts.",
     )
+    parser.add_argument(
+        "--image-selection-manifest",
+        type=Path,
+        help="Run the standalone fast selector for one staged browser manifest.",
+    )
+    parser.add_argument(
+        "--image-selection-output",
+        type=Path,
+        help="Directory for selector checkpoint, JSONL audit and final report.",
+    )
+    parser.add_argument(
+        "--image-selection-ocr-model-root",
+        type=Path,
+        help="Optional local Paddle recognition model used for bounded range anchors.",
+    )
     options = parser.parse_args(arguments)
     if not 5 <= options.lease_seconds <= 3600:
         parser.error("--lease-seconds must be between 5 and 3600.")
     if options.poll_interval <= 0:
         parser.error("--poll-interval must be positive.")
+    if (options.image_selection_manifest is None) != (options.image_selection_output is None):
+        parser.error(
+            "--image-selection-manifest and --image-selection-output must be used together."
+        )
+    if options.image_selection_manifest is not None:
+        if options.poll:
+            parser.error("--poll cannot be combined with standalone image selection.")
+        return _run_standalone_image_selection(
+            options.image_selection_manifest,
+            options.image_selection_output,
+            ocr_model_root=options.image_selection_ocr_model_root,
+        )
 
     settings = ApiSettings.from_environment()
     engine = create_database_engine(settings)
@@ -149,3 +189,50 @@ def main(arguments: Sequence[str] | None = None) -> int:
         return 130
     finally:
         engine.dispose()
+
+
+def _run_standalone_image_selection(
+    manifest_path: Path,
+    output_root: Path,
+    *,
+    ocr_model_root: Path | None,
+) -> int:
+    manifest = manifest_path.resolve(strict=True)
+    sources, input_manifest_sha256 = load_browser_selection_manifest(manifest)
+    source_root = manifest.parent
+    output = output_root.resolve()
+    if output == source_root or output.is_relative_to(source_root):
+        raise SelectionContractError(
+            "IMAGE_SELECTION_OUTPUT_IN_SOURCE",
+            "Image selector output must be outside the read-only source staging.",
+        )
+    range_recognizer: NoRangeRecognizer | AnchoredSequenceRangeRecognizer
+    if ocr_model_root is None:
+        range_recognizer = NoRangeRecognizer()
+        selector_manifest = replace(
+            DEFAULT_SELECTOR_MANIFEST,
+            range_adapter_version=range_recognizer.version,
+        )
+    else:
+        range_recognizer = AnchoredSequenceRangeRecognizer(
+            PaddleSequenceNumberRecognizer(ocr_model_root.resolve(strict=True))
+        )
+        selector_manifest = DEFAULT_SELECTOR_MANIFEST
+    analyzer, verifier = build_default_adapters(
+        source_root,
+        range_recognizer=range_recognizer,
+        manifest=selector_manifest,
+    )
+    sink = JsonSelectionAuditSink(output)
+    result = FastImageSelector(selector_manifest).select(
+        sources,
+        analyzer=analyzer,
+        verifier=verifier,
+        audit_sink=sink,
+    )
+    report_path = sink.write_result(
+        result,
+        input_manifest_sha256=input_manifest_sha256,
+    )
+    print(report_path)
+    return 0

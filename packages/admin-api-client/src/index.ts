@@ -37,6 +37,7 @@ import {
   getImageJobOperations as getGeneratedImageJobOperations,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
   getImageSelection as getGeneratedImageSelection,
+  handoffImageSelection as handoffGeneratedImageSelection,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
@@ -179,6 +180,7 @@ export type {
   ImageFolderSelectionResponse,
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
+  ImageSelectionHandoffResponse,
   ImageSelectionGroupPageResponse,
   ImageSelectionGroupResponse,
   ImageSelectionGroupStatus,
@@ -440,6 +442,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       createGeneratedImageSelection({ body, client }),
     getImageSelection: (runId: string) =>
       getGeneratedImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
+    handoffImageSelection: (runId: string) =>
+      handoffGeneratedImageSelection({
         client,
         path: { run_id: runId },
       }),

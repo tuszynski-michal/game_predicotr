@@ -35,6 +35,7 @@ SYMBOL_LOCALIZED_NAMES_REVISION = "0025_symbol_localized_names"
 IMAGE_SELECTION_REVISION = "0025_image_selection"
 MIGRATION_MERGE_REVISION = "0026_merge_v03_v04_heads"
 IMAGE_SELECTION_MANUAL_DECISIONS_REVISION = "0027_image_selection_manual_decisions"
+IMAGE_SELECTION_VERSIONED_RERUNS_REVISION = "0028_image_selection_versioned_reruns"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -76,8 +77,9 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     image_selection = script.get_revision(IMAGE_SELECTION_REVISION)
     migration_merge = script.get_revision(MIGRATION_MERGE_REVISION)
     manual_decisions = script.get_revision(IMAGE_SELECTION_MANUAL_DECISIONS_REVISION)
+    versioned_reruns = script.get_revision(IMAGE_SELECTION_VERSIONED_RERUNS_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_MANUAL_DECISIONS_REVISION]
+    assert script.get_heads() == [IMAGE_SELECTION_VERSIONED_RERUNS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -137,6 +139,33 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     )
     assert manual_decisions is not None
     assert manual_decisions.down_revision == MIGRATION_MERGE_REVISION
+    assert versioned_reruns is not None
+    assert versioned_reruns.down_revision == IMAGE_SELECTION_MANUAL_DECISIONS_REVISION
+
+
+def test_image_selection_versioned_reruns_replace_source_uniqueness_with_index() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}:"
+        f"{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}:"
+        f"{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "drop constraint uq_image_selection_runs_source_selection_id" in upgrade_sql
+    assert "create index ix_image_selection_runs_source_selection_id" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop index ix_image_selection_runs_source_selection_id" in downgrade_sql
+    assert "unique (source_selection_id)" in downgrade_sql
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:
@@ -240,12 +269,10 @@ def test_manual_image_selection_migration_adds_append_only_decisions() -> None:
         sql=True,
     )
     upgrade_sql = upgrade_output.getvalue().lower()
+    assert "alter table alembic_version alter column version_num type varchar(128)" in (upgrade_sql)
     assert "create table image_selection_manual_decisions" in upgrade_sql
     assert "uq_image_selection_manual_decisions_revision" in upgrade_sql
-    assert (
-        "drop table image_selection_manual_decisions"
-        in downgrade_output.getvalue().lower()
-    )
+    assert "drop table image_selection_manual_decisions" in downgrade_output.getvalue().lower()
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

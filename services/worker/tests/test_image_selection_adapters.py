@@ -14,6 +14,7 @@ from game_predictor_worker.images.selection.adapters import (
     ComposedCheapImageAnalyzer,
     OpenCvImageQualityAnalyzer,
     PillowThumbnailLoader,
+    VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
 )
 from game_predictor_worker.images.selection.contracts import (
@@ -47,7 +48,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v1"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v2"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -199,6 +200,32 @@ def test_range_adapter_reads_only_first_middle_last_anchor() -> None:
     assert (recognized.start, recognized.end, recognized.confidence) == (400, 408, 0.97)
 
 
+class _VisibleLabelRecognizer(_AnchorRecognizer):
+    def recognize_many(self, rgb_images: tuple[np.ndarray, ...]) -> tuple[Recognition, ...]:
+        return tuple(
+            Recognition(str(index + 10), 0.99)
+            for index, _ in enumerate(rgb_images)
+        )
+
+
+def test_visible_label_adapter_recovers_range_without_red_board_geometry() -> None:
+    image = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    for position in range(9):
+        row, column = divmod(position, 3)
+        x = 420 + column * 360
+        y = 300 + row * 90
+        image[y : y + 11, x : x + 42] = 255
+
+    recognized, reasons = VisibleSequenceLabelRangeRecognizer(
+        _VisibleLabelRecognizer()
+    ).recognize(image, ())
+
+    assert reasons == ()
+    assert recognized is not None
+    assert (recognized.start, recognized.end) == (10, 18)
+    assert recognized.confidence >= 0.9
+
+
 def test_standalone_cli_writes_manual_report_without_loading_ocr_model(
     tmp_path: Path,
 ) -> None:
@@ -240,7 +267,7 @@ def test_standalone_cli_writes_manual_report_without_loading_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v1"
+    assert report["selectorVersion"] == "fast-image-selector-v2"
     assert report["groups"][0]["status"] == "manual_required"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

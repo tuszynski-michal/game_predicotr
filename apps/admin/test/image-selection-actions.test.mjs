@@ -174,3 +174,44 @@ test('resumes only a failed file without selecting the folder again', async () =
   assert.equal(attempts.get(1), 4);
   assert.equal(attempts.get(2), 1);
 });
+
+test('retries run creation without uploading the finalized folder again', async () => {
+  const files = [imageFile('photo-1.jpg')];
+  let createRunCalls = 0;
+  let uploadCalls = 0;
+  let finalizeCalls = 0;
+  const api = {
+    createBrowserImageSelection: async () => ({ data: uploadState(files) }),
+    getBrowserImageSelection: async () => ({
+      data: uploadState(files, [0]),
+    }),
+    uploadBrowserImageSelectionFile: async () => {
+      uploadCalls += 1;
+      return { data: uploadState(files, [0]) };
+    },
+    finalizeBrowserImageSelection: async () => {
+      finalizeCalls += 1;
+      return { data: { selectionToken: `selection-token-${finalizeCalls}` } };
+    },
+    createImageSelection: async () => {
+      createRunCalls += 1;
+      return createRunCalls === 1
+        ? { error: { code: 'TRANSIENT_CONFLICT', message: 'retry' } }
+        : { data: createdRun() };
+    },
+  };
+
+  const failed = await uploadPhotoSelectionFolder(api, 'game-1', files);
+
+  assert.equal(failed.ok, false);
+  assert.notEqual(failed.resume, null);
+
+  const resumed = await uploadPhotoSelectionFolder(api, 'game-1', [], {
+    resume: failed.resume,
+  });
+
+  assert.equal(resumed.ok, true);
+  assert.equal(uploadCalls, 1);
+  assert.equal(finalizeCalls, 2);
+  assert.equal(createRunCalls, 2);
+});

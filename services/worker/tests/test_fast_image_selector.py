@@ -25,7 +25,7 @@ from game_predictor_worker.images.selection.manifest import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-GOLDEN_PATH = ROOT / "ai_docs" / "quality" / "fast-image-selector-v1-golden.json"
+GOLDEN_PATH = ROOT / "ai_docs" / "quality" / "fast-image-selector-v2-golden.json"
 FINGERPRINTS = {
     "a": "0" * 64,
     "b": "f" * 64,
@@ -87,7 +87,7 @@ class GoldenVerifier:
                 end=int(end),
                 confidence=float(confidence),
             ),
-            board_count=expected_board_count,
+            board_count=int(value.get("verifiedBoardCount", expected_board_count or 0)) or None,
             geometry_complete=quality_name != "geometry_incomplete",
             full_frame_visible=quality_name not in {"cropped", "occluded"},
             reason_codes=("IMAGE_OCCLUDED",) if quality_name == "occluded" else (),
@@ -171,6 +171,63 @@ def test_single_last_photo_can_form_a_verified_new_range() -> None:
         for group in result.groups
     ] == [(19, 27), (400, 408)]
     assert all(group.status.value == "auto_selected" for group in result.groups)
+
+
+def test_full_range_verification_supersedes_unstable_cheap_frame_geometry() -> None:
+    source = _sources("dark-cabinet", 1)[0]
+    analyzer = GoldenAnalyzer(
+        (
+            {
+                "boardCount": 5,
+                "fingerprint": "a",
+                "quality": "geometry_incomplete",
+                "range": [1, 9, 0.99],
+            },
+        )
+    )
+    verifier = GoldenVerifier(
+        (
+            {
+                "boardCount": 9,
+                "fingerprint": "a",
+                "quality": "good",
+                "range": [1, 9, 0.99],
+                "verifiedBoardCount": 9,
+            },
+        )
+    )
+
+    result = FastImageSelector().select(
+        (source,),
+        analyzer=analyzer,
+        verifier=verifier,
+    )
+
+    assert result.groups[0].status.value == "auto_selected"
+    assert result.groups[0].selected_candidate is not None
+
+
+def test_unconfirmed_visual_change_does_not_create_a_singleton_group() -> None:
+    observations = (
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [1, 9, 0.99]},
+        {"boardCount": 9, "fingerprint": "b", "quality": "good", "range": [1, 9, 0.99]},
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [1, 9, 0.99]},
+        {"boardCount": 9, "fingerprint": "c", "quality": "good", "range": [10, 18, 0.99]},
+        {"boardCount": 9, "fingerprint": "c", "quality": "good", "range": [10, 18, 0.99]},
+    )
+
+    result = FastImageSelector().select(
+        _sources("unstable-frame", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert len(result.groups) == 2
+    assert [group.source_count for group in result.groups] == [3, 2]
+    assert [(group.range.start, group.range.end) for group in result.groups if group.range] == [
+        (1, 9),
+        (10, 18),
+    ]
 
 
 def test_fast_selector_rejects_non_contiguous_input_order() -> None:

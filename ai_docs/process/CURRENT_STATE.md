@@ -222,6 +222,13 @@ last_updated: 2026-08-03
   automatycznych, przypadków manualnych, pominięć, błędów i weryfikacji oraz
   oddzielne czasy uploadu i obliczeń. Identyfikatory techniczne pozostają
   dostępne w zwijanych szczegółach,
+- odbiór rzeczywistego katalogu 180 zdjęć wykrył manual rate `32/32` w
+  `fast-image-selector-v1`. Wersja `fast-image-selector-v2` usuwa zależność
+  fingerprintu od zmiennej liczby czerwonych ramek, potwierdza pełny zakres z
+  przestrzennej siatki jasnych numerów i nie tworzy singletonów z
+  niepotwierdzonej klatki przejściowej. Lokalna regresja tych samych danych
+  zakończyła się w 44,2 s wynikiem 7 auto-selected zakresów, 4 powtórzeń i 0
+  przypadków manualnych; pozostaje powtórzyć run z poziomu Admina,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego
@@ -265,7 +272,10 @@ last_updated: 2026-08-03
 ### Robocze
 
 - PostgreSQL ma w repozytorium head
-  `0027_image_selection_manual_decisions`; jego poprzednik
+  `0028_image_selection_versioned_reruns`; migracja usuwa błędną unikalność
+  samego `source_selection_id`, dzięki czemu ten sam niezmienny staging może
+  otrzymać nowy run po zmianie fingerprintu selektora. Poprzednik
+  `0027_image_selection_manual_decisions`; wcześniejszy
   `0026_merge_v03_v04_heads` łączy niezależne migracje
   `0025_symbol_localized_names` i `0025_image_selection` bez przepisywania
   historii baz, które mogły zastosować już jeden z tych pionów. Migracja 0027

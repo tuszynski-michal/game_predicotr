@@ -1,7 +1,9 @@
-"""Pillow/OpenCV adapters for ``fast-image-selector-v1``."""
+"""Pillow/OpenCV adapters for the versioned fast image selector."""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
 
@@ -118,35 +120,29 @@ class PillowThumbnailLoader:
         )
 
 
-def _median_hash(rgb: NDArray[np.uint8]) -> str:
-    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-    resized = cv2.resize(gray, (16, 16), interpolation=cv2.INTER_AREA)
-    median = float(np.median(resized))
-    bits = (resized > median).reshape(-1)
+def _layout_color_hash(rgb: NDArray[np.uint8]) -> str:
+    """Hash the screen layout without depending on a variable board count."""
+
+    height, width = rgb.shape[:2]
+    roi = rgb[
+        int(round(height * 0.22)) : int(round(height * 0.48)),
+        int(round(width * 0.12)) : int(round(width * 0.88)),
+    ]
+    if roi.size == 0:
+        roi = rgb
+    hsv = cv2.cvtColor(
+        cv2.resize(roi, (16, 16), interpolation=cv2.INTER_AREA),
+        cv2.COLOR_RGB2HSV,
+    )
     value = 0
-    for bit in bits:
-        value = (value << 1) | int(bit)
-    return f"{value:064x}"
-
-
-def _board_composite(
-    rgb: NDArray[np.uint8],
-    boards: tuple[BoardDetection, ...],
-) -> NDArray[np.uint8]:
-    if not boards:
-        height, width = rgb.shape[:2]
-        return rgb[height // 8 : height * 7 // 8, width // 8 : width * 7 // 8]
-    canvas: NDArray[np.uint8] = np.zeros((3 * 20, 3 * 32, 3), dtype=np.uint8)
-    for board in boards:
-        x, y, width, height = board.bounding_box
-        crop = rgb[max(0, y) : max(0, y + height), max(0, x) : max(0, x + width)]
-        if crop.size == 0:
-            continue
-        tile = cv2.resize(crop, (32, 20), interpolation=cv2.INTER_AREA)
-        row, column = divmod(board.position_index, 3)
-        if row < 3 and column < 3:
-            canvas[row * 20 : (row + 1) * 20, column * 32 : (column + 1) * 32] = tile
-    return canvas
+    for hue, saturation, brightness in hsv.reshape(-1, 3):
+        quantized = (
+            (int(hue) // 45) << 2
+            | (int(saturation) >= 100) << 1
+            | (int(brightness) >= 100)
+        )
+        value = (value << 4) | quantized
+    return f"{value:0256x}"
 
 
 def _geometry_signature(
@@ -202,7 +198,7 @@ class OpenCvLatticeFingerprintAnalyzer:
         detection = _best_supported_detection(self._detector, frame.rgb)
         boards = detection.boards
         return LatticeFingerprint(
-            fingerprint_hex=_median_hash(_board_composite(frame.rgb, boards)),
+            fingerprint_hex=_layout_color_hash(frame.rgb),
             geometry_signature=_geometry_signature(
                 boards,
                 width=frame.rgb.shape[1],
@@ -379,6 +375,212 @@ class AnchoredSequenceRangeRecognizer:
         return SequenceRange(start=start, end=end, confidence=confidence), ()
 
 
+@dataclass(frozen=True, slots=True)
+class _VisibleLabel:
+    crop: NDArray[np.uint8]
+    center: tuple[float, float]
+
+
+class VisibleSequenceLabelRangeRecognizer:
+    """Read the page range from the spatial lattice of visible number labels.
+
+    The arcade cabinet is dark and its red board frames are not stable enough to
+    be the sole source of geometry.  Sequence labels are bright, ordered and
+    arranged in a 3x3 lattice, so they provide an independent fail-closed
+    fallback for full-resolution candidates.
+    """
+
+    version = "visible-sequence-label-range-v1"
+    _minimum_ocr_confidence = 0.72
+    _minimum_inlier_count = 6
+
+    def __init__(self, recognizer: SequenceNumberRecognizer) -> None:
+        self._recognizer = recognizer
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        del boards
+        labels = self._label_candidates(rgb_image)
+        if len(labels) < self._minimum_inlier_count:
+            return None, ("RANGE_LABEL_LATTICE_MISSING",)
+        try:
+            recognitions = self._recognize_many(tuple(label.crop for label in labels))
+        except (SequenceOcrError, ValueError):
+            return None, ("RANGE_LABEL_OCR_FAILED",)
+        hypotheses = self._range_hypotheses(labels, recognitions, rgb_image.shape[:2])
+        if not hypotheses:
+            return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+        best_score, best_range = hypotheses[0]
+        if len(hypotheses) > 1 and hypotheses[1][0] == best_score:
+            return None, ("RANGE_LABEL_LATTICE_AMBIGUOUS",)
+        return best_range, ()
+
+    def _recognize_many(
+        self,
+        crops: tuple[NDArray[np.uint8], ...],
+    ) -> tuple[Recognition, ...]:
+        recognize_many = getattr(self._recognizer, "recognize_many", None)
+        if not callable(recognize_many):
+            return tuple(self._recognizer.recognize(crop) for crop in crops)
+        results: list[Recognition] = []
+        for offset in range(0, len(crops), 9):
+            results.extend(recognize_many(crops[offset : offset + 9]))
+        return tuple(results)
+
+    @classmethod
+    def _label_candidates(
+        cls,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[_VisibleLabel, ...]:
+        height, width = rgb_image.shape[:2]
+        hsv = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
+        mask = cv2.inRange(hsv, np.array((0, 0, 165)), np.array((179, 115, 255)))
+        y_start = int(round(height * 0.25))
+        y_end = int(round(height * 0.455))
+        x_start = int(round(width * 0.18))
+        x_end = int(round(width * 0.80))
+        region = np.zeros_like(mask)
+        region[y_start:y_end, x_start:x_end] = mask[y_start:y_end, x_start:x_end]
+        kernel_width = max(3, int(round(width * 0.0065)) | 1)
+        kernel_height = max(1, int(round(height * 0.0016)) | 1)
+        closed = cv2.morphologyEx(
+            region,
+            cv2.MORPH_CLOSE,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_width, kernel_height)),
+        )
+        count, _, stats, centroids = cv2.connectedComponentsWithStats(
+            closed,
+            connectivity=8,
+        )
+        minimum_area = max(24, int(round(width * height * 0.000058)))
+        labels: list[_VisibleLabel] = []
+        for index in range(1, count):
+            x, y, component_width, component_height, area = (
+                int(value) for value in stats[index]
+            )
+            if not int(round(height * 0.006)) <= component_height <= int(
+                round(height * 0.0125)
+            ):
+                continue
+            if not int(round(width * 0.008)) <= component_width <= int(
+                round(width * 0.045)
+            ):
+                continue
+            if area < minimum_area or area / (component_width * component_height) < 0.57:
+                continue
+            pad_x = max(2, int(round(component_height * 0.35)))
+            pad_y = max(2, int(round(component_height * 0.25)))
+            left = max(0, x - pad_x)
+            top = max(0, y - pad_y)
+            right = min(width, x + component_width + pad_x)
+            bottom = min(height, y + component_height + pad_y)
+            crop = rgb_image[top:bottom, left:right]
+            if crop.size:
+                labels.append(
+                    _VisibleLabel(
+                        crop=crop,
+                        center=(float(centroids[index][0]), float(centroids[index][1])),
+                    )
+                )
+        labels.sort(key=lambda value: (value.center[1], value.center[0]))
+        return tuple(labels)
+
+    @classmethod
+    def _range_hypotheses(
+        cls,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int], SequenceRange]]:
+        if len(labels) != len(recognitions):
+            return []
+        evidence: list[tuple[int, tuple[float, float], float]] = []
+        for label, recognition in zip(labels, recognitions, strict=True):
+            number = recognition.normalized_number
+            if (
+                number is not None
+                and number >= 1
+                and recognition.confidence >= cls._minimum_ocr_confidence
+            ):
+                evidence.append((number, label.center, recognition.confidence))
+        candidates: list[tuple[tuple[int, int], SequenceRange]] = []
+        starts = {number - position for number, _, _ in evidence for position in range(9)}
+        height, width = image_shape
+        ransac_threshold = max(8.0, min(width, height) * 0.018)
+        for start in sorted(value for value in starts if value >= 1):
+            by_position: dict[int, tuple[tuple[float, float], float]] = {}
+            for number, center, confidence in evidence:
+                position = number - start
+                if not 0 <= position < 9:
+                    continue
+                current = by_position.get(position)
+                if current is None or confidence > current[1]:
+                    by_position[position] = (center, confidence)
+            positions = tuple(sorted(by_position))
+            if (
+                len(positions) < cls._minimum_inlier_count
+                or positions[0] != 0
+                or positions[-1] != 8
+                or len({position // 3 for position in positions}) < 3
+                or len({position % 3 for position in positions}) < 3
+            ):
+                continue
+            canonical = np.asarray(
+                [(position % 3, position // 3) for position in positions],
+                dtype=np.float32,
+            )
+            observed = np.asarray(
+                [by_position[position][0] for position in positions],
+                dtype=np.float32,
+            )
+            _, inlier_mask = cv2.findHomography(
+                canonical,
+                observed,
+                cv2.RANSAC,
+                ransac_threshold,
+            )
+            if inlier_mask is None:
+                continue
+            inlier_positions = tuple(
+                position
+                for position, is_inlier in zip(
+                    positions,
+                    inlier_mask.reshape(-1),
+                    strict=True,
+                )
+                if bool(is_inlier)
+            )
+            if (
+                len(inlier_positions) < cls._minimum_inlier_count
+                or 0 not in inlier_positions
+                or 8 not in inlier_positions
+            ):
+                continue
+            mean_confidence = sum(
+                by_position[position][1] for position in inlier_positions
+            ) / len(inlier_positions)
+            structural_confidence = min(
+                1.0,
+                0.90 + 0.025 * (len(inlier_positions) - cls._minimum_inlier_count),
+            )
+            confidence = round(
+                min(0.999999, structural_confidence * 0.65 + mean_confidence * 0.35),
+                6,
+            )
+            score = (len(inlier_positions), int(round(mean_confidence * 1000)))
+            candidates.append(
+                (score, SequenceRange(start=start, end=start + 8, confidence=confidence))
+            )
+        return sorted(
+            candidates,
+            key=lambda value: (value[0], -value[1].start),
+            reverse=True,
+        )
+
+
 class NoRangeRecognizer:
     version = "no-range-recognizer-v1"
 
@@ -398,10 +600,12 @@ class FullCandidateVerifier:
         self,
         source_root: Path,
         range_recognizer: SequenceRangeRecognizer,
+        fallback_range_recognizer: SequenceRangeRecognizer | None = None,
         detector: PageBoardDetector | None = None,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._range_recognizer = range_recognizer
+        self._fallback_range_recognizer = fallback_range_recognizer
         self._detector = detector or ClassicalPageBoardDetector()
 
     def verify(
@@ -410,14 +614,6 @@ class FullCandidateVerifier:
         *,
         expected_board_count: int | None,
     ) -> CandidateVerification:
-        if expected_board_count is None:
-            return CandidateVerification(
-                recognized_range=None,
-                board_count=None,
-                geometry_complete=False,
-                full_frame_visible=False,
-                reason_codes=("BOARD_COUNT_CONSENSUS_UNKNOWN",),
-            )
         try:
             path = _safe_source_path(
                 self._source_root,
@@ -437,26 +633,46 @@ class FullCandidateVerifier:
                 full_frame_visible=False,
                 reason_codes=(error.code,),
             )
-        geometry_complete = (
+        geometry_complete = expected_board_count is not None and (
             detection.status == "detected" and len(detection.boards) == expected_board_count
         )
-        if not geometry_complete:
-            return CandidateVerification(
-                recognized_range=None,
-                board_count=(len(detection.boards) or None),
-                geometry_complete=False,
-                full_frame_visible=False,
-                reason_codes=tuple(detection.review_reasons) or ("GEOMETRY_INCOMPLETE",),
-            )
-        full_frame_visible = self._full_frame_visible(detection, rgb.shape[1], rgb.shape[0])
-        recognized_range, range_reasons = self._range_recognizer.recognize(
-            rgb,
-            detection.boards,
+        full_frame_visible = geometry_complete and self._full_frame_visible(
+            detection, rgb.shape[1], rgb.shape[0]
         )
+        recognized_range: SequenceRange | None = None
+        range_reasons: tuple[str, ...] = ()
+        if geometry_complete:
+            recognized_range, range_reasons = self._range_recognizer.recognize(
+                rgb,
+                detection.boards,
+            )
+        if recognized_range is None and self._fallback_range_recognizer is not None:
+            fallback_range, fallback_reasons = self._fallback_range_recognizer.recognize(
+                rgb,
+                detection.boards,
+            )
+            if fallback_range is not None:
+                recognized_range = fallback_range
+                geometry_complete = True
+                full_frame_visible = True
+                range_reasons = ()
+            else:
+                range_reasons = tuple(dict.fromkeys((*range_reasons, *fallback_reasons)))
+        if recognized_range is None:
+            detection_reasons = tuple(detection.review_reasons) or (
+                "BOARD_COUNT_CONSENSUS_UNKNOWN"
+                if expected_board_count is None
+                else "GEOMETRY_INCOMPLETE",
+            )
+            range_reasons = tuple(dict.fromkeys((*detection_reasons, *range_reasons)))
         return CandidateVerification(
             recognized_range=recognized_range,
-            board_count=len(detection.boards),
-            geometry_complete=True,
+            board_count=(
+                recognized_range.board_count
+                if recognized_range is not None
+                else (len(detection.boards) or None)
+            ),
+            geometry_complete=geometry_complete,
             full_frame_visible=full_frame_visible,
             reason_codes=range_reasons,
         )
@@ -476,6 +692,7 @@ def build_default_adapters(
     source_root: Path,
     *,
     range_recognizer: SequenceRangeRecognizer | None = None,
+    fallback_range_recognizer: SequenceRangeRecognizer | None = None,
     manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
 ) -> tuple[ComposedCheapImageAnalyzer, FullCandidateVerifier]:
     detector = ClassicalPageBoardDetector()
@@ -487,6 +704,7 @@ def build_default_adapters(
     verifier = FullCandidateVerifier(
         source_root,
         range_recognizer or NoRangeRecognizer(),
+        fallback_range_recognizer,
         detector,
     )
     return analyzer, verifier
@@ -500,5 +718,6 @@ __all__ = [
     "OpenCvImageQualityAnalyzer",
     "OpenCvLatticeFingerprintAnalyzer",
     "PillowThumbnailLoader",
+    "VisibleSequenceLabelRangeRecognizer",
     "build_default_adapters",
 ]

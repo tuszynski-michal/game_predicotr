@@ -243,20 +243,18 @@ class FastImageSelector:
                             ingest(current, item)
                         pending.clear()
                 else:
-                    finalize(current)
-                    current = _OpenGroup(
-                        group_order=len(groups),
-                        top_k=self.manifest.top_k,
-                    )
+                    # One visually different frame is not a confirmed page
+                    # boundary. It is commonly a transition animation, glare,
+                    # or an unstable cheap board detection. Keep it with the
+                    # current range and begin confirmation again from the new
+                    # observation instead of creating a singleton group.
                     for item in pending:
                         ingest(current, item)
                     pending.clear()
-                    finalize(current)
-                    current = _OpenGroup(
-                        group_order=len(groups),
-                        top_k=self.manifest.top_k,
-                    )
-                    ingest(current, observation)
+                    if self._is_boundary_candidate(current, observation):
+                        pending.append(observation)
+                    else:
+                        ingest(current, observation)
             elif self._is_boundary_candidate(current, observation):
                 pending.append(observation)
             else:
@@ -497,31 +495,54 @@ class FastImageSelector:
         board_count_consensus: int | None,
         range_conflict: bool,
     ) -> CandidateResult:
-        reasons = list(observation.reason_codes)
+        recognized_range = verification.recognized_range
+        trusted_full_verification = (
+            recognized_range is not None
+            and verification.geometry_complete
+            and verification.full_frame_visible
+            and verification.board_count == recognized_range.board_count
+        )
+        reasons = [
+            reason
+            for reason in observation.reason_codes
+            if not trusted_full_verification
+            or not reason.startswith(("BOARD_", "GEOMETRY_"))
+        ]
         reasons.extend(verification.reason_codes)
         threshold = self.manifest.thresholds
         quality = observation.quality
-        if quality.overall_score < threshold.minimum_quality_score:
+        if (
+            not trusted_full_verification
+            and quality.overall_score < threshold.minimum_quality_score
+        ):
             reasons.append("QUALITY_SCORE_LOW")
         if quality.sharpness < threshold.minimum_sharpness:
             reasons.append("QUALITY_BLUR")
-        if quality.exposure < threshold.minimum_exposure:
+        if not trusted_full_verification and quality.exposure < threshold.minimum_exposure:
             reasons.append("QUALITY_EXPOSURE")
         if quality.highlight_retention < threshold.minimum_highlight_retention:
             reasons.append("QUALITY_HIGHLIGHT_CLIPPING")
         if quality.glare_resistance < threshold.minimum_glare_resistance:
             reasons.append("QUALITY_GLARE")
-        if quality.border_margin < threshold.minimum_border_margin:
+        if (
+            not trusted_full_verification
+            and quality.border_margin < threshold.minimum_border_margin
+        ):
             reasons.append("QUALITY_FRAME_CROPPED")
-        if observation.geometry_confidence < threshold.minimum_geometry_confidence:
+        if (
+            not trusted_full_verification
+            and observation.geometry_confidence < threshold.minimum_geometry_confidence
+        ):
             reasons.append("GEOMETRY_CONFIDENCE_LOW")
         if not verification.geometry_complete:
             reasons.append("GEOMETRY_INCOMPLETE")
         if not verification.full_frame_visible:
             reasons.append("FRAME_NOT_FULLY_VISIBLE")
-        if board_count_consensus is None or verification.board_count != board_count_consensus:
+        if not trusted_full_verification and (
+            board_count_consensus is None
+            or verification.board_count != board_count_consensus
+        ):
             reasons.append("BOARD_COUNT_CONSENSUS_MISMATCH")
-        recognized_range = verification.recognized_range
         if recognized_range is None:
             reasons.append("RANGE_UNKNOWN")
         elif recognized_range.confidence < threshold.minimum_range_confidence:

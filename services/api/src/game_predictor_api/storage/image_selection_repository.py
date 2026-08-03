@@ -83,6 +83,10 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         try:
             with self._session.begin_nested():
                 self._session.add(job_record_from_domain(run.job))
+                # There is no ORM relationship between the aggregate records,
+                # so make the foreign-key ordering explicit. The savepoint
+                # still rolls both inserts back if the run conflicts.
+                self._session.flush()
                 self._session.add(record)
                 self._session.flush()
         except IntegrityError as error:

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "selectorVersion": "fast-image-selector-v1",
+  "selectorVersion": "fast-image-selector-v2",
   "notes": "Synthetic observations exercise grouping policy independently of OCR model quality. Real Pillow/OpenCV adapters have separate tests.",
   "cases": [
     {

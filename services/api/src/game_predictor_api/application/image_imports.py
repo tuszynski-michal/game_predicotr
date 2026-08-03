@@ -588,7 +588,6 @@ class BrowserImageSelectionService:
                 managed=True,
             )
             self._uploads.pop(upload_id, None)
-            (upload.path / UPLOAD_STATE_FILE_NAME).unlink(missing_ok=True)
             return selected
 
     def get(self, upload_id: UUID) -> BrowserImageUpload:
@@ -655,7 +654,13 @@ class BrowserImageSelectionService:
             return None
         state_path = upload_path / UPLOAD_STATE_FILE_NAME
         try:
-            payload = json.loads(state_path.read_text(encoding="utf-8"))
+            if state_path.is_file():
+                payload = json.loads(state_path.read_text(encoding="utf-8"))
+            else:
+                payload = self._rebuild_upload_state_from_finalized_manifest(
+                    upload_id,
+                    upload_path,
+                )
             if payload.get("schemaVersion") != 1 or payload.get("uploadId") != str(upload_id):
                 return None
             files = {
@@ -674,11 +679,7 @@ class BrowserImageSelectionService:
                 path=upload_path,
                 display_name=str(payload["displayName"]),
                 purpose=ImageSelectionPurpose(str(payload["purpose"])),
-                game_id=(
-                    None
-                    if payload.get("gameId") is None
-                    else UUID(str(payload["gameId"]))
-                ),
+                game_id=(None if payload.get("gameId") is None else UUID(str(payload["gameId"]))),
                 expected_file_count=int(payload["expectedFileCount"]),
                 expected_total_bytes=int(payload["expectedTotalBytes"]),
                 created_at=created_at,
@@ -692,6 +693,38 @@ class BrowserImageSelectionService:
             shutil.rmtree(upload.path, ignore_errors=True)
             return None
         return upload
+
+    @staticmethod
+    def _rebuild_upload_state_from_finalized_manifest(
+        upload_id: UUID,
+        upload_path: Path,
+    ) -> dict[str, object]:
+        manifest = json.loads((upload_path / UPLOAD_MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
+        metrics = json.loads((upload_path / UPLOAD_METRICS_FILE_NAME).read_text(encoding="utf-8"))
+        manifest_files = manifest["files"]
+        first_relative_path = str(manifest_files[0]["relativePath"])
+        display_name = PurePosixPath(first_relative_path).parts[0]
+        files = [
+            {
+                "checksumSha256": value["checksumSha256"],
+                "fileIndex": value["orderIndex"],
+                "relativePath": value["relativePath"],
+                "sizeBytes": value["sizeBytes"],
+                "storedFileName": value["storedFileName"],
+            }
+            for value in manifest_files
+        ]
+        return {
+            "schemaVersion": 1,
+            "uploadId": str(upload_id),
+            "displayName": display_name,
+            "purpose": manifest["purpose"],
+            "gameId": manifest["gameId"],
+            "expectedFileCount": len(files),
+            "expectedTotalBytes": sum(int(value["sizeBytes"]) for value in files),
+            "createdAt": metrics["startedAt"],
+            "files": files,
+        }
 
     def _remove_expired(self, now: datetime) -> None:
         expired_ids = [

@@ -3087,6 +3087,36 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   nie jest pomiarem jakości OCR ani klasyfikatora symboli.
 - **Supersedes:** doprecyzowuje bramkę D-123 bez zmiany zakresu 0.4/0.5.
 
+## D-128 — Pełna siatka numerów potwierdza zakres niezależnie od czerwonych ramek
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** `fast-image-selector-v2` grupuje zdjęcia fingerprintem HSV
+  stałego obszaru ekranu, a dla top-k potwierdza pełny zakres także z
+  przestrzennej siatki jasnych numerów. Fallback wymaga co najmniej sześciu
+  zgodnych punktów, pierwszego i ostatniego numeru, wszystkich wierszy i kolumn
+  oraz jednoznacznej homografii RANSAC. Udana pełna weryfikacja zastępuje tanią
+  ocenę liczby ramek, marginesu i ekspozycji całej obudowy, ale nie zastępuje
+  bramek blur, clippingu, glare ani confidence zakresu.
+- **Context:** pierwszy rzeczywisty run 180 zdjęć skierował `32/32` grup do
+  manual review. Detektor czerwonych ramek zwracał dla tego samego ekranu od 5
+  do 9 plansz, przez co zmieniał fingerprint i blokował OCR. Całe zdjęcie
+  obejmuje ciemną obudowę automatu, więc jego ekspozycja nie opisuje
+  czytelności ekranu.
+- **Reason:** numery są bezpośrednim dowodem domenowym zakresu i tworzą stabilną
+  siatkę mimo perspektywy. Kontrolny przebieg tych samych danych rozpoznał 7
+  zakresów automatycznie, 4 grupy jako powtórzenia i pozostawił 0 wyjątków w
+  44,2 s.
+- **Alternatives:** obniżenie wszystkich progów jakości, zwiększenie top-k,
+  uruchomienie pełnego pipeline'u na każdym zdjęciu albo ręczne zatwierdzenie 32
+  grup. Odrzucono je jako mniej bezpieczne albo niewystarczająco skalowalne.
+- **Consequences:** zmiana ma nowy fingerprint selektora. To samo niezmienne
+  źródło może mieć wiele runów wersjonowanych fingerprintem; migracja 0028
+  zachowuje idempotencję gra + manifest wejścia + selector fingerprint i nie
+  usuwa historycznego runu v1.
+- **Supersedes:** doprecyzowuje D-123 i D-127 dla rzeczywistych zdjęć bez
+  odwoływania technicznej bramki skali v1.
+
 ## Szablon nowej decyzji
 
 ```text

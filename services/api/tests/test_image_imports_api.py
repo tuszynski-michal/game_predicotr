@@ -318,6 +318,57 @@ def test_photo_selection_staging_is_resumable_after_service_recreation(
     assert duplicate_retry.uploaded_indexes == {0}
 
 
+def test_finalized_photo_selection_can_be_reapproved_after_service_recreation(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    upload_root = tmp_path / "imports"
+    first_selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    first_service = BrowserImageSelectionService(
+        first_selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    upload = first_service.begin(
+        display_name="Duzy folder",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+        purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        game_id=game_id,
+    )
+    first_service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="Duzy folder/photo-1.jpg",
+        content=content,
+    )
+    first_selected = first_service.finalize(upload.upload_id)
+
+    resumed_selection_service = ImageFolderSelectionService(
+        lambda: None,
+        clock=lambda: NOW + timedelta(minutes=1),
+    )
+    resumed_service = BrowserImageSelectionService(
+        resumed_selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW + timedelta(minutes=1),
+    )
+    resumed = resumed_service.get(upload.upload_id)
+    repeated_selected = resumed_service.finalize(upload.upload_id)
+
+    assert resumed.uploaded_indexes == {0}
+    assert resumed.uploaded_bytes == len(content)
+    assert first_selected.selection_id == repeated_selected.selection_id == upload.upload_id
+    assert first_selected.input_manifest_sha256 == repeated_selected.input_manifest_sha256
+
+
 def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
     tmp_path: Path,
 ) -> None:
@@ -404,9 +455,7 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
                 "X-Image-Relative-Path": "Zdjecia do selekcji/photo.jpg",
             },
         )
-        restored = client.get(
-            f"/api/v1/admin/image-imports/browser-selections/{upload_id}"
-        )
+        restored = client.get(f"/api/v1/admin/image-imports/browser-selections/{upload_id}")
         finalized = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
         )

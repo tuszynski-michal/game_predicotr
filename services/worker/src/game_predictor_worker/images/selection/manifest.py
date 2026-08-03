@@ -1,4 +1,4 @@
-"""Versioned manifest and fingerprint for ``fast-image-selector-v1``."""
+"""Versioned manifest and fingerprint for the fast image selector."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-SELECTOR_VERSION = "fast-image-selector-v1"
+SELECTOR_VERSION = "fast-image-selector-v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,10 +22,10 @@ class QualityWeights:
 
 @dataclass(frozen=True, slots=True)
 class SelectorThresholds:
-    fingerprint_change_distance: float = 0.22
-    strong_fingerprint_change_distance: float = 0.38
-    same_group_fingerprint_distance: float = 0.16
-    duplicate_fingerprint_distance: float = 0.10
+    fingerprint_change_distance: float = 0.035
+    strong_fingerprint_change_distance: float = 0.055
+    same_group_fingerprint_distance: float = 0.030
+    duplicate_fingerprint_distance: float = 0.020
     geometry_change_distance: float = 0.14
     minimum_geometry_confidence: float = 0.64
     minimum_quality_score: float = 0.62
@@ -47,9 +47,10 @@ class SelectorManifest:
     boundary_confirmation_count: int = 2
     quality_adapter_version: str = "opencv-thumbnail-quality-v1"
     geometry_adapter_version: str = "page-board-detector-v2"
-    fingerprint_adapter_version: str = "board-composite-median-hash-v1"
+    fingerprint_adapter_version: str = "screen-layout-hsv-hash-v2"
     range_adapter_version: str = (
-        "sequence-anchor-range-v1:sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+        "sequence-anchor-range-v1+visible-sequence-label-range-v1:"
+        "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
     )
     quality_weights: QualityWeights = QualityWeights()
     thresholds: SelectorThresholds = SelectorThresholds()

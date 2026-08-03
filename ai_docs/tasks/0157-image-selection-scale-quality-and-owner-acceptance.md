@@ -2,7 +2,7 @@
 title: TASK-0157 image selection scale quality and owner acceptance
 status: in_progress
 release: "0.4"
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # TASK-0157 — Image selection scale, quality and owner acceptance
@@ -132,3 +132,13 @@ przechodzenia do `Jobów`: status i etap, `X/N`, procent, grupy, wybory
 automatyczne, manualne przypadki, pominięcia, błędy, liczbę kosztownych
 weryfikacji oraz oddzielne czasy uploadu i obliczeń. Identyfikatory runu, joba i
 manifestu wejściowego zostały przeniesione do zwijanych szczegółów technicznych.
+
+Pierwszy rzeczywisty przebieg 180 zdjęć ujawnił nieakceptowalny manual rate
+`32/32`. Przyczyną była zmienna liczba wykrywanych czerwonych ramek, odrzucenie
+OCR przed pełną weryfikacją oraz ocena ekspozycji całej ciemnej obudowy.
+`fast-image-selector-v2` wprowadził stabilny fingerprint HSV ekranu, pełny
+fallback OCR przestrzennej siatki etykiet i guard, który nie tworzy grupy z
+jednej klatki przejściowej. Kontrolny przebieg tych samych 180 plików zakończył
+się w 44,2 s: 7 poprawnych zakresów wybrano automatycznie, 4 grupy oznaczono
+jako powtórzenia, a manual review wyniósł `0`. Odbiór UI nadal wymaga
+powtórzenia runu przez właściciela na uruchomionych usługach.

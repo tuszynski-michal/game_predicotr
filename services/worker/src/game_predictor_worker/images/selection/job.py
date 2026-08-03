@@ -29,7 +29,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
-from .adapters import AnchoredSequenceRangeRecognizer, build_default_adapters
+from .adapters import (
+    AnchoredSequenceRangeRecognizer,
+    VisibleSequenceLabelRangeRecognizer,
+    build_default_adapters,
+)
 from .contracts import (
     CandidateDecision,
     CandidateResult,
@@ -280,12 +284,12 @@ class ImageSelectionJobHandler:
             / "m5-models"
             / "sequence-number-ocr-v1"
         )
-        recognizer = AnchoredSequenceRangeRecognizer(
-            PaddleSequenceNumberRecognizer(model_root)
-        )
+        ocr = PaddleSequenceNumberRecognizer(model_root)
+        recognizer = AnchoredSequenceRangeRecognizer(ocr)
         return build_default_adapters(
             source_root,
             range_recognizer=recognizer,
+            fallback_range_recognizer=VisibleSequenceLabelRangeRecognizer(ocr),
             manifest=manifest,
         )
 

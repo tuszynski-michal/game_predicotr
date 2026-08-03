@@ -100,7 +100,8 @@ export async function uploadPhotoSelectionFolder(
           'Nie udało się rozpocząć lub wznowić przesyłania folderu.',
         ),
         ok: false,
-        resume: null,
+        resume:
+          uploadId === null ? null : { displayName, files, gameId, uploadId },
       };
     }
     uploadId = state.data.uploadId;
@@ -218,7 +219,7 @@ export async function uploadPhotoSelectionFolder(
           'Nie udało się utworzyć procesu selekcji zdjęć.',
         ),
         ok: false,
-        resume: null,
+        resume: { displayName, files, gameId, uploadId },
       };
     }
     return { created: created.data, ok: true };

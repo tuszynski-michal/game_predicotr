@@ -600,10 +600,6 @@ class ImageSelectionRunModel(Base):
         ),
         UniqueConstraint("job_id", name="uq_image_selection_runs_job_id"),
         UniqueConstraint(
-            "source_selection_id",
-            name="uq_image_selection_runs_source_selection_id",
-        ),
-        UniqueConstraint(
             "game_id",
             "input_manifest_sha256",
             "selector_fingerprint",
@@ -613,6 +609,10 @@ class ImageSelectionRunModel(Base):
             "ix_image_selection_runs_game_created",
             "game_id",
             "created_at",
+        ),
+        Index(
+            "ix_image_selection_runs_source_selection_id",
+            "source_selection_id",
         ),
     )
 

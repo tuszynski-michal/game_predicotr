@@ -101,7 +101,7 @@ Alembic są opisane w `DATA_MODEL.md`.
   albo po jawnym anulowaniu; źródłowy folder użytkownika jest read-only,
 - output manifest jest kanonicznym JSON bez ścieżek absolutnych.
 
-## Algorytm `fast-image-selector-v1`
+## Wersjonowany algorytm `fast-image-selector`
 
 ### Tani skan per plik
 
@@ -110,7 +110,8 @@ Alembic są opisane w `DATA_MODEL.md`.
 3. Downscaled page/board lattice detection.
 4. Metryki jakości: sharpness, exposure, highlight clipping, glare proxy,
    perspective, border margin, board visibility.
-5. Fingerprint wyprostowanego obszaru ekranu.
+5. Niezależny od zmiennej liczby wykrytych czerwonych ramek fingerprint HSV
+   obszaru ekranu.
 6. Decyzja, czy potrzebny jest sparse OCR kotwic zakresu.
 
 ### Granice grup
@@ -131,6 +132,11 @@ nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 
 - OCR działa na numerach pierwszej, ostatniej i opcjonalnie środkowej wykrytej
   planszy, batchowo dla kandydata.
+- `fast-image-selector-v2` ma fail-closed fallback pełnej rozdzielczości:
+  wykrywa jasne etykiety numerów bez zależności od czerwonych ramek i uznaje
+  zakres dziewięciu plansz dopiero przy co najmniej sześciu zgodnych punktach
+  siatki, obecnym pierwszym i ostatnim numerze, trzech wierszach, trzech
+  kolumnach oraz jednoznacznej homografii RANSAC.
 - Zakres jest poprawny tylko dla dodatnich wartości w rosnącej kolejności,
   zgodnych z liczbą wykrytych pozycji.
 - Finalna strona może zawierać 1–9 plansz.
@@ -148,9 +154,9 @@ nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 Wagi, progi, rozmiar miniatury i guard interval są częścią wersjonowanego
 manifestu selektora. Nie mogą być ukrytymi stałymi rozproszonymi po UI i CLI.
 
-Implementacja `fast-image-selector-v1` utrzymuje manifest w jednym module,
-wylicza z jego kanonicznego JSON fingerprint
-`dc968e65d94170ab5011ccc4d1474a01ef7f4f143bdf93f59700859f50b34982`
+Aktualna implementacja `fast-image-selector-v2` utrzymuje manifest w jednym
+module, wylicza z jego kanonicznego JSON fingerprint
+`6da6fb8a247b41827a87437e6936cc4c449e06a0bbd24acd8b3159d576c1ce8e`
 i używa tego samego fingerprintu przy tworzeniu runu przez API. Jawne porty
 oddzielają loader miniatury, metryki jakości, lattice/fingerprint oraz OCR
 zakresu. Samodzielny diagnostyczny przebieg CLI bez lokalnego modelu OCR używa
@@ -159,9 +165,10 @@ produkcyjnym auto-wyborem.
 
 Skan zapisuje metryki kandydata strumieniowo, zachowuje w pamięci tylko bieżącą
 grupę, bounded pending guard i `topK = 3`, a checkpoint postępu powstaje co 32
-pliki. Pojedynczy silny kandydat granicy może utworzyć oddzielną grupę, ale bez
-zgodnej pełniejszej geometrii i pewnych kotwic zakresu kończy jako
-`manual_required`; priorytetem pozostaje brak fałszywego scalenia.
+pliki. Pojedynczy silny kandydat granicy nie tworzy oddzielnej grupy.
+Niepotwierdzona zmiana jest traktowana jako klatka przejściowa i dołączana do
+dotychczasowej grupy, a guard rozpoczyna potwierdzanie ponownie od następnego
+kandydata. Priorytetem pozostaje brak fałszywego scalenia.
 
 ## Kontrakty i idempotencja
 
@@ -171,7 +178,10 @@ zgodnej pełniejszej geometrii i pewnych kotwic zakresu kończy jako
   checksumy wszystkich wejść.
 - `input_key` joba zależy od gry, obu fingerprintów i wersji kontraktu.
 - Retry tego samego wejścia wznawia ten sam run i checkpoint.
-- Zmiana pliku, kolejności albo wersji selektora tworzy nowy run.
+- Zmiana pliku, kolejności albo wersji selektora tworzy nowy run. Jedno
+  niezmienne `sourceSelectionId` może mieć wiele runów o różnych fingerprintach
+  selektora; idempotencja pozostaje na trójce gra + manifest wejścia +
+  fingerprint selektora.
 - Ręczna decyzja używa UUID idempotencji i append-only eventu albo równoważnej
   wersjonowanej historii; retry nie tworzy drugiej kopii pliku. Korekta przed
   publikacją dodaje rewizję i aktualizuje projekcję oraz manifest roboczy.

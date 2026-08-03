@@ -45,6 +45,23 @@ test('shows bounded upload recovery with file and byte progress', () => {
   assert.match(workspaceSource, /30_000/);
 });
 
+test('polls an active run with bounded duration and abortable requests', () => {
+  assert.match(workspaceSource, /RUN_POLL_INTERVAL_MS = 2_000/);
+  assert.match(workspaceSource, /RUN_POLL_REQUEST_TIMEOUT_MS = 10_000/);
+  assert.match(workspaceSource, /RUN_POLL_MAX_DURATION_MS = 45 \* 60 \* 1_000/);
+  assert.match(workspaceSource, /isPollableRunStatus\(activeRunStatus\)/);
+  assert.match(
+    workspaceSource,
+    /getImageSelectionWithTimeout\(api, activeRunId\)/,
+  );
+  assert.match(workspaceSource, /new AbortController\(\)/);
+  assert.match(workspaceSource, /window\.clearTimeout\(timerId\)/);
+  assert.match(
+    workspaceSource,
+    /status === 'created' \|\| status === 'processing'/,
+  );
+});
+
 test('isolates image selection state by active game and keeps four tiles responsive', () => {
   assert.match(catalogSource, /key=\{activeGame\.id\}/);
   assert.match(catalogSource, /gameId=\{activeGame\.id\}/);

@@ -34,6 +34,11 @@ const EMPTY_PROGRESS: ImageSelectionUploadProgress = {
   uploadedFiles: 0,
 };
 
+const RUN_POLL_INTERVAL_MS = 2_000;
+const RUN_POLL_REQUEST_TIMEOUT_MS = 10_000;
+const RUN_POLL_MAX_DURATION_MS = 45 * 60 * 1_000;
+const RUN_POLL_ERROR_THRESHOLD = 3;
+
 export function ImageSelectionWorkspace({
   apiBaseUrl,
   client,
@@ -46,6 +51,10 @@ export function ImageSelectionWorkspace({
     [apiBaseUrl, client],
   );
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const pollingWindowRef = useRef<{
+    readonly deadline: number;
+    readonly runId: string;
+  } | null>(null);
   const [progress, setProgress] = useState(EMPTY_PROGRESS);
   const [resume, setResume] = useState<ResumableImageSelectionUpload | null>(
     null,
@@ -59,6 +68,9 @@ export function ImageSelectionWorkspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [refreshWarning, setRefreshWarning] = useState('');
+  const activeRunId = run?.id ?? null;
+  const activeRunStatus = run?.job.status ?? null;
 
   useEffect(() => {
     let cancelled = false;
@@ -66,7 +78,7 @@ export function ImageSelectionWorkspace({
     if (runId === null) return () => undefined;
     queueMicrotask(async () => {
       try {
-        const result = await api.getImageSelection(runId);
+        const result = await getImageSelectionWithTimeout(api, runId);
         if (
           !cancelled &&
           result.error === undefined &&
@@ -86,6 +98,69 @@ export function ImageSelectionWorkspace({
       cancelled = true;
     };
   }, [api, gameId]);
+
+  useEffect(() => {
+    if (activeRunId === null || activeRunStatus === null) {
+      return;
+    }
+    if (!isPollableRunStatus(activeRunStatus)) {
+      pollingWindowRef.current = null;
+      return;
+    }
+
+    let cancelled = false;
+    let timerId: number | null = null;
+    let consecutiveFailures = 0;
+    if (pollingWindowRef.current?.runId !== activeRunId) {
+      pollingWindowRef.current = {
+        deadline: Date.now() + RUN_POLL_MAX_DURATION_MS,
+        runId: activeRunId,
+      };
+    }
+    const deadline = pollingWindowRef.current.deadline;
+
+    const schedule = () => {
+      if (cancelled) return;
+      if (Date.now() >= deadline) {
+        setRefreshWarning(
+          'Automatyczne odświeżanie zatrzymano po 45 minutach. Odśwież stronę, aby ponownie sprawdzić proces.',
+        );
+        return;
+      }
+      timerId = window.setTimeout(() => void poll(), RUN_POLL_INTERVAL_MS);
+    };
+
+    const poll = async () => {
+      try {
+        const result = await getImageSelectionWithTimeout(api, activeRunId);
+        if (cancelled) return;
+        if (result.error !== undefined || result.data === undefined) {
+          consecutiveFailures += 1;
+        } else {
+          consecutiveFailures = 0;
+          setRefreshWarning('');
+          setRun(result.data);
+          if (!isPollableRunStatus(result.data.job.status)) return;
+        }
+      } catch {
+        if (cancelled) return;
+        consecutiveFailures += 1;
+      }
+
+      if (consecutiveFailures >= RUN_POLL_ERROR_THRESHOLD) {
+        setRefreshWarning(
+          'Nie udało się odświeżyć procesu. Panel spróbuje ponownie automatycznie.',
+        );
+      }
+      schedule();
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timerId !== null) window.clearTimeout(timerId);
+    };
+  }, [activeRunId, activeRunStatus, api, gameId]);
 
   useEffect(() => {
     if (run === null) return;
@@ -260,6 +335,11 @@ export function ImageSelectionWorkspace({
           {error}
         </p>
       ) : null}
+      {refreshWarning ? (
+        <p className="feedbackBanner" role="status">
+          {refreshWarning}
+        </p>
+      ) : null}
       {notice ? <p className="feedbackBanner">{notice}</p> : null}
 
       {progress.totalFiles > 0 ? (
@@ -369,6 +449,26 @@ export function ImageSelectionWorkspace({
 
 function storageKey(gameId: string): string {
   return `game-predictor:image-selection-run:${gameId}`;
+}
+
+function isPollableRunStatus(status: string): boolean {
+  return status === 'created' || status === 'processing';
+}
+
+async function getImageSelectionWithTimeout(
+  api: ImageSelectionClient,
+  runId: string,
+) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    RUN_POLL_REQUEST_TIMEOUT_MS,
+  );
+  try {
+    return await api.getImageSelection(runId, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 function formatBytes(value: number): string {

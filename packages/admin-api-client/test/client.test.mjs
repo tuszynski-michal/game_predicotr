@@ -1664,3 +1664,26 @@ test('manual image selection uses scoped binary upload and idempotent approval',
     rangeStart: 1,
   });
 });
+
+test('image selection status request forwards its abort signal', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+  const controller = new AbortController();
+
+  await client.getImageSelection(runId, { signal: controller.signal });
+  controller.abort();
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/image-selections/${runId}`,
+  );
+  assert.equal(requests[0].signal.aborted, true);
+});

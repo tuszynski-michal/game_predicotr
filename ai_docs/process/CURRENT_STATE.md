@@ -208,6 +208,11 @@ last_updated: 2026-08-03
   bounded `grupy × top-k` sparse verification, niezmienione źródła i pełny
   cleanup. Decyzja techniczna to `ready`; krótki odbiór właściciela pozostaje
   ostatnią otwartą częścią TASK-0157,
+- stabilizacja odbioru TASK-0157 dodała automatyczne, ograniczone do 45 minut
+  odświeżanie aktywnego runu w `Selekcji zdjęć`. Każdy request ma timeout 10 s,
+  polling kończy się po stanie terminalnym lub zmianie gry, a powtarzające się
+  błędy są widoczne bez blokowania panelu. Dzięki temu zakończenie workera i
+  gotowy manifest nie wymagają ręcznego odświeżenia strony,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego

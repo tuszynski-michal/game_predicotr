@@ -449,10 +449,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createImageSelection: (body: ImageSelectionCreate) =>
       createGeneratedImageSelection({ body, client }),
-    getImageSelection: (runId: string) =>
+    getImageSelection: (
+      runId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
       getGeneratedImageSelection({
         client,
         path: { run_id: runId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
     handoffImageSelection: (runId: string) =>
       handoffGeneratedImageSelection({

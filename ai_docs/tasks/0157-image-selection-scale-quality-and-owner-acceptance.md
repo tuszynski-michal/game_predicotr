@@ -114,3 +114,9 @@ Raport `quality/IMAGE_SELECTION_ACCEPTANCE.md` nadaje decyzję techniczną
 strzałek, nazw outputu i jawnego handoffu nadal oczekuje. Z tego powodu zadanie
 pozostaje `in_progress`, nie jest przenoszone do `completed/`, a TASK-0076 nadal
 jest zablokowany.
+
+Przed odbiorem właściciela usunięto wykrytą lukę odświeżania Admina: aktywny run
+jest odpytywany co 2 s, pojedynczy request jest anulowany po 10 s, a cała sesja
+pollingu ma limit 45 minut i cleanup przy zmianie gry lub stanu terminalnego.
+Klient API jawnie przekazuje `AbortSignal`; powtarzające się błędy odświeżania są
+widoczne, ale nie blokują pozostałych akcji.

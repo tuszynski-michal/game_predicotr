@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "selectorVersion": "fast-image-selector-v1",
+  "corpusId": "m5-representative-corpus-v2",
+  "notes": "Pinned cheap-scan observations for local, user-provided JPEGs. Missing private images cause the test to skip rather than substitute synthetic bytes.",
+  "observations": [
+    {
+      "relativePath": "5983122166590934317.jpg",
+      "sha256": "18b8a24b18e4f667c6e6d9822cc4cc0de22af3da6860e4eb64c1248e4543be89",
+      "sizeBytes": 164662,
+      "expectedBoardCount": null,
+      "expectedReasonCodes": ["BOARD_CANDIDATE_COUNT"]
+    },
+    {
+      "relativePath": "5983122166590934319.jpg",
+      "sha256": "7fb5221a36088196e44ada9b0a3fd7de7f3398d73dc8be01830149c1aeabb57a",
+      "sizeBytes": 182167,
+      "expectedBoardCount": 9,
+      "expectedReasonCodes": []
+    },
+    {
+      "relativePath": "5998913674711600660.jpg",
+      "sha256": "5c0bb74db2ba30cf55c14a66d6caaa3b345070a57309fe36016d7c5cd03539d5",
+      "sizeBytes": 147950,
+      "expectedBoardCount": null,
+      "expectedReasonCodes": ["BOARD_GRID_ROW_ALIGNMENT", "BOARD_GRID_OVERLAP"]
+    },
+    {
+      "relativePath": "5998913674711600683.jpg",
+      "sha256": "92cf1df591c082574088fb81ba6150f436f3dd2ebf381c9ad4c1fdeb8e59aec5",
+      "sizeBytes": 150014,
+      "expectedBoardCount": 8,
+      "expectedReasonCodes": []
+    },
+    {
+      "relativePath": "5998913674711600691.jpg",
+      "sha256": "bf20b41068b473c82736b9d4c4ff6fbf65fc9e16892882fa38571fd98acbcf7f",
+      "sizeBytes": 139602,
+      "expectedBoardCount": 9,
+      "expectedReasonCodes": []
+    }
+  ]
+}

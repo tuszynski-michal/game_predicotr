@@ -1,6 +1,9 @@
 'use client';
 
-import type { GameResponse } from '@game-predictor/admin-api-client';
+import type {
+  GameResponse,
+  ImageSelectionHandoffResponse,
+} from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
@@ -96,6 +99,8 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
   const [gamesRevision, setGamesRevision] = useState(0);
+  const [imageSelectionHandoff, setImageSelectionHandoff] =
+    useState<ImageSelectionHandoffResponse | null>(null);
   const navigationRef = useRef(navigation);
   const sectionHeaderRefs = useRef<
     Partial<Record<GameSection, HTMLButtonElement | null>>
@@ -299,7 +304,15 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
-                            key={activeGame.id}
+                            initialHandoff={
+                              imageSelectionHandoff?.gameId === activeGame.id
+                                ? imageSelectionHandoff
+                                : null
+                            }
+                            key={`${activeGame.id}-${imageSelectionHandoff?.selectionId ?? 'folder'}`}
+                            onHandoffConsumed={() =>
+                              setImageSelectionHandoff(null)
+                            }
                           />
                         ) : null}
                         {section.id === 'symbols' ? (
@@ -374,6 +387,14 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
               gameId={activeGame.id}
               gameName={activeGame.name}
               key={activeGame.id}
+              onOpenImports={(handoff) => {
+                setImageSelectionHandoff(handoff);
+                commitNavigation({
+                  gameId: activeGame.id,
+                  section: 'imports',
+                  workspace: 'games',
+                });
+              }}
             />
           )
         ) : null}

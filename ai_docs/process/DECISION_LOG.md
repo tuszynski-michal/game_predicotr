@@ -2984,6 +2984,109 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zastępuje wyłącznie przypisanie pełnej skali do 0.4 w D-115;
   zachowuje zakres mobilny 0.3 oraz architekturę selektora z D-121.
 
+## D-124 — Output selektora skraca ścieżkę Windows bez utraty tożsamości runu
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** niezmienny output selektora jest publikowany pod
+  `data/exports/image-selections/<manifestSha256>/`, a wybrane JPEG-i pod
+  `images/`. Kanoniczny manifest zawiera `runId`, wejściową checksumę i
+  fingerprint selektora, dlatego jego SHA-256 nadal jednoznacznie wiąże content
+  z runem. Nazwy JPEG używają dodatniego zakresu i 12 znaków checksumy źródła.
+- **Context:** zagnieżdżenie `<runId>/<manifestSha256>/selected/` wraz z długą
+  nazwą operatorską JPEG niepotrzebnie zbliżało lokalne ścieżki testowe i
+  operatorskie do klasycznego limitu Windows. `runId` już należy do
+  kanonicznych bajtów manifestu.
+- **Reason:** pojedynczy content address zachowuje niezmienność i idempotencję,
+  skraca ścieżkę o segment UUID i nadal pozwala zweryfikować właściciela runu
+  bez polegania na nazwie katalogu.
+- **Alternatives:** pozostawienie obu segmentów, skrócenie samej checksumy
+  katalogu albo globalne wymaganie włączenia long paths w Windows.
+- **Consequences:** lookup zawsze zaczyna się od ścieżki manifestu zapisanej w
+  `image_selection_runs`; handoff sprawdza zarówno SHA-256, jak i `runId`
+  wewnątrz manifestu. Folder nie może być interpretowany bez manifestu.
+- **Supersedes:** doprecyzowuje wyłącznie planowaną ścieżkę storage w D-121.
+
+## D-125 — Ręczne korekty są append-only, a finalny output pozostaje niezmienny
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** każde zatwierdzenie albo poprawka grupy selektora zapisuje nową
+  rewizję `image_selection_manual_decisions` z UUID idempotencji. Aktualny wybór
+  grupy jest projekcją ostatniej rewizji, a atomowy `manual-decisions.json`
+  przechowuje kanoniczny stan roboczy. Pliki ręczne używają krótkiej ścieżki
+  `data/working/is-manual/<runPrefix>/<groupPrefix>/<checksumPrefix>.jpg`, ale
+  pełne UUID, checksumy i proweniencja pozostają w bazie. Po opublikowaniu
+  content-addressed outputu nie można go mutować; następna korekta wymaga nowego
+  runu.
+- **Context:** modal musi pozwalać poprawić wcześniejszy wybór, a handoff może
+  być ponawiany i konsumowany niezależnie. Nadpisanie finalnego manifestu
+  złamałoby checksumę, audyt oraz odtwarzalność istniejącego importu.
+- **Reason:** append-only historia łączy bezpieczny retry, audyt i edycję przed
+  publikacją, zachowując niezmienność kontraktu TASK-0154.
+- **Alternatives:** nadpisywanie jednej decyzji bez historii, mutowanie
+  opublikowanego manifestu albo tworzenie nowego runu przy każdej korekcie.
+- **Consequences:** UI może ponownie otworzyć grupę i dodać korektę do momentu
+  publikacji. Po publikacji API zwraca `IMAGE_SELECTION_ALREADY_PUBLISHED`, a
+  operator uruchamia nowy run. Krótkiej ścieżki pliku nie wolno używać jako
+  identyfikatora domenowego.
+- **Supersedes:** doprecyzowuje D-121 i zachowuje niezmienność z D-124.
+
+## D-126 — Checkpoint selektora potwierdza bounded kursor, a fencing chroni projekcje
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** produkcyjny `image_selection` używa wspólnego lease i
+  `execution_slot = 1`. JSON checkpointu przechowuje wyłącznie kursor, bounded
+  stan otwartej grupy, pending guard, top-k oraz liczniki; grupy i kandydaci są
+  trwałą projekcją PostgreSQL. Projekcja jest zapisywana przed checkpointem, a
+  retry przycina odczyt do `finalizedGroupCount` ostatniego potwierdzonego
+  checkpointu i idempotentnie odtwarza najwyżej jego niedomknięty ogon. Każdy
+  zapis grupy i finalnego outputu wymaga aktualnego tokenu fencing.
+- **Context:** zapis projekcji i checkpointu korzysta z istniejących, odrębnych
+  granic transakcji. Awaria pomiędzy nimi może pozostawić projekcję o bounded
+  partię przed kursorem, a zapis checkpointu jako pierwszy mógłby pozostawić
+  kursor przed brakującą projekcją.
+- **Reason:** kolejność projection-first nie pomija danych. Uzgodnienie do
+  potwierdzonego prefiksu pozwala bezpiecznie powtórzyć małą partię, zachowując
+  prosty lokalny worker bez nowego brokera ani rozproszonej transakcji.
+- **Alternatives:** jedna rozproszona transakcja obejmująca runtime i projekcję,
+  checkpoint przed projekcją, ponowne skanowanie całego katalogu albo nowa
+  kolejka Redis/Celery.
+- **Consequences:** crash po checkpointcie wznawia następny plik, a crash przed
+  nim powtarza najwyżej 32 pliki. `waiting_for_review` zwalnia slot; cancel jest
+  sprawdzany przy checkpointach skanu i publikacji. Diagnostyka pozostaje
+  bounded i content-addressed, a czas aktywnych prób nie obejmuje ręcznego
+  oczekiwania.
+- **Supersedes:** doprecyzowuje wykonanie D-121 i korzysta z globalnego modelu
+  lease/fencing opisanego przez D-028–D-030.
+
+## D-127 — Selekcja 10k/30k przechodzi techniczną bramkę skali
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** `fast-image-selector-v1` otrzymuje techniczną decyzję `ready` po
+  profilach 10 000 i 30 000 na komputerze właściciela. Bramka wymaga nadal
+  krótkiego odbioru workspace'u, manualnego fallbacku, outputu i handoffu przez
+  właściciela; do tego czasu TASK-0157 i wersja 0.4 pozostają otwarte.
+- **Context:** profil 10k zakończył selekcję w 252,51 s przy +76,2 MiB peak RSS,
+  a 30k w 792,43 s przy +194,0 MiB. Oba uzyskały zero fałszywych scaleń,
+  grouping i auto-selection precision równe 1 oraz nie zmieniły źródłowego
+  inventory. Sparse verification wyniosło odpowiednio 375 i 1200, czyli
+  dokładnie `grupy × top-k`, a nie N.
+- **Reason:** pomiar udowadnia liniowy, bounded tani skan z dużym zapasem wobec
+  limitów 15/45 minut i redukcję wejść pełnego pipeline'u odpowiednio
+  10 000 → 122 oraz 30 000 → 389.
+- **Alternatives:** rozpoczęcie dużych danych bez pomiaru, przeniesienie bramki
+  10k/30k do 0.5 albo dodanie Redis/Celery. Odrzucono je, ponieważ lokalny
+  pojedynczy worker spełnia obecny budżet.
+- **Consequences:** nie ma przesłanki do zmiany kolejki ani architektury.
+  TASK-0076 pozostaje zablokowany przez odbiór właściciela oraz osobne bramki
+  `massImportAllowed` i rzeczywistych danych wersji 0.5. Benchmark range
+  verification używa niezależnych adnotacji bez prywatnego modelu OCR; raport
+  nie jest pomiarem jakości OCR ani klasyfikatora symboli.
+- **Supersedes:** doprecyzowuje bramkę D-123 bez zmiany zakresu 0.4/0.5.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -1,0 +1,95 @@
+{
+  "annotationFingerprint": "7c948a1979aedca11b8526503bd522801b74c01697ff3166014ae0dc8dc898bb",
+  "benchmarkContract": "image-selection-scale-benchmark-v1",
+  "cleanup": {
+    "partialManifestPublished": false,
+    "workRootPolicy": "always-remove-on-exit"
+  },
+  "fixture": {
+    "elapsedSeconds": 20.406326,
+    "inputLogicalBytes": 302540000,
+    "stagingMode": "hardlink",
+    "uniquePhysicalFileIds": 12
+  },
+  "inputCount": 10000,
+  "memory": {
+    "baselineRssBytes": 119353344,
+    "peakRssBytes": 199258112,
+    "peakRssDeltaBytes": 79904768,
+    "peakTracedPythonBytes": 53050240
+  },
+  "metrics": {
+    "boundedVerification": {
+      "maxAllowed": 375,
+      "passed": true,
+      "sparseRangeVerificationCount": 375,
+      "topK": 3
+    },
+    "comparisonWithFullPipeline": {
+      "estimatedCuratedInputCount": 122,
+      "estimatedInputReductionFactor": 81.9672,
+      "fullPipelineInputCount": 10000
+    },
+    "coverage": 1.0,
+    "groupingPrecision": 1.0,
+    "groupingRecall": 1.0,
+    "manualRate": 0.04,
+    "outputStorage": {
+      "estimatedLogicalBytes": 3690988,
+      "representativeCount": 122
+    },
+    "quality": {
+      "automaticCount": 118,
+      "automaticSelectionPrecision": 1.0,
+      "falseMergeCount": 0,
+      "falseSplitCount": 0,
+      "manualCount": 5,
+      "rangeErrorCount": 0,
+      "selectedOrderIndexSample": [
+        0,
+        80,
+        160,
+        240,
+        320,
+        400,
+        480,
+        560,
+        640,
+        720,
+        800,
+        960,
+        1040,
+        1120,
+        1200,
+        1280,
+        1360,
+        1440,
+        1520,
+        1680
+      ],
+      "statusErrorCount": 0,
+      "unsafeAutomaticCount": 0
+    },
+    "runtime": {
+      "maxProcessingSeconds": 900.0,
+      "passed": true,
+      "processingSeconds": 252.506836,
+      "throughputFilesPerSecond": 39.6029
+    },
+    "storageBudget": {
+      "peakRssBudgetBytes": 805306368,
+      "peakRssPassed": true
+    },
+    "technicalGatePassed": true
+  },
+  "profile": "10000",
+  "rangeVerificationMode": "deterministic-annotation-with-production-cheap-scan",
+  "schemaVersion": 1,
+  "selectorFingerprint": "dc968e65d94170ab5011ccc4d1474a01ef7f4f143bdf93f59700859f50b34982",
+  "selectorVersion": "fast-image-selector-v1",
+  "sourceIntegrity": {
+    "afterInventorySha256": "c3d45281708a58963f9a9019a011ac48cc9207d780ff61cbdacb33a244186dfb",
+    "beforeInventorySha256": "c3d45281708a58963f9a9019a011ac48cc9207d780ff61cbdacb33a244186dfb",
+    "sourceUnchanged": true
+  }
+}

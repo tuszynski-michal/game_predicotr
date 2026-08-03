@@ -1,5 +1,6 @@
 import { createClient as createGeneratedClient } from './generated/client';
 import {
+  approveManualImageSelection as approveGeneratedManualImageSelection,
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
@@ -37,6 +38,8 @@ import {
   getImageJobOperations as getGeneratedImageJobOperations,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
   getImageSelection as getGeneratedImageSelection,
+  getManualImageSelectionFile as getGeneratedManualImageSelectionFile,
+  handoffImageSelection as handoffGeneratedImageSelection,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
@@ -104,6 +107,7 @@ import {
   updateRulesVersionSymbol as updateGeneratedRulesVersionSymbol,
   updateSymbol as updateGeneratedSymbol,
   uploadBrowserImageSelectionFile as uploadGeneratedBrowserImageSelectionFile,
+  uploadManualImageSelectionFile as uploadGeneratedManualImageSelectionFile,
   unlockReviewerSession as unlockGeneratedReviewerSession,
 } from './generated/sdk.gen';
 import type {
@@ -113,6 +117,7 @@ import type {
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
   ImageSelectionCreate,
+  ImageSelectionManualApprovalCommand,
   ImageSelectionGroupStatus,
   ImageSequenceSourceOverrideCommand,
   JobStatus,
@@ -179,11 +184,17 @@ export type {
   ImageFolderSelectionResponse,
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
+  ImageSelectionHandoffResponse,
   ImageSelectionGroupPageResponse,
   ImageSelectionGroupResponse,
   ImageSelectionGroupStatus,
   ImageSelectionJobPayload,
   ImageSelectionRunResponse,
+  ImageSelectionCandidateResponse,
+  ImageSelectionManualApprovalCommand,
+  ImageSelectionManualApprovalResponse,
+  ImageSelectionManualDecisionResponse,
+  ImageSelectionManualFileResponse,
   ImageDiagnosticExportCreationResponse,
   ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
@@ -443,6 +454,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { run_id: runId },
       }),
+    handoffImageSelection: (runId: string) =>
+      handoffGeneratedImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
     listImageSelectionGroups: (
       runId: string,
       options: {
@@ -461,6 +477,49 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             : { afterGroupOrder: options.afterGroupOrder }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
+      }),
+    uploadManualImageSelectionFile: (
+      runId: string,
+      groupId: string,
+      fileName: string,
+      file: Blob | File,
+    ) =>
+      uploadGeneratedManualImageSelectionFile({
+        body: file,
+        client,
+        headers: {
+          ...confirmedTargetHeaders(
+            `image-selection:${runId}:${groupId}:manual-file`,
+          ),
+          'X-Image-File-Name': fileName,
+        },
+        path: { group_id: groupId, run_id: runId },
+      }),
+    getManualImageSelectionFile: (
+      runId: string,
+      groupId: string,
+      candidateId: string,
+    ) =>
+      getGeneratedManualImageSelectionFile({
+        client,
+        path: {
+          candidate_id: candidateId,
+          group_id: groupId,
+          run_id: runId,
+        },
+      }),
+    approveManualImageSelection: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionManualApprovalCommand,
+    ) =>
+      approveGeneratedManualImageSelection({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:approve`,
+        ),
+        path: { group_id: groupId, run_id: runId },
       }),
     createImageFolderImport: (body: ImageFolderImportCreate) =>
       createGeneratedImageFolderImport({

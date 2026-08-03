@@ -64,6 +64,7 @@ def _create_validate_job(client: TestClient, game_id: UUID) -> dict[str, object]
 
 
 def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
+    selection_run_id = uuid4()
     job = create_job(
         JobType.IMPORT,
         game_id=uuid4(),
@@ -74,6 +75,7 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
             "source_directory": r"C:\photos",
             "source_display_name": "photos",
             "pipeline_fingerprint": "a" * 64,
+            "image_selection_run_id": str(selection_run_id),
         },
         created_at=datetime(2026, 7, 29, tzinfo=UTC),
     )
@@ -87,7 +89,75 @@ def test_image_directory_job_payload_is_serialized_for_operations_ui() -> None:
         "sourceDirectory": r"C:\photos",
         "sourceDisplayName": "photos",
         "pipelineFingerprint": "a" * 64,
+        "imageSelectionRunId": str(selection_run_id),
     }
+
+
+def test_image_selection_job_exposes_bounded_operational_progress() -> None:
+    job = create_job(
+        JobType.IMAGE_SELECTION,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "source_selection_id": str(uuid4()),
+            "input_manifest_sha256": "a" * 64,
+            "selector_fingerprint": "b" * 64,
+            "contract_version": 1,
+        },
+        created_at=datetime(2026, 8, 3, tzinfo=UTC),
+    )
+    job = replace(
+        job,
+        checkpoint_payload={
+            "schema_version": 1,
+            "workflow": "image_selection",
+            "group_count": 12,
+            "selected_count": 9,
+            "manual_count": 2,
+            "skipped_count": 1,
+            "error_count": 3,
+            "verification_count": 30,
+            "upload_duration_seconds": 15.5,
+            "processing_duration_seconds": 8.25,
+            "diagnostic": {"checksumSha256": "c" * 64},
+        },
+    )
+
+    response = JobResponse.from_domain(job).model_dump(mode="json", by_alias=True)
+
+    assert response["progress"]["imageSelection"] == {
+        "groups": 12,
+        "selected": 9,
+        "manual": 2,
+        "skipped": 1,
+        "errors": 3,
+        "verifications": 30,
+        "uploadDurationSeconds": 15.5,
+        "processingDurationSeconds": 8.25,
+        "diagnosticChecksumSha256": "c" * 64,
+    }
+
+
+def test_curated_image_import_job_preserves_selection_run_provenance(
+    tmp_path: Path,
+) -> None:
+    _client_value, game_id, service, _repository = _client(tmp_path)
+    curated_root = tmp_path / "curated"
+    curated_root.mkdir()
+    selection_id = uuid4()
+    selection_run_id = uuid4()
+
+    job = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=selection_id,
+        source_directory=curated_root,
+        source_display_name="curated",
+        pipeline_fingerprint="a" * 64,
+        image_selection_run_id=selection_run_id,
+    )
+
+    assert job.input_payload["source_selection_id"] == str(selection_id)
+    assert job.input_payload["image_selection_run_id"] == str(selection_run_id)
 
 
 def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:

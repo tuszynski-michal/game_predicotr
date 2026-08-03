@@ -1,15 +1,15 @@
 ---
 title: TASK-0156 image selection job resume and observability
-status: todo
+status: done
 release: "0.4"
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # TASK-0156 — Image selection job resume and observability
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -30,7 +30,8 @@ osieroconego procesu.
 - `ai_docs/architecture/IMAGE_SELECTION.md`
 - `ai_docs/requirements/IMAGE_INGESTION.md`
 - `ai_docs/architecture/SYSTEM_ARCHITECTURE.md`
-- `ai_docs/tasks/0153-fast-sequential-image-grouping-and-quality-selection.md`
+- `ai_docs/tasks/completed/0153-fast-sequential-image-grouping-and-quality-selection.md`
+- `ai_docs/tasks/completed/0155-image-selection-manual-fallback-workspace.md`
 
 ## Scope
 
@@ -53,16 +54,16 @@ osieroconego procesu.
 
 ## Acceptance criteria
 
-- [ ] Crash po checkpointcie wznawia następny plik bez powtarzania zakończonych
+- [x] Crash po checkpointcie wznawia następny plik bez powtarzania zakończonych
       outputów.
-- [ ] Stary worker nie może zapisać wyniku po utracie lease.
-- [ ] Błąd jednego JPEG-a zwiększa właściwy licznik i pozwala kontynuować.
-- [ ] Cancel kończy po bounded kroku i nie usuwa źródłowego folderu.
-- [ ] `waiting_for_review` zwalnia slot ciężkiego workera.
-- [ ] Joby pokazują spójny procent i rzeczywiste X/N plików.
-- [ ] Diagnostyka jest bounded, checksumowana i nie zawiera sekretów ani
+- [x] Stary worker nie może zapisać wyniku po utracie lease.
+- [x] Błąd jednego JPEG-a zwiększa właściwy licznik i pozwala kontynuować.
+- [x] Cancel kończy po bounded kroku i nie usuwa źródłowego folderu.
+- [x] `waiting_for_review` zwalnia slot ciężkiego workera.
+- [x] Joby pokazują spójny procent i rzeczywiste X/N plików.
+- [x] Diagnostyka jest bounded, checksumowana i nie zawiera sekretów ani
       ścieżek absolutnych.
-- [ ] Test po timeoutcie potwierdza brak osieroconego workera.
+- [x] Test po timeoutcie potwierdza brak osieroconego workera.
 
 ## Technical notes
 
@@ -94,4 +95,24 @@ npm.cmd test --workspace @game-predictor/admin
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Zarejestrowano produkcyjny handler `image_selection` w workerze `worker-v6`.
+Selector zapisuje pełny bounded stan wznowienia co 32 pliki, utrwala grupy i
+kandydatów z kontrolą aktywnego lease, a po awarii uzgadnia projekcję do
+ostatniego potwierdzonego prefiksu. Opublikowanie outputu również jest
+fencingowane i checkpointowane co 16 kopii.
+
+Uszkodzony JPEG jest izolowany jako bezpieczny reason code. Cancel zatrzymuje
+pracę na następnym checkpointcie bez usuwania stagingu, a manual review zwalnia
+slot i może wznowić ten sam job bez regresji monotonicznych liczników. Panel
+`Joby` pokazuje grupy, wybrane, manual, błędy, liczbę weryfikacji top-k oraz
+oddzielny czas uploadu i aktywnych obliczeń. Kanoniczna diagnostyka nie zawiera
+obrazów ani ścieżek absolutnych i jest adresowana SHA-256.
+
+Weryfikacja objęła testy crash/resume, projection-before-checkpoint, stale lease,
+cancel, corrupted JPEG, manual resume, zwolnienie execution slotu, API/OpenAPI i
+kontrakt Admina. Pełna regresja zakończyła się wynikiem 481 testów workera oraz
+264 testów API; 19 integracji zależnych od PostgreSQL/symlinków zostało jawnie
+pominiętych przez istniejące guardy środowiska. Mypy nie zgłasza błędu w
+zmienionych modułach, ale globalne przejście nadal blokują trzy wcześniejsze
+błędy w `security/local_admin.py` i `main.py`. TASK-0157 pozostaje osobną bramką
+jakości i skali 10k/30k.

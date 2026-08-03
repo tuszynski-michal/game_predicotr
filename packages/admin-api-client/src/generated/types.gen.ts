@@ -715,6 +715,10 @@ export type ImageFolderSelectionResponse = {
  */
 export type ImageImportJobPayload = {
   /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
    * Importkind
    */
   importKind: 'image_directory';
@@ -894,6 +898,44 @@ export type ImageReviewAction = 'accepted' | 'corrected' | 'rejected';
 export type ImageReviewView = 'pending' | 'completed' | 'all';
 
 /**
+ * ImageSelectionCandidateResponse
+ */
+export type ImageSelectionCandidateResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Displayname
+   */
+  displayName: string;
+  /**
+   * Groupid
+   */
+  groupId: string | null;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Orderindex
+   */
+  orderIndex: number;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Width
+   */
+  width: number;
+};
+
+/**
  * ImageSelectionCreate
  */
 export type ImageSelectionCreate = {
@@ -994,6 +1036,40 @@ export type ImageSelectionGroupStatus =
   | 'skipped_existing_range';
 
 /**
+ * ImageSelectionHandoffResponse
+ */
+export type ImageSelectionHandoffResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Selectionid
+   */
+  selectionId: string;
+  /**
+   * Selectiontoken
+   */
+  selectionToken: string;
+  /**
+   * Supportedfilecount
+   */
+  supportedFileCount: number;
+  /**
+   * Targetsection
+   */
+  targetSection?: 'imports';
+};
+
+/**
  * ImageSelectionJobPayload
  */
 export type ImageSelectionJobPayload = {
@@ -1017,6 +1093,123 @@ export type ImageSelectionJobPayload = {
    * Sourceselectionid
    */
   sourceSelectionId: string;
+};
+
+/**
+ * ImageSelectionJobProgressResponse
+ */
+export type ImageSelectionJobProgressResponse = {
+  /**
+   * Diagnosticchecksumsha256
+   */
+  diagnosticChecksumSha256?: string | null;
+  /**
+   * Errors
+   */
+  errors: number;
+  /**
+   * Groups
+   */
+  groups: number;
+  /**
+   * Manual
+   */
+  manual: number;
+  /**
+   * Processingdurationseconds
+   */
+  processingDurationSeconds?: number | null;
+  /**
+   * Selected
+   */
+  selected: number;
+  /**
+   * Skipped
+   */
+  skipped: number;
+  /**
+   * Uploaddurationseconds
+   */
+  uploadDurationSeconds?: number | null;
+  /**
+   * Verifications
+   */
+  verifications: number;
+};
+
+/**
+ * ImageSelectionManualApprovalCommand
+ */
+export type ImageSelectionManualApprovalCommand = {
+  /**
+   * Candidateid
+   */
+  candidateId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd?: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart?: number | null;
+};
+
+/**
+ * ImageSelectionManualApprovalResponse
+ */
+export type ImageSelectionManualApprovalResponse = {
+  decision: ImageSelectionManualDecisionResponse;
+  group: ImageSelectionGroupResponse;
+};
+
+/**
+ * ImageSelectionManualDecisionResponse
+ */
+export type ImageSelectionManualDecisionResponse = {
+  /**
+   * Candidateid
+   */
+  candidateId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Groupid
+   */
+  groupId: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Runid
+   */
+  runId: string;
+};
+
+/**
+ * ImageSelectionManualFileResponse
+ */
+export type ImageSelectionManualFileResponse = {
+  candidate: ImageSelectionCandidateResponse;
 };
 
 /**
@@ -1334,6 +1527,7 @@ export type JobProgressResponse = {
    * Failed
    */
   failed: number;
+  imageSelection?: ImageSelectionJobProgressResponse | null;
   /**
    * Review
    */
@@ -6607,6 +6801,200 @@ export type ListImageSelectionGroupsResponses = {
 
 export type ListImageSelectionGroupsResponse =
   ListImageSelectionGroupsResponses[keyof ListImageSelectionGroupsResponses];
+
+export type ApproveManualImageSelectionData = {
+  body: ImageSelectionManualApprovalCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/approve';
+};
+
+export type ApproveManualImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ApproveManualImageSelectionError =
+  ApproveManualImageSelectionErrors[keyof ApproveManualImageSelectionErrors];
+
+export type ApproveManualImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualApprovalResponse;
+};
+
+export type ApproveManualImageSelectionResponse =
+  ApproveManualImageSelectionResponses[keyof ApproveManualImageSelectionResponses];
+
+export type UploadManualImageSelectionFileData = {
+  /**
+   * Payload
+   */
+  body: Blob | File;
+  headers: {
+    /**
+     * X-Image-File-Name
+     */
+    'X-Image-File-Name': string;
+  };
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-file';
+};
+
+export type UploadManualImageSelectionFileErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type UploadManualImageSelectionFileError =
+  UploadManualImageSelectionFileErrors[keyof UploadManualImageSelectionFileErrors];
+
+export type UploadManualImageSelectionFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualFileResponse;
+};
+
+export type UploadManualImageSelectionFileResponse =
+  UploadManualImageSelectionFileResponses[keyof UploadManualImageSelectionFileResponses];
+
+export type GetManualImageSelectionFileData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+    /**
+     * Candidate Id
+     */
+    candidate_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-files/{candidate_id}';
+};
+
+export type GetManualImageSelectionFileErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetManualImageSelectionFileError =
+  GetManualImageSelectionFileErrors[keyof GetManualImageSelectionFileErrors];
+
+export type GetManualImageSelectionFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type HandoffImageSelectionData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/handoff';
+};
+
+export type HandoffImageSelectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type HandoffImageSelectionError =
+  HandoffImageSelectionErrors[keyof HandoffImageSelectionErrors];
+
+export type HandoffImageSelectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionHandoffResponse;
+};
+
+export type HandoffImageSelectionResponse =
+  HandoffImageSelectionResponses[keyof HandoffImageSelectionResponses];
 
 export type GetImageStorageInventoryData = {
   body?: never;

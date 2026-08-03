@@ -1,6 +1,6 @@
 ---
 title: TASK-0157 image selection scale quality and owner acceptance
-status: todo
+status: in_progress
 release: "0.4"
 last_updated: 2026-08-02
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-02
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -55,19 +55,19 @@ wersji 0.5 i TASK-0076.
 
 ## Acceptance criteria
 
-- [ ] Golden ma zero fałszywych scaleń dwóch różnych zakresów.
-- [ ] Każdy auto-selected reprezentant ma poprawny zakres i kompletną widoczną
+- [x] Golden ma zero fałszywych scaleń dwóch różnych zakresów.
+- [x] Każdy auto-selected reprezentant ma poprawny zakres i kompletną widoczną
       stronę według niezależnej adnotacji.
-- [ ] Niepewne przypadki trafiają do manual review zamiast auto-selection.
-- [ ] Profil 10 000 kończy się w ≤15 minut, a 30 000 w ≤45 minut na komputerze
+- [x] Niepewne przypadki trafiają do manual review zamiast auto-selection.
+- [x] Profil 10 000 kończy się w ≤15 minut, a 30 000 w ≤45 minut na komputerze
       właściciela.
-- [ ] Peak RSS i storage są zmierzone oraz mieszczą się w zaakceptowanym
+- [x] Peak RSS i storage są zmierzone oraz mieszczą się w zaakceptowanym
       budżecie raportu.
-- [ ] Liczba kosztownych OCR/weryfikacji skaluje się z grupami × top-k, nie N.
-- [ ] Restart/cancel profile nie pozostawia procesu ani częściowego manifestu.
+- [x] Liczba kosztownych OCR/weryfikacji skaluje się z grupami × top-k, nie N.
+- [x] Restart/cancel profile nie pozostawia procesu ani częściowego manifestu.
 - [ ] Właściciel potwierdza nawigację, single-file fallback, Enter, strzałki,
       nazwy outputu i jawny handoff.
-- [ ] Raport końcowy jawnie zezwala lub blokuje użycie przed TASK-0076.
+- [x] Raport końcowy jawnie zezwala lub blokuje użycie przed TASK-0076.
 
 ## Technical notes
 
@@ -101,4 +101,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_image_selection_
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Techniczna część bramki jest ukończona. Dodano niezależny kontrakt adnotacji,
+benchmark używający produkcyjnego taniego skanu, wewnętrzny i zewnętrzny timeout,
+atomowy raport oraz bezpieczny cleanup fixture. Profile smoke, 10 000 i 30 000
+przeszły z zerem fałszywych scaleń, pełnym grouping/auto-selection precision i
+niezmienionym inventory źródłowym. Profil 10k trwał 252,51 s i zużył dodatkowo
+76,2 MiB peak RSS, a 30k 792,43 s i 194,0 MiB. Sparse verification zachowało
+limit `grupy × top-k`.
+
+Raport `quality/IMAGE_SELECTION_ACCEPTANCE.md` nadaje decyzję techniczną
+`ready`, ale odbiór właściciela nawigacji, single-file fallbacku, Entera,
+strzałek, nazw outputu i jawnego handoffu nadal oczekuje. Z tego powodu zadanie
+pozostaje `in_progress`, nie jest przenoszone do `completed/`, a TASK-0076 nadal
+jest zablokowany.

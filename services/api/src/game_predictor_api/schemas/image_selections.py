@@ -9,9 +9,11 @@ from uuid import UUID
 from pydantic import Field
 
 from game_predictor_api.domain.image_selections import (
+    ImageSelectionCandidate,
     ImageSelectionGroup,
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
+    ImageSelectionManualDecision,
     ImageSelectionRun,
 )
 from game_predictor_api.schemas.catalog import ApiModel
@@ -46,6 +48,16 @@ class ImageSelectionCreateResponse(ApiModel):
     created: bool
 
 
+class ImageSelectionHandoffResponse(ApiModel):
+    run_id: UUID
+    game_id: UUID
+    selection_id: UUID
+    selection_token: str = Field(min_length=32, max_length=200)
+    supported_file_count: int = Field(ge=1)
+    expires_at: datetime
+    target_section: Literal["imports"] = "imports"
+
+
 class ImageSelectionGroupResponse(ApiModel):
     id: UUID
     run_id: UUID
@@ -63,6 +75,44 @@ class ImageSelectionGroupResponse(ApiModel):
 class ImageSelectionGroupPageResponse(ApiModel):
     items: list[ImageSelectionGroupResponse]
     next_after_group_order: int | None = Field(default=None, ge=0)
+
+
+class ImageSelectionCandidateResponse(ApiModel):
+    id: UUID
+    run_id: UUID
+    group_id: UUID | None
+    order_index: int = Field(ge=0)
+    checksum_sha256: Sha256
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+    display_name: str
+
+
+class ImageSelectionManualFileResponse(ApiModel):
+    candidate: ImageSelectionCandidateResponse
+
+
+class ImageSelectionManualApprovalCommand(ApiModel):
+    candidate_id: UUID
+    idempotency_key: UUID
+    range_start: int | None = Field(default=None, ge=1)
+    range_end: int | None = Field(default=None, ge=1)
+
+
+class ImageSelectionManualDecisionResponse(ApiModel):
+    idempotency_key: UUID
+    run_id: UUID
+    group_id: UUID
+    candidate_id: UUID
+    range_start: int = Field(ge=1)
+    range_end: int = Field(ge=1)
+    revision: int = Field(ge=1)
+    created_at: datetime
+
+
+class ImageSelectionManualApprovalResponse(ApiModel):
+    group: ImageSelectionGroupResponse
+    decision: ImageSelectionManualDecisionResponse
 
 
 def to_image_selection_run_response(
@@ -111,12 +161,52 @@ def to_image_selection_group_page_response(
     )
 
 
+def to_image_selection_candidate_response(
+    candidate: ImageSelectionCandidate,
+) -> ImageSelectionCandidateResponse:
+    display_name = candidate.quality_metrics.get("displayName")
+    return ImageSelectionCandidateResponse(
+        id=candidate.id,
+        run_id=candidate.run_id,
+        group_id=candidate.group_id,
+        order_index=candidate.order_index,
+        checksum_sha256=candidate.checksum_sha256,
+        width=candidate.width,
+        height=candidate.height,
+        display_name=(display_name if isinstance(display_name, str) else "Wybrane zdjęcie.jpg"),
+    )
+
+
+def to_manual_decision_response(
+    decision: ImageSelectionManualDecision,
+) -> ImageSelectionManualDecisionResponse:
+    return ImageSelectionManualDecisionResponse(
+        idempotency_key=decision.idempotency_key,
+        run_id=decision.run_id,
+        group_id=decision.group_id,
+        candidate_id=decision.candidate_id,
+        range_start=decision.range_start,
+        range_end=decision.range_end,
+        revision=decision.revision,
+        created_at=decision.created_at,
+    )
+
+
 __all__ = [
     "ImageSelectionCreate",
     "ImageSelectionCreateResponse",
+    "ImageSelectionCandidateResponse",
     "ImageSelectionGroupPageResponse",
     "ImageSelectionGroupResponse",
     "ImageSelectionRunResponse",
+    "ImageSelectionHandoffResponse",
+    "ImageSelectionManualApprovalCommand",
+    "ImageSelectionManualApprovalResponse",
+    "ImageSelectionManualDecisionResponse",
+    "ImageSelectionManualFileResponse",
+    "to_image_selection_candidate_response",
     "to_image_selection_group_page_response",
+    "to_image_selection_group_response",
     "to_image_selection_run_response",
+    "to_manual_decision_response",
 ]

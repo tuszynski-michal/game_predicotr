@@ -1,6 +1,6 @@
 ---
 title: TASK-0152 image selection workspace and large folder staging
-status: todo
+status: done
 release: "0.4"
 last_updated: 2026-08-02
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-02
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -53,16 +53,16 @@ duplikowania całej implementacji importu layoutów.
 
 ## Acceptance criteria
 
-- [ ] Admin pokazuje cztery workspace'y bez poziomego overflow przy 1366×768.
-- [ ] URL odtwarza `Selekcja zdjęć` i aktywną grę po odświeżeniu.
-- [ ] Folder picker jest wywoływany synchronicznie z gestu użytkownika.
-- [ ] UI nie wczytuje wszystkich bajtów folderu jednocześnie do pamięci.
-- [ ] Postęp rozróżnia liczbę plików i bajty, a błąd jednego uploadu można
+- [x] Admin pokazuje cztery workspace'y bez poziomego overflow przy 1366×768.
+- [x] URL odtwarza `Selekcja zdjęć` i aktywną grę po odświeżeniu.
+- [x] Folder picker jest wywoływany synchronicznie z gestu użytkownika.
+- [x] UI nie wczytuje wszystkich bajtów folderu jednocześnie do pamięci.
+- [x] Postęp rozróżnia liczbę plików i bajty, a błąd jednego uploadu można
       ponowić bez wybierania folderu od początku w tej samej sesji.
-- [ ] Purpose tokenu blokuje użycie stagingu selekcji jako zwykłego importu
+- [x] Purpose tokenu blokuje użycie stagingu selekcji jako zwykłego importu
       przed ukończeniem handoff.
-- [ ] Zmiana gry nie przenosi aktywnego uploadu ani błędu.
-- [ ] Źródłowy folder nie jest modyfikowany.
+- [x] Zmiana gry nie przenosi aktywnego uploadu ani błędu.
+- [x] Źródłowy folder nie jest modyfikowany.
 
 ## Technical notes
 
@@ -97,4 +97,18 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Ukończono 2026-08-03.
+
+- Czwarty workspace zachowuje aktywną grę w URL, odtwarza ostatni run per gra i
+  używa standardowego browser-native directory inputu.
+- Upload porządkuje ścieżki naturalnie, przesyła najwyżej cztery JPEG-i
+  równolegle, raportuje pliki i bajty, wykonuje trzy ograniczone próby oraz
+  wznawia tylko brakujące indeksy w tej samej sesji.
+- Backend utrwala checkpoint stagingu na 24 godziny, egzekwuje osobne limity
+  30 000 plików, łącznych bajtów i wolnego miejsca oraz wiąże token z
+  `photo_selection` i konkretną grą. Token nie może uruchomić zwykłego importu.
+- Responsywny kontrakt ma cztery kolumny na desktopie, dwie poniżej 980 px i
+  jedną poniżej 760 px; produkcyjny build potwierdził poprawną kompilację.
+- Weryfikacja: Admin 148/148, API 14/14, typecheck i lint Admina, Ruff,
+  `openapi:check` oraz produkcyjny build. Interaktywny serwer testowy był
+  sprzątany po kontrolowanych próbach runnera; nie pozostawiono procesów.

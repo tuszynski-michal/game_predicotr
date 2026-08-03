@@ -605,19 +605,59 @@ IMAGE_SELECTION_PATH_UNSAFE
 IMAGE_SELECTION_PERSISTENCE_CONFLICT
 ```
 
-Kolejne zadania rozszerzają kontrakt o:
+TASK-0154–0155 rozszerzają kontrakt o:
 
 ```text
 PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
+GET  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-files/{candidateId}
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
 POST /api/v1/admin/image-selections/{runId}/handoff
 ```
 
-Manual file przyjmuje jeden JPEG, bezpieczną nazwę względną oraz opcjonalny
-dodatni zakres dla grupy unknown. Approve wymaga UUID idempotencji. Handoff
-działa wyłącznie dla kompletnego checksumowanego manifestu i zwraca
-poświadczone źródło do istniejącego `POST /image-imports`; nie uruchamia sam
-ciężkiego pipeline'u.
+`PUT .../manual-file` przyjmuje bajty jednego JPEG-a jako
+`application/octet-stream`, a bezpieczna nazwa prezentacyjna trafia w nagłówku
+`X-Image-File-Name`. Limit wynosi 50 MB. Odpowiedź zwraca utworzonego albo
+odnalezionego po checksumie kandydata. `GET .../manual-files/{candidateId}`
+zwraca poświadczony podgląd `image/jpeg` wyłącznie w obrębie runu i grupy.
+
+`POST .../approve` przyjmuje:
+
+```json
+{
+  "candidateId": "uuid",
+  "idempotencyKey": "uuid",
+  "rangeStart": 1,
+  "rangeEnd": 9
+}
+```
+
+Zakres jest obowiązkowy i dodatni także wtedy, gdy automat nie ustalił numerów.
+Idempotency key powtórzony z identycznym payloadem zwraca tę samą rewizję;
+zmiana payloadu pod tym samym kluczem jest konfliktem. Kolejna korekta używa
+nowego UUID i tworzy append-only rewizję. Handoff działa wyłącznie dla
+kompletnego checksumowanego manifestu i zwraca poświadczone źródło do
+istniejącego `POST /image-imports`; nie uruchamia sam ciężkiego pipeline'u.
+
+TASK-0154 zamraża odpowiedź handoffu:
+
+```json
+{
+  "runId": "uuid",
+  "gameId": "uuid",
+  "selectionId": "uuid równy runId",
+  "selectionToken": "krótkotrwały sekret",
+  "supportedFileCount": 123,
+  "expiresAt": "2026-08-03T12:15:00Z",
+  "targetSection": "imports"
+}
+```
+
+Przed odpowiedzią API ponownie liczy checksumę kanonicznego manifestu, każdego
+JPEG-a, jego rozmiar i wymiary oraz porównuje zakresy z trwałymi grupami runu.
+`collecting`, `manual_required`, brak grupy albo rozjazd pliku blokują handoff.
+Ponowienie aktywnego handoffu zwraca ten sam token, a logiczne źródło zachowuje
+`selectionId = runId`. Panel przechodzi do `Importu layoutów`, lecz dopiero
+osobne kliknięcie `Rozpocznij import` konsumuje token i tworzy job.
 
 Stabilne rodziny błędów:
 
@@ -625,12 +665,21 @@ Stabilne rodziny błędów:
 IMAGE_SELECTION_SOURCE_PURPOSE_INVALID
 IMAGE_SELECTION_GROUP_NOT_FOUND
 IMAGE_SELECTION_RANGE_CONFLICT
-IMAGE_SELECTION_MANUAL_FILE_REQUIRED
+IMAGE_SELECTION_MANUAL_FILE_INVALID
+IMAGE_SELECTION_RANGE_REQUIRED
+IMAGE_SELECTION_CANDIDATE_NOT_FOUND
+IMAGE_SELECTION_CANDIDATE_MISMATCH
+IMAGE_SELECTION_GROUP_NOT_MANUAL
+IMAGE_SELECTION_IDEMPOTENCY_CONFLICT
+IMAGE_SELECTION_ALREADY_PUBLISHED
+IMAGE_SELECTION_MANUAL_FILE_MISSING
+IMAGE_SELECTION_MANUAL_FILE_CHANGED
+IMAGE_SELECTION_STORAGE_UNAVAILABLE
 IMAGE_SELECTION_NOT_READY
 IMAGE_SELECTION_MANIFEST_MISMATCH
 ```
 
-Schematy są rozwijane w TASK-0151–0155 i generowane z backendu do klienta.
+Schematy TASK-0151–0155 są generowane z backendu do klienta.
 Dokument architektury `IMAGE_SELECTION.md` definiuje lifecycle oraz
 idempotencję.
 
@@ -676,6 +725,8 @@ Przyjmuje wyłącznie `gameId` oraz `selectionToken`. Backend ponownie sprawdza
 folder, konsumuje token po udanym zapisie i tworzy job `import` z
 `importKind = image_directory`, `sourceSelectionId`, zatwierdzonym
 `sourceDirectory`, bezpieczną nazwą folderu oraz `pipelineFingerprint`.
+Źródło pochodzące z selektora zapisuje dodatkowo `imageSelectionRunId`, dzięki
+czemu pełny pipeline zachowuje proweniencję niezmiennego outputu.
 Przeglądarka nie może utworzyć image importu przez przesłanie własnej ścieżki.
 
 ## Job status
@@ -1040,6 +1091,30 @@ Kolejny claim zwiększa `attemptCount`. Pozostałe statusy zwracają
 `heartbeatAt` i `leaseExpiresAt` są dostępne do diagnostyki aktywnego joba i są
 `null` poza `processing`. Wewnętrzne `leaseToken`, `leaseOwner` oraz
 `checkpointPayload` nigdy nie są zwracane przez Admin API.
+
+Dla joba `image_selection` obiekt `progress` zawiera dodatkowe pole
+`imageSelection`:
+
+```json
+{
+  "groups": 12,
+  "selected": 9,
+  "manual": 2,
+  "skipped": 1,
+  "errors": 3,
+  "verifications": 30,
+  "uploadDurationSeconds": 15.5,
+  "processingDurationSeconds": 8.25,
+  "diagnosticChecksumSha256": "sha256"
+}
+```
+
+`manual` oznacza bieżącą liczbę nierozwiązanych grup, natomiast wspólny licznik
+`review` pozostaje monotoniczny. Czas uploadu i czas obliczeń są mierzone
+oddzielnie; `processingDurationSeconds` nie obejmuje oczekiwania użytkownika w
+`waiting_for_review`. Diagnostyka ujawnia tylko checksumę bounded manifestu,
+bez ścieżki serwera, obrazów i danych wrażliwych. Pole `imageSelection` nie jest
+zwracane dla pozostałych typów jobów.
 
 Job `import` z `importKind = image_directory` zwraca w `inputPayload` także
 `sourceSelectionId`, zatwierdzone `sourceDirectory`, `sourceDisplayName` i

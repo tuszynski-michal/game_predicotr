@@ -1,0 +1,47 @@
+{
+  "contract": "image-selection-acceptance-v1",
+  "decision": "ready",
+  "decisionScope": "technical-scale-gate",
+  "ownerAcceptance": "pending",
+  "profiles": [
+    {
+      "automaticSelectionPrecision": 1.0,
+      "falseMergeCount": 0,
+      "inputCount": 240,
+      "peakRssDeltaBytes": 18477056,
+      "processingSeconds": 6.110191,
+      "profile": "smoke",
+      "reportPath": "ai_docs/quality/image-selection-smoke-report.json",
+      "reportSha256": "2d7574ac261da7ce5d3209ae20f02e9f262730ef3e6d3298bb177007ba648de4",
+      "technicalGatePassed": true
+    },
+    {
+      "automaticSelectionPrecision": 1.0,
+      "falseMergeCount": 0,
+      "inputCount": 10000,
+      "peakRssDeltaBytes": 79904768,
+      "processingSeconds": 252.506836,
+      "profile": "10000",
+      "reportPath": "ai_docs/quality/image-selection-10000-report.json",
+      "reportSha256": "cbb811c69643211633fb086035be99d2a2f2e4efc31b336b9396a1cd5bc8d347",
+      "technicalGatePassed": true
+    },
+    {
+      "automaticSelectionPrecision": 1.0,
+      "falseMergeCount": 0,
+      "inputCount": 30000,
+      "peakRssDeltaBytes": 203374592,
+      "processingSeconds": 792.425303,
+      "profile": "30000",
+      "reportPath": "ai_docs/quality/image-selection-30000-report.json",
+      "reportSha256": "78ee6c0b7cfc4ba252cd5aa8309dab66cef4afb2455c1ce2e400933124ef2769",
+      "technicalGatePassed": true
+    }
+  ],
+  "schemaVersion": 1,
+  "task0076Allowed": false,
+  "task0076Blockers": [
+    "owner_acceptance_pending",
+    "mass_import_gate_belongs_to_v0.5"
+  ]
+}

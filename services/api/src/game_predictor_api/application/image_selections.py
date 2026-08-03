@@ -2,21 +2,202 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path, PurePosixPath
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
+
+from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
+from game_predictor_worker.images.selection.contracts import SelectionContractError
+from game_predictor_worker.images.selection.output import verify_curated_image_manifest
 
 from game_predictor_api.domain.image_selections import (
     IMAGE_SELECTION_GROUP_PAGE_MAX,
     ImageSelectionCandidate,
+    ImageSelectionCandidateDecision,
+    ImageSelectionConflictError,
     ImageSelectionError,
     ImageSelectionGroup,
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
+    ImageSelectionManualDecision,
     ImageSelectionNotFoundError,
     ImageSelectionRun,
     create_image_selection_run,
+    create_manual_decision,
+    record_image_selection_output,
+    safe_relative_path,
+    validate_candidate,
 )
+
+MAX_MANUAL_IMAGE_BYTES = 50 * 1024 * 1024
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionHandoffSource:
+    run: ImageSelectionRun
+    output_directory: Path
+    supported_file_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ManualImageSelectionFile:
+    relative_path: str
+    checksum_sha256: str
+    size_bytes: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionManualApproval:
+    group: ImageSelectionGroup
+    decision: ImageSelectionManualDecision
+
+
+class ManualImageSelectionFileStore:
+    """Managed JPEG copies and a canonical working decision manifest."""
+
+    def __init__(self, artifact_root: Path) -> None:
+        self._artifact_root = artifact_root.resolve()
+        self._root = self._artifact_root / "data" / "working" / "is-manual"
+
+    def save(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        display_name: str,
+        content: bytes,
+    ) -> ManualImageSelectionFile:
+        normalized_name = Path(display_name).name
+        if (
+            not normalized_name
+            or len(normalized_name) > 255
+            or Path(normalized_name).suffix.casefold() not in {".jpg", ".jpeg"}
+        ):
+            raise ImageSelectionError(
+                "IMAGE_SELECTION_MANUAL_FILE_INVALID",
+                "Choose one JPEG file with a safe display name.",
+            )
+        if not 1 <= len(content) <= MAX_MANUAL_IMAGE_BYTES:
+            raise ImageSelectionError(
+                "IMAGE_SELECTION_MANUAL_FILE_INVALID",
+                "The manual JPEG must be non-empty and no larger than 50 MB.",
+            )
+        checksum = hashlib.sha256(content).hexdigest()
+        group_root = self._root / run_id.hex[:12] / group_id.hex[:12]
+        group_root.mkdir(parents=True, exist_ok=True)
+        target = group_root / f"{checksum[:32]}.jpg"
+        if not target.exists():
+            temporary = group_root / f".{uuid4().hex[:8]}.part"
+            try:
+                with temporary.open("xb") as output:
+                    output.write(content)
+                    output.flush()
+                    os.fsync(output.fileno())
+                width, height = read_jpeg_dimensions(temporary)
+                try:
+                    temporary.replace(target)
+                except OSError:
+                    if not target.exists():
+                        raise
+            except (OSError, ImageFileError) as error:
+                temporary.unlink(missing_ok=True)
+                raise ImageSelectionError(
+                    "IMAGE_SELECTION_MANUAL_FILE_INVALID",
+                    "The selected file is not a readable JPEG image.",
+                ) from error
+            temporary.unlink(missing_ok=True)
+        if hashlib.sha256(target.read_bytes()).hexdigest() != checksum:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANUAL_FILE_CHANGED",
+                "The managed manual JPEG differs from the uploaded content.",
+            )
+        try:
+            width, height = read_jpeg_dimensions(target)
+        except ImageFileError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANUAL_FILE_CHANGED",
+                "The managed manual JPEG is no longer readable.",
+            ) from error
+        relative_path = target.relative_to(self._artifact_root).as_posix()
+        return ManualImageSelectionFile(
+            relative_path=relative_path,
+            checksum_sha256=checksum,
+            size_bytes=target.stat().st_size,
+            width=width,
+            height=height,
+        )
+
+    def resolve(self, candidate: ImageSelectionCandidate) -> Path:
+        relative = safe_relative_path(candidate.source_relative_path)
+        expected_prefix = "data/working/is-manual/"
+        if not relative.startswith(expected_prefix):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANUAL_FILE_MISSING",
+                "The candidate is not a managed manual JPEG.",
+            )
+        path = (self._artifact_root / Path(*PurePosixPath(relative).parts)).resolve(strict=True)
+        if not path.is_relative_to(self._root) or not path.is_file():
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANUAL_FILE_MISSING",
+                "The managed manual JPEG is missing or unsafe.",
+            )
+        if hashlib.sha256(path.read_bytes()).hexdigest() != candidate.checksum_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANUAL_FILE_CHANGED",
+                "The managed manual JPEG checksum changed.",
+            )
+        return path
+
+    def write_decision_manifest(
+        self,
+        *,
+        run_id: UUID,
+        decisions: Sequence[ImageSelectionManualDecision],
+    ) -> None:
+        run_root = self._root / run_id.hex[:12]
+        run_root.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "contract": "image-selection-manual-decisions-v1",
+            "decisions": [
+                {
+                    "candidateId": str(item.candidate_id),
+                    "createdAt": item.created_at.isoformat(),
+                    "groupId": str(item.group_id),
+                    "idempotencyKey": str(item.idempotency_key),
+                    "payloadSha256": item.payload_sha256,
+                    "rangeEnd": item.range_end,
+                    "rangeStart": item.range_start,
+                    "revision": item.revision,
+                }
+                for item in sorted(
+                    decisions,
+                    key=lambda value: (str(value.group_id), value.revision),
+                )
+            ],
+            "runId": str(run_id),
+            "schemaVersion": 1,
+        }
+        content = json.dumps(
+            payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        target = run_root / "manual-decisions.json"
+        temporary = run_root / ".manual-decisions.json.part"
+        with temporary.open("wb") as output:
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+        temporary.replace(target)
 
 
 class ImageSelectionRepository(Protocol):
@@ -34,6 +215,8 @@ class ImageSelectionRepository(Protocol):
 
     def get_run(self, run_id: UUID) -> ImageSelectionRun | None: ...
 
+    def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun: ...
+
     def list_groups(
         self,
         *,
@@ -50,10 +233,45 @@ class ImageSelectionRepository(Protocol):
         candidate: ImageSelectionCandidate,
     ) -> ImageSelectionCandidate: ...
 
+    def get_group(self, *, run_id: UUID, group_id: UUID) -> ImageSelectionGroup | None: ...
+
+    def get_candidate(
+        self, *, run_id: UUID, candidate_id: UUID
+    ) -> ImageSelectionCandidate | None: ...
+
+    def find_candidate_by_checksum(
+        self, *, run_id: UUID, group_id: UUID, checksum_sha256: str
+    ) -> ImageSelectionCandidate | None: ...
+
+    def next_candidate_order(self, run_id: UUID) -> int: ...
+
+    def get_manual_decision(self, idempotency_key: UUID) -> ImageSelectionManualDecision | None: ...
+
+    def list_manual_decisions(self, *, run_id: UUID) -> Sequence[ImageSelectionManualDecision]: ...
+
+    def next_manual_revision(self, *, run_id: UUID, group_id: UUID) -> int: ...
+
+    def save_manual_decision(
+        self,
+        *,
+        group: ImageSelectionGroup,
+        decision: ImageSelectionManualDecision,
+    ) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]: ...
+
 
 class ImageSelectionService:
-    def __init__(self, repository: ImageSelectionRepository) -> None:
+    def __init__(
+        self,
+        repository: ImageSelectionRepository,
+        *,
+        artifact_root: Path | None = None,
+        manual_file_store: ManualImageSelectionFileStore | None = None,
+    ) -> None:
         self._repository = repository
+        self._artifact_root = None if artifact_root is None else artifact_root.resolve()
+        self._manual_file_store = manual_file_store or (
+            None if artifact_root is None else ManualImageSelectionFileStore(artifact_root)
+        )
 
     def create_run(
         self,
@@ -123,8 +341,319 @@ class ImageSelectionService:
             next_after_group_order=(items[-1].group_order if has_more and items else None),
         )
 
+    def record_output(
+        self,
+        *,
+        run_id: UUID,
+        manifest_sha256: str,
+        manifest_relative_path: str,
+    ) -> ImageSelectionRun:
+        run = record_image_selection_output(
+            self.get_run(run_id),
+            manifest_sha256=manifest_sha256,
+            manifest_relative_path=manifest_relative_path,
+        )
+        return self._repository.save_run(run)
+
+    def upload_manual_file(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        display_name: str,
+        content: bytes,
+    ) -> ImageSelectionCandidate:
+        run = self.get_run(run_id)
+        if run.output_manifest_sha256 is not None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_ALREADY_PUBLISHED",
+                "A published run cannot accept another manual JPEG.",
+            )
+        group = self._get_manual_group(run_id=run_id, group_id=group_id)
+        if self._manual_file_store is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_STORAGE_UNAVAILABLE",
+                "Managed manual image storage is not configured.",
+            )
+        stored = self._manual_file_store.save(
+            run_id=run_id,
+            group_id=group.id,
+            display_name=display_name,
+            content=content,
+        )
+        existing = self._repository.find_candidate_by_checksum(
+            run_id=run_id,
+            group_id=group.id,
+            checksum_sha256=stored.checksum_sha256,
+        )
+        if existing is not None:
+            return existing
+        candidate = ImageSelectionCandidate(
+            id=uuid4(),
+            run_id=run_id,
+            group_id=group.id,
+            order_index=self._repository.next_candidate_order(run_id),
+            source_relative_path=stored.relative_path,
+            checksum_sha256=stored.checksum_sha256,
+            width=stored.width,
+            height=stored.height,
+            quality_metrics={
+                "displayName": Path(display_name).name,
+                "sizeBytes": stored.size_bytes,
+                "source": "manual",
+            },
+            range_confidence=None,
+            reason_codes=("manual_upload",),
+            decision=ImageSelectionCandidateDecision.ELIGIBLE,
+            created_at=datetime.now(UTC),
+        )
+        validate_candidate(
+            order_index=candidate.order_index,
+            source_relative_path=candidate.source_relative_path,
+            checksum_sha256=candidate.checksum_sha256,
+            width=candidate.width,
+            height=candidate.height,
+            range_confidence=candidate.range_confidence,
+            decision=candidate.decision,
+            group_id=candidate.group_id,
+        )
+        return self._repository.add_candidate(candidate)
+
+    def approve_manual_file(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        candidate_id: UUID,
+        idempotency_key: UUID,
+        range_start: int | None,
+        range_end: int | None,
+    ) -> ImageSelectionManualApproval:
+        group = self._get_manual_group(run_id=run_id, group_id=group_id)
+        candidate = self._repository.get_candidate(
+            run_id=run_id,
+            candidate_id=candidate_id,
+        )
+        if candidate is None:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                "The selected manual JPEG does not exist.",
+            )
+        existing = self._repository.get_manual_decision(idempotency_key)
+        proposed_group, proposed = create_manual_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            candidate=candidate,
+            range_start=range_start,
+            range_end=range_end,
+            revision=(
+                existing.revision
+                if existing is not None
+                else self._repository.next_manual_revision(
+                    run_id=run_id,
+                    group_id=group_id,
+                )
+            ),
+        )
+        if existing is not None:
+            if existing.payload_sha256 != proposed.payload_sha256:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            replay_group = ImageSelectionGroup(
+                id=group.id,
+                run_id=group.run_id,
+                group_order=group.group_order,
+                range_start=existing.range_start,
+                range_end=existing.range_end,
+                fingerprint_sha256=group.fingerprint_sha256,
+                board_count_consensus=group.board_count_consensus,
+                status=ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                selected_candidate_id=existing.candidate_id,
+                created_at=group.created_at,
+                updated_at=existing.created_at,
+            )
+            return ImageSelectionManualApproval(replay_group, existing)
+        run = self.get_run(run_id)
+        if run.output_manifest_sha256 is not None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_ALREADY_PUBLISHED",
+                "A published selection is immutable; start a new run to change it.",
+            )
+        for other in self._all_groups(run_id):
+            if (
+                other.id != group.id
+                and other.status
+                in {
+                    ImageSelectionGroupStatus.AUTO_SELECTED,
+                    ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                }
+                and other.range_start == proposed_group.range_start
+                and other.range_end == proposed_group.range_end
+            ):
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_RANGE_CONFLICT",
+                    "Another selected group already uses this sequence range.",
+                )
+        saved_group, saved_decision = self._repository.save_manual_decision(
+            group=proposed_group,
+            decision=proposed,
+        )
+        if self._manual_file_store is not None:
+            self._manual_file_store.write_decision_manifest(
+                run_id=run_id,
+                decisions=self._repository.list_manual_decisions(run_id=run_id),
+            )
+        return ImageSelectionManualApproval(saved_group, saved_decision)
+
+    def get_manual_file(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        candidate_id: UUID,
+    ) -> Path:
+        self.get_run(run_id)
+        candidate = self._repository.get_candidate(
+            run_id=run_id,
+            candidate_id=candidate_id,
+        )
+        if candidate is None or candidate.group_id != group_id:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                "The selected manual JPEG does not exist.",
+            )
+        if self._manual_file_store is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_STORAGE_UNAVAILABLE",
+                "Managed manual image storage is not configured.",
+            )
+        return self._manual_file_store.resolve(candidate)
+
+    def prepare_handoff(self, run_id: UUID) -> ImageSelectionHandoffSource:
+        run = self.get_run(run_id)
+        if (
+            self._artifact_root is None
+            or run.output_manifest_sha256 is None
+            or run.output_manifest_relative_path is None
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_NOT_READY",
+                "The image-selection run has no complete curated output.",
+            )
+        manifest_path = self._managed_path(run.output_manifest_relative_path)
+        try:
+            manifest = verify_curated_image_manifest(
+                manifest_path.parent,
+                expected_manifest_sha256=run.output_manifest_sha256,
+                expected_run_id=run.id,
+            )
+        except (OSError, SelectionContractError) as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output manifest or one of its JPEG files changed.",
+            ) from error
+        if (
+            manifest.input_manifest_sha256 != run.input_manifest_sha256
+            or manifest.selector_fingerprint != run.selector_fingerprint
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output provenance does not match the durable run.",
+            )
+        groups = self._all_groups(run_id)
+        if not groups or any(
+            group.status
+            in {
+                ImageSelectionGroupStatus.COLLECTING,
+                ImageSelectionGroupStatus.MANUAL_REQUIRED,
+            }
+            for group in groups
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_NOT_READY",
+                "Every non-duplicate group must be resolved before handoff.",
+            )
+        expected_ranges = {
+            (group.range_start, group.range_end)
+            for group in groups
+            if group.status
+            in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+            }
+        }
+        manifest_ranges = {(entry.range_start, entry.range_end) for entry in manifest.entries}
+        if expected_ranges != manifest_ranges:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output ranges differ from the durable group decisions.",
+            )
+        return ImageSelectionHandoffSource(
+            run=run,
+            output_directory=manifest_path.parent,
+            supported_file_count=len(manifest.entries),
+        )
+
+    def _all_groups(self, run_id: UUID) -> tuple[ImageSelectionGroup, ...]:
+        values: list[ImageSelectionGroup] = []
+        after_group_order = -1
+        while True:
+            page = tuple(
+                self._repository.list_groups(
+                    run_id=run_id,
+                    status=None,
+                    after_group_order=after_group_order,
+                    limit=IMAGE_SELECTION_GROUP_PAGE_MAX,
+                )
+            )
+            values.extend(page)
+            if len(page) < IMAGE_SELECTION_GROUP_PAGE_MAX:
+                break
+            after_group_order = page[-1].group_order
+        return tuple(values)
+
+    def _get_manual_group(self, *, run_id: UUID, group_id: UUID) -> ImageSelectionGroup:
+        self.get_run(run_id)
+        group = self._repository.get_group(run_id=run_id, group_id=group_id)
+        if group is None:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_GROUP_NOT_FOUND",
+                "Image-selection group does not exist.",
+            )
+        if group.status not in {
+            ImageSelectionGroupStatus.MANUAL_REQUIRED,
+            ImageSelectionGroupStatus.MANUALLY_SELECTED,
+        }:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_GROUP_NOT_MANUAL",
+                "This group does not require a manual representative.",
+            )
+        return group
+
+    def _managed_path(self, relative_path: str) -> Path:
+        assert self._artifact_root is not None
+        posix = PurePosixPath(relative_path)
+        try:
+            resolved = (self._artifact_root / Path(*posix.parts)).resolve(strict=True)
+        except OSError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output manifest is missing.",
+            ) from error
+        if not resolved.is_relative_to(self._artifact_root) or not resolved.is_file():
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output manifest path is unsafe.",
+            )
+        return resolved
+
 
 __all__ = [
+    "ImageSelectionManualApproval",
     "ImageSelectionRepository",
+    "ImageSelectionHandoffSource",
     "ImageSelectionService",
+    "ManualImageSelectionFileStore",
 ]

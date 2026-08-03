@@ -587,6 +587,11 @@ brak uprawnienia `INTERNET`.
   minut; każda komenda benchmarku ma własny twardy timeout,
 - źródłowy folder jest hashowany/inwentaryzowany przed i po teście, aby
   potwierdzić brak move/delete/modyfikacji.
+- benchmark `image-selection-scale-benchmark-v1` używa produkcyjnego taniego
+  skanu oraz niezależnego kontraktu adnotacji; profile smoke/10k/30k zapisują
+  kanoniczne raporty, a wrapper PowerShell wymusza timeout i cleanup katalogu
+  roboczego. Sparse range verification jest liczona jako `grupy × top-k`, ale
+  nie jest pomiarem jakości ani czasu prywatnego modelu OCR.
 
 ## Test data
 

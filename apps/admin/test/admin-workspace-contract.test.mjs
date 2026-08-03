@@ -11,10 +11,12 @@ const shellSource = await readFile(
   'utf8',
 );
 
-test('exposes exactly the three v0.2 workspaces', () => {
+test('preserves the three v0.2 workspaces and adds v0.4 image selection', () => {
   assert.match(workspaceSource, /Zarządzanie grami/);
   assert.match(workspaceSource, /Wersje Android/);
   assert.match(workspaceSource, /Joby/);
+  assert.match(workspaceSource, /Selekcja zdjęć/);
+  assert.match(workspaceSource, /id: 'image-selection'/);
   assert.match(workspaceSource, /WORKSPACE_OPTIONS/);
 });
 

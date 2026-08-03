@@ -1,13 +1,11 @@
 'use client';
 
-import type { ImageSelectionRunResponse } from '@game-predictor/admin-api-client';
-import {
-  type ChangeEvent,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type {
+  ImageSelectionGroupResponse,
+  ImageSelectionHandoffResponse,
+  ImageSelectionRunResponse,
+} from '@game-predictor/admin-api-client';
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
@@ -16,14 +14,17 @@ import {
   type ImageSelectionUploadProgress,
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
+  loadManualImageSelectionGroups,
   uploadPhotoSelectionFolder,
 } from './image-selection-actions';
+import { ManualImageSelectionModal } from './manual-image-selection-modal';
 
 interface ImageSelectionWorkspaceProps {
   readonly apiBaseUrl: string;
   readonly client?: ImageSelectionClient;
   readonly gameId: string;
   readonly gameName: string;
+  readonly onOpenImports: (handoff: ImageSelectionHandoffResponse) => void;
 }
 
 const EMPTY_PROGRESS: ImageSelectionUploadProgress = {
@@ -38,6 +39,7 @@ export function ImageSelectionWorkspace({
   client,
   gameId,
   gameName,
+  onOpenImports,
 }: ImageSelectionWorkspaceProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -49,6 +51,11 @@ export function ImageSelectionWorkspace({
     null,
   );
   const [run, setRun] = useState<ImageSelectionRunResponse | null>(null);
+  const [manualGroups, setManualGroups] = useState<
+    ImageSelectionGroupResponse[]
+  >([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualLoading, setManualLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -60,7 +67,11 @@ export function ImageSelectionWorkspace({
     queueMicrotask(async () => {
       try {
         const result = await api.getImageSelection(runId);
-        if (!cancelled && result.error === undefined && result.data !== undefined) {
+        if (
+          !cancelled &&
+          result.error === undefined &&
+          result.data !== undefined
+        ) {
           setRun(result.data);
         } else if (!cancelled && result.error !== undefined) {
           window.localStorage.removeItem(storageKey(gameId));
@@ -75,6 +86,24 @@ export function ImageSelectionWorkspace({
       cancelled = true;
     };
   }, [api, gameId]);
+
+  useEffect(() => {
+    if (run === null) return;
+    let cancelled = false;
+    queueMicrotask(async () => {
+      try {
+        const groups = await loadManualImageSelectionGroups(api, run.id);
+        if (!cancelled) setManualGroups(groups);
+      } catch {
+        if (!cancelled) {
+          setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
+        }
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, run]);
 
   async function startUpload(files: readonly File[], activeResume = resume) {
     if (busy) return;
@@ -114,7 +143,9 @@ export function ImageSelectionWorkspace({
       return;
     }
     if (selectedFiles.length > 30_000) {
-      setError('Selekcja zdjęć obsługuje maksymalnie 30 000 plików JPEG na run.');
+      setError(
+        'Selekcja zdjęć obsługuje maksymalnie 30 000 plików JPEG na run.',
+      );
       return;
     }
     await startUpload(selectedFiles, null);
@@ -136,20 +167,67 @@ export function ImageSelectionWorkspace({
     }
   }
 
+  async function handoffToImport() {
+    if (run === null || run.outputManifestSha256 === null || busy) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await api.handoffImageSelection(run.id);
+      if (result.error !== undefined || result.data === undefined) {
+        setError('Nie udało się zweryfikować paczki wybranych zdjęć.');
+        return;
+      }
+      onOpenImports(result.data);
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openManualReview() {
+    if (run === null || manualLoading) return;
+    setManualLoading(true);
+    setError('');
+    try {
+      const groups = await loadManualImageSelectionGroups(api, run.id);
+      setManualGroups(groups);
+      if (groups.length === 0) {
+        setNotice('Ten run nie ma grup wymagających ręcznej decyzji.');
+      } else {
+        setManualOpen(true);
+      }
+    } catch {
+      setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
+    } finally {
+      setManualLoading(false);
+    }
+  }
+
+  function updateManualGroup(updated: ImageSelectionGroupResponse) {
+    setManualGroups((groups) =>
+      groups.map((group) => (group.id === updated.id ? updated : group)),
+    );
+  }
+
   const percentage =
     progress.totalBytes === 0
       ? 0
       : Math.min(100, (progress.uploadedBytes / progress.totalBytes) * 100);
 
   return (
-    <section className="imageSelectionWorkspace" aria-labelledby="image-selection-title">
+    <section
+      className="imageSelectionWorkspace"
+      aria-labelledby="image-selection-title"
+    >
       <header className="imageSelectionHeader">
         <div>
           <p className="eyebrow">Aktywna gra · {gameName}</p>
           <h1 id="image-selection-title">Selekcja zdjęć</h1>
           <p>
-            Wybierz duży folder. Moduł zapisze bezpieczny staging bez uruchamiania
-            pełnego pipeline&apos;u layoutów.
+            Wybierz duży folder. Moduł zapisze bezpieczny staging bez
+            uruchamiania pełnego pipeline&apos;u layoutów.
           </p>
         </div>
         <input
@@ -192,7 +270,8 @@ export function ImageSelectionWorkspace({
               {progress.totalFiles.toLocaleString('pl-PL')} plików
             </strong>
             <span>
-              {formatBytes(progress.uploadedBytes)} / {formatBytes(progress.totalBytes)}
+              {formatBytes(progress.uploadedBytes)} /{' '}
+              {formatBytes(progress.totalBytes)}
             </span>
           </div>
           <progress max={100} value={percentage} />
@@ -220,10 +299,17 @@ export function ImageSelectionWorkspace({
       ) : null}
 
       {run !== null ? (
-        <section className="imageSelectionRunCard" aria-label="Bieżący proces selekcji">
+        <section
+          className="imageSelectionRunCard"
+          aria-label="Bieżący proces selekcji"
+        >
           <div>
             <p className="eyebrow">Bieżący run</p>
-            <h2>{run.job.status === 'created' ? 'Gotowy do skanowania' : run.job.status}</h2>
+            <h2>
+              {run.job.status === 'created'
+                ? 'Gotowy do skanowania'
+                : run.job.status}
+            </h2>
           </div>
           <dl>
             <div>
@@ -239,7 +325,43 @@ export function ImageSelectionWorkspace({
               <dd>{run.inputManifestSha256.slice(0, 12)}…</dd>
             </div>
           </dl>
+          <div className="imageSelectionRecoveryActions">
+            <button
+              className="secondaryButton"
+              disabled={busy || manualLoading}
+              onClick={() => void openManualReview()}
+              type="button"
+            >
+              {manualLoading
+                ? 'Odczytywanie…'
+                : `Uzupełnij wyjątki${manualGroups.length > 0 ? ` (${manualGroups.length})` : ''}`}
+            </button>
+            <button
+              aria-busy={busy}
+              className="primaryButton"
+              disabled={busy || run.outputManifestSha256 === null}
+              onClick={() => void handoffToImport()}
+              type="button"
+            >
+              {busy ? 'Weryfikowanie…' : 'Przekaż do Importu layoutów'}
+            </button>
+            {run.outputManifestSha256 === null ? (
+              <span>
+                Akcja będzie dostępna po opublikowaniu kompletnego wyniku.
+              </span>
+            ) : null}
+          </div>
         </section>
+      ) : null}
+      {manualOpen && run !== null && manualGroups.length > 0 ? (
+        <ManualImageSelectionModal
+          apiBaseUrl={apiBaseUrl}
+          client={api}
+          groups={manualGroups}
+          onClose={() => setManualOpen(false)}
+          onGroupUpdated={updateManualGroup}
+          runId={run.id}
+        />
       ) : null}
     </section>
   );

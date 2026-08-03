@@ -701,8 +701,7 @@ class ImageSelectionGroupModel(Base):
             "range_end",
             unique=True,
             postgresql_where=text(
-                "status IN ('auto_selected', 'manually_selected') "
-                "AND range_start IS NOT NULL"
+                "status IN ('auto_selected', 'manually_selected') AND range_start IS NOT NULL"
             ),
         ),
     )
@@ -773,13 +772,11 @@ class ImageSelectionCandidateModel(Base):
             name="ck_image_selection_candidates_reason_codes",
         ),
         CheckConstraint(
-            "decision IN ('eligible', 'rejected', 'selected_automatic', "
-            "'selected_manual')",
+            "decision IN ('eligible', 'rejected', 'selected_automatic', 'selected_manual')",
             name="ck_image_selection_candidates_decision",
         ),
         CheckConstraint(
-            "decision NOT IN ('selected_automatic', 'selected_manual') OR "
-            "group_id IS NOT NULL",
+            "decision NOT IN ('selected_automatic', 'selected_manual') OR group_id IS NOT NULL",
             name="ck_image_selection_candidates_selected_group",
         ),
         ForeignKeyConstraint(
@@ -809,9 +806,7 @@ class ImageSelectionCandidateModel(Base):
             "run_id",
             "group_id",
             unique=True,
-            postgresql_where=text(
-                "decision IN ('selected_automatic', 'selected_manual')"
-            ),
+            postgresql_where=text("decision IN ('selected_automatic', 'selected_manual')"),
         ),
     )
 
@@ -833,6 +828,62 @@ class ImageSelectionCandidateModel(Base):
         String(40),
         nullable=False,
     )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ImageSelectionManualDecisionModel(Base):
+    __tablename__ = "image_selection_manual_decisions"
+    __table_args__ = (
+        CheckConstraint(
+            "range_start >= 1 AND range_end >= range_start",
+            name="ck_image_selection_manual_decisions_range",
+        ),
+        CheckConstraint(
+            "revision >= 1",
+            name="ck_image_selection_manual_decisions_revision",
+        ),
+        CheckConstraint(
+            "payload_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_selection_manual_decisions_payload_sha256",
+        ),
+        ForeignKeyConstraint(
+            ["run_id", "group_id"],
+            ["image_selection_groups.run_id", "image_selection_groups.id"],
+            name="fk_image_selection_manual_decisions_group",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "group_id",
+            "revision",
+            name="uq_image_selection_manual_decisions_revision",
+        ),
+        Index(
+            "ix_image_selection_manual_decisions_group_revision",
+            "run_id",
+            "group_id",
+            "revision",
+        ),
+    )
+
+    idempotency_key: Mapped[UUID] = mapped_column(primary_key=True)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    group_id: Mapped[UUID] = mapped_column(nullable=False)
+    candidate_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_selection_candidates.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    range_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    range_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

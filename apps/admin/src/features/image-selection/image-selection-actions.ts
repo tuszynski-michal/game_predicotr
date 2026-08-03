@@ -1,6 +1,7 @@
 import type {
   AdminApiClient,
   ImageSelectionCreateResponse,
+  ImageSelectionGroupResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -21,6 +22,10 @@ export type ImageSelectionClient = Pick<
   | 'cancelBrowserImageSelection'
   | 'createImageSelection'
   | 'getImageSelection'
+  | 'handoffImageSelection'
+  | 'listImageSelectionGroups'
+  | 'uploadManualImageSelectionFile'
+  | 'approveManualImageSelection'
 >;
 
 export interface ImageSelectionUploadProgress {
@@ -65,7 +70,11 @@ export async function uploadPhotoSelectionFolder(
 ): Promise<ImageSelectionUploadResult> {
   const files = options.resume?.files ?? orderImageSelectionFiles(sourceFiles);
   if (files.length === 0) {
-    return { error: 'Wybrany folder nie zawiera plików JPEG.', ok: false, resume: null };
+    return {
+      error: 'Wybrany folder nie zawiera plików JPEG.',
+      ok: false,
+      resume: null,
+    };
   }
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
   const firstPath = relativePath(files[0]);
@@ -114,7 +123,12 @@ export async function uploadPhotoSelectionFolder(
     const pendingIndexes = files
       .map((_file, index) => index)
       .filter((index) => !completed.has(index));
-    options.onProgress?.({ totalBytes, totalFiles: files.length, uploadedBytes, uploadedFiles });
+    options.onProgress?.({
+      totalBytes,
+      totalFiles: files.length,
+      uploadedBytes,
+      uploadedFiles,
+    });
 
     let cursor = 0;
     let uploadError = '';
@@ -136,8 +150,14 @@ export async function uploadPhotoSelectionFolder(
               file,
             );
             if (result.error === undefined && result.data !== undefined) {
-              uploadedFiles = Math.max(uploadedFiles, result.data.uploadedFileCount);
-              uploadedBytes = Math.max(uploadedBytes, result.data.uploadedBytes);
+              uploadedFiles = Math.max(
+                uploadedFiles,
+                result.data.uploadedFileCount,
+              );
+              uploadedBytes = Math.max(
+                uploadedBytes,
+                result.data.uploadedBytes,
+              );
               options.onProgress?.({
                 totalBytes,
                 totalFiles: files.length,
@@ -217,6 +237,32 @@ export async function cancelPhotoSelectionUpload(
   upload: ResumableImageSelectionUpload,
 ): Promise<void> {
   await api.cancelBrowserImageSelection(upload.uploadId);
+}
+
+export async function loadManualImageSelectionGroups(
+  api: ImageSelectionClient,
+  runId: string,
+): Promise<ImageSelectionGroupResponse[]> {
+  const groups: ImageSelectionGroupResponse[] = [];
+  let afterGroupOrder: number | undefined;
+  do {
+    const result = await api.listImageSelectionGroups(runId, {
+      ...(afterGroupOrder === undefined ? {} : { afterGroupOrder }),
+      limit: 100,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      throw new Error('IMAGE_SELECTION_GROUPS_UNAVAILABLE');
+    }
+    groups.push(
+      ...result.data.items.filter(
+        (group) =>
+          group.status === 'manual_required' ||
+          group.status === 'manually_selected',
+      ),
+    );
+    afterGroupOrder = result.data.nextAfterGroupOrder ?? undefined;
+  } while (afterGroupOrder !== undefined);
+  return groups;
 }
 
 function relativePath(file: File | undefined): string {

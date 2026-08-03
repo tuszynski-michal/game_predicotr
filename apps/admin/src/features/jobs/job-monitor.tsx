@@ -281,6 +281,7 @@ function JobCard({
   const percent = jobProgressPercent(job);
   const errorSummary = jobErrorSummary(job);
   const automationTiming = imageImportAutomationTiming(job);
+  const imageSelectionProgress = job.progress.imageSelection;
   const cancellationPending =
     job.status === 'processing' && job.cancelRequestedAt !== null;
 
@@ -398,20 +399,36 @@ function JobCard({
         <div className="jobProgressSection">
           <dl className="jobCounters">
             <div>
-              <dt>Poprawne</dt>
-              <dd>{job.progress.succeeded.toLocaleString('pl-PL')}</dd>
+              <dt>{imageSelectionProgress ? 'Grupy' : 'Poprawne'}</dt>
+              <dd>
+                {(
+                  imageSelectionProgress?.groups ?? job.progress.succeeded
+                ).toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
-              <dt>Błędy</dt>
-              <dd>{job.progress.failed.toLocaleString('pl-PL')}</dd>
+              <dt>{imageSelectionProgress ? 'Wybrane' : 'Błędy'}</dt>
+              <dd>
+                {(
+                  imageSelectionProgress?.selected ?? job.progress.failed
+                ).toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
-              <dt>Review</dt>
-              <dd>{job.progress.review.toLocaleString('pl-PL')}</dd>
+              <dt>{imageSelectionProgress ? 'Manual' : 'Review'}</dt>
+              <dd>
+                {(
+                  imageSelectionProgress?.manual ?? job.progress.review
+                ).toLocaleString('pl-PL')}
+              </dd>
             </div>
             <div>
-              <dt>Próba</dt>
-              <dd>{job.attemptCount}</dd>
+              <dt>{imageSelectionProgress ? 'Błędy plików' : 'Próba'}</dt>
+              <dd>
+                {(
+                  imageSelectionProgress?.errors ?? job.attemptCount
+                ).toLocaleString('pl-PL')}
+              </dd>
             </div>
           </dl>
         </div>
@@ -447,6 +464,32 @@ function JobCard({
             <dt>Worker</dt>
             <dd>{job.workerVersion ?? '—'}</dd>
           </div>
+          {imageSelectionProgress ? (
+            <>
+              <div>
+                <dt>Czas uploadu</dt>
+                <dd>
+                  {formatElapsedSeconds(
+                    imageSelectionProgress.uploadDurationSeconds ?? null,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Czas obliczeń</dt>
+                <dd>
+                  {formatElapsedSeconds(
+                    imageSelectionProgress.processingDurationSeconds ?? null,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Weryfikacje top-k</dt>
+                <dd>
+                  {imageSelectionProgress.verifications.toLocaleString('pl-PL')}
+                </dd>
+              </div>
+            </>
+          ) : null}
         </dl>
         {isImageImportJob(job) ? (
           <ImageJobOperationsPanel api={api} job={job} />

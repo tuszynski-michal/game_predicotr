@@ -185,6 +185,33 @@ test('generated client uploads a browser-native folder selection', async () => {
   );
 });
 
+test('generated client requests an explicit image-selection handoff', async () => {
+  const requests = [];
+  const runId = '00000000-0000-4000-8000-000000000154';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        expiresAt: '2026-08-03T12:15:00Z',
+        gameId: '11111111-1111-4111-8111-111111111111',
+        runId,
+        selectionId: runId,
+        selectionToken: 'x'.repeat(32),
+        supportedFileCount: 3,
+        targetSection: 'imports',
+      });
+    },
+  });
+
+  await client.handoffImageSelection(runId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [['POST', `/api/v1/admin/image-selections/${runId}/handoff`]],
+  );
+});
+
 test('generated client reads completeness and controls a sequence source override', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
@@ -1579,4 +1606,61 @@ test('cleanup client binds previews and destructive calls to exact targets', asy
   );
   assert.equal(requests[1].headers.get('X-Admin-Confirmation'), 'confirmed');
   assert.deepEqual(await requests[1].clone().json(), body);
+});
+
+test('manual image selection uses scoped binary upload and idempotent approval', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const groupId = '33333333-3333-4333-8333-333333333333';
+  const candidateId = '44444444-4444-4444-8444-444444444444';
+  const idempotencyKey = '55555555-5555-4555-8555-555555555555';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+
+  await client.uploadManualImageSelectionFile(
+    runId,
+    groupId,
+    'screen.jpg',
+    new Blob(['jpeg'], { type: 'image/jpeg' }),
+  );
+  await client.approveManualImageSelection(runId, groupId, {
+    candidateId,
+    idempotencyKey,
+    rangeEnd: 9,
+    rangeStart: 1,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'PUT',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/manual-file`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/approve`,
+      ],
+    ],
+  );
+  assert.equal(requests[0].headers.get('X-Image-File-Name'), 'screen.jpg');
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    `image-selection:${runId}:${groupId}:manual-file`,
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `image-selection:${runId}:${groupId}:approve`,
+  );
+  assert.deepEqual(await requests[1].clone().json(), {
+    candidateId,
+    idempotencyKey,
+    rangeEnd: 9,
+    rangeStart: 1,
+  });
 });

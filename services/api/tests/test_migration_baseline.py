@@ -34,6 +34,7 @@ CLEANUP_OPERATIONS_REVISION = "0024_cleanup_operations"
 SYMBOL_LOCALIZED_NAMES_REVISION = "0025_symbol_localized_names"
 IMAGE_SELECTION_REVISION = "0025_image_selection"
 MIGRATION_MERGE_REVISION = "0026_merge_v03_v04_heads"
+IMAGE_SELECTION_MANUAL_DECISIONS_REVISION = "0027_image_selection_manual_decisions"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -74,8 +75,9 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_localized_names = script.get_revision(SYMBOL_LOCALIZED_NAMES_REVISION)
     image_selection = script.get_revision(IMAGE_SELECTION_REVISION)
     migration_merge = script.get_revision(MIGRATION_MERGE_REVISION)
+    manual_decisions = script.get_revision(IMAGE_SELECTION_MANUAL_DECISIONS_REVISION)
 
-    assert script.get_heads() == [MIGRATION_MERGE_REVISION]
+    assert script.get_heads() == [IMAGE_SELECTION_MANUAL_DECISIONS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -133,6 +135,8 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         SYMBOL_LOCALIZED_NAMES_REVISION,
         IMAGE_SELECTION_REVISION,
     )
+    assert manual_decisions is not None
+    assert manual_decisions.down_revision == MIGRATION_MERGE_REVISION
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:
@@ -220,6 +224,28 @@ def test_image_selection_migration_adds_bounded_domain_storage() -> None:
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop table image_selection_candidates" in downgrade_sql
     assert "drop type job_type_with_image_selection" in downgrade_sql
+
+
+def test_manual_image_selection_migration_adds_append_only_decisions() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{MIGRATION_MERGE_REVISION}:{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}:{MIGRATION_MERGE_REVISION}",
+        sql=True,
+    )
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table image_selection_manual_decisions" in upgrade_sql
+    assert "uq_image_selection_manual_decisions_revision" in upgrade_sql
+    assert (
+        "drop table image_selection_manual_decisions"
+        in downgrade_output.getvalue().lower()
+    )
 
 
 def test_empty_baseline_generates_only_alembic_bookkeeping_sql() -> None:

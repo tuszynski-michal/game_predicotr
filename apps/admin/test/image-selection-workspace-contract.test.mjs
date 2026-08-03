@@ -130,3 +130,20 @@ test('job monitor exposes bounded image-selection counters and separate timings'
     /imageSelectionProgress\.processingDurationSeconds/,
   );
 });
+
+test('image selection workspace shows live progress and final aggregates', () => {
+  assert.match(workspaceSource, /jobStatusLabel\(run\.job\.status\)/);
+  assert.match(workspaceSource, /jobStageLabel\(run\.job\.progress\.stage\)/);
+  assert.match(workspaceSource, /jobProgressLabel\(run\.job\)/);
+  assert.match(workspaceSource, /jobProgressPercent\(run\.job\)/);
+  assert.match(workspaceSource, /selectionProgress\?\.groups/);
+  assert.match(workspaceSource, /selectionProgress\?\.selected/);
+  assert.match(workspaceSource, /selectionProgress\?\.manual/);
+  assert.match(workspaceSource, /selectionProgress\?\.skipped/);
+  assert.match(workspaceSource, /selectionProgress\?\.errors/);
+  assert.match(workspaceSource, /selectionProgress\?\.verifications/);
+  assert.match(workspaceSource, /uploadDurationSeconds/);
+  assert.match(workspaceSource, /processingDurationSeconds/);
+  assert.match(workspaceSource, /Szczegóły techniczne/);
+  assert.match(styleSource, /\.imageSelectionRunProgress progress/);
+});

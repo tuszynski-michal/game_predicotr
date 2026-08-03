@@ -126,3 +126,9 @@ decyzja dla runu blokuje rekord joba, potwierdza brak nierozwiązanych grup i
 wykonuje idempotentne `waiting_for_review -> created` z zachowaniem checkpointu
 oraz liczników. Admin natychmiast odczytuje ten stan i kontynuuje polling; ręczne
 `Ponów` w osobnym workspace nie jest potrzebne.
+
+Workspace odbiorowy pokazuje teraz postęp i wyniki selektora bez konieczności
+przechodzenia do `Jobów`: status i etap, `X/N`, procent, grupy, wybory
+automatyczne, manualne przypadki, pominięcia, błędy, liczbę kosztownych
+weryfikacji oraz oddzielne czasy uploadu i obliczeń. Identyfikatory runu, joba i
+manifestu wejściowego zostały przeniesione do zwijanych szczegółów technicznych.

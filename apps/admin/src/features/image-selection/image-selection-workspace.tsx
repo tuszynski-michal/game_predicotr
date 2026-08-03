@@ -8,6 +8,13 @@ import type {
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import {
+  formatElapsedSeconds,
+  jobProgressLabel,
+  jobProgressPercent,
+  jobStageLabel,
+  jobStatusLabel,
+} from '@/features/jobs/job-state';
 
 import {
   type ImageSelectionClient,
@@ -315,6 +322,8 @@ export function ImageSelectionWorkspace({
     progress.totalBytes === 0
       ? 0
       : Math.min(100, (progress.uploadedBytes / progress.totalBytes) * 100);
+  const runProgressPercent = run === null ? null : jobProgressPercent(run.job);
+  const selectionProgress = run?.job.progress.imageSelection ?? null;
 
   return (
     <section
@@ -408,53 +417,98 @@ export function ImageSelectionWorkspace({
           className="imageSelectionRunCard"
           aria-label="Bieżący proces selekcji"
         >
-          <div>
+          <div className="imageSelectionRunSummary">
             <p className="eyebrow">Bieżący run</p>
-            <h2>
-              {run.job.status === 'created'
-                ? 'Gotowy do skanowania'
-                : run.job.status}
-            </h2>
+            <span className={`jobStatus jobStatus-${run.job.status}`}>
+              {jobStatusLabel(run.job.status)}
+            </span>
+            <h2>{jobStageLabel(run.job.progress.stage)}</h2>
           </div>
-          <dl>
-            <div>
-              <dt>Job</dt>
-              <dd>{run.job.id.slice(0, 8)}</dd>
+          <div className="imageSelectionRunBody">
+            <div className="imageSelectionRunProgress">
+              <div>
+                <strong>{jobProgressLabel(run.job)}</strong>
+                <span>
+                  {runProgressPercent === null
+                    ? 'Rozmiar nieznany'
+                    : `${runProgressPercent.toFixed(1)}%`}
+                </span>
+              </div>
+              <progress
+                aria-label={`Postęp: ${jobProgressLabel(run.job)}`}
+                max={100}
+                value={runProgressPercent ?? undefined}
+              />
             </div>
-            <div>
-              <dt>Kolejność</dt>
-              <dd>{run.orderingPolicy}</dd>
+
+            <dl className="imageSelectionMetrics">
+              <Metric label="Grupy" value={selectionProgress?.groups} />
+              <Metric label="Wybrane" value={selectionProgress?.selected} />
+              <Metric label="Manualne" value={selectionProgress?.manual} />
+              <Metric label="Pominięte" value={selectionProgress?.skipped} />
+              <Metric label="Błędy" value={selectionProgress?.errors} />
+              <Metric
+                label="Weryfikacje"
+                value={selectionProgress?.verifications}
+              />
+              <Metric
+                label="Upload"
+                value={formatElapsedSeconds(
+                  selectionProgress?.uploadDurationSeconds ?? null,
+                )}
+              />
+              <Metric
+                label="Obliczenia"
+                value={formatElapsedSeconds(
+                  selectionProgress?.processingDurationSeconds ?? null,
+                )}
+              />
+            </dl>
+
+            <details className="imageSelectionTechnicalDetails">
+              <summary>Szczegóły techniczne</summary>
+              <dl>
+                <div>
+                  <dt>Job</dt>
+                  <dd>{run.job.id.slice(0, 8)}</dd>
+                </div>
+                <div>
+                  <dt>Kolejność</dt>
+                  <dd>{run.orderingPolicy}</dd>
+                </div>
+                <div>
+                  <dt>Manifest wejścia</dt>
+                  <dd>{run.inputManifestSha256.slice(0, 12)}…</dd>
+                </div>
+              </dl>
+            </details>
+
+            <div className="imageSelectionRecoveryActions">
+              <button
+                className="secondaryButton"
+                disabled={busy || manualLoading}
+                onClick={() => void openManualReview()}
+                type="button"
+              >
+                {manualLoading
+                  ? 'Odczytywanie…'
+                  : `Uzupełnij wyjątki${manualGroups.length > 0 ? ` (${manualGroups.length})` : ''}`}
+              </button>
+              <button
+                aria-busy={busy}
+                className="primaryButton"
+                disabled={busy || run.outputManifestSha256 === null}
+                onClick={() => void handoffToImport()}
+                type="button"
+              >
+                {busy ? 'Weryfikowanie…' : 'Przekaż do Importu layoutów'}
+              </button>
+              {run.outputManifestSha256 === null ? (
+                <span>
+                  Akcja będzie dostępna po opublikowaniu kompletnego wyniku.
+                </span>
+              ) : null}
             </div>
-            <div>
-              <dt>Manifest</dt>
-              <dd>{run.inputManifestSha256.slice(0, 12)}…</dd>
-            </div>
-          </dl>
-          <div className="imageSelectionRecoveryActions">
-            <button
-              className="secondaryButton"
-              disabled={busy || manualLoading}
-              onClick={() => void openManualReview()}
-              type="button"
-            >
-              {manualLoading
-                ? 'Odczytywanie…'
-                : `Uzupełnij wyjątki${manualGroups.length > 0 ? ` (${manualGroups.length})` : ''}`}
-            </button>
-            <button
-              aria-busy={busy}
-              className="primaryButton"
-              disabled={busy || run.outputManifestSha256 === null}
-              onClick={() => void handoffToImport()}
-              type="button"
-            >
-              {busy ? 'Weryfikowanie…' : 'Przekaż do Importu layoutów'}
-            </button>
-            {run.outputManifestSha256 === null ? (
-              <span>
-                Akcja będzie dostępna po opublikowaniu kompletnego wyniku.
-              </span>
-            ) : null}
           </div>
         </section>
       ) : null}
@@ -469,6 +523,25 @@ export function ImageSelectionWorkspace({
         />
       ) : null}
     </section>
+  );
+}
+
+function Metric({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: number | string | undefined;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>
+        {typeof value === 'number'
+          ? value.toLocaleString('pl-PL')
+          : (value ?? '—')}
+      </dd>
+    </div>
   );
 }
 

@@ -400,6 +400,43 @@ nav {
   margin: 0;
 }
 
+.imageSelectionRunSummary,
+.imageSelectionRunBody {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.imageSelectionRunSummary {
+  align-content: start;
+}
+
+.imageSelectionRunSummary .jobStatus {
+  width: fit-content;
+}
+
+.imageSelectionRunProgress {
+  display: grid;
+  gap: 8px;
+}
+
+.imageSelectionRunProgress > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 20px;
+}
+
+.imageSelectionRunProgress span {
+  color: var(--muted);
+}
+
+.imageSelectionRunProgress progress {
+  width: 100%;
+  height: 10px;
+  accent-color: var(--accent);
+}
+
 .imageSelectionRunCard dl {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -426,6 +463,21 @@ nav {
   overflow-wrap: anywhere;
   font-family: 'SFMono-Regular', Consolas, monospace;
   font-size: 12px;
+}
+
+.imageSelectionTechnicalDetails {
+  min-width: 0;
+}
+
+.imageSelectionTechnicalDetails summary {
+  width: fit-content;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.imageSelectionTechnicalDetails dl {
+  margin-top: 12px;
 }
 
 .manualSelectionOverlay {

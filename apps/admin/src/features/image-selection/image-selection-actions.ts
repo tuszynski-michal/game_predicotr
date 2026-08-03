@@ -70,7 +70,7 @@ export async function uploadPhotoSelectionFolder(
   const totalBytes = files.reduce((total, file) => total + file.size, 0);
   const firstPath = relativePath(files[0]);
   const displayName =
-    options.resume?.displayName ?? firstPath.split('/')[0] || 'Zdjęcia';
+    (options.resume?.displayName ?? firstPath.split('/')[0]) || 'Zdjęcia';
   let uploadId = options.resume?.uploadId ?? null;
 
   try {

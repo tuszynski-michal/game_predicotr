@@ -4,6 +4,10 @@ import type {
   ForecastResult,
 } from './contracts.js';
 import { DomainValidationError } from './errors.js';
+import {
+  TARGET_SCAN_LIMIT_ENGINE_MIN,
+  TARGET_SCAN_LIMIT_MAX,
+} from './target-scan.js';
 
 const SNAPSHOT_CHECKSUM_PATTERN = /^[0-9a-f]{64}$/i;
 
@@ -70,7 +74,21 @@ function validateInput(input: ForecastInput): void {
     );
   }
 
-  const expectedSpinCount = input.layoutCount - 1;
+  if (
+    !Number.isSafeInteger(input.targetScanLimit) ||
+    input.targetScanLimit < TARGET_SCAN_LIMIT_ENGINE_MIN ||
+    input.targetScanLimit > TARGET_SCAN_LIMIT_MAX
+  ) {
+    throw new DomainValidationError(
+      'invalid_target_scan_limit',
+      `Target scan limit must be an integer from ${TARGET_SCAN_LIMIT_ENGINE_MIN} to ${TARGET_SCAN_LIMIT_MAX}.`,
+    );
+  }
+
+  const expectedSpinCount = Math.min(
+    input.targetScanLimit,
+    input.layoutCount - 1,
+  );
   if (input.sequencePayouts.length !== expectedSpinCount) {
     throw new DomainValidationError(
       'invalid_forecast_length',
@@ -197,7 +215,8 @@ export function calculateTargetForecast(input: ForecastInput): ForecastResult {
     rulesVersion: input.rulesVersion,
     algorithmVersion: input.algorithmVersion,
     startSequenceNumber: input.startSequenceNumber,
-    evaluatedSpinCount: input.layoutCount - 1,
+    targetScanLimit: input.targetScanLimit,
+    evaluatedSpinCount: input.sequencePayouts.length,
     spinCost: input.spinCost,
     finalCumulativePayout: cumulativePayout,
     finalCumulativeCost: cumulativeCost,

@@ -76,6 +76,19 @@ Powtórzona sygnatura rekordu załadowanego przez `Next` nie unieważnia znanej
 pozycji sesji; zakaz Targetu nadal obowiązuje dla duplikatu rozpoznanego z
 ręcznego wejścia bez takiego anchora.
 
+Od TASK-0139 warstwa prezentacji składa stan exact matchingu i stan Targetu w
+jedną kartę wyniku, ale nie łączy ich logiki ani cyklu życia. Target nadal jest
+osobnym, anulowalnym odczytem uruchamianym wyłącznie przez jednoznaczny anchor;
+karta jedynie mapuje oba typowane stany na wspólne loading, success, warning i
+error oraz zachowuje osobną komendę retry Targetu.
+
+Od TASK-0140 jeden pionowy `FlatList` pozostaje właścicielem przewijania całego
+ekranu. Kotwica wyników Targetu przekazuje swoją rzeczywistą pozycję przez
+`onLayout`, a `onScroll` steruje widocznością pływającego przycisku dopiero po
+osiągnięciu tej pozycji. Przycisk używa referencji tej samej listy do
+`scrollToOffset(0)`, znajduje się wewnątrz `SafeAreaView`, a powiększony footer
+zapewnia miejsce pod ostatnimi wierszami tabeli.
+
 ### Admin web
 
 - trzy odrębne workspace’y (`Zarządzanie grami`, `Wersje Android`, `Joby`),
@@ -271,11 +284,15 @@ komórki, jokery i ich interpretacje bez ładowania całego pliku do pamięci.
 
 ### Production SQLite generation
 
-Generator schema v2 przyjmuje jawne wybory
+Generator schema v3 przyjmuje jawne wybory
 `(dataset_version_id, rules_version_id, algorithm_version)` oraz deterministyczne
 metadata wydania. Każdy wybór przechodzi bramkę kompletności M3.2. Źródła są
 porządkowane po stabilnym kodzie gry, a mobilne identyfikatory techniczne są
 przydzielane dopiero po tym sortowaniu.
+
+Schema v3 rozszerza katalog symboli o nullable `name_pl` i `name_en`. Obie
+etykiety uczestniczą w logicznym checksumie snapshotu, a wymagane `name`
+pozostaje fallbackiem zgodności. Mobile 0.3 nie otwiera snapshotu v2.
 
 Katalog gier i symboli jest mały i powstaje przed zapisem. Layouty z dokładnie
 wybraną wersją payoutu są odczytywane z PostgreSQL keysetowo i zapisywane do
@@ -325,7 +342,7 @@ sequenceDiagram
     participant Mobile
     participant SQLite
 
-    Mobile->>SQLite: strumień N-1 payoutów po spinie 0
+    Mobile->>SQLite: najwyżej min(limit, N-1) payoutów po spinie 0
     SQLite-->>Mobile: sequence number + payout, w kolejności cyklicznej
     Mobile->>Mobile: zweryfikuj ciągłość i brak spinu 0
     Mobile->>Mobile: kumuluj payout i koszt
@@ -333,10 +350,12 @@ sequenceDiagram
     Mobile->>Mobile: pokaż podsumowanie i wirtualizowaną tabelę
 ```
 
-Port forecastu przyjmuje uporządkowany strumień `N - 1` par
+Port forecastu przyjmuje uporządkowany strumień
+`min(target_scan_limit, N - 1)` par
 `(sequence_number, payout)` wraz z metadanymi wydania. Adapter SQLite odpowiada
-za cykliczny odczyt partiami, a czysty engine ponownie weryfikuje oczekiwany
-numer każdej pozycji i wykonuje jeden przebieg.
+za jeden cykliczny odczyt ograniczony parametrem `LIMIT`, a czysty engine
+ponownie weryfikuje limit, długość i oczekiwany numer każdej pozycji oraz
+wykonuje jeden przebieg.
 
 Payout reguł nie jest liczony w runtime mobile. Został obliczony przy przygotowaniu wydania.
 

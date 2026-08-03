@@ -111,6 +111,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         mobile_code: int,
         code: str,
         name: str,
+        name_pl: str | None,
+        name_en: str | None,
         image_path: str | None,
         is_wildcard: bool,
         display_order: int,
@@ -121,6 +123,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             mobile_code=mobile_code,
             code=code,
             name=name,
+            name_pl=name_pl,
+            name_en=name_en,
             image_path=image_path,
             is_wildcard=is_wildcard,
             display_order=display_order,
@@ -135,6 +139,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         if record is None or record.game_id != symbol.game_id:
             raise RuntimeError("Symbol disappeared during a catalog transaction.")
         record.name = symbol.name
+        record.name_pl = symbol.name_pl
+        record.name_en = symbol.name_en
         record.image_path = symbol.image_path
         record.is_wildcard = symbol.is_wildcard
         record.display_order = symbol.display_order
@@ -184,6 +190,8 @@ def _to_symbol(record: SymbolModel) -> Symbol:
         mobile_code=record.mobile_code,
         code=record.code,
         name=record.name,
+        name_pl=record.name_pl,
+        name_en=record.name_en,
         image_path=record.image_path,
         is_wildcard=record.is_wildcard,
         display_order=record.display_order,

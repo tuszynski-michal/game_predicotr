@@ -538,6 +538,37 @@ function SymbolEditor({
             required
             value={draft.name}
           />
+          <small>Wymagany fallback dla starszych snapshotów i klientów.</small>
+        </label>
+
+        <label>
+          <span>Nazwa polska</span>
+          <input
+            autoComplete="off"
+            disabled={isSubmitting}
+            maxLength={200}
+            name="namePl"
+            onChange={(event) =>
+              onChange({ ...draft, namePl: event.currentTarget.value })
+            }
+            placeholder="Opcjonalna nazwa w aplikacji mobilnej"
+            value={draft.namePl}
+          />
+        </label>
+
+        <label>
+          <span>Nazwa angielska</span>
+          <input
+            autoComplete="off"
+            disabled={isSubmitting}
+            maxLength={200}
+            name="nameEn"
+            onChange={(event) =>
+              onChange({ ...draft, nameEn: event.currentTarget.value })
+            }
+            placeholder="Optional mobile application name"
+            value={draft.nameEn}
+          />
         </label>
 
         <label>
@@ -741,6 +772,11 @@ function SymbolsList({
                     <span>mobile {symbol.mobileCode}</span>
                     <span>kolejność {symbol.displayOrder}</span>
                   </div>
+                  {symbol.namePl || symbol.nameEn ? (
+                    <p className="imagePathValue">
+                      PL: {symbol.namePl ?? '—'} · EN: {symbol.nameEn ?? '—'}
+                    </p>
+                  ) : null}
                   <p className="imagePathValue">
                     {symbol.imagePath ?? 'Brak obrazu referencyjnego'}
                   </p>

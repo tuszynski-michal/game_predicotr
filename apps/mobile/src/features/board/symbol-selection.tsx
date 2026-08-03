@@ -1,12 +1,5 @@
 import type { SymbolDefinition } from '@game-predictor/shared-ts';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { boardColors } from './board-theme';
 import { resolveSymbolAsset } from './symbol-assets';
@@ -17,123 +10,116 @@ type Props = {
   symbols: readonly SymbolDefinition[];
 };
 
+function normalizedLabel(value: string | undefined): string | null {
+  const normalized = value?.trim() ?? '';
+  return normalized.length === 0 ? null : normalized;
+}
+
+export function selectSymbolLabel(symbol: SymbolDefinition): string {
+  const polish = normalizedLabel(symbol.namePl);
+  const english = normalizedLabel(symbol.nameEn);
+  if (polish !== null && english !== null) {
+    return polish.length <= english.length ? polish : english;
+  }
+  return polish ?? english ?? symbol.name;
+}
+
 export function SymbolSelection({ disabled, onSelectSymbol, symbols }: Props) {
   return (
-    <View>
-      <View style={styles.headingRow}>
-        <Text accessibilityRole="header" style={styles.heading}>
-          Selection
-        </Text>
-        <Text style={styles.hint}>
-          {disabled ? 'Plansza jest pełna' : 'Wybierz kolejny symbol'}
-        </Text>
-      </View>
-      <ScrollView
-        accessibilityLabel="Wybór symbolu"
-        contentContainerStyle={styles.list}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-      >
-        {symbols.map((symbol) => {
-          const imageSource = resolveSymbolAsset(symbol.imageAssetKey);
-          return (
-            <Pressable
-              accessibilityLabel={`${symbol.name}${symbol.isWildcard ? ', joker' : ''}`}
-              accessibilityRole="button"
-              accessibilityState={{ disabled }}
-              disabled={disabled}
-              key={symbol.mobileCode}
-              onPress={() => onSelectSymbol(symbol.mobileCode)}
-              style={({ pressed }) => [
-                styles.symbol,
-                symbol.isWildcard && styles.jokerSymbol,
-                disabled && styles.symbolDisabled,
-                pressed && !disabled && styles.symbolPressed,
-              ]}
-              testID={`symbol-${symbol.mobileCode}`}
+    <View accessibilityLabel="Wybór symbolu" style={styles.list}>
+      {symbols.map((symbol) => {
+        const imageSource = resolveSymbolAsset(symbol.imageAssetKey);
+        const label = selectSymbolLabel(symbol);
+        return (
+          <Pressable
+            accessibilityLabel={`${label}${symbol.isWildcard ? ', joker' : ''}`}
+            accessibilityRole="button"
+            accessibilityState={{ disabled }}
+            disabled={disabled}
+            key={symbol.mobileCode}
+            onPress={() => onSelectSymbol(symbol.mobileCode)}
+            style={({ pressed }) => [
+              styles.symbol,
+              symbol.isWildcard && styles.jokerSymbol,
+              disabled && styles.symbolDisabled,
+              pressed && !disabled && styles.symbolPressed,
+            ]}
+            testID={`symbol-${symbol.mobileCode}`}
+          >
+            {symbol.isWildcard ? (
+              <View
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={styles.jokerMark}
+              />
+            ) : null}
+            {imageSource === null ? null : (
+              <Image
+                accessibilityIgnoresInvertColors
+                source={imageSource}
+                style={styles.symbolImage}
+              />
+            )}
+            <Text
+              ellipsizeMode="tail"
+              numberOfLines={1}
+              style={styles.symbolName}
             >
-              {imageSource === null ? null : (
-                <Image
-                  accessibilityIgnoresInvertColors
-                  source={imageSource}
-                  style={styles.symbolImage}
-                />
-              )}
-              <Text style={styles.symbolCode}>{symbol.code}</Text>
-              <Text numberOfLines={1} style={styles.symbolName}>
-                {symbol.name}
-              </Text>
-              {symbol.isWildcard ? (
-                <Text style={styles.jokerText}>JOKER</Text>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+              {label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    color: boardColors.text,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  headingRow: {
-    alignItems: 'baseline',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  hint: {
-    color: boardColors.muted,
-    fontSize: 12,
+  jokerMark: {
+    backgroundColor: '#a78bfa',
+    borderRadius: 4,
+    height: 8,
+    position: 'absolute',
+    right: 5,
+    top: 5,
+    width: 8,
   },
   jokerSymbol: {
     borderColor: '#a78bfa',
   },
-  jokerText: {
-    color: '#ddd6fe',
-    fontSize: 8,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    marginTop: 4,
-  },
   list: {
-    gap: 10,
-    paddingRight: 18,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    width: '100%',
   },
   symbol: {
     alignItems: 'center',
     backgroundColor: '#18304d',
     borderColor: boardColors.border,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
+    flexBasis: '21%',
+    flexGrow: 1,
     justifyContent: 'center',
-    minHeight: 82,
-    minWidth: 82,
-    padding: 9,
-  },
-  symbolCode: {
-    color: boardColors.text,
-    fontSize: 12,
-    fontWeight: '900',
+    maxWidth: '24%',
+    minHeight: 68,
+    minWidth: 68,
+    padding: 6,
   },
   symbolDisabled: {
     opacity: 0.42,
   },
+  symbolImage: {
+    borderRadius: 7,
+    height: 40,
+    marginBottom: 4,
+    width: 40,
+  },
   symbolName: {
     color: boardColors.muted,
     fontSize: 10,
-    marginTop: 4,
-    maxWidth: 70,
-  },
-  symbolImage: {
-    borderRadius: 8,
-    height: 44,
-    marginBottom: 5,
-    width: 44,
+    maxWidth: '100%',
   },
   symbolPressed: {
     backgroundColor: boardColors.accentPressed,

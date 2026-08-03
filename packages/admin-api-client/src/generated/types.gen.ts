@@ -909,10 +909,6 @@ export type ImageSelectionCreate = {
    * Selectiontoken
    */
   selectionToken: string;
-  /**
-   * Selectorfingerprint
-   */
-  selectorFingerprint: string;
 };
 
 /**
@@ -3769,6 +3765,14 @@ export type SymbolCreate = {
    * Name
    */
   name: string;
+  /**
+   * Nameen
+   */
+  nameEn?: string | null;
+  /**
+   * Namepl
+   */
+  namePl?: string | null;
   status?: SymbolStatus;
 };
 
@@ -3850,6 +3854,14 @@ export type SymbolResponse = {
    * Name
    */
   name: string;
+  /**
+   * Nameen
+   */
+  nameEn: string | null;
+  /**
+   * Namepl
+   */
+  namePl: string | null;
   status: SymbolStatus;
 };
 
@@ -3878,6 +3890,14 @@ export type SymbolUpdate = {
    * Name
    */
   name?: string | null;
+  /**
+   * Nameen
+   */
+  nameEn?: string | null;
+  /**
+   * Namepl
+   */
+  namePl?: string | null;
   status?: SymbolStatus | null;
 };
 

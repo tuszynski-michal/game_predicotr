@@ -182,12 +182,12 @@
     }
   ],
   "layoutCount": 3000,
-  "logicalContentSha256": "dff9544cc678873ac6b6d87cbddf64a5ce4ea8ee56972fd104762d1dfca837e8",
+  "logicalContentSha256": "e9e2e1c2ba76744ed5ea4d732cf6d4420a239d6bac796d6632514a5bdf3e7248",
   "releaseVersion": "m1-fixture.2",
   "rulesVersion": 2,
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "snapshotFile": "m1-snapshot.db",
-  "snapshotFileSha256": "4365a33d066a354d212693cd9169dac102b7cb1c164df6693f655e8690e9224a",
+  "snapshotFileSha256": "bc583c2b36417a43de593a13848d64976b53cf408f6916a40a470f732185751c",
   "targetGoldenCases": [
     {
       "code": "multiple-peaks-later-lower-and-plateau",

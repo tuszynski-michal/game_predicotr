@@ -83,6 +83,7 @@ implementacyjnym.
 - [Current state](process/CURRENT_STATE.md)
 - [Task template](process/TASK_TEMPLATE.md)
 - [Test strategy](quality/TEST_STRATEGY.md)
+- [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
 
 ### Bezpieczeństwo
 

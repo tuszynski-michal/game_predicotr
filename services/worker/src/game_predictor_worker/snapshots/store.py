@@ -63,6 +63,8 @@ class SqlAlchemyProductionSnapshotStore:
                     mobile_code=symbol.mobile_code,
                     code=symbol.code,
                     name=symbol.name,
+                    name_pl=symbol.name_pl,
+                    name_en=symbol.name_en,
                     is_wildcard=symbol.is_wildcard,
                     display_order=symbol.display_order,
                     image_asset_key=symbol.image_path,
@@ -74,8 +76,7 @@ class SqlAlchemyProductionSnapshotStore:
                         SymbolModel.id == RulesVersionSymbolModel.symbol_id,
                     )
                     .where(
-                        RulesVersionSymbolModel.rules_version_id
-                        == selection.rules_version_id,
+                        RulesVersionSymbolModel.rules_version_id == selection.rules_version_id,
                         RulesVersionSymbolModel.is_active.is_(True),
                     )
                     .order_by(SymbolModel.mobile_code, SymbolModel.id)
@@ -108,8 +109,7 @@ class SqlAlchemyProductionSnapshotStore:
         if limit <= 0:
             raise ValueError("Snapshot batch limit must be positive.")
         exact_payout = and_(
-            LayoutPayoutModel.dataset_version_id
-            == selection.dataset_version_id,
+            LayoutPayoutModel.dataset_version_id == selection.dataset_version_id,
             LayoutPayoutModel.rules_version_id == selection.rules_version_id,
             LayoutPayoutModel.algorithm_version == selection.algorithm_version,
             LayoutPayoutModel.sequence_number == LayoutModel.sequence_number,
@@ -123,8 +123,7 @@ class SqlAlchemyProductionSnapshotStore:
                 )
                 .join(LayoutPayoutModel, exact_payout)
                 .where(
-                    LayoutModel.dataset_version_id
-                    == selection.dataset_version_id,
+                    LayoutModel.dataset_version_id == selection.dataset_version_id,
                     LayoutModel.sequence_number > after_sequence_number,
                 )
                 .order_by(LayoutModel.sequence_number, LayoutModel.id)
@@ -138,4 +137,3 @@ class SqlAlchemyProductionSnapshotStore:
                 )
                 for sequence_number, signature, total_payout in records
             ]
-

@@ -1,7 +1,7 @@
 import { encodeSignature } from '@game-predictor/shared-ts';
 import { useEffect, useMemo, useState } from 'react';
 
-import { asLocalDataError, type LocalDataError } from '@/data/local-data-error';
+import { asLocalDataError, LocalDataError } from '@/data/local-data-error';
 import type {
   ExactMatchResult,
   LocalGameConfig,
@@ -76,6 +76,7 @@ export function useExactMatching(
   repository: ExactMatchRepository,
   game: LocalGameConfig | null,
   cells: readonly BoardCell[],
+  anchorSequenceNumber: number | null = null,
 ): ExactMatchingState {
   const signature = useMemo(() => {
     if (game === null || !isCompleteBoard(game, cells)) {
@@ -86,7 +87,11 @@ export function useExactMatching(
   const [storedState, setStoredState] = useState<StoredExactState>(idleState);
 
   useEffect(() => {
-    if (game === null || signature.length === 0) {
+    if (
+      game === null ||
+      signature.length === 0 ||
+      anchorSequenceNumber !== null
+    ) {
       return;
     }
 
@@ -124,10 +129,38 @@ export function useExactMatching(
     return () => {
       isCurrentRequest = false;
     };
-  }, [cells, game, repository, signature]);
+  }, [anchorSequenceNumber, cells, game, repository, signature]);
 
   if (game === null || signature.length === 0) {
     return idleState(signature);
+  }
+  if (anchorSequenceNumber !== null) {
+    if (
+      !Number.isSafeInteger(anchorSequenceNumber) ||
+      anchorSequenceNumber < 1 ||
+      anchorSequenceNumber > game.layoutCount ||
+      !isCompleteBoard(game, cells)
+    ) {
+      return {
+        error: new LocalDataError('Known sequence anchor is invalid.'),
+        result: null,
+        signature,
+        status: 'error',
+      };
+    }
+    return {
+      error: null,
+      result: {
+        candidate: {
+          cells,
+          sequenceNumber: anchorSequenceNumber,
+          signature,
+        },
+        status: 'unique',
+      },
+      signature,
+      status: 'ready',
+    };
   }
   if (
     storedState.gameId !== game.id ||

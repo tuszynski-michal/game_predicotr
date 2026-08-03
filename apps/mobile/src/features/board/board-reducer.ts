@@ -1,9 +1,15 @@
 export type BoardCell = number | null;
 
+export interface BoardSnapshot {
+  readonly anchorSequenceNumber: number | null;
+  readonly cells: readonly BoardCell[];
+}
+
 export interface BoardState {
+  readonly anchorSequenceNumber: number | null;
   readonly cells: readonly BoardCell[];
   readonly columns: number;
-  readonly history: readonly (readonly BoardCell[])[];
+  readonly history: readonly BoardSnapshot[];
   readonly rejectedSuggestionPrefix: string | null;
   readonly rows: number;
   readonly selectedGameId: string | null;
@@ -29,6 +35,11 @@ export type BoardAction =
   | {
       readonly cells: readonly number[];
       readonly type: 'complete_board';
+    }
+  | {
+      readonly cells: readonly number[];
+      readonly sequenceNumber: number;
+      readonly type: 'load_anchored_layout';
     }
   | {
       readonly signaturePrefix: string;
@@ -76,9 +87,23 @@ function emptyCells(rows: number, columns: number): readonly null[] {
 }
 
 function freezeHistory(
-  history: readonly (readonly BoardCell[])[],
-): readonly (readonly BoardCell[])[] {
-  return Object.freeze([...history]);
+  history: readonly BoardSnapshot[],
+): readonly BoardSnapshot[] {
+  return Object.freeze(
+    history.map((snapshot) =>
+      Object.freeze({
+        anchorSequenceNumber: snapshot.anchorSequenceNumber,
+        cells: Object.freeze([...snapshot.cells]),
+      }),
+    ),
+  );
+}
+
+function snapshot(state: BoardState): BoardSnapshot {
+  return Object.freeze({
+    anchorSequenceNumber: state.anchorSequenceNumber,
+    cells: state.cells,
+  });
 }
 
 function createState(
@@ -86,10 +111,12 @@ function createState(
   rows: number,
   columns: number,
   cells: readonly BoardCell[],
-  history: readonly (readonly BoardCell[])[],
+  history: readonly BoardSnapshot[],
   rejectedSuggestionPrefix: string | null,
+  anchorSequenceNumber: number | null,
 ): BoardState {
   return Object.freeze({
+    anchorSequenceNumber,
     cells: Object.freeze([...cells]),
     columns,
     history: freezeHistory(history),
@@ -100,7 +127,7 @@ function createState(
 }
 
 export function createEmptyBoardState(): BoardState {
-  return createState(null, 0, 0, [], [], null);
+  return createState(null, 0, 0, [], [], null, null);
 }
 
 export function createBoardState(
@@ -116,6 +143,7 @@ export function createBoardState(
     columns,
     emptyCells(rows, columns),
     [],
+    null,
     null,
   );
 }
@@ -149,7 +177,8 @@ function appendSymbol(state: BoardState, mobileCode: number): BoardState {
     state.rows,
     state.columns,
     nextCells,
-    [...state.history, state.cells],
+    [...state.history, snapshot(state)],
+    null,
     null,
   );
 }
@@ -184,23 +213,59 @@ function completeBoard(
     state.rows,
     state.columns,
     completedCells,
-    [...state.history, state.cells],
+    [...state.history, snapshot(state)],
+    null,
     null,
   );
 }
 
+function loadAnchoredLayout(
+  state: BoardState,
+  cells: readonly number[],
+  sequenceNumber: number,
+): BoardState {
+  if (state.selectedGameId === null || cells.length !== state.cells.length) {
+    throw new BoardStateError(
+      'Anchored layout must match the selected game dimensions.',
+    );
+  }
+  cells.forEach(requireMobileCode);
+  if (!Number.isSafeInteger(sequenceNumber) || sequenceNumber < 1) {
+    throw new BoardStateError(
+      'Anchor sequence number must be a positive safe integer.',
+    );
+  }
+  if (
+    state.anchorSequenceNumber === sequenceNumber &&
+    state.cells.every((cell, index) => cell === cells[index])
+  ) {
+    return state;
+  }
+
+  return createState(
+    state.selectedGameId,
+    state.rows,
+    state.columns,
+    cells,
+    [...state.history, snapshot(state)],
+    null,
+    sequenceNumber,
+  );
+}
+
 function undo(state: BoardState): BoardState {
-  const previousCells = state.history.at(-1);
-  if (previousCells === undefined) {
+  const previous = state.history.at(-1);
+  if (previous === undefined) {
     return state;
   }
   return createState(
     state.selectedGameId,
     state.rows,
     state.columns,
-    previousCells,
+    previous.cells,
     state.history.slice(0, -1),
     null,
+    previous.anchorSequenceNumber,
   );
 }
 
@@ -229,6 +294,8 @@ export function boardReducer(
       return appendSymbol(state, action.mobileCode);
     case 'complete_board':
       return completeBoard(state, action.cells);
+    case 'load_anchored_layout':
+      return loadAnchoredLayout(state, action.cells, action.sequenceNumber);
     case 'reject_suggestion':
       return createState(
         state.selectedGameId,
@@ -237,6 +304,7 @@ export function boardReducer(
         state.cells,
         state.history,
         action.signaturePrefix,
+        state.anchorSequenceNumber,
       );
     case 'undo':
       return undo(state);

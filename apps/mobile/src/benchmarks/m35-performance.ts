@@ -30,6 +30,7 @@ export interface M35BenchmarkRepository {
   readCyclicPayouts(
     game: LocalGameConfig,
     startSequenceNumber: number,
+    targetScanLimit: number,
   ): Promise<readonly SequencePayout[]>;
 }
 
@@ -261,6 +262,7 @@ export async function runM35MobileBenchmark(
     const payouts = await repository.readCyclicPayouts(
       game,
       references.unique.sequence_number,
+      500_000,
     );
     cyclicReadValues.push(performance.now() - readStartedAt);
 
@@ -268,6 +270,7 @@ export async function runM35MobileBenchmark(
     const forecast = calculateSnapshotTargetForecast(
       game,
       references.unique.sequence_number,
+      500_000,
       diagnostics,
       payouts,
     );

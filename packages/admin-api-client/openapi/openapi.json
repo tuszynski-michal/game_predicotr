@@ -1510,17 +1510,11 @@
             "minLength": 32,
             "title": "Selectiontoken",
             "type": "string"
-          },
-          "selectorFingerprint": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Selectorfingerprint",
-            "type": "string"
           }
         },
         "required": [
           "gameId",
-          "selectionToken",
-          "selectorFingerprint"
+          "selectionToken"
         ],
         "title": "ImageSelectionCreate",
         "type": "object"
@@ -6295,6 +6289,32 @@
             "title": "Name",
             "type": "string"
           },
+          "nameEn": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nameen"
+          },
+          "namePl": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namepl"
+          },
           "status": {
             "$ref": "#/components/schemas/SymbolStatus",
             "default": "active"
@@ -6427,6 +6447,28 @@
             "title": "Name",
             "type": "string"
           },
+          "nameEn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nameen"
+          },
+          "namePl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namepl"
+          },
           "status": {
             "$ref": "#/components/schemas/SymbolStatus"
           }
@@ -6437,6 +6479,8 @@
           "mobileCode",
           "code",
           "name",
+          "namePl",
+          "nameEn",
           "imagePath",
           "isWildcard",
           "displayOrder",
@@ -6503,6 +6547,32 @@
               }
             ],
             "title": "Name"
+          },
+          "nameEn": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nameen"
+          },
+          "namePl": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namepl"
           },
           "status": {
             "anyOf": [

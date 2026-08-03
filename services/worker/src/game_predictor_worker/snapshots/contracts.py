@@ -34,6 +34,8 @@ class SnapshotSymbol:
     is_wildcard: bool
     display_order: int
     image_asset_key: str | None
+    name_pl: str | None = None
+    name_en: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

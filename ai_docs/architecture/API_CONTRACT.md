@@ -96,11 +96,14 @@ PATCH  /api/v1/admin/games/{gameId}/symbols/{symbolId}
 DELETE /api/v1/admin/games/{gameId}/symbols/{symbolId}
 ```
 
-Tworzenie symbolu przyjmuje `mobileCode`, stabilny `code`, `name`, opcjonalny
-`imagePath`, `isWildcard`, `displayOrder` oraz `status`. `mobileCode` i `code`
+Tworzenie symbolu przyjmuje `mobileCode`, stabilny `code`, wymagany fallback
+`name`, opcjonalne etykiety `namePl` i `nameEn`, `imagePath`, `isWildcard`,
+`displayOrder` oraz `status`. `mobileCode` i `code`
 nie są edytowalne. `imagePath` jest względną ścieżką metadanych, nie zawartością
 binarną. Lista jest deterministycznie uporządkowana po `displayOrder`,
 `mobileCode` i technicznym UUID. `DELETE` ustawia `status = archived`.
+Puste po trimowaniu etykiety lokalizowane są odrzucane. W `PATCH` pominięte
+pole zachowuje poprzednią wartość, natomiast jawne `null` usuwa etykietę.
 
 Stabilne konflikty i brak zasobu:
 

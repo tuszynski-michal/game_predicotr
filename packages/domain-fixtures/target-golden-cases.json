@@ -5,6 +5,7 @@
     "datasetVersion": 1,
     "rulesVersion": 1,
     "algorithmVersion": "target-v1",
+    "targetScanLimit": 500000,
     "spinCost": 10
   },
   "cases": [

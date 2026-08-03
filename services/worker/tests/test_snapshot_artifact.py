@@ -116,9 +116,7 @@ class FakeArtifactRepository:
         if selection != SELECTION:
             return ()
         return tuple(
-            layout
-            for layout in self.layouts
-            if layout.sequence_number > after_sequence_number
+            layout for layout in self.layouts if layout.sequence_number > after_sequence_number
         )[:limit]
 
 
@@ -154,9 +152,7 @@ def _write_manifest(
     value: dict[str, Any],
 ) -> None:
     artifact.manifest_path.write_bytes(
-        (
-            json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n"
-        ).encode("utf-8")
+        (json.dumps(value, ensure_ascii=True, indent=2, sort_keys=True) + "\n").encode("utf-8")
     )
 
 
@@ -196,18 +192,14 @@ def test_publisher_creates_strict_manifest_and_idempotently_reuses_artifact(
     assert retried.manifest_path.read_bytes() == manifest_bytes
     assert retried.database_path.stat().st_mtime_ns == database_mtime
     assert artifact.directory == (
-        tmp_path
-        / "artifacts"
-        / "snapshots"
-        / "release-1.0"
-        / manifest.logical_content_sha256
+        tmp_path / "artifacts" / "snapshots" / "release-1.0" / manifest.logical_content_sha256
     )
     assert {path.name for path in artifact.directory.iterdir()} == {
         "manifest.json",
         "snapshot.db",
     }
     assert manifest.manifest_version == 1
-    assert manifest.snapshot_schema_version == 2
+    assert manifest.snapshot_schema_version == 3
     assert manifest.game_count == 1
     assert manifest.symbol_count == 2
     assert manifest.layout_count == 3
@@ -363,8 +355,7 @@ def test_unknown_symbol_and_malformed_signature_are_rejected(
     artifact = _publish(tmp_path)
     _mutate_database(
         artifact,
-        f"UPDATE layouts SET signature = '{signature}' "
-        "WHERE game_id = 1 AND sequence_number = 3",
+        f"UPDATE layouts SET signature = '{signature}' WHERE game_id = 1 AND sequence_number = 3",
     )
 
     with pytest.raises(SnapshotArtifactError) as error:
@@ -390,8 +381,7 @@ def test_invalid_payout_and_valid_content_change_are_rejected(tmp_path: Path) ->
     artifact = _publish(tmp_path / "second")
     _mutate_database(
         artifact,
-        "UPDATE layouts SET payout = payout + 1 "
-        "WHERE game_id = 1 AND sequence_number = 3",
+        "UPDATE layouts SET payout = payout + 1 WHERE game_id = 1 AND sequence_number = 3",
     )
     with pytest.raises(SnapshotArtifactError) as logical_error:
         validate_snapshot_artifact(artifact.directory)

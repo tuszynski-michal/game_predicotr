@@ -31,7 +31,9 @@ REVIEWER_ACCESS_REVISION = "0021_reviewer_access"
 DATASET_QUALITY_REVISION = "0022_dataset_quality"
 SYMBOL_BOOTSTRAP_REVISION = "0023_symbol_bootstrap"
 CLEANUP_OPERATIONS_REVISION = "0024_cleanup_operations"
+SYMBOL_LOCALIZED_NAMES_REVISION = "0025_symbol_localized_names"
 IMAGE_SELECTION_REVISION = "0025_image_selection"
+MIGRATION_MERGE_REVISION = "0026_merge_v03_v04_heads"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -43,7 +45,7 @@ def create_alembic_config(*, output_buffer: StringIO | None = None) -> Config:
     return config
 
 
-def test_image_selection_migration_is_the_only_head() -> None:
+def test_parallel_feature_migrations_converge_on_one_head() -> None:
     script = ScriptDirectory.from_config(create_alembic_config())
     baseline = script.get_revision(BASELINE_REVISION)
     catalog = script.get_revision(CATALOG_REVISION)
@@ -69,9 +71,11 @@ def test_image_selection_migration_is_the_only_head() -> None:
     dataset_quality = script.get_revision(DATASET_QUALITY_REVISION)
     symbol_bootstrap = script.get_revision(SYMBOL_BOOTSTRAP_REVISION)
     cleanup_operations = script.get_revision(CLEANUP_OPERATIONS_REVISION)
+    symbol_localized_names = script.get_revision(SYMBOL_LOCALIZED_NAMES_REVISION)
     image_selection = script.get_revision(IMAGE_SELECTION_REVISION)
+    migration_merge = script.get_revision(MIGRATION_MERGE_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_REVISION]
+    assert script.get_heads() == [MIGRATION_MERGE_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -120,8 +124,15 @@ def test_image_selection_migration_is_the_only_head() -> None:
     assert symbol_bootstrap.down_revision == DATASET_QUALITY_REVISION
     assert cleanup_operations is not None
     assert cleanup_operations.down_revision == SYMBOL_BOOTSTRAP_REVISION
+    assert symbol_localized_names is not None
+    assert symbol_localized_names.down_revision == CLEANUP_OPERATIONS_REVISION
     assert image_selection is not None
     assert image_selection.down_revision == CLEANUP_OPERATIONS_REVISION
+    assert migration_merge is not None
+    assert migration_merge.down_revision == (
+        SYMBOL_LOCALIZED_NAMES_REVISION,
+        IMAGE_SELECTION_REVISION,
+    )
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:

@@ -1,0 +1,4 @@
+export const TARGET_SCAN_LIMIT_ENGINE_MIN = 1;
+export const TARGET_SCAN_LIMIT_UI_MIN = 1_000;
+export const TARGET_SCAN_LIMIT_DEFAULT = 10_000;
+export const TARGET_SCAN_LIMIT_MAX = 500_000;

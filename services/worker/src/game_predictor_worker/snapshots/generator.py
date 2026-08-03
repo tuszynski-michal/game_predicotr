@@ -30,12 +30,13 @@ from game_predictor_worker.snapshots.integrity import (
     file_sha256,
 )
 
-PRODUCTION_SNAPSHOT_SCHEMA_VERSION: Final = 2
+PRODUCTION_SNAPSHOT_SCHEMA_VERSION: Final = 3
 SQLITE_APPLICATION_ID: Final = 0x47505244
 DEFAULT_SNAPSHOT_BATCH_SIZE: Final = 1000
 SIGNATURE_INDEX_NAME: Final = "idx_layouts_game_signature"
 
 _RELEASE_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+
 
 class ProductionSnapshotError(RuntimeError):
     """Stable generation failure safe to expose to an operator."""
@@ -208,7 +209,7 @@ class ProductionSnapshotGenerator:
         if len(algorithms) != 1:
             raise ProductionSnapshotError(
                 "SNAPSHOT_ALGORITHM_MISMATCH",
-                "All games in one schema-v2 snapshot must use the same algorithm.",
+                "All games in one snapshot must use the same algorithm.",
             )
         return loaded
 
@@ -241,9 +242,9 @@ class ProductionSnapshotGenerator:
                 connection.executemany(
                     """
                     INSERT INTO symbols(
-                        game_id, mobile_code, code, name, is_wildcard,
-                        display_order, image_asset_key
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        game_id, mobile_code, code, name, name_pl, name_en,
+                        is_wildcard, display_order, image_asset_key
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     symbol_rows,
                 )
@@ -257,9 +258,7 @@ class ProductionSnapshotGenerator:
                             "game_count": str(len(game_rows)),
                             "layout_count": str(layout_count),
                             "release_version": release_version,
-                            "snapshot_schema_version": str(
-                                PRODUCTION_SNAPSHOT_SCHEMA_VERSION
-                            ),
+                            "snapshot_schema_version": str(PRODUCTION_SNAPSHOT_SCHEMA_VERSION),
                         }.items()
                     ),
                 )
@@ -354,9 +353,7 @@ def _validate_spec(spec: ProductionSnapshotSpec) -> tuple[str, str]:
                 "algorithmVersion must not be blank.",
             )
     created_at = (
-        spec.created_at.astimezone(UTC)
-        .isoformat(timespec="microseconds")
-        .replace("+00:00", "Z")
+        spec.created_at.astimezone(UTC).isoformat(timespec="microseconds").replace("+00:00", "Z")
     )
     return release_version, created_at
 
@@ -387,6 +384,8 @@ def _catalog_rows(
                 symbol.mobile_code,
                 symbol.code,
                 symbol.name,
+                symbol.name_pl,
+                symbol.name_en,
                 int(symbol.is_wildcard),
                 symbol.display_order,
                 symbol.image_asset_key,
@@ -471,6 +470,8 @@ def _create_schema(connection: sqlite3.Connection) -> None:
                     CHECK (mobile_code BETWEEN 1 AND 32767),
                 code TEXT NOT NULL,
                 name TEXT NOT NULL,
+                name_pl TEXT CHECK (name_pl IS NULL OR length(trim(name_pl)) > 0),
+                name_en TEXT CHECK (name_en IS NULL OR length(trim(name_en)) > 0),
                 is_wildcard INTEGER NOT NULL CHECK (is_wildcard IN (0, 1)),
                 display_order INTEGER NOT NULL CHECK (display_order >= 0),
                 image_asset_key TEXT,

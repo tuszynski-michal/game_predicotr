@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # Current State
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151 complete; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151 complete, TASK-0152 in progress; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -117,10 +117,52 @@ last_updated: 2026-08-02
 
 ### Wersja 0.3
 
+- właściciel dopuścił niezależne rozpoczęcie Mobile 0.3 na branchu
+  `ft/change-mobile-app`; trwający odbiór Admina 0.2 nie blokuje tego toru,
 - obejmuje dostosowanie aplikacji mobilnej: kompaktowy header, planszę i
   Selection, `Next`, wybierany zasięg Targetu, skonsolidowany wynik i powrót na
   górę,
 - zakres jest rozpisany jako TASK-0135–0141,
+- TASK-0135 został ukończony 2026-08-01: nagłówek pokazuje `ver {releaseVersion}`,
+  wybór gry i rząd `Next`, `Undo`, `Reset`; usunięto tytuły i liczniki planszy,
+  status gotowości danych oraz opis Selection. `Next` pozostaje nieaktywnym
+  kontraktem UI do TASK-0138. Testy Mobile przeszły 67/67 wraz z typecheckiem i
+  lintem,
+- TASK-0136 został ukończony 2026-08-01: opcjonalne nazwy PL/EN przechodzą przez
+  PostgreSQL, Admin API/OpenAPI, snapshot SQLite schema v3 i Mobile; Selection
+  wybiera krótszą nazwę (remis: PL), używa fallbacku `name` i zawija pojedynczo
+  opisane kafelki bez poziomego przewijania. Testy Mobile przeszły 68/68,
+- TASK-0137 został ukończony 2026-08-01: kontrolowany input zaczyna od 10 000 i
+  dopuszcza dowolną liczbę całkowitą 1 000–500 000; engine oraz pojedynczy
+  cykliczny odczyt SQLite oceniają `min(limit, N - 1)` spinów. Zmiana limitu
+  unieważnia stary wynik i ignoruje spóźnioną odpowiedź. Testy Mobile przeszły
+  74/74, a shared engine 24/24,
+- TASK-0138 został ukończony 2026-08-01: `Next` działa wyłącznie od
+  jednoznacznego anchora, czyta dokładny kolejny rekord po `sequence_number`,
+  zawija ostatni rekord do pierwszego i uruchamia Target dla bieżącego limitu.
+  Anchor jest częścią atomowej historii `Undo`; jawnie załadowany duplikat nie
+  traci znanej pozycji, a błąd lub spóźniona odpowiedź nie zmienia planszy.
+  Pełna regresja Mobile przeszła 81/81 wraz z typecheckiem, lintem i formatem,
+- TASK-0139 został ukończony 2026-08-01: osobne karty matchingu i Targetu
+  zastąpiła jedna dostępna karta. Sukces pokazuje `Układ znaleziony i obliczony`
+  oraz numer; rozwijane szczegóły zawierają tylko koszt spinu, koszt i sumę
+  końcową. Duplikat jest ostrzeżeniem, brak layoutu i błędy mają czerwony stan z
+  opisem, a retry Targetu pozostał dostępny. Usunięto powtarzane wartości i
+  opisy bez zmiany algorytmu ani tabeli. Regresja Mobile przeszła 81/81 wraz z
+  typecheckiem, lintem i formatem,
+- TASK-0140 został ukończony 2026-08-01: pływający przycisk powrotu na górę
+  pojawia się po osiągnięciu zmierzonej kotwicy wyników Targetu, przewija ten
+  sam wirtualizowany `FlatList` do początku i nie zasłania końca tabeli dzięki
+  powiększonemu footerowi. Przycisk pozostaje w safe area i ma dostępny obszar
+  52 × 52. Regresja Mobile przeszła 82/82 wraz z typecheckiem i lintem,
+- TASK-0141 jest aktywny: Mobile przechodzi 82/82, shared engine 24/24,
+  typecheck, lint, format zmienionych plików i walidację snapshotu schema 3.
+  Podpisane APK `0.3.0 (7)` ma 42 267 190 bajtów i SHA-256
+  `80dfb99fa85c466689d69901f0aea57d3fdf03d425c46fd71bb0f883569e1332`.
+  Statyczny audyt potwierdził `arm64-v8a`, bundle JS, zgodny snapshot i brak
+  `INTERNET`; lokalne wydanie wraz z manifestem, checksumą i instrukcją jest
+  zachowane w `artifacts/v03-ready-for-pixel/`. Instalacja i manualny odbiór
+  czekają na podłączenie Pixela,
 - odbiór kończy się testem offline na Google Pixel 10 Pro XL,
 - nie obejmuje końcowych testów dużych rzeczywistych zbiorów.
 
@@ -172,8 +214,10 @@ last_updated: 2026-08-02
 
 ### Robocze
 
-- PostgreSQL ma w repozytorium head `0025_image_selection`; przed rozpoczęciem pionu
-  importu 0.2 baza nie zawierała rekordów domenowych,
+- PostgreSQL ma w repozytorium wspólny head
+  `0026_merge_v03_v04_heads`; łączy on niezależne migracje
+  `0025_symbol_localized_names` i `0025_image_selection` bez przepisywania
+  historii baz, które mogły zastosować już jeden z tych pionów,
 - podczas odbioru utworzono roboczą grę `777` i image import; job naprawczy
   `65d6ca14-dacc-4341-b015-c187f2d7af36` zakończył automatykę w stanie
   `waiting_for_review`: 739 źródeł, 4050 plansz, 60 750 cropów i 4050 pozycji
@@ -216,20 +260,17 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
 - TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
   przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
-- TASK-0151–0157 są zaplanowane jako M7.0 i nie zmieniają bieżącego zakresu
-  TASK-0142; implementacja zaczyna się dopiero po osobnym poleceniu właściciela,
+- TASK-0151 jest ukończony, a TASK-0152–0157 są realizowane jako M7.0 po
+  osobnym poleceniu właściciela; nie zastępują odbioru 0.2 ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Kontynuować odbiór właściciela według
-`ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` i dopisywać regresje do aktywnego
-TASK-0142. Import, pipeline, Symbole, Reviewer i Joby są potwierdzone; po
-utworzeniu jednego wydania, kontroli klawiatury w Adminie i preview cleanup można
-zamknąć produktową bramkę 0.2. Następny zaplanowany pion to
-TASK-0135 z wersji 0.3. M7.0 wersji 0.4 rozpocznie TASK-0151 po osobnym
-poleceniu; dopiero po TASK-0157 wersja 0.5 może rozpocząć M6.6 i duże dane.
-Żaden z tych torów nie zastępuje odbioru 0.2.
+Kontynuować TASK-0152 jako następny pion M7.0 wersji 0.4. Odbiór właściciela
+Admina według `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md` pozostaje niezależnym
+torem TASK-0142. Kod Mobile 0.3 jest scalony do `main`, ale TASK-0141 nadal
+czeka na instalację i manualny odbiór na Google Pixel 10 Pro XL. Dopiero po
+TASK-0157 wersja 0.5 może rozpocząć M6.6 i duże dane.
 
 ## Do not start yet
 

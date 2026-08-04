@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # Current State
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156 complete; TASK-0157 in progress; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156 and TASK-0165 complete; TASK-0157 and TASK-0166 in progress; fast-selection remediation TASK-0167–0171 planned; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -347,6 +347,14 @@ last_updated: 2026-08-04
   Następny kandydat jest sprawdzany tylko po braku zakresu albo twardym błędzie;
   typowy koszt spada z trzech do jednej pełnej weryfikacji na grupę. V7 pozostaje
   rozwiązywalny po niezmienionym fingerprintcie `21d634…`,
+- właściciel zaakceptował zmianę odpowiedzialności następnej wersji selektora:
+  v9 ma wyłącznie szybko grupować kolejne wizualnie różne ekrany i wybierać
+  pierwszy dostatecznie czytelny JPEG albo best-available fallback. OCR numerów,
+  `PageBoardDetector`, homografia, cropy, symbole, właściwe `sequence_number` i
+  deduplikacja zakresów przechodzą do `Importu layoutów`. Upload schema v2 oraz
+  jego zmierzony czas około 20 minut dla 32 079 zdjęć pozostają poza zakresem
+  zmiany. TASK-0165 dostarczył instrumentację i read-only runner bez przerywania
+  historycznego joba; plan iteracyjny obejmuje TASK-0166–0171,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
@@ -481,20 +489,20 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 - TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
   przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
 - TASK-0151–0156 są ukończone. Syntetyczna część TASK-0157 jest zaliczona, ale
-  rzeczywisty run ujawnił fragmentację v2 i nadmierne odrzucanie jakościowe;
-  decyzja ma status `optimize` do pełnej regresji v7 na tym samym stagingu.
-  Dokładny przypadek `73–81` zaliczył bramkę wejściową do rerunu. Dopiero po
-  niej manualny odbiór właściciela
-  pozostanie końcową bramką M7.0; nie zastępuje odbioru 0.2 ani 0.3,
+  rzeczywiste runy ujawniły fragmentację i koszt pełnego dekodowania, geometrii
+  oraz OCR. Decyzja ma status `optimize`. TASK-0165–0171 implementują i mierzą
+  range-free `fast-image-selector-v9`; dopiero po ich zakończeniu manualny
+  odbiór właściciela pozostanie końcową bramką M7.0. Nie zastępuje odbioru 0.2
+  ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Uruchomić jedną kopię workera i rozpocząć czysty run v7 na zachowanym stagingu
-32 079 zdjęć, bez ponownego uploadu. Następnie porównać liczbę grup,
-verification/manual rate, throughput i brak fałszywych scaleń z historycznym
-wynikiem v4. Nie przekazywać historycznego wyniku v4 z 703 `missing_image` do
-Importu layoutów.
+Realizować TASK-0166: reduced JPEG decode i bounded budżet CPU bez zmiany uploadu.
+Profile rzeczywiste 500–1000, 3000 i końcowy run 40 000 wykonać wspólnie w
+TASK-0171 po zaliczeniu TASK-0166–0170. Nie uruchamiać pełnego runu 40 000 przed
+krótką bramką 3000 zdjęć w TASK-0171. Końcowy czas 40 000 nie ma sztywnego
+limitu; właściciel oceni raport i wybierze `accepted | optimize`.
 Nie otwierać automatycznej publikacji 500 000 layoutów bez bramki
 `massImportAllowed`. Odbiory Admina 0.2 i Mobile 0.3 pozostają niezależne.
 

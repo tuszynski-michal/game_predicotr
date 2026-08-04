@@ -309,6 +309,11 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert payload["error_count"] == 1
     assert payload["upload_duration_seconds"] == 12.5
     assert float(payload["processing_duration_seconds"]) > 0
+    stage_timing = payload["stage_timing"]
+    assert isinstance(stage_timing, dict)
+    assert stage_timing["stages"]["output"]["count"] == 1
+    assert stage_timing["stages"]["persistence"]["count"] >= 1
+    assert stage_timing["counters"]["persistenceWrites"] >= 1
     diagnostic = payload["diagnostic"]
     assert isinstance(diagnostic, dict)
     path = artifact_root / str(diagnostic["relativePath"])

@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-08-02
+last_updated: 2026-08-05
 ---
 
 # Decision Log
@@ -3503,6 +3503,68 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   deterministyczne.
 - **Supersedes:** D-143 wyłącznie w zakresie wyboru najwyżej ocenionego zdjęcia;
   zachowuje jego reguły jednoznaczności i twardych błędów.
+
+## D-145 — Selector v9 wybiera wizualne grupy bez OCR i geometrii
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy po przejściu TASK-0165–0171 będą używać
+  `fast-image-selector-v9`. Selekcja dekoduje zmniejszony JPEG, buduje lekki
+  deskryptor wyglądu, wykrywa potwierdzone zmiany kolejnych ekranów i wybiera
+  pierwszego dostatecznie czytelnego albo najlepszego dekodowalnego kandydata.
+  Nie uruchamia OCR, `PageBoardDetector`, homografii ani cropów i nie ustala
+  `sequence_number`. Zakres, dokładna geometria i deduplikacja po numerach należą
+  do `Importu layoutów`.
+- **Context:** v8 ograniczył typowy OCR z trzech do jednego kandydata na grupę,
+  ale realny scan nadal dekodował każdy JPEG w pełnej rozdzielczości, wykonywał
+  geometrię dla każdego obrazu i uruchamiał kosztowny fallback na fałszywych
+  granicach. Użytkownik zaobserwował proces przekraczający godzinę, podczas gdy
+  upload 32 079 zdjęć po wcześniejszej korekcie pozostaje stabilny około 20
+  minut i nie jest bieżącym problemem.
+- **Reason:** celem bounded contextu jest szybka redukcja kolejnych podobnych
+  ujęć, nie rozpoznawanie danych domenowych. Przeniesienie dokładności do
+  istniejącego ciężkiego pipeline'u usuwa koszt ze wszystkich duplikatów oraz
+  pozwala Importowi stosować OCR i geometrię tylko na wybranych zdjęciach.
+- **Alternatives:** dalsze rozszerzanie masek OCR lub zmiana PaddleOCR została
+  odrzucona jako optymalizacja niewłaściwego etapu. Nowa biblioteka CV, YOLO,
+  GPU i mikroserwis zostały odłożone, ponieważ obecne Pillow/libjpeg-turbo i
+  OpenCV wystarczą do reduced decode oraz lekkich deskryptorów. Pomijanie plików
+  stałym skokiem pozostaje odłożone do czasu zaliczenia bezpiecznej wersji
+  liniowej.
+- **Consequences:** output v9 jest range-free i używa nazw
+  `selection_<groupOrder>.jpg`; `groupOrder` nie jest numerem layoutu.
+  Historyczne runy v2–v8 oraz `seq_<start>-<end>.jpg` pozostają odtwarzalne.
+  Niepewny późniejszy duplikat może wejść do Importu, ponieważ dodatkowa praca
+  jest bezpieczniejsza niż utrata unikalnego ekranu. Upload schema v2 nie jest
+  zmieniany. Aktywacja v9 wymaga co najmniej 20 zdjęć/s w krótkim realnym
+  profilu, zero false merge i pełnego runu 32 079 zdjęć w najwyżej 45 minut.
+- **Supersedes:** D-144 dla nowych runów po aktywacji v9. D-139 pozostaje
+  historycznym modelem wykonania v2–v8, a D-141 nadal pozwala ponownie używać
+  niezmiennego stagingu.
+
+## D-146 — Właściciel ocenia czas selekcji na próbie 40 000 zdjęć
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** końcowa bramka wydajności v9 użyje dokładnie 40 000 naturalnie
+  uporządkowanych zdjęć. Nie ma z góry ustalonego maksymalnego czasu. Raport
+  zapisze całkowity czas, throughput, peak RSS i jakość grupowania, a właściciel
+  jawnie wybierze `accepted` albo `optimize`.
+- **Context:** historyczny proces po około 50 minutach pozostawał mniej więcej w
+  połowie i łącznie zbliżył się do dwóch godzin. Sztywny limit 45 minut nie
+  wynika z biznesowej potrzeby; ważne jest przedstawienie rzeczywistego wyniku
+  po architektonicznym usunięciu OCR i geometrii z selekcji.
+- **Reason:** akceptowalność czasu zależy od faktycznej redukcji danych oraz
+  sposobu pracy właściciela. Pomiar musi być wiarygodny, lecz automatyczny próg
+  nie powinien zastępować decyzji użytkownika.
+- **Alternatives:** pozostawienie limitu 45 minut odrzucono jako arbitralne.
+  Rezygnację z pomiaru odrzucono, ponieważ bez pełnego czasu nie da się ocenić
+  regresji ani kosztu 40 000 zdjęć.
+- **Consequences:** krótkie profile 500–1000 i 3000 nadal chronią przed
+  uruchomieniem oczywiście wadliwego pełnego joba. TASK-0171 nie oznacza `ready`
+  bez jawnej oceny właściciela. Działający upload pozostaje poza zakresem.
+- **Supersedes:** zastępuje wyłącznie sztywny limit czasu z D-145; pozostałe
+  bramki jakości i rozdzielenie odpowiedzialności v9 pozostają bez zmian.
 
 ## Szablon nowej decyzji
 

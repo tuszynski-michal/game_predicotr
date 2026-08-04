@@ -28,6 +28,7 @@ from game_predictor_worker.images.selection.contracts import (
 )
 from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
 from game_predictor_worker.images.selection.ports import LatticeFingerprint, ThumbnailFrame
+from game_predictor_worker.images.selection.telemetry import StageTimingCollector
 from game_predictor_worker.images.sequence_ocr import Recognition
 from PIL import Image
 
@@ -71,6 +72,25 @@ def test_pillow_thumbnail_loader_verifies_checksum_and_applies_exif(tmp_path: Pa
 
     assert (frame.source_width, frame.source_height) == (40, 80)
     assert max(frame.rgb.shape[:2]) == 50
+
+
+def test_pillow_thumbnail_loader_reports_measured_decode_and_checksum(tmp_path: Path) -> None:
+    path = tmp_path / "00000001.jpg"
+    checksum = _write_jpeg(path)
+    telemetry = StageTimingCollector()
+
+    PillowThumbnailLoader(
+        tmp_path,
+        max_edge=50,
+        telemetry=telemetry,
+    ).load(_source(checksum))
+
+    snapshot = telemetry.snapshot()
+    assert snapshot["counters"] == {"checksumReads": 1, "decoderCalls": 1}
+    stages = snapshot["stages"]
+    assert isinstance(stages, dict)
+    assert stages["checksum"]["count"] == 1
+    assert stages["decode"]["count"] == 1
 
 
 class _FixedLatticeAnalyzer:

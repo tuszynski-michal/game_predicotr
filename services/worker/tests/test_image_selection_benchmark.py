@@ -98,6 +98,12 @@ def test_smoke_benchmark_uses_production_scan_and_preserves_source(tmp_path: Pat
     assert metrics["quality"]["falseMergeCount"] == 0
     assert metrics["quality"]["unsafeAutomaticCount"] == 0
     assert metrics["boundedVerification"]["passed"] is True
+    stage_timing = report["stageTiming"]
+    assert isinstance(stage_timing, dict)
+    assert stage_timing["counters"]["checksumReads"] == profile.input_count
+    assert stage_timing["counters"]["decoderCalls"] == profile.input_count
+    assert stage_timing["stages"]["decode"]["count"] == profile.input_count
+    assert len(report["selectionCodeFingerprint"]) == 64
     validate_scale_report(
         report,
         expected_profile=profile,

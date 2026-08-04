@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -18,6 +19,8 @@ from game_predictor_worker.benchmarks.performance import PeakMemorySampler
 from .adapters import build_default_adapters
 from .contracts import (
     CandidateVerification,
+    CandidateVerifier,
+    CheapImageAnalyzer,
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
@@ -26,10 +29,23 @@ from .contracts import (
 )
 from .engine import FastImageSelector
 from .manifest import DEFAULT_SELECTOR_MANIFEST
+from .telemetry import StageTimingCollector
 
 BENCHMARK_CONTRACT = "image-selection-scale-benchmark-v1"
+REAL_CORPUS_BENCHMARK_CONTRACT = "image-selection-real-corpus-baseline-v1"
 ANNOTATION_CONTRACT = "image-selection-scale-annotations-v1"
 RSS_BUDGET_BYTES = 768 * 1024 * 1024
+
+
+def selection_code_fingerprint() -> str:
+    """Bind a timing report to the implementation that produced it."""
+
+    digest = hashlib.sha256()
+    module_root = Path(__file__).resolve().parent
+    for name in ("adapters.py", "benchmark.py", "engine.py", "manifest.py", "telemetry.py"):
+        digest.update(name.encode("utf-8"))
+        digest.update((module_root / name).read_bytes())
+    return digest.hexdigest()
 
 
 class ImageSelectionBenchmarkError(RuntimeError):
@@ -94,6 +110,42 @@ class BenchmarkDeadline:
             raise BenchmarkDeadlineExceeded(
                 f"Image selection benchmark exceeded its deadline during {stage}."
             )
+
+
+class _DeadlineAnalyzer:
+    def __init__(
+        self,
+        delegate: CheapImageAnalyzer,
+        deadline: BenchmarkDeadline,
+    ) -> None:
+        self._delegate = delegate
+        self._deadline = deadline
+
+    def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
+        self._deadline.check("real-corpus cheap scan")
+        return self._delegate.analyze(source)
+
+
+class _DeadlineVerifier:
+    def __init__(
+        self,
+        delegate: CandidateVerifier,
+        deadline: BenchmarkDeadline,
+    ) -> None:
+        self._delegate = delegate
+        self._deadline = deadline
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        self._deadline.check("real-corpus boundary verification")
+        return self._delegate.verify(
+            observation,
+            expected_board_count=expected_board_count,
+        )
 
 
 def canonical_pretty_json(value: object) -> bytes:
@@ -239,8 +291,12 @@ class InstrumentedScaleAnalyzer:
         annotations: ScaleAnnotations,
         groups: tuple[GroupAnnotation, ...],
         deadline: BenchmarkDeadline,
+        telemetry: StageTimingCollector,
     ) -> None:
-        self._production_analyzer, _ = build_default_adapters(source_root)
+        self._production_analyzer, _ = build_default_adapters(
+            source_root,
+            telemetry=telemetry,
+        )
         self._profile = profile
         self._annotations = annotations
         self._groups = groups
@@ -396,6 +452,33 @@ def inventory_sha256(
         digest.update(
             f"{source.order_index}:{source.stored_relative_path}:{path.stat().st_size}:"
             f"{content_checksum}\n".encode("ascii")
+        )
+    return digest.hexdigest()
+
+
+def inventory_metadata_sha256(
+    source_root: Path,
+    sources: tuple[ImageSelectionSource, ...],
+    deadline: BenchmarkDeadline,
+    *,
+    stage: str,
+) -> str:
+    """Fingerprint file identity without adding another full JPEG read pass."""
+
+    root = source_root.resolve(strict=True)
+    digest = hashlib.sha256()
+    for index, source in enumerate(sources):
+        if index % 128 == 0:
+            deadline.check(stage)
+        path = (root / source.stored_relative_path).resolve(strict=True)
+        if not path.is_relative_to(root) or not path.is_file():
+            raise ImageSelectionBenchmarkError(
+                "A real-corpus source escapes its staging root or is not a file."
+            )
+        stat = path.stat()
+        digest.update(
+            f"{source.order_index}:{source.stored_relative_path}:{stat.st_size}:"
+            f"{stat.st_mtime_ns}\n".encode()
         )
     return digest.hexdigest()
 
@@ -566,12 +649,14 @@ def run_scale_benchmark(
         stage="pre-run source inventory",
     )
     groups = build_group_annotations(profile, annotations)
+    telemetry = StageTimingCollector()
     analyzer = InstrumentedScaleAnalyzer(
         source_root,
         profile,
         annotations,
         groups,
         deadline,
+        telemetry,
     )
     verifier = InstrumentedRangeVerifier(profile, annotations, groups, analyzer)
     started_at = perf_counter()
@@ -612,12 +697,133 @@ def run_scale_benchmark(
         "profile": profile.name,
         "rangeVerificationMode": "deterministic-annotation-with-production-cheap-scan",
         "schemaVersion": 1,
+        "selectionCodeFingerprint": selection_code_fingerprint(),
+        "stageTiming": telemetry.snapshot(),
+        "threading": {
+            "configuredScanWorkers": 1,
+            "logicalCpuCount": os.cpu_count(),
+            "usedThreadCount": telemetry.snapshot()["usedThreadCount"],
+        },
         "selectorFingerprint": DEFAULT_SELECTOR_MANIFEST.fingerprint,
         "selectorVersion": DEFAULT_SELECTOR_MANIFEST.algorithm_version,
         "sourceIntegrity": {
             "afterInventorySha256": after_inventory,
             "beforeInventorySha256": before_inventory,
             "sourceUnchanged": source_unchanged,
+        },
+    }
+
+
+RealCorpusAdapterFactory = Callable[
+    [Path, StageTimingCollector],
+    tuple[CheapImageAnalyzer, CandidateVerifier],
+]
+
+
+def run_real_corpus_baseline(
+    *,
+    source_root: Path,
+    sources: tuple[ImageSelectionSource, ...],
+    input_manifest_sha256: str,
+    limit: int,
+    max_seconds: float,
+    scan_workers: int,
+    adapter_factory: RealCorpusAdapterFactory | None = None,
+) -> dict[str, object]:
+    """Profile a read-only natural-order slice of an existing browser staging."""
+
+    if not 500 <= limit <= 1_000:
+        raise ImageSelectionBenchmarkError("Real-corpus limit must be between 500 and 1000.")
+    if not 0 < max_seconds <= 300:
+        raise ImageSelectionBenchmarkError("Real-corpus timeout must be between 0 and 300 seconds.")
+    if len(sources) < limit:
+        raise ImageSelectionBenchmarkError(
+            f"Real-corpus staging contains {len(sources)} files; {limit} are required."
+        )
+    root = source_root.resolve(strict=True)
+    selected_sources = sources[:limit]
+    if tuple(source.order_index for source in selected_sources) != tuple(range(limit)):
+        raise ImageSelectionBenchmarkError(
+            "Real-corpus sources must preserve their natural zero-based manifest order."
+        )
+
+    deadline = BenchmarkDeadline(max_seconds)
+    before_inventory = inventory_metadata_sha256(
+        root,
+        selected_sources,
+        deadline,
+        stage="real-corpus pre-run source inventory",
+    )
+    telemetry = StageTimingCollector()
+    factory = adapter_factory or (
+        lambda adapter_root, collector: build_default_adapters(
+            adapter_root,
+            telemetry=collector,
+        )
+    )
+    analyzer, verifier = factory(root, telemetry)
+    started_at = perf_counter()
+    with PeakMemorySampler() as sampler:
+        result = FastImageSelector(
+            scan_workers=scan_workers,
+            scan_prefetch=max(scan_workers, min(scan_workers * 2, 64)),
+        ).select(
+            selected_sources,
+            analyzer=_DeadlineAnalyzer(analyzer, deadline),
+            verifier=_DeadlineVerifier(verifier, deadline),
+        )
+    processing_seconds = perf_counter() - started_at
+    deadline.check("real-corpus post-run validation")
+    after_inventory = inventory_metadata_sha256(
+        root,
+        selected_sources,
+        deadline,
+        stage="real-corpus post-run source inventory",
+    )
+    timing = telemetry.snapshot()
+    stages = cast(dict[str, dict[str, object]], timing["stages"])
+    bottlenecks = sorted(
+        (
+            {
+                "stage": stage,
+                "totalSeconds": cast(float, details["totalSeconds"]),
+            }
+            for stage, details in stages.items()
+        ),
+        key=lambda value: (-cast(float, value["totalSeconds"]), str(value["stage"])),
+    )[:3]
+    source_unchanged = before_inventory == after_inventory
+    return {
+        "benchmarkContract": REAL_CORPUS_BENCHMARK_CONTRACT,
+        "inputCount": limit,
+        "inputManifestSha256": input_manifest_sha256,
+        "memory": sampler.summary().to_dict(),
+        "metrics": {
+            "bottlenecks": bottlenecks,
+            "processingSeconds": round(processing_seconds, 6),
+            "throughputFilesPerSecond": round(limit / max(processing_seconds, 1e-9), 4),
+            "verificationCount": result.verification_count,
+        },
+        "schemaVersion": 1,
+        "selectionCodeFingerprint": selection_code_fingerprint(),
+        "selectorFingerprint": result.selector_fingerprint,
+        "selectorVersion": result.selector_version,
+        "sourceIntegrity": {
+            "afterInventorySha256": after_inventory,
+            "beforeInventorySha256": before_inventory,
+            "inventoryPolicy": "metadata-size-mtime-v1-plus-per-scan-manifest-checksum",
+            "sourceUnchanged": source_unchanged,
+        },
+        "stageTiming": timing,
+        "technicalGatePassed": source_unchanged,
+        "threading": {
+            "configuredScanWorkers": scan_workers,
+            "logicalCpuCount": os.cpu_count(),
+            "usedThreadCount": timing["usedThreadCount"],
+        },
+        "workload": {
+            "boundaryVerificationCount": result.verification_count,
+            "cheapScanCount": result.input_count,
         },
     }
 
@@ -659,5 +865,7 @@ __all__ = [
     "canonical_pretty_json",
     "load_scale_annotations",
     "run_scale_benchmark",
+    "run_real_corpus_baseline",
+    "selection_code_fingerprint",
     "validate_scale_report",
 ]

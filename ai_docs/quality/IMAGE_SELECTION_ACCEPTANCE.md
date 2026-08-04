@@ -1,7 +1,7 @@
 ---
 title: Image selection acceptance
 status: pending_owner_acceptance
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # Odbiór selekcji zdjęć 0.4
@@ -79,11 +79,48 @@ kandydat z jednoznacznym zakresem i kończy dalszy OCR grupy. Regresja jednostko
 potwierdza spadek typowego kosztu z trzech do jednej pełnej weryfikacji oraz
 fallback do drugiego obrazu, kiedy pierwszy nie daje zakresu.
 
-## Odbiór właściciela — oczekuje po regresji v8
+## Korekta bramki — range-free v9
 
-TASK-0157 pozostaje otwarty do realnej regresji v8 i krótkiego odbioru
-zachowania produktu. Nie należy powtarzać syntetycznych benchmarków 10k/30k;
-następny pomiar ma użyć istniejącego, niezmiennego stagingu 32 079 zdjęć.
+Obserwacja kolejnego realnego przebiegu wykazała, że v8 nadal przekracza godzinę.
+Samo ograniczenie liczby kandydatów OCR nie usuwa pełnego dekodowania JPEG-a,
+geometrii wykonywanej dla każdego pliku ani kosztu fałszywych granic. Decyzja
+pozostaje `optimize`, a pełny rerun v8 nie jest już zalecaną bramką końcową.
+
+Zaakceptowany plan TASK-0165–0171 wprowadza `fast-image-selector-v9`, który:
+
+- wykonuje reduced JPEG decode i lekki deskryptor wyglądu,
+- wykrywa tylko kolejne wizualne grupy,
+- wybiera first-usable albo best decodable fallback,
+- wykonuje zero OCR, zero `PageBoardDetector`, zero homografii i zero cropów,
+- publikuje range-free output, a numerację przekazuje do `Importu layoutów`,
+- nie zmienia działającego uploadu schema v2.
+
+Nowa bramka wymaga krótkich realnych profili, zera false merge, 100% recall
+różnych kolejnych ekranów oraz jednego pełnego runu 40 000 zdjęć. Nie ma
+sztywnego limitu czasu: raport poda całkowity czas, throughput i peak RSS, a
+właściciel zdecyduje, czy wynik jest satysfakcjonujący. Pełny run może rozpocząć
+się dopiero po zaliczeniu profili 500–1000 i 3000 zdjęć.
+
+## Odbiór właściciela — oczekuje po regresji v9
+
+TASK-0157 pozostaje otwarty do realnej regresji v9 i krótkiego odbioru
+zachowania produktu. Nie należy powtarzać syntetycznych benchmarków 10k/30k.
+Najpierw obowiązują realne profile 500–1000 i 3000 zdjęć; dopiero po ich
+zaliczeniu jeden profil użyje kontrolowanego wejścia 40 000 zdjęć.
+
+Baseline TASK-0165 uruchamia się wyłącznie na niezmienianym stagingu po
+zwolnieniu workera. Przykład dla pierwszych 500 zdjęć:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_image_selection_benchmark.ps1 `
+  -RealSourceRoot "C:\path\to\browser-selections\<selection-id>" `
+  -RealLimit 500 -ScanWorkers 4 -TimeoutSeconds 300
+```
+
+Raport `image-selection-real-500-report.json` musi zawierać fingerprint kodu,
+throughput, peak RSS, liczbę skonfigurowanych i faktycznie użytych wątków,
+p50/p95/max każdego etapu oraz trzy największe składniki czasu. Timeout krótkiego
+profilu nie jest docelowym limitem pełnego runu 40 000 zdjęć.
 
 1. Uruchom lokalny PostgreSQL, API, worker i Admin, a następnie wybierz szkic lub
    aktywną grę.
@@ -96,13 +133,12 @@ następny pomiar ma użyć istniejącego, niezmiennego stagingu 32 079 zdjęć.
    wyłącznie nawigować, a `Enter` zapisać dokładnie jedną decyzję. Techniczne
    `#N` nie może być jedyną informacją o wyjątku.
 5. Po opublikowaniu outputu kliknij `Zapisz wybrane zdjęcia do folderu`, wskaż
-   katalog i potwierdź nazwy `seq_<start>-<end>.jpg`, np. `seq_1-9.jpg`.
-   Folder wejściowy musi pozostać bez zmian. Backend mapuje także starsze
-   wewnętrzne nazwy content-addressed na ten publiczny format; nie wolno w tym
-   celu przepisywać istniejącego manifestu.
+   katalog i potwierdź nazwy `selection_<groupOrder>.jpg`. Folder wejściowy musi
+   pozostać bez zmian. Historyczny output v2–v8 nadal może używać `seq_*`; nie
+   wolno w tym celu przepisywać istniejącego manifestu.
 6. Użyj `Przekaż do Importu layoutów`. Import ma otrzymać to samo,
-   zweryfikowane źródło, ale nie może rozpocząć ciężkiego pipeline'u bez
-   osobnego kliknięcia `Rozpocznij import`.
+   zweryfikowane range-free źródło, ale nie może rozpocząć OCR, geometrii i
+   ciężkiego pipeline'u bez osobnego kliknięcia `Rozpocznij import`.
 
 Po potwierdzeniu tych punktów status zmienia się na `accepted`, TASK-0157 można
 przenieść do `completed/`, a wersję 0.4 zamknąć. TASK-0076 pozostaje osobno

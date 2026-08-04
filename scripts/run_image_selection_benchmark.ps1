@@ -6,7 +6,17 @@ param(
     [ValidateRange(1, 3600)]
     [int]$TimeoutSeconds = 120,
 
-    [string]$Output = ''
+    [string]$Output = '',
+
+    [string]$RealSourceRoot = '',
+
+    [ValidateRange(500, 1000)]
+    [int]$RealLimit = 500,
+
+    [ValidateRange(1, 8)]
+    [int]$ScanWorkers = 4,
+
+    [string]$OcrModelRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,16 +35,36 @@ if (-not (Test-Path -LiteralPath $python)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($Output)) {
-    $Output = Join-Path $repositoryRoot "ai_docs\quality\image-selection-$Profile-report.json"
+    $reportName = if ([string]::IsNullOrWhiteSpace($RealSourceRoot)) {
+        "image-selection-$Profile-report.json"
+    }
+    else {
+        "image-selection-real-$RealLimit-report.json"
+    }
+    $Output = Join-Path $repositoryRoot "ai_docs\quality\$reportName"
 }
 
-$arguments = @(
+$argumentParts = @(
     "`"$script`"",
     '--profile', $Profile,
     '--max-seconds', $TimeoutSeconds,
     '--output', "`"$Output`"",
     '--work-root', "`"$workRoot`""
-) -join ' '
+)
+if (-not [string]::IsNullOrWhiteSpace($RealSourceRoot)) {
+    if ($TimeoutSeconds -gt 300) {
+        throw 'A real-corpus baseline cannot exceed the five-minute timeout.'
+    }
+    $argumentParts += @(
+        '--real-source-root', "`"$RealSourceRoot`"",
+        '--real-limit', $RealLimit,
+        '--scan-workers', $ScanWorkers
+    )
+    if (-not [string]::IsNullOrWhiteSpace($OcrModelRoot)) {
+        $argumentParts += @('--ocr-model-root', "`"$OcrModelRoot`"")
+    }
+}
+$arguments = $argumentParts -join ' '
 
 try {
     $startInfo = [Diagnostics.ProcessStartInfo]::new()

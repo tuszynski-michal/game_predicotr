@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from statistics import StatisticsError
@@ -49,6 +50,7 @@ from .ports import (
     ThumbnailFrame,
     ThumbnailLoader,
 )
+from .telemetry import StageTimingCollector
 
 
 def _safe_source_path(root: Path, relative_path: str) -> Path:
@@ -68,14 +70,27 @@ def _safe_source_path(root: Path, relative_path: str) -> Path:
     return resolved
 
 
-def _load_verified_rgb(path: Path, expected_checksum: str) -> NDArray[np.uint8]:
+def _load_verified_rgb(
+    path: Path,
+    expected_checksum: str,
+    telemetry: StageTimingCollector | None = None,
+) -> NDArray[np.uint8]:
     try:
-        if sha256_file(path) != expected_checksum:
+        if telemetry is None:
+            actual_checksum = sha256_file(path)
+        else:
+            telemetry.increment("checksumReads")
+            with telemetry.measure("checksum"):
+                actual_checksum = sha256_file(path)
+        if actual_checksum != expected_checksum:
             raise SelectionContractError(
                 "IMAGE_SELECTION_SCAN_CHECKSUM_MISMATCH",
                 "A staged selection source differs from its input manifest.",
             )
-        with Image.open(path) as source:
+        if telemetry is not None:
+            telemetry.increment("decoderCalls")
+        timing = telemetry.measure("decode") if telemetry is not None else nullcontext()
+        with timing, Image.open(path) as source:
             source.load()
             normalized = ImageOps.exif_transpose(source).convert("RGB")
             return np.asarray(normalized, dtype=np.uint8)
@@ -91,19 +106,39 @@ def _load_verified_rgb(path: Path, expected_checksum: str) -> NDArray[np.uint8]:
 class PillowThumbnailLoader:
     version = "pillow-exif-thumbnail-v1"
 
-    def __init__(self, source_root: Path, *, max_edge: int) -> None:
+    def __init__(
+        self,
+        source_root: Path,
+        *,
+        max_edge: int,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._max_edge = max_edge
+        self._telemetry = telemetry
 
     def load(self, source: ImageSelectionSource) -> ThumbnailFrame:
         path = _safe_source_path(self._source_root, source.stored_relative_path)
         try:
-            if sha256_file(path) != source.checksum_sha256:
+            if self._telemetry is None:
+                actual_checksum = sha256_file(path)
+            else:
+                self._telemetry.increment("checksumReads")
+                with self._telemetry.measure("checksum"):
+                    actual_checksum = sha256_file(path)
+            if actual_checksum != source.checksum_sha256:
                 raise SelectionContractError(
                     "IMAGE_SELECTION_SCAN_CHECKSUM_MISMATCH",
                     "A staged selection source differs from its input manifest.",
                 )
-            with Image.open(path) as image:
+            if self._telemetry is not None:
+                self._telemetry.increment("decoderCalls")
+            timing = (
+                self._telemetry.measure("decode")
+                if self._telemetry is not None
+                else nullcontext()
+            )
+            with timing, Image.open(path) as image:
                 image.load()
                 normalized = ImageOps.exif_transpose(image).convert("RGB")
                 source_width, source_height = normalized.size
@@ -173,44 +208,66 @@ def _best_supported_detection(
     *,
     expected_board_count: int | None = None,
     allow_grid_recovery: bool = False,
+    telemetry: StageTimingCollector | None = None,
 ) -> DetectionResult:
-    if expected_board_count is not None:
+    def detect(board_count: int) -> DetectionResult:
+        if telemetry is not None:
+            telemetry.increment("detectorCalls")
         return detector.detect(
             rgb,
-            expected_board_count=expected_board_count,
+            expected_board_count=board_count,
             allow_grid_recovery=allow_grid_recovery,
         )
-    full = detector.detect(
-        rgb,
-        expected_board_count=9,
-        allow_grid_recovery=allow_grid_recovery,
-    )
+
+    if expected_board_count is not None:
+        return detect(expected_board_count)
+    full = detect(9)
     if full.status == "detected" or not 1 <= full.candidate_count <= 8:
         return full
-    partial = detector.detect(
-        rgb,
-        expected_board_count=full.candidate_count,
-        allow_grid_recovery=allow_grid_recovery,
-    )
+    partial = detect(full.candidate_count)
     return partial if partial.status == "detected" else full
 
 
 class OpenCvLatticeFingerprintAnalyzer:
     version = "opencv-lattice-fingerprint-v1"
 
-    def __init__(self, detector: PageBoardDetector | None = None) -> None:
+    def __init__(
+        self,
+        detector: PageBoardDetector | None = None,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
         self._detector = detector or ClassicalPageBoardDetector()
+        self._telemetry = telemetry
 
     def analyze(self, frame: ThumbnailFrame) -> LatticeFingerprint:
-        detection = _best_supported_detection(self._detector, frame.rgb)
-        boards = detection.boards
-        return LatticeFingerprint(
-            fingerprint_hex=_layout_color_hash(frame.rgb),
-            geometry_signature=_geometry_signature(
+        geometry_timing = (
+            self._telemetry.measure("geometry")
+            if self._telemetry is not None
+            else nullcontext()
+        )
+        with geometry_timing:
+            detection = _best_supported_detection(
+                self._detector,
+                frame.rgb,
+                telemetry=self._telemetry,
+            )
+            boards = detection.boards
+            geometry_signature = _geometry_signature(
                 boards,
                 width=frame.rgb.shape[1],
                 height=frame.rgb.shape[0],
-            ),
+            )
+        appearance_timing = (
+            self._telemetry.measure("appearance")
+            if self._telemetry is not None
+            else nullcontext()
+        )
+        with appearance_timing:
+            fingerprint_hex = _layout_color_hash(frame.rgb)
+        return LatticeFingerprint(
+            fingerprint_hex=fingerprint_hex,
+            geometry_signature=geometry_signature,
             board_count=(len(boards) if detection.status == "detected" else None),
             geometry_confidence=detection.confidence,
             boards=boards,
@@ -221,10 +278,29 @@ class OpenCvLatticeFingerprintAnalyzer:
 class OpenCvImageQualityAnalyzer:
     version = "opencv-thumbnail-quality-v1"
 
-    def __init__(self, weights: QualityWeights) -> None:
+    def __init__(
+        self,
+        weights: QualityWeights,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
         self._weights = weights
+        self._telemetry = telemetry
 
     def measure(
+        self,
+        frame: ThumbnailFrame,
+        lattice: LatticeFingerprint,
+    ) -> ImageQualityMetrics:
+        timing = (
+            self._telemetry.measure("quality")
+            if self._telemetry is not None
+            else nullcontext()
+        )
+        with timing:
+            return self._measure(frame, lattice)
+
+    def _measure(
         self,
         frame: ThumbnailFrame,
         lattice: LatticeFingerprint,
@@ -343,8 +419,14 @@ class ComposedCheapImageAnalyzer:
 class AnchoredSequenceRangeRecognizer:
     version = "sequence-anchor-range-v1"
 
-    def __init__(self, recognizer: SequenceNumberRecognizer) -> None:
+    def __init__(
+        self,
+        recognizer: SequenceNumberRecognizer,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
         self._recognizer = recognizer
+        self._telemetry = telemetry
 
     def recognize(
         self,
@@ -360,8 +442,14 @@ class AnchoredSequenceRangeRecognizer:
             )
             recognize_many = getattr(self._recognizer, "recognize_many", None)
             if callable(recognize_many):
+                if self._telemetry is not None:
+                    self._telemetry.increment("ocrCalls")
+                    self._telemetry.increment("ocrCrops", len(crops))
                 recognitions = tuple(recognize_many(crops))
             else:
+                if self._telemetry is not None:
+                    self._telemetry.increment("ocrCalls", len(crops))
+                    self._telemetry.increment("ocrCrops", len(crops))
                 recognitions = tuple(self._recognizer.recognize(crop) for crop in crops)
         except (SequenceOcrError, ValueError):
             return None, ("RANGE_ANCHOR_CROP_FAILED",)
@@ -417,8 +505,14 @@ class VisibleSequenceLabelRangeRecognizer:
     _maximum_width_to_height_ratio: float | None = None
     _candidate_limit: int | None = None
 
-    def __init__(self, recognizer: SequenceNumberRecognizer) -> None:
+    def __init__(
+        self,
+        recognizer: SequenceNumberRecognizer,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
         self._recognizer = recognizer
+        self._telemetry = telemetry
 
     def recognize(
         self,
@@ -447,10 +541,17 @@ class VisibleSequenceLabelRangeRecognizer:
     ) -> tuple[Recognition, ...]:
         recognize_many = getattr(self._recognizer, "recognize_many", None)
         if not callable(recognize_many):
+            if self._telemetry is not None:
+                self._telemetry.increment("ocrCalls", len(crops))
+                self._telemetry.increment("ocrCrops", len(crops))
             return tuple(self._recognizer.recognize(crop) for crop in crops)
         results: list[Recognition] = []
         for offset in range(0, len(crops), 9):
-            results.extend(recognize_many(crops[offset : offset + 9]))
+            batch = crops[offset : offset + 9]
+            if self._telemetry is not None:
+                self._telemetry.increment("ocrCalls")
+                self._telemetry.increment("ocrCrops", len(batch))
+            results.extend(recognize_many(batch))
         return tuple(results)
 
     @classmethod
@@ -698,12 +799,14 @@ class FullCandidateVerifier:
         detector: PageBoardDetector | None = None,
         *,
         allow_grid_recovery: bool = False,
+        telemetry: StageTimingCollector | None = None,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._range_recognizer = range_recognizer
         self._fallback_range_recognizer = fallback_range_recognizer
         self._detector = detector or ClassicalPageBoardDetector()
         self._allow_grid_recovery = allow_grid_recovery
+        self._telemetry = telemetry
 
     def verify(
         self,
@@ -716,13 +819,24 @@ class FullCandidateVerifier:
                 self._source_root,
                 observation.source.stored_relative_path,
             )
-            rgb = _load_verified_rgb(path, observation.source.checksum_sha256)
-            detection = _best_supported_detection(
-                self._detector,
-                rgb,
-                expected_board_count=expected_board_count,
-                allow_grid_recovery=self._allow_grid_recovery,
+            rgb = _load_verified_rgb(
+                path,
+                observation.source.checksum_sha256,
+                self._telemetry,
             )
+            timing = (
+                self._telemetry.measure("geometry")
+                if self._telemetry is not None
+                else nullcontext()
+            )
+            with timing:
+                detection = _best_supported_detection(
+                    self._detector,
+                    rgb,
+                    expected_board_count=expected_board_count,
+                    allow_grid_recovery=self._allow_grid_recovery,
+                    telemetry=self._telemetry,
+                )
         except (SelectionContractError, StatisticsError) as error:
             return CandidateVerification(
                 recognized_range=None,
@@ -744,15 +858,27 @@ class FullCandidateVerifier:
         recognized_range: SequenceRange | None = None
         range_reasons: tuple[str, ...] = ()
         if geometry_complete:
-            recognized_range, range_reasons = self._range_recognizer.recognize(
-                rgb,
-                detection.boards,
+            timing = (
+                self._telemetry.measure("ocr")
+                if self._telemetry is not None
+                else nullcontext()
             )
+            with timing:
+                recognized_range, range_reasons = self._range_recognizer.recognize(
+                    rgb,
+                    detection.boards,
+                )
         if recognized_range is None and self._fallback_range_recognizer is not None:
-            fallback_range, fallback_reasons = self._fallback_range_recognizer.recognize(
-                rgb,
-                detection.boards,
+            timing = (
+                self._telemetry.measure("ocr")
+                if self._telemetry is not None
+                else nullcontext()
             )
+            with timing:
+                fallback_range, fallback_reasons = self._fallback_range_recognizer.recognize(
+                    rgb,
+                    detection.boards,
+                )
             if fallback_range is not None:
                 recognized_range = fallback_range
                 geometry_complete = True
@@ -796,12 +922,17 @@ def build_default_adapters(
     range_recognizer: SequenceRangeRecognizer | None = None,
     fallback_range_recognizer: SequenceRangeRecognizer | None = None,
     manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
+    telemetry: StageTimingCollector | None = None,
 ) -> tuple[ComposedCheapImageAnalyzer, FullCandidateVerifier]:
     detector = ClassicalPageBoardDetector()
     analyzer = ComposedCheapImageAnalyzer(
-        PillowThumbnailLoader(source_root, max_edge=manifest.thumbnail_max_edge),
-        OpenCvLatticeFingerprintAnalyzer(detector),
-        OpenCvImageQualityAnalyzer(manifest.quality_weights),
+        PillowThumbnailLoader(
+            source_root,
+            max_edge=manifest.thumbnail_max_edge,
+            telemetry=telemetry,
+        ),
+        OpenCvLatticeFingerprintAnalyzer(detector, telemetry=telemetry),
+        OpenCvImageQualityAnalyzer(manifest.quality_weights, telemetry=telemetry),
     )
     verifier = FullCandidateVerifier(
         source_root,
@@ -809,6 +940,7 @@ def build_default_adapters(
         fallback_range_recognizer,
         detector,
         allow_grid_recovery=manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS,
+        telemetry=telemetry,
     )
     return analyzer, verifier
 

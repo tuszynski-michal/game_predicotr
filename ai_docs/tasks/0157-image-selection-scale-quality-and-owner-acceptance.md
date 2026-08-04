@@ -2,7 +2,7 @@
 title: TASK-0157 image selection scale quality and owner acceptance
 status: in_progress
 release: "0.4"
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # TASK-0157 — Image selection scale, quality and owner acceptance
@@ -13,8 +13,8 @@ last_updated: 2026-08-04
 
 ## Goal
 
-Udowodnić na goldenach oraz profilach 10 000/30 000, że selektor jest szybszy
-od pełnego pipeline'u, bounded pamięciowo i nie wybiera błędnego zakresu.
+Udowodnić na goldenach oraz realnym profilu, że selektor szybko redukuje
+kolejne ujęcia, pozostaje bounded pamięciowo i nie scala dwóch różnych ekranów.
 
 ## Context
 
@@ -32,15 +32,22 @@ wersji 0.5 i TASK-0076.
 - `ai_docs/quality/TEST_STRATEGY.md`
 - `ai_docs/delivery/MILESTONE_07_0_EXECUTION_PLAN.md`
 - `ai_docs/tasks/0156-image-selection-job-resume-and-observability.md`
+- `ai_docs/tasks/completed/0165-image-selection-stage-timing-and-real-corpus-baseline.md`
+- `ai_docs/tasks/0166-reduced-jpeg-scan-and-bounded-cpu-budget.md`
+- `ai_docs/tasks/0167-appearance-only-sequential-image-grouping.md`
+- `ai_docs/tasks/0168-first-usable-range-free-representative-selection.md`
+- `ai_docs/tasks/0169-range-agnostic-selection-output-and-import-handoff.md`
+- `ai_docs/tasks/0170-versioned-image-scan-cache-and-resume.md`
+- `ai_docs/tasks/0171-fast-selection-real-corpus-regression-and-activation.md`
 
 ## Scope
 
 - utworzyć niezależne adnotacje zakresów, grup i poprawnych reprezentantów,
 - objąć różne kąty, blur, refleks, zasłonięcie, clipping, późniejsze duplikaty,
   skoki numeracji i stronę końcową,
-- zmierzyć precision grupowania, auto-selection precision, manual rate i
-  coverage,
-- zmierzyć upload, skan, OCR count, throughput, peak RSS i rozmiar storage,
+- zmierzyć precision/recall granic, false split, false merge i coverage ekranów,
+- zmierzyć skan, throughput, peak RSS i rozmiar storage niezależnie od uploadu,
+- potwierdzić zero wywołań OCR, geometrii plansz, homografii i croppera,
 - uruchomić profile 10 000 oraz 30 000 z twardym timeoutem i cleanupem fixture,
 - porównać liczbę wejść oraz estymowany koszt z pełnym pipeline'em,
 - przeprowadzić ręczny odbiór workspace'u, modala, outputu i handoffu,
@@ -51,19 +58,25 @@ wersji 0.5 i TASK-0076.
 - pełne przetworzenie 500 000 layoutów,
 - tuning symbol classifier,
 - zmiana kolejki lub dodanie chmury bez dowodu benchmarku,
-- obniżenie fail-closed quality gate w celu poprawy samego czasu.
+- tuning OCR i geometrii należących do `Importu layoutów`,
+- modyfikowanie działającego uploadu schema v2.
 
 ## Acceptance criteria
 
-- [x] Golden ma zero fałszywych scaleń dwóch różnych zakresów.
-- [x] Każdy auto-selected reprezentant ma poprawny zakres i kompletną widoczną
-      stronę według niezależnej adnotacji.
-- [x] Niepewne przypadki trafiają do manual review zamiast auto-selection.
+- [ ] Golden v9 ma zero fałszywych scaleń dwóch różnych kolejnych ekranów.
+- [ ] Recall unikalnych kolejnych ekranów v9 wynosi 100%.
+- [ ] Każda grupa zawierająca dekodowalny JPEG publikuje reprezentanta, również
+      jako jawny best-available fallback.
+- [ ] Selekcja v9 nie ustala zakresu; poprawność numerów jest testowana osobno w
+      `Imporcie layoutów`.
 - [x] Profil 10 000 kończy się w ≤15 minut, a 30 000 w ≤45 minut na komputerze
       właściciela.
 - [x] Peak RSS i storage są zmierzone oraz mieszczą się w zaakceptowanym
       budżecie raportu.
-- [x] Liczba kosztownych OCR/weryfikacji skaluje się z grupami × top-k, nie N.
+- [ ] Liczba wywołań OCR, `PageBoardDetector`, homografii i croppera w selekcji
+      v9 wynosi zero.
+- [ ] Kontrolny run 40 000 zdjęć raportuje pełny czas, throughput i peak RSS;
+      właściciel jawnie akceptuje wynik albo kieruje go do optymalizacji.
 - [x] Restart/cancel profile nie pozostawia procesu ani częściowego manifestu.
 - [ ] Właściciel potwierdza nawigację, single-file fallback, Enter, strzałki,
       nazwy outputu i jawny handoff.
@@ -285,3 +298,17 @@ trzech do jednej weryfikacji dla typowej grupy oraz przejście do drugiego zdję
 gdy pierwsze nie daje zakresu. Historyczny v7 zachowuje fingerprint `21d634…` i
 dotychczasowe zachowanie wznowień. Pełny rerun właścicielski nadal pozostaje
 otwarty i nie jest zastępowany krótką regresją.
+
+Kolejna obserwacja właściciela wykazała, że samo zatrzymanie OCR po pierwszym
+wyniku nie usuwa głównego kosztu: każdy plik nadal jest dekodowany w pełnej
+rozdzielczości, przechodzi detekcję plansz, a fałszywe granice uruchamiają
+kosztowną weryfikację. Właściciel zaakceptował przeniesienie całego OCR,
+geometrii, numeracji i deduplikacji zakresów do `Importu layoutów`.
+
+Przed zamknięciem tego zadania powstanie range-free `fast-image-selector-v9` w
+małych iteracjach TASK-0165–0171. Plan zaczyna od instrumentacji i profilu
+500–1000 zdjęć, następnie obejmuje decoder-side reduction i kontrolę wątków,
+appearance-only grouping, first-usable selection, range-free handoff,
+wersjonowany cache oraz pojedynczą końcową regresję 40 000 zdjęć. Upload schema
+v2 nie należy do zakresu i nie będzie zmieniany. Implementacja pierwszego kroku
+nie została jeszcze rozpoczęta.

@@ -2,7 +2,7 @@
 title: Fast representative image selection
 status: accepted
 release: "0.4"
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # Selekcja reprezentatywnych zdjęć
@@ -63,65 +63,50 @@ importu ani Reviewera; przygotowuje dla nich mniejszy, bezpieczny zestaw.
 
 ## Szybki proces automatyczny
 
-Każdy plik przechodzi tani, bounded skan, który nie tworzy cropów 15 komórek i
-nie uruchamia klasyfikatora symboli:
+Każdy plik przechodzi naprawdę lekki, bounded skan. Jego jedynym celem jest
+wykrycie kolejnych wizualnie różnych ekranów i wybór jednego zdjęcia z każdej
+serii. Skan:
 
-1. odczyt JPEG, EXIF i miniatury roboczej,
-2. kontrola ostrości, ekspozycji, refleksów, zasłonięcia i obcięcia ekranu,
-3. lekka detekcja plansz oraz spójności ich siatki,
-4. wizualny fingerprint wyprostowanego ekranu,
-5. punktowy/batchowy OCR numerów kotwiczących tylko wtedy, gdy trzeba ustalić
-   zakres albo potwierdzić zmianę grupy,
-6. przypisanie pliku do bieżącej grupy lub rozpoczęcie dowolnego nowego zakresu,
-7. utrzymywanie pierwszego dostatecznie czytelnego kandydata oraz najwyżej kilku
-   jakościowych kandydatów zapasowych zamiast obrazów w RAM,
-8. dokładniejsza weryfikacja kandydatów w kolejności źródłowej przy zamknięciu
-   grupy i zatrzymanie jej natychmiast po pierwszym jednoznacznym zakresie.
+1. odczytuje JPEG bezpośrednio w zmniejszonej rozdzielczości oraz stosuje EXIF,
+2. oblicza lekki deskryptor wyglądu z perceptual hash, histogramu HSV i
+   uproszczonej informacji o krawędziach,
+3. mierzy tylko tanie sygnały wyboru: ostrość, ekspozycję, przepalenie i
+   podstawową widoczność centralnego ekranu,
+4. porównuje kolejne obserwacje w naturalnym `order_index`,
+5. potwierdza zmianę ekranu co najmniej dwiema kolejnymi obserwacjami,
+6. utrzymuje pierwszego dostatecznie czytelnego kandydata i najwyżej jeden
+   jakościowy fallback zamiast obrazów w RAM,
+7. wybiera pierwszego użytecznego reprezentanta, a przy jego braku najlepszy
+   dekodowalny obraz z ostrzeżeniem.
 
-Zmiana grupy jest wykrywana z łącznego dowodu geometrii, fingerprintu oraz OCR.
-Fingerprint jest porównywany zarówno ze stabilnymi reprezentantami grupy, jak i
-z ostatnim kolejnym zdjęciem. Stopniowa zmiana kąta lub oświetlenia nie może sama
-tworzyć serii krótkich grup. Brak wykrytej geometrii oznacza brak dowodu
-geometrycznego, a nie maksymalną zmianę geometrii.
-Sam niepewny OCR nie może połączyć dwóch różnych ekranów ani samodzielnie nadać
-zakresu. Wyjątkiem jest pojedyncza nierozpoznana grupa w jednoznacznej luce
-maksymalnie dziewięciu layoutów pomiędzy dwoma pewnymi zakresami. W takim
-przypadku selektor może wyprowadzić brakujący zakres z obu sąsiadów.
+W `Selekcji zdjęć` zabronione są OCR numerów, detekcja plansz, homografia,
+wyprostowanie strony, cropy komórek i klasyfikacja symboli. Kąt kamery, refleks
+albo płynna zmiana ekspozycji nie mogą same tworzyć serii krótkich grup.
+Algorytm porównuje bezpośredniego poprzednika oraz bounded opis bieżącej grupy,
+ale nie przewiduje następnego numeru ani stałej długości serii.
+
+Selekcja nie ustala zakresu `sequence_number`. Kolejność grupy jest technicznym
+`groupOrder`, a nie numerem layoutu. OCR, dokładna geometria, zakresy i
+deduplikacja po numerach należą wyłącznie do późniejszego `Importu layoutów`.
 
 ## Ocena jakości i wybór
 
-- Uszkodzony albo niedekodowalny plik, błąd skanu oraz sprzeczny zakres pozostają
-  twardą blokadą automatycznego wyboru. Zasłonięcie, rozmycie i słaba jakość
-  plansz są sygnałami rankingowymi, nie powodem odrzucenia najlepszego
-  dostępnego zdjęcia, jeżeli zakres numerów jest jednoznacznie czytelny albo
-  wynika dokładnie z ograniczonej luki między pewnymi kotwicami.
-- Progi jakości, takie jak ekspozycja, refleksy, perspektywa i margines, są
-  sygnałami rankingu i ograniczonego fallbacku. V8 celowo wybiera pierwsze
-  dostatecznie czytelne zdjęcie z jednoznacznym zakresem; nie wykonuje OCR
-  kolejnych zdjęć tylko po to, aby znaleźć nieznacznie lepszy obraz. Do
-  następnego zachowanego kandydata przechodzi dopiero, gdy poprzedni nie daje
-  zakresu albo kończy się twardym błędem.
-- Ranking obejmuje co najmniej kompletność geometrii, ostrość, ekspozycję,
-  clipping świateł, refleksy, perspektywę, margines ekranu i confidence zakresu.
-- Oczekiwana liczba widocznych plansz wynika z konsensusu dobrych zdjęć grupy;
-  zapobiega to uznaniu zasłoniętych ośmiu plansz za poprawną stronę końcową.
+- Uszkodzony albo niedekodowalny plik oraz twardy błąd integralności blokują
+  wybór tego pliku, lecz nie kończą całego runu.
+- Ostrość, ekspozycja, clipping i podstawowa widoczność są miękkimi sygnałami
+  rankingu. Nie służą do odrzucenia całej grupy.
+- Selekcja wybiera pierwsze dostatecznie czytelne zdjęcie. Nie przegląda całej
+  serii tylko po to, aby znaleźć marginalnie lepszy kadr.
+- Gdy żaden obraz nie spełnia miękkiego progu, system wybiera najlepszy
+  dekodowalny kandydat i dodaje `QUALITY_BEST_AVAILABLE`.
 - Wybór jest deterministyczny. Remis rozstrzyga wcześniejszy `order_index`, a
   następnie checksum SHA-256.
-- Run przechowuje pełne metryki, powody odrzucenia oraz wersję selektora.
-- Wybór mimo ostrzeżeń jakości jest oznaczony `QUALITY_BEST_AVAILABLE`, a zakres
-  wyprowadzony z jednej bounded luki — `RANGE_INFERRED_FROM_BOUNDED_GAP`.
-- Przycięta rama, słaba ekspozycja, niepełna geometria i brak bezpośredniego OCR
-  zakresu nie blokują próby dalszego cięcia, jeżeli dokładnie jedna grupa leży
-  pomiędzy dwoma pewnymi zakresami, luka obejmuje najwyżej dziewięć layoutów, a
-  istnieje dekodowalny kandydat. Selektor
-  wybiera wtedy najlepsze dostępne zdjęcie i przekazuje je w wyniku z zakresem
-  wyprowadzonym z obu sąsiadów.
-- Użytkownik widzi liczbę plików przeskanowanych, rozpoznane zakresy,
-  automatyczne wybory, odrzucone zdjęcia, duplikaty i grupy wymagające decyzji.
-- Podczas skanowania licznik takich grup jest wstępny, ponieważ końcowe
-  odzyskiwanie jednoznacznych luk może go zmniejszyć. UI nazywa go wtedy
-  `Wstępnie nierozpoznane`; dopiero terminalny wynik używa nazwy
-  `Nierozpoznane zestawy`.
+- Run przechowuje lekkie metryki, powody ostrzeżeń i wersję selektora.
+- Niepewnego, niekolejnego podobieństwa nie używa się do trwałego usunięcia
+  późniejszej grupy. Import może bezpiecznie odrzucić duplikat dopiero po
+  odczytaniu rzeczywistego zakresu.
+- Użytkownik widzi liczbę przeskanowanych plików, wybrane grupy, błędy JPEG,
+  ewentualne dodatkowe podziały i redukcję wejścia dla Importu layoutów.
 
 ## Zestaw wynikowy i bezpieczeństwo plików
 
@@ -129,14 +114,14 @@ przypadku selektor może wyprowadzić brakujący zakres z obu sąsiadów.
   wskazanym przez użytkownika.
 - Wybrane zdjęcia są kopiowane do kontrolowanego katalogu wyniku i wiązane z
   checksumowanym manifestem.
-- Nazwa ma prostą postać `seq_<start>-<end>.jpg`, na przykład
-  `seq_1-9.jpg`. Unikalność zakresu w ramach runu gwarantuje domena, dlatego
-  checksum nie jest potrzebny w nazwie przeznaczonej dla użytkownika.
-- Zakresy zaczynają się od dodatniego numeru; nazwa `seq_0-9` nie może tworzyć
-  niedozwolonego domenowo `sequence_number = 0`.
+- Przed OCR nazwa ma postać `selection_<groupOrder>.jpg`. Nie może zawierać
+  zgadywanego zakresu ani przedstawiać `groupOrder` jako `sequence_number`.
+- Po rozpoznaniu zakresu przez `Import layoutów` właściwy pipeline może nadać
+  nazwę lub mapowanie `seq_<start>-<end>` bez mutowania historycznego outputu
+  selekcji.
 - Manifest przechowuje oryginalną względną nazwę, checksumę, kolejność,
-  rozpoznany zakres, metryki jakości, sposób `automatic | manual`, wersję
-  algorytmu i ścieżkę kopii wynikowej.
+  opcjonalny późniejszy zakres, metryki jakości, sposób `automatic | manual`,
+  wersję algorytmu i ścieżkę kopii wynikowej.
 - Baza przechowuje ścieżki, checksumy i metadane, nie duże obrazy BLOB.
 - Po publikacji użytkownik może wskazać standardowym pickerem przeglądarki
   folder docelowy i skopiować do niego wszystkie zweryfikowane zdjęcia.
@@ -148,14 +133,15 @@ przypadku selektor może wyprowadzić brakujący zakres z obu sąsiadów.
 
 ## Manualne uzupełnienie
 
-Jeżeli grupa nie ma bezpiecznego automatycznego reprezentanta, po zakończeniu
-skanu otwierana jest kolejka decyzji w modalu.
+Standardowy run wybiera reprezentanta dla każdej grupy zawierającej co najmniej
+jeden dekodowalny JPEG. Manualne uzupełnienie pozostaje awaryjne dla grup bez
+użytecznego pliku albo świadomej korekty użytkownika, nie jako obowiązkowy etap
+rozpoznawania numerów.
 
 Header modala pokazuje:
 
 - `zatwierdzone / wszystkie wymagające decyzji`,
-- rozpoznany zakres, na przykład `400–408`, albo czytelne
-  `Zakres layoutów nierozpoznany`,
+- techniczną kolejność grupy, bez przedstawiania jej jako numeru layoutu,
 - deterministyczny numer zestawu, liczbę zdjęć źródłowych oraz nazwy zapisanych
   kandydatów, aby użytkownik mógł odnaleźć właściwą serię w swoim folderze,
 - przyciski poprzedni/następny,
@@ -164,8 +150,7 @@ Header modala pokazuje:
 Zachowanie klawiatury:
 
 - `ArrowLeft` i `ArrowRight` wyłącznie nawigują między brakującymi grupami,
-- `Enter` zatwierdza zakres; jeśli wskazano JPEG, zapisuje reprezentanta, a bez
-  pliku zapisuje jawny brak zdjęcia,
+- `Enter` zatwierdza wskazany JPEG albo jawny brak zdjęcia,
 - strzałki nie zapisują decyzji,
 - zatwierdzoną pozycję można później ponownie otworzyć i zmienić.
 
@@ -174,18 +159,10 @@ uzupełnienie. Wybrany plik jest kopiowany do właściwego katalogu wyniku, ale
 jego brak nie blokuje zakończenia selekcji ani przekazania pozostałych zdjęć do
 importu. Główna akcja `Kontynuuj z wybranymi zdjęciami` oznacza wszystkie
 nierozwiązane grupy jako `missing_image` i wznawia publikację pewnych wyborów.
-Dla nierozpoznanej grupy zakres może pozostać pusty: system zapisuje wtedy
-pominięty nierozpoznany zestaw i nie wymyśla numeracji layoutów. UI pokazuje
-wtedy `Zakres layoutów nierozpoznany`, numer zestawu i nazwy plików-kandydatów;
-numer zestawu identyfikuje kolejność źródeł, ale nie jest numerem layoutu.
-Jeżeli zakres jest znany, UI pokazuje informację w formacie `Brak zdjęcia dla
-layoutów 1–9`.
-Panel może wstępnie uzupełnić zakres wyłącznie wtedy, gdy grupa leży między
-dwoma rozpoznanymi zakresami, a luka jest dodatnia i obejmuje najwyżej dziewięć
-layoutów, np. `64–72`, brak, `82–90` daje sugestię `73–81`. Użytkownik nadal
-zatwierdza tę decyzję; większy skok ani więcej niż jedna nierozwiązana grupa w
-tej samej luce nie tworzą sugestii. Zbiorcze `Kontynuuj z wybranymi zdjęciami`
-nigdy nie utrwala sugestii — zapisuje brak zdjęcia bez zakresu.
+UI pokazuje `Grupa wyboru N`, liczbę źródeł i nazwy plików-kandydatów. Numer
+grupy identyfikuje kolejność źródeł, ale nie jest numerem layoutu ani zakresem.
+Selekcja nie proponuje zakresu na podstawie sąsiadów. Numerację i ewentualne
+luki rozstrzyga `Import layoutów` po uruchomieniu właściwego OCR.
 
 Po zatwierdzeniu albo oznaczeniu braku zdjęcia dla ostatniej nierozwiązanej
 grupy ten sam job w stanie
@@ -201,6 +178,8 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 - Handoff tworzy serwerowo poświadczone źródło wejściowe dla istniejącego
   `image_directory` importu i zachowuje identyfikator runu, manifest oraz
   checksumy wybranych zdjęć.
+- Manifest wejściowy może nie zawierać zakresów. `Import layoutów` jest źródłem
+  prawdy dla OCR numerów, geometrii plansz, cropów oraz deduplikacji zakresu.
 - Użytkownik nadal jawnie uruchamia `Rozpocznij import`; selekcja nie uruchamia
   automatycznie ciężkiego pipeline'u.
 - Retry właściwego importu nie powtarza selekcji, jeżeli jej manifest i pliki
@@ -209,27 +188,14 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 
 ## Wydajność i bramka jakości
 
-- Nowe runy używają `fast-image-selector-v8`. Granica serii jest oceniana na
-  podstawie kolejnych obserwacji i bounded dwuklatkowego potwierdzenia; stary,
-  podobny obraz zapisany w `topK` nie może zablokować późniejszej rzeczywistej
-  zmiany strony.
-- V6, v7 i v8 odzyskują również kilka kolejnych grup bez numerów pomiędzy
-  dwiema pewnymi kotwicami, jeżeli cała luka ma dokładnie
-  `liczba grup × 9` layoutów. Każda odzyskana grupa dostaje kolejny pełny zakres
-  i najlepsze bezpieczne zdjęcie.
-  Projekcja jest aktualizowana od razu po pojawieniu się prawej kotwicy, aby
-  roboczy licznik bez numerów malał podczas skanowania.
-- Produkcyjny fallback numerów obejmuje wszystkie trzy rzędy etykiet, dopuszcza
-  numery wielocyfrowe do co najmniej sześciu cyfr i ogranicza liczbę kandydatów
-  przed OCR. Zakres nadal jest zatwierdzany fail-closed przez zgodną siatkę i
-  homografię RANSAC.
-- Pełna weryfikacja v5 może użyć istniejącego, ograniczonego odzyskiwania siatki,
-  gdy detektor widzi tylko część poprawnie rozmieszczonych plansz. Tani skan nie
-  wykonuje tego odzyskiwania.
-- V7 rozszerza detekcję jasnych etykiet o przyciemnione oraz ciepło zabarwione
-  numery, nadal wymagając zgodnego układu przestrzennego i homografii RANSAC.
-  Jeżeli numery zakresu są jednoznaczne, jakość plansz decyduje o rankingu, ale
-  nie blokuje przekazania zdjęcia do późniejszego cięcia i ręcznego uzupełnienia.
+- Nowe runy po realizacji TASK-0165–0171 używają `fast-image-selector-v9`.
+- Lekki skan dekoduje JPEG bezpośrednio w zmniejszonej rozdzielczości i nie
+  uruchamia geometrii ani OCR.
+- Granica serii jest oceniana z wyglądu kolejnych obserwacji oraz bounded
+  dwuklatkowego potwierdzenia. Zmiana kąta nie może sama utworzyć wielu grup.
+- Priorytetem jest zero fałszywych scaleń różnych ekranów. Dodatkowy false split
+  jest bezpieczniejszy niż utrata unikalnego zdjęcia i zostanie później
+  rozwiązany przez Import po pewnym zakresie.
 - Ponowne przeliczenie istniejącego stagingu weryfikuje checksum jego manifestu
   przed utworzeniem joba. Dla tej samej gry, manifestu i fingerprintu jest
   idempotentne; nowa wersja selektora tworzy nowy run bez kopiowania zdjęć.
@@ -238,26 +204,28 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
   Nie może tylko przywrócić terminalnej karty bez uruchomienia pracy.
 - Skan jest strumieniowy i nie przechowuje pełnych obrazów całego katalogu w
   pamięci.
-- Produkcyjny worker może równolegle obliczać tani skan małego bounded okna, ale
-  obserwacje muszą być konsumowane dokładnie według naturalnego `order_index`.
-  Domyślna konfiguracja to cztery wątki i najwyżej osiem zleconych zdjęć.
-- Pełny OCR plansz, cropy komórek i symbol inference są zabronione w selektorze.
-- Liczba kosztowniejszych weryfikacji jest bounded liczbą grup i top-k, a nie
-  liczbą wszystkich zdjęć. Dla v8 typowy koszt wynosi jedną pełną weryfikację na
-  grupę; `topK` pozostaje wyłącznie ograniczonym fallbackiem, gdy wcześniejsze
-  zdjęcie nie daje jednoznacznego zakresu.
-- Provisionalny budżet na komputerze właściciela wynosi maksymalnie 15 minut dla
-  10 000 oraz 45 minut dla 30 000 zdjęć. TASK-0157 może obniżyć budżet po
-  pomiarach, ale nie może zaakceptować procesu trwającego wiele godzin.
+- Produkcyjny worker może równolegle obliczać bounded okno lekkich obserwacji,
+  ale wyniki są konsumowane dokładnie według naturalnego `order_index`.
+  Liczba scan workers oraz wewnętrznych wątków OpenCV wynika z benchmarku i nie
+  może powodować zagnieżdżonej nadsubskrypcji CPU.
+- OCR, `PageBoardDetector`, homografia, cropy komórek i symbol inference mają
+  dokładnie zero wywołań w selektorze.
+- Wersjonowany cache lekkiej obserwacji może przyspieszać retry i rerun, ale nie
+  jest źródłem prawdy i nie zastępuje końcowej weryfikacji checksumy wybranego
+  pliku.
+- Krótkie profile realnego pierwszego przebiegu raportują throughput i regresje,
+  zanim zostanie uruchomiona pełna próba 40 000 zdjęć.
+- Finalna bramka nie ma z góry ustalonego limitu czasu. System zapisuje pełny
+  czas, throughput, peak RSS i jakość wyniku dla 40 000 zdjęć, a właściciel
+  decyduje, czy wynik jest satysfakcjonujący i czy można zamknąć bramkę.
 - Limit wejścia 100 000 jest kontraktem funkcjonalnym. Profil 100 000 nie jest
   częścią odbioru 0.4; pierwszy rzeczywisty przebieg właściciela dostarcza
   obserwację operacyjną bez rozszerzania zaliczonej bramki benchmarkowej 30 000.
 - Peak RSS workera ma pozostać bounded i zmierzony; brak wyniku benchmarku
   blokuje użycie modułu na pełnym katalogu.
-- Golden grup nie dopuszcza fałszywego scalenia dwóch zakresów. Wielogrupowa
-  luka jest automatyczna tylko przy dokładnym podziale na pełne strony po 9.
-  Niepasująca liczba layoutów, brak jednej z kotwic albo skok numeracji pozostają
-  `manual_required`; system nie może deklarować fałszywych 100% rozpoznania.
+- Golden grup nie dopuszcza fałszywego scalenia dwóch różnych kolejnych
+  ekranów. Nie mierzy dokładności zakresu, ponieważ zakres nie jest wynikiem
+  selekcji v9.
 
 ## Poza zakresem
 

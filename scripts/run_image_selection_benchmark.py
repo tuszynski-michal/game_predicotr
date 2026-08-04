@@ -15,12 +15,41 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 WORKER_SOURCE = REPOSITORY_ROOT / "services" / "worker" / "src"
 sys.path.insert(0, str(WORKER_SOURCE))
 
+from game_predictor_worker.images.selection.adapters import (  # noqa: E402
+    AdaptiveVisibleSequenceLabelRangeRecognizer,
+    AnchoredSequenceRangeRecognizer,
+    BestEffortVisibleSequenceLabelRangeRecognizer,
+    VisibleSequenceLabelRangeRecognizer,
+    build_default_adapters,
+)
 from game_predictor_worker.images.selection.benchmark import (  # noqa: E402
     ImageSelectionBenchmarkError,
     canonical_pretty_json,
     load_scale_annotations,
+    run_real_corpus_baseline,
     run_scale_benchmark,
     validate_scale_report,
+)
+from game_predictor_worker.images.selection.contracts import (  # noqa: E402
+    CandidateVerifier,
+    CheapImageAnalyzer,
+)
+from game_predictor_worker.images.selection.io import (  # noqa: E402
+    load_browser_selection_manifest,
+)
+from game_predictor_worker.images.selection.manifest import (  # noqa: E402
+    BEST_EFFORT_SELECTOR_VERSIONS,
+    DEFAULT_SELECTOR_MANIFEST,
+    ORDERED_SELECTOR_VERSIONS,
+)
+from game_predictor_worker.images.selection.ports import (  # noqa: E402
+    SequenceRangeRecognizer,
+)
+from game_predictor_worker.images.selection.telemetry import (  # noqa: E402
+    StageTimingCollector,
+)
+from game_predictor_worker.images.sequence_ocr import (  # noqa: E402
+    PaddleSequenceNumberRecognizer,
 )
 
 ANNOTATIONS_PATH = (
@@ -36,12 +65,43 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-seconds", type=float, default=120.0)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--work-root", type=Path)
+    parser.add_argument("--real-source-root", type=Path)
+    parser.add_argument("--real-limit", type=int, default=500)
+    parser.add_argument("--scan-workers", type=int, default=4)
+    parser.add_argument(
+        "--ocr-model-root",
+        type=Path,
+        default=REPOSITORY_ROOT / "artifacts" / "m5-models" / "sequence-number-ocr-v1",
+    )
     parser.add_argument("--check", action="store_true")
     return parser.parse_args()
 
 
 def _default_output(profile_name: str) -> Path:
     return QUALITY_ROOT / f"image-selection-{profile_name}-report.json"
+
+
+def _build_real_adapters(
+    source_root: Path,
+    telemetry: StageTimingCollector,
+    *,
+    ocr_model_root: Path,
+) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+    ocr = PaddleSequenceNumberRecognizer(ocr_model_root)
+    anchored = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
+    fallback: SequenceRangeRecognizer
+    if DEFAULT_SELECTOR_MANIFEST.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
+        fallback = BestEffortVisibleSequenceLabelRangeRecognizer(ocr, telemetry=telemetry)
+    elif DEFAULT_SELECTOR_MANIFEST.algorithm_version in ORDERED_SELECTOR_VERSIONS:
+        fallback = AdaptiveVisibleSequenceLabelRangeRecognizer(ocr, telemetry=telemetry)
+    else:
+        fallback = VisibleSequenceLabelRangeRecognizer(ocr, telemetry=telemetry)
+    return build_default_adapters(
+        source_root,
+        range_recognizer=anchored,
+        fallback_range_recognizer=fallback,
+        telemetry=telemetry,
+    )
 
 
 def _resolve_work_root(requested: Path | None) -> Path:
@@ -90,9 +150,24 @@ def main() -> None:
     annotations = load_scale_annotations(ANNOTATIONS_PATH)
     profile_name = cast(str, args.profile)
     profile = annotations.profiles[profile_name]
-    output = cast(Path | None, args.output) or _default_output(profile_name)
+    real_source_root = cast(Path | None, args.real_source_root)
+    real_limit = cast(int, args.real_limit)
+    output = cast(Path | None, args.output) or _default_output(
+        f"real-{real_limit}" if real_source_root is not None else profile_name
+    )
     if args.check:
         report, content = _read_report(output)
+        if real_source_root is not None:
+            if (
+                report.get("benchmarkContract") != "image-selection-real-corpus-baseline-v1"
+                or report.get("technicalGatePassed") is not True
+            ):
+                raise ImageSelectionBenchmarkError(
+                    "The saved real-corpus baseline report is invalid."
+                )
+            print(f"Report is valid: {output}")
+            print(f"SHA-256: {hashlib.sha256(content).hexdigest()}")
+            return
         validate_scale_report(
             report,
             expected_profile=profile,
@@ -107,6 +182,36 @@ def main() -> None:
     max_seconds = cast(float, args.max_seconds)
     if max_seconds <= 0:
         raise ImageSelectionBenchmarkError("--max-seconds must be positive.")
+    if real_source_root is not None:
+        if max_seconds > 300:
+            raise ImageSelectionBenchmarkError(
+                "A real-corpus baseline cannot exceed the five-minute timeout."
+            )
+        source_root = real_source_root.resolve(strict=True)
+        sources, input_manifest_sha256 = load_browser_selection_manifest(
+            source_root / "_browser_manifest.json"
+        )
+        ocr_model_root = cast(Path, args.ocr_model_root).resolve(strict=True)
+        report = run_real_corpus_baseline(
+            source_root=source_root,
+            sources=sources,
+            input_manifest_sha256=input_manifest_sha256,
+            limit=real_limit,
+            max_seconds=max_seconds,
+            scan_workers=cast(int, args.scan_workers),
+            adapter_factory=lambda root, telemetry: _build_real_adapters(
+                root,
+                telemetry,
+                ocr_model_root=ocr_model_root,
+            ),
+        )
+        content = _write_report_atomic(output, report)
+        print(json.dumps(report, indent=2, sort_keys=True))
+        print(f"Saved image-selection real-corpus baseline to {output}.")
+        print(f"SHA-256: {hashlib.sha256(content).hexdigest()}")
+        if report["technicalGatePassed"] is not True:
+            raise ImageSelectionBenchmarkError("The real-corpus integrity gate failed.")
+        return
     work_root = _resolve_work_root(cast(Path | None, args.work_root))
     try:
         report = run_scale_benchmark(

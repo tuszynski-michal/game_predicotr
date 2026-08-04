@@ -68,6 +68,7 @@ from .output import (
     verify_curated_image_manifest,
 )
 from .ports import SequenceRangeRecognizer
+from .telemetry import StageTimingCollector
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
 BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
@@ -142,7 +143,7 @@ class ImageSelectionJobHandler:
         self._selector_manifest = selector_manifest
         self._scan_workers = scan_workers
         self._scan_prefetch = scan_prefetch
-        self._adapter_factory = adapter_factory or self._default_adapter_factory
+        self._adapter_factory = adapter_factory
         self._publisher = CuratedImageOutputPublisher(self._artifact_root)
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
@@ -176,13 +177,21 @@ class ImageSelectionJobHandler:
             return
 
         try:
+            telemetry = StageTimingCollector()
             persisted_groups = self._store.load_groups(run.id)
             resume_state = _resume_state(job.checkpoint_payload)
             existing_groups = _committed_groups(persisted_groups, resume_state)
-            analyzer, verifier = self._adapter_factory(
-                source_root,
-                selector_manifest,
-            )
+            if self._adapter_factory is None:
+                analyzer, verifier = self._default_adapter_factory(
+                    source_root,
+                    selector_manifest,
+                    telemetry,
+                )
+            else:
+                analyzer, verifier = self._adapter_factory(
+                    source_root,
+                    selector_manifest,
+                )
             sink = _DurableSelectionSink(
                 context,
                 self._store,
@@ -192,6 +201,7 @@ class ImageSelectionJobHandler:
                 prior_checkpoint=job.checkpoint_payload,
                 artifact_root=self._artifact_root,
                 existing_groups=existing_groups,
+                telemetry=telemetry,
             )
             result = FastImageSelector(
                 selector_manifest,
@@ -218,28 +228,32 @@ class ImageSelectionJobHandler:
                 context.wait_for_review()
 
             sink.write_diagnostics(result)
-            published = self._publisher.publish(
-                run_id=run.id,
-                source_root=source_root,
-                input_manifest_sha256=run.input_manifest_sha256,
-                result=result,
-                source_resolver=lambda candidate: self._resolve_selected_source(
-                    source_root,
-                    candidate,
-                ),
-                progress_callback=lambda completed, total: sink.publication_checkpoint(
-                    result.checkpoint,
-                    completed=completed,
-                    total=total,
-                ),
-            )
-            self._store.record_output(
-                job_id=job.id,
-                run_id=run.id,
-                lease_token=context.lease_token,
-                published=published,
-                persisted_at=context.now(),
-            )
+            with telemetry.measure("output"):
+                published = self._publisher.publish(
+                    run_id=run.id,
+                    source_root=source_root,
+                    input_manifest_sha256=run.input_manifest_sha256,
+                    result=result,
+                    source_resolver=lambda candidate: self._resolve_selected_source(
+                        source_root,
+                        candidate,
+                    ),
+                    progress_callback=lambda completed, total: sink.publication_checkpoint(
+                        result.checkpoint,
+                        completed=completed,
+                        total=total,
+                    ),
+                )
+            telemetry.increment("outputFiles", len(published.manifest.entries))
+            with telemetry.measure("persistence"):
+                self._store.record_output(
+                    job_id=job.id,
+                    run_id=run.id,
+                    lease_token=context.lease_token,
+                    published=published,
+                    persisted_at=context.now(),
+                )
+            telemetry.increment("persistenceWrites")
             sink.checkpoint_stage(
                 result.checkpoint,
                 stage="image_selection:ready_for_import",
@@ -292,22 +306,33 @@ class ImageSelectionJobHandler:
         self,
         source_root: Path,
         manifest: SelectorManifest,
+        telemetry: StageTimingCollector,
     ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
         model_root = self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
         ocr = PaddleSequenceNumberRecognizer(model_root)
-        recognizer = AnchoredSequenceRangeRecognizer(ocr)
+        recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
         fallback_recognizer: SequenceRangeRecognizer
         if manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
-            fallback_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(ocr)
+            fallback_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(
+                ocr,
+                telemetry=telemetry,
+            )
         elif manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
-            fallback_recognizer = AdaptiveVisibleSequenceLabelRangeRecognizer(ocr)
+            fallback_recognizer = AdaptiveVisibleSequenceLabelRangeRecognizer(
+                ocr,
+                telemetry=telemetry,
+            )
         else:
-            fallback_recognizer = VisibleSequenceLabelRangeRecognizer(ocr)
+            fallback_recognizer = VisibleSequenceLabelRangeRecognizer(
+                ocr,
+                telemetry=telemetry,
+            )
         return build_default_adapters(
             source_root,
             range_recognizer=recognizer,
             fallback_range_recognizer=fallback_recognizer,
             manifest=manifest,
+            telemetry=telemetry,
         )
 
 
@@ -323,6 +348,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         prior_checkpoint: Mapping[str, object] | None,
         artifact_root: Path,
         existing_groups: Sequence[SelectionGroupResult],
+        telemetry: StageTimingCollector,
     ) -> None:
         self._context = context
         self._store = store
@@ -339,6 +365,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         self._error_samples = _prior_error_samples(prior_checkpoint)
         self._processing_started_at = context.now()
         self._prior_processing_seconds = _prior_processing_duration(prior_checkpoint)
+        self._telemetry = telemetry
 
     def candidate_scanned(
         self,
@@ -370,13 +397,17 @@ class _DurableSelectionSink(SelectionAuditSink):
     def selector_state_saved(self, state: SelectorResumeState) -> None:
         self._last_state = state
         if self._pending_groups:
-            self._store.persist_groups(
-                job_id=self._run.job_id,
-                run_id=self._run.id,
-                lease_token=self._context.lease_token,
-                groups=tuple(self._pending_groups[key] for key in sorted(self._pending_groups)),
-                persisted_at=self._context.now(),
-            )
+            with self._telemetry.measure("persistence"):
+                self._store.persist_groups(
+                    job_id=self._run.job_id,
+                    run_id=self._run.id,
+                    lease_token=self._context.lease_token,
+                    groups=tuple(
+                        self._pending_groups[key] for key in sorted(self._pending_groups)
+                    ),
+                    persisted_at=self._context.now(),
+                )
+            self._telemetry.increment("persistenceWrites")
             self._pending_groups.clear()
         self._checkpoint(state, stage="image_selection:scanning")
 
@@ -439,6 +470,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             ),
             "selectorFingerprint": result.selector_fingerprint,
             "verificationCount": result.verification_count,
+            "stageTiming": self._telemetry.snapshot(),
         }
         content = json.dumps(
             payload,
@@ -503,6 +535,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             "verification_count": state.verification_count,
             "error_samples": self._error_samples,
             "upload_duration_seconds": self._upload_duration_seconds,
+            "stage_timing": self._telemetry.snapshot(),
         }
         if self._diagnostic is not None:
             payload["diagnostic"] = self._diagnostic
@@ -513,15 +546,17 @@ class _DurableSelectionSink(SelectionAuditSink):
             (self._context.now() - self._processing_started_at).total_seconds(),
         )
         payload["processing_duration_seconds"] = processing_seconds
-        self._context.checkpoint(
-            checkpoint_payload=payload,
-            stage=stage,
-            current=state.checkpoint.processed_count,
-            total=self._total,
-            success_count=selected,
-            failure_count=state.scan_failure_count,
-            review_count=max(self._context.job.review_count, manual),
-        )
+        with self._telemetry.measure("persistence"):
+            self._context.checkpoint(
+                checkpoint_payload=payload,
+                stage=stage,
+                current=state.checkpoint.processed_count,
+                total=self._total,
+                success_count=selected,
+                failure_count=state.scan_failure_count,
+                review_count=max(self._context.job.review_count, manual),
+            )
+        self._telemetry.increment("persistenceWrites")
 
 
 class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):

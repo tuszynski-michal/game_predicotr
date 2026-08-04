@@ -2,7 +2,7 @@
 title: Fast representative image selection architecture
 status: accepted
 release: "0.4"
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # Architektura selekcji reprezentatywnych zdjęć
@@ -27,14 +27,13 @@ Rozdzielenie zapobiega czterem problemom:
 folder JPEG
   -> browser staging
   -> manifest + natural order
-  -> cheap thumbnail scan
-  -> sequential group detector
-  -> top-k verification
-  -> automatic representative OR manual_required
-  -> optional manual photo/range OR explicit skip as missing_image
+  -> reduced JPEG appearance scan
+  -> sequential visual group detector
+  -> first-usable representative OR best decodable fallback
+  -> optional manual photo OR explicit skip as missing_image
   -> immutable selected manifest
   -> explicit handoff
-  -> existing Import layoutów
+  -> existing Import layoutów: OCR + geometry + sequence ranges + crops
 ```
 
 ## Granice komponentów
@@ -74,12 +73,15 @@ folder JPEG
 ### Worker
 
 - przetwarza pliki w deterministycznej kolejności i małym batchu,
-- wykonuje odczyt JPEG, miniaturę, lattice/fingerprint i metryki jakości przez
-  bounded ordered prefetch `workers = 4`, `prefetch = 8`; futures mogą kończyć
-  się poza kolejnością, ale state machine konsumuje je po `order_index`,
+- wykonuje decoder-side reduced JPEG, lekki deskryptor wyglądu i tanie metryki
+  jakości przez bounded ordered prefetch; liczba workerów wynika z benchmarku,
+  futures mogą kończyć się poza kolejnością, ale state machine konsumuje je po
+  `order_index`,
 - zapisuje checkpoint co plik lub bounded partię,
-- utrzymuje tylko miniaturę bieżącego pliku i top-k metadanych grupy,
-- nie wywołuje `BoardCellCropper` ani symbol ONNX,
+- utrzymuje tylko miniaturę bieżącego pliku, opis grupy, pierwszego użytecznego
+  kandydata i najwyżej jeden fallback,
+- nie wywołuje `PageBoardDetector`, OCR, homografii, `BoardCellCropper` ani
+  symbol ONNX,
 - kończy jako `waiting_for_review`, gdy istnieją grupy manualne, albo
   `completed`, gdy manifest jest kompletny,
 - używa istniejącego `execution_slot = 1`, lease, heartbeat, cancel i retry.
@@ -90,13 +92,13 @@ Encje:
 
 - `image_selection_runs` — game, job, input manifest, selector fingerprint,
   ordering policy, output manifest i lifecycle projekcji,
-- `image_selection_groups` — kolejność wystąpienia, rozpoznany zakres lub brak,
-  fingerprint, konsensus liczby plansz, stan oraz wybrany kandydat,
+- `image_selection_groups` — kolejność wystąpienia, opcjonalny zakres nadany
+  dopiero przez późniejszy import, fingerprint wyglądu, stan i kandydat,
 - `image_selection_candidates` — order index, ścieżka, checksum, wymiary,
   metryki jakości, confidence, reason codes i decyzja,
 - `image_selection_manual_decisions` — append-only rewizje ręcznych decyzji,
-  UUID idempotencji, resolution, opcjonalny wybrany kandydat, obowiązkowy zakres
-  i checksumę payloadu.
+  UUID idempotencji, resolution, opcjonalny wybrany kandydat, opcjonalny zakres
+  historycznych runów i checksumę payloadu.
 
 Duże obrazy pozostają w plikach. Dokładny schemat, constrainty i migracja
 Alembic są opisane w `DATA_MODEL.md`.
@@ -115,20 +117,62 @@ Alembic są opisane w `DATA_MODEL.md`.
 - bieżące ręczne wybory zapisuje kanoniczny, atomowo podmieniany
   `manual-decisions.json`; jest to manifest roboczy, a nie finalny output,
 - pliki wynikowe są niezmienne i sprawdzane checksumą,
-- przyjazna nazwa kopii wynikowej ma postać `seq_<start>-<end>.jpg`; po
+- nazwa kopii v9 ma postać `selection_<groupOrder>.jpg`; po
   publikacji przeglądarka może skopiować zweryfikowany zestaw do folderu
   wskazanego przez użytkownika, bez przekazywania backendowi dowolnej ścieżki,
-- nazwa publiczna jest wyprowadzana z zakresu zapisanego w manifestcie, a nie z
-  wewnętrznej nazwy managed file. Dzięki temu wcześniejsze content-addressed
-  pliki z paddingiem i checksumą pozostają czytelne bez migracji lub zmiany
-  niezmiennego outputu,
+- historyczne outputy v2–v8 zachowują nazwy `seq_<start>-<end>.jpg`; nie są
+  przepisywane ani migrowane,
 - unselected staging może zostać usunięty dopiero po atomowym commitcie wyniku
   albo po jawnym anulowaniu; źródłowy folder użytkownika jest read-only,
 - output manifest jest kanonicznym JSON bez ścieżek absolutnych.
 
 ## Wersjonowany algorytm `fast-image-selector`
 
-### Tani skan per plik
+### Docelowy `fast-image-selector-v9`
+
+V9 rozdziela szybką redukcję zdjęć od właściwego rozpoznawania danych. Selekcja
+nie ustala `sequence_number` i nie używa OCR ani dokładnej geometrii. Jej
+wynikiem jest naturalnie uporządkowana lista wizualnych grup oraz jeden JPEG na
+grupę. `Import layoutów` później odpowiada za numery, plansze, homografię, cropy
+i deduplikację zakresów.
+
+Lekki skan per plik:
+
+1. weryfikuje kontrolowane źródło i dekoduje JPEG bezpośrednio w zmniejszonej
+   rozdzielczości przed utworzeniem tablicy RGB,
+2. stosuje EXIF transpose,
+3. buduje deskryptor z perceptual hash, histogramu HSV oraz uproszczonego edge
+   signature kilku szerokich regionów ekranu,
+4. mierzy ostrość, ekspozycję, clipping i podstawową widoczność,
+5. nie uruchamia `PageBoardDetector`, OCR, homografii ani croppera.
+
+State machine porównuje obserwację z bezpośrednim poprzednikiem oraz bounded
+opisem bieżącej grupy. Granica wymaga dwóch kolejnych zgodnych obserwacji
+zmiany. Pojedynczy refleks, zasłonięcie albo klatka przejściowa nie tworzy nowej
+grupy. Algorytm nie zna oczekiwanego następnego zakresu ani minimalnej długości
+serii.
+
+Dla grupy utrzymywane są tylko:
+
+- rolling appearance descriptor,
+- pierwsza obserwacja spełniająca miękki próg czytelności,
+- najwyżej jeden najlepszy dekodowalny fallback,
+- bounded pending guard granicy.
+
+Po zamknięciu grupy wybierany jest pierwszy użyteczny obraz bez dodatkowej
+pełnej weryfikacji. Jeżeli próg nie został spełniony, publikowany jest najlepszy
+dekodowalny fallback z `QUALITY_BEST_AVAILABLE`. Niepewnego podobieństwa dwóch
+niekolejnych grup nie używa się do usunięcia obrazu; pewną deduplikację wykona
+Import po odczytaniu zakresu.
+
+`groupOrder` jest identyfikatorem kolejności źródeł i nie może być traktowany
+jako numer layoutu. V9 publikuje `selection_<groupOrder>.jpg` oraz manifest bez
+wymaganego zakresu. Historyczne runy pozostają odtwarzalne po swoich
+fingerprintach.
+
+### Historyczny pipeline v2–v8
+
+#### Tani skan per plik
 
 1. Weryfikacja JPEG i SHA-256.
 2. EXIF transpose oraz miniatura z ograniczonym dłuższym bokiem.
@@ -139,7 +183,7 @@ Alembic są opisane w `DATA_MODEL.md`.
    obszaru ekranu.
 6. Decyzja, czy potrzebny jest sparse OCR kotwic zakresu.
 
-### Granice grup
+#### Granice grup
 
 State machine nie przewiduje następnego numeru. Nową grupę otwiera dopiero
 łączny dowód:
@@ -153,7 +197,7 @@ Pojedynczy słaby sygnał nie zamyka grupy. Po utrwaleniu reprezentanta późnie
 powrót tego samego zakresu otrzymuje `skipped_existing_range`. Zakres jeszcze
 nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 
-### Identyfikacja zakresu
+#### Identyfikacja zakresu
 
 - OCR działa na numerach pierwszej, ostatniej i opcjonalnie środkowej wykrytej
   planszy, batchowo dla kandydata.
@@ -172,7 +216,7 @@ nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 - Finalna strona może zawierać 1–9 plansz.
 - Brak zgodnego zakresu zachowuje grupę jako `unknown`; nie tworzy numerów.
 
-### Ranking i bramki bezpieczeństwa
+#### Ranking i bramki bezpieczeństwa
 
 - Dla grupy przechowywane są metadane najwyżej `topK`, domyślnie 3. V8 zachowuje
   najwcześniejszą obserwację spełniającą wersjonowany próg `firstUsablePolicy`
@@ -206,7 +250,7 @@ nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 Wagi, progi, rozmiar miniatury i guard interval są częścią wersjonowanego
 manifestu selektora. Nie mogą być ukrytymi stałymi rozproszonymi po UI i CLI.
 
-Aktualna implementacja `fast-image-selector-v8` utrzymuje manifest w jednym
+Historyczna implementacja `fast-image-selector-v8` utrzymuje manifest w jednym
 module i wylicza z jego kanonicznego JSON fingerprint używany przez API
 `9dc754cca7e7e7afe23e8a25c8574e0ef4ed5f7fd5829a24984c25f4c256f42d`
 przy tworzeniu kolejnych runów. V8 zachowuje adapter, reguły granic i
@@ -256,7 +300,8 @@ oraz v7 o fingerprintcie
 `21d634e0657c2e53564157901d3873747d0c642bf7d30141449c990646fd0d55`
 pozostają w rejestrze kompatybilności. Worker rozwiązuje manifest po fingerprintcie
 trwałego runu, dlatego rozpoczęty run v2/v3/v4/v5/v6/v7 może zostać wznowiony po
-restarcie bez zmiany algorytmu, a nowe runy otrzymują v8. Jawne porty oddzielają
+restarcie bez zmiany algorytmu. Do aktywacji v9 rejestr zachowuje również v8.
+Jawne porty historycznego pipeline'u oddzielają
 loader miniatury, metryki jakości, lattice/fingerprint oraz OCR zakresu.
 Samodzielny diagnostyczny przebieg CLI bez lokalnego modelu OCR używa innej
 wersji adaptera i fingerprintu, dlatego nie może zostać pomylony z produkcyjnym
@@ -296,17 +341,16 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
 - Po publikacji content-addressed output jest niezmienny. Dalsza korekta wymaga
   nowego runu i nie mutuje artefaktu, który mógł już zostać przekazany do importu.
 - `missing_image` jest terminalnym, trwałym stanem grupy. Publisher pomija
-  kopiowanie JPEG-a dla takiej grupy. Jeżeli zakres jest znany, pozostaje
-  widoczny jako `Brak zdjęcia dla layoutów X–Y`; jeżeli OCR nie ustalił zakresu,
-  oba pola pozostają `null`, a UI pokazuje `Nierozpoznany zestaw zdjęć` bez
-  technicznego numeru grupy.
+  kopiowanie JPEG-a dla takiej grupy. V9 nie ustala zakresu, dlatego UI pokazuje
+  techniczny `groupOrder`, liczbę źródeł i ich nazwy, bez przedstawiania tego
+  numeru jako numeru layoutu. Historyczny zakres v2–v8 może pozostać widoczny.
 - Publisher zapisuje JPEG-i i kanoniczny `manifest.json` do izolowanego
   `.pending`, wykonuje ponowny odczyt checksum i wymiarów, a następnie publikuje
   cały katalog jednym rename w tym samym filesystemie. Awaria przed rename nie
   tworzy widocznego częściowego outputu.
 - Handoff weryfikuje checksumę manifestu, wszystkie wybrane pliki, proweniencję
-  runu oraz zgodność zakresów z trwałymi decyzjami grup przed wydaniem
-  krótkotrwałego tokenu do właściwego importu.
+  runu oraz zgodność trwałych decyzji grup przed wydaniem krótkotrwałego tokenu.
+  Zakres jest opcjonalny i dla v9 zostanie ustalony przez właściwy import.
 - Identyfikator logicznego źródła handoffu jest równy `runId`; ponowienie nie
   tworzy innego źródła, nawet jeżeli po skonsumowaniu poprzedniego tokenu trzeba
   wydać nowy token sesyjny.
@@ -374,10 +418,9 @@ Frontend korzysta wyłącznie z generowanego klienta.
 Endpoint kandydatów jest ograniczony do 100 rekordów, domyślnie 20, zwraca
 oryginalne nazwy względne oraz `sourceCount` grupy. Modal pobiera go wyłącznie
 dla bieżącego zestawu, więc identyfikacja źródeł nie ładuje całej kolejki do
-pamięci. Sugestia zakresu jest dozwolona tylko dla pojedynczej nierozwiązanej
-grupy pomiędzy dwoma znanymi zakresami. Operacja zbiorcza zapisuje
-`missing_image` bez zakresu, dzięki czemu równoległe sugestie nie naruszają
-unikalności zakresów.
+pamięci. V9 nie proponuje zakresu ani luki; operacja zbiorcza zapisuje
+`missing_image` bez zakresu. Historyczne endpointy v2–v8 pozostają zgodne
+wstecznie.
 
 ## Stany
 
@@ -404,18 +447,25 @@ collecting | auto_selected | manual_required | manually_selected
 
 ## Wydajność
 
-- O(n) odczytów miniatur i metryk jakości.
-- O(n) pracy pozostaje bez zmian, ale bezstanowy tani skan wykorzystuje do
-  czterech rdzeni. Grupowanie, top-k verification, OCR i persistence pozostają
-  sekwencyjne.
-- OCR oraz dokładniejsza weryfikacja mają w v8 typowy koszt O(g), gdzie `g` to
-  liczba grup. Pesymistyczny fallback nadal jest O(g × topK), a nie O(n).
+- V9 wykonuje O(n) reduced decode, lekkich deskryptorów i metryk jakości.
+- Produkcyjna ścieżka selekcji wykonuje zero OCR, zero `PageBoardDetector`, zero
+  homografii i zero cropów niezależnie od `n` oraz liczby grup.
+- Bounded zewnętrzny pool skanu działa z jednym wewnętrznym wątkiem OpenCV;
+  faktyczna liczba workerów jest wybierana po benchmarku 1/2/4, aby uniknąć
+  nadsubskrypcji CPU.
+- V9 nie wykonuje top-k full verification. Dla grupy zachowuje pierwszego
+  użytecznego kandydata i jeden fallback.
+- Wersjonowany cache po checksumie i fingerprintcie lekkiego adaptera może
+  usunąć dekodowanie przy zgodnym rerunie, ale nie wpływa na wynik domenowy.
 - Rekordy kandydatów zapisują się bounded partiami; obrazy nie trafiają do RAM
   ani PostgreSQL jako kolekcja.
 - Benchmark mierzy upload osobno od obliczeń, aby wolny dysk lub kopiowanie nie
   ukrywały kosztu selektora.
-- Bramka 10k/30k, peak RSS, OCR invocation count, precision grupowania i
-  manual-review rate jest obowiązkowa przed pełnym użyciem.
+- Przed pełnym profilem obowiązuje realny profil 500–1000 oraz 3000 zdjęć.
+  Bramka końcowa mierzy pełny przebieg 40 000 zdjęć, bounded peak RSS, zero false
+  merge oraz zerowe liczniki kosztownych adapterów należących do Importu
+  layoutów. Czas i throughput są raportowane bez sztywnego limitu; właściciel
+  podejmuje końcową decyzję akceptacyjną.
 
 ## Odrzucone warianty
 

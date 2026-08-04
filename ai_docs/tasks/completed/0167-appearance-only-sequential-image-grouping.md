@@ -1,15 +1,15 @@
 ---
 title: TASK-0167 appearance-only sequential image grouping
-status: todo
+status: done
 release: "0.4"
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # TASK-0167 — Appearance-only sequential image grouping
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -52,14 +52,14 @@ grupy przy zmianie kąta i zwiększa czas zamiast pomagać szybkiemu wyborowi.
 
 ## Acceptance criteria
 
-- [ ] Produkcyjny lekki skan wykonuje zero wywołań `PageBoardDetector` i zero
+- [x] Produkcyjny lekki skan wykonuje zero wywołań `PageBoardDetector` i zero
       wywołań `SequenceNumberRecognizer`.
-- [ ] Stopniowa zmiana kąta tego samego ekranu nie tworzy krótkich grup.
-- [ ] Nagła zmiana strony po potwierdzeniu tworzy nową grupę.
-- [ ] Pojedyncza klatka przejściowa nie tworzy osobnej grupy.
-- [ ] Golden ma zero fałszywych scaleń dwóch różnych kolejnych ekranów.
-- [ ] Algorytm nie używa oczekiwanego numeru ani założenia 50–100 zdjęć.
-- [ ] Stan checkpointu pozostaje bounded niezależnie od liczby wejść.
+- [x] Stopniowa zmiana kąta tego samego ekranu nie tworzy krótkich grup.
+- [x] Nagła zmiana strony po potwierdzeniu tworzy nową grupę.
+- [x] Pojedyncza klatka przejściowa nie tworzy osobnej grupy.
+- [x] Golden ma zero fałszywych scaleń dwóch różnych kolejnych ekranów.
+- [x] Algorytm nie używa oczekiwanego numeru ani założenia 50–100 zdjęć.
+- [x] Stan checkpointu pozostaje bounded niezależnie od liczby wejść.
 
 ## Technical notes
 
@@ -91,4 +91,21 @@ pojedynczych wybranych zdjęciach.
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+- Dodano wersjonowany manifest `fast-image-selector-v9` o fingerprintcie
+  `711ce8cddc86…`. Nie jest jeszcze domyślny; aktywacja nastąpi dopiero po
+  końcowej bramce TASK-0171.
+- Lekki adapter tworzy stały 97-elementowy deskryptor pHash/HSV/edge i tanie
+  metryki jakości centralnego ekranu. Ścieżka v9 nie konstruuje detektora plansz
+  ani modelu OCR.
+- State machine używa bezpośredniego poprzednika, rolling centroidu i dwóch
+  zgodnych obserwacji granicy. Pojedyncza obca klatka jest dołączana do bieżącej
+  grupy dopiero po ocenie powrotu, dzięki czemu nie zatruwa wcześniej centroidu.
+- Checkpoint zapisuje stały centroid, licznik obserwacji, top-k i bounded pending
+  guard. Historyczne checkpointy bez nowych pól nadal odtwarzają wartości
+  domyślne, a fingerprinty v2–v8 pozostały niezmienione.
+- Prywatny golden trzech kolejnych stron 1–9, 10–18 i 19–27 daje trzy grupy bez
+  false merge. Kontrolowana zmiana perspektywy realnej strony pozostaje poniżej
+  progu granicy.
+- Weryfikacja: `81 passed`; Ruff bez błędów; mypy bez błędów dla manifestu,
+  kontraktów, portów, engine i adapterów. Pełne profile realne pozostają w
+  TASK-0171 zgodnie z decyzją właściciela.

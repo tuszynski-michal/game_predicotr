@@ -56,6 +56,7 @@ from .contracts import (
 from .engine import FastImageSelector
 from .io import load_browser_selection_manifest
 from .manifest import (
+    APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
     ORDERED_SELECTOR_VERSIONS,
@@ -308,6 +309,12 @@ class ImageSelectionJobHandler:
         manifest: SelectorManifest,
         telemetry: StageTimingCollector,
     ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+        if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+            return build_default_adapters(
+                source_root,
+                manifest=manifest,
+                telemetry=telemetry,
+            )
         model_root = self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
         ocr = PaddleSequenceNumberRecognizer(model_root)
         recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
@@ -402,9 +409,7 @@ class _DurableSelectionSink(SelectionAuditSink):
                     job_id=self._run.job_id,
                     run_id=self._run.id,
                     lease_token=self._context.lease_token,
-                    groups=tuple(
-                        self._pending_groups[key] for key in sorted(self._pending_groups)
-                    ),
+                    groups=tuple(self._pending_groups[key] for key in sorted(self._pending_groups)),
                     persisted_at=self._context.now(),
                 )
             self._telemetry.increment("persistenceWrites")

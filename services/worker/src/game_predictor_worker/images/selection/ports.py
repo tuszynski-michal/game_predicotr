@@ -28,6 +28,7 @@ class LatticeFingerprint:
     geometry_confidence: float
     boards: tuple[BoardDetection, ...]
     reason_codes: tuple[str, ...]
+    appearance_signature: tuple[float, ...] = ()
 
 
 class ThumbnailLoader(Protocol):

@@ -33,13 +33,45 @@ from game_predictor_worker.images.selection.job import (
     _assert_fence,
 )
 from game_predictor_worker.images.selection.manifest import (
+    APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     LEGACY_SELECTOR_MANIFEST_V2,
     SelectorManifest,
 )
 from game_predictor_worker.images.selection.output import PublishedImageSelection
+from game_predictor_worker.images.selection.telemetry import StageTimingCollector
 from PIL import Image
 
 NOW = datetime(2026, 8, 3, 10, tzinfo=UTC)
+
+
+def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.job.PaddleSequenceNumberRecognizer",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Sequence OCR must not be constructed for v9.")
+        ),
+    )
+    handler = ImageSelectionJobHandler(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        browser_upload_root=tmp_path,
+        artifact_root=tmp_path,
+        repository_root=tmp_path,
+        selector_manifest=APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+    )
+
+    analyzer, verifier = handler._default_adapter_factory(  # noqa: SLF001
+        source_root,
+        APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+        StageTimingCollector(),
+    )
+
+    assert analyzer is not None
+    assert verifier is not None
 
 
 @dataclass

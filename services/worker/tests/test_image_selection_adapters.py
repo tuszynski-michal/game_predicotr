@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from statistics import StatisticsError
 
+import cv2
 import numpy as np
 import pytest
 from game_predictor_api.domain.image_selections import IMAGE_SELECTION_SELECTOR_FINGERPRINT
@@ -17,6 +18,8 @@ from game_predictor_worker.images.selection.adapters import (
     ComposedCheapImageAnalyzer,
     FullCandidateVerifier,
     NoRangeRecognizer,
+    OpenCvAppearanceFingerprintAnalyzer,
+    OpenCvAppearanceQualityAnalyzer,
     OpenCvImageQualityAnalyzer,
     PillowThumbnailLoader,
     VisibleSequenceLabelRangeRecognizer,
@@ -27,7 +30,9 @@ from game_predictor_worker.images.selection.contracts import (
     ImageQualityMetrics,
     ImageSelectionSource,
 )
+from game_predictor_worker.images.selection.engine import appearance_distance
 from game_predictor_worker.images.selection.manifest import (
+    APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     DEFAULT_SELECTOR_MANIFEST,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
@@ -37,7 +42,7 @@ from game_predictor_worker.images.selection.manifest import (
 from game_predictor_worker.images.selection.ports import LatticeFingerprint, ThumbnailFrame
 from game_predictor_worker.images.selection.telemetry import StageTimingCollector
 from game_predictor_worker.images.sequence_ocr import Recognition
-from PIL import Image, JpegImagePlugin
+from PIL import Image, ImageOps, JpegImagePlugin
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -258,6 +263,118 @@ def test_composed_scan_uses_explicit_ports_and_returns_bounded_observation(
     assert observation.fingerprint_hex == "a" * 64
     assert observation.board_count == 9
     assert observation.quality.overall_score == 0.92
+
+
+def test_v9_appearance_scan_builds_descriptor_without_geometry_or_ocr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "00000001.jpg"
+    y, x = np.indices((480, 320))
+    rgb = np.stack(
+        (
+            (x % 256).astype(np.uint8),
+            (y % 256).astype(np.uint8),
+            ((x + y) % 256).astype(np.uint8),
+        ),
+        axis=2,
+    )
+    Image.fromarray(rgb, mode="RGB").save(path, format="JPEG", quality=92)
+    checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.adapters.ClassicalPageBoardDetector",
+        lambda: (_ for _ in ()).throw(AssertionError("PageBoardDetector must not be built.")),
+    )
+    telemetry = StageTimingCollector()
+
+    analyzer, _ = build_default_adapters(
+        tmp_path,
+        manifest=APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+        telemetry=telemetry,
+    )
+    observation = analyzer.analyze(_source(checksum))
+
+    config = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_descriptor
+    expected_size = (
+        config.phash_size**2
+        + config.hue_bins
+        + config.saturation_bins
+        + config.value_bins
+        + config.edge_grid_rows * config.edge_grid_columns
+        + config.edge_orientation_bins
+    )
+    assert len(observation.appearance_signature) == expected_size
+    assert observation.geometry_signature == ()
+    assert observation.board_count is None
+    assert observation.geometry_confidence == 0.0
+    counters = telemetry.snapshot()["counters"]
+    assert counters.get("detectorCalls", 0) == 0
+    assert counters.get("ocrCalls", 0) == 0
+
+
+def test_v9_appearance_adapters_are_deterministic_on_the_same_frame() -> None:
+    y, x = np.indices((240, 320))
+    rgb = np.stack(
+        (
+            ((x * 3) % 256).astype(np.uint8),
+            ((y * 5) % 256).astype(np.uint8),
+            ((x + y * 2) % 256).astype(np.uint8),
+        ),
+        axis=2,
+    )
+    frame = ThumbnailFrame(rgb=rgb, source_width=320, source_height=240)
+    config = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_descriptor
+    fingerprint = OpenCvAppearanceFingerprintAnalyzer(config)
+    quality = OpenCvAppearanceQualityAnalyzer(
+        APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.quality_weights,
+        config,
+    )
+
+    first = fingerprint.analyze(frame)
+    second = fingerprint.analyze(frame)
+
+    assert first == second
+    assert quality.measure(frame, first) == quality.measure(frame, second)
+
+
+def test_v9_private_real_page_tolerates_a_small_perspective_change() -> None:
+    path = ROOT / "examples" / "imgs" / "5983122166590934317.jpg"
+    if not path.is_file():
+        pytest.skip("The private user-provided perspective corpus is not present.")
+    with Image.open(path) as image:
+        normalized = ImageOps.exif_transpose(image).convert("RGB")
+        normalized.thumbnail((960, 960), resample=Image.Resampling.LANCZOS)
+        original = np.asarray(normalized, dtype=np.uint8)
+    height, width = original.shape[:2]
+    source_quad = np.float32(((0, 0), (width - 1, 0), (width - 1, height - 1), (0, height - 1)))
+    destination_quad = np.float32(
+        (
+            (width * 0.03, height * 0.01),
+            (width * 0.98, height * 0.03),
+            (width * 0.99, height * 0.98),
+            (width * 0.01, height * 0.99),
+        )
+    )
+    transformed = cv2.warpPerspective(
+        original,
+        cv2.getPerspectiveTransform(source_quad, destination_quad),
+        (width, height),
+        borderMode=cv2.BORDER_REFLECT,
+    )
+    config = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_descriptor
+    analyzer = OpenCvAppearanceFingerprintAnalyzer(config)
+    original_descriptor = analyzer.analyze(ThumbnailFrame(original, width, height))
+    transformed_descriptor = analyzer.analyze(ThumbnailFrame(transformed, width, height))
+
+    distance = appearance_distance(
+        original_descriptor.appearance_signature,
+        transformed_descriptor.appearance_signature,
+        config,
+    )
+
+    assert distance < (
+        APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_thresholds.adjacent_boundary_distance
+    )
 
 
 def test_corrupted_jpeg_is_isolated_as_a_bounded_scan_observation(

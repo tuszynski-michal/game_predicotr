@@ -3592,6 +3592,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   `pillow-exif-thumbnail-v1`, więc checkpoint i retry są nadal odtwarzalne.
   Zmiana nie dotyka uploadu ani staging schema v2.
 
+## D-148 — V9 grupuje wyłącznie po bounded deskryptorze wyglądu
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** `fast-image-selector-v9` używa stałego wektora 97 wartości:
+  niskoczęstotliwościowego pHash 8×8, osobnych histogramów H/S/V oraz siatki
+  gęstości i orientacji krawędzi. Granica wymaga zmiany względem bezpośredniego
+  poprzednika i rolling centroidu grupy oraz dwóch zgodnych kolejnych
+  obserwacji. Centroid, licznik, top-k i pending guard są częścią bounded
+  checkpointu. V9 nie konstruuje `PageBoardDetector` ani modelu OCR.
+- **Context:** historyczne v2–v8 używały geometrii plansz i fingerprintu obszaru
+  ekranu. Zmiana kąta powodowała fragmentację, a dokładne adaptery wykonywały
+  koszt niewspółmierny do celu preselektora.
+- **Reason:** połączenie pHash, koloru i szerokich regionów krawędzi zachowuje
+  zmianę zawartości ekranu, ale rolling centroid oraz bezpośredni poprzednik
+  tolerują płynny ruch kamery. Dwuklatkowy guard izoluje refleks, zasłonięcie i
+  pojedynczą klatkę przejściową.
+- **Alternatives:** sam hash kolorów odrzucono jako zbyt ubogi, pełną geometrię
+  i OCR jako zbyt kosztowne, a nieograniczoną historię deskryptorów jako
+  sprzeczną z bounded pamięcią. Przewidywanie zakresu lub długości serii nadal
+  należy do późniejszego Importu layoutów.
+- **Consequences:** manifest v9 ma fingerprint `711ce8cddc86…`, lecz domyślny
+  manifest pozostaje v8 do końcowej aktywacji w TASK-0171. Prywatny golden
+  kolejnych ekranów `1–9`, `10–18`, `19–27` nie ma false merge; mała zmiana
+  perspektywy tego samego realnego zdjęcia pozostaje poniżej progu granicy.
+  TASK-0168 przejmie wybór reprezentanta bez pełnej weryfikacji.
+
 ## Szablon nowej decyzji
 
 ```text

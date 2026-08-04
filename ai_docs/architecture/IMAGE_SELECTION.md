@@ -144,7 +144,9 @@ Lekki skan per plik:
    960 px, ponieważ warianty 384 i 480 nie przeszły realnego goldena granic,
 2. stosuje EXIF transpose,
 3. buduje deskryptor z perceptual hash, histogramu HSV oraz uproszczonego edge
-   signature kilku szerokich regionów ekranu,
+   signature kilku szerokich regionów ekranu. Wersjonowany wektor zawiera 64
+   wartości pHash 8×8, 20 koszyków H/S/V oraz 13 wartości siatki i orientacji
+   krawędzi; jego wagi, crop i progi należą do manifestu,
 4. mierzy ostrość, ekspozycję, clipping i podstawową widoczność,
 5. nie uruchamia `PageBoardDetector`, OCR, homografii ani croppera.
 
@@ -153,6 +155,12 @@ opisem bieżącej grupy. Granica wymaga dwóch kolejnych zgodnych obserwacji
 zmiany. Pojedynczy refleks, zasłonięcie albo klatka przejściowa nie tworzy nowej
 grupy. Algorytm nie zna oczekiwanego następnego zakresu ani minimalnej długości
 serii.
+
+Opis grupy jest rolling centroidem o stałym wymiarze, aktualizowanym online bez
+przechowywania wcześniejszych obrazów lub wszystkich deskryptorów. Kandydat
+granicy musi przekroczyć wersjonowany próg zarówno względem bezpośredniego
+poprzednika, jak i centroidu. Odrzucona pojedyncza klatka przejściowa nie może
+przesunąć centroidu przed oceną powrotu do bieżącego ekranu.
 
 Dla grupy utrzymywane są tylko:
 

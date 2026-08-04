@@ -29,6 +29,7 @@ from .contracts import (
     SequenceRange,
 )
 from .manifest import (
+    APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_AVAILABLE_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
@@ -37,6 +38,7 @@ from .manifest import (
     FIRST_USABLE_SELECTOR_VERSIONS,
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
+    AppearanceDescriptorConfig,
     SelectorManifest,
 )
 
@@ -64,6 +66,48 @@ def geometry_distance(first: tuple[float, ...], second: tuple[float, ...]) -> fl
     return min(
         1.0,
         statistics.fmean(abs(left - right) for left, right in zip(first, second, strict=True)),
+    )
+
+
+def appearance_distance(
+    first: tuple[float, ...],
+    second: tuple[float, ...],
+    config: AppearanceDescriptorConfig,
+) -> float:
+    """Return a weighted distance for the fixed-size v9 appearance vector."""
+
+    phash_count = config.phash_size * config.phash_size
+    hue_end = phash_count + config.hue_bins
+    saturation_end = hue_end + config.saturation_bins
+    value_end = saturation_end + config.value_bins
+    edge_grid_end = value_end + config.edge_grid_rows * config.edge_grid_columns
+    expected_count = edge_grid_end + config.edge_orientation_bins
+    if len(first) != expected_count or len(second) != expected_count:
+        return 1.0
+
+    def mean_absolute(start: int, end: int) -> float:
+        return statistics.fmean(abs(first[index] - second[index]) for index in range(start, end))
+
+    def total_variation(start: int, end: int) -> float:
+        return 0.5 * sum(abs(first[index] - second[index]) for index in range(start, end))
+
+    phash = mean_absolute(0, phash_count)
+    hsv = statistics.fmean(
+        (
+            total_variation(phash_count, hue_end),
+            total_variation(hue_end, saturation_end),
+            total_variation(saturation_end, value_end),
+        )
+    )
+    edge = statistics.fmean(
+        (
+            mean_absolute(value_end, edge_grid_end),
+            total_variation(edge_grid_end, expected_count),
+        )
+    )
+    return min(
+        1.0,
+        phash * config.phash_weight + hsv * config.hsv_weight + edge * config.edge_weight,
     )
 
 
@@ -98,15 +142,38 @@ class _OpenGroup:
     group_order: int
     top_k: int
     prefer_first_usable: bool = False
+    appearance_only: bool = False
     source_count: int = 0
     top_observations: list[CheapImageObservation] = field(default_factory=list)
     board_counts: Counter[int] = field(default_factory=Counter)
     reference: CheapImageObservation | None = None
     last_observation: CheapImageObservation | None = None
+    appearance_centroid: list[float] = field(default_factory=list)
+    appearance_observation_count: int = 0
 
     def add(self, observation: CheapImageObservation) -> None:
         self.source_count += 1
-        self.last_observation = observation
+        if not self.appearance_only or observation.appearance_signature:
+            self.last_observation = observation
+        if observation.appearance_signature:
+            if not self.appearance_centroid:
+                self.appearance_centroid = list(observation.appearance_signature)
+            elif len(self.appearance_centroid) != len(observation.appearance_signature):
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_APPEARANCE_SIGNATURE_INVALID",
+                    "Appearance signatures within one run must use one fixed dimension.",
+                )
+            else:
+                next_count = self.appearance_observation_count + 1
+                self.appearance_centroid = [
+                    current + (value - current) / next_count
+                    for current, value in zip(
+                        self.appearance_centroid,
+                        observation.appearance_signature,
+                        strict=True,
+                    )
+                ]
+            self.appearance_observation_count += 1
         if observation.board_count is not None:
             self.board_counts[observation.board_count] += 1
         candidates = (*self.top_observations, observation)
@@ -146,6 +213,8 @@ class _OpenGroup:
             top_observations=tuple(self.top_observations),
             board_counts=tuple(sorted(self.board_counts.items())),
             last_observation=self.last_observation,
+            appearance_centroid=tuple(self.appearance_centroid),
+            appearance_observation_count=self.appearance_observation_count,
         )
 
     @classmethod
@@ -155,6 +224,7 @@ class _OpenGroup:
         *,
         top_k: int,
         prefer_first_usable: bool = False,
+        appearance_only: bool = False,
     ) -> _OpenGroup:
         if len(state.top_observations) > top_k:
             raise SelectionContractError(
@@ -165,9 +235,12 @@ class _OpenGroup:
             group_order=state.group_order,
             top_k=top_k,
             prefer_first_usable=prefer_first_usable,
+            appearance_only=appearance_only,
             source_count=state.source_count,
             top_observations=list(state.top_observations),
             board_counts=Counter(dict(state.board_counts)),
+            appearance_centroid=list(state.appearance_centroid),
+            appearance_observation_count=state.appearance_observation_count,
         )
         group.top_observations.sort(key=_observation_rank)
         group.reference = group.top_observations[0]
@@ -245,6 +318,7 @@ class FastImageSelector:
             )
         self.manifest = manifest
         self._prefer_first_usable = manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS
+        self._appearance_only = manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS
         self._scan_workers = scan_workers
         self._scan_prefetch = effective_prefetch
 
@@ -292,6 +366,7 @@ class FastImageSelector:
                 resume_state.current_group,
                 top_k=self.manifest.top_k,
                 prefer_first_usable=self._prefer_first_usable,
+                appearance_only=self._appearance_only,
             )
         )
         pending = [] if resume_state is None else list(resume_state.pending_observations)
@@ -355,6 +430,7 @@ class FastImageSelector:
                     group_order=0,
                     top_k=self.manifest.top_k,
                     prefer_first_usable=self._prefer_first_usable,
+                    appearance_only=self._appearance_only,
                 )
                 ingest(current, observation)
             elif pending:
@@ -371,6 +447,7 @@ class FastImageSelector:
                             group_order=len(groups),
                             top_k=self.manifest.top_k,
                             prefer_first_usable=self._prefer_first_usable,
+                            appearance_only=self._appearance_only,
                         )
                         for item in pending:
                             ingest(current, item)
@@ -381,13 +458,21 @@ class FastImageSelector:
                     # or an unstable cheap board detection. Keep it with the
                     # current range and begin confirmation again from the new
                     # observation instead of creating a singleton group.
+                    appearance_restart = self._appearance_only and (
+                        self._is_changed_from_group_majority(current, observation)
+                        or self._is_boundary_candidate(current, observation)
+                    )
                     for item in pending:
                         ingest(current, item)
                     pending.clear()
-                    if (
-                        self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS
-                        and self._is_changed_from_group_majority(current, observation)
-                    ) or self._is_boundary_candidate(current, observation):
+                    if self._appearance_only:
+                        restart_confirmation = appearance_restart
+                    else:
+                        restart_confirmation = (
+                            self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS
+                            and self._is_changed_from_group_majority(current, observation)
+                        ) or self._is_boundary_candidate(current, observation)
+                    if restart_confirmation:
                         pending.append(observation)
                     else:
                         ingest(current, observation)
@@ -414,6 +499,7 @@ class FastImageSelector:
                     group_order=len(groups),
                     top_k=self.manifest.top_k,
                     prefer_first_usable=self._prefer_first_usable,
+                    appearance_only=self._appearance_only,
                 )
                 for observation in pending:
                     ingest(current, observation)
@@ -488,6 +574,8 @@ class FastImageSelector:
         reference = current.reference
         if reference is None:
             return False
+        if self._appearance_only:
+            return self._is_appearance_boundary(current, observation)
         if self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
             return self._is_ordered_boundary(current, observation)
         if self.manifest.algorithm_version != LEGACY_SELECTOR_VERSION:
@@ -555,6 +643,32 @@ class FastImageSelector:
             or self.manifest.boundary_confirmation_count > 1
         )
 
+    def _is_appearance_boundary(
+        self,
+        current: _OpenGroup,
+        observation: CheapImageObservation,
+    ) -> bool:
+        adjacent = current.last_observation
+        centroid = tuple(current.appearance_centroid)
+        signature = observation.appearance_signature
+        if adjacent is None or not adjacent.appearance_signature or not centroid or not signature:
+            return False
+        config = self.manifest.appearance_descriptor
+        threshold = self.manifest.appearance_thresholds
+        adjacent_distance = appearance_distance(
+            adjacent.appearance_signature,
+            signature,
+            config,
+        )
+        centroid_distance = appearance_distance(centroid, signature, config)
+        return (
+            adjacent_distance >= threshold.adjacent_boundary_distance
+            and centroid_distance >= threshold.centroid_boundary_distance
+        ) or (
+            adjacent_distance >= threshold.strong_boundary_distance
+            and centroid_distance >= threshold.centroid_boundary_distance * 0.75
+        )
+
     def _is_changed_from_group_majority(
         self,
         current: _OpenGroup,
@@ -562,6 +676,17 @@ class FastImageSelector:
     ) -> bool:
         """Keep tracking a multi-frame transition away from the old page."""
 
+        if self._appearance_only:
+            if not current.appearance_centroid or not observation.appearance_signature:
+                return False
+            return (
+                appearance_distance(
+                    tuple(current.appearance_centroid),
+                    observation.appearance_signature,
+                    self.manifest.appearance_descriptor,
+                )
+                >= self.manifest.appearance_thresholds.centroid_boundary_distance
+            )
         anchors = _unique_observation_anchors((*current.top_observations, current.reference))
         if not anchors:
             return False
@@ -615,6 +740,17 @@ class FastImageSelector:
         first: CheapImageObservation,
         next_observation: CheapImageObservation,
     ) -> bool:
+        if self._appearance_only:
+            if not first.appearance_signature or not next_observation.appearance_signature:
+                return False
+            return (
+                appearance_distance(
+                    first.appearance_signature,
+                    next_observation.appearance_signature,
+                    self.manifest.appearance_descriptor,
+                )
+                <= self.manifest.appearance_thresholds.pending_same_group_distance
+            )
         return (
             fingerprint_distance(first.fingerprint_hex, next_observation.fingerprint_hex)
             <= self.manifest.thresholds.same_group_fingerprint_distance
@@ -635,6 +771,8 @@ class FastImageSelector:
                 "IMAGE_SELECTION_GROUP_EMPTY",
                 "An image-selection group cannot be finalized without a source.",
             )
+        if self._appearance_only:
+            return self._finalize_appearance_group(group), 0
         consensus = group.board_count_consensus
         observations_to_verify = (
             sorted(
@@ -812,6 +950,42 @@ class FastImageSelector:
                 reference_fingerprint_hex=group.reference.fingerprint_hex,
             ),
             len(verified),
+        )
+
+    def _finalize_appearance_group(self, group: _OpenGroup) -> SelectionGroupResult:
+        assert group.reference is not None
+        candidates = tuple(
+            CandidateResult(
+                source=observation.source,
+                decision=(
+                    CandidateDecision.REJECTED
+                    if any(
+                        reason.startswith("IMAGE_SELECTION_SCAN_")
+                        for reason in observation.reason_codes
+                    )
+                    else CandidateDecision.ELIGIBLE
+                ),
+                quality=observation.quality,
+                recognized_range=None,
+                reason_codes=observation.reason_codes,
+                width=observation.width,
+                height=observation.height,
+            )
+            for observation in group.top_observations
+        )
+        fingerprint_sha256 = hashlib.sha256(
+            bytes.fromhex(group.reference.fingerprint_hex)
+        ).hexdigest()
+        return SelectionGroupResult(
+            group_order=group.group_order,
+            source_count=group.source_count,
+            range=None,
+            fingerprint_sha256=fingerprint_sha256,
+            board_count_consensus=None,
+            status=SelectionGroupStatus.MANUAL_REQUIRED,
+            selected_candidate=None,
+            top_candidates=candidates,
+            reference_fingerprint_hex=group.reference.fingerprint_hex,
         )
 
     def _candidate_result(
@@ -1255,4 +1429,9 @@ class FastImageSelector:
                 )
 
 
-__all__ = ["FastImageSelector", "fingerprint_distance", "geometry_distance"]
+__all__ = [
+    "FastImageSelector",
+    "appearance_distance",
+    "fingerprint_distance",
+    "geometry_distance",
+]

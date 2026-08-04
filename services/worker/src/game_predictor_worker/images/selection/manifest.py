@@ -13,6 +13,7 @@ DIGIT_AWARE_SELECTOR_VERSION = "fast-image-selector-v5"
 EXACT_GAP_SELECTOR_VERSION = "fast-image-selector-v6"
 BEST_EFFORT_SELECTOR_VERSION = "fast-image-selector-v7"
 FIRST_USABLE_SELECTOR_VERSION = "fast-image-selector-v8"
+APPEARANCE_ONLY_SELECTOR_VERSION = "fast-image-selector-v9"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
@@ -20,7 +21,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         DIGIT_AWARE_SELECTOR_VERSION,
         EXACT_GAP_SELECTOR_VERSION,
         BEST_EFFORT_SELECTOR_VERSION,
-        SELECTOR_VERSION,
+        FIRST_USABLE_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -28,7 +29,7 @@ ORDERED_SELECTOR_VERSIONS = frozenset(
         DIGIT_AWARE_SELECTOR_VERSION,
         EXACT_GAP_SELECTOR_VERSION,
         BEST_EFFORT_SELECTOR_VERSION,
-        SELECTOR_VERSION,
+        FIRST_USABLE_SELECTOR_VERSION,
     }
 )
 SUPPORTED_SELECTOR_VERSIONS = frozenset(
@@ -39,7 +40,8 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         DIGIT_AWARE_SELECTOR_VERSION,
         EXACT_GAP_SELECTOR_VERSION,
         BEST_EFFORT_SELECTOR_VERSION,
-        SELECTOR_VERSION,
+        FIRST_USABLE_SELECTOR_VERSION,
+        APPEARANCE_ONLY_SELECTOR_VERSION,
     }
 )
 
@@ -55,6 +57,7 @@ BEST_EFFORT_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v3:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+NO_RANGE_ADAPTER_VERSION = "none-v2"
 LEGACY_THUMBNAIL_ADAPTER_VERSION = "pillow-exif-thumbnail-v1"
 REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION = "pillow-jpeg-draft-thumbnail-v2"
 SUPPORTED_THUMBNAIL_ADAPTER_VERSIONS = frozenset(
@@ -63,10 +66,17 @@ SUPPORTED_THUMBNAIL_ADAPTER_VERSIONS = frozenset(
         REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
     }
 )
-BEST_EFFORT_SELECTOR_VERSIONS = frozenset({BEST_EFFORT_SELECTOR_VERSION, SELECTOR_VERSION})
+BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
+    {BEST_EFFORT_SELECTOR_VERSION, FIRST_USABLE_SELECTOR_VERSION}
+)
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
+APPEARANCE_ONLY_SELECTOR_VERSIONS = frozenset({APPEARANCE_ONLY_SELECTOR_VERSION})
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
-    {EXACT_GAP_SELECTOR_VERSION, BEST_EFFORT_SELECTOR_VERSION, SELECTOR_VERSION}
+    {
+        EXACT_GAP_SELECTOR_VERSION,
+        BEST_EFFORT_SELECTOR_VERSION,
+        FIRST_USABLE_SELECTOR_VERSION,
+    }
 )
 
 
@@ -108,6 +118,33 @@ FIRST_USABLE_POLICY = FirstUsablePolicy()
 
 
 @dataclass(frozen=True, slots=True)
+class AppearanceDescriptorConfig:
+    crop_left: float = 0.06
+    crop_top: float = 0.12
+    crop_right: float = 0.94
+    crop_bottom: float = 0.82
+    phash_input_size: int = 32
+    phash_size: int = 8
+    hue_bins: int = 12
+    saturation_bins: int = 4
+    value_bins: int = 4
+    edge_grid_rows: int = 3
+    edge_grid_columns: int = 3
+    edge_orientation_bins: int = 4
+    phash_weight: float = 0.50
+    hsv_weight: float = 0.30
+    edge_weight: float = 0.20
+
+
+@dataclass(frozen=True, slots=True)
+class AppearanceThresholds:
+    adjacent_boundary_distance: float = 0.12
+    centroid_boundary_distance: float = 0.10
+    strong_boundary_distance: float = 0.22
+    pending_same_group_distance: float = 0.14
+
+
+@dataclass(frozen=True, slots=True)
 class SelectorManifest:
     algorithm_version: str = SELECTOR_VERSION
     contract_version: int = 1
@@ -122,6 +159,8 @@ class SelectorManifest:
     thumbnail_adapter_version: str = REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION
     quality_weights: QualityWeights = QualityWeights()
     thresholds: SelectorThresholds = SelectorThresholds()
+    appearance_descriptor: AppearanceDescriptorConfig = AppearanceDescriptorConfig()
+    appearance_thresholds: AppearanceThresholds = AppearanceThresholds()
 
     def __post_init__(self) -> None:
         if self.algorithm_version not in SUPPORTED_SELECTOR_VERSIONS or self.contract_version != 1:
@@ -142,6 +181,30 @@ class SelectorManifest:
         for value in asdict(self.thresholds).values():
             if not 0 <= value <= 1:
                 raise ValueError("Image selector thresholds must be between 0 and 1.")
+        descriptor = self.appearance_descriptor
+        if not (
+            0 <= descriptor.crop_left < descriptor.crop_right <= 1
+            and 0 <= descriptor.crop_top < descriptor.crop_bottom <= 1
+        ):
+            raise ValueError("Appearance descriptor crop must be normalized and non-empty.")
+        if not (
+            8 <= descriptor.phash_input_size <= 64
+            and 4 <= descriptor.phash_size <= descriptor.phash_input_size
+            and 2 <= descriptor.hue_bins <= 32
+            and 2 <= descriptor.saturation_bins <= 16
+            and 2 <= descriptor.value_bins <= 16
+            and 1 <= descriptor.edge_grid_rows <= 8
+            and 1 <= descriptor.edge_grid_columns <= 8
+            and 2 <= descriptor.edge_orientation_bins <= 8
+        ):
+            raise ValueError("Appearance descriptor dimensions are outside supported bounds.")
+        appearance_weight_sum = (
+            descriptor.phash_weight + descriptor.hsv_weight + descriptor.edge_weight
+        )
+        if abs(appearance_weight_sum - 1.0) > 1e-9:
+            raise ValueError("Appearance descriptor weights must sum to 1.0.")
+        if any(not 0 <= value <= 1 for value in asdict(self.appearance_thresholds).values()):
+            raise ValueError("Appearance thresholds must be between 0 and 1.")
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -188,6 +251,37 @@ class SelectorManifest:
             payload["firstUsablePolicy"] = {
                 "minimumQualityScore": FIRST_USABLE_POLICY.minimum_quality_score,
                 "minimumSharpness": FIRST_USABLE_POLICY.minimum_sharpness,
+            }
+        if self.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+            descriptor = self.appearance_descriptor
+            payload["appearanceDescriptor"] = {
+                "crop": {
+                    "bottom": descriptor.crop_bottom,
+                    "left": descriptor.crop_left,
+                    "right": descriptor.crop_right,
+                    "top": descriptor.crop_top,
+                },
+                "edgeGridColumns": descriptor.edge_grid_columns,
+                "edgeGridRows": descriptor.edge_grid_rows,
+                "edgeOrientationBins": descriptor.edge_orientation_bins,
+                "hueBins": descriptor.hue_bins,
+                "phashInputSize": descriptor.phash_input_size,
+                "phashSize": descriptor.phash_size,
+                "saturationBins": descriptor.saturation_bins,
+                "valueBins": descriptor.value_bins,
+                "weights": {
+                    "edge": descriptor.edge_weight,
+                    "hsv": descriptor.hsv_weight,
+                    "phash": descriptor.phash_weight,
+                },
+            }
+            payload["appearanceThresholds"] = {
+                "adjacentBoundaryDistance": (self.appearance_thresholds.adjacent_boundary_distance),
+                "centroidBoundaryDistance": (self.appearance_thresholds.centroid_boundary_distance),
+                "pendingSameGroupDistance": (
+                    self.appearance_thresholds.pending_same_group_distance
+                ),
+                "strongBoundaryDistance": self.appearance_thresholds.strong_boundary_distance,
             }
         if self.thumbnail_adapter_version != LEGACY_THUMBNAIL_ADAPTER_VERSION:
             adapters = payload["adapters"]
@@ -249,7 +343,15 @@ FIRST_USABLE_SELECTOR_MANIFEST_V8 = SelectorManifest(
     thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 DEFAULT_SELECTOR_MANIFEST = SelectorManifest()
+APPEARANCE_ONLY_SELECTOR_MANIFEST_V9 = SelectorManifest(
+    algorithm_version=APPEARANCE_ONLY_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v1",
+    geometry_adapter_version=NO_RANGE_ADAPTER_VERSION,
+    fingerprint_adapter_version="opencv-appearance-descriptor-v1",
+    range_adapter_version=NO_RANGE_ADAPTER_VERSION,
+)
 SUPPORTED_SELECTOR_MANIFESTS = (
+    APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     DEFAULT_SELECTOR_MANIFEST,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
@@ -276,6 +378,11 @@ def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | No
 
 __all__ = [
     "ADAPTIVE_RANGE_ADAPTER_VERSION",
+    "APPEARANCE_ONLY_SELECTOR_MANIFEST_V9",
+    "APPEARANCE_ONLY_SELECTOR_VERSION",
+    "APPEARANCE_ONLY_SELECTOR_VERSIONS",
+    "AppearanceDescriptorConfig",
+    "AppearanceThresholds",
     "BEST_EFFORT_RANGE_ADAPTER_VERSION",
     "BEST_EFFORT_SELECTOR_MANIFEST_V7",
     "BEST_EFFORT_SELECTOR_VERSION",
@@ -299,6 +406,7 @@ __all__ = [
     "LEGACY_THUMBNAIL_ADAPTER_VERSION",
     "LEGACY_SELECTOR_MANIFEST_V2",
     "LEGACY_SELECTOR_VERSION",
+    "NO_RANGE_ADAPTER_VERSION",
     "ORDERED_SELECTOR_VERSIONS",
     "REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION",
     "SELECTOR_VERSION",

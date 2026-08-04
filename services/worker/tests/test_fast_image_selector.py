@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Lock
 from time import sleep
 from typing import Any, cast
 
 import pytest
+from game_predictor_worker.images.selection.adapters import build_default_adapters
 from game_predictor_worker.images.selection.contracts import (
     CandidateVerification,
     CheapImageObservation,
@@ -23,12 +24,14 @@ from game_predictor_worker.images.selection.contracts import (
 )
 from game_predictor_worker.images.selection.engine import FastImageSelector
 from game_predictor_worker.images.selection.manifest import (
+    APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
     CONTINUITY_SELECTOR_MANIFEST_V3,
     DEFAULT_SELECTOR_MANIFEST,
     DIGIT_AWARE_SELECTOR_MANIFEST_V5,
     EXACT_GAP_SELECTOR_MANIFEST_V6,
+    FIRST_USABLE_SELECTOR_MANIFEST_V8,
     LEGACY_SELECTOR_MANIFEST_V2,
     SelectorManifest,
     selector_manifest_for_fingerprint,
@@ -414,8 +417,198 @@ def test_v8_is_the_default_first_usable_manifest() -> None:
     assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v8"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "284eb7f842b6d09910aa34bbf4a889f9b246f26ae6767b138d4ed8cdee2a68f3"
+    )
+    assert (
+        FIRST_USABLE_SELECTOR_MANIFEST_V8.fingerprint
         == "9dc754cca7e7e7afe23e8a25c8574e0ef4ed5f7fd5829a24984c25f4c256f42d"
     )
+
+
+def test_v9_manifest_is_versioned_but_not_activated_before_final_gate() -> None:
+    assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
+    assert (
+        APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
+        == "711ce8cddc86b5f8d119439584056721b93e578c6a5d401ca662f51ba09f2d8f"
+    )
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v8"
+    assert (
+        selector_manifest_for_fingerprint(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint)
+        is APPEARANCE_ONLY_SELECTOR_MANIFEST_V9
+    )
+
+
+def test_v9_gradual_camera_drift_stays_in_one_group_and_page_change_splits() -> None:
+    signatures = tuple(
+        _appearance_signature(0, drift=drift) for drift in (-1.0, -0.6, -0.2, 0.2, 0.6, 1.0)
+    ) + tuple(_appearance_signature(1, drift=drift) for drift in (-0.2, 0.0, 0.2))
+    verifier = _ForbiddenVerifier()
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        _sources("v9-drift-and-page", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+    )
+
+    assert [group.source_count for group in result.groups] == [6, 3]
+    assert verifier.calls == 0
+    assert result.verification_count == 0
+    assert all(group.range is None for group in result.groups)
+
+
+def test_v9_single_transition_frame_does_not_create_a_group() -> None:
+    signatures = (
+        _appearance_signature(0),
+        _appearance_signature(0, drift=0.2),
+        _appearance_signature(1),
+        _appearance_signature(0, drift=-0.2),
+        _appearance_signature(0),
+        _appearance_signature(1),
+        _appearance_signature(1, drift=0.1),
+    )
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        _sources("v9-single-transition", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=_ForbiddenVerifier(),
+    )
+
+    assert [group.source_count for group in result.groups] == [5, 2]
+
+
+def test_v9_private_real_consecutive_pages_are_not_merged() -> None:
+    source_root = ROOT / "examples" / "imgs"
+    names = (
+        "5983122166590934317.jpg",
+        "5983122166590934318.jpg",
+        "5983122166590934319.jpg",
+    )
+    if any(not (source_root / name).is_file() for name in names):
+        pytest.skip("The private user-provided consecutive-page corpus is not present.")
+    repeated_names = tuple(name for name in names for _ in range(2))
+    sources = tuple(
+        ImageSelectionSource(
+            order_index=index,
+            relative_path=name,
+            stored_relative_path=name,
+            checksum_sha256=hashlib.sha256((source_root / name).read_bytes()).hexdigest(),
+            size_bytes=(source_root / name).stat().st_size,
+        )
+        for index, name in enumerate(repeated_names)
+    )
+    analyzer, verifier = build_default_adapters(
+        source_root,
+        manifest=APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+    )
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        sources,
+        analyzer=analyzer,
+        verifier=verifier,
+    )
+
+    assert [group.source_count for group in result.groups] == [2, 2, 2]
+    assert result.verification_count == 0
+
+
+@dataclass
+class _AppearanceStateSink:
+    states: list[SelectorResumeState]
+
+    def candidate_scanned(
+        self,
+        observation: CheapImageObservation,
+        *,
+        group_order: int,
+    ) -> None:
+        del observation, group_order
+
+    def checkpoint_saved(self, checkpoint: SelectorCheckpoint) -> None:
+        del checkpoint
+
+    def group_finalized(self, group: SelectionGroupResult) -> None:
+        del group
+
+    def selector_state_saved(self, state: SelectorResumeState) -> None:
+        self.states.append(state)
+
+
+def test_v9_checkpoint_keeps_a_fixed_descriptor_and_bounded_candidates() -> None:
+    signatures = tuple(
+        _appearance_signature(0, drift=((index % 11) - 5) / 5) for index in range(96)
+    )
+    sink = _AppearanceStateSink([])
+    manifest = replace(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9, scan_batch_size=8)
+
+    FastImageSelector(manifest).select(
+        _sources("v9-bounded-state", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=_ForbiddenVerifier(),
+        audit_sink=sink,
+    )
+
+    open_groups = [state.current_group for state in sink.states if state.current_group]
+    expected_size = len(signatures[0])
+    assert open_groups
+    assert all(len(group.appearance_centroid) == expected_size for group in open_groups)
+    assert all(len(group.top_observations) <= manifest.top_k for group in open_groups)
+    assert all(group.appearance_observation_count <= group.source_count for group in open_groups)
+    captured = next(state for state in reversed(sink.states) if state.current_group is not None)
+    restored = SelectorResumeState.from_dict(captured.to_dict())
+    assert restored.current_group == captured.current_group
+
+
+def _appearance_signature(page: int, *, drift: float = 0.0) -> tuple[float, ...]:
+    config = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_descriptor
+    phash = tuple(float(page % 2) for _ in range(config.phash_size**2))
+    hue = [0.0] * config.hue_bins
+    hue_index = (page * 3) % config.hue_bins
+    hue[hue_index] = 1.0 - abs(drift) * 0.05
+    hue[(hue_index + 1) % config.hue_bins] = abs(drift) * 0.05
+    saturation = [0.0] * config.saturation_bins
+    saturation[page % config.saturation_bins] = 1.0
+    value = [0.0] * config.value_bins
+    value[(page + 1) % config.value_bins] = 1.0
+    edge_value = max(0.0, min(1.0, 0.20 + page * 0.45 + drift * 0.03))
+    edge_grid = [edge_value] * (config.edge_grid_rows * config.edge_grid_columns)
+    orientation = [0.0] * config.edge_orientation_bins
+    orientation[page % config.edge_orientation_bins] = 1.0
+    return (*phash, *hue, *saturation, *value, *edge_grid, *orientation)
+
+
+@dataclass
+class _AppearanceAnalyzer:
+    signatures: tuple[tuple[float, ...], ...]
+
+    def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
+        signature = self.signatures[source.order_index]
+        fingerprint = hashlib.sha256(repr(signature).encode("ascii")).hexdigest()
+        return CheapImageObservation(
+            source=source,
+            width=960,
+            height=1280,
+            fingerprint_hex=fingerprint,
+            geometry_signature=(),
+            board_count=None,
+            geometry_confidence=0.0,
+            quality=_quality("good"),
+            appearance_signature=signature,
+        )
+
+
+@dataclass
+class _ForbiddenVerifier:
+    calls: int = 0
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del observation, expected_board_count
+        self.calls += 1
+        raise AssertionError("Appearance-only grouping must not invoke range verification.")
 
 
 def test_v5_adjacent_boundary_is_not_vetoed_by_a_similar_historical_anchor() -> None:

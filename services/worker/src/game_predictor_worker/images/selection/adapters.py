@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -30,6 +31,8 @@ from game_predictor_worker.images.sequence_ocr import (
 
 from .contracts import (
     CandidateVerification,
+    CandidateVerifier,
+    CheapImageAnalyzer,
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
@@ -37,10 +40,12 @@ from .contracts import (
     SequenceRange,
 )
 from .manifest import (
+    APPEARANCE_ONLY_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
     LEGACY_THUMBNAIL_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
+    AppearanceDescriptorConfig,
     QualityWeights,
     SelectorManifest,
 )
@@ -206,6 +211,123 @@ def _layout_color_hash(rgb: NDArray[np.uint8]) -> str:
         quantized = (int(hue) // 45) << 2 | (int(saturation) >= 100) << 1 | (int(brightness) >= 100)
         value = (value << 4) | quantized
     return f"{value:0256x}"
+
+
+def _appearance_roi(
+    rgb: NDArray[np.uint8],
+    config: AppearanceDescriptorConfig,
+) -> NDArray[np.uint8]:
+    height, width = rgb.shape[:2]
+    left = max(0, min(width - 1, int(round(width * config.crop_left))))
+    right = max(left + 1, min(width, int(round(width * config.crop_right))))
+    top = max(0, min(height - 1, int(round(height * config.crop_top))))
+    bottom = max(top + 1, min(height, int(round(height * config.crop_bottom))))
+    roi = rgb[top:bottom, left:right]
+    return rgb if roi.size == 0 else roi
+
+
+def _normalized_histogram(
+    values: NDArray[np.uint8] | NDArray[np.float32],
+    *,
+    bins: int,
+    upper: float,
+    weights: NDArray[np.float32] | None = None,
+) -> tuple[float, ...]:
+    histogram, _ = np.histogram(values, bins=bins, range=(0.0, upper), weights=weights)
+    total = float(histogram.sum())
+    if total <= 0:
+        return (0.0,) * bins
+    return tuple(round(float(value / total), 6) for value in histogram)
+
+
+def _appearance_descriptor(
+    rgb: NDArray[np.uint8],
+    config: AppearanceDescriptorConfig,
+) -> tuple[float, ...]:
+    roi = _appearance_roi(rgb, config)
+    gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
+    hsv = cv2.cvtColor(roi, cv2.COLOR_RGB2HSV)
+
+    phash_input = cv2.resize(
+        gray,
+        (config.phash_input_size, config.phash_input_size),
+        interpolation=cv2.INTER_AREA,
+    ).astype(np.float32)
+    low_frequency = cv2.dct(phash_input)[: config.phash_size, : config.phash_size]
+    flattened_frequency = low_frequency.reshape(-1)
+    median = float(np.median(flattened_frequency[1:]))
+    phash = (flattened_frequency >= median).astype(np.float32)
+    phash[0] = 0.0
+
+    hue = _normalized_histogram(hsv[:, :, 0], bins=config.hue_bins, upper=180.0)
+    saturation = _normalized_histogram(
+        hsv[:, :, 1],
+        bins=config.saturation_bins,
+        upper=256.0,
+    )
+    value = _normalized_histogram(
+        hsv[:, :, 2],
+        bins=config.value_bins,
+        upper=256.0,
+    )
+
+    gradient_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    gradient_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    magnitude = cv2.magnitude(gradient_x, gradient_y)
+    robust_scale = max(1.0, float(np.percentile(magnitude, 95)))
+    normalized_magnitude = np.clip(magnitude / robust_scale, 0.0, 1.0)
+    edge_grid: list[float] = []
+    for row in np.array_split(normalized_magnitude, config.edge_grid_rows, axis=0):
+        for cell in np.array_split(row, config.edge_grid_columns, axis=1):
+            edge_grid.append(0.0 if cell.size == 0 else round(float(np.mean(cell)), 6))
+    orientation = np.mod(cv2.phase(gradient_x, gradient_y, angleInDegrees=True), 180.0)
+    edge_orientation = _normalized_histogram(
+        orientation.astype(np.float32),
+        bins=config.edge_orientation_bins,
+        upper=180.0,
+        weights=magnitude.astype(np.float32),
+    )
+    return tuple(float(value) for value in phash) + (
+        *hue,
+        *saturation,
+        *value,
+        *edge_grid,
+        *edge_orientation,
+    )
+
+
+def _appearance_fingerprint(signature: tuple[float, ...]) -> str:
+    quantized = np.rint(np.asarray(signature, dtype=np.float32) * 255.0).astype(np.uint8)
+    return hashlib.sha256(quantized.tobytes()).hexdigest()
+
+
+class OpenCvAppearanceFingerprintAnalyzer:
+    version = "opencv-appearance-descriptor-v1"
+
+    def __init__(
+        self,
+        config: AppearanceDescriptorConfig,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        self._config = config
+        self._telemetry = telemetry
+
+    def analyze(self, frame: ThumbnailFrame) -> LatticeFingerprint:
+        timing = (
+            self._telemetry.measure("appearance") if self._telemetry is not None else nullcontext()
+        )
+        with timing:
+            signature = _appearance_descriptor(frame.rgb, self._config)
+        return LatticeFingerprint(
+            fingerprint_hex=_appearance_fingerprint(signature),
+            geometry_signature=(),
+            board_count=None,
+            geometry_confidence=0.0,
+            boards=(),
+            reason_codes=(),
+            appearance_signature=signature,
+        )
 
 
 def _geometry_signature(
@@ -388,6 +510,77 @@ class OpenCvImageQualityAnalyzer:
         return float(max(0.0, min(1.0, normalized / 0.025)))
 
 
+class OpenCvAppearanceQualityAnalyzer:
+    version = "opencv-appearance-quality-v1"
+
+    def __init__(
+        self,
+        weights: QualityWeights,
+        config: AppearanceDescriptorConfig,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        self._weights = weights
+        self._config = config
+        self._telemetry = telemetry
+
+    def measure(
+        self,
+        frame: ThumbnailFrame,
+        lattice: LatticeFingerprint,
+    ) -> ImageQualityMetrics:
+        del lattice
+        timing = (
+            self._telemetry.measure("quality") if self._telemetry is not None else nullcontext()
+        )
+        with timing:
+            rgb = frame.rgb
+            gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+            hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+            laplacian_variance = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+            sharpness = laplacian_variance / (laplacian_variance + 500.0)
+            mean_luminance = float(np.mean(gray))
+            exposure = max(0.0, 1.0 - abs(mean_luminance - 127.5) / 127.5)
+            clipped_fraction = float(np.mean((gray <= 4) | (gray >= 251)))
+            highlight_retention = max(0.0, 1.0 - clipped_fraction * 2.5)
+            glare_fraction = float(np.mean((hsv[:, :, 2] >= 242) & (hsv[:, :, 1] <= 45)))
+            glare_resistance = max(0.0, 1.0 - glare_fraction * 6.0)
+            screen_gray = cv2.cvtColor(
+                _appearance_roi(rgb, self._config),
+                cv2.COLOR_RGB2GRAY,
+            )
+            screen_contrast = float(np.std(screen_gray))
+            screen_edges = float(np.mean(np.abs(cv2.Laplacian(screen_gray, cv2.CV_32F))))
+            central_visibility = max(
+                0.0,
+                min(
+                    1.0,
+                    0.65 * (screen_contrast / (screen_contrast + 32.0))
+                    + 0.35 * (screen_edges / (screen_edges + 20.0)),
+                ),
+            )
+            components = {
+                "board_visibility": central_visibility,
+                "border_margin": central_visibility,
+                "exposure": exposure,
+                "glare_resistance": glare_resistance,
+                "highlight_retention": highlight_retention,
+                "perspective": central_visibility,
+                "sharpness": sharpness,
+            }
+            overall = sum(components[name] * getattr(self._weights, name) for name in components)
+            return ImageQualityMetrics(
+                sharpness=round(sharpness, 6),
+                exposure=round(exposure, 6),
+                highlight_retention=round(highlight_retention, 6),
+                glare_resistance=round(glare_resistance, 6),
+                perspective=round(central_visibility, 6),
+                border_margin=round(central_visibility, 6),
+                board_visibility=round(central_visibility, 6),
+                overall_score=round(max(0.0, min(1.0, overall)), 6),
+            )
+
+
 class ComposedCheapImageAnalyzer:
     """Compose explicit thumbnail, lattice/fingerprint and quality ports."""
 
@@ -416,6 +609,7 @@ class ComposedCheapImageAnalyzer:
                 geometry_confidence=lattice.geometry_confidence,
                 quality=quality,
                 reason_codes=lattice.reason_codes,
+                appearance_signature=lattice.appearance_signature,
             )
         except (SelectionContractError, StatisticsError) as error:
             zero = ImageQualityMetrics(*(0.0 for _ in range(8)))
@@ -433,7 +627,24 @@ class ComposedCheapImageAnalyzer:
                     if isinstance(error, SelectionContractError)
                     else "IMAGE_SELECTION_SCAN_GEOMETRY_FAILED",
                 ),
+                appearance_signature=(),
             )
+
+
+class AppearanceOnlyCandidateVerifier:
+    version = "none-v2"
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del observation, expected_board_count
+        raise SelectionContractError(
+            "IMAGE_SELECTION_APPEARANCE_VERIFIER_FORBIDDEN",
+            "Appearance-only selection cannot invoke geometry or sequence OCR.",
+        )
 
 
 class AnchoredSequenceRangeRecognizer:
@@ -939,15 +1150,32 @@ def build_default_adapters(
     fallback_range_recognizer: SequenceRangeRecognizer | None = None,
     manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
     telemetry: StageTimingCollector | None = None,
-) -> tuple[ComposedCheapImageAnalyzer, FullCandidateVerifier]:
+) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+    thumbnail_loader = PillowThumbnailLoader(
+        source_root,
+        max_edge=manifest.thumbnail_max_edge,
+        adapter_version=manifest.thumbnail_adapter_version,
+        telemetry=telemetry,
+    )
+    if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+        return (
+            ComposedCheapImageAnalyzer(
+                thumbnail_loader,
+                OpenCvAppearanceFingerprintAnalyzer(
+                    manifest.appearance_descriptor,
+                    telemetry=telemetry,
+                ),
+                OpenCvAppearanceQualityAnalyzer(
+                    manifest.quality_weights,
+                    manifest.appearance_descriptor,
+                    telemetry=telemetry,
+                ),
+            ),
+            AppearanceOnlyCandidateVerifier(),
+        )
     detector = ClassicalPageBoardDetector()
     analyzer = ComposedCheapImageAnalyzer(
-        PillowThumbnailLoader(
-            source_root,
-            max_edge=manifest.thumbnail_max_edge,
-            adapter_version=manifest.thumbnail_adapter_version,
-            telemetry=telemetry,
-        ),
+        thumbnail_loader,
         OpenCvLatticeFingerprintAnalyzer(detector, telemetry=telemetry),
         OpenCvImageQualityAnalyzer(manifest.quality_weights, telemetry=telemetry),
     )
@@ -965,11 +1193,14 @@ def build_default_adapters(
 __all__ = [
     "AdaptiveVisibleSequenceLabelRangeRecognizer",
     "AnchoredSequenceRangeRecognizer",
+    "AppearanceOnlyCandidateVerifier",
     "BestEffortVisibleSequenceLabelRangeRecognizer",
     "ComposedCheapImageAnalyzer",
     "FullCandidateVerifier",
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",
+    "OpenCvAppearanceFingerprintAnalyzer",
+    "OpenCvAppearanceQualityAnalyzer",
     "OpenCvLatticeFingerprintAnalyzer",
     "OPENCV_INTERNAL_THREAD_BUDGET",
     "PillowThumbnailLoader",

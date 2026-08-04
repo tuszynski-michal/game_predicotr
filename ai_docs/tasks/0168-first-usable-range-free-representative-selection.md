@@ -28,7 +28,7 @@ fallbacki, które należą do późniejszego importu.
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/requirements/IMAGE_SELECTION.md`
 - `ai_docs/architecture/IMAGE_SELECTION.md`
-- `ai_docs/tasks/0167-appearance-only-sequential-image-grouping.md`
+- `ai_docs/tasks/completed/0167-appearance-only-sequential-image-grouping.md`
 
 ## Scope
 
@@ -88,4 +88,3 @@ później poprawić geometrię albo uzupełnić niewidoczne layouty.
 ## Outcome
 
 Do uzupełnienia po realizacji.
-

@@ -3566,6 +3566,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zastępuje wyłącznie sztywny limit czasu z D-145; pozostałe
   bramki jakości i rozdzielenie odpowiedzialności v9 pozostają bez zmian.
 
+## D-147 — Reduced JPEG decode zachowuje roboczy bok 960 px
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** nowe runy używają wersjonowanego adaptera
+  `pillow-jpeg-draft-thumbnail-v2`. Adapter wywołuje decoder-side `draft()` przed
+  `load()`, zachowuje wymiary źródła oraz EXIF i dopiero potem tworzy
+  deterministyczne RGB. Roboczy dłuższy bok pozostaje równy 960 px. OpenCV ma
+  jeden wątek wewnętrzny, a ostateczna liczba zewnętrznych scan workers zostanie
+  wybrana z pomiaru 1/2/4 w TASK-0171.
+- **Context:** warianty 384 i 480 px zmniejszały koszt, lecz oba naruszyły
+  przypięty realny golden granic: 384 utracił wykrytą planszę, a 480 zmienił
+  oczekiwaną liczbę plansz 8 na 9. Pełny decode do rozdzielczości telefonu przed
+  skalowaniem do 960 px nadal był zbędnym kosztem.
+- **Reason:** decoder-side redukcja usuwa największą nadmiarową pracę bez
+  pogarszania istniejącej geometrii. Jeden wewnętrzny wątek OpenCV zapobiega
+  zagnieżdżonej nadsubskrypcji przy bounded zewnętrznym poolu.
+- **Alternatives:** aktywację 384 albo 480 odrzucono z powodu regresji goldena.
+  Zmianę biblioteki odłożono, ponieważ Pillow/libjpeg udostępnia wymagany reduced
+  decode. Pełne porównanie 1/2/4 podczas aktywnego historycznego joba odłożono
+  zgodnie z decyzją właściciela do wspólnej bramki TASK-0171.
+- **Consequences:** nowy fingerprint manifestu wynosi `284eb7f842b6…`.
+  Historyczny v8 o fingerprintcie `9dc754cca7e…` jawnie zachowuje adapter
+  `pillow-exif-thumbnail-v1`, więc checkpoint i retry są nadal odtwarzalne.
+  Zmiana nie dotyka uploadu ani staging schema v2.
+
 ## Szablon nowej decyzji
 
 ```text

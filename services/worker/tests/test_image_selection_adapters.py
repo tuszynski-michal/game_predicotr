@@ -21,16 +21,23 @@ from game_predictor_worker.images.selection.adapters import (
     PillowThumbnailLoader,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
+    configure_opencv_thread_budget,
 )
 from game_predictor_worker.images.selection.contracts import (
     ImageQualityMetrics,
     ImageSelectionSource,
 )
-from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
+from game_predictor_worker.images.selection.manifest import (
+    DEFAULT_SELECTOR_MANIFEST,
+    FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
+    SelectorManifest,
+    selector_manifest_for_fingerprint,
+)
 from game_predictor_worker.images.selection.ports import LatticeFingerprint, ThumbnailFrame
 from game_predictor_worker.images.selection.telemetry import StageTimingCollector
 from game_predictor_worker.images.sequence_ocr import Recognition
-from PIL import Image
+from PIL import Image, JpegImagePlugin
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -72,6 +79,77 @@ def test_pillow_thumbnail_loader_verifies_checksum_and_applies_exif(tmp_path: Pa
 
     assert (frame.source_width, frame.source_height) == (40, 80)
     assert max(frame.rgb.shape[:2]) == 50
+
+
+def test_reduced_jpeg_loader_calls_draft_before_decode_and_preserves_source_size(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "00000001.jpg"
+    image = Image.new("RGB", (1600, 1200), (10, 20, 30))
+    exif = Image.Exif()
+    exif[274] = 6
+    image.save(path, format="JPEG", exif=exif)
+    checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+    events: list[tuple[str, tuple[int, int]]] = []
+    original_draft = JpegImagePlugin.JpegImageFile.draft
+    original_load = JpegImagePlugin.JpegImageFile.load
+
+    def draft_spy(
+        source: JpegImagePlugin.JpegImageFile,
+        mode: str,
+        size: tuple[int, int],
+    ) -> tuple[str, tuple[int, int, int, int]] | None:
+        events.append(("draft", source.size))
+        return original_draft(source, mode, size)
+
+    def load_spy(source: JpegImagePlugin.JpegImageFile) -> object:
+        events.append(("load", source.size))
+        return original_load(source)
+
+    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "draft", draft_spy)
+    monkeypatch.setattr(JpegImagePlugin.JpegImageFile, "load", load_spy)
+
+    frame = PillowThumbnailLoader(
+        tmp_path,
+        max_edge=480,
+        adapter_version=REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
+    ).load(_source(checksum))
+
+    assert events[0] == ("draft", (1600, 1200))
+    first_load_size = next(size for event, size in events if event == "load")
+    assert max(first_load_size) < 1600
+    assert (frame.source_width, frame.source_height) == (1200, 1600)
+    assert max(frame.rgb.shape[:2]) == 480
+
+
+def test_reduced_manifest_preserves_historical_v8_resume_identity() -> None:
+    assert DEFAULT_SELECTOR_MANIFEST.thumbnail_max_edge == 960
+    assert (
+        DEFAULT_SELECTOR_MANIFEST.thumbnail_adapter_version
+        == REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION
+    )
+    assert FIRST_USABLE_SELECTOR_MANIFEST_V8.fingerprint == (
+        "9dc754cca7e7e7afe23e8a25c8574e0ef4ed5f7fd5829a24984c25f4c256f42d"
+    )
+    assert (
+        selector_manifest_for_fingerprint(FIRST_USABLE_SELECTOR_MANIFEST_V8.fingerprint)
+        is FIRST_USABLE_SELECTOR_MANIFEST_V8
+    )
+
+
+def test_opencv_thread_budget_disables_nested_parallel_pool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured: list[int] = []
+    monkeypatch.setattr("cv2.setNumThreads", configured.append)
+    monkeypatch.setattr("cv2.getNumThreads", lambda: configured[-1])
+
+    assert configure_opencv_thread_budget() == 1
+    assert configured == [1]
+
+    with pytest.raises(ValueError, match="exactly one"):
+        configure_opencv_thread_budget(2)
 
 
 def test_pillow_thumbnail_loader_reports_measured_decode_and_checksum(tmp_path: Path) -> None:
@@ -494,3 +572,37 @@ def test_private_real_corpus_cheap_scan_matches_pinned_observations() -> None:
         )
         for observation in second_pass
     ]
+
+
+@pytest.mark.parametrize("max_edge", (384, 480))
+def test_small_reduced_scan_variants_are_rejected_by_real_board_golden(max_edge: int) -> None:
+    source_root = ROOT / "examples" / "imgs"
+    golden_path = ROOT / "ai_docs" / "quality" / "fast-image-selector-v1-real-observations.json"
+    payload = json.loads(golden_path.read_text(encoding="utf-8"))
+    values = payload["observations"]
+    if any(not (source_root / value["relativePath"]).is_file() for value in values):
+        pytest.skip("The private user-provided image corpus is not present.")
+    analyzer, _ = build_default_adapters(
+        source_root,
+        manifest=SelectorManifest(thumbnail_max_edge=max_edge),
+    )
+
+    observations = [
+        analyzer.analyze(
+            ImageSelectionSource(
+                order_index=index,
+                relative_path=value["relativePath"],
+                stored_relative_path=value["relativePath"],
+                checksum_sha256=value["sha256"],
+                size_bytes=value["sizeBytes"],
+            )
+        )
+        for index, value in enumerate(values)
+    ]
+
+    expected_counts = {
+        384: [None, 9, None, None, 9],
+        480: [None, 9, None, 9, 9],
+    }
+    assert [observation.board_count for observation in observations] == expected_counts[max_edge]
+    assert expected_counts[max_edge] != [value["expectedBoardCount"] for value in values]

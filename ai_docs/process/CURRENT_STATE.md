@@ -8,7 +8,7 @@ last_updated: 2026-08-05
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156 and TASK-0165 complete; TASK-0157 and TASK-0166 in progress; fast-selection remediation TASK-0167–0171 planned; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156 and TASK-0165–0166 complete; TASK-0157 in progress; fast-selection remediation TASK-0167–0171 planned; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -355,6 +355,13 @@ last_updated: 2026-08-05
   jego zmierzony czas około 20 minut dla 32 079 zdjęć pozostają poza zakresem
   zmiany. TASK-0165 dostarczył instrumentację i read-only runner bez przerywania
   historycznego joba; plan iteracyjny obejmuje TASK-0166–0171,
+- TASK-0166 dodał wersjonowany `pillow-jpeg-draft-thumbnail-v2`: JPEG jest
+  redukowany przez dekoder przed pełnym odczytem pikseli, przy zachowaniu EXIF,
+  wymiarów źródła i roboczego boku 960 px. Warianty 384/480 zostały odrzucone
+  przez realny golden granic. OpenCV używa jednego wątku wewnętrznego, historyczny
+  fingerprint v8 `9dc754…` zachowuje stary adapter, a nowy fingerprint wynosi
+  `284eb7…`. Upload i staging schema v2 nie zostały zmienione. Pomiar scan workers
+  1/2/4 oraz końcowa aktywacja pozostają w TASK-0171 zgodnie z decyzją właściciela,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
@@ -498,7 +505,7 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Next recommended task
 
-Realizować TASK-0166: reduced JPEG decode i bounded budżet CPU bez zmiany uploadu.
+Realizować TASK-0167: lekki deskryptor wyglądu bez geometrii i OCR.
 Profile rzeczywiste 500–1000, 3000 i końcowy run 40 000 wykonać wspólnie w
 TASK-0171 po zaliczeniu TASK-0166–0170. Nie uruchamiać pełnego runu 40 000 przed
 krótką bramką 3000 zdjęć w TASK-0171. Końcowy czas 40 000 nie ma sztywnego

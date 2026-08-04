@@ -38,7 +38,9 @@ from .contracts import (
 )
 from .manifest import (
     DEFAULT_SELECTOR_MANIFEST,
+    LEGACY_THUMBNAIL_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
+    REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
     QualityWeights,
     SelectorManifest,
 )
@@ -51,6 +53,19 @@ from .ports import (
     ThumbnailLoader,
 )
 from .telemetry import StageTimingCollector
+
+OPENCV_INTERNAL_THREAD_BUDGET = 1
+
+
+def configure_opencv_thread_budget(
+    thread_count: int = OPENCV_INTERNAL_THREAD_BUDGET,
+) -> int:
+    """Bound OpenCV's global pool before external scan workers are created."""
+
+    if thread_count != OPENCV_INTERNAL_THREAD_BUDGET:
+        raise ValueError("Image selection requires exactly one internal OpenCV thread.")
+    cv2.setNumThreads(thread_count)
+    return cv2.getNumThreads()
 
 
 def _safe_source_path(root: Path, relative_path: str) -> Path:
@@ -104,17 +119,20 @@ def _load_verified_rgb(
 
 
 class PillowThumbnailLoader:
-    version = "pillow-exif-thumbnail-v1"
+    version = LEGACY_THUMBNAIL_ADAPTER_VERSION
 
     def __init__(
         self,
         source_root: Path,
         *,
         max_edge: int,
+        adapter_version: str = LEGACY_THUMBNAIL_ADAPTER_VERSION,
         telemetry: StageTimingCollector | None = None,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._max_edge = max_edge
+        self.version = adapter_version
+        self._reduced_decode = adapter_version == REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION
         self._telemetry = telemetry
 
     def load(self, source: ImageSelectionSource) -> ThumbnailFrame:
@@ -134,14 +152,14 @@ class PillowThumbnailLoader:
             if self._telemetry is not None:
                 self._telemetry.increment("decoderCalls")
             timing = (
-                self._telemetry.measure("decode")
-                if self._telemetry is not None
-                else nullcontext()
+                self._telemetry.measure("decode") if self._telemetry is not None else nullcontext()
             )
             with timing, Image.open(path) as image:
+                source_width, source_height = _normalized_source_dimensions(image)
+                if self._reduced_decode:
+                    image.draft("RGB", (self._max_edge, self._max_edge))
                 image.load()
                 normalized = ImageOps.exif_transpose(image).convert("RGB")
-                source_width, source_height = normalized.size
                 normalized.thumbnail(
                     (self._max_edge, self._max_edge),
                     resample=Image.Resampling.LANCZOS,
@@ -159,6 +177,14 @@ class PillowThumbnailLoader:
             source_width=source_width,
             source_height=source_height,
         )
+
+
+def _normalized_source_dimensions(image: Image.Image) -> tuple[int, int]:
+    width, height = image.size
+    orientation = int(image.getexif().get(274, 1))
+    if orientation in {5, 6, 7, 8}:
+        return height, width
+    return width, height
 
 
 def _layout_color_hash(rgb: NDArray[np.uint8]) -> str:
@@ -242,9 +268,7 @@ class OpenCvLatticeFingerprintAnalyzer:
 
     def analyze(self, frame: ThumbnailFrame) -> LatticeFingerprint:
         geometry_timing = (
-            self._telemetry.measure("geometry")
-            if self._telemetry is not None
-            else nullcontext()
+            self._telemetry.measure("geometry") if self._telemetry is not None else nullcontext()
         )
         with geometry_timing:
             detection = _best_supported_detection(
@@ -259,9 +283,7 @@ class OpenCvLatticeFingerprintAnalyzer:
                 height=frame.rgb.shape[0],
             )
         appearance_timing = (
-            self._telemetry.measure("appearance")
-            if self._telemetry is not None
-            else nullcontext()
+            self._telemetry.measure("appearance") if self._telemetry is not None else nullcontext()
         )
         with appearance_timing:
             fingerprint_hex = _layout_color_hash(frame.rgb)
@@ -293,9 +315,7 @@ class OpenCvImageQualityAnalyzer:
         lattice: LatticeFingerprint,
     ) -> ImageQualityMetrics:
         timing = (
-            self._telemetry.measure("quality")
-            if self._telemetry is not None
-            else nullcontext()
+            self._telemetry.measure("quality") if self._telemetry is not None else nullcontext()
         )
         with timing:
             return self._measure(frame, lattice)
@@ -859,9 +879,7 @@ class FullCandidateVerifier:
         range_reasons: tuple[str, ...] = ()
         if geometry_complete:
             timing = (
-                self._telemetry.measure("ocr")
-                if self._telemetry is not None
-                else nullcontext()
+                self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
             with timing:
                 recognized_range, range_reasons = self._range_recognizer.recognize(
@@ -870,9 +888,7 @@ class FullCandidateVerifier:
                 )
         if recognized_range is None and self._fallback_range_recognizer is not None:
             timing = (
-                self._telemetry.measure("ocr")
-                if self._telemetry is not None
-                else nullcontext()
+                self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
             with timing:
                 fallback_range, fallback_reasons = self._fallback_range_recognizer.recognize(
@@ -929,6 +945,7 @@ def build_default_adapters(
         PillowThumbnailLoader(
             source_root,
             max_edge=manifest.thumbnail_max_edge,
+            adapter_version=manifest.thumbnail_adapter_version,
             telemetry=telemetry,
         ),
         OpenCvLatticeFingerprintAnalyzer(detector, telemetry=telemetry),
@@ -954,7 +971,9 @@ __all__ = [
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",
     "OpenCvLatticeFingerprintAnalyzer",
+    "OPENCV_INTERNAL_THREAD_BUDGET",
     "PillowThumbnailLoader",
     "VisibleSequenceLabelRangeRecognizer",
     "build_default_adapters",
+    "configure_opencv_thread_budget",
 ]

@@ -33,7 +33,7 @@ bramką techniczną.
 - `ai_docs/quality/IMAGE_SELECTION_ACCEPTANCE.md`
 - `ai_docs/tasks/0157-image-selection-scale-quality-and-owner-acceptance.md`
 - `ai_docs/tasks/completed/0165-image-selection-stage-timing-and-real-corpus-baseline.md`
-- `ai_docs/tasks/0166-reduced-jpeg-scan-and-bounded-cpu-budget.md`
+- `ai_docs/tasks/completed/0166-reduced-jpeg-scan-and-bounded-cpu-budget.md`
 - `ai_docs/tasks/0167-appearance-only-sequential-image-grouping.md`
 - `ai_docs/tasks/0168-first-usable-range-free-representative-selection.md`
 - `ai_docs/tasks/0169-range-agnostic-selection-output-and-import-handoff.md`

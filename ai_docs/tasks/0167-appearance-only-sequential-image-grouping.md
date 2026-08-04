@@ -28,7 +28,7 @@ grupy przy zmianie kąta i zwiększa czas zamiast pomagać szybkiemu wyborowi.
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/requirements/IMAGE_SELECTION.md`
 - `ai_docs/architecture/IMAGE_SELECTION.md`
-- `ai_docs/tasks/0166-reduced-jpeg-scan-and-bounded-cpu-budget.md`
+- `ai_docs/tasks/completed/0166-reduced-jpeg-scan-and-bounded-cpu-budget.md`
 
 ## Scope
 
@@ -92,4 +92,3 @@ pojedynczych wybranych zdjęciach.
 ## Outcome
 
 Do uzupełnienia po realizacji.
-

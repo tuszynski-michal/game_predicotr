@@ -55,6 +55,14 @@ BEST_EFFORT_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v3:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+LEGACY_THUMBNAIL_ADAPTER_VERSION = "pillow-exif-thumbnail-v1"
+REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION = "pillow-jpeg-draft-thumbnail-v2"
+SUPPORTED_THUMBNAIL_ADAPTER_VERSIONS = frozenset(
+    {
+        LEGACY_THUMBNAIL_ADAPTER_VERSION,
+        REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
+    }
+)
 BEST_EFFORT_SELECTOR_VERSIONS = frozenset({BEST_EFFORT_SELECTOR_VERSION, SELECTOR_VERSION})
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -111,6 +119,7 @@ class SelectorManifest:
     geometry_adapter_version: str = "page-board-detector-v2"
     fingerprint_adapter_version: str = "screen-layout-hsv-hash-v2"
     range_adapter_version: str = BEST_EFFORT_RANGE_ADAPTER_VERSION
+    thumbnail_adapter_version: str = REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION
     quality_weights: QualityWeights = QualityWeights()
     thresholds: SelectorThresholds = SelectorThresholds()
 
@@ -119,6 +128,8 @@ class SelectorManifest:
             raise ValueError("Unsupported image selector manifest version.")
         if not 320 <= self.thumbnail_max_edge <= 2048:
             raise ValueError("thumbnail_max_edge must be between 320 and 2048.")
+        if self.thumbnail_adapter_version not in SUPPORTED_THUMBNAIL_ADAPTER_VERSIONS:
+            raise ValueError("Unsupported image selector thumbnail adapter version.")
         if not 1 <= self.scan_batch_size <= 256:
             raise ValueError("scan_batch_size must be between 1 and 256.")
         if not 1 <= self.top_k <= 10:
@@ -178,6 +189,10 @@ class SelectorManifest:
                 "minimumQualityScore": FIRST_USABLE_POLICY.minimum_quality_score,
                 "minimumSharpness": FIRST_USABLE_POLICY.minimum_sharpness,
             }
+        if self.thumbnail_adapter_version != LEGACY_THUMBNAIL_ADAPTER_VERSION:
+            adapters = payload["adapters"]
+            assert isinstance(adapters, dict)
+            adapters["thumbnail"] = self.thumbnail_adapter_version
         return payload
 
     def canonical_bytes(self) -> bytes:
@@ -196,30 +211,47 @@ class SelectorManifest:
 LEGACY_SELECTOR_MANIFEST_V2 = SelectorManifest(
     algorithm_version=LEGACY_SELECTOR_VERSION,
     range_adapter_version=LEGACY_RANGE_ADAPTER_VERSION,
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 CONTINUITY_SELECTOR_MANIFEST_V3 = SelectorManifest(
     algorithm_version=CONTINUITY_SELECTOR_VERSION,
     range_adapter_version=LEGACY_RANGE_ADAPTER_VERSION,
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 BEST_AVAILABLE_SELECTOR_MANIFEST_V4 = SelectorManifest(
     algorithm_version=BEST_AVAILABLE_SELECTOR_VERSION,
     range_adapter_version=LEGACY_RANGE_ADAPTER_VERSION,
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 DIGIT_AWARE_SELECTOR_MANIFEST_V5 = SelectorManifest(
     algorithm_version=DIGIT_AWARE_SELECTOR_VERSION,
     range_adapter_version=ADAPTIVE_RANGE_ADAPTER_VERSION,
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 EXACT_GAP_SELECTOR_MANIFEST_V6 = SelectorManifest(
     algorithm_version=EXACT_GAP_SELECTOR_VERSION,
     range_adapter_version=ADAPTIVE_RANGE_ADAPTER_VERSION,
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 BEST_EFFORT_SELECTOR_MANIFEST_V7 = SelectorManifest(
     algorithm_version=BEST_EFFORT_SELECTOR_VERSION,
     range_adapter_version=BEST_EFFORT_RANGE_ADAPTER_VERSION,
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
+)
+FIRST_USABLE_SELECTOR_MANIFEST_V8 = SelectorManifest(
+    thumbnail_max_edge=960,
+    thumbnail_adapter_version=LEGACY_THUMBNAIL_ADAPTER_VERSION,
 )
 DEFAULT_SELECTOR_MANIFEST = SelectorManifest()
 SUPPORTED_SELECTOR_MANIFESTS = (
     DEFAULT_SELECTOR_MANIFEST,
+    FIRST_USABLE_SELECTOR_MANIFEST_V8,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
     EXACT_GAP_SELECTOR_MANIFEST_V6,
     DIGIT_AWARE_SELECTOR_MANIFEST_V5,
@@ -260,15 +292,19 @@ __all__ = [
     "EXACT_GAP_SELECTOR_VERSION",
     "EXACT_MULTI_GAP_SELECTOR_VERSIONS",
     "FIRST_USABLE_POLICY",
+    "FIRST_USABLE_SELECTOR_MANIFEST_V8",
     "FIRST_USABLE_SELECTOR_VERSION",
     "FIRST_USABLE_SELECTOR_VERSIONS",
     "LEGACY_RANGE_ADAPTER_VERSION",
+    "LEGACY_THUMBNAIL_ADAPTER_VERSION",
     "LEGACY_SELECTOR_MANIFEST_V2",
     "LEGACY_SELECTOR_VERSION",
     "ORDERED_SELECTOR_VERSIONS",
+    "REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION",
     "SELECTOR_VERSION",
     "SUPPORTED_SELECTOR_MANIFESTS",
     "SUPPORTED_SELECTOR_VERSIONS",
+    "SUPPORTED_THUMBNAIL_ADAPTER_VERSIONS",
     "QualityWeights",
     "FirstUsablePolicy",
     "SelectorManifest",

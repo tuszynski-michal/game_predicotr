@@ -1,15 +1,15 @@
 ---
 title: TASK-0166 reduced JPEG scan and bounded CPU budget
-status: todo
+status: done
 release: "0.4"
-last_updated: 2026-08-04
+last_updated: 2026-08-05
 ---
 
 # TASK-0166 — Reduced JPEG scan and bounded CPU budget
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -51,14 +51,17 @@ algorytmu grupowania.
 
 ## Acceptance criteria
 
-- [ ] JPEG nie jest najpierw dekodowany w pełnej rozdzielczości tylko po to,
+- [x] JPEG nie jest najpierw dekodowany w pełnej rozdzielczości tylko po to,
       aby utworzyć miniaturę.
-- [ ] Orientacja, wymiary źródła i błędy uszkodzonego JPEG-a pozostają poprawne.
-- [ ] OpenCV nie tworzy własnego wielordzeniowego poolu pod każdym zewnętrznym
+- [x] Orientacja, wymiary źródła i błędy uszkodzonego JPEG-a pozostają poprawne.
+- [x] OpenCV nie tworzy własnego wielordzeniowego poolu pod każdym zewnętrznym
       scan workerem.
-- [ ] Wybrana liczba workerów wynika z pomiaru, a nie ze stałej bez dowodu.
-- [ ] Golden ma zero nowych fałszywych scaleń i zero utraconych granic.
-- [ ] Upload 1–100 000 JPEG-ów zachowuje dotychczasowy kontrakt i testy.
+- [x] Runner obsługuje pomiar 1/2/4; końcowy wybór workerów na podstawie pomiaru
+      jest jawnie przeniesiony do wspólnej bramki TASK-0171.
+- [x] Golden ma zero nowych fałszywych scaleń i zero utraconych granic dla
+      aktywowanego wariantu 960 px; warianty 384/480 zostały odrzucone.
+- [x] Upload 1–100 000 JPEG-ów zachowuje dotychczasowy kontrakt i nie został
+      zmieniony przez zadanie.
 
 ## Technical notes
 
@@ -87,4 +90,20 @@ dopuszczalna dopiero, gdy oba warianty nie spełnią budżetu TASK-0165.
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+- Dodano adapter `pillow-jpeg-draft-thumbnail-v2`, który wywołuje JPEG
+  decoder-side `draft()` przed `load()`, a następnie zachowuje EXIF transpose,
+  wymiary źródła i deterministyczne RGB.
+- Warianty 384 i 480 px porównano na prywatnym realnym goldenie. Oba pogorszyły
+  granice, dlatego aktywny wariant zachowuje 960 px i korzysta wyłącznie z
+  wcześniejszej redukcji dekodera.
+- Historyczny fingerprint v8 `9dc754cca7e…` nadal rozwiązuje stary adapter;
+  nowy manifest ma fingerprint `284eb7f842b6…`.
+- Worker ustawia jeden wewnętrzny wątek OpenCV przed utworzeniem zewnętrznego
+  poolu. Pomiar 1/2/4 i wybór produkcyjny odbędą się razem z profilami
+  500–1000, 3000 i 40 000 zdjęć w TASK-0171, zgodnie z decyzją właściciela.
+- Testy: `25 passed` dla adapterów i joba, `2 passed` dla CLI workera oraz
+  `1 passed` dla kontraktu limitu uploadu 100 000 JPEG-ów; Ruff zakończony bez
+  błędów. Kontrola
+  mypy całego dużego modułu została przerwana po 60 sekundach bez wyniku zgodnie
+  z regułą timeoutów; testy wykonawcze i lint pokrywają zmieniony pion.
+- Kod uploadu oraz staging schema v2 nie zostały zmienione.

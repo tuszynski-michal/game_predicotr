@@ -24,6 +24,7 @@ from game_predictor_worker.images.selection.adapters import (
     BestEffortVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     build_default_adapters,
+    configure_opencv_thread_budget,
 )
 from game_predictor_worker.images.selection.contracts import SelectionContractError
 from game_predictor_worker.images.selection.engine import (
@@ -64,7 +65,7 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 
-WORKER_VERSION = "worker-v8"
+WORKER_VERSION = "worker-v9"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -121,6 +122,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
         parser.error(
             "--image-selection-manifest and --image-selection-output must be used together."
         )
+    configure_opencv_thread_budget()
     if options.image_selection_manifest is not None:
         if options.poll:
             parser.error("--poll cannot be combined with standalone image selection.")

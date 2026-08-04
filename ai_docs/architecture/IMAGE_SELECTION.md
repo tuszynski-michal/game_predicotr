@@ -139,7 +139,9 @@ i deduplikację zakresów.
 Lekki skan per plik:
 
 1. weryfikuje kontrolowane źródło i dekoduje JPEG bezpośrednio w zmniejszonej
-   rozdzielczości przed utworzeniem tablicy RGB,
+   rozdzielczości przez wersjonowany adapter Pillow/libjpeg `draft()` przed
+   `load()` i utworzeniem tablicy RGB; roboczy dłuższy bok pozostaje równy
+   960 px, ponieważ warianty 384 i 480 nie przeszły realnego goldena granic,
 2. stosuje EXIF transpose,
 3. buduje deskryptor z perceptual hash, histogramu HSV oraz uproszczonego edge
    signature kilku szerokich regionów ekranu,
@@ -452,7 +454,9 @@ collecting | auto_selected | manual_required | manually_selected
   homografii i zero cropów niezależnie od `n` oraz liczby grup.
 - Bounded zewnętrzny pool skanu działa z jednym wewnętrznym wątkiem OpenCV;
   faktyczna liczba workerów jest wybierana po benchmarku 1/2/4, aby uniknąć
-  nadsubskrypcji CPU.
+  nadsubskrypcji CPU. Pomiar i aktywacja liczby workerów należą do wspólnej
+  bramki TASK-0171; wcześniejsze zadania nie uruchamiają konkurencyjnego profilu
+  podczas aktywnego historycznego joba.
 - V9 nie wykonuje top-k full verification. Dla grupy zachowuje pierwszego
   użytecznego kandydata i jeden fallback.
 - Wersjonowany cache po checksumie i fingerprintcie lekkiego adaptera może

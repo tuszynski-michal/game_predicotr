@@ -61,7 +61,9 @@ TASK-0156–0157 domykają niezawodność, statystyki i mierzalną bramkę wydaj
 - workspace pokazuje aktywną grę, upload, postęp, wynik i kolejkę manualną,
 - skok zakresów nie jest traktowany jako luka,
 - późniejszy duplikat zakończonego zakresu nie tworzy drugiego outputu,
-- zasłonięte, przycięte i nierozpoznane zdjęcia nie są automatycznie wybierane,
+- częściowo zasłonięte, przycięte i słabe zdjęcia pozostają kandydatami
+  best-available, gdy zakres numerów jest jednoznaczny; blokowany jest dopiero
+  niedekodowalny plik, błąd skanu albo sprzeczny zakres,
 - output ma jedno zdjęcie na zakres, bez modyfikacji folderu wejściowego,
 - manualny modal działa myszą i klawiaturą zgodnie z wymaganiami,
 - handoff uruchamia istniejący import dopiero po jawnej akcji,

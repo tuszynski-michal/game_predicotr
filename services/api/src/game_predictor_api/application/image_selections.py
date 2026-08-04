@@ -38,6 +38,8 @@ from game_predictor_api.domain.image_selections import (
 from game_predictor_api.domain.jobs import Job, JobStatus, requeue_job
 
 MAX_MANUAL_IMAGE_BYTES = 50 * 1024 * 1024
+BROWSER_SELECTION_DIRECTORY = "browser-selections"
+BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
 
 
 def _public_output_file_name(range_start: int, range_end: int) -> str:
@@ -264,6 +266,14 @@ class ImageSelectionRepository(Protocol):
         self, *, run_id: UUID, candidate_id: UUID
     ) -> ImageSelectionCandidate | None: ...
 
+    def list_candidates(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        limit: int,
+    ) -> Sequence[ImageSelectionCandidate]: ...
+
     def find_candidate_by_checksum(
         self, *, run_id: UUID, group_id: UUID, checksum_sha256: str
     ) -> ImageSelectionCandidate | None: ...
@@ -294,10 +304,16 @@ class ImageSelectionService:
         repository: ImageSelectionRepository,
         *,
         artifact_root: Path | None = None,
+        browser_upload_root: Path | None = None,
         manual_file_store: ManualImageSelectionFileStore | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_root = None if artifact_root is None else artifact_root.resolve()
+        self._browser_upload_root = (
+            None
+            if browser_upload_root is None
+            else browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
+        )
         self._manual_file_store = manual_file_store or (
             None if artifact_root is None else ManualImageSelectionFileStore(artifact_root)
         )
@@ -341,6 +357,63 @@ class ImageSelectionService:
             )
         return run
 
+    def rerun(
+        self,
+        *,
+        run_id: UUID,
+        selector_fingerprint: str,
+    ) -> tuple[ImageSelectionRun, bool]:
+        source_run = self.get_run(run_id)
+        if self._browser_upload_root is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
+                "The managed browser staging cannot be reused by this API process.",
+            )
+        source_root = (self._browser_upload_root / str(source_run.source_selection_id)).resolve()
+        manifest = source_root / BROWSER_SELECTION_MANIFEST
+        if (
+            not source_root.is_relative_to(self._browser_upload_root)
+            or not source_root.is_dir()
+            or not manifest.is_file()
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging is no longer available.",
+            )
+        try:
+            manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        except OSError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging cannot be read.",
+            ) from error
+        if manifest_sha256 != source_run.input_manifest_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_INPUT_MANIFEST_CHANGED",
+                "The previously uploaded image manifest has changed.",
+            )
+        rerun, created = self.create_run(
+            game_id=source_run.game_id,
+            source_selection_id=source_run.source_selection_id,
+            input_manifest_sha256=source_run.input_manifest_sha256,
+            selector_fingerprint=selector_fingerprint,
+        )
+        if created or rerun.job.status not in {
+            JobStatus.CANCELLED,
+            JobStatus.FAILED,
+        }:
+            return rerun, created
+
+        locked_job = self._repository.get_job_for_update(rerun.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                "The existing image-selection job could not be locked for restart.",
+            )
+        if locked_job.status in {JobStatus.CANCELLED, JobStatus.FAILED}:
+            self._repository.save_job(requeue_job(locked_job))
+        return self.get_run(rerun.id), False
+
     def list_groups(
         self,
         *,
@@ -368,6 +441,33 @@ class ImageSelectionService:
         return ImageSelectionGroupPage(
             items=items,
             next_after_group_order=(items[-1].group_order if has_more and items else None),
+        )
+
+    def list_group_candidates(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        limit: int = 20,
+    ) -> Sequence[ImageSelectionCandidate]:
+        if not 1 <= limit <= 100:
+            raise ImageSelectionError(
+                "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                "Candidate limit must be between 1 and 100.",
+            )
+        self.get_run(run_id)
+        if self._repository.get_group(run_id=run_id, group_id=group_id) is None:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_GROUP_NOT_FOUND",
+                "Image selection group does not exist.",
+                details={"groupId": str(group_id), "runId": str(run_id)},
+            )
+        return tuple(
+            self._repository.list_candidates(
+                run_id=run_id,
+                group_id=group_id,
+                limit=limit,
+            )
         )
 
     def record_output(

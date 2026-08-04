@@ -339,6 +339,12 @@ def _recover_expected_grid(
         )
         for candidate in usable
     ]
+    assigned_rows = {row for row, _, _ in assignments}
+    assigned_columns = {column for _, column, _ in assignments}
+    if assigned_rows != set(range(required_rows)) or assigned_columns != set(
+        range(required_columns)
+    ):
+        return None
     column_y_offsets = tuple(
         statistics.median(
             candidate.center_y - row_centers[row]

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from statistics import StatisticsError
 from typing import cast
 
 import cv2
@@ -34,7 +35,12 @@ from .contracts import (
     SelectionContractError,
     SequenceRange,
 )
-from .manifest import DEFAULT_SELECTOR_MANIFEST, QualityWeights, SelectorManifest
+from .manifest import (
+    DEFAULT_SELECTOR_MANIFEST,
+    ORDERED_SELECTOR_VERSIONS,
+    QualityWeights,
+    SelectorManifest,
+)
 from .ports import (
     ImageQualityAnalyzer,
     LatticeFingerprint,
@@ -136,11 +142,7 @@ def _layout_color_hash(rgb: NDArray[np.uint8]) -> str:
     )
     value = 0
     for hue, saturation, brightness in hsv.reshape(-1, 3):
-        quantized = (
-            (int(hue) // 45) << 2
-            | (int(saturation) >= 100) << 1
-            | (int(brightness) >= 100)
-        )
+        quantized = (int(hue) // 45) << 2 | (int(saturation) >= 100) << 1 | (int(brightness) >= 100)
         value = (value << 4) | quantized
     return f"{value:0256x}"
 
@@ -170,20 +172,25 @@ def _best_supported_detection(
     rgb: NDArray[np.uint8],
     *,
     expected_board_count: int | None = None,
+    allow_grid_recovery: bool = False,
 ) -> DetectionResult:
     if expected_board_count is not None:
         return detector.detect(
             rgb,
             expected_board_count=expected_board_count,
-            allow_grid_recovery=False,
+            allow_grid_recovery=allow_grid_recovery,
         )
-    full = detector.detect(rgb, expected_board_count=9, allow_grid_recovery=False)
+    full = detector.detect(
+        rgb,
+        expected_board_count=9,
+        allow_grid_recovery=allow_grid_recovery,
+    )
     if full.status == "detected" or not 1 <= full.candidate_count <= 8:
         return full
     partial = detector.detect(
         rgb,
         expected_board_count=full.candidate_count,
-        allow_grid_recovery=False,
+        allow_grid_recovery=allow_grid_recovery,
     )
     return partial if partial.status == "detected" else full
 
@@ -314,7 +321,7 @@ class ComposedCheapImageAnalyzer:
                 quality=quality,
                 reason_codes=lattice.reason_codes,
             )
-        except SelectionContractError as error:
+        except (SelectionContractError, StatisticsError) as error:
             zero = ImageQualityMetrics(*(0.0 for _ in range(8)))
             return CheapImageObservation(
                 source=source,
@@ -325,7 +332,11 @@ class ComposedCheapImageAnalyzer:
                 board_count=None,
                 geometry_confidence=0.0,
                 quality=zero,
-                reason_codes=(error.code,),
+                reason_codes=(
+                    error.code
+                    if isinstance(error, SelectionContractError)
+                    else "IMAGE_SELECTION_SCAN_GEOMETRY_FAILED",
+                ),
             )
 
 
@@ -393,6 +404,18 @@ class VisibleSequenceLabelRangeRecognizer:
     version = "visible-sequence-label-range-v1"
     _minimum_ocr_confidence = 0.72
     _minimum_inlier_count = 6
+    _roi_y_start = 0.25
+    _roi_y_end = 0.455
+    _roi_x_start = 0.18
+    _roi_x_end = 0.80
+    _minimum_component_height = 0.006
+    _maximum_component_height = 0.0125
+    _minimum_component_width = 0.008
+    _maximum_component_width = 0.045
+    _minimum_component_area = 0.000058
+    _minimum_fill_ratio = 0.57
+    _maximum_width_to_height_ratio: float | None = None
+    _candidate_limit: int | None = None
 
     def __init__(self, recognizer: SequenceNumberRecognizer) -> None:
         self._recognizer = recognizer
@@ -437,11 +460,11 @@ class VisibleSequenceLabelRangeRecognizer:
     ) -> tuple[_VisibleLabel, ...]:
         height, width = rgb_image.shape[:2]
         hsv = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
-        mask = cv2.inRange(hsv, np.array((0, 0, 165)), np.array((179, 115, 255)))
-        y_start = int(round(height * 0.25))
-        y_end = int(round(height * 0.455))
-        x_start = int(round(width * 0.18))
-        x_end = int(round(width * 0.80))
+        mask = cls._label_mask(hsv)
+        y_start = int(round(height * cls._roi_y_start))
+        y_end = int(round(height * cls._roi_y_end))
+        x_start = int(round(width * cls._roi_x_start))
+        x_end = int(round(width * cls._roi_x_end))
         region = np.zeros_like(mask)
         region[y_start:y_end, x_start:x_end] = mask[y_start:y_end, x_start:x_end]
         kernel_width = max(3, int(round(width * 0.0065)) | 1)
@@ -455,21 +478,29 @@ class VisibleSequenceLabelRangeRecognizer:
             closed,
             connectivity=8,
         )
-        minimum_area = max(24, int(round(width * height * 0.000058)))
-        labels: list[_VisibleLabel] = []
+        minimum_area = max(24, int(round(width * height * cls._minimum_component_area)))
+        labels: list[tuple[tuple[float, int], _VisibleLabel]] = []
         for index in range(1, count):
-            x, y, component_width, component_height, area = (
-                int(value) for value in stats[index]
-            )
-            if not int(round(height * 0.006)) <= component_height <= int(
-                round(height * 0.0125)
+            x, y, component_width, component_height, area = (int(value) for value in stats[index])
+            if (
+                not int(round(height * cls._minimum_component_height))
+                <= component_height
+                <= int(round(height * cls._maximum_component_height))
             ):
                 continue
-            if not int(round(width * 0.008)) <= component_width <= int(
-                round(width * 0.045)
+            if (
+                not int(round(width * cls._minimum_component_width))
+                <= component_width
+                <= int(round(width * cls._maximum_component_width))
             ):
                 continue
-            if area < minimum_area or area / (component_width * component_height) < 0.57:
+            if (
+                cls._maximum_width_to_height_ratio is not None
+                and component_width / component_height > cls._maximum_width_to_height_ratio
+            ):
+                continue
+            fill_ratio = area / (component_width * component_height)
+            if area < minimum_area or fill_ratio < cls._minimum_fill_ratio:
                 continue
             pad_x = max(2, int(round(component_height * 0.35)))
             pad_y = max(2, int(round(component_height * 0.25)))
@@ -480,13 +511,26 @@ class VisibleSequenceLabelRangeRecognizer:
             crop = rgb_image[top:bottom, left:right]
             if crop.size:
                 labels.append(
-                    _VisibleLabel(
-                        crop=crop,
-                        center=(float(centroids[index][0]), float(centroids[index][1])),
+                    (
+                        (fill_ratio, area),
+                        _VisibleLabel(
+                            crop=crop,
+                            center=(float(centroids[index][0]), float(centroids[index][1])),
+                        ),
                     )
                 )
-        labels.sort(key=lambda value: (value.center[1], value.center[0]))
-        return tuple(labels)
+        if cls._candidate_limit is not None and len(labels) > cls._candidate_limit:
+            labels = sorted(labels, key=lambda value: value[0], reverse=True)[
+                : cls._candidate_limit
+            ]
+        selected = [value[1] for value in labels]
+        selected.sort(key=lambda value: (value.center[1], value.center[0]))
+        return tuple(selected)
+
+    @classmethod
+    def _label_mask(cls, hsv: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        del cls
+        return cv2.inRange(hsv, np.array((0, 0, 165)), np.array((179, 115, 255)))
 
     @classmethod
     def _range_hypotheses(
@@ -559,9 +603,9 @@ class VisibleSequenceLabelRangeRecognizer:
                 or 8 not in inlier_positions
             ):
                 continue
-            mean_confidence = sum(
-                by_position[position][1] for position in inlier_positions
-            ) / len(inlier_positions)
+            mean_confidence = sum(by_position[position][1] for position in inlier_positions) / len(
+                inlier_positions
+            )
             structural_confidence = min(
                 1.0,
                 0.90 + 0.025 * (len(inlier_positions) - cls._minimum_inlier_count),
@@ -579,6 +623,56 @@ class VisibleSequenceLabelRangeRecognizer:
             key=lambda value: (value[0], -value[1].start),
             reverse=True,
         )
+
+
+class AdaptiveVisibleSequenceLabelRangeRecognizer(VisibleSequenceLabelRangeRecognizer):
+    """Bounded fallback for perspective-shifted labels with up to six digits."""
+
+    version = "visible-sequence-label-range-v2"
+    _roi_y_start = 0.22
+    _roi_y_end = 0.50
+    _roi_x_start = 0.14
+    _roi_x_end = 0.86
+    _minimum_component_height = 0.005
+    _maximum_component_height = 0.0145
+    _maximum_component_width = 0.105
+    _minimum_component_area = 0.000045
+    _minimum_fill_ratio = 0.50
+    _maximum_width_to_height_ratio = 7.5
+    _candidate_limit = 36
+
+
+class BestEffortVisibleSequenceLabelRangeRecognizer(AdaptiveVisibleSequenceLabelRangeRecognizer):
+    """Read tinted or dim labels when the board image itself is imperfect."""
+
+    version = "visible-sequence-label-range-v3"
+    _minimum_ocr_confidence = 0.50
+    _roi_y_start = 0.20
+    _roi_y_end = 0.52
+    _roi_x_start = 0.10
+    _roi_x_end = 0.90
+    _minimum_component_height = 0.004
+    _maximum_component_height = 0.017
+    _minimum_component_width = 0.006
+    _maximum_component_width = 0.12
+    _minimum_component_area = 0.000018
+    _minimum_fill_ratio = 0.20
+    _candidate_limit = 48
+
+    @classmethod
+    def _label_mask(cls, hsv: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        del cls
+        neutral = cv2.inRange(
+            hsv,
+            np.array((0, 0, 145)),
+            np.array((179, 150, 255)),
+        )
+        warm = cv2.inRange(
+            hsv,
+            np.array((5, 151, 145)),
+            np.array((40, 255, 255)),
+        )
+        return cv2.bitwise_or(neutral, warm)
 
 
 class NoRangeRecognizer:
@@ -602,11 +696,14 @@ class FullCandidateVerifier:
         range_recognizer: SequenceRangeRecognizer,
         fallback_range_recognizer: SequenceRangeRecognizer | None = None,
         detector: PageBoardDetector | None = None,
+        *,
+        allow_grid_recovery: bool = False,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._range_recognizer = range_recognizer
         self._fallback_range_recognizer = fallback_range_recognizer
         self._detector = detector or ClassicalPageBoardDetector()
+        self._allow_grid_recovery = allow_grid_recovery
 
     def verify(
         self,
@@ -624,14 +721,19 @@ class FullCandidateVerifier:
                 self._detector,
                 rgb,
                 expected_board_count=expected_board_count,
+                allow_grid_recovery=self._allow_grid_recovery,
             )
-        except SelectionContractError as error:
+        except (SelectionContractError, StatisticsError) as error:
             return CandidateVerification(
                 recognized_range=None,
                 board_count=None,
                 geometry_complete=False,
                 full_frame_visible=False,
-                reason_codes=(error.code,),
+                reason_codes=(
+                    error.code
+                    if isinstance(error, SelectionContractError)
+                    else "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+                ),
             )
         geometry_complete = expected_board_count is not None and (
             detection.status == "detected" and len(detection.boards) == expected_board_count
@@ -706,12 +808,15 @@ def build_default_adapters(
         range_recognizer or NoRangeRecognizer(),
         fallback_range_recognizer,
         detector,
+        allow_grid_recovery=manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS,
     )
     return analyzer, verifier
 
 
 __all__ = [
+    "AdaptiveVisibleSequenceLabelRangeRecognizer",
     "AnchoredSequenceRangeRecognizer",
+    "BestEffortVisibleSequenceLabelRangeRecognizer",
     "ComposedCheapImageAnalyzer",
     "FullCandidateVerifier",
     "NoRangeRecognizer",

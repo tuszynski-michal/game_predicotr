@@ -14,6 +14,7 @@ from game_predictor_worker.images.manual_geometry_recrop import (
     ManualGeometryRecropper,
 )
 
+from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
@@ -218,8 +219,7 @@ def create_app(
                 raise
 
     resolved_symbol_bootstrap_dependency = (
-        symbol_bootstrap_service_dependency
-        or default_symbol_bootstrap_service_dependency
+        symbol_bootstrap_service_dependency or default_symbol_bootstrap_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -267,6 +267,7 @@ def create_app(
                 yield ImageSelectionService(
                     SqlAlchemyImageSelectionRepository(session),
                     artifact_root=resolved_settings.artifact_root,
+                    browser_upload_root=resolved_settings.import_root,
                 )
                 session.commit()
             except BaseException:
@@ -289,9 +290,8 @@ def create_app(
         max_bytes=resolved_settings.import_max_bytes,
         photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
     )
-    resolved_browser_image_selection_dependency = (
-        browser_image_selection_service_dependency
-        or (lambda: default_browser_image_selection_service)
+    resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
+        lambda: default_browser_image_selection_service
     )
 
     def default_image_job_service_dependency() -> Iterator[ImageJobOperationsService]:
@@ -447,6 +447,7 @@ def create_app(
             "Authorization",
             "Content-Type",
             IMAGE_RELATIVE_PATH_HEADER,
+            MANUAL_FILE_NAME_HEADER,
             ADMIN_INTENT_HEADER,
             ADMIN_CONFIRMATION_HEADER,
             ADMIN_TARGET_HEADER,

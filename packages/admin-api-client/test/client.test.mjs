@@ -212,6 +212,30 @@ test('generated client requests an explicit image-selection handoff', async () =
   );
 });
 
+test('generated client reruns image selection from managed staging', async () => {
+  const requests = [];
+  const runId = '00000000-0000-4000-8000-000000000154';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        created: true,
+        run: {
+          id: '00000000-0000-4000-8000-000000000155',
+        },
+      });
+    },
+  });
+
+  await client.rerunImageSelection(runId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [['POST', `/api/v1/admin/image-selections/${runId}/rerun`]],
+  );
+});
+
 test('generated client lists and downloads verified image-selection output', async () => {
   const requests = [];
   const runId = '00000000-0000-4000-8000-000000000154';
@@ -1667,6 +1691,7 @@ test('manual image selection uses scoped binary upload and idempotent approval',
     'screen.jpg',
     new Blob(['jpeg'], { type: 'image/jpeg' }),
   );
+  await client.listImageSelectionGroupCandidates(runId, groupId, { limit: 20 });
   await client.approveManualImageSelection(runId, groupId, {
     candidateId,
     idempotencyKey,
@@ -1682,6 +1707,10 @@ test('manual image selection uses scoped binary upload and idempotent approval',
         `/api/v1/admin/image-selections/${runId}/groups/${groupId}/manual-file`,
       ],
       [
+        'GET',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/candidates`,
+      ],
+      [
         'POST',
         `/api/v1/admin/image-selections/${runId}/groups/${groupId}/approve`,
       ],
@@ -1692,11 +1721,12 @@ test('manual image selection uses scoped binary upload and idempotent approval',
     requests[0].headers.get('X-Admin-Target'),
     `image-selection:${runId}:${groupId}:manual-file`,
   );
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '20');
   assert.equal(
-    requests[1].headers.get('X-Admin-Target'),
+    requests[2].headers.get('X-Admin-Target'),
     `image-selection:${runId}:${groupId}:approve`,
   );
-  assert.deepEqual(await requests[1].clone().json(), {
+  assert.deepEqual(await requests[2].clone().json(), {
     candidateId,
     idempotencyKey,
     rangeEnd: 9,

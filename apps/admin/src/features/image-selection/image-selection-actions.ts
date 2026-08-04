@@ -21,11 +21,13 @@ export type ImageSelectionClient = Pick<
   | 'finalizeBrowserImageSelection'
   | 'cancelBrowserImageSelection'
   | 'createImageSelection'
+  | 'rerunImageSelection'
   | 'getImageSelection'
   | 'getImageSelectionOutput'
   | 'getImageSelectionOutputFile'
   | 'handoffImageSelection'
   | 'listImageSelectionGroups'
+  | 'listImageSelectionGroupCandidates'
   | 'uploadManualImageSelectionFile'
   | 'approveManualImageSelection'
   | 'continueImageSelectionWithoutImage'
@@ -319,8 +321,6 @@ export async function continueWithAutomaticallySelectedImages(
       group.id,
       {
         idempotencyKey: idempotencyKeyFactory(),
-        ...(group.rangeStart === null ? {} : { rangeStart: group.rangeStart }),
-        ...(group.rangeEnd === null ? {} : { rangeEnd: group.rangeEnd }),
       },
     );
     if (result.error !== undefined || result.data === undefined) {
@@ -445,6 +445,17 @@ function suggestBoundedMissingRange(
   const rangeStart = previous.rangeEnd + 1;
   const rangeEnd = next.rangeStart - 1;
   if (rangeStart > rangeEnd || rangeEnd - rangeStart + 1 > 9) return group;
+  const unresolvedInGap = allGroups.filter(
+    (candidate) =>
+      candidate.status === 'manual_required' &&
+      candidate.rangeStart === null &&
+      candidate.rangeEnd === null &&
+      candidate.groupOrder > previous.groupOrder &&
+      candidate.groupOrder < next.groupOrder,
+  );
+  if (unresolvedInGap.length !== 1 || unresolvedInGap[0]?.id !== group.id) {
+    return group;
+  }
   return { ...group, rangeEnd, rangeStart };
 }
 

@@ -6,7 +6,60 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass
 
-SELECTOR_VERSION = "fast-image-selector-v2"
+LEGACY_SELECTOR_VERSION = "fast-image-selector-v2"
+CONTINUITY_SELECTOR_VERSION = "fast-image-selector-v3"
+BEST_AVAILABLE_SELECTOR_VERSION = "fast-image-selector-v4"
+DIGIT_AWARE_SELECTOR_VERSION = "fast-image-selector-v5"
+EXACT_GAP_SELECTOR_VERSION = "fast-image-selector-v6"
+BEST_EFFORT_SELECTOR_VERSION = "fast-image-selector-v7"
+FIRST_USABLE_SELECTOR_VERSION = "fast-image-selector-v8"
+SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
+BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
+    {
+        BEST_AVAILABLE_SELECTOR_VERSION,
+        DIGIT_AWARE_SELECTOR_VERSION,
+        EXACT_GAP_SELECTOR_VERSION,
+        BEST_EFFORT_SELECTOR_VERSION,
+        SELECTOR_VERSION,
+    }
+)
+ORDERED_SELECTOR_VERSIONS = frozenset(
+    {
+        DIGIT_AWARE_SELECTOR_VERSION,
+        EXACT_GAP_SELECTOR_VERSION,
+        BEST_EFFORT_SELECTOR_VERSION,
+        SELECTOR_VERSION,
+    }
+)
+SUPPORTED_SELECTOR_VERSIONS = frozenset(
+    {
+        LEGACY_SELECTOR_VERSION,
+        CONTINUITY_SELECTOR_VERSION,
+        BEST_AVAILABLE_SELECTOR_VERSION,
+        DIGIT_AWARE_SELECTOR_VERSION,
+        EXACT_GAP_SELECTOR_VERSION,
+        BEST_EFFORT_SELECTOR_VERSION,
+        SELECTOR_VERSION,
+    }
+)
+
+LEGACY_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v1:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+ADAPTIVE_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v2:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+BEST_EFFORT_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v3:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
+BEST_EFFORT_SELECTOR_VERSIONS = frozenset({BEST_EFFORT_SELECTOR_VERSION, SELECTOR_VERSION})
+FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
+EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
+    {EXACT_GAP_SELECTOR_VERSION, BEST_EFFORT_SELECTOR_VERSION, SELECTOR_VERSION}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +91,15 @@ class SelectorThresholds:
 
 
 @dataclass(frozen=True, slots=True)
+class FirstUsablePolicy:
+    minimum_quality_score: float = 0.30
+    minimum_sharpness: float = 0.10
+
+
+FIRST_USABLE_POLICY = FirstUsablePolicy()
+
+
+@dataclass(frozen=True, slots=True)
 class SelectorManifest:
     algorithm_version: str = SELECTOR_VERSION
     contract_version: int = 1
@@ -48,15 +110,12 @@ class SelectorManifest:
     quality_adapter_version: str = "opencv-thumbnail-quality-v1"
     geometry_adapter_version: str = "page-board-detector-v2"
     fingerprint_adapter_version: str = "screen-layout-hsv-hash-v2"
-    range_adapter_version: str = (
-        "sequence-anchor-range-v1+visible-sequence-label-range-v1:"
-        "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
-    )
+    range_adapter_version: str = BEST_EFFORT_RANGE_ADAPTER_VERSION
     quality_weights: QualityWeights = QualityWeights()
     thresholds: SelectorThresholds = SelectorThresholds()
 
     def __post_init__(self) -> None:
-        if self.algorithm_version != SELECTOR_VERSION or self.contract_version != 1:
+        if self.algorithm_version not in SUPPORTED_SELECTOR_VERSIONS or self.contract_version != 1:
             raise ValueError("Unsupported image selector manifest version.")
         if not 320 <= self.thumbnail_max_edge <= 2048:
             raise ValueError("thumbnail_max_edge must be between 320 and 2048.")
@@ -74,7 +133,7 @@ class SelectorManifest:
                 raise ValueError("Image selector thresholds must be between 0 and 1.")
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "adapters": {
                 "fingerprint": self.fingerprint_adapter_version,
                 "geometry": self.geometry_adapter_version,
@@ -114,6 +173,12 @@ class SelectorManifest:
             "thumbnailMaxEdge": self.thumbnail_max_edge,
             "topK": self.top_k,
         }
+        if self.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS:
+            payload["firstUsablePolicy"] = {
+                "minimumQualityScore": FIRST_USABLE_POLICY.minimum_quality_score,
+                "minimumSharpness": FIRST_USABLE_POLICY.minimum_sharpness,
+            }
+        return payload
 
     def canonical_bytes(self) -> bytes:
         return json.dumps(
@@ -128,12 +193,85 @@ class SelectorManifest:
         return hashlib.sha256(self.canonical_bytes()).hexdigest()
 
 
+LEGACY_SELECTOR_MANIFEST_V2 = SelectorManifest(
+    algorithm_version=LEGACY_SELECTOR_VERSION,
+    range_adapter_version=LEGACY_RANGE_ADAPTER_VERSION,
+)
+CONTINUITY_SELECTOR_MANIFEST_V3 = SelectorManifest(
+    algorithm_version=CONTINUITY_SELECTOR_VERSION,
+    range_adapter_version=LEGACY_RANGE_ADAPTER_VERSION,
+)
+BEST_AVAILABLE_SELECTOR_MANIFEST_V4 = SelectorManifest(
+    algorithm_version=BEST_AVAILABLE_SELECTOR_VERSION,
+    range_adapter_version=LEGACY_RANGE_ADAPTER_VERSION,
+)
+DIGIT_AWARE_SELECTOR_MANIFEST_V5 = SelectorManifest(
+    algorithm_version=DIGIT_AWARE_SELECTOR_VERSION,
+    range_adapter_version=ADAPTIVE_RANGE_ADAPTER_VERSION,
+)
+EXACT_GAP_SELECTOR_MANIFEST_V6 = SelectorManifest(
+    algorithm_version=EXACT_GAP_SELECTOR_VERSION,
+    range_adapter_version=ADAPTIVE_RANGE_ADAPTER_VERSION,
+)
+BEST_EFFORT_SELECTOR_MANIFEST_V7 = SelectorManifest(
+    algorithm_version=BEST_EFFORT_SELECTOR_VERSION,
+    range_adapter_version=BEST_EFFORT_RANGE_ADAPTER_VERSION,
+)
 DEFAULT_SELECTOR_MANIFEST = SelectorManifest()
+SUPPORTED_SELECTOR_MANIFESTS = (
+    DEFAULT_SELECTOR_MANIFEST,
+    BEST_EFFORT_SELECTOR_MANIFEST_V7,
+    EXACT_GAP_SELECTOR_MANIFEST_V6,
+    DIGIT_AWARE_SELECTOR_MANIFEST_V5,
+    BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
+    CONTINUITY_SELECTOR_MANIFEST_V3,
+    LEGACY_SELECTOR_MANIFEST_V2,
+)
+
+
+def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | None:
+    """Resolve immutable selector behavior for a persisted durable run."""
+
+    return next(
+        (
+            manifest
+            for manifest in SUPPORTED_SELECTOR_MANIFESTS
+            if manifest.fingerprint == fingerprint
+        ),
+        None,
+    )
+
 
 __all__ = [
+    "ADAPTIVE_RANGE_ADAPTER_VERSION",
+    "BEST_EFFORT_RANGE_ADAPTER_VERSION",
+    "BEST_EFFORT_SELECTOR_MANIFEST_V7",
+    "BEST_EFFORT_SELECTOR_VERSION",
+    "BEST_EFFORT_SELECTOR_VERSIONS",
+    "BEST_AVAILABLE_SELECTOR_MANIFEST_V4",
+    "BEST_AVAILABLE_SELECTOR_VERSION",
+    "BEST_AVAILABLE_SELECTOR_VERSIONS",
     "DEFAULT_SELECTOR_MANIFEST",
+    "CONTINUITY_SELECTOR_MANIFEST_V3",
+    "CONTINUITY_SELECTOR_VERSION",
+    "DIGIT_AWARE_SELECTOR_MANIFEST_V5",
+    "DIGIT_AWARE_SELECTOR_VERSION",
+    "EXACT_GAP_SELECTOR_MANIFEST_V6",
+    "EXACT_GAP_SELECTOR_VERSION",
+    "EXACT_MULTI_GAP_SELECTOR_VERSIONS",
+    "FIRST_USABLE_POLICY",
+    "FIRST_USABLE_SELECTOR_VERSION",
+    "FIRST_USABLE_SELECTOR_VERSIONS",
+    "LEGACY_RANGE_ADAPTER_VERSION",
+    "LEGACY_SELECTOR_MANIFEST_V2",
+    "LEGACY_SELECTOR_VERSION",
+    "ORDERED_SELECTOR_VERSIONS",
     "SELECTOR_VERSION",
+    "SUPPORTED_SELECTOR_MANIFESTS",
+    "SUPPORTED_SELECTOR_VERSIONS",
     "QualityWeights",
+    "FirstUsablePolicy",
     "SelectorManifest",
     "SelectorThresholds",
+    "selector_manifest_for_fingerprint",
 ]

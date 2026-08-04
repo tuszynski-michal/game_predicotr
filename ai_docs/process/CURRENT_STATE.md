@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-03
+last_updated: 2026-08-04
 ---
 
 # Current State
@@ -185,7 +185,7 @@ last_updated: 2026-08-03
   `image_selection`, trzy lekkie tabele bez BLOB, idempotentne create/get runu,
   stronicowana lista grup oraz wygenerowany klient OpenAPI,
 - TASK-0152 dodał czwarty responsywny workspace `Selekcja zdjęć`, naturalnie
-  uporządkowany i wznawialny browser staging do 30 000 JPEG-ów, postęp plików i
+  uporządkowany i wznawialny browser staging do 100 000 JPEG-ów, postęp plików i
   bajtów, bounded concurrency równe 4, 24-godzinny checkpoint oraz token
   `photo_selection` izolowany per gra; selekcja nie uruchamia ciężkiego
   pipeline'u layoutów,
@@ -233,7 +233,10 @@ last_updated: 2026-08-03
 - przepływ odbiorowy TASK-0157 ma główną akcję
   `Kontynuuj z wybranymi zdjęciami`: wszystkie nierozpoznane wyjątki zapisuje
   jako `missing_image`, również bez zakresu, a następnie publikuje pewne zdjęcia.
-  Techniczne `#N` zostało zastąpione opisem `Nierozpoznany zestaw zdjęć`.
+  Modal pokazuje `Zakres layoutów nierozpoznany`, deterministyczny numer zestawu,
+  liczbę źródeł i nazwy zapisanych kandydatów; numer zestawu nie jest numerem
+  layoutu. Zbiorcza akcja nie utrwala frontendowych sugestii zakresu, a modal
+  sugeruje zakres tylko dla pojedynczej grupy w jednoznacznej luce.
   Zweryfikowany output można skopiować browser-native pickerem do wybranego
   folderu jako `seq_<od>-<do>.jpg` albo przekazać do `Importu layoutów`,
 - eksport TASK-0157 obsługuje również wcześniejsze, niezmienne manifesty, w
@@ -241,6 +244,33 @@ last_updated: 2026-08-03
   wynika wyłącznie z zakresu (`seq_1-9.jpg`). `api:dev` obserwuje tylko kod API i
   automatycznie go przeładowuje, aby działający Admin nie korzystał ze starego
   zestawu endpointów po zmianie źródeł,
+- limit pojedynczego browser stagingu selekcji wynosi 100 000 JPEG-ów. Panel
+  pokazuje loader `Przygotowywanie…` przed lokalnym filtrowaniem i sortowaniem;
+  zaliczona bramka czasu i pamięci nadal obejmuje profile do 30 000, a pierwszy
+  większy rzeczywisty run jest testem właściciela, nie automatycznym benchmarkiem,
+- pierwszy rzeczywisty upload 32 079 JPEG-ów ujawnił koszt `O(n²)`: schema v1
+  przepisywała cały `_upload_state.json` i odsyłała pełną listę indeksów po
+  każdym pliku; przebieg trwał 2346,44 s. Następne uploady używają compact state
+  schema v2, append-only `_upload_files.jsonl` oraz małej odpowiedzi PUT.
+  Zgodność wsteczna migruje niedokończony stan v1 bez utraty postępu,
+- obserwacja pracującego runu 32 079 zdjęć przy 13 408 plikach wykazała 1166
+  grup, 3461 kosztownych weryfikacji, 1042 przypadki manualne, 99 wyborów
+  automatycznych i 0 błędów. Pamięć pozostawała stabilna, ale średnio 11,5
+  zdjęcia na grupę wobec typowych 50–100 ujawniło fragmentację przy zmianach
+  perspektywy. `fast-image-selector-v3` dodał bounded ostatnią obserwację jako
+  kotwicę ciągłości i nie traktuje pustej geometrii jako maksymalnej zmiany.
+  `fast-image-selector-v4` dodatkowo traktuje progi jakości jako ranking,
+  wybiera najlepszy dostępny dostatecznie ostry obraz i odzyskuje dokładnie
+  jedną nierozpoznaną grupę z luki 1–9 między dwoma pewnymi zakresami. Nie
+  zwiększa top-k ani liczby wywołań OCR. Nowe runy użyją fingerprintu v4, a
+  rejestr manifestów zachowuje dokładne wznowienie runów v2/v3 również po
+  restarcie. Run v2 zakończył się naturalnie przy
+  14 144 przez `StatisticsError` w niepełnym przypisaniu siatki. Geometria
+  odrzuca teraz takie przypisanie, a adapter izoluje błąd pojedynczego obrazu.
+  Ten sam job wznowiono jako próbę nr 3 od checkpointu 14 144 i potwierdzono
+  postęp do 14 336 bez powtórnego uploadu. Rzeczywista regresja v4 na tym samym
+  stagingu zostanie uruchomiona dopiero po zakończeniu wznowionego joba v2, aby
+  nie konkurować z nim o CPU i dysk,
 - karta aktywnego runu TASK-0157 pokazuje bezpośrednio w `Selekcji zdjęć`
   czytelny status i etap, postęp `X/N` z procentem, liczbę grup, wyborów
   automatycznych, przypadków manualnych, pominięć, błędów i weryfikacji oraz
@@ -253,6 +283,87 @@ last_updated: 2026-08-03
   niepotwierdzonej klatki przejściowej. Lokalna regresja tych samych danych
   zakończyła się w 44,2 s wynikiem 7 auto-selected zakresów, 4 powtórzeń i 0
   przypadków manualnych; pozostaje powtórzyć run z poziomu Admina,
+- wznowiony rzeczywisty run v2 zakończył 32 079 źródeł wynikiem 2795 grup. Po
+  częściowej zbiorczej kontynuacji pozostało 2288 nierozpoznanych zestawów;
+  licznik 25 opisuje grupy-duplikaty, a nie zdjęcia lub layouty. Konflikt
+  powtarzanej sugestii zakresu został usunięty bez zmiany istniejących decyzji,
+- inspekcja trwałego runu potwierdziła, że grupa dla layoutów `73–81` ma czytelne
+  kandydaty, ale v2 odrzuca je przez miękkie ostrzeżenia jakości i brak OCR.
+  Regresje v4 potwierdzają wybór najlepszego obrazu oraz odzyskanie `73–81`
+  pomiędzy `64–72` i `82–90`; jawnie zasłonięty lub uszkodzony obraz nadal nie
+  jest wybierany automatycznie,
+- rzeczywisty rerun v4 zakończył 32 079 źródeł, ale nie przeszedł bramki
+  jakości: tylko 40 z 743 grup zostało wybranych automatycznie, 703 wymagały
+  review, 700 miało niepełną geometrię, a 692 nie znalazły siatki widocznych
+  etykiet. Wszystkie 703 decyzje `missing_image` pozostają historycznym wynikiem
+  v4 i nie są modyfikowane,
+- ukończony TASK-0160 dodał `fast-image-selector-v5` z digit-aware fallbackiem obejmującym
+  dolny rząd numerów, guarded grid recovery w pełnym verifierze oraz grupowaniem
+  opartym na kolejnych obserwacjach zamiast historycznego veto `topK`.
+  Fingerprinty i zachowanie v2–v4 pozostają niezmienne. Ograniczona regresja
+  rozpoznała 24/29 realnych próbek odrzuconych przez v4, a pierwsze 160 zdjęć
+  rozdzieliła na sześć kolejnych pełnych zakresów `1–9` do `46–54`; ostatni
+  niepełny obraz pozostał manualny. Pełny rerun v5 nie został uruchomiony
+  automatycznie,
+- TASK-0161 dodał bezpieczny rerun z istniejącego stagingu. Karta runu ma akcję
+  `Przelicz ponownie załadowane zdjęcia`; backend bierze źródło i checksum z
+  historycznego runu, weryfikuje manifest oraz tworzy albo przywraca idempotentny
+  run aktualnego selektora. Staging 32 079 zdjęć nadal istnieje, zajmuje około
+  7,55 GB i ma checksum zgodny z runem v4, dlatego uploadu nie należy powtarzać,
+- TASK-0162 utrwalił realny przypadek `73–81`: grupa pomiędzy `64–72` i `82–90`
+  może przekazać do cięcia najlepsze dostępne zdjęcie mimo przyciętej ramy,
+  słabej ekspozycji, niepełnej geometrii oraz braku bezpośredniego OCR. Twarde
+  błędy pliku/skanu i jawne zasłonięcie pozostają blokujące. W trakcie skanowania
+  Admin nazywa licznik `Wstępnie nierozpoznane`, ponieważ końcowe bounded-gap
+  recovery może go zmniejszyć. Trwający run v5 nie został zatrzymany ani
+  przeładowany; zachowanie finalne i fingerprint nie zmieniły się,
+- po ukończeniu TASK-0162 właściciel jawnie poprosił o przerwanie pierwszego
+  pełnego rerunu v5, aby rozpocząć selekcję ponownie z aktualnym UI i
+  zabezpieczonym kontraktem. Job `309e5d00-f2dd-4207-a531-a180ffd299b3`
+  bezpiecznie przyjął cancel przy `1984/32079` i zakończył się jako `cancelled`
+  na checkpointcie `2016/32079`. Staging oraz historyczne runy pozostały bez
+  zmian; następny run nie wymaga uploadu,
+- TASK-0163 domknął ścieżkę po tym anulowaniu: ponowne przeliczenie istniejącego
+  stagingu wznawia run `cancelled` lub `failed` od zachowanego checkpointu,
+  zamiast tylko przywrócić jego terminalną kartę. Stan błędu i anulowania jest
+  czyszczony, staging i postęp pozostają niezmienne, a Admin komunikuje jawnie
+  wznowienie pracy,
+- TASK-0164 dodał `fast-image-selector-v6`. Realny snapshot v5 przy 519 grupach
+  miał 54 grupy bez numerów; 50 z nich należało do jednoznacznych bloków między
+  kotwicami, które można dokładnie podzielić na pełne strony po 9. V6 odzyskuje
+  takie bloki all-or-nothing i zapisuje poprawione projekcje od razu po prawej
+  kotwicy. Skoki oraz niepasujące luki pozostają jawne. V5 zachowuje fingerprint
+  `ff7521…`, a domyślny v6 ma fingerprint `22b0d1…`,
+- odbiór właścicielski dodał `fast-image-selector-v7` o fingerprintcie
+  `21d634…`. Produkcyjny test dokładnie na wskazanym JPEG-u potwierdził zakres
+  `73–81` z confidence `0.962379` i wynik `auto_selected`. V7 rozszerza maskę
+  ciemniejszych/ciepłych etykiet i traktuje zasłonięcie, blur oraz słabe plansze
+  jako ranking, nie blokadę, gdy zakres jest jednoznaczny. Ręczny upload JPEG-a
+  został odblokowany trwale przez dodanie `X-Image-File-Name` do CORS i test
+  rzeczywistego preflightu `PUT`,
+- po obserwacji zbyt wolnej pełnej weryfikacji dodano `fast-image-selector-v8`
+  o fingerprintcie `9dc754…`. Nowe runy zachowują pierwsze dostatecznie czytelne
+  zdjęcie grupy i kończą kosztowny OCR po pierwszym jednoznacznym zakresie.
+  Następny kandydat jest sprawdzany tylko po braku zakresu albo twardym błędzie;
+  typowy koszt spada z trzech do jednej pełnej weryfikacji na grupę. V7 pozostaje
+  rozwiązywalny po niezmienionym fingerprintcie `21d634…`,
+- TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
+  ordered prefetch taniego skanu. `worker-v7` używał czterech
+  wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
+  sekwencyjne. Pomiar bieżącego worker-v6 przed zmianą wyniósł około 5,1
+  zdjęcia/s przy wykorzystaniu jednego rdzenia i stabilnych 430–450 MiB RAM.
+  Działający run nie został przerwany ani hot-reloadowany; realny pomiar v7
+  nastąpi w kolejnym runie. `worker-v8` zachowuje ten mechanizm i dodaje selektor
+  v5; przed nowym runem API i worker muszą zostać uruchomione ponownie, aby oba
+  procesy używały nowego fingerprintu,
+- TASK-0158 usunął nieliniowy koszt pełnego pipeline'u `Import layoutów`:
+  `ImageBatchHandler` wykonuje pełne `batch_stats` tylko na wejściu i końcu
+  przebiegu, a pomiędzy nimi wyprowadza liczniki z trwałych przejść pliku.
+  Świeży `waiting_for_review` przechodzi pierwszą kontrolę bez ponownej
+  rehydratacji plansz i 15 cropów każdej planszy; istniejący stan po restarcie
+  nadal jest rehydratowany. Modele, wyniki adapterów, fingerprint, file
+  checkpoint, fencing, retry i anulowanie pozostają bez zmian. Kolejny pion
+  wydajnościowy może zbatchować zapis plansz i komórek po pomiarze tej zmiany,
 - kontroler publicznego Reviewera wykonuje bounded test wychodzącego HTTPS przed
   startem `cloudflared`. Proces API z zablokowanym dostępem do
   `api.trycloudflare.com:443` zwraca teraz właściwą przyczynę zamiast ogólnego
@@ -317,12 +428,21 @@ last_updated: 2026-08-03
 - ręczne wyjątki selekcji nie wymagają już pliku: użytkownik może podać sam
   zakres, np. `1–9`, a Admin zapisuje i pokazuje `Brak zdjęcia dla layoutów
   1–9`; opcjonalny JPEG nadal można dodać przed zatwierdzeniem,
-- podczas odbioru utworzono roboczą grę `777` i image import; job naprawczy
-  `65d6ca14-dacc-4341-b015-c187f2d7af36` zakończył automatykę w stanie
-  `waiting_for_review`: 739 źródeł, 4050 plansz, 60 750 cropów i 4050 pozycji
-  review; automatyczny bootstrap utworzył dla gry osiem symboli,
-- dane poprzedniej iteracji są dostępne wyłącznie w kontrolowanym dumpie
-  pre-reset; nie należy go automatycznie importować do workflow 0.2,
+- 4 sierpnia 2026 lokalny PostgreSQL został wyczyszczony przed rozpoczęciem
+  rzeczywistego, etapowego zasilania docelowego zbioru 500 000 layoutów;
+  wszystkie 38 tabel domenowych ma zero rekordów, a schemat jest na migracji
+  `0030_image_selection_optional_exceptions`,
+- stan bezpośrednio przed resetem jest odzyskiwalny z
+  `artifacts/pre-full-import-reset-20260804/game_predictor.dump`; starszy
+  chroniony baseline 0.2 pozostaje w `artifacts/v02-clean-baseline/pre-reset/`,
+- pierwsza rzeczywista partia obejmuje około 32 000 zdjęć reprezentujących
+  około 5 000 layoutów; właściciel ma łącznie 28 katalogów do etapowego
+  przeprocesowania. Zdjęcia źródłowe pozostają poza resetowaną bazą,
+- 4 sierpnia 2026, na jawne polecenie właściciela, usunięto z PostgreSQL
+  wszystkie 4 joby selekcji oraz ich robocze runy, grupy, kandydatów i decyzje
+  manualne. Nie usunięto gry ani stagingu źródłowego: katalog selekcji
+  `a34c92da-87fd-4245-a0c9-29ee0f6c39c9` nadal zawiera manifest i 32 079
+  zdjęć wejściowych. Obie lokalne kopie workera zatrzymano przed transakcją,
 - `apps/mobile/assets/snapshot/m1-snapshot.db` jest małym fixture’em
   deweloperskim; pozostaje do świadomego zastąpienia fixture’em 0.2.
 
@@ -354,28 +474,34 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Blocked / deferred
 
-- TASK-0076 pozostaje zablokowany przez `massImportAllowed = false` i należy do
-  0.5,
+- TASK-0076 i publikacja masowego datasetu nadal wymagają jawnego otwarcia
+  bramki `massImportAllowed`; rozpoczęte jest przygotowanie rzeczywistych danych
+  wejściowych 0.5, a nie automatyczna publikacja 500 000 layoutów,
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
 - TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
   przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
-- TASK-0151–0156 są ukończone, a techniczna część TASK-0157 jest zaliczona;
-  manualny odbiór właściciela pozostaje końcową bramką M7.0 i nie zastępuje
-  odbioru 0.2 ani 0.3,
+- TASK-0151–0156 są ukończone. Syntetyczna część TASK-0157 jest zaliczona, ale
+  rzeczywisty run ujawnił fragmentację v2 i nadmierne odrzucanie jakościowe;
+  decyzja ma status `optimize` do pełnej regresji v7 na tym samym stagingu.
+  Dokładny przypadek `73–81` zaliczył bramkę wejściową do rerunu. Dopiero po
+  niej manualny odbiór właściciela
+  pozostanie końcową bramką M7.0; nie zastępuje odbioru 0.2 ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
 ## Next recommended task
 
-Przeprowadzić krótki odbiór właściciela TASK-0157 według
-`ai_docs/quality/IMAGE_SELECTION_ACCEPTANCE.md`; benchmarków 10k/30k nie trzeba
-powtarzać. Odbiór Admina według `ai_docs/quality/V0_2_ADMIN_ACCEPTANCE.md`
-pozostaje niezależnym torem TASK-0142. Kod Mobile 0.3 jest scalony do `main`, ale
-TASK-0141 nadal czeka na instalację i manualny odbiór na Google Pixel 10 Pro XL.
-Po odbiorze TASK-0157 wersja 0.5 może rozpocząć M6.6 i duże dane.
+Uruchomić jedną kopię workera i rozpocząć czysty run v7 na zachowanym stagingu
+32 079 zdjęć, bez ponownego uploadu. Następnie porównać liczbę grup,
+verification/manual rate, throughput i brak fałszywych scaleń z historycznym
+wynikiem v4. Nie przekazywać historycznego wyniku v4 z 703 `missing_image` do
+Importu layoutów.
+Nie otwierać automatycznej publikacji 500 000 layoutów bez bramki
+`massImportAllowed`. Odbiory Admina 0.2 i Mobile 0.3 pozostają niezależne.
 
 ## Do not start yet
 
-- pełnego importu około 500 000 rzeczywistych layoutów,
+- automatycznej publikacji pełnych 500 000 layoutów przed kontrolą pierwszych
+  partii i jawnym otwarciem `massImportAllowed`,
 - dodawania i testowania kolejnych gier,
 - wielogrowego wydania mobilnego,
 - pełnej macierzy urządzeń i hardeningu przypisanego do 0.5,

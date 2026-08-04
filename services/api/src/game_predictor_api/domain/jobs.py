@@ -349,7 +349,11 @@ def requeue_job(
     *,
     updated_at: datetime | None = None,
 ) -> Job:
-    if job.status not in {JobStatus.WAITING_FOR_REVIEW, JobStatus.FAILED}:
+    if job.status not in {
+        JobStatus.WAITING_FOR_REVIEW,
+        JobStatus.FAILED,
+        JobStatus.CANCELLED,
+    }:
         _raise_invalid_transition(job, JobStatus.CREATED)
     now = updated_at or datetime.now(UTC)
     return _without_lease(

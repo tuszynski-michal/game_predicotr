@@ -12,7 +12,15 @@ from .contracts import (
     SequenceRange,
 )
 from .engine import FastImageSelector
-from .manifest import DEFAULT_SELECTOR_MANIFEST, SelectorManifest
+from .manifest import (
+    BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
+    CONTINUITY_SELECTOR_MANIFEST_V3,
+    DEFAULT_SELECTOR_MANIFEST,
+    DIGIT_AWARE_SELECTOR_MANIFEST_V5,
+    LEGACY_SELECTOR_MANIFEST_V2,
+    SelectorManifest,
+    selector_manifest_for_fingerprint,
+)
 from .output import (
     CuratedImageManifest,
     CuratedImageOutputPublisher,
@@ -26,7 +34,11 @@ __all__ = [
     "CheapImageObservation",
     "CuratedImageManifest",
     "CuratedImageOutputPublisher",
+    "BEST_AVAILABLE_SELECTOR_MANIFEST_V4",
     "DEFAULT_SELECTOR_MANIFEST",
+    "DIGIT_AWARE_SELECTOR_MANIFEST_V5",
+    "CONTINUITY_SELECTOR_MANIFEST_V3",
+    "LEGACY_SELECTOR_MANIFEST_V2",
     "FastImageSelector",
     "ImageQualityMetrics",
     "ImageSelectionResult",
@@ -36,5 +48,6 @@ __all__ = [
     "SelectionGroupStatus",
     "SelectorManifest",
     "SequenceRange",
+    "selector_manifest_for_fingerprint",
     "verify_curated_image_manifest",
 ]

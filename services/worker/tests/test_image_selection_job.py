@@ -32,7 +32,10 @@ from game_predictor_worker.images.selection.job import (
     ImageSelectionJobRun,
     _assert_fence,
 )
-from game_predictor_worker.images.selection.manifest import SelectorManifest
+from game_predictor_worker.images.selection.manifest import (
+    LEGACY_SELECTOR_MANIFEST_V2,
+    SelectorManifest,
+)
 from game_predictor_worker.images.selection.output import PublishedImageSelection
 from PIL import Image
 
@@ -148,9 +151,7 @@ class _Analyzer:
             board_count=None if corrupted else 9,
             geometry_confidence=0.0 if corrupted else 0.95,
             quality=ImageQualityMetrics(*(score for _ in range(8))),
-            reason_codes=(
-                ("IMAGE_SELECTION_SCAN_DECODE_FAILED",) if corrupted else ()
-            ),
+            reason_codes=(("IMAGE_SELECTION_SCAN_DECODE_FAILED",) if corrupted else ()),
         )
 
 
@@ -316,6 +317,39 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert hashlib.sha256(diagnostic_content).hexdigest() == diagnostic["checksumSha256"]
     assert str(tmp_path).encode() not in diagnostic_content
     assert b"photo2.jpg" not in diagnostic_content
+
+
+def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=2,
+        manifest=LEGACY_SELECTOR_MANIFEST_V2,
+    )
+    calls: list[int] = []
+    selected_manifests: list[SelectorManifest] = []
+
+    def adapters(
+        _root: Path,
+        manifest: SelectorManifest,
+    ) -> tuple[_Analyzer, _Verifier]:
+        selected_manifests.append(manifest)
+        return _Analyzer(calls=calls), _Verifier()
+
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        adapter_factory=adapters,
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    assert selected_manifests == [LEGACY_SELECTOR_MANIFEST_V2]
+    assert calls == [0, 1]
+    assert store.published is not None
 
 
 def test_cancel_stops_at_the_next_bounded_checkpoint_and_keeps_sources(

@@ -225,6 +225,9 @@ import type {
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageSelectionGroupCandidatesData,
+  ListImageSelectionGroupCandidatesErrors,
+  ListImageSelectionGroupCandidatesResponses,
   ListImageSelectionGroupsData,
   ListImageSelectionGroupsErrors,
   ListImageSelectionGroupsResponses,
@@ -304,6 +307,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  RerunImageSelectionData,
+  RerunImageSelectionErrors,
+  RerunImageSelectionResponses,
   ResetGameLayoutDataData,
   ResetGameLayoutDataErrors,
   ResetGameLayoutDataResponses,
@@ -1590,6 +1596,27 @@ export const approveManualImageSelection = <
   });
 
 /**
+ * List bounded source candidates identifying one review group
+ */
+export const listImageSelectionGroupCandidates = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListImageSelectionGroupCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListImageSelectionGroupCandidatesResponses,
+  ListImageSelectionGroupCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageSelectionGroupCandidatesResponses,
+    ListImageSelectionGroupCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates',
+    ...options,
+  });
+
+/**
  * Resolve one review range without requiring a representative JPEG
  */
 export const continueImageSelectionWithoutImage = <
@@ -1717,6 +1744,26 @@ export const getImageSelectionOutputFile = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-selections/{run_id}/output/{file_name}',
+    ...options,
+  });
+
+/**
+ * Run the current selector against an existing managed staging
+ */
+export const rerunImageSelection = <ThrowOnError extends boolean = false>(
+  options: Options<RerunImageSelectionData, ThrowOnError>,
+): RequestResult<
+  RerunImageSelectionResponses,
+  RerunImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RerunImageSelectionResponses,
+    RerunImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/rerun',
     ...options,
   });
 

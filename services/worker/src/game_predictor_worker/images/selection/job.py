@@ -30,7 +30,9 @@ from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecogn
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
 from .adapters import (
+    AdaptiveVisibleSequenceLabelRangeRecognizer,
     AnchoredSequenceRangeRecognizer,
+    BestEffortVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
 )
@@ -53,12 +55,19 @@ from .contracts import (
 )
 from .engine import FastImageSelector
 from .io import load_browser_selection_manifest
-from .manifest import DEFAULT_SELECTOR_MANIFEST, SelectorManifest
+from .manifest import (
+    BEST_EFFORT_SELECTOR_VERSIONS,
+    DEFAULT_SELECTOR_MANIFEST,
+    ORDERED_SELECTOR_VERSIONS,
+    SelectorManifest,
+    selector_manifest_for_fingerprint,
+)
 from .output import (
     CuratedImageOutputPublisher,
     PublishedImageSelection,
     verify_curated_image_manifest,
 )
+from .ports import SequenceRangeRecognizer
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
 BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
@@ -123,20 +132,27 @@ class ImageSelectionJobHandler:
         repository_root: Path,
         adapter_factory: AdapterFactory | None = None,
         selector_manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
+        scan_workers: int = 1,
+        scan_prefetch: int | None = None,
     ) -> None:
         self._store = store
-        self._browser_upload_root = (
-            browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
-        )
+        self._browser_upload_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
         self._selector_manifest = selector_manifest
+        self._scan_workers = scan_workers
+        self._scan_prefetch = scan_prefetch
         self._adapter_factory = adapter_factory or self._default_adapter_factory
         self._publisher = CuratedImageOutputPublisher(self._artifact_root)
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         run = self._store.get_run_for_job(job.id)
+        selector_manifest: SelectorManifest | None
         if run.selector_fingerprint != self._selector_manifest.fingerprint:
+            selector_manifest = selector_manifest_for_fingerprint(run.selector_fingerprint)
+        else:
+            selector_manifest = self._selector_manifest
+        if selector_manifest is None:
             raise JobHandlerError(
                 "IMAGE_SELECTION_SELECTOR_MISMATCH",
                 "The durable run references another selector fingerprint.",
@@ -165,7 +181,7 @@ class ImageSelectionJobHandler:
             existing_groups = _committed_groups(persisted_groups, resume_state)
             analyzer, verifier = self._adapter_factory(
                 source_root,
-                self._selector_manifest,
+                selector_manifest,
             )
             sink = _DurableSelectionSink(
                 context,
@@ -177,7 +193,11 @@ class ImageSelectionJobHandler:
                 artifact_root=self._artifact_root,
                 existing_groups=existing_groups,
             )
-            result = FastImageSelector(self._selector_manifest).select(
+            result = FastImageSelector(
+                selector_manifest,
+                scan_workers=self._scan_workers,
+                scan_prefetch=self._scan_prefetch,
+            ).select(
                 sources,
                 analyzer=analyzer,
                 verifier=verifier,
@@ -189,10 +209,7 @@ class ImageSelectionJobHandler:
             raise JobHandlerError(error.code, str(error)) from error
 
         try:
-            if any(
-                group.status is SelectionGroupStatus.MANUAL_REQUIRED
-                for group in result.groups
-            ):
+            if any(group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in result.groups):
                 sink.write_diagnostics(result)
                 sink.checkpoint_stage(
                     result.checkpoint,
@@ -232,9 +249,7 @@ class ImageSelectionJobHandler:
 
     def _managed_source_root(self, selection_id: UUID) -> Path:
         try:
-            candidate = (self._browser_upload_root / str(selection_id)).resolve(
-                strict=True
-            )
+            candidate = (self._browser_upload_root / str(selection_id)).resolve(strict=True)
         except OSError as error:
             raise JobHandlerError(
                 "IMAGE_SELECTION_SOURCE_MISSING",
@@ -278,18 +293,20 @@ class ImageSelectionJobHandler:
         source_root: Path,
         manifest: SelectorManifest,
     ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
-        model_root = (
-            self._repository_root
-            / "artifacts"
-            / "m5-models"
-            / "sequence-number-ocr-v1"
-        )
+        model_root = self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
         ocr = PaddleSequenceNumberRecognizer(model_root)
         recognizer = AnchoredSequenceRangeRecognizer(ocr)
+        fallback_recognizer: SequenceRangeRecognizer
+        if manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
+            fallback_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(ocr)
+        elif manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
+            fallback_recognizer = AdaptiveVisibleSequenceLabelRangeRecognizer(ocr)
+        else:
+            fallback_recognizer = VisibleSequenceLabelRangeRecognizer(ocr)
         return build_default_adapters(
             source_root,
             range_recognizer=recognizer,
-            fallback_range_recognizer=VisibleSequenceLabelRangeRecognizer(ocr),
+            fallback_range_recognizer=fallback_recognizer,
             manifest=manifest,
         )
 
@@ -357,9 +374,7 @@ class _DurableSelectionSink(SelectionAuditSink):
                 job_id=self._run.job_id,
                 run_id=self._run.id,
                 lease_token=self._context.lease_token,
-                groups=tuple(
-                    self._pending_groups[key] for key in sorted(self._pending_groups)
-                ),
+                groups=tuple(self._pending_groups[key] for key in sorted(self._pending_groups)),
                 persisted_at=self._context.now(),
             )
             self._pending_groups.clear()
@@ -404,14 +419,12 @@ class _DurableSelectionSink(SelectionAuditSink):
             "fileCount": result.input_count,
             "groupCount": len(result.groups),
             "manualCount": sum(
-                group.status is SelectionGroupStatus.MANUAL_REQUIRED
-                for group in result.groups
+                group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in result.groups
             ),
             "missingImageRanges": [
                 {"rangeEnd": group.range.end, "rangeStart": group.range.start}
                 for group in result.groups
-                if group.status is SelectionGroupStatus.MISSING_IMAGE
-                and group.range is not None
+                if group.status is SelectionGroupStatus.MISSING_IMAGE and group.range is not None
             ],
             "runId": str(self._run.id),
             "scanFailureCount": result.scan_failure_count,
@@ -434,12 +447,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             sort_keys=True,
         ).encode("utf-8")
         checksum = hashlib.sha256(content).hexdigest()
-        root = (
-            self._artifact_root
-            / "data"
-            / "exports"
-            / "is-job-diagnostics"
-        )
+        root = self._artifact_root / "data" / "exports" / "is-job-diagnostics"
         root.mkdir(parents=True, exist_ok=True)
         target = root / f"{checksum}.json"
         if not target.exists():
@@ -476,12 +484,8 @@ class _DurableSelectionSink(SelectionAuditSink):
             }
             for group in groups
         )
-        manual = sum(
-            group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups
-        )
-        missing = sum(
-            group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups
-        )
+        manual = sum(group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups)
+        missing = sum(group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups)
         payload: dict[str, object] = {
             "schema_version": CHECKPOINT_SCHEMA_VERSION,
             "workflow": "image_selection",
@@ -493,8 +497,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             "manual_count": manual,
             "missing_image_count": missing,
             "skipped_count": sum(
-                group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
-                for group in groups
+                group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE for group in groups
             ),
             "error_count": state.scan_failure_count,
             "verification_count": state.verification_count,
@@ -560,8 +563,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             if candidate.group_id is not None:
                 by_group.setdefault(candidate.group_id, []).append(candidate)
         return tuple(
-            _selection_group_from_records(group, by_group.get(group.id, []))
-            for group in groups
+            _selection_group_from_records(group, by_group.get(group.id, [])) for group in groups
         )
 
     def persist_groups(
@@ -601,8 +603,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 )
             if record.output_manifest_sha256 is not None and (
                 record.output_manifest_sha256 != published.manifest_sha256
-                or record.output_manifest_relative_path
-                != published.manifest_relative_path
+                or record.output_manifest_relative_path != published.manifest_relative_path
             ):
                 raise JobHandlerError(
                     "IMAGE_SELECTION_MANIFEST_MISMATCH",
@@ -640,18 +641,13 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             session.flush()
         elif record.id != group_id:
             group_id = record.id
-        if (
-            ImageSelectionGroupStatus(record.status)
-            in {
-                ImageSelectionGroupStatus.MANUALLY_SELECTED,
-                ImageSelectionGroupStatus.MISSING_IMAGE,
-            }
-            and group.status
-            not in {
-                SelectionGroupStatus.MANUALLY_SELECTED,
-                SelectionGroupStatus.MISSING_IMAGE,
-            }
-        ):
+        if ImageSelectionGroupStatus(record.status) in {
+            ImageSelectionGroupStatus.MANUALLY_SELECTED,
+            ImageSelectionGroupStatus.MISSING_IMAGE,
+        } and group.status not in {
+            SelectionGroupStatus.MANUALLY_SELECTED,
+            SelectionGroupStatus.MISSING_IMAGE,
+        }:
             return
         record.range_start = None if group.range is None else group.range.start
         record.range_end = None if group.range is None else group.range.end
@@ -831,16 +827,12 @@ def _candidate_from_record(
     return CandidateResult(
         source=ImageSelectionSource(
             order_index=record.order_index,
-            relative_path=(
-                original if isinstance(original, str) else record.source_relative_path
-            ),
+            relative_path=(original if isinstance(original, str) else record.source_relative_path),
             stored_relative_path=record.source_relative_path,
             checksum_sha256=record.checksum_sha256,
             size_bytes=size,
         ),
-        decision=CandidateDecision(
-            ImageSelectionCandidateDecision(record.decision).value
-        ),
+        decision=CandidateDecision(ImageSelectionCandidateDecision(record.decision).value),
         quality=quality,
         recognized_range=recognized_range,
         reason_codes=tuple(str(item) for item in record.reason_codes),
@@ -862,9 +854,7 @@ def _assert_fence(
     lease_token: UUID,
     persisted_at: datetime,
 ) -> None:
-    record = session.scalar(
-        select(JobModel).where(JobModel.id == job_id).with_for_update()
-    )
+    record = session.scalar(select(JobModel).where(JobModel.id == job_id).with_for_update())
     if (
         record is None
         or record.status != JobStatus.PROCESSING
@@ -914,11 +904,7 @@ def _committed_groups(
     persisted_groups: Sequence[SelectionGroupResult],
     resume_state: SelectorResumeState | None,
 ) -> tuple[SelectionGroupResult, ...]:
-    committed_count = (
-        0
-        if resume_state is None
-        else resume_state.checkpoint.finalized_group_count
-    )
+    committed_count = 0 if resume_state is None else resume_state.checkpoint.finalized_group_count
     if len(persisted_groups) < committed_count:
         raise SelectionContractError(
             "IMAGE_SELECTION_CHECKPOINT_INVALID",

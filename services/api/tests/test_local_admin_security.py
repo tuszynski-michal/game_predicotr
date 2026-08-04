@@ -183,3 +183,28 @@ def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) 
     assert parameters["X-Admin-Confirmation"]["schema"]["const"] == "confirmed"
     assert parameters["X-Admin-Target"]["required"] is True
     assert "403" in operation["responses"]
+
+
+def test_manual_image_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
+    app = create_app(_settings(tmp_path), reviewer_ingress_service_dependency=_FakeIngress)
+
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        response = client.options(
+            (
+                "/api/v1/admin/image-selections/"
+                "11111111-1111-4111-8111-111111111111/groups/"
+                "22222222-2222-4222-8222-222222222222/manual-file"
+            ),
+            headers={
+                "Origin": "http://127.0.0.1:3000",
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": (
+                    "content-type,x-admin-intent,x-admin-confirmation,"
+                    "x-admin-target,x-image-file-name"
+                ),
+            },
+        )
+
+    assert response.status_code == 200
+    allowed_headers = response.headers["access-control-allow-headers"].casefold()
+    assert "x-image-file-name" in allowed_headers

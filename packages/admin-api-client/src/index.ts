@@ -64,6 +64,7 @@ import {
   getSymbol as getGeneratedSymbol,
   listGames as listGeneratedGames,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
+  listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
   listJobs as listGeneratedJobs,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
@@ -91,6 +92,7 @@ import {
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  rerunImageSelection as rerunGeneratedImageSelection,
   resetGameLayoutData as resetGeneratedGameLayoutData,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
@@ -189,6 +191,7 @@ export type {
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
   ImageSelectionHandoffResponse,
+  ImageSelectionGroupCandidatesResponse,
   ImageSelectionGroupPageResponse,
   ImageSelectionGroupResponse,
   ImageSelectionGroupStatus,
@@ -465,6 +468,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { run_id: runId },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
+    rerunImageSelection: (runId: string) =>
+      rerunGeneratedImageSelection({
+        client,
+        path: { run_id: runId },
+      }),
     getImageSelectionOutput: (runId: string) =>
       getGeneratedImageSelectionOutput({
         client,
@@ -496,6 +504,18 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.afterGroupOrder === undefined
             ? {}
             : { afterGroupOrder: options.afterGroupOrder }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    listImageSelectionGroupCandidates: (
+      runId: string,
+      groupId: string,
+      options: { readonly limit?: number } = {},
+    ) =>
+      listGeneratedImageSelectionGroupCandidates({
+        client,
+        path: { group_id: groupId, run_id: runId },
+        query: {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),

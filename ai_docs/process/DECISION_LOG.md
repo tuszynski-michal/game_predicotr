@@ -3164,6 +3164,346 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zmienia obowiązek zakresu z D-129; pozostała semantyka
   terminalnego `missing_image` pozostaje aktualna.
 
+## D-131 — Pojedynczy run selekcji przyjmuje do 100 000 JPEG-ów
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** limit liczby zdjęć `photo_selection` wynosi 100 000 na run po
+  stronie Admina i API. Panel pokazuje jawny loader przed przygotowaniem listy i
+  zwykły postęp po rozpoczęciu uploadu. Limit bajtów, rezerwa wolnego miejsca,
+  bounded concurrency równe 4 i streaming workera pozostają bez zmian.
+- **Context:** rzeczywisty katalog 32 000 zdjęć został odrzucony przez dawny
+  limit 30 000 po lokalnym odczycie całej listy, co wyglądało jak brak reakcji.
+- **Reason:** 32 000 jest poprawnym wejściem biznesowym, a domena i storage nie
+  wymagają podziału sekwencyjnego katalogu. Loader usuwa niejednoznaczność między
+  przygotowaniem listy a brakiem działania.
+- **Alternatives:** dzielenie folderu na wiele runów albo pełny automatyczny
+  benchmark 100k przed zmianą. Pierwsze komplikuje ciągłość i output, a drugie
+  właściciel jawnie odłożył na rzecz rzeczywistego testu.
+- **Consequences:** zaliczona bramka jakości i wydajności 0.4 nadal dotyczy
+  profili 10k/30k. Limit 100k jest dozwolonym wejściem, ale pierwszy taki run ma
+  być obserwowany operacyjnie; nie wolno przedstawiać go jako wcześniej
+  zaliczonego benchmarku.
+- **Supersedes:** rozszerza limit wejścia D-123 bez zmiany algorytmu selektora.
+
+## D-132 — Rzeczywiste dane 500 000 layoutów są zasilane etapami
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** przed pierwszym rzeczywistym zasileniem lokalny PostgreSQL jest
+  resetowany do pustego aktualnego schematu. Pierwsza partia około 32 000 zdjęć,
+  odpowiadająca w przybliżeniu pierwszym 5 000 layoutów, przechodzi przez
+  Selekcję zdjęć. Kolejne z 28 katalogów są dodawane etapami, a docelowy wynik
+  wynosi 500 000 layoutów.
+- **Context:** dane demonstracyjne i wcześniejsze runy utrudniałyby odróżnienie
+  nowych wyników, jobów, wyjątków i pomiarów czasu od historii rozwojowej.
+- **Reason:** pusty stan zapewnia audytowalną numerację, jednoznaczne statystyki
+  i możliwość zatrzymania procesu po każdej partii bez mieszania źródeł.
+- **Consequences:** chronione APK i snapshot 0.1, klucz podpisu oraz zdjęcia
+  źródłowe nie są usuwane. Pełna publikacja datasetu nadal wymaga kontroli
+  pierwszych partii i jawnego otwarcia bramki `massImportAllowed`; rozpoczęcie
+  selekcji zdjęć nie omija tej bramki.
+- **Alternatives:** dopisywanie nowych zdjęć do istniejących danych odrzucono,
+  ponieważ zafałszowałoby statystyki oraz mogłoby połączyć nowe joby ze starymi
+  grami i runami.
+
+## D-133 — Browser staging używa liniowego dziennika zamiast pełnego checkpointu per plik
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** stałe metadane uploadu są przechowywane w compact state schema
+  v2, a metadane każdego ukończonego JPEG-a są dopisywane raz do kanonicznego
+  JSONL. Odpowiedź pojedynczego PUT nie zawiera pełnej listy wcześniejszych
+  indeksów; pełne inventory służy wyłącznie wznowieniu przez begin/get.
+- **Context:** rzeczywisty upload 32 079 plików ukończył się w 2346,44 s i
+  zwalniał wraz z postępem. Przyczyną było wielokrotne sortowanie, zapisywanie i
+  przesyłanie rosnącego inventory, czyli koszt zbliżony do `O(n²)`.
+- **Reason:** append-only daje koszt `O(n)` oraz zachowuje możliwość wznowienia.
+  Awaria może co najwyżej pozostawić niepełny ostatni rekord, który jest
+  pomijany i ponownie wysyłany; właściwy selektor zachowuje częste checkpointy,
+  lease i fencing bez zmian.
+- **Alternatives:** zwiększenie concurrency, rzadkie pełne checkpointy albo brak
+  trwałości uploadu. Pierwsze nie usuwało przyczyny, drugie nadal kopiowałoby
+  całe inventory, a trzecie niepotrzebnie usuwałoby istniejące wznowienie.
+- **Consequences:** historyczny schema v1 jest jednokrotnie migrowany do
+  dziennika. Kolejny rzeczywisty duży folder stanowi pomiar poprawy; nie jest
+  wymagany osobny długi benchmark 100 000 przed kontynuacją pracy.
+
+## D-134 — Temporalna ciągłość grup jest wersjonowana jako selector v3
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy używają `fast-image-selector-v3`, który porównuje
+  fingerprint zarówno z bounded reprezentantami jakościowymi, jak i ostatnią
+  kolejną obserwacją bieżącej grupy. Pusta lub nieporównywalna sygnatura lattice
+  oznacza brak dowodu geometrycznego, a nie maksymalną zmianę. Manifest v2
+  pozostaje dostępny w rejestrze po niezmiennym fingerprintcie.
+- **Context:** rzeczywisty run 32 079 zdjęć przy 13 408 wejściach miał 1166 grup
+  i 3461 weryfikacji. Średnia 11,5 zdjęcia na grupę była wielokrotnie niższa od
+  typowych 50–100, mimo zera błędów i stabilnej pamięci. Zmiana kąta lub światła
+  oddalała klatkę od najlepszego historycznego reprezentanta i tworzyła
+  fałszywe granice.
+- **Reason:** sąsiednie zdjęcia tego samego ekranu zwykle zmieniają się stopniowo.
+  Bounded kotwica czasowa zachowuje tę ciągłość bez stałej długości grupy i bez
+  zwiększania kosztu OCR per plik. Wersjonowanie jest konieczne, ponieważ zmiana
+  state machine pod istniejącym fingerprintem złamałaby deterministyczny retry.
+- **Alternatives:** podniesienie globalnego progu fingerprintu grozi fałszywym
+  scaleniem różnych stron, a restart i przeliczenie działającego runu utraciłyby
+  wartościowy checkpoint. Równoległy pełny rerun odrzucono na czas bieżącego
+  joba, aby nie konkurować o CPU i dysk.
+- **Consequences:** checkpoint v3 przechowuje jedną dodatkową bounded obserwację.
+  Worker rozwiązuje manifest po fingerprintcie runu, więc po restarcie może
+  wznowić v2 dokładnie jego algorytmem. Rzeczywisty pomiar poprawy v3 wymaga
+  nowego runu na tym samym niezmiennym stagingu po zakończeniu v2.
+
+## D-135 — Niepełna geometria obrazu jest izolowanym wynikiem per plik
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** odzyskiwanie siatki nie liczy statystyk dla pustego przypisania
+  wiersza lub kolumny. Niepełna geometria zwraca brak wyniku, a granice adapterów
+  selekcji mapują `StatisticsError` na błąd konkretnego pliku zamiast zatrzymywać
+  cały job.
+- **Context:** rzeczywisty run v2 32 079 zdjęć zakończył się przy checkpointcie
+  14 144 po próbie policzenia mediany pustej grupy. Wszystkie wcześniejsze
+  checkpointy, staging i fingerprint runu pozostały poprawne.
+- **Reason:** pojedyncze zasłonięte lub nietypowe zdjęcie jest oczekiwanym
+  wejściem domenowym. Nie może unieważniać wielu godzin poprawnej pracy nad
+  pozostałymi plikami.
+- **Consequences:** ten sam job można deterministycznie wznowić od checkpointu;
+  wadliwe zdjęcie zwiększa licznik błędów lub przechodzi ścieżką braku geometrii,
+  ale nie kończy całej sesji.
+
+## D-136 — Statystyki image importu są przyrostowe pomiędzy pełnymi snapshotami
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** `ImageBatchHandler` pobiera pełne statystyki joba raz na wejściu
+  i raz na końcowej granicy wykonania. Pomiędzy nimi aktualizuje liczniki z
+  poprzedniego oraz zapisanego statusu pliku. Świeży `waiting_for_review`
+  przechodzi pierwszą kontrolę bez rehydratacji; tylko stan istniejący przed
+  bieżącym wykonaniem odbudowuje projekcję.
+- **Context:** wcześniejszy handler wykonywał agregację wszystkich asocjacji po
+  każdym z ośmiu etapów każdego pliku. Dla `n` zarejestrowanych zdjęć dawało to
+  koszt zbliżony do `O(n²)` oraz ponowną projekcję świeżych wyników review.
+- **Reason:** file checkpoint jest już trwałym i fenced źródłem przejścia.
+  Liczniki można wyprowadzić z różnicy dwóch statusów bez odczytu całej tabeli,
+  nie zmieniając wyników adapterów ani odporności na restart.
+- **Alternatives:** rzadsza pełna agregacja nadal rośnie wraz z liczbą plików;
+  utrzymywanie osobnej tabeli liczników zwiększa model danych bez potrzeby.
+- **Consequences:** liczba pełnych agregacji na wykonanie jest stała. Końcowy
+  snapshot wykrywa ewentualny drift, checkpoint per etap, retry, fencing i
+  anulowanie pozostają bez zmian. Fingerprint pipeline'u nie zmienia się,
+  ponieważ bajty wyników adapterów są identyczne.
+
+## D-137 — Zbiorcze pominięcie nie utrwala sugerowanych zakresów selekcji
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** `Kontynuuj z wybranymi zdjęciami` zapisuje każdą nierozpoznaną
+  grupę jako `missing_image` bez zakresu. Frontend może zasugerować zakres tylko
+  jednej nierozwiązanej grupie pomiędzy dwoma znanymi zakresami. Modal pokazuje
+  numer zestawu i bounded listę nazw kandydatów, ale wyraźnie oddziela je od
+  numerów layoutów.
+- **Context:** w rzeczywistym runie 32 079 źródeł kilka sąsiednich grup dostało
+  ten sam zakres wyprowadzony ze starego snapshotu. Pierwszy zapis przeszedł,
+  kolejny poprawnie zatrzymała unikalność domenowa. Użytkownik nie potrafił też
+  odróżnić 2288 nierozpoznanych zestawów od liczby brakujących zdjęć.
+- **Reason:** brak rozpoznanego zakresu jest prawdziwą informacją domenową.
+  Zgadywana numeracja nie może blokować publikacji pewnych reprezentantów ani
+  udawać, że numer zestawu jest numerem layoutu.
+- **Consequences:** walidacja unikalności zakresów pozostaje bez zmian. Bieżący
+  run można bezpiecznie kontynuować, a ręczne wyszukanie źródła korzysta z
+  małego endpointu kandydatów zamiast z pełnej kolejki.
+
+## D-138 — Selector v4 wybiera najlepszy dostępny obraz i odzyskuje jedną bounded lukę
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy używają `fast-image-selector-v4`. Błędy dekodowania,
+  skanu, jawne `IMAGE_OCCLUDED` i minimalna ostrość pozostają twardymi blokadami,
+  natomiast progi
+  ekspozycji, refleksów, perspektywy, marginesu i ogólnego quality score są
+  sygnałami rankingowymi. Gdy rozpoznana grupa ma wyłącznie słabe kandydaty, v4
+  wybiera najlepszy dostatecznie ostry obraz i dodaje
+  `QUALITY_BEST_AVAILABLE`. Po finalizacji grup może też przypisać zakres tylko
+  jednej nierozpoznanej grupie pomiędzy dwoma wybranymi zakresami, jeżeli luka
+  jest dodatnia i obejmuje najwyżej dziewięć layoutów; wynik otrzymuje
+  `RANGE_INFERRED_FROM_BOUNDED_GAP`.
+- **Context:** rzeczywisty run odrzucił między innymi czytelne zdjęcia zakresu
+  `73–81`. Sąsiednie zakresy `64–72` i `82–90` były pewne, lecz kandydaci luki
+  mieli słabe metryki ekspozycji/marginesu i brak wyniku OCR. Zmuszało to
+  użytkownika do ręcznego uzupełniania mimo wystarczającego dowodu wizualnego i
+  domenowego.
+- **Reason:** celem modułu jest szybki wybór jednego najlepszego dostępnego
+  zdjęcia, a nie odrzucenie całej serii dlatego, że wszystkie ujęcia są słabsze
+  od idealnego progu. Dwie kotwice ograniczają pojedynczą lukę jednoznacznie,
+  bez wprowadzania ogólnego założenia ciągłości numeracji.
+- **Alternatives:** globalne obniżenie progów usunęłoby informację o jakości;
+  zwiększenie `topK` lub liczby wywołań OCR podniosłoby koszt dużego runu;
+  przypisywanie zakresu wielu grupom w jednej luce byłoby niejednoznaczne.
+- **Consequences:** v4 wykonuje ten sam bounded skan i najwyżej `topK = 3`
+  weryfikacje na grupę, a dodatkowy post-pass ma koszt O(g) i nie uruchamia OCR.
+  Ręczne decyzje i `missing_image` nie są nadpisywane. Manifesty v2/v3 pozostają
+  rozwiązywalne po swoich fingerprintach, więc trwające runy wznawiają dokładnie
+  wcześniejszy algorytm. Realny rerun v4 pozostaje bramką TASK-0157.
+- **Supersedes:** doprecyzowuje quality gate z D-123 oraz zachowuje temporalne
+  grupowanie D-134.
+
+## D-139 — Tani skan selekcji używa bounded ordered parallel prefetch
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** `worker-v7` zleca odczyt JPEG, miniaturę, lattice/fingerprint i
+  metryki jakości maksymalnie czterem wątkom, utrzymując najwyżej osiem futures.
+  Wyniki są konsumowane wyłącznie w naturalnym `order_index`. Grupowanie,
+  top-k verification, OCR, checkpointy i publikacja pozostają sekwencyjne.
+- **Context:** rzeczywisty run 32 079 zdjęć przetwarzał około 5,1 zdjęcia/s,
+  używał praktycznie jednego z ośmiu logicznych procesorów i miał stabilne
+  430–450 MiB working set. Upload oraz liczba checkpointów nie były bieżącym
+  wąskim gardłem.
+- **Reason:** tani analyzer produkcyjny jest bezstanowy, a drogie operacje
+  Pillow/OpenCV wykonują większość pracy poza Pythonem. Ordered consumption
+  zachowuje identyczny strumień domenowy przy wykorzystaniu wolnych rdzeni.
+- **Alternatives:** uruchomienie kilku jobów odrzucono przez globalny
+  `execution_slot = 1`; równoległy PaddleOCR jest ryzykowny dla modelu i pamięci;
+  samo rzadsze checkpointowanie ma mały potencjał według pomiaru.
+- **Consequences:** strategia wykonania nie zmienia manifestu ani fingerprintów
+  v2/v3/v4. Po crashu najwyżej osiem niezapisanych obserwacji może zostać
+  policzonych ponownie, ale checkpoint nie pomija plików. Tryb jednowątkowy
+  pozostaje dostępny w konstruktorze. Realne przyspieszenie wymaga pomiaru
+  następnego runu po restarcie workera.
+- **Supersedes:** nie zmienia D-134 ani D-138; doprecyzowuje lokalny model
+  wykonania z D-123.
+
+## D-140 — Selector v5 rozdziela ciągłość kamery od zmiany strony
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy będą używać `fast-image-selector-v5`. Granica strony
+  jest oceniana względem bezpośrednio poprzedniej obserwacji i nadal wymaga
+  bounded potwierdzenia kolejnej zgodnej klatki. Historyczne top-k służy do
+  wyboru reprezentanta, ale nie może zablokować granicy dlatego, że nowa strona
+  przypomina jeden ze starszych layoutów. Pełna weryfikacja v5 używa guarded
+  grid recovery oraz digit-aware fallbacku widocznych numerów; tani skan i
+  kolejność źródeł pozostają bez zmian.
+- **Context:** rzeczywisty run v4 32 079 zdjęć utworzył 743 grupy, z których 703
+  wymagały review. 700 miało niepełną geometrię, 692 brak siatki numerów, 71
+  grup przekroczyło 100 źródeł, a największa miała 462. Czytelny zakres
+  `271–279` był odrzucony przez stałe ROI, limit szerokości etykiety i wyłączone
+  odzyskanie siatki. Pierwsza grupa zawierała jednocześnie rozpoznane zakresy
+  `10–18` i `19–27`, co potwierdza fałszywe scalenie.
+- **Reason:** zdjęcia w katalogu są uporządkowane, a kolejne klatki tego samego
+  widoku zmieniają perspektywę płynnie. Bezpośrednia kotwica czasowa rozróżnia
+  taki dryf od skoku do następnej strony. OCR zakresu musi obsługiwać rosnącą
+  liczbę cyfr i położenie dolnego rzędu, zamiast zakładać geometrię pierwszego
+  małego corpus.
+- **Alternatives:** samo obniżenie progów jakości odrzucono, ponieważ 700 grup
+  nie miało zakresu, a jakość nie była blokadą. Zwiększenie top-k bez naprawy
+  granic podniosłoby koszt OCR i nadal weryfikowałoby połączone strony.
+- **Consequences:** v5 zmienia selector fingerprint. Manifesty v2–v4 pozostają
+  w rejestrze i wznawiają się ze swoim zachowaniem. Przed pełnym rerunem 32 079
+  plików obowiązuje regresja na rzeczywistych przypadkach odrzuconych przez v4.
+- **Supersedes:** koryguje regułę granicy z D-134; zachowuje ranking i bounded
+  inference z D-138 oraz model wykonania z D-139.
+
+## D-141 — Nowy selektor ponownie wykorzystuje niezmienny staging
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** historyczny run może utworzyć run aktualnego selektora bez
+  ponownego uploadu. Backend wyprowadza `sourceSelectionId`, grę i checksum
+  wyłącznie z trwałego runu, sprawdza kontrolowany manifest na dysku i tworzy
+  idempotentny run dla aktualnego fingerprintu. UI nie przesyła ścieżki ani
+  deklarowanego checksumu.
+- **Context:** staging 32 079 zdjęć zajmuje około 7,55 GB, jest niezmieniony i ma
+  poprawny manifest. Ponowny upload nie wnosi informacji, trwa długo i zwiększa
+  ryzyko przerwania pracy tylko dlatego, że wdrożono selektor v5.
+- **Reason:** obrazy wejściowe są niezmiennym, checksumowanym źródłem, natomiast
+  wersja selektora jest osobną osią tożsamości runu.
+- **Alternatives:** ponowny upload odrzucono jako kosztowny i zbędny. Mutowanie
+  historycznego runu odrzucono, ponieważ zniszczyłoby audyt i porównanie v4/v5.
+- **Consequences:** Admin pokazuje akcję `Przelicz ponownie załadowane zdjęcia`.
+  Zmieniony lub usunięty staging jest blokowany przed utworzeniem joba, a
+  powtórne kliknięcie dla tego samego fingerprintu przywraca istniejący run.
+- **Supersedes:** doprecyzowuje idempotencję selektora opisaną w D-123 i nie
+  zmienia wersjonowania z D-140.
+
+## D-142 — Selector v6 odzyskuje dokładne wielogrupowe luki
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy używają `fast-image-selector-v6`. Kilka kolejnych
+  grup bez numerów pomiędzy pewnymi zakresami jest odzyskiwane automatycznie,
+  jeśli całą lukę można podzielić dokładnie na pełne strony po dziewięć
+  layoutów. Odzyskanie jest utrwalane po pojawieniu się prawej kotwicy.
+- **Context:** przy 519 grupach realnego runu v5 istniały 54 grupy bez zakresu.
+  Aż 50 z nich należało do dokładnych luk; poprzedni fallback obsługiwał tylko
+  pojedynczą grupę i pozostawiał wieloelementowe bloki do review.
+- **Reason:** dwie pewne kotwice i dokładny rozmiar całej luki dają jednoznaczny
+  podział bez zgadywania kolejnego zakresu. Rozwiązanie usuwa większość
+  fałszywie manualnych przypadków bez dodatkowego OCR i bez wpływu na koszt
+  skanu.
+- **Alternatives:** przypisywanie numerów wyłącznie na podstawie kolejności
+  odrzucono, ponieważ źródła mogą zawierać skok, np. `19–27 → 400–408`.
+  Ukrycie licznika odrzucono, ponieważ nie naprawia danych.
+- **Consequences:** v6 ma nowy fingerprint. V5 pozostaje w rejestrze i zachowuje
+  niezmienne zachowanie przy wznowieniu. Niepasujące luki nadal są jawne; 100%
+  nie jest deklarowane kosztem fałszywych numerów.
+- **Supersedes:** rozszerza bounded inference z D-138 i zachowuje reguły granic
+  oraz OCR z D-140.
+
+## D-143 — Selector v7 wybiera obraz na podstawie czytelnego zakresu
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy używają `fast-image-selector-v7`. Jednoznaczna siatka
+  numerów albo dokładna bounded luka wystarcza do wybrania najlepszego
+  dekodowalnego zdjęcia. Zasłonięcie, rozmycie i słaba jakość plansz wpływają na
+  ranking i audyt, lecz nie blokują reprezentanta. Twardą blokadą pozostaje
+  niedekodowalny plik, błąd skanu lub konflikt zakresu.
+- **Context:** rzeczywiste zdjęcie z layoutami `73–81` miało czytelne wszystkie
+  numery i użyteczne plansze, lecz starsza maska odrzucała ciepło zabarwione
+  etykiety, a polityka jakości blokowała częściowe zasłonięcie. Ręczne dodanie
+  tego samego JPEG-a nie docierało do API przez brak `X-Image-File-Name` w CORS.
+- **Reason:** celem modułu jest redukcja wielkiego folderu do najlepszego
+  dostępnego materiału. Niedoskonały obraz nadal pozwala wyciąć widoczne
+  layouty, a resztę uzupełnić później ręcznie; utrata całej strony jest gorsza
+  niż jawne ostrzeżenie jakości.
+- **Alternatives:** dalsze podnoszenie progów jakości oraz obowiązkowy manualny
+  wybór odrzucono, bo powtarzały ten sam problem i zwiększały pracę użytkownika.
+- **Consequences:** adapter `visible-sequence-label-range-v3` rozszerza maskę
+  etykiet i pozostawia walidację przestrzenną RANSAC. V2–v6 zachowują historyczne
+  fingerprinty. Ręczny upload ma trwały test preflight CORS.
+- **Supersedes:** D-138 w zakresie twardej blokady zasłonięcia i minimalnej
+  ostrości; zachowuje reguły jednoznaczności D-140 oraz D-142.
+
+## D-144 — Selector v8 kończy OCR na pierwszym użytecznym zdjęciu grupy
+
+- **Status:** accepted
+- **Date:** 2026-08-04
+- **Decision:** nowe runy używają `fast-image-selector-v8`. Dla każdej grupy
+  selektor zachowuje pierwszą dostatecznie czytelną obserwację i bounded
+  fallbacki, weryfikuje je w kolejności źródłowej oraz kończy pełny OCR po
+  pierwszym jednoznacznym zakresie. Kolejny kandydat jest sprawdzany wyłącznie,
+  gdy poprzedni nie daje zakresu lub kończy się twardym błędem.
+- **Context:** v7 wykonywał do trzech pełnych weryfikacji dla każdej grupy, aby
+  wybrać najwyżej oceniony obraz. Przy dużym katalogu użytkownik zaobserwował
+  wyraźne spowolnienie, mimo że pierwsze zdjęcie serii często było wystarczająco
+  czytelne.
+- **Reason:** celem Selekcji zdjęć jest szybkie ograniczenie duplikatów przed
+  właściwym pipeline'em, nie poszukiwanie marginalnie najlepszego kadru kosztem
+  wielokrotnego OCR. Typowy koszt pełnej weryfikacji spada z `g × topK` do
+  `g × 1`, przy zachowaniu bounded fallbacku.
+- **Alternatives:** pełny ranking wszystkich top-k odrzucono jako zbyt wolny.
+  Pomijanie zdjęć skokami odrzucono, ponieważ mogłoby przeoczyć krótką serię.
+- **Consequences:** v8 ma nowy fingerprint i wersjonowaną politykę minimalnej
+  czytelności. V7 pozostaje niezmienny dla wznowień. Tani skan nadal przechodzi
+  po wszystkich źródłach w naturalnej kolejności, więc granice grup pozostają
+  deterministyczne.
+- **Supersedes:** D-143 wyłącznie w zakresie wyboru najwyżej ocenionego zdjęcia;
+  zachowuje jego reguły jednoznaczności i twardych błędów.
+
 ## Szablon nowej decyzji
 
 ```text

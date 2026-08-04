@@ -21,6 +21,7 @@ from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_selections import (
     ImageSelectionCreate,
     ImageSelectionCreateResponse,
+    ImageSelectionGroupCandidatesResponse,
     ImageSelectionGroupPageResponse,
     ImageSelectionHandoffResponse,
     ImageSelectionManualApprovalCommand,
@@ -31,6 +32,7 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionOutputResponse,
     ImageSelectionRunResponse,
     to_image_selection_candidate_response,
+    to_image_selection_group_candidates_response,
     to_image_selection_group_page_response,
     to_image_selection_group_response,
     to_image_selection_run_response,
@@ -94,6 +96,26 @@ def create_image_selections_router(
     ) -> ImageSelectionRunResponse:
         return to_image_selection_run_response(service.get_run(run_id))
 
+    @router.post(
+        "/{run_id}/rerun",
+        response_model=ImageSelectionCreateResponse,
+        operation_id="rerunImageSelection",
+        summary="Run the current selector against an existing managed staging",
+        responses=ERROR_RESPONSES,
+    )
+    def rerun_image_selection(
+        run_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionCreateResponse:
+        run, created = service.rerun(
+            run_id=run_id,
+            selector_fingerprint=IMAGE_SELECTION_SELECTOR_FINGERPRINT,
+        )
+        return ImageSelectionCreateResponse(
+            run=to_image_selection_run_response(run),
+            created=created,
+        )
+
     @router.get(
         "/{run_id}/groups",
         response_model=ImageSelectionGroupPageResponse,
@@ -121,6 +143,28 @@ def create_image_selections_router(
                 after_group_order=after_group_order,
                 limit=limit,
             )
+        )
+
+    @router.get(
+        "/{run_id}/groups/{group_id}/candidates",
+        response_model=ImageSelectionGroupCandidatesResponse,
+        operation_id="listImageSelectionGroupCandidates",
+        summary="List bounded source candidates identifying one review group",
+        responses=ERROR_RESPONSES,
+    )
+    def list_image_selection_group_candidates(
+        run_id: UUID,
+        group_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    ) -> ImageSelectionGroupCandidatesResponse:
+        return to_image_selection_group_candidates_response(
+            group_id=group_id,
+            candidates=service.list_group_candidates(
+                run_id=run_id,
+                group_id=group_id,
+                limit=limit,
+            ),
         )
 
     @router.put(

@@ -8,6 +8,7 @@ import type {
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   formatElapsedSeconds,
   jobProgressLabel,
@@ -47,6 +48,7 @@ const RUN_POLL_INTERVAL_MS = 2_000;
 const RUN_POLL_REQUEST_TIMEOUT_MS = 10_000;
 const RUN_POLL_MAX_DURATION_MS = 45 * 60 * 1_000;
 const RUN_POLL_ERROR_THRESHOLD = 3;
+const MAX_IMAGE_SELECTION_FILES = 100_000;
 
 export function ImageSelectionWorkspace({
   apiBaseUrl,
@@ -75,7 +77,9 @@ export function ImageSelectionWorkspace({
   const [manualOpen, setManualOpen] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [preparingFolder, setPreparingFolder] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshWarning, setRefreshWarning] = useState('');
@@ -219,21 +223,45 @@ export function ImageSelectionWorkspace({
 
   async function chooseFolder(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
-    const selectedFiles = Array.from(input.files ?? []).filter((file) =>
-      /\.jpe?g$/i.test(file.name),
-    );
-    input.value = '';
-    if (selectedFiles.length === 0) {
-      setError('Wybrany folder nie zawiera plików JPEG.');
-      return;
-    }
-    if (selectedFiles.length > 30_000) {
-      setError(
-        'Selekcja zdjęć obsługuje maksymalnie 30 000 plików JPEG na run.',
+    setBusy(true);
+    setPreparingFolder(true);
+    setError('');
+    setNotice('Przygotowywanie listy zdjęć z wybranego folderu…');
+    setProgress(EMPTY_PROGRESS);
+    await waitForBrowserPaint();
+    try {
+      const selectedFiles = Array.from(input.files ?? []).filter((file) =>
+        /\.jpe?g$/i.test(file.name),
       );
-      return;
+      input.value = '';
+      if (selectedFiles.length === 0) {
+        setError('Wybrany folder nie zawiera plików JPEG.');
+        setNotice('');
+        setBusy(false);
+        return;
+      }
+      if (selectedFiles.length > MAX_IMAGE_SELECTION_FILES) {
+        setError(
+          'Selekcja zdjęć obsługuje maksymalnie 100 000 plików JPEG na run.',
+        );
+        setNotice('');
+        setBusy(false);
+        return;
+      }
+      setNotice(
+        `Przygotowano ${selectedFiles.length.toLocaleString('pl-PL')} zdjęć. Rozpoczynanie uploadu…`,
+      );
+      setPreparingFolder(false);
+      await waitForBrowserPaint();
+      await startUpload(selectedFiles, null);
+    } catch {
+      input.value = '';
+      setError('Nie udało się przygotować wybranego folderu zdjęć.');
+      setNotice('');
+      setBusy(false);
+    } finally {
+      setPreparingFolder(false);
     }
-    await startUpload(selectedFiles, null);
   }
 
   async function cancelUpload() {
@@ -267,6 +295,47 @@ export function ImageSelectionWorkspace({
     } catch {
       setError('Połączenie z lokalnym Admin API zostało przerwane.');
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rerunExistingSelection() {
+    if (run === null || busy || isPollableRunStatus(run.job.status)) {
+      return;
+    }
+    setBusy(true);
+    setRerunning(true);
+    setError('');
+    setNotice('');
+    const previousStatus = run.job.status;
+    try {
+      const result = await api.rerunImageSelection(run.id);
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się ponownie przeliczyć załadowanych zdjęć.',
+          ),
+        );
+        return;
+      }
+      setRun(result.data.run);
+      setManualGroups([]);
+      setManualOpen(false);
+      pollingWindowRef.current = null;
+      window.localStorage.setItem(storageKey(gameId), result.data.run.id);
+      setNotice(
+        !result.data.created &&
+          (previousStatus === 'cancelled' || previousStatus === 'failed')
+          ? 'Wznowiono selekcję od ostatniego trwałego checkpointu. Ponowny upload nie był potrzebny.'
+          : result.data.created
+            ? 'Uruchomiono najnowszy selektor dla wcześniej załadowanych zdjęć. Ponowny upload nie był potrzebny.'
+            : 'Najnowszy selektor był już uruchomiony dla tego zestawu. Przywrócono jego run.',
+      );
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      setRerunning(false);
       setBusy(false);
     }
   }
@@ -401,6 +470,9 @@ export function ImageSelectionWorkspace({
   const missingImageGroups = manualGroups.filter(
     (group) => group.status === 'missing_image',
   );
+  const unresolvedGroupCount = manualGroups.filter(
+    (group) => group.status === 'manual_required',
+  ).length;
 
   return (
     <section
@@ -437,9 +509,21 @@ export function ImageSelectionWorkspace({
           onClick={() => folderInputRef.current?.click()}
           type="button"
         >
-          {busy ? 'Przesyłanie…' : 'Wybierz folder zdjęć'}
+          {preparingFolder
+            ? 'Przygotowywanie…'
+            : busy
+              ? 'Przesyłanie…'
+              : 'Wybierz folder zdjęć'}
         </button>
       </header>
+
+      {preparingFolder ? (
+        <p aria-live="polite" className="imageSelectionPreparing" role="status">
+          <span aria-hidden="true" className="imageSelectionSpinner" />
+          Analizowanie plików w folderze. Przy dużym zestawie może to potrwać
+          chwilę.
+        </p>
+      ) : null}
 
       {error ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
@@ -521,8 +605,18 @@ export function ImageSelectionWorkspace({
             <dl className="imageSelectionMetrics">
               <Metric label="Grupy" value={selectionProgress?.groups} />
               <Metric label="Wybrane" value={selectionProgress?.selected} />
-              <Metric label="Manualne" value={selectionProgress?.manual} />
-              <Metric label="Pominięte" value={selectionProgress?.skipped} />
+              <Metric
+                label={
+                  isPollableRunStatus(run.job.status)
+                    ? 'Roboczo bez numerów'
+                    : 'Nierozpoznane zestawy'
+                }
+                value={selectionProgress?.manual}
+              />
+              <Metric
+                label="Pominięte grupy-duplikaty"
+                value={selectionProgress?.skipped}
+              />
               <Metric label="Błędy" value={selectionProgress?.errors} />
               <Metric
                 label="Weryfikacje"
@@ -541,6 +635,13 @@ export function ImageSelectionWorkspace({
                 )}
               />
             </dl>
+            {isPollableRunStatus(run.job.status) &&
+            (selectionProgress?.manual ?? 0) > 0 ? (
+              <p className="fieldHint">
+                To licznik tymczasowy. Grupy są automatycznie rozliczane, gdy
+                selektor znajdzie kolejną pewną kotwicę numerów.
+              </p>
+            ) : null}
 
             <details className="imageSelectionTechnicalDetails">
               <summary>Szczegóły techniczne</summary>
@@ -557,10 +658,25 @@ export function ImageSelectionWorkspace({
                   <dt>Manifest wejścia</dt>
                   <dd>{run.inputManifestSha256.slice(0, 12)}…</dd>
                 </div>
+                <div>
+                  <dt>Selektor</dt>
+                  <dd>{run.selectorFingerprint.slice(0, 12)}…</dd>
+                </div>
               </dl>
             </details>
 
             <div className="imageSelectionRecoveryActions">
+              <button
+                aria-busy={rerunning}
+                className="secondaryButton"
+                disabled={busy || isPollableRunStatus(run.job.status)}
+                onClick={() => void rerunExistingSelection()}
+                type="button"
+              >
+                {rerunning
+                  ? 'Uruchamianie…'
+                  : 'Przelicz ponownie załadowane zdjęcia'}
+              </button>
               {run.job.status === 'waiting_for_review' ? (
                 <button
                   aria-busy={busy}
@@ -585,7 +701,7 @@ export function ImageSelectionWorkspace({
                 >
                   {manualLoading
                     ? 'Odczytywanie…'
-                    : `Dodaj opcjonalne zdjęcia (${manualGroups.filter((group) => group.status === 'manual_required').length})`}
+                    : `Sprawdź nierozpoznane zestawy (${unresolvedGroupCount})`}
                 </button>
               ) : null}
               <button
@@ -618,14 +734,9 @@ export function ImageSelectionWorkspace({
             </div>
             {missingImageGroups.length > 0 ? (
               <div className="imageSelectionMissingRanges" role="status">
-                <strong>Pominięte bez zdjęcia:</strong>{' '}
-                {missingImageGroups
-                  .map((group) =>
-                    group.rangeStart === null || group.rangeEnd === null
-                      ? 'nierozpoznany zestaw zdjęć'
-                      : `layouty ${group.rangeStart}–${group.rangeEnd}`,
-                  )
-                  .join(', ')}
+                <strong>Zestawy pominięte bez zdjęcia:</strong>{' '}
+                {missingImageGroups.length}. To liczba zestawów zdjęć, nie
+                pojedynczych zdjęć ani layoutów.
               </div>
             ) : null}
           </div>
@@ -670,6 +781,14 @@ function storageKey(gameId: string): string {
 
 function isPollableRunStatus(status: string): boolean {
   return status === 'created' || status === 'processing';
+}
+
+function waitForBrowserPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
 }
 
 async function getImageSelectionWithTimeout(

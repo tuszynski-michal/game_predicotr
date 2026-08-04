@@ -4,6 +4,8 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
+from time import sleep
 from typing import Any, cast
 
 import pytest
@@ -15,13 +17,21 @@ from game_predictor_worker.images.selection.contracts import (
     SelectionContractError,
     SelectionGroupResult,
     SelectorCheckpoint,
+    SelectorOpenGroupState,
     SelectorResumeState,
     SequenceRange,
 )
 from game_predictor_worker.images.selection.engine import FastImageSelector
 from game_predictor_worker.images.selection.manifest import (
+    BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
+    BEST_EFFORT_SELECTOR_MANIFEST_V7,
+    CONTINUITY_SELECTOR_MANIFEST_V3,
     DEFAULT_SELECTOR_MANIFEST,
+    DIGIT_AWARE_SELECTOR_MANIFEST_V5,
+    EXACT_GAP_SELECTOR_MANIFEST_V6,
+    LEGACY_SELECTOR_MANIFEST_V2,
     SelectorManifest,
+    selector_manifest_for_fingerprint,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -32,6 +42,17 @@ FINGERPRINTS = {
     "c": "a" * 64,
     "d": "5" * 64,
     "e": "3" * 64,
+    "drift-0": f"{0:064x}",
+    "drift-7": f"{(1 << 7) - 1:064x}",
+    "drift-14": f"{(1 << 14) - 1:064x}",
+    "drift-21": f"{(1 << 21) - 1:064x}",
+    "poison-reference": f"{0:064x}",
+    "poison-last": f"{(1 << 8) - 1:064x}",
+    "poison-next": f"{((1 << 16) - (1 << 8)):064x}",
+    "transition-old": f"{0:064x}",
+    "transition-1": f"{(1 << 13) - 1:064x}",
+    "transition-2": f"{((1 << 28) - (1 << 13)):064x}",
+    "transition-3": f"{((1 << 36) - (1 << 13)):064x}",
 }
 
 
@@ -43,6 +64,8 @@ def _quality(name: str) -> ImageQualityMetrics:
         "cropped": (0.92, 0.92, 0.98, 0.95, 0.92, 0.10, 1.0, 0.75),
         "occluded": (0.92, 0.92, 0.98, 0.95, 0.92, 0.91, 0.60, 0.75),
         "geometry_incomplete": (0.92, 0.92, 0.98, 0.95, 0.30, 0.91, 0.50, 0.70),
+        "quality_fallback": (0.82, 0.50, 0.96, 0.40, 0.86, 0.80, 1.0, 0.58),
+        "range_73_clear": (0.627, 0.241, 0.95, 0.956, 0.70, 0.30, 0.50, 0.491),
     }
     return ImageQualityMetrics(*values[name])
 
@@ -94,6 +117,30 @@ class GoldenVerifier:
         )
 
 
+@dataclass
+class GapVerifier(GoldenVerifier):
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        value = self.values[observation.source.order_index]
+        if value["range"] is not None:
+            return super().verify(
+                observation,
+                expected_board_count=expected_board_count,
+            )
+        self.calls += 1
+        return CandidateVerification(
+            recognized_range=None,
+            board_count=3,
+            geometry_complete=False,
+            full_frame_visible=False,
+            reason_codes=("BOARD_CANDIDATE_COUNT", "RANGE_LABEL_LATTICE_INCOMPLETE"),
+        )
+
+
 def _sources(case_id: str, count: int) -> tuple[ImageSelectionSource, ...]:
     return tuple(
         ImageSelectionSource(
@@ -109,16 +156,27 @@ def _sources(case_id: str, count: int) -> tuple[ImageSelectionSource, ...]:
 
 def _golden_cases() -> tuple[dict[str, Any], ...]:
     payload = json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
-    assert payload["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    assert payload["selectorVersion"] == LEGACY_SELECTOR_MANIFEST_V2.algorithm_version
     return tuple(payload["cases"])
 
 
 @pytest.mark.parametrize("case", _golden_cases(), ids=lambda case: str(case["id"]))
-def test_fast_selector_matches_grouping_and_quality_golden(case: dict[str, Any]) -> None:
+@pytest.mark.parametrize(
+    "manifest",
+    (
+        LEGACY_SELECTOR_MANIFEST_V2,
+        CONTINUITY_SELECTOR_MANIFEST_V3,
+    ),
+    ids=("v2", "v3"),
+)
+def test_fast_selector_matches_grouping_and_quality_golden(
+    case: dict[str, Any],
+    manifest: SelectorManifest,
+) -> None:
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"])
     verifier = GoldenVerifier(observations)
 
-    result = FastImageSelector().select(
+    result = FastImageSelector(manifest).select(
         _sources(str(case["id"]), len(observations)),
         analyzer=GoldenAnalyzer(observations),
         verifier=verifier,
@@ -133,7 +191,7 @@ def test_fast_selector_matches_grouping_and_quality_golden(case: dict[str, Any])
         assert [group.duplicate_of_group_order for group in result.groups] == case[
             "expectedDuplicateOf"
         ]
-    assert verifier.calls <= len(result.groups) * DEFAULT_SELECTOR_MANIFEST.top_k
+    assert verifier.calls <= len(result.groups) * manifest.top_k
     assert result.verification_count == verifier.calls
 
 
@@ -230,6 +288,601 @@ def test_unconfirmed_visual_change_does_not_create_a_singleton_group() -> None:
     ]
 
 
+def test_v3_uses_temporal_continuity_without_merging_the_next_page() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "drift-0",
+            "quality": "good",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "drift-7",
+            "quality": "reflection",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "drift-14",
+            "quality": "reflection",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "drift-21",
+            "quality": "reflection",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "b",
+            "quality": "good",
+            "range": [10, 18, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "b",
+            "quality": "good",
+            "range": [10, 18, 0.99],
+        },
+    )
+    sources = _sources("temporal-camera-drift", len(observations))
+
+    legacy = FastImageSelector(LEGACY_SELECTOR_MANIFEST_V2).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+    stabilized = FastImageSelector(CONTINUITY_SELECTOR_MANIFEST_V3).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert [group.source_count for group in legacy.groups] == [2, 2, 2]
+    assert [group.source_count for group in stabilized.groups] == [4, 2]
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in stabilized.groups
+    ] == [(1, 9), (10, 18)]
+
+
+def test_legacy_v2_manifest_remains_resolvable_for_durable_job_resume() -> None:
+    assert (
+        LEGACY_SELECTOR_MANIFEST_V2.fingerprint
+        == "6da6fb8a247b41827a87437e6936cc4c449e06a0bbd24acd8b3159d576c1ce8e"
+    )
+    assert (
+        selector_manifest_for_fingerprint(LEGACY_SELECTOR_MANIFEST_V2.fingerprint)
+        is LEGACY_SELECTOR_MANIFEST_V2
+    )
+
+
+def test_v3_manifest_remains_resolvable_for_durable_job_resume() -> None:
+    assert (
+        selector_manifest_for_fingerprint(CONTINUITY_SELECTOR_MANIFEST_V3.fingerprint)
+        is CONTINUITY_SELECTOR_MANIFEST_V3
+    )
+
+
+def test_v4_manifest_remains_resolvable_for_durable_job_resume() -> None:
+    assert (
+        BEST_AVAILABLE_SELECTOR_MANIFEST_V4.fingerprint
+        == "2e327902cb38cade250df019b4589ea0364512358d1cb3cb20e5525c390c8e37"
+    )
+    assert (
+        selector_manifest_for_fingerprint(BEST_AVAILABLE_SELECTOR_MANIFEST_V4.fingerprint)
+        is BEST_AVAILABLE_SELECTOR_MANIFEST_V4
+    )
+
+
+def test_v5_manifest_remains_resolvable_for_durable_job_resume() -> None:
+    assert (
+        DIGIT_AWARE_SELECTOR_MANIFEST_V5.fingerprint
+        == "ff75216bcd71f7f2484fef2c2868eda639152ba7efd98e00f23e08a89585e3fb"
+    )
+    assert (
+        selector_manifest_for_fingerprint(DIGIT_AWARE_SELECTOR_MANIFEST_V5.fingerprint)
+        is DIGIT_AWARE_SELECTOR_MANIFEST_V5
+    )
+
+
+def test_v6_manifest_remains_resolvable_for_durable_job_resume() -> None:
+    assert (
+        EXACT_GAP_SELECTOR_MANIFEST_V6.fingerprint
+        == "22b0d13545c087b53e197dd20edaf214fbebd99b51036cd84dc624c76577bf1e"
+    )
+    assert (
+        selector_manifest_for_fingerprint(EXACT_GAP_SELECTOR_MANIFEST_V6.fingerprint)
+        is EXACT_GAP_SELECTOR_MANIFEST_V6
+    )
+
+
+def test_v7_manifest_remains_resolvable_for_durable_job_resume() -> None:
+    assert (
+        BEST_EFFORT_SELECTOR_MANIFEST_V7.fingerprint
+        == "21d634e0657c2e53564157901d3873747d0c642bf7d30141449c990646fd0d55"
+    )
+    assert (
+        selector_manifest_for_fingerprint(BEST_EFFORT_SELECTOR_MANIFEST_V7.fingerprint)
+        is BEST_EFFORT_SELECTOR_MANIFEST_V7
+    )
+
+
+def test_v8_is_the_default_first_usable_manifest() -> None:
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v8"
+    assert (
+        DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "9dc754cca7e7e7afe23e8a25c8574e0ef4ed5f7fd5829a24984c25f4c256f42d"
+    )
+
+
+def test_v5_adjacent_boundary_is_not_vetoed_by_a_similar_historical_anchor() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "poison-reference",
+            "quality": "good",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "poison-last",
+            "quality": "reflection",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "poison-next",
+            "quality": "good",
+            "range": [10, 18, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "poison-next",
+            "quality": "good",
+            "range": [10, 18, 0.99],
+        },
+    )
+    sources = _sources("historical-anchor-poison", len(observations))
+
+    previous = FastImageSelector(BEST_AVAILABLE_SELECTOR_MANIFEST_V4).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+    current = FastImageSelector(DIGIT_AWARE_SELECTOR_MANIFEST_V5).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert len(previous.groups) == 1
+    assert previous.groups[0].status.value == "manual_required"
+    assert [group.source_count for group in current.groups] == [2, 2]
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in current.groups
+    ] == [(1, 9), (10, 18)]
+
+
+def test_v5_tracks_a_multi_frame_transition_until_the_new_page_stabilizes() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "transition-old",
+            "quality": "good",
+            "range": [28, 36, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "transition-old",
+            "quality": "good",
+            "range": [28, 36, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "transition-1",
+            "quality": "reflection",
+            "range": [28, 36, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "transition-2",
+            "quality": "reflection",
+            "range": [37, 45, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "transition-3",
+            "quality": "good",
+            "range": [37, 45, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "transition-3",
+            "quality": "good",
+            "range": [37, 45, 0.99],
+        },
+    )
+
+    result = FastImageSelector(DIGIT_AWARE_SELECTOR_MANIFEST_V5).select(
+        _sources("multi-frame-page-transition", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert len(result.groups) == 2
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in result.groups
+    ] == [(28, 36), (37, 45)]
+
+
+def test_v4_selects_best_available_when_only_soft_quality_gate_fails() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "quality_fallback",
+            "range": [1, 9, 0.99],
+        },
+    )
+    sources = _sources("quality-best-available", 1)
+
+    previous = FastImageSelector(CONTINUITY_SELECTOR_MANIFEST_V3).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+    current = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert previous.groups[0].status.value == "manual_required"
+    assert current.groups[0].status.value == "auto_selected"
+    assert current.groups[0].selected_candidate is not None
+    assert "QUALITY_GLARE" in current.groups[0].selected_candidate.reason_codes
+    assert "QUALITY_BEST_AVAILABLE" in current.groups[0].selected_candidate.reason_codes
+
+
+def test_v7_selects_explicitly_occluded_image_when_range_is_clear() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "occluded",
+            "range": [1, 9, 0.99],
+        },
+    )
+
+    previous = FastImageSelector(EXACT_GAP_SELECTOR_MANIFEST_V6).select(
+        _sources("explicitly-occluded", 1),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+    result = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        _sources("explicitly-occluded", 1),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert previous.groups[0].status.value == "manual_required"
+    assert result.groups[0].status.value == "auto_selected"
+    assert result.groups[0].selected_candidate is not None
+    assert "IMAGE_OCCLUDED" in result.groups[0].selected_candidate.reason_codes
+    assert "QUALITY_BEST_AVAILABLE" in result.groups[0].selected_candidate.reason_codes
+
+
+def test_v7_selects_blurred_image_when_range_is_clear() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "blur",
+            "range": [1, 9, 0.99],
+        },
+    )
+
+    previous = FastImageSelector(EXACT_GAP_SELECTOR_MANIFEST_V6).select(
+        _sources("unreadably-blurred", 1),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+    result = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        _sources("unreadably-blurred", 1),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert previous.groups[0].status.value == "manual_required"
+    assert result.groups[0].status.value == "auto_selected"
+    assert result.groups[0].selected_candidate is not None
+    assert "QUALITY_BLUR" in result.groups[0].selected_candidate.reason_codes
+    assert "QUALITY_BEST_AVAILABLE" in result.groups[0].selected_candidate.reason_codes
+
+
+def test_v8_stops_verification_after_first_reasonably_readable_range() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "reflection",
+            "range": [73, 81, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "good",
+            "range": [73, 81, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "good",
+            "range": [73, 81, 0.99],
+        },
+    )
+    sources = _sources("first-usable-range", len(observations))
+    previous_verifier = GoldenVerifier(observations)
+    current_verifier = GoldenVerifier(observations)
+
+    previous = FastImageSelector(BEST_EFFORT_SELECTOR_MANIFEST_V7).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=previous_verifier,
+    )
+    current = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=current_verifier,
+    )
+
+    assert previous_verifier.calls == 3
+    assert current_verifier.calls == 1
+    assert previous.groups[0].selected_candidate is not None
+    assert previous.groups[0].selected_candidate.source.order_index == 1
+    assert current.groups[0].selected_candidate is not None
+    assert current.groups[0].selected_candidate.source.order_index == 0
+    assert current.groups[0].range is not None
+    assert (current.groups[0].range.start, current.groups[0].range.end) == (73, 81)
+
+
+def test_v8_tries_the_next_photo_when_first_candidate_has_no_range() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "reflection",
+            "range": None,
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "good",
+            "range": [73, 81, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "good",
+            "range": [73, 81, 0.99],
+        },
+    )
+    verifier = GapVerifier(observations)
+
+    result = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        _sources("first-usable-range-fallback", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=verifier,
+    )
+
+    assert verifier.calls == 2
+    assert result.verification_count == 2
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 1
+    assert result.groups[0].range is not None
+    assert (result.groups[0].range.start, result.groups[0].range.end) == (73, 81)
+
+
+def test_current_selector_sends_cropped_layouts_73_to_81_to_cutting_from_one_gap() -> None:
+    observations = (
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [64, 72, 0.99]},
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [64, 72, 0.99]},
+        {"boardCount": 9, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "c", "quality": "good", "range": [82, 90, 0.99]},
+        {"boardCount": 9, "fingerprint": "c", "quality": "good", "range": [82, 90, 0.99]},
+    )
+    sources = _sources("bounded-gap-73-81", len(observations))
+
+    previous = FastImageSelector(CONTINUITY_SELECTOR_MANIFEST_V3).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GapVerifier(observations),
+    )
+    current = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GapVerifier(observations),
+    )
+
+    assert [group.status.value for group in previous.groups] == [
+        "auto_selected",
+        "manual_required",
+        "auto_selected",
+    ]
+    assert [group.status.value for group in current.groups] == [
+        "auto_selected",
+        "auto_selected",
+        "auto_selected",
+    ]
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in current.groups
+    ] == [(64, 72), (73, 81), (82, 90)]
+    selected = current.groups[1].selected_candidate
+    assert selected is not None
+    assert selected.quality.sharpness == 0.627
+    assert "QUALITY_BEST_AVAILABLE" in selected.reason_codes
+    assert "RANGE_INFERRED_FROM_BOUNDED_GAP" in selected.reason_codes
+    assert "QUALITY_FRAME_CROPPED" in selected.reason_codes
+    assert "GEOMETRY_INCOMPLETE" in selected.reason_codes
+    assert "FRAME_NOT_FULLY_VISIBLE" in selected.reason_codes
+    assert "RANGE_UNKNOWN" in selected.reason_codes
+
+
+def test_v5_does_not_assign_one_gap_to_multiple_unresolved_groups() -> None:
+    observations = (
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [64, 72, 0.99]},
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [64, 72, 0.99]},
+        {"boardCount": 9, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "c", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "c", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "d", "quality": "good", "range": [82, 90, 0.99]},
+        {"boardCount": 9, "fingerprint": "d", "quality": "good", "range": [82, 90, 0.99]},
+    )
+
+    result = FastImageSelector(DIGIT_AWARE_SELECTOR_MANIFEST_V5).select(
+        _sources("ambiguous-bounded-gap", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GapVerifier(observations),
+    )
+
+    assert [group.status.value for group in result.groups] == [
+        "auto_selected",
+        "manual_required",
+        "manual_required",
+        "auto_selected",
+    ]
+
+
+@pytest.mark.parametrize(
+    "manifest",
+    (
+        EXACT_GAP_SELECTOR_MANIFEST_V6,
+        BEST_EFFORT_SELECTOR_MANIFEST_V7,
+        DEFAULT_SELECTOR_MANIFEST,
+    ),
+)
+def test_v6_v7_and_v8_recover_multiple_full_pages_from_one_exact_sequence_gap(
+    manifest: SelectorManifest,
+) -> None:
+    observations = (
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [64, 72, 0.99]},
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [64, 72, 0.99]},
+        {"boardCount": 8, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 8, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 7, "fingerprint": "c", "quality": "range_73_clear", "range": None},
+        {"boardCount": 7, "fingerprint": "c", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "d", "quality": "good", "range": [91, 99, 0.99]},
+        {"boardCount": 9, "fingerprint": "d", "quality": "good", "range": [91, 99, 0.99]},
+    )
+    sink = _TrackingSink([], [], [])
+
+    result = FastImageSelector(manifest).select(
+        _sources("exact-multi-gap", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GapVerifier(observations),
+        audit_sink=sink,
+    )
+
+    assert [group.status.value for group in result.groups] == [
+        "auto_selected",
+        "auto_selected",
+        "auto_selected",
+        "auto_selected",
+    ]
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in result.groups
+    ] == [(64, 72), (73, 81), (82, 90), (91, 99)]
+    assert sink.finalized_orders[-2:] == [1, 2]
+    assert all(
+        group.selected_candidate is not None
+        and "RANGE_INFERRED_FROM_BOUNDED_GAP" in group.selected_candidate.reason_codes
+        for group in result.groups[1:3]
+    )
+
+
+def test_v6_does_not_fill_a_jump_that_is_not_an_exact_page_partition() -> None:
+    observations = (
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [19, 27, 0.99]},
+        {"boardCount": 9, "fingerprint": "a", "quality": "good", "range": [19, 27, 0.99]},
+        {"boardCount": 9, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "b", "quality": "range_73_clear", "range": None},
+        {"boardCount": 9, "fingerprint": "c", "quality": "good", "range": [400, 408, 0.99]},
+        {"boardCount": 9, "fingerprint": "c", "quality": "good", "range": [400, 408, 0.99]},
+    )
+
+    result = FastImageSelector(EXACT_GAP_SELECTOR_MANIFEST_V6).select(
+        _sources("real-sequence-jump", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GapVerifier(observations),
+    )
+
+    assert [group.status.value for group in result.groups] == [
+        "auto_selected",
+        "manual_required",
+        "auto_selected",
+    ]
+
+
+def test_v2_checkpoint_without_temporal_anchor_remains_readable() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "good",
+            "range": [1, 9, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "good",
+            "range": [1, 9, 0.99],
+        },
+    )
+    sources = _sources("legacy-checkpoint", 2)
+    first_observation = GoldenAnalyzer(observations).analyze(sources[0])
+    state = SelectorResumeState(
+        checkpoint=SelectorCheckpoint(
+            schema_version=1,
+            selector_fingerprint=LEGACY_SELECTOR_MANIFEST_V2.fingerprint,
+            next_order_index=1,
+            processed_count=1,
+            finalized_group_count=0,
+        ),
+        current_group=SelectorOpenGroupState(
+            group_order=0,
+            source_count=1,
+            top_observations=(first_observation,),
+            board_counts=((9, 1),),
+            last_observation=first_observation,
+        ),
+        pending_observations=(),
+        scan_failure_count=0,
+        verification_count=0,
+    )
+    payload = state.to_dict()
+    current_payload = cast(dict[str, object], payload["currentGroup"])
+    current_payload.pop("lastObservation")
+
+    result = FastImageSelector(LEGACY_SELECTOR_MANIFEST_V2).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+        resume_state=SelectorResumeState.from_dict(payload),
+    )
+
+    assert len(result.groups) == 1
+    assert result.groups[0].source_count == 2
+
+
 def test_fast_selector_rejects_non_contiguous_input_order() -> None:
     sources = list(_sources("bad-order", 2))
     sources[1] = ImageSelectionSource(
@@ -285,6 +938,70 @@ class _TrackingSink:
         self.finalized_orders.append(group.group_order)
 
 
+class _ParallelProbeAnalyzer:
+    def __init__(self, values: tuple[dict[str, Any], ...]) -> None:
+        self._delegate = GoldenAnalyzer(values)
+        self._lock = Lock()
+        self.active = 0
+        self.max_active = 0
+        self.completed_indexes: list[int] = []
+
+    def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
+        with self._lock:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        try:
+            sleep(0.02 if source.order_index % 4 == 0 else 0.005)
+            result = self._delegate.analyze(source)
+            with self._lock:
+                self.completed_indexes.append(source.order_index)
+            return result
+        finally:
+            with self._lock:
+                self.active -= 1
+
+
+def test_parallel_scan_is_concurrent_bounded_and_consumed_in_source_order() -> None:
+    case = _golden_cases()[1]
+    observations = tuple(cast(dict[str, Any], value) for value in case["observations"])
+    sources = _sources("parallel-ordered-scan", len(observations))
+    analyzer = _ParallelProbeAnalyzer(observations)
+    sink = _TrackingSink([], [], [])
+
+    parallel = FastImageSelector(
+        DEFAULT_SELECTOR_MANIFEST,
+        scan_workers=4,
+        scan_prefetch=4,
+    ).select(
+        sources,
+        analyzer=analyzer,
+        verifier=GoldenVerifier(observations),
+        audit_sink=sink,
+    )
+    sequential = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+    )
+
+    assert 2 <= analyzer.max_active <= 4
+    assert analyzer.completed_indexes != list(range(len(observations)))
+    assert sink.scanned_indexes == list(range(len(observations)))
+    assert parallel.to_dict() == sequential.to_dict()
+
+
+@pytest.mark.parametrize(
+    ("workers", "prefetch"),
+    ((0, 1), (9, 9), (4, 3), (4, 33)),
+)
+def test_parallel_scan_rejects_unbounded_runtime_configuration(
+    workers: int,
+    prefetch: int,
+) -> None:
+    with pytest.raises(ValueError):
+        FastImageSelector(scan_workers=workers, scan_prefetch=prefetch)
+
+
 def test_selector_streams_metrics_and_saves_bounded_batch_checkpoints() -> None:
     case = _golden_cases()[0]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"])
@@ -338,7 +1055,7 @@ class _CountingAnalyzer(GoldenAnalyzer):
         return super().analyze(source)
 
 
-def test_selector_resumes_at_the_next_file_after_a_durable_checkpoint() -> None:
+def test_parallel_selector_resumes_at_the_next_file_after_a_durable_checkpoint() -> None:
     case = _golden_cases()[1]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"])
     sources = _sources("resume-after-checkpoint", len(observations))
@@ -352,7 +1069,7 @@ def test_selector_resumes_at_the_next_file_after_a_durable_checkpoint() -> None:
     )
 
     with pytest.raises(_SimulatedCrash):
-        FastImageSelector(manifest).select(
+        FastImageSelector(manifest, scan_workers=4, scan_prefetch=4).select(
             sources,
             analyzer=GoldenAnalyzer(observations),
             verifier=GoldenVerifier(observations),
@@ -361,14 +1078,14 @@ def test_selector_resumes_at_the_next_file_after_a_durable_checkpoint() -> None:
 
     assert sink.resume_state is not None
     resumed_calls: list[int] = []
-    resumed = FastImageSelector(manifest).select(
+    resumed = FastImageSelector(manifest, scan_workers=4, scan_prefetch=4).select(
         sources,
         analyzer=_CountingAnalyzer(observations, resumed_calls),
         verifier=GoldenVerifier(observations),
         resume_state=SelectorResumeState.from_dict(sink.resume_state.to_dict()),
         existing_groups=tuple(sink.finalized_groups or ()),
     )
-    uninterrupted = FastImageSelector(manifest).select(
+    uninterrupted = FastImageSelector(manifest, scan_workers=4, scan_prefetch=4).select(
         sources,
         analyzer=GoldenAnalyzer(observations),
         verifier=GoldenVerifier(observations),

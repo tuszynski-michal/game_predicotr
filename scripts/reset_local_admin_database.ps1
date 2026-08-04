@@ -30,12 +30,16 @@ catch {
 }
 
 $databaseName = $parsedDatabaseUrl.AbsolutePath.TrimStart('/')
+$databaseUser = [System.Uri]::UnescapeDataString(($parsedDatabaseUrl.UserInfo -split ':', 2)[0])
 $loopbackHosts = @('127.0.0.1', 'localhost', '::1')
 if ($parsedDatabaseUrl.Scheme -ne 'postgresql+psycopg' -or $parsedDatabaseUrl.Host -notin $loopbackHosts) {
     throw 'Reset only supports a postgresql+psycopg database on the local loopback interface.'
 }
 if ($databaseName -ne 'game_predictor') {
     throw "Reset refused: expected the exact development database 'game_predictor', received '$databaseName'."
+}
+if ($databaseUser -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+    throw 'Reset refused: the local PostgreSQL username is not a safe identifier.'
 }
 
 $dockerDesktopUserPath = Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe'
@@ -66,7 +70,14 @@ if ($LASTEXITCODE -ne 0) {
 
 Push-Location $repositoryRoot
 try {
-    & $pythonPath -m alembic downgrade base
+    # A destructive local reset must not depend on historical rows satisfying
+    # every downgrade migration. Recreate only the public schema in the exact,
+    # loopback-only development database validated above, then migrate forward.
+    & $dockerPath compose -f $composePath exec -T postgres psql `
+        -v ON_ERROR_STOP=1 `
+        -U $databaseUser `
+        -d $databaseName `
+        -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public AUTHORIZATION CURRENT_USER;'
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

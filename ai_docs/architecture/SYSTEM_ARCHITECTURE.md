@@ -545,11 +545,21 @@ liczniki joba. Awaria pomiędzy tymi operacjami pozostawia postęp pliku i
 powtarza najwyżej idempotentny checkpoint joba. Anulowanie jest zauważane przez
 wspólny runtime przy tym drugim zapisie, więc nie rozpoczyna następnego etapu.
 
-Handler najpierw kończy wszystkie pliki `processing`, następnie raz na przebieg
-rewaliduje oczekujące review i dopiero wtedy zwalnia slot przez
-`waiting_for_review`. Nierozwiązana plansza nie blokuje zatem diagnostyki
-pozostałych źródeł. Orkiestrator nie publikuje datasetu i nie jest jeszcze
-rejestrowany w CLI; rzeczywiste adaptery i seeding z discovery podłącza
+TASK-0158 usuwa pełną agregację `image_import_job_files` z każdego przejścia
+etapu. Handler pobiera dokładny snapshot liczników raz na wejściu, aktualizuje go
+przyrostowo wyłącznie na podstawie zapisanego przejścia statusu pliku i wykonuje
+ponowną pełną agregację na granicy końcowej. File checkpoint, fencing i zapis
+postępu joba nadal występują w tej samej bezpiecznej kolejności. Dzięki temu
+liczba pełnych skanów jednego uruchomienia jest stała zamiast proporcjonalna do
+liczby zdjęć razy liczbę etapów.
+
+Handler najpierw rewaliduje pliki, które już na wejściu oczekiwały na review, a
+następnie kończy pliki `processing`. Świeże przejście po `symbol_inference`
+wykonuje pierwszą kontrolę `manual_review` na projekcji pozostającej w bieżącym
+wykonaniu i nie uruchamia jej ponownej rehydratacji. Nierozwiązana plansza nie
+blokuje zatem diagnostyki pozostałych źródeł, a wznowienie istniejącej granicy
+review nadal odbudowuje job-local projekcję przed kontynuacją. Orkiestrator nie
+publikuje datasetu; rzeczywiste adaptery i seeding z discovery podłącza
 TASK-0070.
 
 TASK-0070 dodaje `ImageDirectoryBatchSeeder`, który uruchamia prawdziwy

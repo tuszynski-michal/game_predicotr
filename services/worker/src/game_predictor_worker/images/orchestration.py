@@ -75,6 +75,52 @@ class ImageBatchStats:
     waiting: int
 
 
+@dataclass(slots=True)
+class _IncrementalBatchStats:
+    """Track exact batch counters without rescanning every job association."""
+
+    total: int
+    current: int
+    succeeded: int
+    failed: int
+    review: int
+    waiting: int
+
+    @classmethod
+    def from_snapshot(cls, snapshot: ImageBatchStats) -> _IncrementalBatchStats:
+        return cls(
+            total=snapshot.total,
+            current=snapshot.current,
+            succeeded=snapshot.succeeded,
+            failed=snapshot.failed,
+            review=snapshot.review,
+            waiting=snapshot.waiting,
+        )
+
+    def observe_transition(
+        self,
+        previous: ImageFileExecution,
+        current: ImageFileExecution,
+    ) -> None:
+        previous_values = _stats_contribution(previous)
+        current_values = _stats_contribution(current)
+        self.current += current_values[0] - previous_values[0]
+        self.succeeded += current_values[1] - previous_values[1]
+        self.failed += current_values[2] - previous_values[2]
+        self.review += current_values[3] - previous_values[3]
+        self.waiting += current_values[4] - previous_values[4]
+
+    def snapshot(self) -> ImageBatchStats:
+        return ImageBatchStats(
+            total=self.total,
+            current=self.current,
+            succeeded=self.succeeded,
+            failed=self.failed,
+            review=self.review,
+            waiting=self.waiting,
+        )
+
+
 class ImageStageExecutor(Protocol):
     def execute_stage(
         self,
@@ -218,18 +264,28 @@ class ImageBatchHandler:
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         pipeline_fingerprint = _pipeline_fingerprint(job)
-        total = self._store.count_job_files(
+        initial_stats = self._store.batch_stats(
             job.id,
             pipeline_fingerprint=pipeline_fingerprint,
         )
-        if total == 0:
+        if initial_stats.total == 0:
             raise JobHandlerError(
                 "IMAGE_BATCH_EMPTY",
                 "The image import job has no attested source files.",
             )
-        self._drain_processing(context, job, pipeline_fingerprint, total)
-        self._recheck_waiting_once(context, job, pipeline_fingerprint, total)
-        self._drain_processing(context, job, pipeline_fingerprint, total)
+        progress = _IncrementalBatchStats.from_snapshot(initial_stats)
+        self._recheck_waiting_once(
+            context,
+            job,
+            pipeline_fingerprint,
+            progress,
+        )
+        self._drain_processing(
+            context,
+            job,
+            pipeline_fingerprint,
+            progress,
+        )
         stats = self._store.batch_stats(
             job.id,
             pipeline_fingerprint=pipeline_fingerprint,
@@ -248,7 +304,7 @@ class ImageBatchHandler:
         context: JobExecutionContext,
         job: Job,
         pipeline_fingerprint: str,
-        total: int,
+        progress: _IncrementalBatchStats,
     ) -> None:
         while candidate := self._store.next_processing_file(
             job.id,
@@ -259,7 +315,8 @@ class ImageBatchHandler:
                 job,
                 candidate,
                 pipeline_fingerprint,
-                total,
+                progress,
+                rehydrate_review=False,
             )
 
     def _recheck_waiting_once(
@@ -267,7 +324,7 @@ class ImageBatchHandler:
         context: JobExecutionContext,
         job: Job,
         pipeline_fingerprint: str,
-        total: int,
+        progress: _IncrementalBatchStats,
     ) -> None:
         cursor = -1
         while candidate := self._store.next_waiting_file(
@@ -281,7 +338,8 @@ class ImageBatchHandler:
                 job,
                 candidate,
                 pipeline_fingerprint,
-                total,
+                progress,
+                rehydrate_review=True,
             )
 
     def _run_candidate(
@@ -290,9 +348,12 @@ class ImageBatchHandler:
         job: Job,
         candidate: ImageBatchCandidate,
         pipeline_fingerprint: str,
-        total: int,
+        progress: _IncrementalBatchStats,
+        *,
+        rehydrate_review: bool,
     ) -> None:
         current = candidate
+        should_rehydrate_review = rehydrate_review
         while True:
             checkpoint = validate_file_checkpoint(current.execution.checkpoint_payload)
             stage = cast(str | None, checkpoint["nextStage"])
@@ -308,8 +369,13 @@ class ImageBatchHandler:
             )
             try:
                 rehydrate = getattr(self._stage_executor, "rehydrate", None)
-                if stage in {"manual_review", "validation"} and callable(rehydrate):
+                if (
+                    should_rehydrate_review
+                    and stage in {"manual_review", "validation"}
+                    and callable(rehydrate)
+                ):
                     cast(ImageResultRehydrator, self._stage_executor).rehydrate(execution_candidate)
+                    should_rehydrate_review = False
                 result = self._stage_executor.execute_stage(execution_candidate, stage)
             except Exception as error:
                 if (
@@ -327,10 +393,8 @@ class ImageBatchHandler:
                     error_message=message,
                     failed_at=context.now(),
                 )
-                stats = self._store.batch_stats(
-                    job.id,
-                    pipeline_fingerprint=pipeline_fingerprint,
-                )
+                progress.observe_transition(current.execution, persisted)
+                stats = progress.snapshot()
                 context.checkpoint(
                     checkpoint_payload=_job_checkpoint(
                         pipeline_fingerprint,
@@ -338,7 +402,7 @@ class ImageBatchHandler:
                     ),
                     stage=stage,
                     current=stats.current,
-                    total=total,
+                    total=stats.total,
                     success_count=stats.succeeded,
                     failure_count=stats.failed,
                     review_count=stats.review,
@@ -352,10 +416,8 @@ class ImageBatchHandler:
                 checkpoint_payload=advanced,
                 checkpointed_at=context.now(),
             )
-            stats = self._store.batch_stats(
-                job.id,
-                pipeline_fingerprint=pipeline_fingerprint,
-            )
+            progress.observe_transition(current.execution, persisted)
+            stats = progress.snapshot()
             context.checkpoint(
                 checkpoint_payload=_job_checkpoint(
                     pipeline_fingerprint,
@@ -363,12 +425,15 @@ class ImageBatchHandler:
                 ),
                 stage=stage,
                 current=stats.current,
-                total=total,
+                total=stats.total,
                 success_count=stats.succeeded,
                 failure_count=stats.failed,
                 review_count=stats.review,
             )
-            if persisted.status in {"waiting_for_review", "completed"}:
+            if (
+                result is ImageStageExecutionResult.WAITING_FOR_REVIEW
+                or persisted.status == "completed"
+            ):
                 return
             current = ImageBatchCandidate(
                 execution=persisted,
@@ -376,6 +441,17 @@ class ImageBatchHandler:
                 source_relative_path=current.source_relative_path,
                 job_id=job.id,
             )
+
+
+def _stats_contribution(execution: ImageFileExecution) -> tuple[int, int, int, int, int]:
+    terminal = execution.status in {"waiting_for_review", "completed", "failed"}
+    return (
+        int(terminal),
+        int(execution.status == "completed"),
+        int(execution.status == "failed"),
+        int(execution.review_required),
+        int(execution.status == "waiting_for_review"),
+    )
 
 
 def _pipeline_fingerprint(job: Job) -> str:

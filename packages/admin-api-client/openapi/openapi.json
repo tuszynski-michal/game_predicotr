@@ -98,6 +98,41 @@
         "title": "BrowserImageSelectionCreate",
         "type": "object"
       },
+      "BrowserImageSelectionFileUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedFileCount": {
+            "title": "Expectedfilecount",
+            "type": "integer"
+          },
+          "expectedTotalBytes": {
+            "title": "Expectedtotalbytes",
+            "type": "integer"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "uploadedBytes": {
+            "title": "Uploadedbytes",
+            "type": "integer"
+          },
+          "uploadedFileCount": {
+            "title": "Uploadedfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploadId",
+          "expectedFileCount",
+          "uploadedFileCount",
+          "expectedTotalBytes",
+          "uploadedBytes"
+        ],
+        "title": "BrowserImageSelectionFileUploadResponse",
+        "type": "object"
+      },
       "BrowserImageSelectionUploadResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1610,6 +1645,35 @@
           "created"
         ],
         "title": "ImageSelectionCreateResponse",
+        "type": "object"
+      },
+      "ImageSelectionGroupCandidatesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "groupId": {
+            "format": "uuid",
+            "title": "Groupid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionCandidateResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "groupId",
+          "sourceCount",
+          "items"
+        ],
+        "title": "ImageSelectionGroupCandidatesResponse",
         "type": "object"
       },
       "ImageSelectionGroupPageResponse": {
@@ -9867,7 +9931,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BrowserImageSelectionUploadResponse"
+                  "$ref": "#/components/schemas/BrowserImageSelectionFileUploadResponse"
                 }
               }
             },
@@ -12131,6 +12195,91 @@
         ]
       }
     },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates": {
+      "get": {
+        "operationId": "listImageSelectionGroupCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionGroupCandidatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List bounded source candidates identifying one review group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
     "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/continue-without-image": {
       "post": {
         "operationId": "continueImageSelectionWithoutImage",
@@ -12617,6 +12766,84 @@
           }
         },
         "summary": "Download one checksum-verified curated JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/rerun": {
+      "post": {
+        "operationId": "rerunImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Run the current selector against an existing managed staging",
         "tags": [
           "image-selections"
         ]

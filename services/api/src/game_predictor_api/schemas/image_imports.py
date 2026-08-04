@@ -69,3 +69,11 @@ class BrowserImageSelectionUploadResponse(ApiModel):
     uploaded_bytes: int
     purpose: ImageSelectionPurpose
     game_id: UUID | None
+
+
+class BrowserImageSelectionFileUploadResponse(ApiModel):
+    upload_id: UUID
+    expected_file_count: int
+    uploaded_file_count: int
+    expected_total_bytes: int
+    uploaded_bytes: int

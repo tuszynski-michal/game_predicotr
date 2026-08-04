@@ -91,6 +91,56 @@ test('prefills only a bounded unambiguous range gap for a missing image', async 
   assert.equal(missing.rangeEnd, 18);
 });
 
+test('does not assign the same suggested range to multiple unresolved groups', async () => {
+  const api = {
+    listImageSelectionGroups: async () => ({
+      data: {
+        items: [
+          {
+            groupOrder: 0,
+            id: 'previous',
+            rangeStart: 1,
+            rangeEnd: 9,
+            status: 'auto_selected',
+          },
+          {
+            groupOrder: 1,
+            id: 'first-missing',
+            rangeStart: null,
+            rangeEnd: null,
+            status: 'manual_required',
+          },
+          {
+            groupOrder: 2,
+            id: 'second-missing',
+            rangeStart: null,
+            rangeEnd: null,
+            status: 'manual_required',
+          },
+          {
+            groupOrder: 3,
+            id: 'next',
+            rangeStart: 19,
+            rangeEnd: 27,
+            status: 'auto_selected',
+          },
+        ],
+        nextAfterGroupOrder: null,
+      },
+    }),
+  };
+
+  const missing = await loadManualImageSelectionGroups(api, 'run-1');
+
+  assert.deepEqual(
+    missing.map((group) => [group.id, group.rangeStart, group.rangeEnd]),
+    [
+      ['first-missing', null, null],
+      ['second-missing', null, null],
+    ],
+  );
+});
+
 test('continues with automatic selections without inventing unknown ranges', async () => {
   const commands = [];
   const api = {
@@ -134,14 +184,7 @@ test('continues with automatic selections without inventing unknown ranges', asy
   assert.equal(result.skippedCount, 2);
   assert.deepEqual(commands, [
     { command: { idempotencyKey: 'decision-key' }, groupId: 'unknown' },
-    {
-      command: {
-        idempotencyKey: 'decision-key',
-        rangeEnd: 18,
-        rangeStart: 10,
-      },
-      groupId: 'known',
-    },
+    { command: { idempotencyKey: 'decision-key' }, groupId: 'known' },
   ]);
 });
 

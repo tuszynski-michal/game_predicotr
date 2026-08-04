@@ -17,6 +17,7 @@ from game_predictor_api.domain.image_selections import (
     IMAGE_SELECTION_ORDERING_POLICY,
     ImageSelectionCandidate,
     ImageSelectionCandidateDecision,
+    ImageSelectionConflictError,
     ImageSelectionError,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
@@ -146,6 +147,20 @@ class MemoryImageSelectionRepository:
             ),
             None,
         )
+
+    def list_candidates(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        limit: int,
+    ) -> Sequence[ImageSelectionCandidate]:
+        values = (
+            candidate
+            for candidate in self.candidates
+            if candidate.run_id == run_id and candidate.group_id == group_id
+        )
+        return tuple(sorted(values, key=lambda candidate: candidate.order_index))[:limit]
 
     def find_candidate_by_checksum(
         self, *, run_id: UUID, group_id: UUID, checksum_sha256: str
@@ -316,6 +331,142 @@ def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
         "selector_fingerprint": "b" * 64,
         "contract_version": 1,
     }
+
+
+def test_rerun_reuses_unchanged_browser_staging_and_is_idempotent(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    manifest_sha256 = hashlib.sha256(manifest_content).hexdigest()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    original, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=manifest_sha256,
+        selector_fingerprint="1" * 64,
+    )
+
+    rerun, created = service.rerun(
+        run_id=original.id,
+        selector_fingerprint="2" * 64,
+    )
+    repeated, repeated_created = service.rerun(
+        run_id=original.id,
+        selector_fingerprint="2" * 64,
+    )
+
+    assert created is True
+    assert repeated_created is False
+    assert repeated.id == rerun.id
+    assert rerun.id != original.id
+    assert rerun.source_selection_id == original.source_selection_id
+    assert rerun.input_manifest_sha256 == original.input_manifest_sha256
+    assert rerun.selector_fingerprint == "2" * 64
+    assert original.selector_fingerprint == "1" * 64
+
+
+@pytest.mark.parametrize("terminal_status", [JobStatus.CANCELLED, JobStatus.FAILED])
+def test_rerun_requeues_existing_terminal_selector_run_from_checkpoint(
+    tmp_path: Path,
+    terminal_status: JobStatus,
+) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    manifest_sha256 = hashlib.sha256(manifest_content).hexdigest()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    original, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=manifest_sha256,
+        selector_fingerprint="2" * 64,
+    )
+    finished_at = datetime(2026, 8, 4, 15, 53, tzinfo=UTC)
+    repository.runs[original.id] = replace(
+        original,
+        job=replace(
+            original.job,
+            status=terminal_status,
+            stage="image_selection:scanning",
+            progress_current=2_016,
+            progress_total=32_079,
+            checkpoint_payload={"schema_version": 1, "next_order_index": 2_016},
+            finished_at=finished_at,
+            cancel_requested_at=(finished_at if terminal_status is JobStatus.CANCELLED else None),
+            error_code=(
+                "IMAGE_SELECTION_SCAN_FAILED" if terminal_status is JobStatus.FAILED else None
+            ),
+            error_message=(
+                "The selector stopped." if terminal_status is JobStatus.FAILED else None
+            ),
+        ),
+    )
+
+    resumed, created = service.rerun(
+        run_id=original.id,
+        selector_fingerprint="2" * 64,
+    )
+
+    assert created is False
+    assert resumed.id == original.id
+    assert resumed.job.status is JobStatus.CREATED
+    assert resumed.job.progress_current == 2_016
+    assert resumed.job.progress_total == 32_079
+    assert resumed.job.checkpoint_payload == {
+        "schema_version": 1,
+        "next_order_index": 2_016,
+    }
+    assert resumed.job.finished_at is None
+    assert resumed.job.cancel_requested_at is None
+    assert resumed.job.error_code is None
+    assert resumed.job.error_message is None
+
+
+def test_rerun_rejects_missing_or_changed_browser_staging(tmp_path: Path) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    original, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256="3" * 64,
+        selector_fingerprint="4" * 64,
+    )
+
+    with pytest.raises(ImageSelectionConflictError) as missing:
+        service.rerun(run_id=original.id, selector_fingerprint="5" * 64)
+
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    (source_root / "_browser_manifest.json").write_text("changed", encoding="utf-8")
+    with pytest.raises(ImageSelectionConflictError) as changed:
+        service.rerun(run_id=original.id, selector_fingerprint="5" * 64)
+
+    assert missing.value.code == "IMAGE_SELECTION_SOURCE_MISSING"
+    assert changed.value.code == "IMAGE_SELECTION_INPUT_MANIFEST_CHANGED"
 
 
 def test_group_page_is_cursor_bounded_and_filterable() -> None:
@@ -561,6 +712,45 @@ def test_image_selection_api_create_get_and_bounded_groups() -> None:
     assert missing.json()["code"] == "IMAGE_SELECTION_NOT_FOUND"
 
 
+def test_image_selection_api_reruns_existing_managed_staging(tmp_path: Path) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    original, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
+        selector_fingerprint="6" * 64,
+    )
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+
+    with client:
+        rerun = client.post(f"/api/v1/admin/image-selections/{original.id}/rerun")
+        repeated = client.post(f"/api/v1/admin/image-selections/{original.id}/rerun")
+
+    assert rerun.status_code == 200, rerun.text
+    assert rerun.json()["created"] is True
+    assert rerun.json()["run"]["sourceSelectionId"] == str(source_selection_id)
+    assert rerun.json()["run"]["id"] != str(original.id)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["created"] is False
+    assert repeated.json()["run"]["id"] == rerun.json()["run"]["id"]
+
+
 def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
     tmp_path: Path,
 ) -> None:
@@ -741,6 +931,9 @@ def test_manual_jpeg_approval_is_idempotent_revisable_and_audited(
         )
         assert uploaded.status_code == 200, uploaded.text
         candidate_id = uploaded.json()["candidate"]["id"]
+        group_candidates = client.get(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/candidates"
+        )
         missing_range = client.post(
             f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/approve",
             json={
@@ -786,6 +979,9 @@ def test_manual_jpeg_approval_is_idempotent_revisable_and_audited(
 
     assert uploaded.status_code == 200
     assert uploaded.json()["candidate"]["displayName"] == "first.jpg"
+    assert group_candidates.status_code == 200
+    assert group_candidates.json()["sourceCount"] == 1
+    assert [item["displayName"] for item in group_candidates.json()["items"]] == ["first.jpg"]
     assert missing_range.status_code == 422
     assert missing_range.json()["code"] == "IMAGE_SELECTION_RANGE_REQUIRED"
     assert approved.status_code == 200

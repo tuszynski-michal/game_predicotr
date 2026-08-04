@@ -25,6 +25,7 @@ from game_predictor_api.domain.jobs import (
     recover_expired_job,
     renew_job_lease,
     request_job_cancellation,
+    requeue_job,
     start_job,
     update_job_progress,
     wait_for_review,
@@ -257,6 +258,37 @@ def test_cancellation_is_immediate_before_start_and_deferred_during_processing()
         finished_at=now + timedelta(seconds=1),
     )
     assert acknowledged.status is JobStatus.CANCELLED
+
+
+def test_cancelled_job_can_be_requeued_from_its_durable_progress() -> None:
+    cancelled_at = datetime(2026, 7, 27, 12, 1, 30, tzinfo=UTC)
+    progressed, token = _leased_job()
+    progressed = update_job_progress(
+        progressed,
+        lease_token=token,
+        stage="image_selection:scanning",
+        current=2_016,
+        total=32_079,
+        success_count=2_015,
+        failure_count=0,
+        review_count=1,
+        updated_at=cancelled_at - timedelta(seconds=1),
+    )
+    requested = request_job_cancellation(progressed, requested_at=cancelled_at)
+    cancelled = acknowledge_job_cancellation(
+        requested,
+        lease_token=token,
+        finished_at=cancelled_at + timedelta(seconds=1),
+    )
+
+    requeued = requeue_job(cancelled, updated_at=cancelled_at + timedelta(seconds=2))
+
+    assert requeued.status is JobStatus.CREATED
+    assert requeued.progress_current == 2_016
+    assert requeued.progress_total == 32_079
+    assert requeued.finished_at is None
+    assert requeued.cancel_requested_at is None
+    assert requeued.lease_token is None
 
 
 def test_completed_and_failed_jobs_are_terminal_for_cancel() -> None:

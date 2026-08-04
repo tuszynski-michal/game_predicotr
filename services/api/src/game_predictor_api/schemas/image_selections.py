@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -103,6 +105,12 @@ class ImageSelectionCandidateResponse(ApiModel):
     display_name: str
 
 
+class ImageSelectionGroupCandidatesResponse(ApiModel):
+    group_id: UUID
+    source_count: int = Field(ge=1)
+    items: list[ImageSelectionCandidateResponse]
+
+
 class ImageSelectionManualFileResponse(ApiModel):
     candidate: ImageSelectionCandidateResponse
 
@@ -187,6 +195,10 @@ def to_image_selection_candidate_response(
     candidate: ImageSelectionCandidate,
 ) -> ImageSelectionCandidateResponse:
     display_name = candidate.quality_metrics.get("displayName")
+    original_path = candidate.quality_metrics.get("sourceOriginalRelativePath")
+    fallback_path = (
+        original_path if isinstance(original_path, str) else candidate.source_relative_path
+    )
     return ImageSelectionCandidateResponse(
         id=candidate.id,
         run_id=candidate.run_id,
@@ -195,7 +207,26 @@ def to_image_selection_candidate_response(
         checksum_sha256=candidate.checksum_sha256,
         width=candidate.width,
         height=candidate.height,
-        display_name=(display_name if isinstance(display_name, str) else "Wybrane zdjęcie.jpg"),
+        display_name=(display_name if isinstance(display_name, str) else Path(fallback_path).name),
+    )
+
+
+def to_image_selection_group_candidates_response(
+    *,
+    group_id: UUID,
+    candidates: Sequence[ImageSelectionCandidate],
+) -> ImageSelectionGroupCandidatesResponse:
+    items = tuple(candidates)
+    source_count_value = items[0].quality_metrics.get("groupSourceCount") if items else None
+    source_count = (
+        source_count_value
+        if isinstance(source_count_value, int) and source_count_value >= 1
+        else max(1, len(items))
+    )
+    return ImageSelectionGroupCandidatesResponse(
+        group_id=group_id,
+        source_count=source_count,
+        items=[to_image_selection_candidate_response(item) for item in items],
     )
 
 
@@ -220,6 +251,7 @@ __all__ = [
     "ImageSelectionCreateResponse",
     "ImageSelectionCandidateResponse",
     "ImageSelectionGroupPageResponse",
+    "ImageSelectionGroupCandidatesResponse",
     "ImageSelectionGroupResponse",
     "ImageSelectionRunResponse",
     "ImageSelectionHandoffResponse",
@@ -231,6 +263,7 @@ __all__ = [
     "ImageSelectionOutputFileResponse",
     "ImageSelectionOutputResponse",
     "to_image_selection_candidate_response",
+    "to_image_selection_group_candidates_response",
     "to_image_selection_group_page_response",
     "to_image_selection_group_response",
     "to_image_selection_run_response",

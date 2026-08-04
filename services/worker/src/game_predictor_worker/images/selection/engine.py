@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import statistics
-from collections import Counter
-from collections.abc import Iterable
+from collections import Counter, deque
+from collections.abc import Iterable, Iterator
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 
 from .contracts import (
@@ -27,7 +28,25 @@ from .contracts import (
     SelectorResumeState,
     SequenceRange,
 )
-from .manifest import DEFAULT_SELECTOR_MANIFEST, SelectorManifest
+from .manifest import (
+    BEST_AVAILABLE_SELECTOR_VERSIONS,
+    BEST_EFFORT_SELECTOR_VERSIONS,
+    DEFAULT_SELECTOR_MANIFEST,
+    EXACT_MULTI_GAP_SELECTOR_VERSIONS,
+    FIRST_USABLE_POLICY,
+    FIRST_USABLE_SELECTOR_VERSIONS,
+    LEGACY_SELECTOR_VERSION,
+    ORDERED_SELECTOR_VERSIONS,
+    SelectorManifest,
+)
+
+BEST_AVAILABLE_REASON = "QUALITY_BEST_AVAILABLE"
+INFERRED_RANGE_REASON = "RANGE_INFERRED_FROM_BOUNDED_GAP"
+MAX_INFERRED_RANGE_SIZE = 9
+DEFAULT_PARALLEL_SCAN_WORKERS = 4
+DEFAULT_PARALLEL_SCAN_PREFETCH = 8
+MAX_PARALLEL_SCAN_WORKERS = 8
+MAX_PARALLEL_SCAN_PREFETCH = 32
 
 
 def fingerprint_distance(first: str, second: str) -> float:
@@ -48,22 +67,64 @@ def geometry_distance(first: tuple[float, ...], second: tuple[float, ...]) -> fl
     )
 
 
+def _has_comparable_geometry(
+    first: CheapImageObservation,
+    second: CheapImageObservation,
+    minimum_confidence: float,
+) -> bool:
+    return (
+        first.geometry_confidence >= minimum_confidence
+        and second.geometry_confidence >= minimum_confidence
+        and bool(first.geometry_signature)
+        and len(first.geometry_signature) == len(second.geometry_signature)
+    )
+
+
+def _unique_observation_anchors(
+    observations: tuple[CheapImageObservation | None, ...],
+) -> tuple[CheapImageObservation, ...]:
+    anchors: list[CheapImageObservation] = []
+    indexes: set[int] = set()
+    for observation in observations:
+        if observation is None or observation.source.order_index in indexes:
+            continue
+        indexes.add(observation.source.order_index)
+        anchors.append(observation)
+    return tuple(anchors)
+
+
 @dataclass(slots=True)
 class _OpenGroup:
     group_order: int
     top_k: int
+    prefer_first_usable: bool = False
     source_count: int = 0
     top_observations: list[CheapImageObservation] = field(default_factory=list)
     board_counts: Counter[int] = field(default_factory=Counter)
     reference: CheapImageObservation | None = None
+    last_observation: CheapImageObservation | None = None
 
     def add(self, observation: CheapImageObservation) -> None:
         self.source_count += 1
+        self.last_observation = observation
         if observation.board_count is not None:
             self.board_counts[observation.board_count] += 1
-        self.top_observations.append(observation)
-        self.top_observations.sort(key=_observation_rank)
-        del self.top_observations[self.top_k :]
+        candidates = (*self.top_observations, observation)
+        ranked = sorted(candidates, key=_observation_rank)
+        if self.prefer_first_usable:
+            first_usable = min(
+                (item for item in candidates if _is_reasonably_readable_observation(item)),
+                key=lambda item: item.source.order_index,
+                default=None,
+            )
+            selected = [] if first_usable is None else [first_usable]
+            selected_indexes = {item.source.order_index for item in selected}
+            selected.extend(
+                item for item in ranked if item.source.order_index not in selected_indexes
+            )
+            self.top_observations = sorted(selected[: self.top_k], key=_observation_rank)
+        else:
+            self.top_observations = ranked[: self.top_k]
         if self.reference is None or _observation_rank(observation) < _observation_rank(
             self.reference
         ):
@@ -84,10 +145,17 @@ class _OpenGroup:
             source_count=self.source_count,
             top_observations=tuple(self.top_observations),
             board_counts=tuple(sorted(self.board_counts.items())),
+            last_observation=self.last_observation,
         )
 
     @classmethod
-    def from_state(cls, state: SelectorOpenGroupState, *, top_k: int) -> _OpenGroup:
+    def from_state(
+        cls,
+        state: SelectorOpenGroupState,
+        *,
+        top_k: int,
+        prefer_first_usable: bool = False,
+    ) -> _OpenGroup:
         if len(state.top_observations) > top_k:
             raise SelectionContractError(
                 "IMAGE_SELECTION_CHECKPOINT_INVALID",
@@ -96,12 +164,17 @@ class _OpenGroup:
         group = cls(
             group_order=state.group_order,
             top_k=top_k,
+            prefer_first_usable=prefer_first_usable,
             source_count=state.source_count,
             top_observations=list(state.top_observations),
             board_counts=Counter(dict(state.board_counts)),
         )
         group.top_observations.sort(key=_observation_rank)
         group.reference = group.top_observations[0]
+        group.last_observation = state.last_observation or max(
+            group.top_observations,
+            key=lambda observation: observation.source.order_index,
+        )
         return group
 
 
@@ -110,6 +183,16 @@ def _observation_rank(observation: CheapImageObservation) -> tuple[float, int, s
         -observation.quality.overall_score,
         observation.source.order_index,
         observation.source.checksum_sha256,
+    )
+
+
+def _is_reasonably_readable_observation(observation: CheapImageObservation) -> bool:
+    return (
+        observation.quality.overall_score >= FIRST_USABLE_POLICY.minimum_quality_score
+        and observation.quality.sharpness >= FIRST_USABLE_POLICY.minimum_sharpness
+        and not any(
+            reason.startswith("IMAGE_SELECTION_SCAN_") for reason in observation.reason_codes
+        )
     )
 
 
@@ -125,11 +208,45 @@ def _candidate_rank(candidate: CandidateResult) -> tuple[float, float, int, str]
     )
 
 
+def _best_available_candidate_rank(
+    candidate: CandidateResult,
+) -> tuple[float, float, float, float, float, int, str]:
+    confidence = (
+        0.0 if candidate.recognized_range is None else candidate.recognized_range.confidence
+    )
+    return (
+        -candidate.quality.overall_score,
+        -candidate.quality.sharpness,
+        -candidate.quality.perspective,
+        -candidate.quality.board_visibility,
+        -confidence,
+        candidate.source.order_index,
+        candidate.source.checksum_sha256,
+    )
+
+
 class FastImageSelector:
     """Group a natural-order stream and verify only the best candidates."""
 
-    def __init__(self, manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST) -> None:
+    def __init__(
+        self,
+        manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
+        *,
+        scan_workers: int = 1,
+        scan_prefetch: int | None = None,
+    ) -> None:
+        if not 1 <= scan_workers <= MAX_PARALLEL_SCAN_WORKERS:
+            raise ValueError(f"scan_workers must be between 1 and {MAX_PARALLEL_SCAN_WORKERS}.")
+        effective_prefetch = scan_workers if scan_prefetch is None else scan_prefetch
+        if not scan_workers <= effective_prefetch <= MAX_PARALLEL_SCAN_PREFETCH:
+            raise ValueError(
+                "scan_prefetch must be at least scan_workers and no greater than "
+                f"{MAX_PARALLEL_SCAN_PREFETCH}."
+            )
         self.manifest = manifest
+        self._prefer_first_usable = manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS
+        self._scan_workers = scan_workers
+        self._scan_prefetch = effective_prefetch
 
     def select(
         self,
@@ -154,40 +271,33 @@ class FastImageSelector:
         unresolved_ranges: dict[tuple[int, int], int] = {}
         unresolved_fingerprints: dict[int, str] = {}
         for group in groups:
-            if group.status in {
-                SelectionGroupStatus.AUTO_SELECTED,
-                SelectionGroupStatus.MANUALLY_SELECTED,
-            } and group.range is not None:
+            if (
+                group.status
+                in {
+                    SelectionGroupStatus.AUTO_SELECTED,
+                    SelectionGroupStatus.MANUALLY_SELECTED,
+                }
+                and group.range is not None
+            ):
                 completed_ranges[(group.range.start, group.range.end)] = group.group_order
             elif group.status is SelectionGroupStatus.MANUAL_REQUIRED:
                 if group.range is not None:
                     unresolved_ranges[(group.range.start, group.range.end)] = group.group_order
                 if group.reference_fingerprint_hex is not None:
-                    unresolved_fingerprints[group.group_order] = (
-                        group.reference_fingerprint_hex
-                    )
+                    unresolved_fingerprints[group.group_order] = group.reference_fingerprint_hex
         current = (
             None
             if resume_state is None or resume_state.current_group is None
             else _OpenGroup.from_state(
                 resume_state.current_group,
                 top_k=self.manifest.top_k,
+                prefer_first_usable=self._prefer_first_usable,
             )
         )
-        pending = (
-            []
-            if resume_state is None
-            else list(resume_state.pending_observations)
-        )
-        processed_count = (
-            0 if resume_state is None else resume_state.checkpoint.processed_count
-        )
-        scan_failure_count = (
-            0 if resume_state is None else resume_state.scan_failure_count
-        )
-        verification_count = (
-            0 if resume_state is None else resume_state.verification_count
-        )
+        pending = [] if resume_state is None else list(resume_state.pending_observations)
+        processed_count = 0 if resume_state is None else resume_state.checkpoint.processed_count
+        scan_failure_count = 0 if resume_state is None else resume_state.scan_failure_count
+        verification_count = 0 if resume_state is None else resume_state.verification_count
 
         def ingest(group: _OpenGroup, observation: CheapImageObservation) -> None:
             nonlocal scan_failure_count
@@ -220,24 +330,47 @@ class FastImageSelector:
                     unresolved_fingerprints[result.group_order] = group.reference.fingerprint_hex
             groups.append(result)
             sink.group_finalized(result)
+            if (
+                self.manifest.algorithm_version in EXACT_MULTI_GAP_SELECTOR_VERSIONS
+                and result.status is SelectionGroupStatus.AUTO_SELECTED
+                and result.range is not None
+            ):
+                for recovered_index, recovered in self._recover_trailing_exact_gap(groups):
+                    groups[recovered_index] = recovered
+                    assert recovered.range is not None
+                    completed_ranges[(recovered.range.start, recovered.range.end)] = (
+                        recovered.group_order
+                    )
+                    unresolved_fingerprints.pop(recovered.group_order, None)
+                    sink.group_finalized(recovered)
 
-        first_source_index = (
-            0 if resume_state is None else resume_state.checkpoint.next_order_index
-        )
-        for source in ordered_sources[first_source_index:]:
-            observation = analyzer.analyze(source)
+        first_source_index = 0 if resume_state is None else resume_state.checkpoint.next_order_index
+        for observation in self._analyze_in_source_order(
+            ordered_sources[first_source_index:],
+            analyzer=analyzer,
+        ):
             processed_count += 1
             if current is None:
-                current = _OpenGroup(group_order=0, top_k=self.manifest.top_k)
+                current = _OpenGroup(
+                    group_order=0,
+                    top_k=self.manifest.top_k,
+                    prefer_first_usable=self._prefer_first_usable,
+                )
                 ingest(current, observation)
             elif pending:
-                if self._pending_matches(pending[0], observation):
+                pending_anchor = (
+                    pending[0]
+                    if self.manifest.algorithm_version == LEGACY_SELECTOR_VERSION
+                    else pending[-1]
+                )
+                if self._pending_matches(pending_anchor, observation):
                     pending.append(observation)
                     if len(pending) >= self.manifest.boundary_confirmation_count:
                         finalize(current)
                         current = _OpenGroup(
                             group_order=len(groups),
                             top_k=self.manifest.top_k,
+                            prefer_first_usable=self._prefer_first_usable,
                         )
                         for item in pending:
                             ingest(current, item)
@@ -251,7 +384,10 @@ class FastImageSelector:
                     for item in pending:
                         ingest(current, item)
                     pending.clear()
-                    if self._is_boundary_candidate(current, observation):
+                    if (
+                        self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS
+                        and self._is_changed_from_group_majority(current, observation)
+                    ) or self._is_boundary_candidate(current, observation):
                         pending.append(observation)
                     else:
                         ingest(current, observation)
@@ -277,10 +413,17 @@ class FastImageSelector:
                 current = _OpenGroup(
                     group_order=len(groups),
                     top_k=self.manifest.top_k,
+                    prefer_first_usable=self._prefer_first_usable,
                 )
                 for observation in pending:
                     ingest(current, observation)
             finalize(current)
+        if self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS:
+            recovered_groups = self._recover_bounded_best_available_groups(groups)
+            for index, recovered in enumerate(recovered_groups):
+                if recovered != groups[index]:
+                    groups[index] = recovered
+                    sink.group_finalized(recovered)
         state = self._save_state(
             sink,
             processed_count=processed_count,
@@ -300,6 +443,43 @@ class FastImageSelector:
             verification_count=verification_count,
         )
 
+    def _analyze_in_source_order(
+        self,
+        sources: tuple[ImageSelectionSource, ...],
+        *,
+        analyzer: CheapImageAnalyzer,
+    ) -> Iterator[CheapImageObservation]:
+        if self._scan_workers == 1:
+            for source in sources:
+                yield analyzer.analyze(source)
+            return
+
+        source_iterator = iter(sources)
+        pending: deque[Future[CheapImageObservation]] = deque()
+        with ThreadPoolExecutor(
+            max_workers=self._scan_workers,
+            thread_name_prefix="image-selection-scan",
+        ) as executor:
+
+            def fill_prefetch() -> None:
+                while len(pending) < self._scan_prefetch:
+                    try:
+                        source = next(source_iterator)
+                    except StopIteration:
+                        return
+                    pending.append(executor.submit(analyzer.analyze, source))
+
+            fill_prefetch()
+            while pending:
+                future = pending.popleft()
+                try:
+                    yield future.result()
+                except BaseException:
+                    for queued in pending:
+                        queued.cancel()
+                    raise
+                fill_prefetch()
+
     def _is_boundary_candidate(
         self,
         current: _OpenGroup,
@@ -308,6 +488,10 @@ class FastImageSelector:
         reference = current.reference
         if reference is None:
             return False
+        if self.manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
+            return self._is_ordered_boundary(current, observation)
+        if self.manifest.algorithm_version != LEGACY_SELECTOR_VERSION:
+            return self._is_temporally_stable_boundary(current, observation)
         threshold = self.manifest.thresholds
         if (
             reference.geometry_confidence < threshold.minimum_geometry_confidence
@@ -329,6 +513,102 @@ class FastImageSelector:
             or lattice_distance >= threshold.geometry_change_distance
             or self.manifest.boundary_confirmation_count > 1
         )
+
+    def _is_ordered_boundary(
+        self,
+        current: _OpenGroup,
+        observation: CheapImageObservation,
+    ) -> bool:
+        """Detect a page change from adjacent frames, not historical top-k.
+
+        Ordered camera captures drift gradually within one page.  The existing
+        pending guard confirms that a visually different observation is the
+        start of a stable next page.  Historical quality representatives must
+        not veto that boundary after an earlier page happened to look similar.
+        """
+
+        adjacent = current.last_observation or current.reference
+        if adjacent is None:
+            return False
+        threshold = self.manifest.thresholds
+        visual_distance = fingerprint_distance(
+            adjacent.fingerprint_hex,
+            observation.fingerprint_hex,
+        )
+        if visual_distance < threshold.fingerprint_change_distance:
+            return False
+        geometry_changed = (
+            _has_comparable_geometry(
+                adjacent,
+                observation,
+                threshold.minimum_geometry_confidence,
+            )
+            and geometry_distance(
+                adjacent.geometry_signature,
+                observation.geometry_signature,
+            )
+            >= threshold.geometry_change_distance
+        )
+        return (
+            visual_distance >= threshold.strong_fingerprint_change_distance
+            or geometry_changed
+            or self.manifest.boundary_confirmation_count > 1
+        )
+
+    def _is_changed_from_group_majority(
+        self,
+        current: _OpenGroup,
+        observation: CheapImageObservation,
+    ) -> bool:
+        """Keep tracking a multi-frame transition away from the old page."""
+
+        anchors = _unique_observation_anchors((*current.top_observations, current.reference))
+        if not anchors:
+            return False
+        threshold = self.manifest.thresholds.fingerprint_change_distance
+        changed = sum(
+            fingerprint_distance(anchor.fingerprint_hex, observation.fingerprint_hex) >= threshold
+            for anchor in anchors
+        )
+        return changed * 2 > len(anchors)
+
+    def _is_temporally_stable_boundary(
+        self,
+        current: _OpenGroup,
+        observation: CheapImageObservation,
+    ) -> bool:
+        """Require a change from both stable and temporally adjacent anchors.
+
+        A camera sweep can move far away from the best-quality frame while each
+        adjacent frame still depicts the same page. Comparing only with the
+        best frame turns that gradual drift into many short groups. The v3
+        selector keeps the adjacent anchor bounded in the durable checkpoint
+        and treats geometry without a lattice as unknown, never as maximum
+        change.
+        """
+
+        threshold = self.manifest.thresholds
+        anchors = _unique_observation_anchors((*current.top_observations, current.last_observation))
+        if not anchors:
+            return False
+        visual_distances = tuple(
+            fingerprint_distance(anchor.fingerprint_hex, observation.fingerprint_hex)
+            for anchor in anchors
+        )
+        if min(visual_distances) < threshold.fingerprint_change_distance:
+            return False
+
+        strong_visual_change = min(visual_distances) >= threshold.strong_fingerprint_change_distance
+        geometry_changed = any(
+            _has_comparable_geometry(anchor, observation, threshold.minimum_geometry_confidence)
+            and geometry_distance(
+                anchor.geometry_signature,
+                observation.geometry_signature,
+            )
+            >= threshold.geometry_change_distance
+            for anchor in anchors
+        )
+        return strong_visual_change or geometry_changed
 
     def _pending_matches(
         self,
@@ -356,10 +636,24 @@ class FastImageSelector:
                 "An image-selection group cannot be finalized without a source.",
             )
         consensus = group.board_count_consensus
-        verified = [
-            (observation, verifier.verify(observation, expected_board_count=consensus))
-            for observation in group.top_observations
-        ]
+        observations_to_verify = (
+            sorted(
+                group.top_observations,
+                key=lambda observation: observation.source.order_index,
+            )
+            if self._prefer_first_usable
+            else group.top_observations
+        )
+        verified: list[tuple[CheapImageObservation, CandidateVerification]] = []
+        for observation in observations_to_verify:
+            verification = verifier.verify(observation, expected_board_count=consensus)
+            verified.append((observation, verification))
+            if self._prefer_first_usable and self._is_first_usable_verification(
+                observation,
+                verification,
+                board_count_consensus=consensus,
+            ):
+                break
         range_keys = {
             (verification.recognized_range.start, verification.recognized_range.end)
             for _, verification in verified
@@ -368,6 +662,11 @@ class FastImageSelector:
             >= self.manifest.thresholds.minimum_range_confidence
         }
         range_conflict = len(range_keys) > 1
+        rank = (
+            _best_available_candidate_rank
+            if self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS
+            else _candidate_rank
+        )
         candidates = tuple(
             sorted(
                 (
@@ -379,7 +678,7 @@ class FastImageSelector:
                     )
                     for observation, verification in verified
                 ),
-                key=_candidate_rank,
+                key=rank,
             )
         )
         eligible = [
@@ -387,12 +686,42 @@ class FastImageSelector:
             for candidate in candidates
             if candidate.decision is CandidateDecision.ELIGIBLE
         ]
-        selected = (
-            None
-            if not eligible
-            else replace(eligible[0], decision=CandidateDecision.SELECTED_AUTOMATIC)
-        )
         recognized_range = self._group_range(candidates)
+        selected = None if not eligible else self._select_automatic(eligible[0])
+        if (
+            selected is None
+            and recognized_range is not None
+            and self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS
+        ):
+            best_available = next(
+                (
+                    candidate
+                    for candidate in candidates
+                    if self._can_use_inferred_best_available(candidate)
+                ),
+                None,
+            )
+            if best_available is not None:
+                selected = replace(
+                    best_available,
+                    decision=CandidateDecision.SELECTED_AUTOMATIC,
+                    recognized_range=recognized_range,
+                    reason_codes=tuple(
+                        dict.fromkeys((*best_available.reason_codes, BEST_AVAILABLE_REASON))
+                    ),
+                )
+        if selected is not None:
+            selected_identity = (
+                selected.source.order_index,
+                selected.source.checksum_sha256,
+            )
+            candidates = tuple(
+                selected
+                if (candidate.source.order_index, candidate.source.checksum_sha256)
+                == selected_identity
+                else candidate
+                for candidate in candidates
+            )
         fingerprint_sha256 = hashlib.sha256(
             bytes.fromhex(group.reference.fingerprint_hex)
         ).hexdigest()
@@ -425,9 +754,7 @@ class FastImageSelector:
             if unresolved_order is not None:
                 previous = existing_groups[unresolved_order]
                 combined = tuple(
-                    sorted((*previous.top_candidates, *candidates), key=_candidate_rank)[
-                        : self.manifest.top_k
-                    ]
+                    sorted((*previous.top_candidates, *candidates), key=rank)[: self.manifest.top_k]
                 )
                 existing_groups[unresolved_order] = replace(
                     previous,
@@ -505,8 +832,7 @@ class FastImageSelector:
         reasons = [
             reason
             for reason in observation.reason_codes
-            if not trusted_full_verification
-            or not reason.startswith(("BOARD_", "GEOMETRY_"))
+            if not trusted_full_verification or not reason.startswith(("BOARD_", "GEOMETRY_"))
         ]
         reasons.extend(verification.reason_codes)
         threshold = self.manifest.thresholds
@@ -539,8 +865,7 @@ class FastImageSelector:
         if not verification.full_frame_visible:
             reasons.append("FRAME_NOT_FULLY_VISIBLE")
         if not trusted_full_verification and (
-            board_count_consensus is None
-            or verification.board_count != board_count_consensus
+            board_count_consensus is None or verification.board_count != board_count_consensus
         ):
             reasons.append("BOARD_COUNT_CONSENSUS_MISMATCH")
         if recognized_range is None:
@@ -552,16 +877,233 @@ class FastImageSelector:
         if range_conflict:
             reasons.append("RANGE_CONFLICT")
         unique_reasons = tuple(dict.fromkeys(reasons))
+        blocking_reasons = (
+            tuple(
+                reason
+                for reason in unique_reasons
+                if not reason.startswith("QUALITY_") or reason == "QUALITY_BLUR"
+            )
+            if self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS
+            else unique_reasons
+        )
         return CandidateResult(
             source=observation.source,
             decision=(
-                CandidateDecision.ELIGIBLE if not unique_reasons else CandidateDecision.REJECTED
+                CandidateDecision.ELIGIBLE if not blocking_reasons else CandidateDecision.REJECTED
             ),
             quality=quality,
             recognized_range=recognized_range,
             reason_codes=unique_reasons,
             width=observation.width,
             height=observation.height,
+        )
+
+    def _is_first_usable_verification(
+        self,
+        observation: CheapImageObservation,
+        verification: CandidateVerification,
+        *,
+        board_count_consensus: int | None,
+    ) -> bool:
+        recognized_range = verification.recognized_range
+        if (
+            recognized_range is None
+            or recognized_range.confidence < self.manifest.thresholds.minimum_range_confidence
+            or verification.board_count != recognized_range.board_count
+        ):
+            return False
+        candidate = self._candidate_result(
+            observation,
+            verification,
+            board_count_consensus=board_count_consensus,
+            range_conflict=False,
+        )
+        return self._can_use_inferred_best_available(candidate)
+
+    def _select_automatic(self, candidate: CandidateResult) -> CandidateResult:
+        reasons = candidate.reason_codes
+        if self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS and any(
+            reason.startswith("QUALITY_") for reason in reasons
+        ):
+            reasons = tuple(dict.fromkeys((*reasons, BEST_AVAILABLE_REASON)))
+        return replace(
+            candidate,
+            decision=CandidateDecision.SELECTED_AUTOMATIC,
+            reason_codes=reasons,
+        )
+
+    def _recover_bounded_best_available_groups(
+        self,
+        groups: list[SelectionGroupResult],
+    ) -> tuple[SelectionGroupResult, ...]:
+        recovered = list(groups)
+        resolved_indexes = [
+            index
+            for index, group in enumerate(recovered)
+            if group.status
+            in {
+                SelectionGroupStatus.AUTO_SELECTED,
+                SelectionGroupStatus.MANUALLY_SELECTED,
+            }
+            and group.range is not None
+        ]
+        for previous_index, next_index in zip(
+            resolved_indexes,
+            resolved_indexes[1:],
+            strict=False,
+        ):
+            for group_index, replacement in self._recover_exact_gap_block(
+                recovered,
+                previous_index=previous_index,
+                next_index=next_index,
+            ):
+                recovered[group_index] = replacement
+        return tuple(recovered)
+
+    def _recover_trailing_exact_gap(
+        self,
+        groups: list[SelectionGroupResult],
+    ) -> tuple[tuple[int, SelectionGroupResult], ...]:
+        next_index = len(groups) - 1
+        previous_index = next_index - 1
+        while previous_index >= 0:
+            group = groups[previous_index]
+            if group.status is SelectionGroupStatus.MANUAL_REQUIRED and group.range is None:
+                previous_index -= 1
+                continue
+            break
+        if previous_index < 0 or previous_index == next_index - 1:
+            return ()
+        return self._recover_exact_gap_block(
+            groups,
+            previous_index=previous_index,
+            next_index=next_index,
+        )
+
+    def _recover_exact_gap_block(
+        self,
+        groups: list[SelectionGroupResult],
+        *,
+        previous_index: int,
+        next_index: int,
+    ) -> tuple[tuple[int, SelectionGroupResult], ...]:
+        group_indexes = tuple(range(previous_index + 1, next_index))
+        if not group_indexes or any(
+            groups[index].status is not SelectionGroupStatus.MANUAL_REQUIRED
+            or groups[index].range is not None
+            for index in group_indexes
+        ):
+            return ()
+        if (
+            self.manifest.algorithm_version not in EXACT_MULTI_GAP_SELECTOR_VERSIONS
+            and len(group_indexes) != 1
+        ):
+            return ()
+
+        previous_range = groups[previous_index].range
+        next_range = groups[next_index].range
+        if previous_range is None or next_range is None:
+            return ()
+        gap_start = previous_range.end + 1
+        gap_end = next_range.start - 1
+        gap_size = gap_end - gap_start + 1
+        if gap_size < 1:
+            return ()
+        range_sizes: tuple[int, ...]
+        if len(group_indexes) == 1 and gap_size <= MAX_INFERRED_RANGE_SIZE:
+            range_sizes = (gap_size,)
+        elif (
+            self.manifest.algorithm_version in EXACT_MULTI_GAP_SELECTOR_VERSIONS
+            and gap_size == len(group_indexes) * MAX_INFERRED_RANGE_SIZE
+        ):
+            range_sizes = (MAX_INFERRED_RANGE_SIZE,) * len(group_indexes)
+        else:
+            return ()
+
+        existing_ranges = {
+            (group.range.start, group.range.end)
+            for group in groups
+            if group.range is not None
+            and group.status
+            in {
+                SelectionGroupStatus.AUTO_SELECTED,
+                SelectionGroupStatus.MANUALLY_SELECTED,
+            }
+        }
+        replacements: list[tuple[int, SelectionGroupResult]] = []
+        range_start = gap_start
+        for group_index, range_size in zip(group_indexes, range_sizes, strict=True):
+            group = groups[group_index]
+            inferred = SequenceRange(
+                start=range_start,
+                end=range_start + range_size - 1,
+                confidence=self.manifest.thresholds.minimum_range_confidence,
+            )
+            if (inferred.start, inferred.end) in existing_ranges:
+                return ()
+            candidates = tuple(
+                candidate
+                for candidate in group.top_candidates
+                if self._can_use_inferred_best_available(candidate)
+            )
+            if not candidates:
+                return ()
+            selected_source = sorted(candidates, key=_best_available_candidate_rank)[0]
+            selected = replace(
+                selected_source,
+                decision=CandidateDecision.SELECTED_AUTOMATIC,
+                recognized_range=inferred,
+                reason_codes=tuple(
+                    dict.fromkeys(
+                        (
+                            *selected_source.reason_codes,
+                            BEST_AVAILABLE_REASON,
+                            INFERRED_RANGE_REASON,
+                        )
+                    )
+                ),
+            )
+            selected_identity = (
+                selected.source.order_index,
+                selected.source.checksum_sha256,
+            )
+            top_candidates = tuple(
+                selected
+                if (candidate.source.order_index, candidate.source.checksum_sha256)
+                == selected_identity
+                else candidate
+                for candidate in group.top_candidates
+            )
+            replacements.append(
+                (
+                    group_index,
+                    replace(
+                        group,
+                        range=inferred,
+                        status=SelectionGroupStatus.AUTO_SELECTED,
+                        selected_candidate=selected,
+                        top_candidates=top_candidates,
+                    ),
+                )
+            )
+            range_start = inferred.end + 1
+        return tuple(replacements)
+
+    def _can_use_inferred_best_available(self, candidate: CandidateResult) -> bool:
+        hard_failure = any(
+            reason.startswith("IMAGE_SELECTION_SCAN_")
+            or reason in {"IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED", "RANGE_CONFLICT"}
+            for reason in candidate.reason_codes
+        )
+        if self.manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
+            return not hard_failure
+        return (
+            candidate.quality.sharpness >= self.manifest.thresholds.minimum_sharpness
+            and not hard_failure
+            and not any(
+                reason == "IMAGE_OCCLUDED" or reason.startswith("IMAGE_SELECTION_SCAN_")
+                for reason in candidate.reason_codes
+            )
         )
 
     def _group_range(self, candidates: tuple[CandidateResult, ...]) -> SequenceRange | None:
@@ -667,8 +1209,7 @@ class FastImageSelector:
             or checkpoint.finalized_group_count != len(groups)
             or resume_state.scan_failure_count < 0
             or resume_state.verification_count < 0
-            or len(resume_state.pending_observations)
-            >= self.manifest.boundary_confirmation_count
+            or len(resume_state.pending_observations) >= self.manifest.boundary_confirmation_count
         ):
             raise SelectionContractError(
                 "IMAGE_SELECTION_CHECKPOINT_INVALID",
@@ -690,6 +1231,11 @@ class FastImageSelector:
             observation.source.order_index
             for observation in (
                 (() if current is None else current.top_observations)
+                + (
+                    ()
+                    if current is None or current.last_observation is None
+                    else (current.last_observation,)
+                )
                 + resume_state.pending_observations
             )
         ]

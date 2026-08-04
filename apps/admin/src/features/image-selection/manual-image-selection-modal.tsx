@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ImageSelectionGroupCandidatesResponse,
   ImageSelectionGroupResponse,
   ImageSelectionManualApprovalResponse,
 } from '@game-predictor/admin-api-client';
@@ -34,6 +35,12 @@ interface ManualDraft {
   readonly rangeStart: string;
 }
 
+interface GroupSourceSummary {
+  readonly data: ImageSelectionGroupCandidatesResponse | null;
+  readonly error: boolean;
+  readonly loading: boolean;
+}
+
 export function ManualImageSelectionModal({
   apiBaseUrl,
   client,
@@ -46,6 +53,7 @@ export function ManualImageSelectionModal({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const approvalInFlightRef = useRef(false);
   const objectUrlsRef = useRef(new Set<string>());
+  const sourceRequestsRef = useRef(new Set<string>());
   const [index, setIndex] = useState(() => firstPendingIndex(groups));
   const [drafts, setDrafts] = useState<Record<string, ManualDraft>>(() =>
     buildInitialDrafts(apiBaseUrl, runId, groups),
@@ -53,8 +61,13 @@ export function ManualImageSelectionModal({
   const [uploading, setUploading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState('');
+  const [sourceSummaries, setSourceSummaries] = useState<
+    Record<string, GroupSourceSummary>
+  >({});
   const current = groups[index];
   const currentDraft = current === undefined ? undefined : drafts[current.id];
+  const currentSourceSummary =
+    current === undefined ? undefined : sourceSummaries[current.id];
   const approvedCount = useMemo(
     () =>
       groups.filter(
@@ -73,6 +86,36 @@ export function ManualImageSelectionModal({
       objectUrls.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (current === undefined || sourceRequestsRef.current.has(current.id)) {
+      return;
+    }
+    const groupId = current.id;
+    sourceRequestsRef.current.add(groupId);
+    setSourceSummaries((value) => ({
+      ...value,
+      [groupId]: { data: null, error: false, loading: true },
+    }));
+    void client
+      .listImageSelectionGroupCandidates(runId, groupId, { limit: 20 })
+      .then((result) => {
+        setSourceSummaries((value) => ({
+          ...value,
+          [groupId]: {
+            data: result.data ?? null,
+            error: result.error !== undefined || result.data === undefined,
+            loading: false,
+          },
+        }));
+      })
+      .catch(() => {
+        setSourceSummaries((value) => ({
+          ...value,
+          [groupId]: { data: null, error: true, loading: false },
+        }));
+      });
+  }, [client, current, runId]);
 
   function navigate(offset: number) {
     if (groups.length < 2 || uploading || approving) return;
@@ -242,10 +285,14 @@ export function ManualImageSelectionModal({
     displayedRangeStart >= 1 &&
     displayedRangeEnd >= displayedRangeStart;
   const rangeLabel = !hasDisplayedRange
-    ? 'Nierozpoznany zestaw zdjęć'
+    ? 'Zakres layoutów nierozpoznany'
     : currentDraft.candidateId === null
       ? `Brak zdjęcia dla layoutów ${displayedRangeStart}–${displayedRangeEnd}`
       : `Layouty ${displayedRangeStart}–${displayedRangeEnd}`;
+  const sourceIdentity = groupSourceIdentity(
+    current.groupOrder,
+    currentSourceSummary,
+  );
 
   return (
     <div className="manualSelectionOverlay">
@@ -264,6 +311,7 @@ export function ManualImageSelectionModal({
               {approvedCount} / {groups.length} zatwierdzonych
             </p>
             <h2 id="manual-selection-title">{rangeLabel}</h2>
+            <p className="manualSelectionSourceIdentity">{sourceIdentity}</p>
           </div>
           <nav aria-label="Nawigacja między wyjątkami">
             <button
@@ -383,8 +431,9 @@ export function ManualImageSelectionModal({
               </>
             ) : (
               <p>
-                Nie musisz rozpoznawać numerów. Ten zestaw zostanie pominięty, a
-                pewne zdjęcia przejdą dalej.
+                System nie potrafi wiarygodnie podać numerów layoutów dla tego
+                zestawu. Odszukaj go po nazwach plików pokazanych w nagłówku
+                albo pomiń — pewne zdjęcia nadal przejdą dalej.
               </p>
             )}
             <p>
@@ -396,6 +445,25 @@ export function ManualImageSelectionModal({
       </div>
     </div>
   );
+}
+
+function groupSourceIdentity(
+  groupOrder: number,
+  summary: GroupSourceSummary | undefined,
+): string {
+  const prefix = `Zestaw #${groupOrder + 1}`;
+  if (summary === undefined || summary.loading) {
+    return `${prefix} · odczytywanie plików źródłowych…`;
+  }
+  if (summary.error || summary.data === null) {
+    return `${prefix} · nie udało się odczytać nazw plików źródłowych`;
+  }
+  const names = summary.data.items.map((candidate) => candidate.displayName);
+  const files =
+    names.length === 0
+      ? 'brak zapisanych kandydatów'
+      : `pliki kandydatów: ${names.join(', ')}`;
+  return `${prefix} · ${summary.data.sourceCount} zdjęć w zestawie · ${files}`;
 }
 
 function parseOptionalSequence(value: string): number | null {

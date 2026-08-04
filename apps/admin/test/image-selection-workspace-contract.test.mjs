@@ -42,7 +42,11 @@ test('shows bounded upload recovery with file and byte progress', () => {
   assert.match(workspaceSource, /progress\.uploadedBytes/);
   assert.match(workspaceSource, /Ponów brakujące pliki/);
   assert.match(workspaceSource, /Anuluj staging/);
-  assert.match(workspaceSource, /30_000/);
+  assert.match(workspaceSource, /MAX_IMAGE_SELECTION_FILES = 100_000/);
+  assert.match(workspaceSource, /preparingFolder/);
+  assert.match(workspaceSource, /waitForBrowserPaint\(\)/);
+  assert.match(workspaceSource, /Analizowanie plików w folderze/);
+  assert.match(styleSource, /\.imageSelectionSpinner/);
 });
 
 test('polls an active run with bounded duration and abortable requests', () => {
@@ -60,6 +64,21 @@ test('polls an active run with bounded duration and abortable requests', () => {
     workspaceSource,
     /status === 'created' \|\| status === 'processing'/,
   );
+});
+
+test('reruns the current selector from immutable uploaded staging', () => {
+  assert.match(workspaceSource, /api\.rerunImageSelection\(run\.id\)/);
+  assert.match(
+    workspaceSource,
+    /Wznowiono selekcję od ostatniego trwałego checkpointu/,
+  );
+  assert.match(workspaceSource, /Przelicz ponownie załadowane zdjęcia/);
+  assert.match(workspaceSource, /Ponowny upload nie był potrzebny/);
+  assert.match(
+    workspaceSource,
+    /window\.localStorage\.setItem\(storageKey\(gameId\), result\.data\.run\.id\)/,
+  );
+  assert.match(workspaceSource, /run\.selectorFingerprint\.slice\(0, 12\)/);
 });
 
 test('isolates image selection state by active game and keeps four tiles responsive', () => {
@@ -95,6 +114,11 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   assert.match(manualModalSource, /continueImageSelectionWithoutImage/);
   assert.match(manualModalSource, /Brak zdjęcia dla layoutów/);
   assert.match(manualModalSource, /Dodaj opcjonalne zdjęcie/);
+  assert.match(manualModalSource, /Zakres layoutów nierozpoznany/);
+  assert.match(manualModalSource, /listImageSelectionGroupCandidates/);
+  assert.match(manualModalSource, /pliki kandydatów/);
+  assert.match(workspaceSource, /Sprawdź nierozpoznane zestawy/);
+  assert.match(workspaceSource, /Pominięte grupy-duplikaty/);
   assert.match(workspaceSource, /refreshRunAfterManualApproval\(activeRunId\)/);
   assert.match(workspaceSource, /setRun\(result\.data\)/);
   assert.match(
@@ -142,6 +166,9 @@ test('image selection workspace shows live progress and final aggregates', () =>
   assert.match(workspaceSource, /selectionProgress\?\.groups/);
   assert.match(workspaceSource, /selectionProgress\?\.selected/);
   assert.match(workspaceSource, /selectionProgress\?\.manual/);
+  assert.match(workspaceSource, /Roboczo bez numerów/);
+  assert.match(workspaceSource, /To licznik tymczasowy/);
+  assert.match(workspaceSource, /Nierozpoznane zestawy/);
   assert.match(workspaceSource, /selectionProgress\?\.skipped/);
   assert.match(workspaceSource, /selectionProgress\?\.errors/);
   assert.match(workspaceSource, /selectionProgress\?\.verifications/);

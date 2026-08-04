@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -248,6 +249,24 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             )
         )
         return None if record is None else _candidate_from_record(record)
+
+    def list_candidates(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        limit: int,
+    ) -> Sequence[ImageSelectionCandidate]:
+        records = self._session.scalars(
+            select(ImageSelectionCandidateModel)
+            .where(
+                ImageSelectionCandidateModel.run_id == run_id,
+                ImageSelectionCandidateModel.group_id == group_id,
+            )
+            .order_by(ImageSelectionCandidateModel.order_index)
+            .limit(limit)
+        ).all()
+        return tuple(_candidate_from_record(record) for record in records)
 
     def find_candidate_by_checksum(
         self,

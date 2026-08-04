@@ -381,6 +381,21 @@ samodzielnego trzeba zbudować nowe APK i wykonać `adb install -r`. Zmiany
 panelu Admin, API albo Reviewera nie wymagają instalowania APK — wystarczy
 restart odpowiedniego procesu lub odświeżenie przeglądarki.
 
+## Pełny reset lokalnej bazy Admina
+
+Reset jest nieodwracalną operacją roboczą. Najpierw zatrzymaj API i workera oraz
+wykonaj dump danych, które mogą być jeszcze potrzebne. Następnie uruchom:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/reset_local_admin_database.ps1 -ConfirmReset
+```
+
+Skrypt akceptuje wyłącznie bazę `game_predictor` na lokalnym loopbacku. Usuwa
+cały schemat `public`, tworzy pusty schemat i wykonuje migracje Alembic od zera.
+Nie używa historycznych downgrade'ów, dlatego reset nie zależy od zawartości
+starych rekordów. Nie usuwa zdjęć źródłowych, APK, snapshotów SQLite, klucza
+podpisu ani innych plików z repozytorium.
+
 ## Zatrzymywanie usług
 
 - API, Admin, worker i Reviewer: `Ctrl+C` w ich oknach PowerShell.

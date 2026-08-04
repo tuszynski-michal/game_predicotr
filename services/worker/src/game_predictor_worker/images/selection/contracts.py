@@ -247,9 +247,7 @@ class CheapImageObservation:
                 height=_int_value(value["height"]),
                 fingerprint_hex=str(value["fingerprintHex"]),
                 geometry_signature=tuple(_float_value(item) for item in signature_value),
-                board_count=(
-                    None if board_count_value is None else _int_value(board_count_value)
-                ),
+                board_count=(None if board_count_value is None else _int_value(board_count_value)),
                 geometry_confidence=_float_value(value["geometryConfidence"]),
                 quality=ImageQualityMetrics.from_dict(quality_value),
                 reason_codes=tuple(str(item) for item in reasons_value),
@@ -350,6 +348,7 @@ class SelectorOpenGroupState:
     source_count: int
     top_observations: tuple[CheapImageObservation, ...]
     board_counts: tuple[tuple[int, int], ...]
+    last_observation: CheapImageObservation | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -358,6 +357,11 @@ class SelectorOpenGroupState:
                 for board_count, count in self.board_counts
             ],
             "groupOrder": self.group_order,
+            "lastObservation": (
+                None
+                if self.last_observation is None
+                else self.last_observation.to_checkpoint_dict()
+            ),
             "sourceCount": self.source_count,
             "topObservations": [
                 observation.to_checkpoint_dict() for observation in self.top_observations
@@ -369,9 +373,8 @@ class SelectorOpenGroupState:
         try:
             observations_value = value["topObservations"]
             board_counts_value = value["boardCounts"]
-            if not isinstance(observations_value, list) or not isinstance(
-                board_counts_value, list
-            ):
+            last_observation_value = value.get("lastObservation")
+            if not isinstance(observations_value, list) or not isinstance(board_counts_value, list):
                 raise TypeError
             if any(not isinstance(item, dict) for item in observations_value):
                 raise TypeError
@@ -379,9 +382,7 @@ class SelectorOpenGroupState:
             for item in board_counts_value:
                 if not isinstance(item, dict):
                     raise TypeError
-                board_counts.append(
-                    (_int_value(item["boardCount"]), _int_value(item["count"]))
-                )
+                board_counts.append((_int_value(item["boardCount"]), _int_value(item["count"])))
             state = cls(
                 group_order=_int_value(value["groupOrder"]),
                 source_count=_int_value(value["sourceCount"]),
@@ -391,6 +392,13 @@ class SelectorOpenGroupState:
                     if isinstance(item, dict)
                 ),
                 board_counts=tuple(board_counts),
+                last_observation=(
+                    None
+                    if last_observation_value is None
+                    else CheapImageObservation.from_checkpoint_dict(last_observation_value)
+                    if isinstance(last_observation_value, dict)
+                    else _invalid_observation()
+                ),
             )
         except (KeyError, TypeError, ValueError) as error:
             if isinstance(error, SelectionContractError):
@@ -403,6 +411,11 @@ class SelectorOpenGroupState:
             state.group_order < 0
             or state.source_count < 1
             or not state.top_observations
+            or (
+                state.last_observation is not None
+                and state.last_observation.source.order_index
+                < max(observation.source.order_index for observation in state.top_observations)
+            )
             or any(board_count < 1 or count < 1 for board_count, count in state.board_counts)
             or sum(count for _, count in state.board_counts) > state.source_count
         ):
@@ -424,12 +437,9 @@ class SelectorResumeState:
     def to_dict(self) -> dict[str, object]:
         return {
             "checkpoint": self.checkpoint.to_dict(),
-            "currentGroup": (
-                None if self.current_group is None else self.current_group.to_dict()
-            ),
+            "currentGroup": (None if self.current_group is None else self.current_group.to_dict()),
             "pendingObservations": [
-                observation.to_checkpoint_dict()
-                for observation in self.pending_observations
+                observation.to_checkpoint_dict() for observation in self.pending_observations
             ],
             "scanFailureCount": self.scan_failure_count,
             "verificationCount": self.verification_count,
@@ -441,9 +451,7 @@ class SelectorResumeState:
             checkpoint_value = value["checkpoint"]
             pending_value = value["pendingObservations"]
             current_value = value.get("currentGroup")
-            if not isinstance(checkpoint_value, dict) or not isinstance(
-                pending_value, list
-            ):
+            if not isinstance(checkpoint_value, dict) or not isinstance(pending_value, list):
                 raise TypeError
             if any(not isinstance(item, dict) for item in pending_value):
                 raise TypeError
@@ -452,9 +460,7 @@ class SelectorResumeState:
                 selector_fingerprint=str(checkpoint_value["selectorFingerprint"]),
                 next_order_index=_int_value(checkpoint_value["nextOrderIndex"]),
                 processed_count=_int_value(checkpoint_value["processedCount"]),
-                finalized_group_count=_int_value(
-                    checkpoint_value["finalizedGroupCount"]
-                ),
+                finalized_group_count=_int_value(checkpoint_value["finalizedGroupCount"]),
             )
             return cls(
                 checkpoint=checkpoint,
@@ -486,6 +492,13 @@ def _invalid_open_group() -> SelectorOpenGroupState:
     raise SelectionContractError(
         "IMAGE_SELECTION_CHECKPOINT_INVALID",
         "The selector checkpoint contains an invalid open group.",
+    )
+
+
+def _invalid_observation() -> CheapImageObservation:
+    raise SelectionContractError(
+        "IMAGE_SELECTION_CHECKPOINT_INVALID",
+        "The selector checkpoint contains an invalid last observation.",
     )
 
 
@@ -526,7 +539,7 @@ class ImageSelectionResult:
 
 class CheapImageAnalyzer(Protocol):
     def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
-        """Return bounded thumbnail metrics without OCR or cell crops."""
+        """Return bounded metrics without OCR; production adapters are thread-safe."""
 
 
 class CandidateVerifier(Protocol):

@@ -21,11 +21,16 @@ from game_predictor_api.storage.database import (
 from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 from game_predictor_worker.images.selection.adapters import (
     AnchoredSequenceRangeRecognizer,
+    BestEffortVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     build_default_adapters,
 )
 from game_predictor_worker.images.selection.contracts import SelectionContractError
-from game_predictor_worker.images.selection.engine import FastImageSelector
+from game_predictor_worker.images.selection.engine import (
+    DEFAULT_PARALLEL_SCAN_PREFETCH,
+    DEFAULT_PARALLEL_SCAN_WORKERS,
+    FastImageSelector,
+)
 from game_predictor_worker.images.selection.io import (
     JsonSelectionAuditSink,
     load_browser_selection_manifest,
@@ -59,7 +64,7 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 
-WORKER_VERSION = "worker-v6"
+WORKER_VERSION = "worker-v8"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -158,6 +163,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
         browser_upload_root=settings.import_root,
         artifact_root=artifact_root,
         repository_root=Path.cwd(),
+        scan_workers=DEFAULT_PARALLEL_SCAN_WORKERS,
+        scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
     )
     snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
     release_handler = ReleaseWorkflowHandler(
@@ -219,6 +226,7 @@ def _run_standalone_image_selection(
             "Image selector output must be outside the read-only source staging.",
         )
     range_recognizer: NoRangeRecognizer | AnchoredSequenceRangeRecognizer
+    fallback_range_recognizer: BestEffortVisibleSequenceLabelRangeRecognizer | None = None
     if ocr_model_root is None:
         range_recognizer = NoRangeRecognizer()
         selector_manifest = replace(
@@ -226,17 +234,22 @@ def _run_standalone_image_selection(
             range_adapter_version=range_recognizer.version,
         )
     else:
-        range_recognizer = AnchoredSequenceRangeRecognizer(
-            PaddleSequenceNumberRecognizer(ocr_model_root.resolve(strict=True))
-        )
+        ocr = PaddleSequenceNumberRecognizer(ocr_model_root.resolve(strict=True))
+        range_recognizer = AnchoredSequenceRangeRecognizer(ocr)
+        fallback_range_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(ocr)
         selector_manifest = DEFAULT_SELECTOR_MANIFEST
     analyzer, verifier = build_default_adapters(
         source_root,
         range_recognizer=range_recognizer,
+        fallback_range_recognizer=fallback_range_recognizer,
         manifest=selector_manifest,
     )
     sink = JsonSelectionAuditSink(output)
-    result = FastImageSelector(selector_manifest).select(
+    result = FastImageSelector(
+        selector_manifest,
+        scan_workers=DEFAULT_PARALLEL_SCAN_WORKERS,
+        scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
+    ).select(
         sources,
         analyzer=analyzer,
         verifier=verifier,

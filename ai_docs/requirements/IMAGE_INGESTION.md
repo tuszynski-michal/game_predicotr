@@ -469,6 +469,11 @@ pipeline'u importu i może zostać rozszerzony bez zmiany cyklu życia.
   checkpointem i wynikiem,
 - `completedStages` jest wyłącznie uporządkowanym prefiksem manifestu; retry
   może powtórzyć ten sam checkpoint albo ukończyć jeden następny etap,
+- pełna agregacja statystyk wszystkich plików jest dozwolona tylko na wejściu i
+  końcowej granicy wykonania handlera; postęp pomiędzy nimi wynika przyrostowo z
+  trwałych przejść statusu pojedynczego pliku,
+- liczba pełnych agregacji jednego wykonania handlera jest stała i nie rośnie z
+  liczbą zdjęć ani etapów,
 - początkowo wykonywane jest najwyżej jedno ciężkie zadanie naraz.
 
 ## Przechowywanie plików

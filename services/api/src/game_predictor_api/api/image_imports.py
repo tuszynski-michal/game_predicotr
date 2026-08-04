@@ -16,6 +16,7 @@ from game_predictor_api.application.jobs import JobService
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_imports import (
     BrowserImageSelectionCreate,
+    BrowserImageSelectionFileUploadResponse,
     BrowserImageSelectionUploadResponse,
     ImageFolderImportCreate,
     ImageFolderImportResponse,
@@ -49,6 +50,17 @@ def create_image_imports_router(
             uploaded_bytes=upload.uploaded_bytes,
             purpose=upload.purpose,
             game_id=upload.game_id,
+        )
+
+    def file_upload_response(
+        upload: BrowserImageUpload,
+    ) -> BrowserImageSelectionFileUploadResponse:
+        return BrowserImageSelectionFileUploadResponse(
+            upload_id=upload.upload_id,
+            expected_file_count=upload.expected_file_count,
+            uploaded_file_count=len(upload.uploaded_indexes),
+            expected_total_bytes=upload.expected_total_bytes,
+            uploaded_bytes=upload.uploaded_bytes,
         )
 
     @router.post(
@@ -88,7 +100,7 @@ def create_image_imports_router(
 
     @router.put(
         "/browser-selections/{upload_id}/files/{file_index}",
-        response_model=BrowserImageSelectionUploadResponse,
+        response_model=BrowserImageSelectionFileUploadResponse,
         operation_id="uploadBrowserImageSelectionFile",
         summary="Upload one JPEG from a browser-native folder selection",
         responses=responses,
@@ -102,8 +114,8 @@ def create_image_imports_router(
         ],
         payload: Annotated[bytes, Body(media_type="application/octet-stream")],
         service: Annotated[BrowserImageSelectionService, browser_selection_parameter],
-    ) -> BrowserImageSelectionUploadResponse:
-        return upload_response(
+    ) -> BrowserImageSelectionFileUploadResponse:
+        return file_upload_response(
             service.upload_file(
                 upload_id,
                 file_index,

@@ -358,6 +358,36 @@ nav {
   line-height: 1.6;
 }
 
+.imageSelectionPreparing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 13px 16px;
+  border: 1px solid rgba(112, 225, 180, 0.24);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: #baf3dc;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.imageSelectionSpinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid rgba(186, 243, 220, 0.3);
+  border-top-color: #baf3dc;
+  border-radius: 50%;
+  animation: imageSelectionSpin 0.8s linear infinite;
+}
+
+@keyframes imageSelectionSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .imageSelectionProgress {
   display: grid;
   gap: 14px;
@@ -530,6 +560,15 @@ nav {
 .manualSelectionHeader h2,
 .manualSelectionHeader p {
   margin: 0;
+}
+
+.manualSelectionHeader .manualSelectionSourceIdentity {
+  max-width: 720px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .manualSelectionHeader nav {

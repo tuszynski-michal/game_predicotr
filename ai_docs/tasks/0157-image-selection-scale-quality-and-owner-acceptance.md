@@ -2,7 +2,7 @@
 title: TASK-0157 image selection scale quality and owner acceptance
 status: in_progress
 release: "0.4"
-last_updated: 2026-08-03
+last_updated: 2026-08-04
 ---
 
 # TASK-0157 — Image selection scale, quality and owner acceptance
@@ -109,11 +109,12 @@ niezmienionym inventory źródłowym. Profil 10k trwał 252,51 s i zużył dodat
 76,2 MiB peak RSS, a 30k 792,43 s i 194,0 MiB. Sparse verification zachowało
 limit `grupy × top-k`.
 
-Raport `quality/IMAGE_SELECTION_ACCEPTANCE.md` nadaje decyzję techniczną
-`ready`, ale odbiór właściciela nawigacji, single-file fallbacku, Entera,
-strzałek, nazw outputu i jawnego handoffu nadal oczekuje. Z tego powodu zadanie
-pozostaje `in_progress`, nie jest przenoszone do `completed/`, a TASK-0076 nadal
-jest zablokowany.
+Raport `quality/IMAGE_SELECTION_ACCEPTANCE.md` po syntetycznych profilach nadawał
+decyzję techniczną `ready`. Pierwszy rzeczywisty run zmienił ją na `optimize` do
+czasu regresji v4; odbiór właściciela nawigacji, single-file fallbacku, Entera,
+strzałek, nazw outputu i jawnego handoffu również nadal oczekuje. Z tego powodu
+zadanie pozostaje `in_progress`, nie jest przenoszone do `completed/`, a
+TASK-0076 nadal jest zablokowany.
 
 Przed odbiorem właściciela usunięto wykrytą lukę odświeżania Admina: aktywny run
 jest odpytywany co 2 s, pojedynczy request jest anulowany po 10 s, a cała sesja
@@ -177,3 +178,110 @@ manifestu i mapuje pobranie z powrotem na rzeczywisty managed file. Regresja API
 używa celowo historycznej nazwy wewnętrznej, a test runtime potwierdził dla
 bieżącego runu listę `seq_1-9.jpg`, `seq_10-18.jpg` oraz zgodność rozmiaru i
 SHA-256 pobranego pliku.
+
+Na życzenie właściciela kontrakt pojedynczego browser stagingu zwiększono z
+30 000 do 100 000 JPEG-ów bez uruchamiania długiego benchmarku. Backend i Admin
+stosują ten sam limit, a `100 001` jest odrzucane stabilnym błędem. Po wyborze
+folderu Admin najpierw renderuje loader przygotowania listy, a następnie pokazuje
+zwykły postęp uploadu. Techniczna bramka wydajności pozostaje oparta na już
+zaliczonych profilach 10k/30k; rzeczywisty run właściciela będzie obserwacją
+operacyjną rozszerzonego limitu.
+
+Pierwszy rzeczywisty upload 32 079 JPEG-ów ukończył się i utworzył run selekcji,
+ale trwał 2346,44 s, ponieważ po każdym pliku schema v1 sortowała, serializowała
+i zapisywała cały rosnący inventory oraz odsyłała je ponownie w odpowiedzi HTTP.
+Staging schema v2 rozdziela mały stały `_upload_state.json` od liniowego,
+append-only `_upload_files.jsonl`; pojedynczy PUT zwraca tylko liczniki.
+Odtworzenie z dziennika, idempotentny retry, migracja niedokończonego schema v1
+i finalny manifest mają testy regresyjne. Checkpointy właściwego selektora co 32
+pliki, lease/fencing oraz crash recovery pozostają bez zmian.
+
+Podczas pierwszego rzeczywistego skanu 32 079 zdjęć wykonano nieinwazyjny pomiar
+pracującego procesu. W oknie 30,5 s postęp wzrósł z 12 992 do 13 248, czyli do
+8,39 zdjęcia/s; heartbeat był świeży, błędów było zero, a RSS spadł z około 721
+do 701 MiB. Przy checkpointcie 13 408 selektor miał jednak 1166 grup, 3461
+weryfikacji, 1042 przypadki manualne i tylko 99 wyborów automatycznych. Średnio
+11,5 zdjęcia na grupę zamiast typowych 50–100 wskazuje, że zmiana perspektywy i
+brak stabilnej geometrii fragmentują rzeczywistą sekwencję, a każda fałszywa
+granica uruchamia top-k verification.
+
+Poprawkę wdrożono jako osobny `fast-image-selector-v3`, bez zmiany zachowania i
+fingerprintu rozpoczętego runu v2. V3 przechowuje w bounded checkpointcie
+ostatnią obserwację grupy, porównuje fingerprint z kotwicami jakościowymi i
+czasową oraz używa geometrii tylko wtedy, gdy obie sygnatury istnieją i są
+porównywalne. Test regresyjny potwierdza, że stopniowa zmiana obrazu pozostaje w
+jednej grupie, natomiast kolejna strona nadal jest oddzielana. Rejestr
+manifestów po fingerprintcie zachowuje możliwość dokładnego wznowienia v2 po
+restarcie. Bieżący job nie został obciążony drugim skanem. Zakończył się
+naturalnie przy checkpointcie 14 144 błędem `StatisticsError`, wywołanym próbą
+policzenia mediany pustego przypisania wiersza albo kolumny geometrii. Walidacja
+niepełnej siatki zwraca teraz brak geometrii, a adapter izoluje również ten błąd
+na poziomie pojedynczego pliku. Ten sam job wznowiono jako próbę nr 3 z
+checkpointu 14 144 i potwierdzono postęp do 14 336 bez ponownego uploadu oraz bez
+zmiany jego fingerprintu v2. Pełna regresja v4 na tym samym stagingu pozostaje
+kolejnym krokiem po zakończeniu wznowionego przebiegu v2.
+
+Wznowiony run v2 ukończył 32 079 źródeł i utworzył 2795 grup. Właścicielski
+odbiór wyjaśnił dwa mylące liczniki: `25` oznacza pominięte grupy-duplikaty
+(73 zdjęcia źródłowe), a `2288` oznacza pozostałe nierozpoznane zestawy, nie
+brakujące zdjęcia ani layouty. Zbiorcza kontynuacja częściowo zapisała decyzje,
+po czym ujawniła konflikt: kilka nierozpoznanych grup pomiędzy tymi samymi
+kotwicami dostało identyczny sugerowany zakres.
+
+Regresję usunięto bez osłabiania unikalności domenowej. Zbiorcza akcja zapisuje
+`missing_image` bez zakresu, a sugestia w modalu powstaje tylko dla jednej
+nierozwiązanej grupy w jednoznacznej luce. Modal odczytuje bounded kandydatów
+bieżącej grupy i pokazuje `Zakres layoutów nierozpoznany`, numer zestawu, liczbę
+źródeł oraz ich nazwy. Dzięki temu użytkownik wie, których plików szukać, ale UI
+nie przedstawia numeru zestawu jako numeru layoutu.
+
+Analiza przypadku `73–81` wykazała, że grupa zawierała trzy dostatecznie ostre
+kandydaty, lecz v2 odrzucał wszystkie przez zestaw miękkich ostrzeżeń jakości i
+brak rozpoznanego zakresu. `fast-image-selector-v4` rozdziela twarde błędy
+(uszkodzony plik, błąd skanu, jawne zasłonięcie) od miękkich progów jakości. Z
+samych słabych zdjęć wybiera deterministycznie najlepszy dostępny kandydat i
+oznacza go `QUALITY_BEST_AVAILABLE`. Jedna nierozpoznana grupa pomiędzy pewnymi
+`64–72` i `82–90` otrzymuje bounded zakres `73–81` oraz
+`RANGE_INFERRED_FROM_BOUNDED_GAP`; dwie grupy w tej samej luce ani luka większa
+niż dziewięć nie są uzupełniane. V4 nie zwiększa `topK`, liczby OCR ani pełnych
+weryfikacji. Testy jednostkowe v2/v3 kompatybilności, v4 jakości, zasłonięcia i
+bounded inference przechodzą; realny rerun v4 oraz odbiór właściciela pozostają
+otwarte.
+
+Realny rerun v4 na tym samym stagingu zakończył się technicznie poprawnie, ale
+nie przeszedł bramki jakości: z 743 grup tylko 40 zostało wybranych
+automatycznie, a 703 wymagały review. Diagnostyka wykazała, że 700 grup miało
+niepełną geometrię, 692 nie znalazły siatki widocznych etykiet, a historyczne
+kotwice `topK` po pierwszym fałszywym scaleniu blokowały następne granice.
+
+TASK-0160 wprowadza `fast-image-selector-v5`. Ograniczona regresja rzeczywistych
+danych rozpoznała 24 z 29 próbek odrzuconych przez v4 (v4 rozpoznał 1/29), w tym
+`271–279` z dziewięcioma zgodnymi etykietami. Na pierwszych 160 uporządkowanych
+zdjęciach v5 wydzielił kolejno sześć pełnych zakresów `1–9` do `46–54`; jedyną
+manualną grupą był niepełny ostatni obraz. Pełny rerun 32 079 zdjęć oraz odbiór
+właściciela pozostają otwarte i nie są zastępowane tą ograniczoną regresją.
+
+Odbiór rzeczywistego JPEG-a `73–81` ujawnił dwie niezależne przyczyny. Adapter
+v2 odrzucał ciepło zabarwione etykiety, mimo że lokalny OCR rozpoznawał liczby,
+a przeglądarka zatrzymywała ręczny `PUT` na preflightcie CORS. Wprowadzono
+wersjonowany `fast-image-selector-v7` z adapterem
+`visible-sequence-label-range-v3` oraz polityką best-available, w której blur,
+zasłonięcie i słabe plansze nie blokują jednoznacznego zakresu. Historyczne
+manifesty v2–v6 pozostają niezmienne i rozwiązywalne po fingerprintach.
+
+Dokładnie wskazany przez właściciela plik przeszedł produkcyjny adapter jako
+`73–81`, confidence `0.962379`, `auto_selected`. Testy selektora, adapterów, API
+i CORS zakończyły się wynikiem `73 passed`; Ruff przeszedł, a skupiona kontrola
+mypy zmienionej logiki przeszła z pominięciem zewnętrznych importów. Pełna
+kontrola mypy repozytorium przekroczyła limit 120 s. Ręczny upload dopuszcza teraz
+`X-Image-File-Name` w trwałej konfiguracji CORS; kolejny pełny rerun i końcowy
+odbiór właściciela nadal pozostają otwarte, więc status zadania nie zmienia się.
+
+Po zgłoszeniu spowolnienia pełnej weryfikacji wprowadzono
+`fast-image-selector-v8` (`9dc754…`). Nowy run zachowuje pierwszego dostatecznie
+czytelnego kandydata, sprawdza bounded kandydatów w kolejności źródłowej i kończy
+OCR po pierwszym jednoznacznym zakresie. Test regresyjny potwierdza redukcję z
+trzech do jednej weryfikacji dla typowej grupy oraz przejście do drugiego zdjęcia,
+gdy pierwsze nie daje zakresu. Historyczny v7 zachowuje fingerprint `21d634…` i
+dotychczasowe zachowanie wznowień. Pełny rerun właścicielski nadal pozostaje
+otwarty i nie jest zastępowany krótką regresją.

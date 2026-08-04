@@ -36,7 +36,7 @@ bramką techniczną.
 - `ai_docs/tasks/completed/0166-reduced-jpeg-scan-and-bounded-cpu-budget.md`
 - `ai_docs/tasks/completed/0167-appearance-only-sequential-image-grouping.md`
 - `ai_docs/tasks/completed/0168-first-usable-range-free-representative-selection.md`
-- `ai_docs/tasks/0169-range-agnostic-selection-output-and-import-handoff.md`
+- `ai_docs/tasks/completed/0169-range-agnostic-selection-output-and-import-handoff.md`
 - `ai_docs/tasks/0170-versioned-image-scan-cache-and-resume.md`
 
 ## Scope

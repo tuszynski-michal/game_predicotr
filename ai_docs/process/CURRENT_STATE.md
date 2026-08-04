@@ -8,7 +8,7 @@ last_updated: 2026-08-05
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156 and TASK-0165–0168 complete; TASK-0157 in progress; fast-selection remediation TASK-0169–0171 planned; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156 and TASK-0165–0169 complete; TASK-0157 in progress; fast-selection remediation TASK-0170–0171 planned; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -379,6 +379,15 @@ last_updated: 2026-08-05
   przechowuje najwyżej dwa rekordy kandydata, verifier/OCR nadal ma zero wywołań,
   a bieżący fingerprint v9 wynosi `65c19a…`. Domyślny manifest nadal pozostaje
   v8 do TASK-0171,
+- TASK-0169 dodał kanoniczny output manifest v2 i przekazanie bez wymaganego
+  zakresu. Wybrany JPEG bez numerów ma stabilną nazwę
+  `selection_<groupOrder>.jpg`; manifest zachowuje oryginalną ścieżkę, checksumy,
+  metryki, ostrzeżenia i sposób wyboru. Handoff uzgadnia trwałe decyzje po
+  `groupOrder`, a istniejący `image_directory` ustala numery dopiero w OCR i
+  geometrii Importu layoutów. Odczyt manifestu v1 i publiczne nazwy `seq_*`
+  pozostają zgodne. Schemat PostgreSQL już dopuszczał zakres nullable, więc nie
+  była potrzebna migracja Alembic. OpenAPI, klient i panel rozróżniają teraz
+  wybrane grupy od rozpoznanych layoutów,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
@@ -522,8 +531,8 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Next recommended task
 
-Realizować TASK-0169: range-agnostic output i przekazanie wybranych JPEG-ów do
-Importu layoutów bez wymaganego zakresu.
+Realizować TASK-0170: wersjonowany cache lekkich obserwacji i bezpieczne resume
+bez ponownego dekodowania zgodnych JPEG-ów.
 Profile rzeczywiste 500–1000, 3000 i końcowy run 40 000 wykonać wspólnie w
 TASK-0171 po zaliczeniu TASK-0166–0170. Nie uruchamiać pełnego runu 40 000 przed
 krótką bramką 3000 zdjęć w TASK-0171. Końcowy czas 40 000 nie ma sztywnego

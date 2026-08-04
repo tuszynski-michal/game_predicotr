@@ -286,10 +286,13 @@ def create_image_selections_router(
             files=[
                 ImageSelectionOutputFileResponse(
                     file_name=item.file_name,
+                    group_order=item.group_order,
                     range_start=item.range_start,
                     range_end=item.range_end,
                     checksum_sha256=item.checksum_sha256,
                     size_bytes=item.size_bytes,
+                    reason_codes=list(item.reason_codes),
+                    selection_method=item.selection_method,
                 )
                 for item in output.files
             ],

@@ -62,11 +62,14 @@ class ImageSelectionHandoffResponse(ApiModel):
 
 
 class ImageSelectionOutputFileResponse(ApiModel):
-    file_name: str = Field(pattern=r"^seq_[1-9][0-9]*-[1-9][0-9]*\.jpg$")
-    range_start: int = Field(ge=1)
-    range_end: int = Field(ge=1)
+    file_name: str = Field(pattern=r"^(?:seq_[1-9][0-9]*-[1-9][0-9]*|selection_[0-9]+)\.jpg$")
+    group_order: int = Field(ge=0)
+    range_start: int | None = Field(default=None, ge=1)
+    range_end: int | None = Field(default=None, ge=1)
     checksum_sha256: Sha256
     size_bytes: int = Field(ge=1)
+    reason_codes: list[str]
+    selection_method: Literal["automatic", "manual"]
 
 
 class ImageSelectionOutputResponse(ApiModel):

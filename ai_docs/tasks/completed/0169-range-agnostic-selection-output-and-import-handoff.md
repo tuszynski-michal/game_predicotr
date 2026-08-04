@@ -1,6 +1,6 @@
 ---
 title: TASK-0169 range agnostic selection output and import handoff
-status: todo
+status: done
 release: "0.4"
 last_updated: 2026-08-04
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-04
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -55,15 +55,15 @@ skok może prowadzić z `19–27` do `400–408`.
 
 ## Acceptance criteria
 
-- [ ] Selekcja kończy się i publikuje output bez OCR oraz bez zakresów.
-- [ ] Nazwy range-free są deterministyczne, stabilne na Windows i nie udają
+- [x] Selekcja kończy się i publikuje output bez OCR oraz bez zakresów.
+- [x] Nazwy range-free są deterministyczne, stabilne na Windows i nie udają
       numerów layoutów.
-- [ ] Import otrzymuje ten sam checksumowany JPEG i ustala numerację dopiero w
+- [x] Import otrzymuje ten sam checksumowany JPEG i ustala numerację dopiero w
       swoim pipeline.
-- [ ] Skok zakresów pozostaje poprawny; selekcja nie przewiduje numeru.
-- [ ] Historyczne manifesty i publiczne nazwy `seq_*` nadal są odczytywalne.
-- [ ] OpenAPI i generowany klient są zgodne z backendem.
-- [ ] UI jasno rozróżnia `wybrane grupy` od `rozpoznanych layoutów`.
+- [x] Skok zakresów pozostaje poprawny; selekcja nie przewiduje numeru.
+- [x] Historyczne manifesty i publiczne nazwy `seq_*` nadal są odczytywalne.
+- [x] OpenAPI i generowany klient są zgodne z backendem.
+- [x] UI jasno rozróżnia `wybrane grupy` od `rozpoznanych layoutów`.
 
 ## Technical notes
 
@@ -99,4 +99,20 @@ npm run typecheck --workspace @game-predictor/admin
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Dodano kanoniczny `curated-image-selection-output-v2` z opcjonalną parą zakresu,
+`groupOrder`, oryginalną ścieżką, checksumami, metrykami jakości, reason codes i
+sposobem wyboru. Range-free JPEG otrzymuje nazwę
+`selection_<groupOrder>.jpg`; wpis z pewnym albo historycznym zakresem zachowuje
+publiczne `seq_<start>-<end>.jpg`. Verifier obsługuje niezmienne manifesty v1 i
+v2, a handoff uzgadnia wybrane grupy zamiast wymagać zbioru zakresów. Istniejący
+Import layoutów otrzymuje ten sam checksumowany JPEG i wykonuje numerację w
+swoim pipeline. Obecny model bazy już dopuszczał nullable range, dlatego nie
+powstała migracja.
+
+Weryfikacja 2026-08-05:
+
+- `pytest` API, output i orchestration: 28 passed,
+- Admin: 165 passed,
+- OpenAPI oraz generowany klient: current,
+- Admin TypeScript: passed,
+- Ruff zmienionych modułów: passed.

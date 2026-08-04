@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID, uuid4
 
 from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
@@ -42,10 +42,16 @@ BROWSER_SELECTION_DIRECTORY = "browser-selections"
 BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
 
 
-def _public_output_file_name(range_start: int, range_end: int) -> str:
-    """Return the stable user-facing name independently of managed storage."""
+def _public_output_file_name(
+    output_relative_path: str,
+    range_start: int | None,
+    range_end: int | None,
+) -> str:
+    """Return the stable public name for current and historical manifests."""
 
-    return f"seq_{range_start}-{range_end}.jpg"
+    if range_start is not None and range_end is not None:
+        return f"seq_{range_start}-{range_end}.jpg"
+    return PurePosixPath(safe_relative_path(output_relative_path)).name
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,10 +64,13 @@ class ImageSelectionHandoffSource:
 @dataclass(frozen=True, slots=True)
 class ImageSelectionOutputFile:
     file_name: str
-    range_start: int
-    range_end: int
+    group_order: int
+    range_start: int | None
+    range_end: int | None
     checksum_sha256: str
     size_bytes: int
+    reason_codes: tuple[str, ...]
+    selection_method: Literal["automatic", "manual"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -809,8 +818,8 @@ class ImageSelectionService:
                 "IMAGE_SELECTION_NOT_READY",
                 "Every non-duplicate group must be resolved before handoff.",
             )
-        expected_ranges = {
-            (group.range_start, group.range_end)
+        expected_groups = {
+            group.group_order: (group.range_start, group.range_end)
             for group in groups
             if group.status
             in {
@@ -818,11 +827,13 @@ class ImageSelectionService:
                 ImageSelectionGroupStatus.MANUALLY_SELECTED,
             }
         }
-        manifest_ranges = {(entry.range_start, entry.range_end) for entry in manifest.entries}
-        if expected_ranges != manifest_ranges:
+        manifest_groups = {
+            entry.group_order: (entry.range_start, entry.range_end) for entry in manifest.entries
+        }
+        if expected_groups != manifest_groups:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_MANIFEST_MISMATCH",
-                "The curated output ranges differ from the durable group decisions.",
+                "The curated output groups differ from the durable group decisions.",
             )
         return ImageSelectionHandoffSource(
             run=run,
@@ -850,13 +861,17 @@ class ImageSelectionService:
             files=tuple(
                 ImageSelectionOutputFile(
                     file_name=_public_output_file_name(
+                        entry.output_relative_path,
                         entry.range_start,
                         entry.range_end,
                     ),
+                    group_order=entry.group_order,
                     range_start=entry.range_start,
                     range_end=entry.range_end,
                     checksum_sha256=entry.output_checksum_sha256,
                     size_bytes=entry.size_bytes,
+                    reason_codes=entry.reason_codes,
+                    selection_method=entry.selection_method,
                 )
                 for entry in manifest.entries
             ),
@@ -879,7 +894,14 @@ class ImageSelectionService:
             ) from error
         for entry in manifest.entries:
             relative = PurePosixPath(entry.output_relative_path)
-            if _public_output_file_name(entry.range_start, entry.range_end) == file_name:
+            if (
+                _public_output_file_name(
+                    entry.output_relative_path,
+                    entry.range_start,
+                    entry.range_end,
+                )
+                == file_name
+            ):
                 return self._managed_path(
                     str(PurePosixPath(source.run.output_manifest_relative_path).parent / relative)
                 )

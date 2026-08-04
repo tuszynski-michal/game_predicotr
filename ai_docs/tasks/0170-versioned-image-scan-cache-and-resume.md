@@ -27,7 +27,7 @@ powtarzania tej samej pracy podczas iteracji na stagingu 32 079 zdjęć.
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/requirements/IMAGE_SELECTION.md`
 - `ai_docs/architecture/IMAGE_SELECTION.md`
-- `ai_docs/tasks/0169-range-agnostic-selection-output-and-import-handoff.md`
+- `ai_docs/tasks/completed/0169-range-agnostic-selection-output-and-import-handoff.md`
 
 ## Scope
 
@@ -86,4 +86,3 @@ sprawdzany end-to-end.
 ## Outcome
 
 Do uzupełnienia po realizacji.
-

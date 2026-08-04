@@ -866,8 +866,11 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
         {
             "checksumSha256": hashlib.sha256(content).hexdigest(),
             "fileName": "seq_1-9.jpg",
+            "groupOrder": 0,
             "rangeEnd": 9,
             "rangeStart": 1,
+            "reasonCodes": [],
+            "selectionMethod": "automatic",
             "sizeBytes": len(content),
         }
     ]
@@ -893,6 +896,109 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
         changed = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
     assert changed.status_code == 409
     assert changed.json()["code"] == "IMAGE_SELECTION_MANIFEST_MISMATCH"
+
+
+def test_range_free_output_is_exposed_and_handed_to_import_by_group_order(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    artifact_root = tmp_path / "artifacts"
+    service = ImageSelectionService(repository, artifact_root=artifact_root)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="4" * 64,
+        selector_fingerprint="5" * 64,
+    )
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    source_path = source_root / "stored.jpg"
+    Image.new("RGB", (32, 24), (20, 180, 240)).save(source_path, format="JPEG")
+    content = source_path.read_bytes()
+    source = ImageSelectionSource(
+        7,
+        "photos/original-name.jpg",
+        source_path.name,
+        hashlib.sha256(content).hexdigest(),
+        len(content),
+    )
+    candidate = CandidateResult(
+        source=source,
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        quality=ImageQualityMetrics(*(0.8 for _value in range(8))),
+        recognized_range=None,
+        reason_codes=("RANGE_UNKNOWN",),
+    )
+    result = ImageSelectionResult(
+        selector_version="fast-image-selector-v9",
+        selector_fingerprint=run.selector_fingerprint,
+        input_count=1,
+        groups=(
+            SelectionGroupResult(
+                group_order=3,
+                source_count=1,
+                range=None,
+                fingerprint_sha256="6" * 64,
+                board_count_consensus=None,
+                status=SelectionGroupStatus.AUTO_SELECTED,
+                selected_candidate=candidate,
+                top_candidates=(candidate,),
+            ),
+        ),
+        checkpoint=SelectorCheckpoint(1, run.selector_fingerprint, 1, 1, 1),
+        scan_failure_count=0,
+        verification_count=0,
+    )
+    published = CuratedImageOutputPublisher(artifact_root).publish(
+        run_id=run.id,
+        source_root=source_root,
+        input_manifest_sha256=run.input_manifest_sha256,
+        result=result,
+    )
+    repository.groups.append(
+        replace(
+            _group(run.id, 3, status=ImageSelectionGroupStatus.AUTO_SELECTED),
+            fingerprint_sha256="6" * 64,
+            selected_candidate_id=uuid4(),
+        )
+    )
+    service.record_output(
+        run_id=run.id,
+        manifest_sha256=published.manifest_sha256,
+        manifest_relative_path=published.manifest_relative_path,
+    )
+    folder_service = ImageFolderSelectionService(lambda: None)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+            image_folder_selection_service_dependency=lambda: folder_service,
+        )
+    )
+
+    with client:
+        output = client.get(f"/api/v1/admin/image-selections/{run.id}/output")
+        output_file = client.get(f"/api/v1/admin/image-selections/{run.id}/output/selection_3.jpg")
+        handoff = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
+
+    assert output.status_code == 200, output.text
+    assert output.json()["files"] == [
+        {
+            "checksumSha256": hashlib.sha256(content).hexdigest(),
+            "fileName": "selection_3.jpg",
+            "groupOrder": 3,
+            "rangeEnd": None,
+            "rangeStart": None,
+            "reasonCodes": ["RANGE_UNKNOWN"],
+            "selectionMethod": "automatic",
+            "sizeBytes": len(content),
+        }
+    ]
+    assert output_file.status_code == 200
+    assert output_file.content == content
+    assert handoff.status_code == 200, handoff.text
+    assert handoff.json()["supportedFileCount"] == 1
 
 
 def test_manual_jpeg_approval_is_idempotent_revisable_and_audited(

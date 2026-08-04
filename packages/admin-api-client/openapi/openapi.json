@@ -2197,19 +2197,53 @@
             "type": "string"
           },
           "fileName": {
-            "pattern": "^seq_[1-9][0-9]*-[1-9][0-9]*\\.jpg$",
+            "pattern": "^(?:seq_[1-9][0-9]*-[1-9][0-9]*|selection_[0-9]+)\\.jpg$",
             "title": "Filename",
             "type": "string"
           },
-          "rangeEnd": {
-            "minimum": 1.0,
-            "title": "Rangeend",
+          "groupOrder": {
+            "minimum": 0.0,
+            "title": "Grouporder",
             "type": "integer"
           },
+          "rangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
+          },
           "rangeStart": {
-            "minimum": 1.0,
-            "title": "Rangestart",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangestart"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "selectionMethod": {
+            "enum": [
+              "automatic",
+              "manual"
+            ],
+            "title": "Selectionmethod",
+            "type": "string"
           },
           "sizeBytes": {
             "minimum": 1.0,
@@ -2219,10 +2253,11 @@
         },
         "required": [
           "fileName",
-          "rangeStart",
-          "rangeEnd",
+          "groupOrder",
           "checksumSha256",
-          "sizeBytes"
+          "sizeBytes",
+          "reasonCodes",
+          "selectionMethod"
         ],
         "title": "ImageSelectionOutputFileResponse",
         "type": "object"

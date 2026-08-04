@@ -1294,13 +1294,25 @@ export type ImageSelectionOutputFileResponse = {
    */
   fileName: string;
   /**
+   * Grouporder
+   */
+  groupOrder: number;
+  /**
    * Rangeend
    */
-  rangeEnd: number;
+  rangeEnd?: number | null;
   /**
    * Rangestart
    */
-  rangeStart: number;
+  rangeStart?: number | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Selectionmethod
+   */
+  selectionMethod: 'automatic' | 'manual';
   /**
    * Sizebytes
    */

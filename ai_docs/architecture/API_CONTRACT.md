@@ -659,6 +659,20 @@ Ponowienie aktywnego handoffu zwraca ten sam token, a logiczne źródło zachowu
 `selectionId = runId`. Panel przechodzi do `Importu layoutów`, lecz dopiero
 osobne kliknięcie `Rozpocznij import` konsumuje token i tworzy job.
 
+Manifest outputu `curated-image-selection-output-v2` identyfikuje wpis przez
+`groupOrder`, przechowuje oryginalną ścieżkę, checksumy, metryki jakości,
+`reasonCodes` i `selectionMethod`. `rangeStart` oraz `rangeEnd` są parą
+opcjonalną. Bez zakresu publiczna nazwa ma postać `selection_<groupOrder>.jpg`;
+rozpoznany albo historyczny zakres zachowuje `seq_<start>-<end>.jpg`. Endpoint
+`GET .../output` zwraca oba warianty, a `GET .../output/{fileName}` ponownie
+weryfikuje manifest i JPEG. Verifier nadal czyta niezmienne manifesty v1.
+
+Handoff porównuje wybrane trwałe grupy po `groupOrder` i opcjonalnej parze
+zakresu, a nie wymaga zbioru rozpoznanych zakresów. `supportedFileCount` oznacza
+liczbę wybranych grup mających JPEG. Import `image_directory` otrzymuje te same
+checksumowane pliki; dopiero jego istniejący OCR i geometria ustalają
+`sequence_number` oraz wykrywają duplikaty zakresu.
+
 Stabilne rodziny błędów:
 
 ```text

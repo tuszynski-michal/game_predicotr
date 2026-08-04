@@ -358,7 +358,7 @@ export function ImageSelectionWorkspace({
         setError(result.error);
       } else if (!result.cancelled) {
         setNotice(
-          `Zapisano ${result.savedCount.toLocaleString('pl-PL')} wybranych zdjęć we wskazanym folderze jako seq_<od>-<do>.jpg.`,
+          `Zapisano ${result.savedCount.toLocaleString('pl-PL')} wybranych zdjęć. Nazwa selection_<grupa>.jpg oznacza kolejność techniczną, a seq_<od>-<do>.jpg rozpoznany zakres.`,
         );
       }
     } catch {
@@ -604,7 +604,7 @@ export function ImageSelectionWorkspace({
 
             <dl className="imageSelectionMetrics">
               <Metric label="Grupy" value={selectionProgress?.groups} />
-              <Metric label="Wybrane" value={selectionProgress?.selected} />
+              <Metric label="Wybrane grupy" value={selectionProgress?.selected} />
               <Metric
                 label={
                   isPollableRunStatus(run.job.status)

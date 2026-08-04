@@ -39,6 +39,7 @@ from .manifest import (
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     AppearanceDescriptorConfig,
+    RangeFreeRepresentativePolicy,
     SelectorManifest,
 )
 
@@ -143,6 +144,7 @@ class _OpenGroup:
     top_k: int
     prefer_first_usable: bool = False
     appearance_only: bool = False
+    representative_policy: RangeFreeRepresentativePolicy | None = None
     source_count: int = 0
     top_observations: list[CheapImageObservation] = field(default_factory=list)
     board_counts: Counter[int] = field(default_factory=Counter)
@@ -177,19 +179,36 @@ class _OpenGroup:
         if observation.board_count is not None:
             self.board_counts[observation.board_count] += 1
         candidates = (*self.top_observations, observation)
-        ranked = sorted(candidates, key=_observation_rank)
+        ranked = sorted(
+            candidates,
+            key=_fallback_observation_rank if self.appearance_only else _observation_rank,
+        )
         if self.prefer_first_usable:
             first_usable = min(
-                (item for item in candidates if _is_reasonably_readable_observation(item)),
-                key=lambda item: item.source.order_index,
+                (
+                    item
+                    for item in candidates
+                    if _is_reasonably_readable_observation(
+                        item,
+                        policy=self.representative_policy,
+                    )
+                ),
+                key=lambda item: (item.source.order_index, item.source.checksum_sha256),
                 default=None,
             )
-            selected = [] if first_usable is None else [first_usable]
-            selected_indexes = {item.source.order_index for item in selected}
-            selected.extend(
-                item for item in ranked if item.source.order_index not in selected_indexes
+            selected = (
+                ranked[:1]
+                if first_usable is None and self.appearance_only
+                else ([] if first_usable is None else [first_usable])
             )
-            self.top_observations = sorted(selected[: self.top_k], key=_observation_rank)
+            selected_indexes = {item.source.order_index for item in selected}
+            remaining = [item for item in ranked if item.source.order_index not in selected_indexes]
+            if not (self.appearance_only and first_usable is None):
+                selected.extend(remaining[:1] if self.appearance_only else remaining)
+            self.top_observations = sorted(
+                selected[: self.top_k],
+                key=_fallback_observation_rank if self.appearance_only else _observation_rank,
+            )
         else:
             self.top_observations = ranked[: self.top_k]
         if self.reference is None or _observation_rank(observation) < _observation_rank(
@@ -225,6 +244,7 @@ class _OpenGroup:
         top_k: int,
         prefer_first_usable: bool = False,
         appearance_only: bool = False,
+        representative_policy: RangeFreeRepresentativePolicy | None = None,
     ) -> _OpenGroup:
         if len(state.top_observations) > top_k:
             raise SelectionContractError(
@@ -236,6 +256,7 @@ class _OpenGroup:
             top_k=top_k,
             prefer_first_usable=prefer_first_usable,
             appearance_only=appearance_only,
+            representative_policy=representative_policy,
             source_count=state.source_count,
             top_observations=list(state.top_observations),
             board_counts=Counter(dict(state.board_counts)),
@@ -259,13 +280,63 @@ def _observation_rank(observation: CheapImageObservation) -> tuple[float, int, s
     )
 
 
-def _is_reasonably_readable_observation(observation: CheapImageObservation) -> bool:
-    return (
-        observation.quality.overall_score >= FIRST_USABLE_POLICY.minimum_quality_score
-        and observation.quality.sharpness >= FIRST_USABLE_POLICY.minimum_sharpness
-        and not any(
-            reason.startswith("IMAGE_SELECTION_SCAN_") for reason in observation.reason_codes
+def _has_hard_scan_failure(observation: CheapImageObservation) -> bool:
+    return not observation.appearance_signature or any(
+        reason.startswith("IMAGE_SELECTION_SCAN_") for reason in observation.reason_codes
+    )
+
+
+def _is_reasonably_readable_observation(
+    observation: CheapImageObservation,
+    *,
+    policy: RangeFreeRepresentativePolicy | None = None,
+) -> bool:
+    if _has_hard_scan_failure(observation):
+        return False
+    quality = observation.quality
+    if policy is None:
+        return (
+            quality.overall_score >= FIRST_USABLE_POLICY.minimum_quality_score
+            and quality.sharpness >= FIRST_USABLE_POLICY.minimum_sharpness
         )
+    return (
+        quality.overall_score >= policy.minimum_quality_score
+        and quality.sharpness >= policy.minimum_sharpness
+        and quality.exposure >= policy.minimum_exposure
+        and quality.highlight_retention >= policy.minimum_highlight_retention
+        and quality.board_visibility >= policy.minimum_board_visibility
+    )
+
+
+def _fallback_observation_rank(
+    observation: CheapImageObservation,
+) -> tuple[float, float, float, float, float, float, int, str]:
+    quality = observation.quality
+    return (
+        -quality.overall_score,
+        -quality.sharpness,
+        -quality.exposure,
+        -quality.highlight_retention,
+        -quality.glare_resistance,
+        -quality.board_visibility,
+        observation.source.order_index,
+        observation.source.checksum_sha256,
+    )
+
+
+def _range_free_candidate_rank(
+    candidate: CandidateResult,
+) -> tuple[float, float, float, float, float, float, int, str]:
+    quality = candidate.quality
+    return (
+        -quality.overall_score,
+        -quality.sharpness,
+        -quality.exposure,
+        -quality.highlight_retention,
+        -quality.glare_resistance,
+        -quality.board_visibility,
+        candidate.source.order_index,
+        candidate.source.checksum_sha256,
     )
 
 
@@ -317,8 +388,13 @@ class FastImageSelector:
                 f"{MAX_PARALLEL_SCAN_PREFETCH}."
             )
         self.manifest = manifest
-        self._prefer_first_usable = manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS
         self._appearance_only = manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS
+        self._prefer_first_usable = (
+            manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS or self._appearance_only
+        )
+        self._representative_policy = (
+            manifest.representative_policy if self._appearance_only else None
+        )
         self._scan_workers = scan_workers
         self._scan_prefetch = effective_prefetch
 
@@ -367,6 +443,7 @@ class FastImageSelector:
                 top_k=self.manifest.top_k,
                 prefer_first_usable=self._prefer_first_usable,
                 appearance_only=self._appearance_only,
+                representative_policy=self._representative_policy,
             )
         )
         pending = [] if resume_state is None else list(resume_state.pending_observations)
@@ -431,6 +508,7 @@ class FastImageSelector:
                     top_k=self.manifest.top_k,
                     prefer_first_usable=self._prefer_first_usable,
                     appearance_only=self._appearance_only,
+                    representative_policy=self._representative_policy,
                 )
                 ingest(current, observation)
             elif pending:
@@ -448,6 +526,7 @@ class FastImageSelector:
                             top_k=self.manifest.top_k,
                             prefer_first_usable=self._prefer_first_usable,
                             appearance_only=self._appearance_only,
+                            representative_policy=self._representative_policy,
                         )
                         for item in pending:
                             ingest(current, item)
@@ -500,6 +579,7 @@ class FastImageSelector:
                     top_k=self.manifest.top_k,
                     prefer_first_usable=self._prefer_first_usable,
                     appearance_only=self._appearance_only,
+                    representative_policy=self._representative_policy,
                 )
                 for observation in pending:
                     ingest(current, observation)
@@ -954,24 +1034,76 @@ class FastImageSelector:
 
     def _finalize_appearance_group(self, group: _OpenGroup) -> SelectionGroupResult:
         assert group.reference is not None
-        candidates = tuple(
-            CandidateResult(
-                source=observation.source,
-                decision=(
-                    CandidateDecision.REJECTED
-                    if any(
-                        reason.startswith("IMAGE_SELECTION_SCAN_")
-                        for reason in observation.reason_codes
-                    )
-                    else CandidateDecision.ELIGIBLE
-                ),
-                quality=observation.quality,
-                recognized_range=None,
-                reason_codes=observation.reason_codes,
-                width=observation.width,
-                height=observation.height,
+        observations = tuple(group.top_observations)
+        usable = min(
+            (
+                observation
+                for observation in observations
+                if _is_reasonably_readable_observation(
+                    observation,
+                    policy=self.manifest.representative_policy,
+                )
+            ),
+            key=lambda observation: (
+                observation.source.order_index,
+                observation.source.checksum_sha256,
+            ),
+            default=None,
+        )
+        decodable = tuple(
+            observation for observation in observations if not _has_hard_scan_failure(observation)
+        )
+        selected_observation = (
+            usable
+            if usable is not None
+            else (None if not decodable else min(decodable, key=_fallback_observation_rank))
+        )
+        selected_identity = (
+            None
+            if selected_observation is None
+            else (
+                selected_observation.source.order_index,
+                selected_observation.source.checksum_sha256,
             )
-            for observation in group.top_observations
+        )
+        used_best_available = selected_observation is not None and usable is None
+        candidates = []
+        for observation in observations:
+            identity = (
+                observation.source.order_index,
+                observation.source.checksum_sha256,
+            )
+            hard_failure = _has_hard_scan_failure(observation)
+            reasons = observation.reason_codes
+            if identity == selected_identity and used_best_available:
+                reasons = tuple(dict.fromkeys((*reasons, BEST_AVAILABLE_REASON)))
+            candidates.append(
+                CandidateResult(
+                    source=observation.source,
+                    decision=(
+                        CandidateDecision.SELECTED_AUTOMATIC
+                        if identity == selected_identity
+                        else (
+                            CandidateDecision.REJECTED
+                            if hard_failure
+                            else CandidateDecision.ELIGIBLE
+                        )
+                    ),
+                    quality=observation.quality,
+                    recognized_range=None,
+                    reason_codes=reasons,
+                    width=observation.width,
+                    height=observation.height,
+                )
+            )
+        ranked_candidates = tuple(sorted(candidates, key=_range_free_candidate_rank))
+        selected_candidate = next(
+            (
+                candidate
+                for candidate in ranked_candidates
+                if candidate.decision is CandidateDecision.SELECTED_AUTOMATIC
+            ),
+            None,
         )
         fingerprint_sha256 = hashlib.sha256(
             bytes.fromhex(group.reference.fingerprint_hex)
@@ -982,9 +1114,13 @@ class FastImageSelector:
             range=None,
             fingerprint_sha256=fingerprint_sha256,
             board_count_consensus=None,
-            status=SelectionGroupStatus.MANUAL_REQUIRED,
-            selected_candidate=None,
-            top_candidates=candidates,
+            status=(
+                SelectionGroupStatus.AUTO_SELECTED
+                if selected_candidate is not None
+                else SelectionGroupStatus.MANUAL_REQUIRED
+            ),
+            selected_candidate=selected_candidate,
+            top_candidates=ranked_candidates,
             reference_fingerprint_hex=group.reference.fingerprint_hex,
         )
 

@@ -1,6 +1,6 @@
 ---
 title: TASK-0168 first usable range-free representative selection
-status: todo
+status: done
 release: "0.4"
 last_updated: 2026-08-04
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-04
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -52,14 +52,14 @@ fallbacki, które należą do późniejszego importu.
 
 ## Acceptance criteria
 
-- [ ] Typowa grupa nie uruchamia żadnej dodatkowej pełnej weryfikacji.
-- [ ] Każda grupa zawierająca co najmniej jeden dekodowalny JPEG dostaje
+- [x] Typowa grupa nie uruchamia żadnej dodatkowej pełnej weryfikacji.
+- [x] Każda grupa zawierająca co najmniej jeden dekodowalny JPEG dostaje
       reprezentanta.
-- [ ] Pierwszy użyteczny obraz wygrywa z późniejszym tylko nieznacznie lepszym.
-- [ ] Słaba grupa zachowuje best-available zamiast przejścia do obowiązkowego
+- [x] Pierwszy użyteczny obraz wygrywa z późniejszym tylko nieznacznie lepszym.
+- [x] Słaba grupa zachowuje best-available zamiast przejścia do obowiązkowego
       manual review.
-- [ ] Twarde błędy pojedynczego pliku nie kończą całego runu.
-- [ ] Ranking i remisy są deterministyczne po `order_index` oraz checksumie.
+- [x] Twarde błędy pojedynczego pliku nie kończą całego runu.
+- [x] Ranking i remisy są deterministyczne po `order_index` oraz checksumie.
 
 ## Technical notes
 
@@ -87,4 +87,16 @@ później poprawić geometrię albo uzupełnić niewidoczne layouty.
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+- Manifest v9 zawiera wersjonowaną politykę pięciu tanich progów i ogranicza
+  `topK` do dwóch. Jego bieżący fingerprint wynosi `65c19a84a959…`; v8 nadal
+  pozostaje domyślny do bramki TASK-0171.
+- State machine zachowuje niezmienne pierwsze użyteczne źródło oraz jeden
+  deterministyczny fallback. Przed znalezieniem użytecznego JPEG-a checkpoint
+  zawiera tylko jeden najlepszy fallback.
+- Finalizacja v9 nie wywołuje verifiera. Dekodowalna grupa zawsze dostaje
+  `auto_selected`; fallback ma `QUALITY_BEST_AVAILABLE`, a grupa z samymi
+  błędami dekodowania pozostaje `manual_required`.
+- Weryfikacja: `85 passed` dla selektora, adapterów i joba; Ruff bez błędów;
+  mypy bez błędów dla modułów engine i manifestu. Pierwsza próba pełnej regresji
+  ujawniła wyłącznie brak dostępu do systemowego katalogu pytest; powtórzenie z
+  repozytoryjnym `--basetemp` przeszło w całości.

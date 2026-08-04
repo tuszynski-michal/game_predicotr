@@ -31,7 +31,7 @@ skok może prowadzić z `19–27` do `400–408`.
 - `ai_docs/architecture/IMAGE_SELECTION.md`
 - `ai_docs/architecture/DATA_MODEL.md`
 - `ai_docs/architecture/API_CONTRACT.md`
-- `ai_docs/tasks/0168-first-usable-range-free-representative-selection.md`
+- `ai_docs/tasks/completed/0168-first-usable-range-free-representative-selection.md`
 
 ## Scope
 
@@ -100,4 +100,3 @@ npm run typecheck --workspace @game-predictor/admin
 ## Outcome
 
 Do uzupełnienia po realizacji.
-

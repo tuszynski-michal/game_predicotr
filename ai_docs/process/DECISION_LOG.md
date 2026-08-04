@@ -3613,11 +3613,39 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   i OCR jako zbyt kosztowne, a nieograniczoną historię deskryptorów jako
   sprzeczną z bounded pamięcią. Przewidywanie zakresu lub długości serii nadal
   należy do późniejszego Importu layoutów.
-- **Consequences:** manifest v9 ma fingerprint `711ce8cddc86…`, lecz domyślny
-  manifest pozostaje v8 do końcowej aktywacji w TASK-0171. Prywatny golden
+- **Consequences:** pierwszy przedaktywacyjny manifest v9 miał fingerprint
+  `711ce8cddc86…`; D-149 zastępuje go po dodaniu polityki reprezentanta.
+  Domyślny manifest pozostaje v8 do końcowej aktywacji w TASK-0171. Prywatny golden
   kolejnych ekranów `1–9`, `10–18`, `19–27` nie ma false merge; mała zmiana
   perspektywy tego samego realnego zdjęcia pozostaje poniżej progu granicy.
   TASK-0168 przejmie wybór reprezentanta bez pełnej weryfikacji.
+
+## D-149 — V9 wybiera pierwszego użytecznego reprezentanta bez OCR
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** otwarta grupa v9 zachowuje pierwszą dekodowalną obserwację
+  spełniającą wersjonowane progi jakości oraz najwyżej jeden najlepszy
+  dekodowalny fallback. Po zamknięciu grupy pierwszy użyteczny obraz zostaje
+  `auto_selected` bez wywołania verifiera. Jeżeli żaden obraz nie przechodzi
+  progów, najlepszy fallback zostaje wybrany z `QUALITY_BEST_AVAILABLE`.
+- **Context:** celem selekcji jest redukcja liczby wejść do ciężkiego Importu,
+  a nie ostateczna ocena plansz. Odrzucanie całej strony z powodu miękkich
+  metryk powodowało niepotrzebne manual review i ryzyko utraty unikalnego
+  ekranu.
+- **Reason:** pierwsze wystarczające zdjęcie minimalizuje pracę i zachowuje
+  kolejność, natomiast pojedynczy fallback chroni słabe serie bez wzrostu
+  checkpointu. Dokładne OCR, geometria i deduplikacja należą do Importu.
+- **Alternatives:** poszukiwanie absolutnie najlepszego kadru odrzucono jako
+  zbędne, a obowiązkowy manual review słabych grup jako sprzeczny z szybkim
+  preselektorem. Pominięcie całej grupy jest dozwolone tylko wtedy, gdy nie ma
+  żadnego dekodowalnego pliku.
+- **Consequences:** polityka progów jest częścią kanonicznego manifestu, top-k v9
+  wynosi dwa, a nowy przedaktywacyjny fingerprint to `65c19a84a959…`.
+  Historyczne v2–v8 pozostają niezmienne; v9 nadal nie jest domyślny przed
+  TASK-0171.
+- **Supersedes:** zastępuje wyłącznie przedaktywacyjny fingerprint v9 zapisany
+  w D-148; decyzja o appearance-only grouping pozostaje bez zmian.
 
 ## Szablon nowej decyzji
 

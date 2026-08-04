@@ -169,6 +169,13 @@ Dla grupy utrzymywane są tylko:
 - najwyżej jeden najlepszy dekodowalny fallback,
 - bounded pending guard granicy.
 
+Wersjonowana polityka reprezentanta v9 wymaga `overall_score >= 0.30`,
+`sharpness >= 0.10`, `exposure >= 0.20`, `highlight_retention >= 0.50` oraz
+`board_visibility >= 0.25`. Progi są miękkie: ich niespełnienie nie usuwa
+grupy. Stan otwartej grupy zachowuje najwyżej dwa rekordy kandydatów: pierwsze
+użyteczne źródło i jeden najlepszy fallback. Przed znalezieniem pierwszego
+użytecznego źródła zachowywany jest wyłącznie jeden najlepszy fallback.
+
 Po zamknięciu grupy wybierany jest pierwszy użyteczny obraz bez dodatkowej
 pełnej weryfikacji. Jeżeli próg nie został spełniony, publikowany jest najlepszy
 dekodowalny fallback z `QUALITY_BEST_AVAILABLE`. Niepewnego podobieństwa dwóch
@@ -179,6 +186,13 @@ Import po odczytaniu zakresu.
 jako numer layoutu. V9 publikuje `selection_<groupOrder>.jpg` oraz manifest bez
 wymaganego zakresu. Historyczne runy pozostają odtwarzalne po swoich
 fingerprintach.
+
+Bieżący przedaktywacyjny manifest v9 ma fingerprint
+`65c19a84a959e38244613d2a56757d5b4aad87a6c1177912af9fa2305d5c4075`.
+Verifier pełnego kandydata nie jest wywoływany; kandydat bez błędu dekodowania
+lub integralności staje się `auto_selected`, a fallback otrzymuje jawne
+`QUALITY_BEST_AVAILABLE`. Grupa zawierająca wyłącznie niedekodowalne pliki
+pozostaje `manual_required`.
 
 ### Historyczny pipeline v2–v8
 

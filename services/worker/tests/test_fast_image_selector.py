@@ -11,12 +11,14 @@ from typing import Any, cast
 import pytest
 from game_predictor_worker.images.selection.adapters import build_default_adapters
 from game_predictor_worker.images.selection.contracts import (
+    CandidateDecision,
     CandidateVerification,
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
     SelectionContractError,
     SelectionGroupResult,
+    SelectionGroupStatus,
     SelectorCheckpoint,
     SelectorOpenGroupState,
     SelectorResumeState,
@@ -69,6 +71,11 @@ def _quality(name: str) -> ImageQualityMetrics:
         "geometry_incomplete": (0.92, 0.92, 0.98, 0.95, 0.30, 0.91, 0.50, 0.70),
         "quality_fallback": (0.82, 0.50, 0.96, 0.40, 0.86, 0.80, 1.0, 0.58),
         "range_73_clear": (0.627, 0.241, 0.95, 0.956, 0.70, 0.30, 0.50, 0.491),
+        "v9_unusable_early": (0.07, 0.70, 0.90, 0.85, 0.70, 0.70, 0.70, 0.28),
+        "v9_usable_first": (0.30, 0.65, 0.80, 0.80, 0.70, 0.70, 0.70, 0.55),
+        "v9_usable_better": (0.52, 0.72, 0.92, 0.90, 0.78, 0.78, 0.82, 0.68),
+        "v9_fallback_low": (0.05, 0.25, 0.60, 0.60, 0.35, 0.35, 0.35, 0.20),
+        "v9_fallback_best": (0.09, 0.62, 0.78, 0.80, 0.65, 0.65, 0.65, 0.29),
     }
     return ImageQualityMetrics(*values[name])
 
@@ -429,7 +436,7 @@ def test_v9_manifest_is_versioned_but_not_activated_before_final_gate() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
-        == "711ce8cddc86b5f8d119439584056721b93e578c6a5d401ca662f51ba09f2d8f"
+        == "65c19a84a959e38244613d2a56757d5b4aad87a6c1177912af9fa2305d5c4075"
     )
     assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v8"
     assert (
@@ -579,9 +586,24 @@ def _appearance_signature(page: int, *, drift: float = 0.0) -> tuple[float, ...]
 @dataclass
 class _AppearanceAnalyzer:
     signatures: tuple[tuple[float, ...], ...]
+    qualities: tuple[ImageQualityMetrics, ...] | None = None
+    failed_indexes: frozenset[int] = frozenset()
 
     def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
         signature = self.signatures[source.order_index]
+        if source.order_index in self.failed_indexes:
+            return CheapImageObservation(
+                source=source,
+                width=1,
+                height=1,
+                fingerprint_hex=source.checksum_sha256,
+                geometry_signature=(),
+                board_count=None,
+                geometry_confidence=0.0,
+                quality=ImageQualityMetrics(*(0.0 for _ in range(8))),
+                reason_codes=("IMAGE_SELECTION_SCAN_DECODE_FAILED",),
+                appearance_signature=(),
+            )
         fingerprint = hashlib.sha256(repr(signature).encode("ascii")).hexdigest()
         return CheapImageObservation(
             source=source,
@@ -591,7 +613,9 @@ class _AppearanceAnalyzer:
             geometry_signature=(),
             board_count=None,
             geometry_confidence=0.0,
-            quality=_quality("good"),
+            quality=(
+                _quality("good") if self.qualities is None else self.qualities[source.order_index]
+            ),
             appearance_signature=signature,
         )
 
@@ -609,6 +633,96 @@ class _ForbiddenVerifier:
         del observation, expected_board_count
         self.calls += 1
         raise AssertionError("Appearance-only grouping must not invoke range verification.")
+
+
+def test_v9_keeps_first_usable_representative_over_later_better_frames() -> None:
+    signatures = tuple(_appearance_signature(0, drift=index * 0.05) for index in range(4))
+    qualities = tuple(
+        _quality(name)
+        for name in (
+            "v9_unusable_early",
+            "v9_usable_first",
+            "v9_usable_better",
+            "good",
+        )
+    )
+    verifier = _ForbiddenVerifier()
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        _sources("v9-first-usable", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, qualities),
+        verifier=verifier,
+    )
+
+    assert len(result.groups) == 1
+    group = result.groups[0]
+    assert group.status is SelectionGroupStatus.AUTO_SELECTED
+    assert group.selected_candidate is not None
+    assert group.selected_candidate.source.order_index == 1
+    assert len(group.top_candidates) <= 2
+    assert "QUALITY_BEST_AVAILABLE" not in group.selected_candidate.reason_codes
+    assert verifier.calls == 0
+    assert result.verification_count == 0
+
+
+def test_v9_uses_deterministic_best_decodable_fallback_with_warning() -> None:
+    signatures = tuple(_appearance_signature(0, drift=index * 0.05) for index in range(3))
+    qualities = tuple(
+        _quality(name)
+        for name in (
+            "v9_fallback_low",
+            "v9_fallback_best",
+            "v9_fallback_best",
+        )
+    )
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        _sources("v9-best-fallback", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, qualities),
+        verifier=_ForbiddenVerifier(),
+    )
+
+    group = result.groups[0]
+    assert group.status is SelectionGroupStatus.AUTO_SELECTED
+    assert group.selected_candidate is not None
+    assert group.selected_candidate.source.order_index == 1
+    assert group.selected_candidate.reason_codes == ("QUALITY_BEST_AVAILABLE",)
+    assert len(group.top_candidates) == 1
+
+
+def test_v9_isolates_decode_failure_and_still_selects_the_group() -> None:
+    signatures = tuple(_appearance_signature(0, drift=index * 0.05) for index in range(3))
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        _sources("v9-isolated-decode-failure", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, failed_indexes=frozenset({1})),
+        verifier=_ForbiddenVerifier(),
+    )
+
+    assert result.scan_failure_count == 1
+    assert len(result.groups) == 1
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 0
+
+
+def test_v9_group_with_only_undecodable_files_remains_manual() -> None:
+    signatures = tuple(_appearance_signature(0) for _ in range(2))
+
+    result = FastImageSelector(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9).select(
+        _sources("v9-all-decode-failed", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, failed_indexes=frozenset({0, 1})),
+        verifier=_ForbiddenVerifier(),
+    )
+
+    assert result.scan_failure_count == 2
+    assert len(result.groups) == 1
+    assert result.groups[0].status is SelectionGroupStatus.MANUAL_REQUIRED
+    assert result.groups[0].selected_candidate is None
+    assert all(
+        candidate.decision is CandidateDecision.REJECTED
+        for candidate in result.groups[0].top_candidates
+    )
 
 
 def test_v5_adjacent_boundary_is_not_vetoed_by_a_similar_historical_anchor() -> None:

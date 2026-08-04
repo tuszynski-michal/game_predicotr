@@ -118,6 +118,17 @@ FIRST_USABLE_POLICY = FirstUsablePolicy()
 
 
 @dataclass(frozen=True, slots=True)
+class RangeFreeRepresentativePolicy:
+    """Soft, cheap gates for selecting a v9 representative without OCR."""
+
+    minimum_quality_score: float = 0.30
+    minimum_sharpness: float = 0.10
+    minimum_exposure: float = 0.20
+    minimum_highlight_retention: float = 0.50
+    minimum_board_visibility: float = 0.25
+
+
+@dataclass(frozen=True, slots=True)
 class AppearanceDescriptorConfig:
     crop_left: float = 0.06
     crop_top: float = 0.12
@@ -161,6 +172,7 @@ class SelectorManifest:
     thresholds: SelectorThresholds = SelectorThresholds()
     appearance_descriptor: AppearanceDescriptorConfig = AppearanceDescriptorConfig()
     appearance_thresholds: AppearanceThresholds = AppearanceThresholds()
+    representative_policy: RangeFreeRepresentativePolicy = RangeFreeRepresentativePolicy()
 
     def __post_init__(self) -> None:
         if self.algorithm_version not in SUPPORTED_SELECTOR_VERSIONS or self.contract_version != 1:
@@ -205,6 +217,8 @@ class SelectorManifest:
             raise ValueError("Appearance descriptor weights must sum to 1.0.")
         if any(not 0 <= value <= 1 for value in asdict(self.appearance_thresholds).values()):
             raise ValueError("Appearance thresholds must be between 0 and 1.")
+        if any(not 0 <= value <= 1 for value in asdict(self.representative_policy).values()):
+            raise ValueError("Representative quality thresholds must be between 0 and 1.")
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -283,6 +297,14 @@ class SelectorManifest:
                 ),
                 "strongBoundaryDistance": self.appearance_thresholds.strong_boundary_distance,
             }
+            policy = self.representative_policy
+            payload["representativePolicy"] = {
+                "minimumBoardVisibility": policy.minimum_board_visibility,
+                "minimumExposure": policy.minimum_exposure,
+                "minimumHighlightRetention": policy.minimum_highlight_retention,
+                "minimumQualityScore": policy.minimum_quality_score,
+                "minimumSharpness": policy.minimum_sharpness,
+            }
         if self.thumbnail_adapter_version != LEGACY_THUMBNAIL_ADAPTER_VERSION:
             adapters = payload["adapters"]
             assert isinstance(adapters, dict)
@@ -349,6 +371,7 @@ APPEARANCE_ONLY_SELECTOR_MANIFEST_V9 = SelectorManifest(
     geometry_adapter_version=NO_RANGE_ADAPTER_VERSION,
     fingerprint_adapter_version="opencv-appearance-descriptor-v1",
     range_adapter_version=NO_RANGE_ADAPTER_VERSION,
+    top_k=2,
 )
 SUPPORTED_SELECTOR_MANIFESTS = (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,

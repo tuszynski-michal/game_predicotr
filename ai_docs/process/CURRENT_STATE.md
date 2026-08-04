@@ -8,7 +8,7 @@ last_updated: 2026-08-05
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156 and TASK-0165–0167 complete; TASK-0157 in progress; fast-selection remediation TASK-0168–0171 planned; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156 and TASK-0165–0168 complete; TASK-0157 in progress; fast-selection remediation TASK-0169–0171 planned; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -362,14 +362,23 @@ last_updated: 2026-08-05
   fingerprint v8 `9dc754…` zachowuje stary adapter, a nowy fingerprint wynosi
   `284eb7…`. Upload i staging schema v2 nie zostały zmienione. Pomiar scan workers
   1/2/4 oraz końcowa aktywacja pozostają w TASK-0171 zgodnie z decyzją właściciela,
-- TASK-0167 dodał nieaktywny jeszcze `fast-image-selector-v9` o fingerprintcie
-  `711ce8…`. Skan używa 97-elementowego pHash/HSV/edge descriptor, bez
+- TASK-0167 dodał nieaktywny jeszcze `fast-image-selector-v9`; jego pierwszy
+  przedaktywacyjny fingerprint wynosił `711ce8…`. Skan używa 97-elementowego
+  pHash/HSV/edge descriptor, bez
   `PageBoardDetector` i bez konstrukcji OCR. Granica porównuje bezpośredniego
   poprzednika z rolling centroidem i wymaga dwóch zgodnych klatek; odrzucone
   przejście nie przesuwa centroidu przed oceną powrotu. Checkpoint przechowuje
   stały centroid, licznik, bounded top-k i pending guard. Golden realnych stron
   1–9, 10–18 i 19–27 ma zero false merge, a mała zmiana perspektywy nie dzieli
   strony. Domyślny manifest pozostaje v8 do aktywacji w TASK-0171,
+- TASK-0168 dodał range-free wybór reprezentanta bez pełnej weryfikacji. V9
+  zachowuje pierwsze źródło spełniające wersjonowane progi ostrości, ekspozycji,
+  clippingu i widoczności oraz najwyżej jeden najlepszy fallback. Każda grupa z
+  dekodowalnym JPEG-em kończy jako `auto_selected`; słaby fallback dostaje
+  `QUALITY_BEST_AVAILABLE`, a pojedynczy błąd skanu nie kończy runu. Checkpoint
+  przechowuje najwyżej dwa rekordy kandydata, verifier/OCR nadal ma zero wywołań,
+  a bieżący fingerprint v9 wynosi `65c19a…`. Domyślny manifest nadal pozostaje
+  v8 do TASK-0171,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
@@ -513,7 +522,8 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Next recommended task
 
-Realizować TASK-0168: pierwszy użyteczny reprezentant bez pełnej weryfikacji.
+Realizować TASK-0169: range-agnostic output i przekazanie wybranych JPEG-ów do
+Importu layoutów bez wymaganego zakresu.
 Profile rzeczywiste 500–1000, 3000 i końcowy run 40 000 wykonać wspólnie w
 TASK-0171 po zaliczeniu TASK-0166–0170. Nie uruchamiać pełnego runu 40 000 przed
 krótką bramką 3000 zdjęć w TASK-0171. Końcowy czas 40 000 nie ma sztywnego

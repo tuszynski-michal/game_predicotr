@@ -1033,6 +1033,7 @@ export type ImageSelectionGroupStatus =
   | 'auto_selected'
   | 'manual_required'
   | 'manually_selected'
+  | 'missing_image'
   | 'skipped_existing_range';
 
 /**
@@ -1174,7 +1175,7 @@ export type ImageSelectionManualDecisionResponse = {
   /**
    * Candidateid
    */
-  candidateId: string;
+  candidateId: string | null;
   /**
    * Createdat
    */
@@ -1190,11 +1191,12 @@ export type ImageSelectionManualDecisionResponse = {
   /**
    * Rangeend
    */
-  rangeEnd: number;
+  rangeEnd?: number | null;
   /**
    * Rangestart
    */
-  rangeStart: number;
+  rangeStart?: number | null;
+  resolution: ImageSelectionManualResolution;
   /**
    * Revision
    */
@@ -1210,6 +1212,73 @@ export type ImageSelectionManualDecisionResponse = {
  */
 export type ImageSelectionManualFileResponse = {
   candidate: ImageSelectionCandidateResponse;
+};
+
+/**
+ * ImageSelectionManualResolution
+ */
+export type ImageSelectionManualResolution = 'selected_image' | 'missing_image';
+
+/**
+ * ImageSelectionMissingImageCommand
+ */
+export type ImageSelectionMissingImageCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd?: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart?: number | null;
+};
+
+/**
+ * ImageSelectionOutputFileResponse
+ */
+export type ImageSelectionOutputFileResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Filename
+   */
+  fileName: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+};
+
+/**
+ * ImageSelectionOutputResponse
+ */
+export type ImageSelectionOutputResponse = {
+  /**
+   * Files
+   */
+  files: Array<ImageSelectionOutputFileResponse>;
+  /**
+   * Manifestsha256
+   */
+  manifestSha256: string;
+  /**
+   * Runid
+   */
+  runId: string;
 };
 
 /**
@@ -6850,6 +6919,54 @@ export type ApproveManualImageSelectionResponses = {
 export type ApproveManualImageSelectionResponse =
   ApproveManualImageSelectionResponses[keyof ApproveManualImageSelectionResponses];
 
+export type ContinueImageSelectionWithoutImageData = {
+  body: ImageSelectionMissingImageCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/continue-without-image';
+};
+
+export type ContinueImageSelectionWithoutImageErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ContinueImageSelectionWithoutImageError =
+  ContinueImageSelectionWithoutImageErrors[keyof ContinueImageSelectionWithoutImageErrors];
+
+export type ContinueImageSelectionWithoutImageResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualApprovalResponse;
+};
+
+export type ContinueImageSelectionWithoutImageResponse =
+  ContinueImageSelectionWithoutImageResponses[keyof ContinueImageSelectionWithoutImageResponses];
+
 export type UploadManualImageSelectionFileData = {
   /**
    * Payload
@@ -6995,6 +7112,87 @@ export type HandoffImageSelectionResponses = {
 
 export type HandoffImageSelectionResponse =
   HandoffImageSelectionResponses[keyof HandoffImageSelectionResponses];
+
+export type GetImageSelectionOutputData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/output';
+};
+
+export type GetImageSelectionOutputErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSelectionOutputError =
+  GetImageSelectionOutputErrors[keyof GetImageSelectionOutputErrors];
+
+export type GetImageSelectionOutputResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionOutputResponse;
+};
+
+export type GetImageSelectionOutputResponse =
+  GetImageSelectionOutputResponses[keyof GetImageSelectionOutputResponses];
+
+export type GetImageSelectionOutputFileData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/output/{file_name}';
+};
+
+export type GetImageSelectionOutputFileErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSelectionOutputFileError =
+  GetImageSelectionOutputFileErrors[keyof GetImageSelectionOutputFileErrors];
+
+export type GetImageSelectionOutputFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type GetImageStorageInventoryData = {
   body?: never;

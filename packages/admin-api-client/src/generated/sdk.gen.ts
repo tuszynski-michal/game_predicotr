@@ -39,6 +39,9 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  ContinueImageSelectionWithoutImageData,
+  ContinueImageSelectionWithoutImageErrors,
+  ContinueImageSelectionWithoutImageResponses,
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
@@ -124,6 +127,12 @@ import type {
   GetImageJobOperationsResponses,
   GetImageSelectionData,
   GetImageSelectionErrors,
+  GetImageSelectionOutputData,
+  GetImageSelectionOutputErrors,
+  GetImageSelectionOutputFileData,
+  GetImageSelectionOutputFileErrors,
+  GetImageSelectionOutputFileResponses,
+  GetImageSelectionOutputResponses,
   GetImageSelectionResponses,
   GetImageSequenceSourceSelectionData,
   GetImageSequenceSourceSelectionErrors,
@@ -1581,6 +1590,32 @@ export const approveManualImageSelection = <
   });
 
 /**
+ * Resolve one review range without requiring a representative JPEG
+ */
+export const continueImageSelectionWithoutImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ContinueImageSelectionWithoutImageData, ThrowOnError>,
+): RequestResult<
+  ContinueImageSelectionWithoutImageResponses,
+  ContinueImageSelectionWithoutImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ContinueImageSelectionWithoutImageResponses,
+    ContinueImageSelectionWithoutImageErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/continue-without-image',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Copy one browser-selected JPEG into managed manual-review storage
  */
 export const uploadManualImageSelectionFile = <
@@ -1645,6 +1680,43 @@ export const handoffImageSelection = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-selections/{run_id}/handoff',
+    ...options,
+  });
+
+/**
+ * List the verified curated JPEG files available for export
+ */
+export const getImageSelectionOutput = <ThrowOnError extends boolean = false>(
+  options: Options<GetImageSelectionOutputData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionOutputResponses,
+  GetImageSelectionOutputErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionOutputResponses,
+    GetImageSelectionOutputErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-selections/{run_id}/output', ...options });
+
+/**
+ * Download one checksum-verified curated JPEG
+ */
+export const getImageSelectionOutputFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSelectionOutputFileData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionOutputFileResponses,
+  GetImageSelectionOutputFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionOutputFileResponses,
+    GetImageSelectionOutputFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/output/{file_name}',
     ...options,
   });
 

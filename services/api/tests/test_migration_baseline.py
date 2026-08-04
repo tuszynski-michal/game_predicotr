@@ -36,6 +36,8 @@ IMAGE_SELECTION_REVISION = "0025_image_selection"
 MIGRATION_MERGE_REVISION = "0026_merge_v03_v04_heads"
 IMAGE_SELECTION_MANUAL_DECISIONS_REVISION = "0027_image_selection_manual_decisions"
 IMAGE_SELECTION_VERSIONED_RERUNS_REVISION = "0028_image_selection_versioned_reruns"
+IMAGE_SELECTION_MISSING_IMAGES_REVISION = "0029_image_selection_missing_images"
+IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION = "0030_image_selection_optional_exceptions"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -78,8 +80,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     migration_merge = script.get_revision(MIGRATION_MERGE_REVISION)
     manual_decisions = script.get_revision(IMAGE_SELECTION_MANUAL_DECISIONS_REVISION)
     versioned_reruns = script.get_revision(IMAGE_SELECTION_VERSIONED_RERUNS_REVISION)
+    missing_images = script.get_revision(IMAGE_SELECTION_MISSING_IMAGES_REVISION)
+    optional_exceptions = script.get_revision(IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_VERSIONED_RERUNS_REVISION]
+    assert script.get_heads() == [IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -141,6 +145,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert manual_decisions.down_revision == MIGRATION_MERGE_REVISION
     assert versioned_reruns is not None
     assert versioned_reruns.down_revision == IMAGE_SELECTION_MANUAL_DECISIONS_REVISION
+    assert missing_images is not None
+    assert missing_images.down_revision == IMAGE_SELECTION_VERSIONED_RERUNS_REVISION
+    assert optional_exceptions is not None
+    assert optional_exceptions.down_revision == IMAGE_SELECTION_MISSING_IMAGES_REVISION
 
 
 def test_image_selection_versioned_reruns_replace_source_uniqueness_with_index() -> None:
@@ -149,14 +157,12 @@ def test_image_selection_versioned_reruns_replace_source_uniqueness_with_index()
 
     command.upgrade(
         create_alembic_config(output_buffer=upgrade_output),
-        f"{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}:"
-        f"{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}",
+        f"{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}:{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}",
         sql=True,
     )
     command.downgrade(
         create_alembic_config(output_buffer=downgrade_output),
-        f"{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}:"
-        f"{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}",
+        f"{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}:{IMAGE_SELECTION_MANUAL_DECISIONS_REVISION}",
         sql=True,
     )
 
@@ -166,6 +172,34 @@ def test_image_selection_versioned_reruns_replace_source_uniqueness_with_index()
     downgrade_sql = downgrade_output.getvalue().lower()
     assert "drop index ix_image_selection_runs_source_selection_id" in downgrade_sql
     assert "unique (source_selection_id)" in downgrade_sql
+
+
+def test_image_selection_missing_images_adds_terminal_range_resolution() -> None:
+    upgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_VERSIONED_RERUNS_REVISION}:{IMAGE_SELECTION_MISSING_IMAGES_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "missing_image" in upgrade_sql
+    assert "add column resolution" in upgrade_sql
+    assert "alter column candidate_id drop not null" in upgrade_sql
+
+
+def test_image_selection_optional_exceptions_allow_missing_ranges() -> None:
+    upgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_MISSING_IMAGES_REVISION}:{IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "alter column range_start drop not null" in upgrade_sql
+    assert "alter column range_end drop not null" in upgrade_sql
+    assert "range_start is null and range_end is null" in upgrade_sql
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:

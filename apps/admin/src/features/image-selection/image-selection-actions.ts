@@ -22,10 +22,13 @@ export type ImageSelectionClient = Pick<
   | 'cancelBrowserImageSelection'
   | 'createImageSelection'
   | 'getImageSelection'
+  | 'getImageSelectionOutput'
+  | 'getImageSelectionOutputFile'
   | 'handoffImageSelection'
   | 'listImageSelectionGroups'
   | 'uploadManualImageSelectionFile'
   | 'approveManualImageSelection'
+  | 'continueImageSelectionWithoutImage'
 >;
 
 export interface ImageSelectionUploadProgress {
@@ -40,6 +43,35 @@ export interface ResumableImageSelectionUpload {
   readonly files: readonly File[];
   readonly gameId: string;
   readonly uploadId: string;
+}
+
+interface WritableOutputFile {
+  abort(): Promise<void>;
+  close(): Promise<void>;
+  write(data: Blob): Promise<void>;
+}
+
+interface OutputFileHandle {
+  createWritable(): Promise<WritableOutputFile>;
+}
+
+interface OutputDirectoryHandle {
+  getFileHandle(
+    name: string,
+    options: { readonly create: true },
+  ): Promise<OutputFileHandle>;
+}
+
+type DirectoryPickerWindow = Window & {
+  showDirectoryPicker?: (options: {
+    readonly mode: 'readwrite';
+  }) => Promise<OutputDirectoryHandle>;
+};
+
+export interface ImageSelectionOutputSaveResult {
+  readonly cancelled: boolean;
+  readonly error: string | null;
+  readonly savedCount: number;
 }
 
 type ImageSelectionUploadResult =
@@ -254,18 +286,201 @@ export async function loadManualImageSelectionGroups(
     if (result.error !== undefined || result.data === undefined) {
       throw new Error('IMAGE_SELECTION_GROUPS_UNAVAILABLE');
     }
-    groups.push(
-      ...result.data.items.filter(
-        (group) =>
-          group.status === 'manual_required' ||
-          group.status === 'manually_selected',
-      ),
-    );
+    groups.push(...result.data.items);
     afterGroupOrder = result.data.nextAfterGroupOrder ?? undefined;
   } while (afterGroupOrder !== undefined);
-  return groups;
+  return groups
+    .filter(
+      (group) =>
+        group.status === 'manual_required' ||
+        group.status === 'manually_selected' ||
+        group.status === 'missing_image',
+    )
+    .map((group) => suggestBoundedMissingRange(group, groups));
+}
+
+export async function continueWithAutomaticallySelectedImages(
+  api: ImageSelectionClient,
+  runId: string,
+  groups: readonly ImageSelectionGroupResponse[],
+  idempotencyKeyFactory: () => string = () => crypto.randomUUID(),
+): Promise<{
+  readonly error: string | null;
+  readonly skippedCount: number;
+  readonly updatedGroups: readonly ImageSelectionGroupResponse[];
+}> {
+  const unresolved = groups.filter(
+    (group) => group.status === 'manual_required',
+  );
+  const updatedGroups: ImageSelectionGroupResponse[] = [];
+  for (const group of unresolved) {
+    const result = await api.continueImageSelectionWithoutImage(
+      runId,
+      group.id,
+      {
+        idempotencyKey: idempotencyKeyFactory(),
+        ...(group.rangeStart === null ? {} : { rangeStart: group.rangeStart }),
+        ...(group.rangeEnd === null ? {} : { rangeEnd: group.rangeEnd }),
+      },
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pominąć nierozpoznanego zestawu zdjęć.',
+        ),
+        skippedCount: updatedGroups.length,
+        updatedGroups,
+      };
+    }
+    updatedGroups.push(result.data.group);
+  }
+  return {
+    error: null,
+    skippedCount: updatedGroups.length,
+    updatedGroups,
+  };
+}
+
+export async function saveImageSelectionOutputToFolder(
+  api: ImageSelectionClient,
+  runId: string,
+  options: {
+    readonly pickDirectory?: () => Promise<OutputDirectoryHandle>;
+  } = {},
+): Promise<ImageSelectionOutputSaveResult> {
+  let directory: OutputDirectoryHandle;
+  try {
+    directory = await (options.pickDirectory ?? pickOutputDirectory)();
+  } catch (error) {
+    return isPickerCancellation(error)
+      ? { cancelled: true, error: null, savedCount: 0 }
+      : {
+          cancelled: false,
+          error:
+            'Ta przeglądarka nie pozwala wybrać folderu docelowego. Użyj aktualnej wersji Chrome lub Edge.',
+          savedCount: 0,
+        };
+  }
+
+  const output = await api.getImageSelectionOutput(runId);
+  if (output.error !== undefined || output.data === undefined) {
+    return {
+      cancelled: false,
+      error: apiErrorMessage(
+        output.error,
+        'Nie udało się zweryfikować listy wybranych zdjęć. Uruchom ponownie lokalne Admin API i spróbuj ponownie.',
+      ),
+      savedCount: 0,
+    };
+  }
+
+  let savedCount = 0;
+  for (const file of output.data.files) {
+    const downloaded = await api.getImageSelectionOutputFile(
+      runId,
+      file.fileName,
+    );
+    if (downloaded.error !== undefined || downloaded.data === undefined) {
+      return {
+        cancelled: false,
+        error: `Nie udało się pobrać ${file.fileName}. Zapisano ${savedCount} z ${output.data.files.length} zdjęć.`,
+        savedCount,
+      };
+    }
+    const blob = toBlob(downloaded.data);
+    if (blob === null || (await sha256(blob)) !== file.checksumSha256) {
+      return {
+        cancelled: false,
+        error: `Plik ${file.fileName} nie przeszedł weryfikacji integralności. Zapis został przerwany.`,
+        savedCount,
+      };
+    }
+    const fileHandle = await directory.getFileHandle(file.fileName, {
+      create: true,
+    });
+    const writable = await fileHandle.createWritable();
+    try {
+      await writable.write(blob);
+      await writable.close();
+      savedCount += 1;
+    } catch {
+      await writable.abort().catch(() => undefined);
+      return {
+        cancelled: false,
+        error: `Nie udało się zapisać ${file.fileName}. Zapisano ${savedCount} z ${output.data.files.length} zdjęć.`,
+        savedCount,
+      };
+    }
+  }
+  return { cancelled: false, error: null, savedCount };
+}
+
+function suggestBoundedMissingRange(
+  group: ImageSelectionGroupResponse,
+  allGroups: readonly ImageSelectionGroupResponse[],
+): ImageSelectionGroupResponse {
+  if (
+    group.status !== 'manual_required' ||
+    group.rangeStart !== null ||
+    group.rangeEnd !== null
+  ) {
+    return group;
+  }
+  const resolved = allGroups.filter(
+    (candidate) =>
+      candidate.rangeStart !== null &&
+      candidate.rangeEnd !== null &&
+      (candidate.status === 'auto_selected' ||
+        candidate.status === 'manually_selected' ||
+        candidate.status === 'missing_image'),
+  );
+  const previous = resolved
+    .filter((candidate) => candidate.groupOrder < group.groupOrder)
+    .sort((left, right) => right.groupOrder - left.groupOrder)[0];
+  const next = resolved
+    .filter((candidate) => candidate.groupOrder > group.groupOrder)
+    .sort((left, right) => left.groupOrder - right.groupOrder)[0];
+  if (previous?.rangeEnd == null || next?.rangeStart == null) return group;
+  const rangeStart = previous.rangeEnd + 1;
+  const rangeEnd = next.rangeStart - 1;
+  if (rangeStart > rangeEnd || rangeEnd - rangeStart + 1 > 9) return group;
+  return { ...group, rangeEnd, rangeStart };
 }
 
 function relativePath(file: File | undefined): string {
   return file?.webkitRelativePath || file?.name || '';
+}
+
+function pickOutputDirectory(): Promise<OutputDirectoryHandle> {
+  const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
+  if (picker === undefined) {
+    throw new Error('DIRECTORY_PICKER_UNAVAILABLE');
+  }
+  return picker({ mode: 'readwrite' });
+}
+
+function isPickerCancellation(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function toBlob(value: unknown): Blob | null {
+  if (value instanceof Blob) return value;
+  if (value instanceof ArrayBuffer) return new Blob([value]);
+  if (ArrayBuffer.isView(value)) {
+    const bytes = new Uint8Array(value.byteLength);
+    bytes.set(new Uint8Array(value.buffer, value.byteOffset, value.byteLength));
+    return new Blob([bytes]);
+  }
+  return null;
+}
+
+async function sha256(blob: Blob): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    await blob.arrayBuffer(),
+  );
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }

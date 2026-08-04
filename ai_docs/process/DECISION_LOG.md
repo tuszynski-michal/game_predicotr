@@ -2927,6 +2927,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Consequences:** ręczny CLI i kliknięcie w Adminie używają wspólnego helpera.
   Dodano regresję uruchamiającą proces z przekierowaniem logów. Błąd sieci nadal
   kończy się najpóźniej po 60 sekundach i nie tworzy aktywnego publicznego stanu.
+  Kontroler wykonuje przed startem bounded 5-sekundowy test TCP do
+  `api.trycloudflare.com:443`, dzięki czemu proces bez wychodzącego HTTPS zwraca
+  przyczynę od razu zamiast mylącego timeoutu publikacji URL.
 - **Supersedes:** zmienia wyłącznie limit 25 sekund z D-098; zachowuje wszystkie
   jej granice bezpieczeństwa i stałe komendy start/status/stop.
 
@@ -3116,6 +3119,50 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   usuwa historycznego runu v1.
 - **Supersedes:** doprecyzowuje D-123 i D-127 dla rzeczywistych zdjęć bez
   odwoływania technicznej bramki skali v1.
+
+## D-129 — Brak ręcznego JPEG-a jest terminalną decyzją zakresu
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** ręczne rozwiązanie grupy wymaga dodatniego zakresu, ale nie
+  wymaga pliku. Bez JPEG-a system zapisuje append-only decyzję
+  `missing_image`, pokazuje `Brak zdjęcia dla layoutów X–Y` i wznawia ten sam
+  job po rozwiązaniu ostatniej grupy. JPEG pozostaje opcjonalnym uzupełnieniem.
+- **Context:** użytkownik chce kontynuować selekcję mimo braku dobrego zdjęcia;
+  ręczne szukanie pliku dla każdego wyjątku nie może blokować przekazania
+  poprawnie wybranych reprezentantów.
+- **Reason:** jawny stan odróżnia brak pliku od duplikatu, błędu i zatwierdzonego
+  obrazu, zachowując audyt i możliwość raportowania luk.
+- **Alternatives:** tworzenie pustego kandydata, użycie
+  `skipped_existing_range` albo wymuszenie JPEG-a. Odrzucono je jako
+  semantycznie błędne lub blokujące workflow.
+- **Consequences:** migracja 0029 rozszerza status grupy i ręczne decyzje;
+  publisher pomija plik dla `missing_image`, a handoff obejmuje pozostałe
+  obrazy. Zakresu nie wolno inferować z sąsiednich grup, ponieważ numeracja może
+  skakać.
+- **Supersedes:** doprecyzowuje manualny fallback D-123.
+
+## D-130 — Nierozpoznany wyjątek nie blokuje pewnego wyniku selekcji
+
+- **Status:** accepted
+- **Date:** 2026-08-03
+- **Decision:** główna akcja selekcji pomija wszystkie nierozpoznane grupy jako
+  `missing_image`, również bez zakresu, i publikuje pewne reprezentanty.
+  Ręczne dodanie JPEG-a oraz zakresu jest opcjonalnym uzupełnieniem. Wynik można
+  skopiować browser-native pickerem do folderu użytkownika pod nazwami
+  `seq_<start>-<end>.jpg` albo jawnie przekazać do Importu layoutów.
+- **Context:** techniczny numer grupy `#13` nie mówi użytkownikowi, których
+  layoutów brakuje, a wymuszanie ręcznie wpisanego zakresu blokowało poprawne
+  zdjęcia mimo istnienia osobnego procesu uzupełniania danych w Import layouts.
+- **Reason:** system nie może wymyślać numerów przy dozwolonych skokach
+  sekwencji. Pusty zakres zachowuje prawdę domenową i audyt, a jednocześnie nie
+  zatrzymuje wartościowego, częściowego wyniku.
+- **Consequences:** migracja 0030 dopuszcza `null` w zakresie decyzji
+  `missing_image`; publisher pomija taki zestaw. Eksport jest checksumowany,
+  backend nie otrzymuje dowolnej ścieżki z komputera, a folder docelowy wybiera
+  bezpośrednio użytkownik w przeglądarce.
+- **Supersedes:** zmienia obowiązek zakresu z D-129; pozostała semantyka
+  terminalnego `missing_image` pozostaje aktualna.
 
 ## Szablon nowej decyzji
 

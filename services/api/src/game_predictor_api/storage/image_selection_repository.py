@@ -16,6 +16,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
+    ImageSelectionManualResolution,
     ImageSelectionRun,
 )
 from game_predictor_api.domain.jobs import Job
@@ -336,13 +337,18 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             )
             .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
         )
-        selected = self._session.get(ImageSelectionCandidateModel, decision.candidate_id)
-        if selected is None or selected.run_id != group.run_id or selected.group_id != group.id:
-            raise ImageSelectionConflictError(
-                "IMAGE_SELECTION_CANDIDATE_MISMATCH",
-                "The selected JPEG no longer belongs to this group.",
-            )
-        selected.decision = ImageSelectionCandidateDecision.SELECTED_MANUAL
+        selected = (
+            None
+            if decision.candidate_id is None
+            else self._session.get(ImageSelectionCandidateModel, decision.candidate_id)
+        )
+        if decision.resolution is ImageSelectionManualResolution.SELECTED_IMAGE:
+            if selected is None or selected.run_id != group.run_id or selected.group_id != group.id:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_CANDIDATE_MISMATCH",
+                    "The selected JPEG no longer belongs to this group.",
+                )
+            selected.decision = ImageSelectionCandidateDecision.SELECTED_MANUAL
         record.range_start = group.range_start
         record.range_end = group.range_end
         record.status = group.status
@@ -352,6 +358,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             run_id=decision.run_id,
             group_id=decision.group_id,
             candidate_id=decision.candidate_id,
+            resolution=decision.resolution.value,
             range_start=decision.range_start,
             range_end=decision.range_end,
             revision=decision.revision,
@@ -360,7 +367,10 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         )
         self._session.add(event)
         self._flush_or_conflict()
-        return _group_from_record(record, selected.id), _manual_decision_from_record(event)
+        return _group_from_record(
+            record,
+            None if selected is None else selected.id,
+        ), _manual_decision_from_record(event)
 
     def _flush_or_conflict(self) -> None:
         try:
@@ -444,6 +454,7 @@ def _manual_decision_from_record(
         run_id=record.run_id,
         group_id=record.group_id,
         candidate_id=record.candidate_id,
+        resolution=ImageSelectionManualResolution(record.resolution),
         range_start=record.range_start,
         range_end=record.range_end,
         revision=record.revision,

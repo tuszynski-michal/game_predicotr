@@ -681,7 +681,7 @@ class ImageSelectionGroupModel(Base):
         ),
         CheckConstraint(
             "status IN ('collecting', 'auto_selected', 'manual_required', "
-            "'manually_selected', 'skipped_existing_range')",
+            "'manually_selected', 'missing_image', 'skipped_existing_range')",
             name="ck_image_selection_groups_status",
         ),
         UniqueConstraint(
@@ -701,7 +701,8 @@ class ImageSelectionGroupModel(Base):
             "range_end",
             unique=True,
             postgresql_where=text(
-                "status IN ('auto_selected', 'manually_selected') AND range_start IS NOT NULL"
+                "status IN ('auto_selected', 'manually_selected', 'missing_image') "
+                "AND range_start IS NOT NULL"
             ),
         ),
     )
@@ -839,7 +840,8 @@ class ImageSelectionManualDecisionModel(Base):
     __tablename__ = "image_selection_manual_decisions"
     __table_args__ = (
         CheckConstraint(
-            "range_start >= 1 AND range_end >= range_start",
+            "(range_start IS NULL AND range_end IS NULL) OR "
+            "(range_start >= 1 AND range_end >= range_start)",
             name="ck_image_selection_manual_decisions_range",
         ),
         CheckConstraint(
@@ -849,6 +851,15 @@ class ImageSelectionManualDecisionModel(Base):
         CheckConstraint(
             "payload_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_selection_manual_decisions_payload_sha256",
+        ),
+        CheckConstraint(
+            "resolution IN ('selected_image', 'missing_image')",
+            name="ck_image_selection_manual_decisions_resolution",
+        ),
+        CheckConstraint(
+            "(resolution = 'selected_image' AND candidate_id IS NOT NULL) OR "
+            "(resolution = 'missing_image' AND candidate_id IS NULL)",
+            name="ck_image_selection_manual_decisions_candidate_resolution",
         ),
         ForeignKeyConstraint(
             ["run_id", "group_id"],
@@ -876,12 +887,13 @@ class ImageSelectionManualDecisionModel(Base):
         nullable=False,
     )
     group_id: Mapped[UUID] = mapped_column(nullable=False)
-    candidate_id: Mapped[UUID] = mapped_column(
+    candidate_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_selection_candidates.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
-    range_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    range_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resolution: Mapped[str] = mapped_column(String(32), nullable=False)
+    range_start: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    range_end: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

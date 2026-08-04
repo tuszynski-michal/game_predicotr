@@ -13,6 +13,7 @@ import {
   operationalReviewKeyboardAction,
   operationalReviewGeometryCorners,
   operationalReviewGeometryViewport,
+  operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
   operationalReviewPointInSourceImage,
   operationalReviewResolutionAction,
@@ -67,7 +68,7 @@ test('builds scope-bound asset URLs and validates cell indexes', () => {
       { gameId: 'game one', importJobId: 'job/one' },
       'item/one',
       'cell',
-      14,
+      { cellIndex: 14, version: 'crop-sha' },
     ),
   );
   assert.equal(
@@ -76,6 +77,7 @@ test('builds scope-bound asset URLs and validates cell indexes', () => {
   );
   assert.equal(url.searchParams.get('gameId'), 'game one');
   assert.equal(url.searchParams.get('importJobId'), 'job/one');
+  assert.equal(url.searchParams.get('v'), 'crop-sha');
   assert.throws(
     () =>
       operationalReviewAssetUrl(
@@ -83,10 +85,34 @@ test('builds scope-bound asset URLs and validates cell indexes', () => {
         { gameId: 'game', importJobId: 'job' },
         'item',
         'cell',
-        15,
+        { cellIndex: 15 },
       ),
     /between 0 and 14/,
   );
+});
+
+test('maps pointer coordinates through object-fit letterboxing', () => {
+  const topEdge = operationalReviewPointInCanvas(
+    { x: 250, y: 125 },
+    { height: 500, left: 0, top: 0, width: 500 },
+    1000,
+    500,
+  );
+  assert.deepEqual(topEdge, {
+    point: { x: 500, y: 0 },
+    scale: 0.5,
+  });
+
+  const bottomEdge = operationalReviewPointInCanvas(
+    { x: 500, y: 375 },
+    { height: 500, left: 0, top: 0, width: 500 },
+    1000,
+    500,
+  );
+  assert.deepEqual(bottomEdge, {
+    point: { x: 1000, y: 500 },
+    scale: 0.5,
+  });
 });
 
 test('prefers accepted sequence and formats textual status and confidence', () => {

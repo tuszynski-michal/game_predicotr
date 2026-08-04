@@ -21,7 +21,9 @@ import {
   type ImageSelectionUploadProgress,
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
+  continueWithAutomaticallySelectedImages,
   loadManualImageSelectionGroups,
+  saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from './image-selection-actions';
 import { ManualImageSelectionModal } from './manual-image-selection-modal';
@@ -73,6 +75,7 @@ export function ImageSelectionWorkspace({
   const [manualOpen, setManualOpen] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshWarning, setRefreshWarning] = useState('');
@@ -268,6 +271,34 @@ export function ImageSelectionWorkspace({
     }
   }
 
+  async function saveOutputToFolder() {
+    if (
+      run === null ||
+      run.outputManifestSha256 === null ||
+      busy ||
+      exporting
+    ) {
+      return;
+    }
+    setExporting(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await saveImageSelectionOutputToFolder(api, run.id);
+      if (result.error !== null) {
+        setError(result.error);
+      } else if (!result.cancelled) {
+        setNotice(
+          `Zapisano ${result.savedCount.toLocaleString('pl-PL')} wybranych zdjęć we wskazanym folderze jako seq_<od>-<do>.jpg.`,
+        );
+      }
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function openManualReview() {
     if (run === null || manualLoading) return;
     setManualLoading(true);
@@ -284,6 +315,49 @@ export function ImageSelectionWorkspace({
       setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
     } finally {
       setManualLoading(false);
+    }
+  }
+
+  async function continueWithSelectedImages() {
+    if (run === null || busy || manualLoading) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const groups = await loadManualImageSelectionGroups(api, run.id);
+      const result = await continueWithAutomaticallySelectedImages(
+        api,
+        run.id,
+        groups,
+      );
+      if (result.error !== null) {
+        setError(result.error);
+        return;
+      }
+      setManualGroups((current) =>
+        current.map(
+          (group) =>
+            result.updatedGroups.find((updated) => updated.id === group.id) ??
+            group,
+        ),
+      );
+      const refreshed = await getImageSelectionWithTimeout(api, run.id);
+      if (refreshed.error !== undefined || refreshed.data === undefined) {
+        setRefreshWarning(
+          'Wyjątki zostały pominięte, ale nie udało się odświeżyć procesu.',
+        );
+        return;
+      }
+      setRun(refreshed.data);
+      setNotice(
+        result.skippedCount === 0
+          ? 'Nie ma nierozpoznanych zestawów. Przygotowuję wybrane zdjęcia.'
+          : `Pominięto ${result.skippedCount.toLocaleString('pl-PL')} nierozpoznanych zestawów. Przygotowuję wybrane zdjęcia.`,
+      );
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -324,6 +398,9 @@ export function ImageSelectionWorkspace({
       : Math.min(100, (progress.uploadedBytes / progress.totalBytes) * 100);
   const runProgressPercent = run === null ? null : jobProgressPercent(run.job);
   const selectionProgress = run?.job.progress.imageSelection ?? null;
+  const missingImageGroups = manualGroups.filter(
+    (group) => group.status === 'missing_image',
+  );
 
   return (
     <section
@@ -484,16 +561,33 @@ export function ImageSelectionWorkspace({
             </details>
 
             <div className="imageSelectionRecoveryActions">
-              <button
-                className="secondaryButton"
-                disabled={busy || manualLoading}
-                onClick={() => void openManualReview()}
-                type="button"
-              >
-                {manualLoading
-                  ? 'Odczytywanie…'
-                  : `Uzupełnij wyjątki${manualGroups.length > 0 ? ` (${manualGroups.length})` : ''}`}
-              </button>
+              {run.job.status === 'waiting_for_review' ? (
+                <button
+                  aria-busy={busy}
+                  className="primaryButton"
+                  disabled={busy || manualLoading}
+                  onClick={() => void continueWithSelectedImages()}
+                  type="button"
+                >
+                  {busy
+                    ? 'Przygotowywanie…'
+                    : 'Kontynuuj z wybranymi zdjęciami'}
+                </button>
+              ) : null}
+              {manualGroups.some(
+                (group) => group.status === 'manual_required',
+              ) ? (
+                <button
+                  className="secondaryButton"
+                  disabled={busy || manualLoading}
+                  onClick={() => void openManualReview()}
+                  type="button"
+                >
+                  {manualLoading
+                    ? 'Odczytywanie…'
+                    : `Dodaj opcjonalne zdjęcia (${manualGroups.filter((group) => group.status === 'manual_required').length})`}
+                </button>
+              ) : null}
               <button
                 aria-busy={busy}
                 className="primaryButton"
@@ -503,12 +597,37 @@ export function ImageSelectionWorkspace({
               >
                 {busy ? 'Weryfikowanie…' : 'Przekaż do Importu layoutów'}
               </button>
+              <button
+                aria-busy={exporting}
+                className="secondaryButton"
+                disabled={
+                  busy || exporting || run.outputManifestSha256 === null
+                }
+                onClick={() => void saveOutputToFolder()}
+                type="button"
+              >
+                {exporting
+                  ? 'Zapisywanie…'
+                  : 'Zapisz wybrane zdjęcia do folderu'}
+              </button>
               {run.outputManifestSha256 === null ? (
                 <span>
-                  Akcja będzie dostępna po opublikowaniu kompletnego wyniku.
+                  Akcje będą dostępne po opublikowaniu zweryfikowanego wyniku.
                 </span>
               ) : null}
             </div>
+            {missingImageGroups.length > 0 ? (
+              <div className="imageSelectionMissingRanges" role="status">
+                <strong>Pominięte bez zdjęcia:</strong>{' '}
+                {missingImageGroups
+                  .map((group) =>
+                    group.rangeStart === null || group.rangeEnd === null
+                      ? 'nierozpoznany zestaw zdjęć'
+                      : `layouty ${group.rangeStart}–${group.rangeEnd}`,
+                  )
+                  .join(', ')}
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}

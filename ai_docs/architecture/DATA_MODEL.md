@@ -413,7 +413,7 @@ zostać przejęty tylko przez jeden run.
 | range_start / range_end | bigint nullable | oba `null` albo dodatnie i `start <= end` |
 | fingerprint_sha256 | varchar(64) nullable | małe litery hex |
 | board_count_consensus | smallint nullable | 1–9 |
-| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `skipped_existing_range` |
+| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `missing_image`, `skipped_existing_range` |
 | created_at / updated_at | timestamptz | |
 
 Częściowy indeks unikalny blokuje dwa wybrane outputy tego samego
@@ -449,17 +449,19 @@ cyrkularnym kluczem obcym. Żadna tabela nie przechowuje JPEG jako BLOB.
 | idempotency_key | UUID | PK przekazany przez klienta; retry tego samego payloadu nie tworzy rewizji |
 | run_id | UUID | FK run, `CASCADE` |
 | group_id | UUID | złożony FK gwarantuje grupę z tego samego runu |
-| candidate_id | UUID | FK kandydata, `RESTRICT` |
-| range_start / range_end | bigint | dodatnie i `start <= end` |
+| candidate_id | UUID nullable | FK kandydata, `RESTRICT`; wymagany tylko dla `selected_image` |
+| resolution | varchar | `selected_image` albo `missing_image` |
+| range_start / range_end | bigint nullable | oba `null` dla nierozpoznanego pominięcia albo dodatnie i `start <= end` |
 | revision | integer | dodatnia, rośnie osobno dla każdej grupy |
 | payload_sha256 | varchar(64) | SHA-256 kanonicznej decyzji |
 | created_at | timestamptz | czas append-only zdarzenia |
 
-Migracja `0027_image_selection_manual_decisions` dodaje append-only audyt
-ręcznych zatwierdzeń. Unikalne `(run_id, group_id, revision)` zachowuje historię
-korekt, a bieżący stan grupy i decyzja `selected_manual` kandydata pozostają
-projekcją ostatniej rewizji. Plik JPEG jest przechowywany w kontrolowanym
-storage; tabela zawiera wyłącznie identyfikatory, zakres i checksumę payloadu.
+Migracje `0027`, `0029` i `0030` rozwijają append-only audyt ręcznych
+zatwierdzeń o jawny brak zdjęcia oraz opcjonalny zakres nierozpoznanego zestawu.
+Unikalne `(run_id, group_id, revision)` zachowuje historię korekt, a bieżący
+stan grupy i decyzja `selected_manual` kandydata pozostają projekcją ostatniej
+rewizji. Plik JPEG jest przechowywany w kontrolowanym storage; tabela zawiera
+wyłącznie identyfikatory, zakres i checksumę payloadu.
 
 ### image_file_executions
 

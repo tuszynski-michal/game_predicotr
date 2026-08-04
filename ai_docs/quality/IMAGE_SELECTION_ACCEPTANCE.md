@@ -45,15 +45,20 @@ Nie należy powtarzać benchmarków 10k/30k.
    aktywną grę.
 2. W `Selekcji zdjęć` wskaż mały folder JPEG, rozpocznij run i potwierdź, że
    postęp oraz końcowe liczniki są czytelne.
-3. Otwórz kolejkę manualną. `ArrowLeft` i `ArrowRight` mają wyłącznie nawigować;
-   `Enter` ma zapisać dokładnie jedną decyzję dla wybranego pliku.
-4. Wskaż pojedynczy JPEG dla nierozwiązanej grupy, zatwierdź dodatni zakres,
-   wróć do pozycji i potwierdź możliwość korekty przed publikacją.
-5. Po rozwiązaniu wszystkich grup utwórz output i użyj `Przekaż do Importu
-   layoutów`. Import ma otrzymać źródło, ale nie może rozpocząć ciężkiego
-   pipeline'u bez osobnego kliknięcia.
-6. Potwierdź, że nazwy `seq_<start>-<end>__<checksum>.jpg` są czytelne, a pliki
-   w folderze wejściowym pozostały bez zmian.
+3. Jeżeli są wyjątki, potwierdź, że główna akcja
+   `Kontynuuj z wybranymi zdjęciami` nie wymaga wpisania numerów ani JPEG-a,
+   pomija nierozpoznane zestawy i wznawia ten sam job.
+4. Opcjonalnie otwórz ręczne uzupełnienie. `ArrowLeft` i `ArrowRight` mają
+   wyłącznie nawigować, a `Enter` zapisać dokładnie jedną decyzję. Techniczne
+   `#N` nie może być jedyną informacją o wyjątku.
+5. Po opublikowaniu outputu kliknij `Zapisz wybrane zdjęcia do folderu`, wskaż
+   katalog i potwierdź nazwy `seq_<start>-<end>.jpg`, np. `seq_1-9.jpg`.
+   Folder wejściowy musi pozostać bez zmian. Backend mapuje także starsze
+   wewnętrzne nazwy content-addressed na ten publiczny format; nie wolno w tym
+   celu przepisywać istniejącego manifestu.
+6. Użyj `Przekaż do Importu layoutów`. Import ma otrzymać to samo,
+   zweryfikowane źródło, ale nie może rozpocząć ciężkiego pipeline'u bez
+   osobnego kliknięcia `Rozpocznij import`.
 
 Po potwierdzeniu tych punktów status zmienia się na `accepted`, TASK-0157 można
 przenieść do `completed/`, a wersję 0.4 zamknąć. TASK-0076 pozostaje osobno

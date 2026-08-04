@@ -56,7 +56,12 @@ export function ManualImageSelectionModal({
   const current = groups[index];
   const currentDraft = current === undefined ? undefined : drafts[current.id];
   const approvedCount = useMemo(
-    () => groups.filter((group) => group.status === 'manually_selected').length,
+    () =>
+      groups.filter(
+        (group) =>
+          group.status === 'manually_selected' ||
+          group.status === 'missing_image',
+      ).length,
     [groups],
   );
 
@@ -137,23 +142,25 @@ export function ManualImageSelectionModal({
     if (
       current === undefined ||
       currentDraft === undefined ||
-      currentDraft.candidateId === null ||
       approvalInFlightRef.current
     ) {
-      if (currentDraft?.candidateId == null) {
-        setError('Najpierw wybierz jedno zdjęcie JPEG.');
-      }
       return;
     }
-    const rangeStart = Number(currentDraft.rangeStart);
-    const rangeEnd = Number(currentDraft.rangeEnd);
+    const rangeStart = parseOptionalSequence(currentDraft.rangeStart);
+    const rangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    const hasCompleteRange = rangeStart !== null && rangeEnd !== null;
+    const rangeInvalid =
+      (rangeStart === null) !== (rangeEnd === null) ||
+      (hasCompleteRange && rangeEnd < rangeStart);
     if (
-      !Number.isInteger(rangeStart) ||
-      !Number.isInteger(rangeEnd) ||
-      rangeStart < 1 ||
-      rangeEnd < rangeStart
+      rangeInvalid ||
+      (currentDraft.candidateId !== null && !hasCompleteRange)
     ) {
-      setError('Podaj dodatni, rosnący zakres numerów sekwencji.');
+      setError(
+        currentDraft.candidateId === null
+          ? 'Podaj oba numery zakresu albo pozostaw oba pola puste.'
+          : 'Aby zachować zdjęcie, podaj dodatni, rosnący zakres layoutów.',
+      );
       return;
     }
     const idempotencyKey =
@@ -163,16 +170,19 @@ export function ManualImageSelectionModal({
     setApproving(true);
     setError('');
     try {
-      const result = await client.approveManualImageSelection(
-        runId,
-        current.id,
-        {
-          candidateId: currentDraft.candidateId,
-          idempotencyKey,
-          rangeEnd,
-          rangeStart,
-        },
-      );
+      const result =
+        currentDraft.candidateId === null
+          ? await client.continueImageSelectionWithoutImage(runId, current.id, {
+              idempotencyKey,
+              ...(rangeEnd === null ? {} : { rangeEnd }),
+              ...(rangeStart === null ? {} : { rangeStart }),
+            })
+          : await client.approveManualImageSelection(runId, current.id, {
+              candidateId: currentDraft.candidateId,
+              idempotencyKey,
+              rangeEnd,
+              rangeStart,
+            });
       if (result.error !== undefined || result.data === undefined) {
         setError(
           apiErrorMessage(
@@ -196,8 +206,10 @@ export function ManualImageSelectionModal({
   function handleApproval(result: ImageSelectionManualApprovalResponse) {
     updateDraft(result.group.id, {
       idempotencyKey: null,
-      rangeEnd: String(result.group.rangeEnd),
-      rangeStart: String(result.group.rangeStart),
+      rangeEnd:
+        result.group.rangeEnd === null ? '' : String(result.group.rangeEnd),
+      rangeStart:
+        result.group.rangeStart === null ? '' : String(result.group.rangeStart),
     });
     onGroupUpdated(result.group);
     if (groups.length > 1) setIndex((value) => (value + 1) % groups.length);
@@ -222,10 +234,18 @@ export function ManualImageSelectionModal({
   }
 
   if (current === undefined || currentDraft === undefined) return null;
-  const rangeLabel =
-    current.rangeStart === null || current.rangeEnd === null
-      ? `Nieustalony zakres #${current.groupOrder + 1}`
-      : `${current.rangeStart}–${current.rangeEnd}`;
+  const displayedRangeStart = Number(currentDraft.rangeStart);
+  const displayedRangeEnd = Number(currentDraft.rangeEnd);
+  const hasDisplayedRange =
+    Number.isInteger(displayedRangeStart) &&
+    Number.isInteger(displayedRangeEnd) &&
+    displayedRangeStart >= 1 &&
+    displayedRangeEnd >= displayedRangeStart;
+  const rangeLabel = !hasDisplayedRange
+    ? 'Nierozpoznany zestaw zdjęć'
+    : currentDraft.candidateId === null
+      ? `Brak zdjęcia dla layoutów ${displayedRangeStart}–${displayedRangeEnd}`
+      : `Layouty ${displayedRangeStart}–${displayedRangeEnd}`;
 
   return (
     <div className="manualSelectionOverlay">
@@ -270,13 +290,15 @@ export function ManualImageSelectionModal({
           </nav>
           <button
             className="primaryButton"
-            disabled={
-              approving || uploading || currentDraft.candidateId === null
-            }
+            disabled={approving || uploading}
             onClick={() => void approveCurrent()}
             type="button"
           >
-            {approving ? 'Zapisywanie…' : 'Zatwierdź'}
+            {approving
+              ? 'Zapisywanie…'
+              : currentDraft.candidateId === null
+                ? 'Pomiń'
+                : 'Zatwierdź'}
           </button>
           <button
             aria-label="Zamknij ręczną selekcję"
@@ -305,7 +327,10 @@ export function ManualImageSelectionModal({
                 src={currentDraft.previewUrl}
               />
             ) : (
-              <p>Wybierz jedno czytelne zdjęcie dla tego zakresu.</p>
+              <p>
+                Możesz kontynuować bez zdjęcia albo opcjonalnie dodać jeden
+                czytelny plik JPEG dla tego zestawu.
+              </p>
             )}
           </div>
           <aside className="manualSelectionControls">
@@ -322,35 +347,46 @@ export function ManualImageSelectionModal({
               onClick={() => fileInputRef.current?.click()}
               type="button"
             >
-              {uploading ? 'Kopiowanie…' : 'Wybierz zdjęcie'}
+              {uploading ? 'Kopiowanie…' : 'Dodaj opcjonalne zdjęcie'}
             </button>
             <span className="manualSelectionFileName">
-              {currentDraft.fileName || 'Nie wybrano pliku'}
+              {currentDraft.fileName || 'Brak zdjęcia — możesz kontynuować'}
             </span>
-            <label>
-              Początek zakresu
-              <input
-                inputMode="numeric"
-                min={1}
-                onChange={(event) =>
-                  updateDraft(current.id, { rangeStart: event.target.value })
-                }
-                type="number"
-                value={currentDraft.rangeStart}
-              />
-            </label>
-            <label>
-              Koniec zakresu
-              <input
-                inputMode="numeric"
-                min={1}
-                onChange={(event) =>
-                  updateDraft(current.id, { rangeEnd: event.target.value })
-                }
-                type="number"
-                value={currentDraft.rangeEnd}
-              />
-            </label>
+            {currentDraft.candidateId !== null || hasDisplayedRange ? (
+              <>
+                <label>
+                  Początek zakresu
+                  <input
+                    inputMode="numeric"
+                    min={1}
+                    onChange={(event) =>
+                      updateDraft(current.id, {
+                        rangeStart: event.target.value,
+                      })
+                    }
+                    type="number"
+                    value={currentDraft.rangeStart}
+                  />
+                </label>
+                <label>
+                  Koniec zakresu
+                  <input
+                    inputMode="numeric"
+                    min={1}
+                    onChange={(event) =>
+                      updateDraft(current.id, { rangeEnd: event.target.value })
+                    }
+                    type="number"
+                    value={currentDraft.rangeEnd}
+                  />
+                </label>
+              </>
+            ) : (
+              <p>
+                Nie musisz rozpoznawać numerów. Ten zestaw zostanie pominięty, a
+                pewne zdjęcia przejdą dalej.
+              </p>
+            )}
             <p>
               ← / → nawigują · Enter zatwierdza · zapisany wybór możesz później
               poprawić
@@ -360,6 +396,12 @@ export function ManualImageSelectionModal({
       </div>
     </div>
   );
+}
+
+function parseOptionalSequence(value: string): number | null {
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
 }
 
 function buildInitialDrafts(

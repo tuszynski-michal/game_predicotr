@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +11,10 @@ from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
+from game_predictor_api.domain.image_selections import (
+    ImageSelectionGroup,
+    ImageSelectionGroupStatus,
+)
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.image_selection_repository import (
@@ -92,6 +97,34 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
 
             persisted_run = service.get_run(created_run.id)
             persisted_versioned_run = service.get_run(versioned_run.id)
+            now = datetime.now(UTC)
+            group = SqlAlchemyImageSelectionRepository(session).add_group(
+                ImageSelectionGroup(
+                    id=uuid4(),
+                    run_id=created_run.id,
+                    group_order=0,
+                    range_start=None,
+                    range_end=None,
+                    fingerprint_sha256=None,
+                    board_count_consensus=None,
+                    status=ImageSelectionGroupStatus.MANUAL_REQUIRED,
+                    selected_candidate_id=None,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+            missing = service.continue_without_image(
+                run_id=created_run.id,
+                group_id=group.id,
+                idempotency_key=uuid4(),
+                range_start=None,
+                range_end=None,
+            )
+            session.commit()
+            persisted_missing = SqlAlchemyImageSelectionRepository(session).get_group(
+                run_id=created_run.id,
+                group_id=group.id,
+            )
 
         assert created is True
         assert versioned_created is True
@@ -99,5 +132,10 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
         assert persisted_run.job.id == created_run.job.id
         assert persisted_versioned_run.source_selection_id == source_selection_id
         assert persisted_versioned_run.id != persisted_run.id
+        assert missing.decision.candidate_id is None
+        assert persisted_missing is not None
+        assert persisted_missing.status is ImageSelectionGroupStatus.MISSING_IMAGE
+        assert persisted_missing.range_start is None
+        assert persisted_missing.range_end is None
     finally:
         engine.dispose()

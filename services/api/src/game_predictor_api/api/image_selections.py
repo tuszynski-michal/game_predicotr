@@ -26,6 +26,9 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionManualApprovalCommand,
     ImageSelectionManualApprovalResponse,
     ImageSelectionManualFileResponse,
+    ImageSelectionMissingImageCommand,
+    ImageSelectionOutputFileResponse,
+    ImageSelectionOutputResponse,
     ImageSelectionRunResponse,
     to_image_selection_candidate_response,
     to_image_selection_group_page_response,
@@ -194,6 +197,76 @@ def create_image_selections_router(
         return ImageSelectionManualApprovalResponse(
             group=to_image_selection_group_response(approved.group),
             decision=to_manual_decision_response(approved.decision),
+        )
+
+    @router.post(
+        "/{run_id}/groups/{group_id}/continue-without-image",
+        response_model=ImageSelectionManualApprovalResponse,
+        operation_id="continueImageSelectionWithoutImage",
+        summary="Resolve one review range without requiring a representative JPEG",
+        responses=ERROR_RESPONSES,
+    )
+    def continue_image_selection_without_image(
+        run_id: UUID,
+        group_id: UUID,
+        payload: ImageSelectionMissingImageCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualApprovalResponse:
+        resolved = service.continue_without_image(
+            run_id=run_id,
+            group_id=group_id,
+            idempotency_key=payload.idempotency_key,
+            range_start=payload.range_start,
+            range_end=payload.range_end,
+        )
+        return ImageSelectionManualApprovalResponse(
+            group=to_image_selection_group_response(resolved.group),
+            decision=to_manual_decision_response(resolved.decision),
+        )
+
+    @router.get(
+        "/{run_id}/output",
+        response_model=ImageSelectionOutputResponse,
+        operation_id="getImageSelectionOutput",
+        summary="List the verified curated JPEG files available for export",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_selection_output(
+        run_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionOutputResponse:
+        output = service.get_output(run_id)
+        return ImageSelectionOutputResponse(
+            run_id=output.run_id,
+            manifest_sha256=output.manifest_sha256,
+            files=[
+                ImageSelectionOutputFileResponse(
+                    file_name=item.file_name,
+                    range_start=item.range_start,
+                    range_end=item.range_end,
+                    checksum_sha256=item.checksum_sha256,
+                    size_bytes=item.size_bytes,
+                )
+                for item in output.files
+            ],
+        )
+
+    @router.get(
+        "/{run_id}/output/{file_name}",
+        response_class=FileResponse,
+        operation_id="getImageSelectionOutputFile",
+        summary="Download one checksum-verified curated JPEG",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_selection_output_file(
+        run_id: UUID,
+        file_name: str,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> FileResponse:
+        return FileResponse(
+            service.get_output_file(run_id, file_name),
+            media_type="image/jpeg",
+            filename=file_name,
         )
 
     @router.post(

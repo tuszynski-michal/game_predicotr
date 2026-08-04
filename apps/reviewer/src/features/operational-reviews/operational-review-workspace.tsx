@@ -295,6 +295,25 @@ export function OperationalReviewWorkspace({
     });
   }
 
+  function handleGeometrySaved(updated: OperationalImageReviewItemResponse) {
+    setPageNotice(
+      `Zapisano siatkę jako rewizję ${updated.geometryRevision}. Plansza i cropy zostały odświeżone.`,
+    );
+    setPage((current) => {
+      if (current === null) return current;
+      const previousStatus = current.items[0]?.status;
+      return {
+        ...current,
+        counts: updateOperationalReviewCounts(
+          current.counts,
+          previousStatus,
+          updated.status,
+        ),
+        items: [updated],
+      };
+    });
+  }
+
   async function handleFreezeCohort() {
     if (selectedGameId === '' || selectedJobId === '' || freezingCohort) {
       return;
@@ -469,6 +488,7 @@ export function OperationalReviewWorkspace({
                     beforeCursor: page?.previousCursor ?? undefined,
                   })
                 }
+                onGeometrySaved={handleGeometrySaved}
                 onReload={() => {
                   const sequenceNumber = operationalReviewSequence(item);
                   void refreshPage(
@@ -650,6 +670,7 @@ function OperationalReviewBoard({
   onJumpSubmit,
   onNext,
   onPrevious,
+  onGeometrySaved,
   onReload,
   onResolved,
   symbols,
@@ -667,6 +688,7 @@ function OperationalReviewBoard({
   readonly onJumpSubmit: () => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
+  readonly onGeometrySaved: (item: OperationalImageReviewItemResponse) => void;
   readonly onReload: () => void;
   readonly onResolved: (
     resolution: OperationalImageReviewResolutionResponse,
@@ -890,7 +912,7 @@ function OperationalReviewBoard({
               apiBaseUrl={apiBaseUrl}
               importJobId={importJobId}
               item={item}
-              onSaved={onReload}
+              onSaved={onGeometrySaved}
             />
             <button
               aria-label="Poprzednia plansza"
@@ -1072,7 +1094,7 @@ function OperationalReviewBoard({
                       .filter(Boolean)
                       .join(' ')}
                     disabled={isSaving}
-                    key={cell.observationId}
+                    key={cell.cropSampleId}
                     onClick={() => setSelectedCellIndex(index)}
                     type="button"
                   >
@@ -1083,7 +1105,10 @@ function OperationalReviewBoard({
                         context,
                         item.id,
                         'cell',
-                        cell.cellIndex,
+                        {
+                          cellIndex: cell.cellIndex,
+                          version: cell.cropChecksumSha256,
+                        },
                       )}
                     />
                     <div>
@@ -1127,6 +1152,7 @@ function OperationalReviewBoard({
                 context,
                 item.id,
                 'board',
+                { version: item.boardChecksumSha256 },
               )}
             />
           </section>

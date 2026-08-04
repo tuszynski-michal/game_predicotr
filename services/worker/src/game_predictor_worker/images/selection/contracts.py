@@ -24,6 +24,7 @@ class SelectionGroupStatus(StrEnum):
     AUTO_SELECTED = "auto_selected"
     MANUAL_REQUIRED = "manual_required"
     MANUALLY_SELECTED = "manually_selected"
+    MISSING_IMAGE = "missing_image"
     SKIPPED_EXISTING_RANGE = "skipped_existing_range"
 
 

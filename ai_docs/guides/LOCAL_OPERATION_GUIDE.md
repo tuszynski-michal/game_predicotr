@@ -130,6 +130,12 @@ W pierwszym oknie PowerShell uruchom API:
 npm run api:dev
 ```
 
+Tryb `api:dev` obserwuje wyłącznie `services/api/src` i automatycznie przeładowuje
+API po zmianie kodu Pythona. Dzięki temu uruchomiony Admin nie korzysta ze
+starszego kontraktu endpointów. Po aktualizacji repozytorium ze starszej wersji
+tego skryptu zatrzymaj istniejące API raz skrótem `Ctrl+C` i uruchom je ponownie;
+od kolejnych zmian ręczny restart nie jest potrzebny.
+
 Możesz potwierdzić jego gotowość w drugim oknie:
 
 ```powershell
@@ -433,13 +439,22 @@ Przycisk uruchamia brakujący produkcyjny Reviewer, czeka na gotowość, otwiera
 Quick Tunnel i tworzy sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz
 komunikat o trybie developerskim, zatrzymaj okno z `reviewer:dev` i kliknij
 ponownie. Zimny start ma twardy limit 60 sekund; nie wymaga restartu komputera.
-Po zmianie kodu API wystarczy zrestartować tylko `npm run api:dev`. Awaryjny
-odpowiednik CLI:
+Proces uruchomiony przez `npm run api:dev` automatycznie przeładowuje zmiany API.
+Awaryjny odpowiednik CLI:
 
 ```powershell
 npm run reviewer:remote:start
 npm run reviewer:remote:status
 ```
+
+Kontroler sprawdza teraz połączenie TCP do
+`api.trycloudflare.com:443` przed uruchomieniem tunelu. Jeżeli API działa w
+procesie z zablokowanym internetem, panel zwraca od razu komunikat o niedostępnym
+endpointcie zamiast czekać 30 sekund na nieistniejący URL. W takim przypadku
+uruchom ponownie `npm run api:dev` w zwykłym PowerShellu Windows z dostępem do
+wychodzącego HTTPS; restart komputera nie jest potrzebny. Firewall może
+blokować Admin i API od strony sieci przychodzącej, ale proces API musi móc
+nawiązać wychodzące połączenie HTTPS dla jawnie uruchamianego Quick Tunnel.
 
 `start` uruchamia proces w tle i pokazuje losowy adres
 `https://...trycloudflare.com`. Nowa sesja automatycznie użyje aktywnego

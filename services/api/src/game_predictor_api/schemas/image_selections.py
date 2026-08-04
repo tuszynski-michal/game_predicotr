@@ -14,6 +14,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
+    ImageSelectionManualResolution,
     ImageSelectionRun,
 )
 from game_predictor_api.schemas.catalog import ApiModel
@@ -53,9 +54,23 @@ class ImageSelectionHandoffResponse(ApiModel):
     game_id: UUID
     selection_id: UUID
     selection_token: str = Field(min_length=32, max_length=200)
-    supported_file_count: int = Field(ge=1)
+    supported_file_count: int = Field(ge=0)
     expires_at: datetime
     target_section: Literal["imports"] = "imports"
+
+
+class ImageSelectionOutputFileResponse(ApiModel):
+    file_name: str = Field(pattern=r"^seq_[1-9][0-9]*-[1-9][0-9]*\.jpg$")
+    range_start: int = Field(ge=1)
+    range_end: int = Field(ge=1)
+    checksum_sha256: Sha256
+    size_bytes: int = Field(ge=1)
+
+
+class ImageSelectionOutputResponse(ApiModel):
+    run_id: UUID
+    manifest_sha256: Sha256
+    files: list[ImageSelectionOutputFileResponse]
 
 
 class ImageSelectionGroupResponse(ApiModel):
@@ -99,13 +114,20 @@ class ImageSelectionManualApprovalCommand(ApiModel):
     range_end: int | None = Field(default=None, ge=1)
 
 
+class ImageSelectionMissingImageCommand(ApiModel):
+    idempotency_key: UUID
+    range_start: int | None = Field(default=None, ge=1)
+    range_end: int | None = Field(default=None, ge=1)
+
+
 class ImageSelectionManualDecisionResponse(ApiModel):
     idempotency_key: UUID
     run_id: UUID
     group_id: UUID
-    candidate_id: UUID
-    range_start: int = Field(ge=1)
-    range_end: int = Field(ge=1)
+    candidate_id: UUID | None
+    resolution: ImageSelectionManualResolution
+    range_start: int | None = Field(default=None, ge=1)
+    range_end: int | None = Field(default=None, ge=1)
     revision: int = Field(ge=1)
     created_at: datetime
 
@@ -185,6 +207,7 @@ def to_manual_decision_response(
         run_id=decision.run_id,
         group_id=decision.group_id,
         candidate_id=decision.candidate_id,
+        resolution=decision.resolution,
         range_start=decision.range_start,
         range_end=decision.range_end,
         revision=decision.revision,
@@ -204,6 +227,9 @@ __all__ = [
     "ImageSelectionManualApprovalResponse",
     "ImageSelectionManualDecisionResponse",
     "ImageSelectionManualFileResponse",
+    "ImageSelectionMissingImageCommand",
+    "ImageSelectionOutputFileResponse",
+    "ImageSelectionOutputResponse",
     "to_image_selection_candidate_response",
     "to_image_selection_group_page_response",
     "to_image_selection_group_response",

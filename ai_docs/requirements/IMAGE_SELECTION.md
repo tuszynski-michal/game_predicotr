@@ -91,15 +91,19 @@ Wątpliwość kończy się `manual_required`, nie fałszywym auto-wyborem.
   wskazanym przez użytkownika.
 - Wybrane zdjęcia są kopiowane do kontrolowanego katalogu wyniku i wiązane z
   checksumowanym manifestem.
-- Nazwa ma postać
-  `seq_<start:06>-<end:06>__<sha256-prefix>.jpg`, na przykład
-  `seq_000001-000009__a1b2c3d4.jpg`.
+- Nazwa ma prostą postać `seq_<start>-<end>.jpg`, na przykład
+  `seq_1-9.jpg`. Unikalność zakresu w ramach runu gwarantuje domena, dlatego
+  checksum nie jest potrzebny w nazwie przeznaczonej dla użytkownika.
 - Zakresy zaczynają się od dodatniego numeru; nazwa `seq_0-9` nie może tworzyć
   niedozwolonego domenowo `sequence_number = 0`.
 - Manifest przechowuje oryginalną względną nazwę, checksumę, kolejność,
   rozpoznany zakres, metryki jakości, sposób `automatic | manual`, wersję
   algorytmu i ścieżkę kopii wynikowej.
 - Baza przechowuje ścieżki, checksumy i metadane, nie duże obrazy BLOB.
+- Po publikacji użytkownik może wskazać standardowym pickerem przeglądarki
+  folder docelowy i skopiować do niego wszystkie zweryfikowane zdjęcia.
+  Kontrolowany, content-addressed katalog serwera pozostaje źródłem handoffu i
+  nie zależy od dostępu przeglądarki do wybranego folderu.
 - Tymczasowe kopie uploadu nie są folderem źródłowym użytkownika. Po atomowym
   zapisaniu kompletnego wyniku mogą zostać usunięte; przy błędzie pozostają do
   retry, a przy anulowaniu są usuwane na jawne polecenie użytkownika.
@@ -112,30 +116,44 @@ skanu otwierana jest kolejka decyzji w modalu.
 Header modala pokazuje:
 
 - `zatwierdzone / wszystkie wymagające decyzji`,
-- rozpoznany zakres, na przykład `400–408`, albo `Nieustalony zakres #N`,
+- rozpoznany zakres, na przykład `400–408`, albo czytelne
+  `Nierozpoznany zestaw zdjęć` bez technicznego numeru grupy,
 - przyciski poprzedni/następny,
 - mały przycisk `Zatwierdź`.
 
 Zachowanie klawiatury:
 
 - `ArrowLeft` i `ArrowRight` wyłącznie nawigują między brakującymi grupami,
-- `Enter` zatwierdza poprawnie wskazane zdjęcie,
+- `Enter` zatwierdza zakres; jeśli wskazano JPEG, zapisuje reprezentanta, a bez
+  pliku zapisuje jawny brak zdjęcia,
 - strzałki nie zapisują decyzji,
 - zatwierdzoną pozycję można później ponownie otworzyć i zmienić.
 
-Body używa standardowego selektora pojedynczego pliku JPEG. Wybrany plik jest
-kopiowany do właściwego katalogu wyniku. Dla nierozpoznanej grupy użytkownik
-podaje dodatni początek i koniec zakresu; bez tego manifest nie może zostać
-zatwierdzony ani przekazany do właściwego importu.
+Body udostępnia standardowy selektor pojedynczego pliku JPEG jako opcjonalne
+uzupełnienie. Wybrany plik jest kopiowany do właściwego katalogu wyniku, ale
+jego brak nie blokuje zakończenia selekcji ani przekazania pozostałych zdjęć do
+importu. Główna akcja `Kontynuuj z wybranymi zdjęciami` oznacza wszystkie
+nierozwiązane grupy jako `missing_image` i wznawia publikację pewnych wyborów.
+Dla nierozpoznanej grupy zakres może pozostać pusty: system zapisuje wtedy
+pominięty nierozpoznany zestaw, nie wymyśla numeracji i nie pokazuje
+technicznego `#N`. Jeżeli zakres jest znany, UI pokazuje informację w formacie
+`Brak zdjęcia dla layoutów 1–9`.
+Panel może wstępnie uzupełnić zakres wyłącznie wtedy, gdy grupa leży między
+dwoma rozpoznanymi zakresami, a luka jest dodatnia i obejmuje najwyżej dziewięć
+layoutów, np. `64–72`, brak, `82–90` daje sugestię `73–81`. Użytkownik nadal
+zatwierdza tę decyzję; większy skok nie tworzy sugestii.
 
-Po zatwierdzeniu ostatniej nierozwiązanej grupy ten sam job w stanie
+Po zatwierdzeniu albo oznaczeniu braku zdjęcia dla ostatniej nierozwiązanej
+grupy ten sam job w stanie
 `waiting_for_review` jest automatycznie wznawiany od zapisanego checkpointu.
 Użytkownik nie przechodzi do `Jobów` i nie klika ręcznie `Ponów`. Automatyczne
 wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 
 ## Integracja z Importem layoutów
 
-- Tylko run bez nierozwiązanych grup może zostać przekazany dalej.
+- Run może zostać przekazany dalej po jawnej decyzji użytkownika o
+  kontynuowaniu; nierozpoznane grupy stają się terminalnym `missing_image`, a
+  wynik może świadomie zawierać wyłącznie pewne automatyczne lub ręczne wybory.
 - Handoff tworzy serwerowo poświadczone źródło wejściowe dla istniejącego
   `image_directory` importu i zachowuje identyfikator runu, manifest oraz
   checksumy wybranych zdjęć.

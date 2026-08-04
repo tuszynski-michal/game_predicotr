@@ -21,6 +21,7 @@ import {
   operationalReviewAssetUrl,
   operationalReviewGeometryCorners,
   operationalReviewGeometryViewport,
+  operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
   operationalReviewPointInSourceImage,
   type OperationalReviewGeometryCorners,
@@ -32,7 +33,7 @@ interface OperationalReviewGeometryEditorProps {
   readonly apiBaseUrl: string;
   readonly importJobId: string;
   readonly item: OperationalImageReviewItemResponse;
-  readonly onSaved: () => void;
+  readonly onSaved: (item: OperationalImageReviewItemResponse) => void;
 }
 
 export function OperationalReviewGeometryEditor({
@@ -68,6 +69,7 @@ export function OperationalReviewGeometryEditor({
     context,
     item.id,
     'source',
+    { version: item.sourceChecksumSha256 },
   );
   const cornersKey = corners === null ? '' : JSON.stringify(corners);
   const previewIsCurrent = previewUrl !== null && previewKey === cornersKey;
@@ -240,7 +242,7 @@ export function OperationalReviewGeometryEditor({
       return;
     }
     setOpen(false);
-    onSaved();
+    onSaved(result.geometry.item);
   }
 
   function updateDraggedCorner(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -256,11 +258,14 @@ export function OperationalReviewGeometryEditor({
       return;
     }
     const rect = canvas.getBoundingClientRect();
+    const canvasPointer = operationalReviewPointInCanvas(
+      { x: event.clientX, y: event.clientY },
+      rect,
+      canvas.width,
+      canvas.height,
+    );
     const point = operationalReviewPointInSourceImage(
-      {
-        x: ((event.clientX - rect.left) / rect.width) * viewport.width,
-        y: ((event.clientY - rect.top) / rect.height) * viewport.height,
-      },
+      canvasPointer.point,
       viewport,
       imageSize.width,
       imageSize.height,
@@ -277,25 +282,40 @@ export function OperationalReviewGeometryEditor({
 
   function startDragging(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (corners === null || viewport === null) return;
+    event.preventDefault();
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
-    const point = {
-      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
-    };
-    const threshold = (28 / rect.width) * canvas.width;
+    const canvasPointer = operationalReviewPointInCanvas(
+      { x: event.clientX, y: event.clientY },
+      rect,
+      canvas.width,
+      canvas.height,
+    );
+    const threshold = 44 / canvasPointer.scale;
     const candidate = corners
       .map((corner) =>
         operationalReviewPointInGeometryViewport(corner, viewport),
       )
       .map((corner, index) => ({
-        distance: Math.hypot(corner.x - point.x, corner.y - point.y),
+        distance: Math.hypot(
+          corner.x - canvasPointer.point.x,
+          corner.y - canvasPointer.point.y,
+        ),
         index,
       }))
       .sort((left, right) => left.distance - right.distance)[0];
     if (candidate === undefined || candidate.distance > threshold) return;
     dragIndexRef.current = candidate.index;
     canvas.setPointerCapture(event.pointerId);
+    updateDraggedCorner(event);
+  }
+
+  function finishDragging(event: ReactPointerEvent<HTMLCanvasElement>) {
+    updateDraggedCorner(event);
+    dragIndexRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
   }
 
   function closeEditor() {
@@ -370,10 +390,11 @@ export function OperationalReviewGeometryEditor({
                 dragIndexRef.current = null;
               }}
               onPointerDown={startDragging}
-              onPointerMove={updateDraggedCorner}
-              onPointerUp={() => {
+              onLostPointerCapture={() => {
                 dragIndexRef.current = null;
               }}
+              onPointerMove={updateDraggedCorner}
+              onPointerUp={finishDragging}
               ref={canvasRef}
               style={{
                 aspectRatio:

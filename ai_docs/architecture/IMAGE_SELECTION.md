@@ -31,7 +31,7 @@ folder JPEG
   -> sequential group detector
   -> top-k verification
   -> automatic representative OR manual_required
-  -> manual single-file completion
+  -> optional manual photo/range OR explicit skip as missing_image
   -> immutable selected manifest
   -> explicit handoff
   -> existing Import layoutów
@@ -53,8 +53,11 @@ folder JPEG
 - poświadcza upload oraz jego przeznaczenie `photo_selection`,
 - tworzy run i job typu `image_selection`,
 - udostępnia bounded listy grup i kandydatów,
-- zapisuje idempotentne decyzje manualne,
-- publikuje handoff token wyłącznie dla kompletnego manifestu,
+- zapisuje idempotentne decyzje manualne `selected_image | missing_image`,
+- publikuje handoff token dla rozwiązanych grup; `missing_image` nie ma pliku i
+  może nie mieć zakresu, ale nie blokuje przekazania pozostałych reprezentantów,
+- udostępnia checksumowaną listę outputu oraz pojedyncze JPEG-i do
+  browser-native eksportu do folderu użytkownika,
 - nigdy nie przyjmuje dowolnej ścieżki absolutnej ani komendy systemowej.
 
 ### Worker
@@ -78,7 +81,8 @@ Encje:
 - `image_selection_candidates` — order index, ścieżka, checksum, wymiary,
   metryki jakości, confidence, reason codes i decyzja,
 - `image_selection_manual_decisions` — append-only rewizje ręcznych decyzji,
-  UUID idempotencji, wybrany kandydat, zakres i checksumę payloadu.
+  UUID idempotencji, resolution, opcjonalny wybrany kandydat, obowiązkowy zakres
+  i checksumę payloadu.
 
 Duże obrazy pozostają w plikach. Dokładny schemat, constrainty i migracja
 Alembic są opisane w `DATA_MODEL.md`.
@@ -97,6 +101,13 @@ Alembic są opisane w `DATA_MODEL.md`.
 - bieżące ręczne wybory zapisuje kanoniczny, atomowo podmieniany
   `manual-decisions.json`; jest to manifest roboczy, a nie finalny output,
 - pliki wynikowe są niezmienne i sprawdzane checksumą,
+- przyjazna nazwa kopii wynikowej ma postać `seq_<start>-<end>.jpg`; po
+  publikacji przeglądarka może skopiować zweryfikowany zestaw do folderu
+  wskazanego przez użytkownika, bez przekazywania backendowi dowolnej ścieżki,
+- nazwa publiczna jest wyprowadzana z zakresu zapisanego w manifestcie, a nie z
+  wewnętrznej nazwy managed file. Dzięki temu wcześniejsze content-addressed
+  pliki z paddingiem i checksumą pozostają czytelne bez migracji lub zmiany
+  niezmiennego outputu,
 - unselected staging może zostać usunięty dopiero po atomowym commitcie wyniku
   albo po jawnym anulowaniu; źródłowy folder użytkownika jest read-only,
 - output manifest jest kanonicznym JSON bez ścieżek absolutnych.
@@ -187,6 +198,11 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   publikacją dodaje rewizję i aktualizuje projekcję oraz manifest roboczy.
 - Po publikacji content-addressed output jest niezmienny. Dalsza korekta wymaga
   nowego runu i nie mutuje artefaktu, który mógł już zostać przekazany do importu.
+- `missing_image` jest terminalnym, trwałym stanem grupy. Publisher pomija
+  kopiowanie JPEG-a dla takiej grupy. Jeżeli zakres jest znany, pozostaje
+  widoczny jako `Brak zdjęcia dla layoutów X–Y`; jeżeli OCR nie ustalił zakresu,
+  oba pola pozostają `null`, a UI pokazuje `Nierozpoznany zestaw zdjęć` bez
+  technicznego numeru grupy.
 - Publisher zapisuje JPEG-i i kanoniczny `manifest.json` do izolowanego
   `.pending`, wykonuje ponowny odczyt checksum i wymiarów, a następnie publikuje
   cały katalog jednym rename w tym samym filesystemie. Awaria przed rename nie
@@ -238,9 +254,12 @@ endpointów importu. Nowe kontrakty:
 POST /api/v1/admin/image-selections
 GET  /api/v1/admin/image-selections/{runId}
 GET  /api/v1/admin/image-selections/{runId}/groups
+GET  /api/v1/admin/image-selections/{runId}/output
+GET  /api/v1/admin/image-selections/{runId}/output/{fileName}
 PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
 GET  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-files/{candidateId}
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/continue-without-image
 POST /api/v1/admin/image-selections/{runId}/handoff
 ```
 
@@ -267,7 +286,7 @@ Grupa używa:
 
 ```text
 collecting | auto_selected | manual_required | manually_selected
-| skipped_existing_range
+| missing_image | skipped_existing_range
 ```
 
 ## Wydajność

@@ -206,6 +206,52 @@ export interface OperationalReviewGeometryViewport {
   readonly y: number;
 }
 
+export interface OperationalReviewCanvasPointer {
+  readonly point: OperationalImageReviewGeometryPoint;
+  readonly scale: number;
+}
+
+export function operationalReviewPointInCanvas(
+  clientPoint: OperationalImageReviewGeometryPoint,
+  bounds: {
+    readonly height: number;
+    readonly left: number;
+    readonly top: number;
+    readonly width: number;
+  },
+  canvasWidth: number,
+  canvasHeight: number,
+): OperationalReviewCanvasPointer {
+  const safeCanvasWidth = Math.max(1, canvasWidth);
+  const safeCanvasHeight = Math.max(1, canvasHeight);
+  const safeBoundsWidth = Math.max(1, bounds.width);
+  const safeBoundsHeight = Math.max(1, bounds.height);
+  const scale = Math.max(
+    Number.EPSILON,
+    Math.min(
+      safeBoundsWidth / safeCanvasWidth,
+      safeBoundsHeight / safeCanvasHeight,
+    ),
+  );
+  const renderedWidth = safeCanvasWidth * scale;
+  const renderedHeight = safeCanvasHeight * scale;
+  const contentLeft = bounds.left + (safeBoundsWidth - renderedWidth) / 2;
+  const contentTop = bounds.top + (safeBoundsHeight - renderedHeight) / 2;
+  return {
+    point: {
+      x: Math.min(
+        safeCanvasWidth,
+        Math.max(0, (clientPoint.x - contentLeft) / scale),
+      ),
+      y: Math.min(
+        safeCanvasHeight,
+        Math.max(0, (clientPoint.y - contentTop) / scale),
+      ),
+    },
+    scale,
+  };
+}
+
 export function operationalReviewGeometryCorners(
   item: OperationalImageReviewItemResponse,
   imageWidth: number,
@@ -416,23 +462,30 @@ export function operationalReviewAssetUrl(
   context: { readonly gameId: string; readonly importJobId: string },
   reviewItemId: string,
   asset: OperationalReviewAssetKind,
-  cellIndex?: number,
+  options: {
+    readonly cellIndex?: number;
+    readonly version?: string;
+  } = {},
 ): string {
   const base = apiBaseUrl.endsWith('/') ? apiBaseUrl : `${apiBaseUrl}/`;
   const encodedItemId = encodeURIComponent(reviewItemId);
   const suffix =
-    asset === 'cell' ? `cells/${requireCellIndex(cellIndex)}` : asset;
+    asset === 'cell' ? `cells/${requireCellIndex(options.cellIndex)}` : asset;
   const assetPath = `api/v1/admin/image-review-items/${encodedItemId}/assets/${suffix}`;
   if (base.startsWith('/')) {
     const query = new URLSearchParams({
       gameId: context.gameId,
       importJobId: context.importJobId,
     });
+    if (options.version !== undefined) query.set('v', options.version);
     return `${base}${assetPath}?${query.toString()}`;
   }
   const url = new URL(assetPath, base);
   url.searchParams.set('gameId', context.gameId);
   url.searchParams.set('importJobId', context.importJobId);
+  if (options.version !== undefined) {
+    url.searchParams.set('v', options.version);
+  }
   return url.toString();
 }
 

@@ -32,7 +32,7 @@
     "reviewer:remote:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start_remote_reviewer_tunnel.ps1",
     "reviewer:remote:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/get_remote_reviewer_tunnel_status.ps1",
     "reviewer:remote:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop_remote_reviewer_tunnel.ps1",
-    "api:dev": ".venv\\Scripts\\python.exe -m game_predictor_api",
+    "api:dev": ".venv\\Scripts\\python.exe -m game_predictor_api --reload",
     "api:test": ".venv\\Scripts\\python.exe -m pytest services/api/tests",
     "db:baseline:verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_postgres_baseline.ps1",
     "db:current": ".venv\\Scripts\\python.exe -m alembic current",

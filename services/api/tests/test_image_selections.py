@@ -438,6 +438,58 @@ def test_last_manual_decision_requeues_the_waiting_job_exactly_once() -> None:
     assert len(repository.manual_decisions) == 2
 
 
+def test_unknown_group_can_be_skipped_without_range_and_requeues_without_jpeg() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="e" * 64,
+        selector_fingerprint="f" * 64,
+    )
+    waiting_job = replace(
+        run.job,
+        status=JobStatus.WAITING_FOR_REVIEW,
+        stage="image_selection:manual_review",
+        review_count=1,
+    )
+    repository.runs[run.id] = replace(run, job=waiting_job)
+    group = _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
+    repository.groups.append(group)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    key = uuid4()
+    command = {"idempotencyKey": str(key)}
+
+    with client:
+        resolved = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/continue-without-image",
+            json=command,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/continue-without-image",
+            json=command,
+        )
+
+    assert resolved.status_code == 200, resolved.text
+    assert replay.json() == resolved.json()
+    assert resolved.json()["group"]["status"] == "missing_image"
+    assert resolved.json()["group"]["selectedCandidateId"] is None
+    assert resolved.json()["decision"]["resolution"] == "missing_image"
+    assert resolved.json()["decision"]["candidateId"] is None
+    assert resolved.json()["group"]["rangeStart"] is None
+    assert resolved.json()["group"]["rangeEnd"] is None
+    assert resolved.json()["decision"]["rangeStart"] is None
+    assert resolved.json()["decision"]["rangeEnd"] is None
+    assert repository.get_run(run.id).job.status is JobStatus.CREATED
+    assert len(repository.manual_decisions) == 1
+
+
 def test_domain_rejects_unsafe_paths_and_invalid_ranges() -> None:
     with pytest.raises(ImageSelectionError) as unsafe:
         safe_relative_path(r"C:\private\photo.jpg")
@@ -568,6 +620,21 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
         input_manifest_sha256=run.input_manifest_sha256,
         result=result,
     )
+    published_entry = published.manifest.entries[0]
+    legacy_file_name = "legacy-selected.jpg"
+    published_image = published.output_directory / published_entry.output_relative_path
+    legacy_image = published_image.with_name(legacy_file_name)
+    published_image.replace(legacy_image)
+    legacy_manifest = replace(
+        published.manifest,
+        entries=(
+            replace(
+                published_entry,
+                output_relative_path=f"images/{legacy_file_name}",
+            ),
+        ),
+    )
+    (published.output_directory / "manifest.json").write_bytes(legacy_manifest.canonical_bytes)
     now = datetime(2026, 8, 3, tzinfo=UTC)
     repository.groups.append(
         ImageSelectionGroup(
@@ -586,7 +653,7 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
     )
     service.record_output(
         run_id=run.id,
-        manifest_sha256=published.manifest_sha256,
+        manifest_sha256=legacy_manifest.checksum_sha256,
         manifest_relative_path=published.manifest_relative_path,
     )
     folder_service = ImageFolderSelectionService(lambda: None)
@@ -599,9 +666,23 @@ def test_handoff_reverifies_output_is_idempotent_and_preserves_provenance(
     )
 
     with client:
+        output = client.get(f"/api/v1/admin/image-selections/{run.id}/output")
+        output_file = client.get(f"/api/v1/admin/image-selections/{run.id}/output/seq_1-9.jpg")
         first = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
         repeated = client.post(f"/api/v1/admin/image-selections/{run.id}/handoff")
 
+    assert output.status_code == 200, output.text
+    assert output.json()["files"] == [
+        {
+            "checksumSha256": hashlib.sha256(content).hexdigest(),
+            "fileName": "seq_1-9.jpg",
+            "rangeEnd": 9,
+            "rangeStart": 1,
+            "sizeBytes": len(content),
+        }
+    ]
+    assert output_file.status_code == 200
+    assert output_file.content == content
     assert first.status_code == 200, first.text
     assert repeated.status_code == 200
     assert repeated.json() == first.json()

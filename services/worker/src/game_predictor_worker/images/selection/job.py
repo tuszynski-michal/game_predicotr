@@ -407,6 +407,12 @@ class _DurableSelectionSink(SelectionAuditSink):
                 group.status is SelectionGroupStatus.MANUAL_REQUIRED
                 for group in result.groups
             ),
+            "missingImageRanges": [
+                {"rangeEnd": group.range.end, "rangeStart": group.range.start}
+                for group in result.groups
+                if group.status is SelectionGroupStatus.MISSING_IMAGE
+                and group.range is not None
+            ],
             "runId": str(self._run.id),
             "scanFailureCount": result.scan_failure_count,
             "schemaVersion": 1,
@@ -473,6 +479,9 @@ class _DurableSelectionSink(SelectionAuditSink):
         manual = sum(
             group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups
         )
+        missing = sum(
+            group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups
+        )
         payload: dict[str, object] = {
             "schema_version": CHECKPOINT_SCHEMA_VERSION,
             "workflow": "image_selection",
@@ -482,6 +491,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             "group_count": len(groups),
             "selected_count": selected,
             "manual_count": manual,
+            "missing_image_count": missing,
             "skipped_count": sum(
                 group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
                 for group in groups
@@ -632,8 +642,15 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             group_id = record.id
         if (
             ImageSelectionGroupStatus(record.status)
-            is ImageSelectionGroupStatus.MANUALLY_SELECTED
-            and group.status is not SelectionGroupStatus.MANUALLY_SELECTED
+            in {
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.MISSING_IMAGE,
+            }
+            and group.status
+            not in {
+                SelectionGroupStatus.MANUALLY_SELECTED,
+                SelectionGroupStatus.MISSING_IMAGE,
+            }
         ):
             return
         record.range_start = None if group.range is None else group.range.start

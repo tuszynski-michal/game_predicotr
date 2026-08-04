@@ -108,9 +108,7 @@ class CuratedImageOutputPublisher:
         before_commit: Callable[[Path], None] | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
-        self._exports_root = (
-            self._artifact_root / "data" / "exports" / "image-selections"
-        )
+        self._exports_root = self._artifact_root / "data" / "exports" / "image-selections"
         self._before_commit = before_commit
 
     def publish(
@@ -130,7 +128,10 @@ class CuratedImageOutputPublisher:
         selected_groups: list[tuple[CandidateResult, SequenceRange]] = []
         seen_ranges: set[tuple[int, int]] = set()
         for group in sorted(result.groups, key=lambda value: value.group_order):
-            if group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE:
+            if group.status in {
+                SelectionGroupStatus.MISSING_IMAGE,
+                SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+            }:
                 continue
             candidate = group.selected_candidate
             recognized = group.range
@@ -155,9 +156,6 @@ class CuratedImageOutputPublisher:
                 )
             seen_ranges.add(key)
             selected_groups.append((candidate, recognized))
-        if not selected_groups:
-            _fail("IMAGE_SELECTION_NOT_READY", "The run has no selected sequence range.")
-
         pending_root = self._exports_root / ".pending" / uuid4().hex[:12]
         images_root = pending_root / "images"
         images_root.mkdir(parents=True, exist_ok=False)
@@ -180,10 +178,7 @@ class CuratedImageOutputPublisher:
                         "IMAGE_SELECTION_MANIFEST_MISMATCH",
                         "A selected source checksum changed before publication.",
                     )
-                file_name = (
-                    f"seq_{recognized.start:06d}-{recognized.end:06d}"
-                    f"__{source_checksum[:12]}.jpg"
-                )
+                file_name = f"seq_{recognized.start}-{recognized.end}.jpg"
                 output_path = images_root / file_name
                 _copy_and_fsync(source_path, output_path)
                 copied_checksum = _sha256_file(output_path)
@@ -334,11 +329,7 @@ def verify_curated_image_manifest(
         if dimensions != (entry.width, entry.height):
             _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "Curated image dimensions changed.")
         expected_files.add(entry.output_relative_path)
-    actual_files = {
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if path.is_file()
-    }
+    actual_files = {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()}
     if actual_files != expected_files:
         _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "Output directory differs from manifest.")
     return manifest

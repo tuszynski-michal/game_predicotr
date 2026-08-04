@@ -142,3 +142,38 @@ jednej klatki przejściowej. Kontrolny przebieg tych samych 180 plików zakończ
 się w 44,2 s: 7 poprawnych zakresów wybrano automatycznie, 4 grupy oznaczono
 jako powtórzenia, a manual review wyniósł `0`. Odbiór UI nadal wymaga
 powtórzenia runu przez właściciela na uruchomionych usługach.
+
+Podczas odbioru doprecyzowano, że ręczny plik jest pomocą, a nie warunkiem
+kontynuacji. Dodano append-only decyzję `missing_image`, endpoint
+`continue-without-image`, migracje `0029_image_selection_missing_images` i
+`0030_image_selection_optional_exceptions` oraz obsługę wznowienia i publikacji
+częściowego zestawu przez worker. Główna akcja pomija wszystkie nierozpoznane
+grupy bez wymyślania zakresu. Modal pozostaje opcjonalny; znany brak pokazuje
+`Brak zdjęcia dla layoutów X–Y`, a nieznany `Nierozpoznany zestaw zdjęć` zamiast
+technicznego numeru grupy.
+Admin podpowiada zakres tylko dla jednoznacznej, bounded luki maksymalnie
+dziewięciu layoutów między dwoma rozpoznanymi zakresami. Dzięki temu bieżąca
+luka między `64–72` i `82–90` jest pokazana jako `73–81`, ale skoki numeracji
+nie są automatycznie uzupełniane.
+
+Zestaw wynikowy używa nazw `seq_<start>-<end>.jpg`. Admin udostępnia dwie jawne
+akcje: checksumowany eksport wszystkich pewnych zdjęć do folderu wybranego
+natywnym pickerem przeglądarki oraz handoff tego samego, zweryfikowanego
+manifestu do `Importu layoutów`. Backend nie przyjmuje dowolnej ścieżki
+docelowej z komputera użytkownika.
+
+Podczas testu eksportu poprawny manifest i JPEG-i nie były dostępne dla Admina,
+ponieważ uruchomiony wcześniej proces API nie zawierał nowych endpointów outputu
+i odpowiadał `404`. Nie była to utrata ani konflikt danych runu. `api:dev` ma
+teraz jawny, ograniczony do `services/api/src` reload, test kontraktu entrypointu
+oraz instrukcję jednorazowego restartu starszego procesu. Admin pokazuje też
+instrukcję naprawczą, gdy nie może odczytać listy outputu. Zweryfikowane zdjęcia
+i checksumowany manifest istnieją nadal; nie trzeba powtarzać selekcji.
+
+Po załadowaniu bieżącego API ujawniła się zgodność wsteczna istniejącego runu:
+jego niezmienny managed JPEG ma historyczną nazwę z paddingiem i suffixem
+checksumy. Backend wyprowadza teraz publiczne `seq_<start>-<end>.jpg` z zakresu
+manifestu i mapuje pobranie z powrotem na rzeczywisty managed file. Regresja API
+używa celowo historycznej nazwy wewnętrznej, a test runtime potwierdził dla
+bieżącego runu listę `seq_1-9.jpg`, `seq_10-18.jpg` oraz zgodność rozmiaru i
+SHA-256 pobranego pliku.

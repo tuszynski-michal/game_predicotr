@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # Architektura systemu
@@ -1040,6 +1040,14 @@ obrazu źródłowego. Backend nie otrzymuje współrzędnych lokalnego cropu i z
 wykonuje preview oraz materializację z oryginalnego assetu. Nie wolno używać
 istniejącego board cropu jako źródła korekty, ponieważ nie zawiera pikseli już
 odciętych przez wcześniejszą błędną geometrię.
+
+Warstwa wejścia canvas najpierw odtwarza rzeczywisty prostokąt treści po
+`object-fit: contain`, łącznie z letterboxingiem, a dopiero później mapuje punkt
+do lokalnego viewportu i źródła. Zapis geometrii nie wykonuje wtórnego lookupu
+po `sequence_number`: klient przyjmuje scope-bound item zwrócony przez komendę
+i podmienia nim bieżącą projekcję. Endpointy assetów zachowują długi immutable
+cache, dlatego Reviewer dodaje do URL `v=<checksum>`; zmiana geometrii zmienia
+checksumę, URL i wymusza pobranie nowych bajtów planszy oraz 15 cropów.
 
 Adapter `manual-review-geometry-v1` przyjmuje wyłącznie uporządkowany quad
 źródłowy, ponownie używa kontraktu logicznych slotów v2 (500 × 300, siatka

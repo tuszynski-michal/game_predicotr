@@ -21,6 +21,9 @@ $reviewerErrorPath = Join-Path $runtimeDirectory "remote-reviewer-app.error.log"
 $reviewerUrl = "http://127.0.0.1:3001"
 $reviewerStartupAttempts = 40
 $tunnelStartupAttempts = 60
+$cloudflareProvisioningHost = "api.trycloudflare.com"
+$cloudflareProvisioningPort = 443
+$cloudflareConnectTimeoutMilliseconds = 5000
 
 New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
 
@@ -46,6 +49,32 @@ function Test-ReviewerProductionReady {
     }
     catch {
         return $false
+    }
+}
+
+function Test-TcpEndpoint {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$HostName,
+        [Parameter(Mandatory = $true)]
+        [int]$Port,
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutMilliseconds
+    )
+
+    $client = [Net.Sockets.TcpClient]::new()
+    try {
+        $connectTask = $client.ConnectAsync($HostName, $Port)
+        if (-not $connectTask.Wait($TimeoutMilliseconds)) {
+            return $false
+        }
+        return $client.Connected
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $client.Dispose()
     }
 }
 
@@ -147,6 +176,17 @@ try {
         throw "cloudflared is unavailable. First run: npm run reviewer:remote:setup"
     }
 
+    if (-not (Test-TcpEndpoint `
+        -HostName $cloudflareProvisioningHost `
+        -Port $cloudflareProvisioningPort `
+        -TimeoutMilliseconds $cloudflareConnectTimeoutMilliseconds)) {
+        throw (
+            "Cloudflare Quick Tunnel endpoint $cloudflareProvisioningHost`:$cloudflareProvisioningPort " +
+            "is unreachable from the API process. Check the internet connection or firewall and " +
+            "start npm run api:dev from a normal Windows PowerShell process that allows outbound HTTPS."
+        )
+    }
+
     if (Test-Path -LiteralPath $logPath) {
         Remove-Item -LiteralPath $logPath -Force
     }
@@ -176,10 +216,20 @@ try {
     }
 
     if ($null -eq $publicOrigin) {
-        if (-not $process.HasExited) {
+        $processExitedBeforeCleanup = $process.HasExited
+        if (-not $processExitedBeforeCleanup) {
             Stop-Process -Id $process.Id
         }
-        throw "Cloudflare did not return an HTTPS URL within 30 seconds. Check: $logPath"
+        $failureKind = if ($processExitedBeforeCleanup) {
+            "cloudflared exited before publishing an address"
+        }
+        else {
+            "the provisioning endpoint was reachable but did not publish an address"
+        }
+        throw (
+            "Cloudflare Quick Tunnel could not start within 30 seconds: $failureKind. " +
+            "Retry once; if it repeats, check: $logPath"
+        )
     }
 
     $startedAt = [DateTimeOffset]::Now.ToString("o")

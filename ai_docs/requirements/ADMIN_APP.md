@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-03
 ---
 
 # Wymagania modułu administracyjnego
@@ -56,7 +56,10 @@ API. `mobileCode` oraz stabilny kod są edytowalne wyłącznie podczas tworzenia
 Aktywny symbol można zarchiwizować tylko osobną akcją z potwierdzeniem; rekord
 pozostaje na liście i może zostać ponownie aktywowany przez edycję. Ścieżka
 obrazu referencyjnego jest opcjonalną względną ścieżką POSIX. W tej iteracji
-panel zapisuje metadane ścieżki, a nie binarną zawartość pliku.
+panel zapisuje metadane ścieżki, a nie binarną zawartość pliku. Dla istniejącej
+grafiki edycja symbolu udostępnia read-only podgląd w modalu. Podgląd pobiera
+checksum-bound asset z Admin API, pokazuje stan ładowania i kontrolowany błąd;
+nie zmienia wskazania grafiki ani pozostałych danych symbolu.
 
 Joker nie ma własnej wypłaty. Jeżeli w przyszłości gra będzie miała więcej niż
 jeden rodzaj symbolu specjalnego, jego semantyka wymaga osobnej reguły zamiast
@@ -355,6 +358,13 @@ i checksum, ponownie otwiera etykiety zależne od zmienionych `cropSampleId` i
 zachowuje wcześniejszą geometrię w audycie. Korekty mogą później służyć do
 zbudowania nowej wersji profilu cięcia, ale nigdy nie są automatycznie
 propagowane na inne plansze.
+
+Obsługa narożników musi pozostać zgodna z widoczną treścią obrazu również po
+skalowaniu i dodaniu pustych pasów przez `object-fit: contain`; próg trafienia
+jest stały w pikselach ekranu, a nie w pikselach źródła. Po zapisie Reviewer
+natychmiast zastępuje bieżący item projekcją zwróconą przez backend i pobiera
+planszę oraz cropy spod adresów wersjonowanych ich checksumami. Nie wolno
+pokazać starego assetu z cache jako wyniku nowej rewizji geometrii.
 
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie

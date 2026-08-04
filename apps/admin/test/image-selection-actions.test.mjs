@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  continueWithAutomaticallySelectedImages,
   loadManualImageSelectionGroups,
   orderImageSelectionFiles,
+  saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from '../src/features/image-selection/image-selection-actions.ts';
 
@@ -30,6 +32,11 @@ test('loads the bounded group cursor and keeps only manual queue items', async (
                   id: 'approved',
                   status: 'manually_selected',
                 },
+                {
+                  groupOrder: 3,
+                  id: 'missing',
+                  status: 'missing_image',
+                },
               ],
               nextAfterGroupOrder: null,
             },
@@ -42,8 +49,163 @@ test('loads the bounded group cursor and keeps only manual queue items', async (
   assert.deepEqual(cursors, [undefined, 1]);
   assert.deepEqual(
     result.map((group) => group.id),
-    ['pending', 'approved'],
+    ['pending', 'approved', 'missing'],
   );
+});
+
+test('prefills only a bounded unambiguous range gap for a missing image', async () => {
+  const api = {
+    listImageSelectionGroups: async () => ({
+      data: {
+        items: [
+          {
+            groupOrder: 0,
+            id: 'previous',
+            rangeStart: 1,
+            rangeEnd: 9,
+            status: 'auto_selected',
+          },
+          {
+            groupOrder: 1,
+            id: 'missing',
+            rangeStart: null,
+            rangeEnd: null,
+            status: 'manual_required',
+          },
+          {
+            groupOrder: 2,
+            id: 'next',
+            rangeStart: 19,
+            rangeEnd: 27,
+            status: 'auto_selected',
+          },
+        ],
+        nextAfterGroupOrder: null,
+      },
+    }),
+  };
+
+  const [missing] = await loadManualImageSelectionGroups(api, 'run-1');
+
+  assert.equal(missing.rangeStart, 10);
+  assert.equal(missing.rangeEnd, 18);
+});
+
+test('continues with automatic selections without inventing unknown ranges', async () => {
+  const commands = [];
+  const api = {
+    continueImageSelectionWithoutImage: async (_runId, groupId, command) => {
+      commands.push({ command, groupId });
+      return {
+        data: {
+          group: {
+            id: groupId,
+            rangeEnd: null,
+            rangeStart: null,
+            status: 'missing_image',
+          },
+        },
+      };
+    },
+  };
+
+  const result = await continueWithAutomaticallySelectedImages(
+    api,
+    'run-1',
+    [
+      {
+        id: 'unknown',
+        rangeEnd: null,
+        rangeStart: null,
+        status: 'manual_required',
+      },
+      {
+        id: 'known',
+        rangeEnd: 18,
+        rangeStart: 10,
+        status: 'manual_required',
+      },
+      { id: 'auto', status: 'auto_selected' },
+    ],
+    () => 'decision-key',
+  );
+
+  assert.equal(result.error, null);
+  assert.equal(result.skippedCount, 2);
+  assert.deepEqual(commands, [
+    { command: { idempotencyKey: 'decision-key' }, groupId: 'unknown' },
+    {
+      command: {
+        idempotencyKey: 'decision-key',
+        rangeEnd: 18,
+        rangeStart: 10,
+      },
+      groupId: 'known',
+    },
+  ]);
+});
+
+test('saves verified output under deterministic sequence names', async () => {
+  const payload = new Blob(['jpeg-content'], { type: 'image/jpeg' });
+  const checksum = await sha256(payload);
+  const saved = new Map();
+  const api = {
+    getImageSelectionOutput: async () => ({
+      data: {
+        files: [
+          {
+            checksumSha256: checksum,
+            fileName: 'seq_1-9.jpg',
+            rangeEnd: 9,
+            rangeStart: 1,
+            sizeBytes: payload.size,
+          },
+        ],
+        manifestSha256: 'a'.repeat(64),
+        runId: 'run-1',
+      },
+    }),
+    getImageSelectionOutputFile: async () => ({ data: payload }),
+  };
+  const directory = {
+    getFileHandle: async (fileName) => ({
+      createWritable: async () => ({
+        abort: async () => undefined,
+        close: async () => undefined,
+        write: async (blob) => saved.set(fileName, await blob.text()),
+      }),
+    }),
+  };
+
+  const result = await saveImageSelectionOutputToFolder(api, 'run-1', {
+    pickDirectory: async () => directory,
+  });
+
+  assert.deepEqual(result, { cancelled: false, error: null, savedCount: 1 });
+  assert.equal(saved.get('seq_1-9.jpg'), 'jpeg-content');
+});
+
+test('explains how to recover when a stale API cannot list output files', async () => {
+  const api = {
+    getImageSelectionOutput: async () => ({
+      error: { detail: 'Not Found' },
+    }),
+  };
+
+  const result = await saveImageSelectionOutputToFolder(api, 'run-1', {
+    pickDirectory: async () => ({
+      getFileHandle: async () => {
+        throw new Error('must not write without a verified output');
+      },
+    }),
+  });
+
+  assert.deepEqual(result, {
+    cancelled: false,
+    error:
+      'Nie udało się zweryfikować listy wybranych zdjęć. Uruchom ponownie lokalne Admin API i spróbuj ponownie.',
+    savedCount: 0,
+  });
 });
 
 function imageFile(name, relativePath = `photos/${name}`) {
@@ -80,6 +242,14 @@ function createdRun() {
       orderingPolicy: 'natural_relative_path_v1',
     },
   };
+}
+
+async function sha256(blob) {
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    await blob.arrayBuffer(),
+  );
+  return Buffer.from(digest).toString('hex');
 }
 
 test('orders browser files by deterministic natural relative path', () => {

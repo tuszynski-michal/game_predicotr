@@ -387,6 +387,15 @@ nav {
   gap: 10px;
 }
 
+.imageSelectionMissingRanges {
+  padding: 10px 12px;
+  border: 1px solid #e7b95f;
+  border-radius: 10px;
+  background: #fff8e8;
+  color: #6d4b08;
+  overflow-wrap: anywhere;
+}
+
 .imageSelectionRunCard {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
@@ -1356,6 +1365,16 @@ a:focus-visible {
 
 .symbolForm .imagePathField {
   grid-column: 1 / -1;
+}
+
+.imagePathControlRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.imagePathControlRow .secondaryButton {
+  min-width: 104px;
 }
 
 .formActions {
@@ -3149,6 +3168,71 @@ div.imageJobInlineError {
   width: min(920px, 100%);
 }
 
+.symbolImagePreviewCard {
+  width: min(720px, 100%);
+}
+
+.symbolImagePreviewFrame {
+  position: relative;
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background:
+    linear-gradient(145deg, rgba(112, 225, 180, 0.05), transparent),
+    rgba(3, 8, 15, 0.65);
+}
+
+.symbolImagePreviewFrame img {
+  width: min(100%, 560px);
+  height: min(60vh, 560px);
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.symbolImagePreviewFrame img.isReady {
+  opacity: 1;
+}
+
+.symbolImagePreviewState {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  max-width: 440px;
+  place-items: center;
+  gap: 10px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.symbolImagePreviewState strong {
+  color: var(--text);
+}
+
+.symbolImagePreviewMetadata {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.symbolImagePreviewMetadata code {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.symbolImagePreviewActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
 .symbolImageNameField {
   display: grid;
   gap: 7px;
@@ -3227,6 +3311,14 @@ div.imageJobInlineError {
 }
 
 @media (max-width: 720px) {
+  .imagePathControlRow {
+    grid-template-columns: 1fr;
+  }
+
+  .symbolImagePreviewFrame {
+    min-height: 240px;
+  }
+
   .symbolImageCandidateGrid {
     grid-template-columns: repeat(2, minmax(100px, 1fr));
   }

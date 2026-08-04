@@ -1,6 +1,7 @@
 import { createClient as createGeneratedClient } from './generated/client';
 import {
   approveManualImageSelection as approveGeneratedManualImageSelection,
+  continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
@@ -38,6 +39,8 @@ import {
   getImageJobOperations as getGeneratedImageJobOperations,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
   getImageSelection as getGeneratedImageSelection,
+  getImageSelectionOutput as getGeneratedImageSelectionOutput,
+  getImageSelectionOutputFile as getGeneratedImageSelectionOutputFile,
   getManualImageSelectionFile as getGeneratedManualImageSelectionFile,
   handoffImageSelection as handoffGeneratedImageSelection,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
@@ -118,6 +121,7 @@ import type {
   ImageFolderImportCreate,
   ImageSelectionCreate,
   ImageSelectionManualApprovalCommand,
+  ImageSelectionMissingImageCommand,
   ImageSelectionGroupStatus,
   ImageSequenceSourceOverrideCommand,
   JobStatus,
@@ -195,6 +199,9 @@ export type {
   ImageSelectionManualApprovalResponse,
   ImageSelectionManualDecisionResponse,
   ImageSelectionManualFileResponse,
+  ImageSelectionMissingImageCommand,
+  ImageSelectionOutputFileResponse,
+  ImageSelectionOutputResponse,
   ImageDiagnosticExportCreationResponse,
   ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
@@ -458,6 +465,16 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { run_id: runId },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
+    getImageSelectionOutput: (runId: string) =>
+      getGeneratedImageSelectionOutput({
+        client,
+        path: { run_id: runId },
+      }),
+    getImageSelectionOutputFile: (runId: string, fileName: string) =>
+      getGeneratedImageSelectionOutputFile({
+        client,
+        path: { file_name: fileName, run_id: runId },
+      }),
     handoffImageSelection: (runId: string) =>
       handoffGeneratedImageSelection({
         client,
@@ -522,6 +539,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(
           `image-selection:${runId}:${groupId}:approve`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    continueImageSelectionWithoutImage: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionMissingImageCommand,
+    ) =>
+      continueGeneratedImageSelectionWithoutImage({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:missing-image`,
         ),
         path: { group_id: groupId, run_id: runId },
       }),

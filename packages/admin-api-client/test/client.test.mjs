@@ -212,6 +212,45 @@ test('generated client requests an explicit image-selection handoff', async () =
   );
 });
 
+test('generated client lists and downloads verified image-selection output', async () => {
+  const requests = [];
+  const runId = '00000000-0000-4000-8000-000000000154';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new URL(request.url).pathname.endsWith('/output')
+        ? Response.json({
+            files: [
+              {
+                checksumSha256: 'a'.repeat(64),
+                fileName: 'seq_1-9.jpg',
+                rangeEnd: 9,
+                rangeStart: 1,
+                sizeBytes: 4,
+              },
+            ],
+            manifestSha256: 'b'.repeat(64),
+            runId,
+          })
+        : new Response(new Blob(['jpeg']), {
+            headers: { 'Content-Type': 'image/jpeg' },
+          });
+    },
+  });
+
+  await client.getImageSelectionOutput(runId);
+  await client.getImageSelectionOutputFile(runId, 'seq_1-9.jpg');
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/image-selections/${runId}/output`],
+      ['GET', `/api/v1/admin/image-selections/${runId}/output/seq_1-9.jpg`],
+    ],
+  );
+});
+
 test('generated client reads completeness and controls a sequence source override', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

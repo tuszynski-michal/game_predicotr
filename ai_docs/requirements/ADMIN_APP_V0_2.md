@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements for version 0.2
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # Wymagania panelu Admin — wersja 0.2
@@ -168,6 +168,9 @@ istnieją. Nie są osobną sekcją użytkownika; stanowią wnętrze `Import layo
 - jeżeli liczba klastrów jest inna, katalog nie powstaje automatycznie:
   użytkownik rozstrzyga, które klastry scalić, rozdzielić albo przypisać,
 - każdy symbol jest kafelkiem z proponowaną grafiką i edytowalną nazwą,
+- przy zapisanej ścieżce edytor udostępnia przycisk `Podgląd`, który otwiera
+  read-only modal z rzeczywistą grafiką referencyjną, pełną ścieżką oraz stanem
+  ładowania lub kontrolowanym błędem,
 - nie ma podstawowego przepływu `Nowy symbol` ani ręcznego budowania całego
   rekordu symbolu,
 - po przetworzeniu większej liczby layoutów kliknięcie grafiki otwiera modal z

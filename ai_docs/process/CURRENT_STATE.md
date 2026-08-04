@@ -110,6 +110,18 @@ last_updated: 2026-08-03
   `archived`, a bootstrap symboli mapuje `None` do SQL `NULL`. Rzeczywisty
   bootstrap zakończył się `applied` i utworzył osiem symboli; produkcyjna sesja
   pokazała układ #8 oraz pełną kolejkę 4050 plansz.
+- Piętnasty pion TASK-0142 naprawił edycję i odświeżanie ręcznej geometrii.
+  Wskaźnik canvas jest mapowany przez rzeczywisty obszar `object-fit: contain`,
+  więc narożniki działają dla różnych proporcji layoutu. Po zapisie UI przyjmuje
+  item zwrócony przez backend, a URL-e source/board/cell są wersjonowane
+  checksumą, dlatego nowa rewizja nie jest zasłaniana starym immutable cache.
+  Korekta dostarcza lepsze cropy do uczenia symboli; uczenie samej geometrii
+  nadal wymaga osobnego, wersjonowanego profilu i benchmarku.
+- Szesnasty pion TASK-0142 dodał do edycji symbolu read-only podgląd zapisanej
+  grafiki referencyjnej. Modal używa istniejącego checksum-bound assetu, pokazuje
+  pełną ścieżkę i obsługuje loading, błąd, retry, `Escape` oraz jawne zamknięcie;
+  nie zmienia grafiki ani metadanych. Admin przechodzi 162/162 testów, typecheck,
+  lint i produkcyjny build; endpoint symboli przechodzi 10/10 testów.
 - Admin i workflow powstają od czystej bazy,
 - testy używają jednej gry i małego kontrolowanego datasetu,
 - pełne 500 000 rzeczywistych layoutów i nowe gry nie należą do 0.2,
@@ -190,10 +202,11 @@ last_updated: 2026-08-03
   Handoff jest idempotentny przez `selectionId = runId`, blokuje nierozwiązane
   grupy i checksum drift, przenosi token do `Importu layoutów`, ale nie uruchamia
   ciężkiego pipeline'u. Job importu zachowuje `imageSelectionRunId`,
-- TASK-0155 dodał kompaktowy modal wyjątków manualnych z pojedynczym pickerem
-  JPEG, podglądem, nawigacją strzałkami i idempotentnym zatwierdzeniem Enterem.
-  Nieznany zakres wymaga dodatnich numerów, korekty zachowują append-only audyt,
-  a opublikowany output pozostaje niezmienny. Przy 1366×768 modal nie wymaga
+- TASK-0155 dodał kompaktowy, opcjonalny modal wyjątków manualnych z pojedynczym
+  pickerem JPEG, podglądem, nawigacją strzałkami i idempotentnym zatwierdzeniem
+  Enterem. Główna akcja może pominąć nierozpoznane zestawy bez zakresu i bez
+  JPEG-a, nie wymyślając numeracji; korekty zachowują append-only audyt, a
+  opublikowany output pozostaje niezmienny. Przy 1366×768 modal nie wymaga
   przewijania i zachowuje widoczny focus,
 - TASK-0156 podłączył selektor do trwałego workera z lease/fencing,
   checkpointem bounded stanu, uzgadnianiem projekcji po awarii, retry od
@@ -217,6 +230,17 @@ last_updated: 2026-08-03
   checkpointu. Backend serializuje akceptacje blokadą `FOR UPDATE`, nie ponawia
   jobów `failed`, a Admin po zapisie odczytuje nowy stan i ponownie uruchamia
   bounded polling bez przechodzenia do workspace'u `Joby`,
+- przepływ odbiorowy TASK-0157 ma główną akcję
+  `Kontynuuj z wybranymi zdjęciami`: wszystkie nierozpoznane wyjątki zapisuje
+  jako `missing_image`, również bez zakresu, a następnie publikuje pewne zdjęcia.
+  Techniczne `#N` zostało zastąpione opisem `Nierozpoznany zestaw zdjęć`.
+  Zweryfikowany output można skopiować browser-native pickerem do wybranego
+  folderu jako `seq_<od>-<do>.jpg` albo przekazać do `Importu layoutów`,
+- eksport TASK-0157 obsługuje również wcześniejsze, niezmienne manifesty, w
+  których managed JPEG miał padding i suffix checksumy. Publiczna nazwa nadal
+  wynika wyłącznie z zakresu (`seq_1-9.jpg`). `api:dev` obserwuje tylko kod API i
+  automatycznie go przeładowuje, aby działający Admin nie korzystał ze starego
+  zestawu endpointów po zmianie źródeł,
 - karta aktywnego runu TASK-0157 pokazuje bezpośrednio w `Selekcji zdjęć`
   czytelny status i etap, postęp `X/N` z procentem, liczbę grup, wyborów
   automatycznych, przypadków manualnych, pominięć, błędów i weryfikacji oraz
@@ -229,6 +253,11 @@ last_updated: 2026-08-03
   niepotwierdzonej klatki przejściowej. Lokalna regresja tych samych danych
   zakończyła się w 44,2 s wynikiem 7 auto-selected zakresów, 4 powtórzeń i 0
   przypadków manualnych; pozostaje powtórzyć run z poziomu Admina,
+- kontroler publicznego Reviewera wykonuje bounded test wychodzącego HTTPS przed
+  startem `cloudflared`. Proces API z zablokowanym dostępem do
+  `api.trycloudflare.com:443` zwraca teraz właściwą przyczynę zamiast ogólnego
+  timeoutu 30 sekund. Rzeczywisty start spoza izolacji sieciowej utworzył
+  poprawny URL Quick Tunnel 2026-08-03,
 - obejmuje wyłącznie M7.0 i TASK-0151–0157, czyli niedestrukcyjny preselektor:
   czwarty workspace
   `Selekcja zdjęć` redukuje katalog 10 000–30 000 kolejnych ujęć do jednego
@@ -272,7 +301,12 @@ last_updated: 2026-08-03
 ### Robocze
 
 - PostgreSQL ma w repozytorium head
-  `0028_image_selection_versioned_reruns`; migracja usuwa błędną unikalność
+  `0030_image_selection_optional_exceptions`; migracja pozwala zapisać
+  nierozpoznany `missing_image` bez zakresu. Migracja
+  `0029_image_selection_missing_images` dodaje terminalny stan `missing_image`,
+  opcjonalny `candidate_id` powiązany z jawnym typem decyzji oraz pozwala
+  kontynuować selekcję bez ręcznego JPEG-a. Poprzednia migracja
+  `0028_image_selection_versioned_reruns` usuwa błędną unikalność
   samego `source_selection_id`, dzięki czemu ten sam niezmienny staging może
   otrzymać nowy run po zmianie fingerprintu selektora. Poprzednik
   `0027_image_selection_manual_decisions`; wcześniejszy
@@ -280,6 +314,9 @@ last_updated: 2026-08-03
   `0025_symbol_localized_names` i `0025_image_selection` bez przepisywania
   historii baz, które mogły zastosować już jeden z tych pionów. Migracja 0027
   dodaje append-only audyt ręcznych decyzji selektora,
+- ręczne wyjątki selekcji nie wymagają już pliku: użytkownik może podać sam
+  zakres, np. `1–9`, a Admin zapisuje i pokazuje `Brak zdjęcia dla layoutów
+  1–9`; opcjonalny JPEG nadal można dodać przed zatwierdzeniem,
 - podczas odbioru utworzono roboczą grę `777` i image import; job naprawczy
   `65d6ca14-dacc-4341-b015-c187f2d7af36` zakończył automatykę w stanie
   `waiting_for_review`: 739 źródeł, 4050 plansz, 60 750 cropów i 4050 pozycji

@@ -92,6 +92,9 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   assert.match(manualModalSource, /event\.key === 'Enter' && !event\.repeat/);
   assert.match(manualModalSource, /approvalInFlightRef/);
   assert.match(manualModalSource, /idempotencyKey/);
+  assert.match(manualModalSource, /continueImageSelectionWithoutImage/);
+  assert.match(manualModalSource, /Brak zdjęcia dla layoutów/);
+  assert.match(manualModalSource, /Dodaj opcjonalne zdjęcie/);
   assert.match(workspaceSource, /refreshRunAfterManualApproval\(activeRunId\)/);
   assert.match(workspaceSource, /setRun\(result\.data\)/);
   assert.match(

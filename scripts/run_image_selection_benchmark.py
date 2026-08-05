@@ -25,6 +25,7 @@ from game_predictor_worker.images.selection.adapters import (  # noqa: E402
 from game_predictor_worker.images.selection.benchmark import (  # noqa: E402
     ImageSelectionBenchmarkError,
     canonical_pretty_json,
+    load_real_corpus_golden,
     load_scale_annotations,
     run_real_corpus_baseline,
     run_scale_benchmark,
@@ -38,9 +39,12 @@ from game_predictor_worker.images.selection.io import (  # noqa: E402
     load_browser_selection_manifest,
 )
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
+    APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+    APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
-    DEFAULT_SELECTOR_MANIFEST,
     ORDERED_SELECTOR_VERSIONS,
+    REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    SelectorManifest,
 )
 from game_predictor_worker.images.selection.ports import (  # noqa: E402
     SequenceRangeRecognizer,
@@ -57,6 +61,7 @@ ANNOTATIONS_PATH = (
 )
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts"
 QUALITY_ROOT = REPOSITORY_ROOT / "ai_docs" / "quality"
+REAL_GOLDEN_PATH = QUALITY_ROOT / "image-selection-real-corpus-golden-v1.json"
 
 
 def _parse_args() -> argparse.Namespace:
@@ -68,6 +73,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--real-source-root", type=Path)
     parser.add_argument("--real-limit", type=int, default=500)
     parser.add_argument("--scan-workers", type=int, default=4)
+    parser.add_argument("--real-golden", type=Path, default=REAL_GOLDEN_PATH)
+    parser.add_argument("--selector", choices=("v8", "v9"), default="v9")
     parser.add_argument(
         "--ocr-model-root",
         type=Path,
@@ -85,14 +92,21 @@ def _build_real_adapters(
     source_root: Path,
     telemetry: StageTimingCollector,
     *,
+    manifest: SelectorManifest,
     ocr_model_root: Path,
 ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+    if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+        return build_default_adapters(
+            source_root,
+            manifest=manifest,
+            telemetry=telemetry,
+        )
     ocr = PaddleSequenceNumberRecognizer(ocr_model_root)
     anchored = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
     fallback: SequenceRangeRecognizer
-    if DEFAULT_SELECTOR_MANIFEST.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
+    if manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
         fallback = BestEffortVisibleSequenceLabelRangeRecognizer(ocr, telemetry=telemetry)
-    elif DEFAULT_SELECTOR_MANIFEST.algorithm_version in ORDERED_SELECTOR_VERSIONS:
+    elif manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
         fallback = AdaptiveVisibleSequenceLabelRangeRecognizer(ocr, telemetry=telemetry)
     else:
         fallback = VisibleSequenceLabelRangeRecognizer(ocr, telemetry=telemetry)
@@ -100,6 +114,7 @@ def _build_real_adapters(
         source_root,
         range_recognizer=anchored,
         fallback_range_recognizer=fallback,
+        manifest=manifest,
         telemetry=telemetry,
     )
 
@@ -159,7 +174,7 @@ def main() -> None:
         report, content = _read_report(output)
         if real_source_root is not None:
             if (
-                report.get("benchmarkContract") != "image-selection-real-corpus-baseline-v1"
+                report.get("benchmarkContract") != "image-selection-real-corpus-benchmark-v2"
                 or report.get("technicalGatePassed") is not True
             ):
                 raise ImageSelectionBenchmarkError(
@@ -183,34 +198,57 @@ def main() -> None:
     if max_seconds <= 0:
         raise ImageSelectionBenchmarkError("--max-seconds must be positive.")
     if real_source_root is not None:
-        if max_seconds > 300:
-            raise ImageSelectionBenchmarkError(
-                "A real-corpus baseline cannot exceed the five-minute timeout."
-            )
         source_root = real_source_root.resolve(strict=True)
         sources, input_manifest_sha256 = load_browser_selection_manifest(
             source_root / "_browser_manifest.json"
         )
-        ocr_model_root = cast(Path, args.ocr_model_root).resolve(strict=True)
-        report = run_real_corpus_baseline(
-            source_root=source_root,
-            sources=sources,
-            input_manifest_sha256=input_manifest_sha256,
-            limit=real_limit,
-            max_seconds=max_seconds,
-            scan_workers=cast(int, args.scan_workers),
-            adapter_factory=lambda root, telemetry: _build_real_adapters(
-                root,
-                telemetry,
-                ocr_model_root=ocr_model_root,
-            ),
+        selector_name = cast(str, args.selector)
+        selector_manifest = (
+            APPEARANCE_ONLY_SELECTOR_MANIFEST_V9
+            if selector_name == "v9"
+            else REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8
         )
-        content = _write_report_atomic(output, report)
-        print(json.dumps(report, indent=2, sort_keys=True))
-        print(f"Saved image-selection real-corpus baseline to {output}.")
-        print(f"SHA-256: {hashlib.sha256(content).hexdigest()}")
-        if report["technicalGatePassed"] is not True:
-            raise ImageSelectionBenchmarkError("The real-corpus integrity gate failed.")
+        ocr_model_root = cast(Path, args.ocr_model_root)
+        if selector_name == "v8":
+            ocr_model_root = ocr_model_root.resolve(strict=True)
+        golden = load_real_corpus_golden(cast(Path, args.real_golden).resolve(strict=True))
+        work_root = _resolve_work_root(cast(Path | None, args.work_root))
+        try:
+            report = run_real_corpus_baseline(
+                source_root=source_root,
+                sources=sources,
+                input_manifest_sha256=input_manifest_sha256,
+                limit=real_limit,
+                max_seconds=max_seconds,
+                scan_workers=cast(int, args.scan_workers),
+                cache_artifact_root=work_root,
+                golden=golden,
+                manifest=selector_manifest,
+                adapter_factory=lambda root, telemetry: _build_real_adapters(
+                    root,
+                    telemetry,
+                    manifest=selector_manifest,
+                    ocr_model_root=ocr_model_root,
+                ),
+            )
+            report["cleanup"] = {
+                "cacheAndWorkRootPolicy": "always-remove-on-exit",
+                "sourceStagingPolicy": "read-only",
+            }
+            content = _write_report_atomic(output, report)
+            print(json.dumps(report, indent=2, sort_keys=True))
+            print(f"Saved image-selection real-corpus benchmark to {output}.")
+            print(f"SHA-256: {hashlib.sha256(content).hexdigest()}")
+            if report["technicalGatePassed"] is not True:
+                raise ImageSelectionBenchmarkError("The real-corpus technical gate failed.")
+        finally:
+            if work_root.exists():
+                resolved = work_root.resolve()
+                if ARTIFACT_ROOT.resolve() not in resolved.parents:
+                    raise ImageSelectionBenchmarkError(
+                        "Refusing to clean a work root outside repository artifacts."
+                    )
+                shutil.rmtree(resolved, ignore_errors=False)
         return
     work_root = _resolve_work_root(cast(Path | None, args.work_root))
     try:

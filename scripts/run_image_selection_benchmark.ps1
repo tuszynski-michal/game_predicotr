@@ -3,18 +3,23 @@ param(
     [ValidateSet('smoke', '10000', '30000')]
     [string]$Profile = 'smoke',
 
-    [ValidateRange(1, 3600)]
+    [ValidateRange(1, 21600)]
     [int]$TimeoutSeconds = 120,
 
     [string]$Output = '',
 
     [string]$RealSourceRoot = '',
 
-    [ValidateRange(500, 1000)]
+    [ValidateSet(500, 1000, 3000, 40000)]
     [int]$RealLimit = 500,
 
     [ValidateRange(1, 8)]
     [int]$ScanWorkers = 4,
+
+    [ValidateSet('v8', 'v9')]
+    [string]$Selector = 'v9',
+
+    [string]$RealGolden = '',
 
     [string]$OcrModelRoot = ''
 )
@@ -39,7 +44,7 @@ if ([string]::IsNullOrWhiteSpace($Output)) {
         "image-selection-$Profile-report.json"
     }
     else {
-        "image-selection-real-$RealLimit-report.json"
+        "image-selection-real-$Selector-$RealLimit-w$ScanWorkers-report.json"
     }
     $Output = Join-Path $repositoryRoot "ai_docs\quality\$reportName"
 }
@@ -52,14 +57,15 @@ $argumentParts = @(
     '--work-root', "`"$workRoot`""
 )
 if (-not [string]::IsNullOrWhiteSpace($RealSourceRoot)) {
-    if ($TimeoutSeconds -gt 300) {
-        throw 'A real-corpus baseline cannot exceed the five-minute timeout.'
-    }
     $argumentParts += @(
         '--real-source-root', "`"$RealSourceRoot`"",
         '--real-limit', $RealLimit,
-        '--scan-workers', $ScanWorkers
+        '--scan-workers', $ScanWorkers,
+        '--selector', $Selector
     )
+    if (-not [string]::IsNullOrWhiteSpace($RealGolden)) {
+        $argumentParts += @('--real-golden', "`"$RealGolden`"")
+    }
     if (-not [string]::IsNullOrWhiteSpace($OcrModelRoot)) {
         $argumentParts += @('--ocr-model-root', "`"$OcrModelRoot`"")
     }

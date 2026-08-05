@@ -112,7 +112,10 @@ class FileImageScanObservationCache:
             scan_adapter_fingerprint=scan_adapter_fingerprint,
         )
         target.parent.mkdir(parents=True, exist_ok=True)
-        temporary = target.parent / f".{target.name}.{uuid4().hex}.part"
+        # Keep the atomic-write helper name deliberately short. Repeating the
+        # 64-character cache key and a full UUID here can cross the legacy
+        # Windows MAX_PATH limit even though the final cache path is valid.
+        temporary = target.parent / f".tmp-{uuid4().hex[:12]}.part"
         try:
             with temporary.open("xb") as output:
                 output.write(content)

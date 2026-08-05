@@ -26,6 +26,9 @@ importu ani Reviewera; przygotowuje dla nich mniejszy, bezpieczny zestaw.
   Admina i zachowuje stan w URL.
 - Selekcja jest osobnym jobem oraz osobnym stanem domenowym. Nie jest dodatkowym
   etapem widocznym wewnątrz `Importu layoutów`.
+- Joby selekcji są konsumowane przez dedykowany lokalny worker lane. Ogólny
+  worker obsługujący `Import layoutów` nie może przejąć `image_selection`, więc
+  oba procesy mogą działać równolegle bez zmiany URL panelu ani API.
 - Gotowy run udostępnia akcję `Przekaż do Importu layoutów`, która wykorzystuje
   istniejący właściwy pipeline bez ponownego wybierania całego folderu.
 - Historyczny run zachowuje powiązanie z niezmiennym stagingiem. Użytkownik może
@@ -204,6 +207,9 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
   Nie może tylko przywrócić terminalnej karty bez uruchomienia pracy.
 - Skan jest strumieniowy i nie przechowuje pełnych obrazów całego katalogu w
   pamięci.
+- Najwyżej jeden job selekcji działa jednocześnie. Jego lane jest niezależny od
+  pojedynczego lane ogólnych jobów; rozdzielenie usuwa blokowanie kolejki, ale
+  nie gwarantuje braku konkurencji o CPU, RAM i dysk.
 - Produkcyjny worker może równolegle obliczać bounded okno lekkich obserwacji,
   ale wyniki są konsumowane dokładnie według naturalnego `order_index`.
   Liczba scan workers oraz wewnętrznych wątków OpenCV wynika z benchmarku i nie

@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from game_predictor_api.domain.jobs import JobType
+from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_worker import cli
 from game_predictor_worker.jobs.runtime import JobExecutionResult
 
@@ -24,6 +24,7 @@ class FakeWorker:
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.run_forever_calls: list[float] = []
         self.handlers = args[1]
+        self.options = kwargs
         self.__class__.instances.append(self)
 
     def run_once(self) -> JobExecutionResult:
@@ -83,6 +84,32 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert JobType.PAYOUT in FakeWorker.instances[0].handlers
     assert JobType.IMPORT in FakeWorker.instances[0].handlers
     assert JobType.VALIDATE in FakeWorker.instances[0].handlers
+    assert JobType.IMAGE_SELECTION not in FakeWorker.instances[0].handlers
+    assert FakeWorker.instances[0].options["execution_slot"] is JobExecutionSlot.GENERAL
+    assert engine.disposed is True
+
+
+def test_cli_runs_image_selection_in_its_dedicated_lane(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = FakeEngine()
+    _replace_dependencies(monkeypatch, engine)
+
+    assert (
+        cli.main(
+            [
+                "--lane",
+                "image-selection",
+                "--worker-id",
+                "selection-worker",
+            ]
+        )
+        == 0
+    )
+
+    worker = FakeWorker.instances[0]
+    assert set(worker.handlers) == {JobType.IMAGE_SELECTION}
+    assert worker.options["execution_slot"] is JobExecutionSlot.IMAGE_SELECTION
     assert engine.disposed is True
 
 

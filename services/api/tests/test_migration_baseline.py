@@ -38,6 +38,7 @@ IMAGE_SELECTION_MANUAL_DECISIONS_REVISION = "0027_image_selection_manual_decisio
 IMAGE_SELECTION_VERSIONED_RERUNS_REVISION = "0028_image_selection_versioned_reruns"
 IMAGE_SELECTION_MISSING_IMAGES_REVISION = "0029_image_selection_missing_images"
 IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION = "0030_image_selection_optional_exceptions"
+JOB_EXECUTION_LANES_REVISION = "0031_job_execution_lanes"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -82,8 +83,9 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     versioned_reruns = script.get_revision(IMAGE_SELECTION_VERSIONED_RERUNS_REVISION)
     missing_images = script.get_revision(IMAGE_SELECTION_MISSING_IMAGES_REVISION)
     optional_exceptions = script.get_revision(IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION)
+    job_execution_lanes = script.get_revision(JOB_EXECUTION_LANES_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION]
+    assert script.get_heads() == [JOB_EXECUTION_LANES_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -149,6 +151,32 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert missing_images.down_revision == IMAGE_SELECTION_VERSIONED_RERUNS_REVISION
     assert optional_exceptions is not None
     assert optional_exceptions.down_revision == IMAGE_SELECTION_MISSING_IMAGES_REVISION
+    assert job_execution_lanes is not None
+    assert job_execution_lanes.down_revision == IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION
+
+
+def test_job_execution_lanes_allow_general_and_image_selection_slots() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION}:{JOB_EXECUTION_LANES_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{JOB_EXECUTION_LANES_REVISION}:{IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "job_type = 'image_selection' and execution_slot = 2" in upgrade_sql
+    assert "job_type <> 'image_selection' and execution_slot = 1" in upgrade_sql
+    assert "drop constraint ck_jobs_processing_lease_fields" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "execution_slot = 2" in downgrade_sql
+    assert "execution_slot = 1" in downgrade_sql
 
 
 def test_image_selection_versioned_reruns_replace_source_uniqueness_with_index() -> None:

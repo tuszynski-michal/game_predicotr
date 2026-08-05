@@ -3703,6 +3703,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   przedaktywacyjne fingerprinty v9 z D-148/D-149; nie zmienia range-free
   odpowiedzialności ani polityki reprezentanta.
 
+## D-152 — Selekcja zdjęć ma osobny lokalny execution lane
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** wspólny pakiet workera jest uruchamiany jako dwa lokalne
+  procesy. General worker konsumuje import, walidację, payout i build Android w
+  `execution_slot = 1`; image-selection worker konsumuje wyłącznie
+  `image_selection` w `execution_slot = 2`. Atomowy claim filtruje dozwolone
+  typy przed założeniem lease. Oba lane używają jednej tabeli `jobs`, jednego
+  PostgreSQL, tego samego fencing tokenu i wspólnego panelu Admin.
+- **Context:** globalny slot powodował, że wielogodzinna selekcja blokowała
+  właściwy Import layoutów, mimo że są to niezależne workflow. Właściciel chce
+  przygotowywać kolejną partię zdjęć równolegle z importowaniem wcześniejszego
+  wyniku.
+- **Reason:** dwa filtrowane procesy usuwają blokowanie kolejki przy minimalnej
+  zmianie architektury. Nie wymagają kopiowania danych, drugiego API ani nowego
+  mechanizmu retry.
+- **Alternatives:** osobny mikroserwis, kontener, URL, baza oraz Redis/Celery
+  zostały odrzucone jako niepotrzebna złożoność. Jeden proces z priorytetami
+  nadal nie pozwala wykonywać selekcji i importu równolegle.
+- **Consequences:** operator uruchamia najwyżej jeden proces każdego lane.
+  Równoległe joby konkurują o lokalny CPU, RAM i dysk, więc izolacja kolejki nie
+  oznacza gwarancji pełnej wydajności obu procesów. Migracje należy wykonywać
+  przy zatrzymanych workerach. API i UI nie wybierają slotu.
+- **Supersedes:** zastępuje część D-077/D-139 zakładającą jeden globalny slot;
+  zachowuje decyzję o PostgreSQL jobs, fenced lease i braku brokera.
+
 ## Szablon nowej decyzji
 
 ```text

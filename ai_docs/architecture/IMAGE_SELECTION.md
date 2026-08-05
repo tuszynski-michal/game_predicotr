@@ -10,8 +10,9 @@ last_updated: 2026-08-05
 ## Decyzja
 
 Selekcja jest osobnym bounded contextem i czwartym workspace'em Admina. Używa
-istniejącego Next.js, FastAPI, PostgreSQL, pojedynczego workera Python oraz
-lokalnego storage. Nie jest flagą pełnego `image_directory` pipeline'u.
+istniejącego Next.js, FastAPI, PostgreSQL, wspólnego kodu workera Python oraz
+lokalnego storage. Produkcyjnie ma osobny proces i execution lane, ale nie jest
+osobnym mikroserwisem ani flagą pełnego `image_directory` pipeline'u.
 
 Rozdzielenie zapobiega czterem problemom:
 
@@ -84,7 +85,9 @@ folder JPEG
   symbol ONNX,
 - kończy jako `waiting_for_review`, gdy istnieją grupy manualne, albo
   `completed`, gdy manifest jest kompletny,
-- używa istniejącego `execution_slot = 1`, lease, heartbeat, cancel i retry.
+- używa dedykowanego `execution_slot = 2` oraz wspólnych mechanizmów lease,
+  heartbeat, cancel i retry; general worker używa slotu 1 i nie rejestruje
+  handlera `image_selection`.
 
 ### PostgreSQL
 
@@ -385,9 +388,12 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
 
 ## Trwałe wykonanie i diagnostyka
 
-- Produkcyjny handler `image_selection` działa w istniejącym lokalnym workerze
-  z pojedynczym `execution_slot = 1`; każda projekcja grupy i finalnego outputu
-  jest chroniona tym samym tokenem fencing co lease joba.
+- Produkcyjny handler `image_selection` działa w dedykowanym lokalnym procesie
+  tego samego pakietu workera z `execution_slot = 2`. Import i pozostałe joby
+  używają procesu general oraz `execution_slot = 1`. Atomowy claim filtruje typy
+  jobów przed pobraniem, a unikalność slotu pozwala na jeden aktywny job w każdym
+  lane. Każda projekcja grupy i finalnego outputu nadal jest chroniona tym samym
+  tokenem fencing co lease joba.
 - Checkpoint JSON przechowuje tylko potwierdzony `nextOrderIndex`, bounded stan
   otwartej grupy, pending guard, top-k i liczniki. Pełne grupy oraz kandydaci
   pozostają w PostgreSQL.

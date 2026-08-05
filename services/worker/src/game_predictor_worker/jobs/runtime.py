@@ -13,12 +13,14 @@ from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
     JobError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
 )
 
 DEFAULT_LEASE_DURATION = timedelta(seconds=60)
 DEFAULT_POLL_INTERVAL_SECONDS = 2.0
+GENERAL_JOB_TYPES = frozenset(JobType) - {JobType.IMAGE_SELECTION}
 
 
 class JobExecutionResult(StrEnum):
@@ -51,6 +53,8 @@ class WorkerJobStore(Protocol):
         worker_version: str,
         lease_duration: timedelta,
         claimed_at: datetime,
+        allowed_job_types: frozenset[JobType] = GENERAL_JOB_TYPES,
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
     ) -> Job | None: ...
 
     def heartbeat(
@@ -199,6 +203,7 @@ class LocalJobWorker:
         *,
         worker_id: str,
         worker_version: str,
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
         lease_duration: timedelta = DEFAULT_LEASE_DURATION,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -206,6 +211,7 @@ class LocalJobWorker:
         self._handlers = dict(handlers)
         self._worker_id = worker_id
         self._worker_version = worker_version
+        self._execution_slot = execution_slot
         self._lease_duration = lease_duration
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -215,6 +221,8 @@ class LocalJobWorker:
             worker_version=self._worker_version,
             lease_duration=self._lease_duration,
             claimed_at=self._clock(),
+            allowed_job_types=frozenset(self._handlers),
+            execution_slot=self._execution_slot,
         )
         if claimed is None:
             return JobExecutionResult.NO_JOB

@@ -12,6 +12,7 @@ import pytest
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
     create_job,
@@ -294,6 +295,7 @@ def _fixture(
         worker_id="worker-test",
         lease_token=uuid4(),
         lease_expires_at=NOW + timedelta(minutes=1),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
         started_at=NOW,
     )
     run = ImageSelectionJobRun(

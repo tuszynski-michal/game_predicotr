@@ -189,7 +189,7 @@ def redact_security_metadata(value: object, *, key: str = "") -> object:
     return str(value)
 
 
-class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):  # type: ignore[misc]
+class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
     """Protect unsafe local Admin requests before they reach domain services."""
 
     def __init__(self, app: Any, *, admin_origin: str, audit_log: AppendOnlyAdminAuditLog) -> None:

@@ -447,7 +447,9 @@ class JobModel(Base):
             name="ck_jobs_attempt_count_nonnegative",
         ),
         CheckConstraint(
-            "(status = 'processing' AND execution_slot = 1 "
+            "(status = 'processing' "
+            "AND ((job_type = 'image_selection' AND execution_slot = 2) "
+            "OR (job_type <> 'image_selection' AND execution_slot = 1)) "
             "AND lease_owner IS NOT NULL AND lease_token IS NOT NULL "
             "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL) "
             "OR (status <> 'processing' AND execution_slot IS NULL "

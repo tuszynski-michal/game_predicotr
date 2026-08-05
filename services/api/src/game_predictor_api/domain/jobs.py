@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from uuid import UUID, uuid4
 
 
@@ -26,6 +26,11 @@ class JobStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class JobExecutionSlot(IntEnum):
+    GENERAL = 1
+    IMAGE_SELECTION = 2
 
 
 class JobError(ValueError):
@@ -163,10 +168,26 @@ def start_job(
     worker_id: str,
     lease_token: UUID,
     lease_expires_at: datetime,
+    execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
     started_at: datetime | None = None,
 ) -> Job:
     if job.status is not JobStatus.CREATED:
         _raise_invalid_transition(job, JobStatus.PROCESSING)
+    expected_slot = (
+        JobExecutionSlot.IMAGE_SELECTION
+        if job.job_type is JobType.IMAGE_SELECTION
+        else JobExecutionSlot.GENERAL
+    )
+    if execution_slot is not expected_slot:
+        raise JobError(
+            "INVALID_JOB_EXECUTION_SLOT",
+            "The execution slot does not match the job type.",
+            details={
+                "jobType": job.job_type.value,
+                "executionSlot": int(execution_slot),
+                "expectedExecutionSlot": int(expected_slot),
+            },
+        )
     normalized_version = worker_version.strip()
     if not normalized_version:
         raise JobError(
@@ -190,7 +211,7 @@ def start_job(
         status=JobStatus.PROCESSING,
         worker_version=normalized_version,
         attempt_count=job.attempt_count + 1,
-        execution_slot=1,
+        execution_slot=int(execution_slot),
         lease_owner=normalized_worker_id,
         lease_token=lease_token,
         lease_expires_at=lease_expires_at,

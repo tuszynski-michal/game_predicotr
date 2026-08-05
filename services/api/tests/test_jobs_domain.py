@@ -14,6 +14,7 @@ from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
     JobError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
     acknowledge_job_cancellation,
@@ -206,6 +207,37 @@ def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
     with pytest.raises(JobConflictError) as error:
         complete_job(waiting, lease_token=token)
     assert error.value.code == "INVALID_JOB_STATUS_TRANSITION"
+
+
+def test_job_type_requires_its_assigned_execution_lane() -> None:
+    selection = create_job(
+        JobType.IMAGE_SELECTION,
+        game_id=uuid4(),
+        input_payload={"schema_version": 1},
+    )
+    now = datetime(2026, 8, 5, 12, tzinfo=UTC)
+
+    with pytest.raises(JobError) as wrong_lane:
+        start_job(
+            selection,
+            worker_version="worker-v10-general",
+            worker_id="general-worker",
+            lease_token=uuid4(),
+            lease_expires_at=now + timedelta(seconds=60),
+            started_at=now,
+        )
+    assert wrong_lane.value.code == "INVALID_JOB_EXECUTION_SLOT"
+
+    claimed = start_job(
+        selection,
+        worker_version="worker-v10-image-selection",
+        worker_id="selection-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(seconds=60),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        started_at=now,
+    )
+    assert claimed.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
 
 
 def test_invalid_transition_and_progress_regression_are_rejected() -> None:

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.jobs import JobType
+from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
@@ -48,7 +48,7 @@ from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingSto
 from game_predictor_worker.imports.validation_handler import (
     LayoutImportValidationHandler,
 )
-from game_predictor_worker.jobs.runtime import LocalJobWorker
+from game_predictor_worker.jobs.runtime import JobHandler, LocalJobWorker
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
 from game_predictor_worker.payouts.handler import PayoutBatchHandler
@@ -65,7 +65,9 @@ from game_predictor_worker.snapshots import (
     SqlAlchemyProductionSnapshotStore,
 )
 
-WORKER_VERSION = "worker-v9"
+WORKER_VERSION = "worker-v10"
+GENERAL_LANE = "general"
+IMAGE_SELECTION_LANE = "image-selection"
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -91,6 +93,15 @@ def main(arguments: Sequence[str] | None = None) -> int:
         "--worker-id",
         default=f"{socket.gethostname()}-{os.getpid()}",
         help="Diagnostic owner stored with the lease.",
+    )
+    parser.add_argument(
+        "--lane",
+        choices=(GENERAL_LANE, IMAGE_SELECTION_LANE),
+        default=GENERAL_LANE,
+        help=(
+            "Claim only general jobs or only image-selection jobs. "
+            "Run one polling process for each lane when both workflows are needed."
+        ),
     )
     parser.add_argument(
         "--artifact-root",
@@ -137,63 +148,71 @@ def main(arguments: Sequence[str] | None = None) -> int:
     session_factory = create_session_factory(engine)
     store = SqlAlchemyWorkerJobStore(session_factory)
     artifact_root = options.artifact_root.resolve()
-    payout_store = SqlAlchemyPayoutStore(session_factory)
-    payout_handler = PayoutBatchHandler(
-        payout_store,
-        JsonlPayoutAuditWriter(artifact_root),
-    )
-    import_store = SqlAlchemyLayoutImportStagingStore(session_factory)
-    import_handler = LayoutImportStagingHandler(
-        import_store,
-        LayoutImportSourceInspector(
-            settings.import_root,
-            max_bytes=settings.import_max_bytes,
-        ),
-    )
-    import_validation_handler = LayoutImportValidationHandler(import_store)
-    image_import_handler = ProductionImageImportWorkflow(
-        session_factory,
-        artifact_root,
-        repository_root=Path.cwd(),
-    )
-    import_dispatch_handler = ImportJobDispatchHandler(
-        import_handler,
-        image_import_handler,
-    )
-    image_selection_handler = ImageSelectionJobHandler(
-        SqlAlchemyImageSelectionJobStore(session_factory),
-        browser_upload_root=settings.import_root,
-        artifact_root=artifact_root,
-        repository_root=Path.cwd(),
-        scan_workers=DEFAULT_PARALLEL_SCAN_WORKERS,
-        scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
-    )
-    snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
-    release_handler = ReleaseWorkflowHandler(
-        SqlAlchemyReleaseWorkflowStore(session_factory),
-        payout_handler,
-        PayoutReadinessService(payout_store),
-        ProductionSnapshotArtifactPublisher(
-            ProductionSnapshotGenerator(snapshot_store),
+    handlers: dict[JobType, JobHandler]
+    if options.lane == IMAGE_SELECTION_LANE:
+        handlers = {
+            JobType.IMAGE_SELECTION: ImageSelectionJobHandler(
+                SqlAlchemyImageSelectionJobStore(session_factory),
+                browser_upload_root=settings.import_root,
+                artifact_root=artifact_root,
+                repository_root=Path.cwd(),
+                scan_workers=DEFAULT_PARALLEL_SCAN_WORKERS,
+                scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
+            )
+        }
+        execution_slot = JobExecutionSlot.IMAGE_SELECTION
+    else:
+        payout_store = SqlAlchemyPayoutStore(session_factory)
+        payout_handler = PayoutBatchHandler(
+            payout_store,
+            JsonlPayoutAuditWriter(artifact_root),
+        )
+        import_store = SqlAlchemyLayoutImportStagingStore(session_factory)
+        import_handler = LayoutImportStagingHandler(
+            import_store,
+            LayoutImportSourceInspector(
+                settings.import_root,
+                max_bytes=settings.import_max_bytes,
+            ),
+        )
+        import_validation_handler = LayoutImportValidationHandler(import_store)
+        image_import_handler = ProductionImageImportWorkflow(
+            session_factory,
             artifact_root,
-        ),
-        PowerShellAndroidReleaseBuilder(
-            Path.cwd(),
+            repository_root=Path.cwd(),
+        )
+        import_dispatch_handler = ImportJobDispatchHandler(
+            import_handler,
+            image_import_handler,
+        )
+        snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
+        release_handler = ReleaseWorkflowHandler(
+            SqlAlchemyReleaseWorkflowStore(session_factory),
+            payout_handler,
+            PayoutReadinessService(payout_store),
+            ProductionSnapshotArtifactPublisher(
+                ProductionSnapshotGenerator(snapshot_store),
+                artifact_root,
+            ),
+            PowerShellAndroidReleaseBuilder(
+                Path.cwd(),
+                artifact_root,
+            ),
             artifact_root,
-        ),
-        artifact_root,
-    )
-    worker = LocalJobWorker(
-        store,
-        {
+        )
+        handlers = {
             JobType.IMPORT: import_dispatch_handler,
             JobType.VALIDATE: import_validation_handler,
             JobType.PAYOUT: payout_handler,
             JobType.ANDROID_BUILD: release_handler,
-            JobType.IMAGE_SELECTION: image_selection_handler,
-        },
+        }
+        execution_slot = JobExecutionSlot.GENERAL
+    worker = LocalJobWorker(
+        store,
+        handlers,
         worker_id=options.worker_id,
-        worker_version=WORKER_VERSION,
+        worker_version=f"{WORKER_VERSION}-{options.lane}",
+        execution_slot=execution_slot,
         lease_duration=timedelta(seconds=options.lease_seconds),
     )
     try:

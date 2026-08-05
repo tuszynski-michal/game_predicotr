@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from game_predictor_api.domain.jobs import (
     Job,
     JobError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
     acknowledge_job_cancellation,
@@ -48,10 +49,13 @@ class MemoryWorkerJobStore:
         worker_version: str,
         lease_duration: timedelta,
         claimed_at: datetime,
+        allowed_job_types: frozenset[JobType] = frozenset(JobType) - {JobType.IMAGE_SELECTION},
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
     ) -> Job | None:
         for job in tuple(self.jobs.values()):
             if (
                 job.status is JobStatus.PROCESSING
+                and job.execution_slot == int(execution_slot)
                 and job.lease_expires_at is not None
                 and job.lease_expires_at <= claimed_at
             ):
@@ -60,14 +64,15 @@ class MemoryWorkerJobStore:
                     recovered_at=claimed_at,
                 )
         if any(
-            job.status is JobStatus.PROCESSING for job in self.jobs.values()
+            job.status is JobStatus.PROCESSING and job.execution_slot == int(execution_slot)
+            for job in self.jobs.values()
         ):
             return None
         candidates = sorted(
             (
                 job
                 for job in self.jobs.values()
-                if job.status is JobStatus.CREATED
+                if job.status is JobStatus.CREATED and job.job_type in allowed_job_types
             ),
             key=lambda job: (job.created_at, job.id),
         )
@@ -79,6 +84,7 @@ class MemoryWorkerJobStore:
             worker_version=worker_version,
             lease_token=uuid4(),
             lease_expires_at=claimed_at + lease_duration,
+            execution_slot=execution_slot,
             started_at=claimed_at,
         )
         self.jobs[claimed.id] = claimed
@@ -211,9 +217,14 @@ class MemoryWorkerJobStore:
         return updated
 
 
-def _job(clock: MutableClock, *, offset_seconds: int = 0) -> Job:
+def _job(
+    clock: MutableClock,
+    *,
+    offset_seconds: int = 0,
+    job_type: JobType = JobType.VALIDATE,
+) -> Job:
     return create_job(
-        JobType.VALIDATE,
+        job_type,
         game_id=uuid4(),
         input_payload={
             "schema_version": 1,
@@ -308,10 +319,7 @@ def test_waiting_for_review_releases_the_single_execution_slot() -> None:
     def pause_handler(context: JobExecutionContext, _job: Job) -> None:
         context.wait_for_review()
 
-    assert (
-        _worker(store, clock, pause_handler).run_once()
-        is JobExecutionResult.WAITING_FOR_REVIEW
-    )
+    assert _worker(store, clock, pause_handler).run_once() is JobExecutionResult.WAITING_FOR_REVIEW
     paused = store.jobs[waiting_job.id]
     assert paused.status is JobStatus.WAITING_FOR_REVIEW
     assert paused.execution_slot is None
@@ -326,7 +334,42 @@ def test_waiting_for_review_releases_the_single_execution_slot() -> None:
     assert processed == [next_job.id]
 
 
-def test_handler_failure_and_missing_registration_release_slot() -> None:
+def test_dedicated_lanes_claim_only_their_job_types_and_run_concurrently() -> None:
+    clock = MutableClock()
+    general_job = _job(clock, job_type=JobType.VALIDATE)
+    selection_job = _job(
+        clock,
+        offset_seconds=1,
+        job_type=JobType.IMAGE_SELECTION,
+    )
+    store = MemoryWorkerJobStore([general_job, selection_job])
+
+    general = store.claim_next(
+        worker_id="general-worker",
+        worker_version="worker-v10-general",
+        lease_duration=timedelta(seconds=60),
+        claimed_at=clock.now,
+        allowed_job_types=frozenset({JobType.VALIDATE}),
+        execution_slot=JobExecutionSlot.GENERAL,
+    )
+    selection = store.claim_next(
+        worker_id="selection-worker",
+        worker_version="worker-v10-image-selection",
+        lease_duration=timedelta(seconds=60),
+        claimed_at=clock.now,
+        allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+    )
+
+    assert general is not None
+    assert general.id == general_job.id
+    assert general.execution_slot == int(JobExecutionSlot.GENERAL)
+    assert selection is not None
+    assert selection.id == selection_job.id
+    assert selection.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
+
+
+def test_handler_failure_releases_slot_and_empty_lane_claims_nothing() -> None:
     clock = MutableClock()
     failed_job = _job(clock)
     store = MemoryWorkerJobStore([failed_job])
@@ -338,9 +381,7 @@ def test_handler_failure_and_missing_registration_release_slot() -> None:
 
     assert result is JobExecutionResult.FAILED
     assert store.jobs[failed_job.id].error_code == "JOB_EXECUTION_FAILED"
-    assert store.jobs[failed_job.id].error_message == (
-        "Handler failed with RuntimeError."
-    )
+    assert store.jobs[failed_job.id].error_message == ("Handler failed with RuntimeError.")
     assert store.jobs[failed_job.id].execution_slot is None
 
     missing_job = _job(clock, offset_seconds=1)
@@ -352,11 +393,8 @@ def test_handler_failure_and_missing_registration_release_slot() -> None:
         worker_version="worker-v1",
         clock=clock,
     )
-    assert missing_worker.run_once() is JobExecutionResult.FAILED
-    assert (
-        missing_store.jobs[missing_job.id].error_code
-        == "JOB_HANDLER_NOT_REGISTERED"
-    )
+    assert missing_worker.run_once() is JobExecutionResult.NO_JOB
+    assert missing_store.jobs[missing_job.id].status is JobStatus.CREATED
 
 
 def test_worker_preserves_operator_safe_handler_error() -> None:
@@ -370,10 +408,7 @@ def test_worker_preserves_operator_safe_handler_error() -> None:
             "The payout source does not exist.",
         )
 
-    assert (
-        _worker(store, clock, fail_safely).run_once()
-        is JobExecutionResult.FAILED
-    )
+    assert _worker(store, clock, fail_safely).run_once() is JobExecutionResult.FAILED
     failed = store.jobs[job.id]
     assert failed.error_code == "PAYOUT_SOURCE_NOT_FOUND"
     assert failed.error_message == "The payout source does not exist."
@@ -390,10 +425,7 @@ def test_worker_preserves_operator_safe_domain_job_error() -> None:
             "checkpointPayload must use schemaVersion 1.",
         )
 
-    assert (
-        _worker(store, clock, fail_domain_validation).run_once()
-        is JobExecutionResult.FAILED
-    )
+    assert _worker(store, clock, fail_domain_validation).run_once() is JobExecutionResult.FAILED
     failed = store.jobs[job.id]
     assert failed.error_code == "UNSUPPORTED_JOB_CHECKPOINT_VERSION"
     assert failed.error_message == "checkpointPayload must use schemaVersion 1."

@@ -15,6 +15,7 @@ from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
     create_job,
@@ -272,6 +273,88 @@ def test_worker_store_fences_cancellation_resume_and_concurrent_claims(
             winner.id,
             lease_token=winner.lease_token,
             completed_at=now + timedelta(minutes=4, seconds=10),
+        )
+    finally:
+        engine.dispose()
+
+
+def test_worker_store_claims_general_and_image_selection_lanes_independently(
+    isolated_worker_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_worker_database), "head")
+    engine = create_engine(isolated_worker_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    store = SqlAlchemyWorkerJobStore(session_factory)
+    now = datetime(2026, 8, 5, 12, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="worker-lanes",
+                name="Worker lanes",
+                status=GameStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            general_job = create_job(
+                JobType.VALIDATE,
+                game_id=game.id,
+                input_payload={
+                    "schema_version": 1,
+                    "dataset_version_id": "55555555-5555-4555-8555-555555555555",
+                },
+            )
+            selection_job = create_job(
+                JobType.IMAGE_SELECTION,
+                game_id=game.id,
+                input_payload={
+                    "schema_version": 1,
+                    "source_selection_id": "66666666-6666-4666-8666-666666666666",
+                },
+            )
+            repository.add_job(general_job)
+            repository.add_job(selection_job)
+            session.commit()
+
+        general = store.claim_next(
+            worker_id="general-worker",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now,
+            allowed_job_types=frozenset(
+                {
+                    JobType.IMPORT,
+                    JobType.VALIDATE,
+                    JobType.PAYOUT,
+                    JobType.ANDROID_BUILD,
+                }
+            ),
+            execution_slot=JobExecutionSlot.GENERAL,
+        )
+        selection = store.claim_next(
+            worker_id="selection-worker",
+            worker_version="worker-v10-image-selection",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now,
+            allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+
+        assert general is not None
+        assert general.id == general_job.id
+        assert general.execution_slot == int(JobExecutionSlot.GENERAL)
+        assert selection is not None
+        assert selection.id == selection_job.id
+        assert selection.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
+        assert (
+            store.claim_next(
+                worker_id="second-selection-worker",
+                worker_version="worker-v10-image-selection",
+                lease_duration=timedelta(seconds=60),
+                claimed_at=now,
+                allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+                execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+            )
+            is None
         )
     finally:
         engine.dispose()

@@ -611,9 +611,11 @@ Persistence/recovery i jakość ML pozostają osobnymi bramkami: ciągły stagin
 387 plansz nie osłabia `manual-review-only` ani nie zezwala na masową
 publikację.
 
-TASK-0077 domyka decyzję kolejki: jeden lokalny worker, globalny
-`execution_slot = 1` i PostgreSQL `jobs` z fenced lease pozostają docelową
-architekturą M7. Redis/Celery, mikroserwisy i zdalne workery nie są dodawane.
+TASK-0077 ustanowił PostgreSQL `jobs` z fenced lease bez Redis/Celery,
+mikroserwisów i zdalnych workerów. TASK-0172 rozszerza wykonanie lokalne na dwa
+filtrowane lane tego samego pakietu: general `execution_slot = 1` oraz
+image-selection `execution_slot = 2`. Każdy lane ma najwyżej jeden aktywny job;
+mogą działać równolegle, zachowując jedno API i bazę.
 Warunki ponownej oceny są częścią D-085 i raportu
 `m7-queue-architecture-decision-v1`; ich spełnienie otwiera nowe zadanie, ale
 nie uruchamia automatycznej migracji.

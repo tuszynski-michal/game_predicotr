@@ -40,8 +40,9 @@ npm run db:migrate
 |---|---|---|
 | 1 | `npm run api:dev` | zawsze dla Admina i Reviewera |
 | 2 | `npm run admin:dev` | podczas pracy w panelu Admin |
-| 3 | `npm run worker:poll` | gdy mają być wykonywane jobs |
-| 4 | `npm run reviewer:dev` | podczas zatwierdzania plansz |
+| 3 | `npm run worker:poll` | Import layoutów i pozostałe ogólne joby |
+| 4 | `npm run worker:image-selection:poll` | tylko workspace `Selekcja zdjęć` |
+| 5 | `npm run reviewer:dev` | podczas zatwierdzania plansz |
 
 5. Otwórz Admin pod `http://127.0.0.1:3000/`.
 6. Reviewer otwieraj wyłącznie przez link i kod utworzone w sekcji
@@ -151,19 +152,34 @@ npm run admin:dev
 Otwórz `http://127.0.0.1:3000/`. Dokumentacja API jest dostępna lokalnie pod
 `http://127.0.0.1:8000/docs`.
 
-Jobs w stanie `created` wymagają workera. Uruchom go w osobnym oknie:
+Ogólne joby w stanie `created`, w tym właściwy `Import layoutów`, wymagają
+general workera. Uruchom go w osobnym oknie:
 
 ```powershell
 npm run worker:poll
 ```
 
+`Selekcja zdjęć` ma odrębny lane i drugi proces. Uruchom go w kolejnym oknie:
+
+```powershell
+npm run worker:image-selection:poll
+```
+
+Oba procesy korzystają z tego samego API, PostgreSQL i panelu Admin, ale nie
+blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
+równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
+niż wtedy, gdy jest jedynym obciążeniem komputera.
+
 Do jednorazowego pobrania najwyżej jednego joba służy:
 
 ```powershell
 npm run worker:once
+npm run worker:image-selection:once
 ```
 
-Nie uruchamiaj równolegle kilku workerów ani kilku buildów Android.
+Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawny
+układ równoległy to najwyżej jeden general worker i jeden image-selection
+worker.
 
 ### Jak używać panelu Admin
 
@@ -425,7 +441,8 @@ decyzji i kopii danych.
 - Reviewer nie pokazuje importu — potrzebna jest aktywna gra oraz job
   `image_directory` dla tej gry.
 - Reviewer odrzuca kod po restarcie API — utwórz nową sesję w Adminie.
-- job pozostaje `created` — uruchom `npm run worker:poll`.
+- ogólny job pozostaje `created` — uruchom `npm run worker:poll`;
+  job `image_selection` wymaga `npm run worker:image-selection:poll`.
 - build Android trwa długo — nie uruchamiaj drugiego builda. Poczekaj na
   zakończenie kontrolowanego procesu Gradle albo sprawdź jego ostatni błąd.
 

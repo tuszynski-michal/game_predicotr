@@ -3,7 +3,7 @@
 import json
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
@@ -711,11 +711,11 @@ def create_app(
     generated_openapi = application.openapi
 
     def local_admin_openapi() -> dict[str, Any]:
-        schema = cast(dict[str, Any], generated_openapi())
+        schema = generated_openapi()
         augment_admin_security_openapi(schema)
         return schema
 
-    application.openapi = local_admin_openapi
+    application.openapi = local_admin_openapi  # type: ignore[method-assign]
 
     return application
 

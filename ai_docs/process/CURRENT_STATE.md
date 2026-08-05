@@ -8,7 +8,7 @@ last_updated: 2026-08-05
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156 and TASK-0165–0170 complete; TASK-0157 and TASK-0171 in progress; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156, TASK-0165–0170 and TASK-0172 complete; TASK-0157 and TASK-0171 in progress; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -411,6 +411,15 @@ last_updated: 2026-08-05
   fingerprint adaptera skanu `408bd8…`. Domyślny manifest pozostaje v8, ponieważ
   staging ma 32 079 zdjęć, a D-146 wymaga dokładnie 40 000 naturalnych zdjęć i
   jawnej decyzji właściciela,
+- TASK-0172 rozdzielił wykonanie lokalne na dwa trwałe lane bez nowego URL,
+  mikroserwisu ani brokera. General worker (`execution_slot = 1`) obsługuje
+  Import layoutów i pozostałe joby, a image-selection worker
+  (`execution_slot = 2`) wyłącznie Selekcję zdjęć. Atomowy claim filtruje typy
+  przed lease, więc oba procesy mogą działać równolegle, ale w każdym lane nadal
+  działa najwyżej jeden job. Migracja `0031_job_execution_lanes` jest lokalnym
+  head; test izolowanego PostgreSQL potwierdził dwa równoległe claimy i blokadę
+  drugiej selekcji. Operator uruchamia `npm run worker:poll` oraz osobno
+  `npm run worker:image-selection:poll`,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są

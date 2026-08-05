@@ -8,7 +8,9 @@ from uuid import UUID, uuid4
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
+    JobExecutionSlot,
     JobStatus,
+    JobType,
     acknowledge_job_cancellation,
     checkpoint_job,
     complete_job,
@@ -27,6 +29,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+GENERAL_JOB_TYPES = frozenset(JobType) - {JobType.IMAGE_SELECTION}
+
 
 class SqlAlchemyWorkerJobStore:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
@@ -39,22 +43,34 @@ class SqlAlchemyWorkerJobStore:
         worker_version: str,
         lease_duration: timedelta,
         claimed_at: datetime,
+        allowed_job_types: frozenset[JobType] = GENERAL_JOB_TYPES,
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
     ) -> Job | None:
         _validate_lease_duration(lease_duration)
+        if not allowed_job_types:
+            return None
         with self._session_factory() as session:
             try:
                 with session.begin():
-                    self._recover_one_expired(session, recovered_at=claimed_at)
+                    self._recover_one_expired(
+                        session,
+                        recovered_at=claimed_at,
+                        execution_slot=execution_slot,
+                    )
                     active = session.scalar(
                         select(JobModel.id).where(
-                            JobModel.status == JobStatus.PROCESSING
+                            JobModel.status == JobStatus.PROCESSING,
+                            JobModel.execution_slot == int(execution_slot),
                         )
                     )
                     if active is not None:
                         return None
                     record = session.scalar(
                         select(JobModel)
-                        .where(JobModel.status == JobStatus.CREATED)
+                        .where(
+                            JobModel.status == JobStatus.CREATED,
+                            JobModel.job_type.in_(tuple(allowed_job_types)),
+                        )
                         .order_by(JobModel.created_at, JobModel.id)
                         .limit(1)
                         .with_for_update(skip_locked=True)
@@ -67,6 +83,7 @@ class SqlAlchemyWorkerJobStore:
                         worker_id=worker_id,
                         lease_token=uuid4(),
                         lease_expires_at=claimed_at + lease_duration,
+                        execution_slot=execution_slot,
                         started_at=claimed_at,
                     )
                     apply_job_to_record(record, claimed)
@@ -230,11 +247,17 @@ class SqlAlchemyWorkerJobStore:
             session.flush()
             return updated
 
-    def recover_expired(self, *, recovered_at: datetime) -> Job | None:
+    def recover_expired(
+        self,
+        *,
+        recovered_at: datetime,
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
+    ) -> Job | None:
         with self._session_factory() as session, session.begin():
             return self._recover_one_expired(
                 session,
                 recovered_at=recovered_at,
+                execution_slot=execution_slot,
             )
 
     @staticmethod
@@ -242,11 +265,13 @@ class SqlAlchemyWorkerJobStore:
         session: Session,
         *,
         recovered_at: datetime,
+        execution_slot: JobExecutionSlot,
     ) -> Job | None:
         record = session.scalar(
             select(JobModel)
             .where(
                 JobModel.status == JobStatus.PROCESSING,
+                JobModel.execution_slot == int(execution_slot),
                 JobModel.lease_expires_at <= recovered_at,
             )
             .order_by(JobModel.lease_expires_at, JobModel.id)
@@ -265,11 +290,7 @@ class SqlAlchemyWorkerJobStore:
 
 
 def _locked_job(session: Session, job_id: UUID) -> JobModel:
-    record = session.scalar(
-        select(JobModel)
-        .where(JobModel.id == job_id)
-        .with_for_update()
-    )
+    record = session.scalar(select(JobModel).where(JobModel.id == job_id).with_for_update())
     if record is None:
         raise JobConflictError(
             "JOB_NOT_FOUND",

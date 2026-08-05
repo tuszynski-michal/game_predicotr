@@ -96,6 +96,7 @@
     "v01:release:validate": ".venv\\Scripts\\python.exe scripts/validate_v01_representative_release.py",
     "v01:release:build": ".venv\\Scripts\\python.exe scripts/build_v01_representative_release.py --build-apk",
     "v02:admin:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_v02_admin_acceptance.ps1 -TimeoutSeconds 120",
+    "v04:worker-lanes:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_v04_dual_worker_lane_acceptance.ps1 -TimeoutSeconds 180",
     "lint": "npm run lint --workspaces --if-present && npm run python:lint && npm run powershell:check",
     "m2:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_m2_acceptance.ps1",
     "openapi:check": ".venv\\Scripts\\python.exe scripts/export_admin_openapi.py --check && npm run check:generated --workspace @game-predictor/admin-api-client",

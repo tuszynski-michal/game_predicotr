@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-05
 ---
 
 # Strategia testów
@@ -127,6 +127,8 @@ Od M2, na testowym PostgreSQL:
   liczników,
 - anulowanie przy bezpiecznym checkpointcie oraz zwolnienie slotu po błędzie,
 - konkurencyjny claim dwóch procesów na fizycznym PostgreSQL,
+- równoległy claim general i image-selection, blokada drugiego procesu w każdym
+  lane oraz niezależne przejęcie kolejnego joba po zwolnieniu właściwego slotu,
 - złożony klucz payoutu, FK do layoutu i nieujemny wynik,
 - bounded keyset batch layoutów oraz idempotentny upsert bez duplikatów,
 - wznowienie payout joba od ostatniego checkpointu bez pominięcia sekwencji,

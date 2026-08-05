@@ -295,24 +295,36 @@ def test_worker_store_claims_general_and_image_selection_lanes_independently(
                 status=GameStatus.ACTIVE,
             )
             repository = SqlAlchemyJobRepository(session)
-            general_job = create_job(
-                JobType.VALIDATE,
-                game_id=game.id,
-                input_payload={
-                    "schema_version": 1,
-                    "dataset_version_id": "55555555-5555-4555-8555-555555555555",
-                },
-            )
-            selection_job = create_job(
-                JobType.IMAGE_SELECTION,
-                game_id=game.id,
-                input_payload={
-                    "schema_version": 1,
-                    "source_selection_id": "66666666-6666-4666-8666-666666666666",
-                },
-            )
-            repository.add_job(general_job)
-            repository.add_job(selection_job)
+            general_jobs = [
+                create_job(
+                    JobType.VALIDATE,
+                    game_id=game.id,
+                    input_payload={
+                        "schema_version": 1,
+                        "dataset_version_id": dataset_version_id,
+                    },
+                )
+                for dataset_version_id in (
+                    "55555555-5555-4555-8555-555555555555",
+                    "77777777-7777-4777-8777-777777777777",
+                )
+            ]
+            selection_jobs = [
+                create_job(
+                    JobType.IMAGE_SELECTION,
+                    game_id=game.id,
+                    input_payload={
+                        "schema_version": 1,
+                        "source_selection_id": source_selection_id,
+                    },
+                )
+                for source_selection_id in (
+                    "66666666-6666-4666-8666-666666666666",
+                    "88888888-8888-4888-8888-888888888888",
+                )
+            ]
+            for job in (*general_jobs, *selection_jobs):
+                repository.add_job(job)
             session.commit()
 
         general = store.claim_next(
@@ -340,11 +352,31 @@ def test_worker_store_claims_general_and_image_selection_lanes_independently(
         )
 
         assert general is not None
-        assert general.id == general_job.id
+        assert general.id in {job.id for job in general_jobs}
         assert general.execution_slot == int(JobExecutionSlot.GENERAL)
         assert selection is not None
-        assert selection.id == selection_job.id
+        assert selection.id in {job.id for job in selection_jobs}
         assert selection.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
+        assert general.lease_token is not None
+        assert selection.lease_token is not None
+        assert (
+            store.claim_next(
+                worker_id="second-general-worker",
+                worker_version="worker-v10-general",
+                lease_duration=timedelta(seconds=60),
+                claimed_at=now,
+                allowed_job_types=frozenset(
+                    {
+                        JobType.IMPORT,
+                        JobType.VALIDATE,
+                        JobType.PAYOUT,
+                        JobType.ANDROID_BUILD,
+                    }
+                ),
+                execution_slot=JobExecutionSlot.GENERAL,
+            )
+            is None
+        )
         assert (
             store.claim_next(
                 worker_id="second-selection-worker",
@@ -355,6 +387,70 @@ def test_worker_store_claims_general_and_image_selection_lanes_independently(
                 execution_slot=JobExecutionSlot.IMAGE_SELECTION,
             )
             is None
+        )
+
+        store.complete(
+            general.id,
+            lease_token=general.lease_token,
+            completed_at=now + timedelta(seconds=10),
+        )
+        next_general = store.claim_next(
+            worker_id="next-general-worker",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now + timedelta(seconds=11),
+            allowed_job_types=frozenset(
+                {
+                    JobType.IMPORT,
+                    JobType.VALIDATE,
+                    JobType.PAYOUT,
+                    JobType.ANDROID_BUILD,
+                }
+            ),
+            execution_slot=JobExecutionSlot.GENERAL,
+        )
+        assert next_general is not None
+        assert next_general.id in {job.id for job in general_jobs} - {general.id}
+        assert next_general.lease_token is not None
+
+        assert (
+            store.claim_next(
+                worker_id="selection-still-blocked",
+                worker_version="worker-v10-image-selection",
+                lease_duration=timedelta(seconds=60),
+                claimed_at=now + timedelta(seconds=11),
+                allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+                execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+            )
+            is None
+        )
+
+        store.complete(
+            selection.id,
+            lease_token=selection.lease_token,
+            completed_at=now + timedelta(seconds=12),
+        )
+        next_selection = store.claim_next(
+            worker_id="next-selection-worker",
+            worker_version="worker-v10-image-selection",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now + timedelta(seconds=13),
+            allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert next_selection is not None
+        assert next_selection.id in {job.id for job in selection_jobs} - {selection.id}
+        assert next_selection.lease_token is not None
+
+        store.complete(
+            next_general.id,
+            lease_token=next_general.lease_token,
+            completed_at=now + timedelta(seconds=14),
+        )
+        store.complete(
+            next_selection.id,
+            lease_token=next_selection.lease_token,
+            completed_at=now + timedelta(seconds=14),
         )
     finally:
         engine.dispose()

@@ -456,6 +456,234 @@ def test_worker_store_claims_general_and_image_selection_lanes_independently(
         engine.dispose()
 
 
+def test_worker_store_recovers_and_cancels_each_lane_independently(
+    isolated_worker_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_worker_database), "head")
+    engine = create_engine(isolated_worker_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    store = SqlAlchemyWorkerJobStore(session_factory)
+    now = datetime(2026, 8, 5, 13, tzinfo=UTC)
+    general_types = frozenset(
+        {
+            JobType.IMPORT,
+            JobType.VALIDATE,
+            JobType.PAYOUT,
+            JobType.ANDROID_BUILD,
+        }
+    )
+    selection_types = frozenset({JobType.IMAGE_SELECTION})
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="worker-lane-recovery",
+                name="Worker lane recovery",
+                status=GameStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            general_jobs = [
+                create_job(
+                    JobType.VALIDATE,
+                    game_id=game.id,
+                    input_payload={
+                        "schema_version": 1,
+                        "dataset_version_id": dataset_version_id,
+                    },
+                )
+                for dataset_version_id in (
+                    "99999999-9999-4999-8999-999999999991",
+                    "99999999-9999-4999-8999-999999999992",
+                )
+            ]
+            selection_jobs = [
+                create_job(
+                    JobType.IMAGE_SELECTION,
+                    game_id=game.id,
+                    input_payload={
+                        "schema_version": 1,
+                        "source_selection_id": source_selection_id,
+                    },
+                )
+                for source_selection_id in (
+                    "99999999-9999-4999-8999-999999999993",
+                    "99999999-9999-4999-8999-999999999994",
+                )
+            ]
+            for job in (*general_jobs, *selection_jobs):
+                repository.add_job(job)
+            session.commit()
+
+        general = store.claim_next(
+            worker_id="general-before-restart",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=30),
+            claimed_at=now,
+            allowed_job_types=general_types,
+            execution_slot=JobExecutionSlot.GENERAL,
+        )
+        selection = store.claim_next(
+            worker_id="selection-before-restart",
+            worker_version="worker-v10-image-selection",
+            lease_duration=timedelta(seconds=120),
+            claimed_at=now,
+            allowed_job_types=selection_types,
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert general is not None and general.lease_token is not None
+        assert selection is not None and selection.lease_token is not None
+        first_general_token = general.lease_token
+        first_selection_token = selection.lease_token
+
+        store.checkpoint(
+            general.id,
+            lease_token=first_general_token,
+            lease_duration=timedelta(seconds=30),
+            checkpoint_payload={"schema_version": 1, "cursor": 10},
+            stage="validating",
+            current=10,
+            total=100,
+            success_count=10,
+            failure_count=0,
+            review_count=0,
+            checkpointed_at=now,
+        )
+        store.checkpoint(
+            selection.id,
+            lease_token=first_selection_token,
+            lease_duration=timedelta(seconds=120),
+            checkpoint_payload={"schema_version": 1, "cursor": 20},
+            stage="image_selection:scanning",
+            current=20,
+            total=100,
+            success_count=20,
+            failure_count=0,
+            review_count=0,
+            checkpointed_at=now,
+        )
+
+        retried_general = store.claim_next(
+            worker_id="general-after-restart",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now + timedelta(seconds=31),
+            allowed_job_types=general_types,
+            execution_slot=JobExecutionSlot.GENERAL,
+        )
+        assert retried_general is not None
+        assert retried_general.id == general.id
+        assert retried_general.attempt_count == 2
+        assert retried_general.progress_current == 10
+        assert retried_general.lease_token is not None
+        assert retried_general.lease_token != first_general_token
+
+        with pytest.raises(JobConflictError) as stale_general:
+            store.heartbeat(
+                general.id,
+                lease_token=first_general_token,
+                lease_duration=timedelta(seconds=60),
+                heartbeat_at=now + timedelta(seconds=32),
+            )
+        assert stale_general.value.code == "JOB_LEASE_LOST"
+
+        renewed_selection = store.heartbeat(
+            selection.id,
+            lease_token=first_selection_token,
+            lease_duration=timedelta(seconds=120),
+            heartbeat_at=now + timedelta(seconds=40),
+        )
+        assert renewed_selection.status is JobStatus.PROCESSING
+        assert renewed_selection.lease_token == first_selection_token
+        assert renewed_selection.attempt_count == 1
+
+        with Session(engine, expire_on_commit=False) as session:
+            jobs = JobService(SqlAlchemyJobRepository(session))
+            jobs.cancel_job(retried_general.id)
+            session.commit()
+
+        cancelled_general = store.checkpoint(
+            retried_general.id,
+            lease_token=retried_general.lease_token,
+            lease_duration=timedelta(seconds=60),
+            checkpoint_payload={"schema_version": 1, "cursor": 11},
+            stage="validating",
+            current=11,
+            total=100,
+            success_count=11,
+            failure_count=0,
+            review_count=0,
+            checkpointed_at=now + timedelta(seconds=41),
+        )
+        assert cancelled_general.status is JobStatus.CANCELLED
+        assert cancelled_general.execution_slot is None
+
+        next_general = store.claim_next(
+            worker_id="next-general",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=300),
+            claimed_at=now + timedelta(seconds=42),
+            allowed_job_types=general_types,
+            execution_slot=JobExecutionSlot.GENERAL,
+        )
+        assert next_general is not None
+        assert next_general.id in {job.id for job in general_jobs} - {general.id}
+        assert next_general.lease_token is not None
+
+        retried_selection = store.claim_next(
+            worker_id="selection-after-restart",
+            worker_version="worker-v10-image-selection",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now + timedelta(seconds=161),
+            allowed_job_types=selection_types,
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert retried_selection is not None
+        assert retried_selection.id == selection.id
+        assert retried_selection.attempt_count == 2
+        assert retried_selection.progress_current == 20
+        assert retried_selection.lease_token is not None
+        assert retried_selection.lease_token != first_selection_token
+
+        with pytest.raises(JobConflictError) as stale_selection:
+            store.heartbeat(
+                selection.id,
+                lease_token=first_selection_token,
+                lease_duration=timedelta(seconds=60),
+                heartbeat_at=now + timedelta(seconds=162),
+            )
+        assert stale_selection.value.code == "JOB_LEASE_LOST"
+
+        store.complete(
+            retried_selection.id,
+            lease_token=retried_selection.lease_token,
+            completed_at=now + timedelta(seconds=163),
+        )
+        next_selection = store.claim_next(
+            worker_id="next-selection",
+            worker_version="worker-v10-image-selection",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now + timedelta(seconds=164),
+            allowed_job_types=selection_types,
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert next_selection is not None
+        assert next_selection.id in {job.id for job in selection_jobs} - {selection.id}
+        assert next_selection.lease_token is not None
+
+        store.complete(
+            next_general.id,
+            lease_token=next_general.lease_token,
+            completed_at=now + timedelta(seconds=165),
+        )
+        store.complete(
+            next_selection.id,
+            lease_token=next_selection.lease_token,
+            completed_at=now + timedelta(seconds=165),
+        )
+    finally:
+        engine.dispose()
+
+
 def test_layout_import_staging_upsert_is_idempotent_on_postgres(
     isolated_worker_database: URL,
 ) -> None:

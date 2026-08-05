@@ -171,6 +171,7 @@ try {
         -Arguments @(
             '-m', 'pytest',
             'services/api/tests/integration/test_worker_job_store.py::test_worker_store_claims_general_and_image_selection_lanes_independently',
+            'services/api/tests/integration/test_worker_job_store.py::test_worker_store_recovers_and_cancels_each_lane_independently',
             '--basetemp', $pytestBaseTemp,
             '-ra'
         ) `

@@ -129,6 +129,8 @@ Od M2, na testowym PostgreSQL:
 - konkurencyjny claim dwóch procesów na fizycznym PostgreSQL,
 - równoległy claim general i image-selection, blokada drugiego procesu w każdym
   lane oraz niezależne przejęcie kolejnego joba po zwolnieniu właściwego slotu,
+- odzyskanie wygasłego lease, fencing starego tokenu i anulowanie jednego lane
+  bez zmiany aktywnego lease ani kolejki drugiego lane,
 - złożony klucz payoutu, FK do layoutu i nieujemny wynik,
 - bounded keyset batch layoutów oraz idempotentny upsert bez duplikatów,
 - wznowienie payout joba od ostatniego checkpointu bez pominięcia sekwencji,

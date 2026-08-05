@@ -8,7 +8,7 @@ last_updated: 2026-08-05
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156, TASK-0165–0170 and TASK-0172–0174 complete; TASK-0157 and TASK-0171 in progress; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 in development — TASK-0151–0156, TASK-0165–0170 and TASK-0172–0175 complete; TASK-0157 and TASK-0171 in progress; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -431,6 +431,10 @@ last_updated: 2026-08-05
   lane i przejęcie pozostałych jobów po zwolnieniu slotów. Jedna bounded komenda
   zapisała raport `passed`; nie uruchamiała workerów ani nie korzystała z danych
   właściciela,
+- TASK-0175 zakończył fizyczną regresję recovery i fencing dwóch lane. General
+  oraz selection lease wygasają i są wznawiane niezależnie z zachowanym
+  checkpointem, stare tokeny są odrzucane, a anulowanie general w safe poincie
+  nie narusza aktywnej selekcji. Rozszerzona bramka zakończyła się `passed`,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są

@@ -36,6 +36,7 @@ from .adapters import (
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
 )
+from .cache import CachedCheapImageAnalyzer, FileImageScanObservationCache
 from .contracts import (
     CandidateDecision,
     CandidateResult,
@@ -146,6 +147,7 @@ class ImageSelectionJobHandler:
         self._scan_prefetch = scan_prefetch
         self._adapter_factory = adapter_factory
         self._publisher = CuratedImageOutputPublisher(self._artifact_root)
+        self._scan_cache = FileImageScanObservationCache(self._artifact_root)
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         run = self._store.get_run_for_job(job.id)
@@ -193,6 +195,11 @@ class ImageSelectionJobHandler:
                     source_root,
                     selector_manifest,
                 )
+            cached_analyzer = CachedCheapImageAnalyzer(
+                analyzer,
+                self._scan_cache,
+                scan_adapter_fingerprint=selector_manifest.scan_adapter_fingerprint,
+            )
             sink = _DurableSelectionSink(
                 context,
                 self._store,
@@ -203,6 +210,7 @@ class ImageSelectionJobHandler:
                 artifact_root=self._artifact_root,
                 existing_groups=existing_groups,
                 telemetry=telemetry,
+                scan_cache_metrics=cached_analyzer.snapshot,
             )
             result = FastImageSelector(
                 selector_manifest,
@@ -210,7 +218,7 @@ class ImageSelectionJobHandler:
                 scan_prefetch=self._scan_prefetch,
             ).select(
                 sources,
-                analyzer=analyzer,
+                analyzer=cached_analyzer,
                 verifier=verifier,
                 audit_sink=sink,
                 resume_state=resume_state,
@@ -356,6 +364,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         artifact_root: Path,
         existing_groups: Sequence[SelectionGroupResult],
         telemetry: StageTimingCollector,
+        scan_cache_metrics: Callable[[], dict[str, object]],
     ) -> None:
         self._context = context
         self._store = store
@@ -373,6 +382,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         self._processing_started_at = context.now()
         self._prior_processing_seconds = _prior_processing_duration(prior_checkpoint)
         self._telemetry = telemetry
+        self._scan_cache_metrics = scan_cache_metrics
 
     def candidate_scanned(
         self,
@@ -475,6 +485,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             ),
             "selectorFingerprint": result.selector_fingerprint,
             "verificationCount": result.verification_count,
+            "scanCache": self._scan_cache_metrics(),
             "stageTiming": self._telemetry.snapshot(),
         }
         content = json.dumps(
@@ -540,6 +551,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             "verification_count": state.verification_count,
             "error_samples": self._error_samples,
             "upload_duration_seconds": self._upload_duration_seconds,
+            "scan_cache": self._scan_cache_metrics(),
             "stage_timing": self._telemetry.snapshot(),
         }
         if self._diagnostic is not None:

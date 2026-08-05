@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from statistics import StatisticsError
 
@@ -26,7 +27,12 @@ from game_predictor_worker.images.selection.adapters import (
     build_default_adapters,
     configure_opencv_thread_budget,
 )
+from game_predictor_worker.images.selection.cache import (
+    CachedCheapImageAnalyzer,
+    FileImageScanObservationCache,
+)
 from game_predictor_worker.images.selection.contracts import (
+    CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
 )
@@ -70,6 +76,132 @@ def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
+
+
+def test_scan_adapter_fingerprint_excludes_domain_grouping_policy() -> None:
+    manifest = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9
+    compatible = replace(
+        manifest,
+        scan_batch_size=manifest.scan_batch_size + 1,
+        top_k=manifest.top_k + 1,
+    )
+    changed_decode = replace(manifest, thumbnail_max_edge=800)
+
+    assert compatible.fingerprint != manifest.fingerprint
+    assert compatible.scan_adapter_fingerprint == manifest.scan_adapter_fingerprint
+    assert changed_decode.scan_adapter_fingerprint != manifest.scan_adapter_fingerprint
+
+
+class _CountingCheapAnalyzer:
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+
+    def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
+        self.calls.append(source.order_index)
+        return CheapImageObservation(
+            source=source,
+            width=640,
+            height=480,
+            fingerprint_hex="a" * 64,
+            geometry_signature=(),
+            board_count=None,
+            geometry_confidence=0.0,
+            quality=ImageQualityMetrics(*(0.75 for _ in range(8))),
+            appearance_signature=(0.1, 0.2, 0.3),
+        )
+
+
+def test_scan_cache_reuses_observation_and_rebinds_current_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache = FileImageScanObservationCache(tmp_path)
+    fingerprint = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.scan_adapter_fingerprint
+    source = _source("1" * 64)
+    first_delegate = _CountingCheapAnalyzer()
+    times = iter((10.0, 10.25))
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.cache.perf_counter",
+        lambda: next(times),
+    )
+    first = CachedCheapImageAnalyzer(
+        first_delegate,
+        cache,
+        scan_adapter_fingerprint=fingerprint,
+    )
+
+    expected = first.analyze(source)
+    rebound_source = replace(
+        source,
+        order_index=7,
+        relative_path="another/session-photo.jpg",
+        stored_relative_path="00000008.jpg",
+    )
+    second_delegate = _CountingCheapAnalyzer()
+    second = CachedCheapImageAnalyzer(
+        second_delegate,
+        cache,
+        scan_adapter_fingerprint=fingerprint,
+    )
+    actual = second.analyze(rebound_source)
+
+    assert first_delegate.calls == [0]
+    assert second_delegate.calls == []
+    assert replace(actual, source=source) == expected
+    assert actual.source == rebound_source
+    assert second.snapshot()["hitCount"] == 1
+    assert second.snapshot()["estimatedSavedSeconds"] == 0.25
+    entry = next(cache.root.rglob("*.json"))
+    assert b"camera/photo1.jpg" not in entry.read_bytes()
+
+
+def test_scan_cache_misses_after_key_change_and_rebuilds_corrupt_entry(
+    tmp_path: Path,
+) -> None:
+    cache = FileImageScanObservationCache(tmp_path)
+    fingerprint = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.scan_adapter_fingerprint
+    source = _source("2" * 64)
+    initial_delegate = _CountingCheapAnalyzer()
+    CachedCheapImageAnalyzer(
+        initial_delegate,
+        cache,
+        scan_adapter_fingerprint=fingerprint,
+    ).analyze(source)
+    entry = next(cache.root.rglob("*.json"))
+    entry.write_text('{"partial":', encoding="utf-8")
+
+    repair_delegate = _CountingCheapAnalyzer()
+    repaired = CachedCheapImageAnalyzer(
+        repair_delegate,
+        cache,
+        scan_adapter_fingerprint=fingerprint,
+    )
+    repaired.analyze(source)
+    changed_delegate = _CountingCheapAnalyzer()
+    changed = CachedCheapImageAnalyzer(
+        changed_delegate,
+        cache,
+        scan_adapter_fingerprint="3" * 64,
+    )
+    changed.analyze(source)
+    checksum_delegate = _CountingCheapAnalyzer()
+    checksum_changed = CachedCheapImageAnalyzer(
+        checksum_delegate,
+        cache,
+        scan_adapter_fingerprint=fingerprint,
+    )
+    checksum_changed.analyze(replace(source, checksum_sha256="4" * 64))
+
+    assert repair_delegate.calls == [0]
+    assert repaired.snapshot()["invalidEntryCount"] == 1
+    assert json.loads(entry.read_text(encoding="utf-8"))["contract"] == (
+        "image-selection-scan-cache-v1"
+    )
+    assert changed_delegate.calls == [0]
+    assert checksum_delegate.calls == [0]
+    entries = tuple(cache.root.rglob("*.json"))
+    assert len(entries) == 3
+    assert sum(item.stat().st_size for item in entries) < 48 * 1024
 
 
 def test_pillow_thumbnail_loader_verifies_checksum_and_applies_exif(tmp_path: Path) -> None:

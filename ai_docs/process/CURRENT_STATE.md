@@ -388,6 +388,16 @@ last_updated: 2026-08-05
   pozostają zgodne. Schemat PostgreSQL już dopuszczał zakres nullable, więc nie
   była potrzebna migracja Alembic. OpenAPI, klient i panel rozróżniają teraz
   wybrane grupy od rozpoznanych layoutów,
+- TASK-0170 dodał odtwarzalny cache bounded obserwacji lekkiego skanu pod
+  `data/cache/image-selection-scan/`. Klucz stanowią checksum JPEG-a i osobny
+  fingerprint adaptera skanu, więc zgodny retry nie dekoduje ponownie pliku, a
+  zmiana dekodera, deskryptora, jakości lub checksumy daje miss. Wpisy są
+  kanonicznymi JSON-ami zapisywanymi atomowo, nie zawierają obrazów ani ścieżek;
+  częściowy wpis jest ignorowany i odbudowywany. Checkpoint nadal jest źródłem
+  prawdy, publikator ponownie sprawdza pełną checksumę wybranego JPEG-a, a
+  checkpoint i diagnostyka pokazują cache hit/miss oraz szacowany zaoszczędzony
+  czas. Cache można bezpiecznie wyczyścić tylko jako osobny katalog przy
+  zatrzymanym workerze; nie dotyka to stagingu ani outputu,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
@@ -531,10 +541,9 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
 
 ## Next recommended task
 
-Realizować TASK-0170: wersjonowany cache lekkich obserwacji i bezpieczne resume
-bez ponownego dekodowania zgodnych JPEG-ów.
-Profile rzeczywiste 500–1000, 3000 i końcowy run 40 000 wykonać wspólnie w
-TASK-0171 po zaliczeniu TASK-0166–0170. Nie uruchamiać pełnego runu 40 000 przed
+Realizować TASK-0171: aktywację v9, profile rzeczywiste 500–1000 oraz 3000 i
+końcowy run 40 000 po zaliczeniu TASK-0166–0170. Nie uruchamiać pełnego runu
+40 000 przed
 krótką bramką 3000 zdjęć w TASK-0171. Końcowy czas 40 000 nie ma sztywnego
 limitu; właściciel oceni raport i wybierze `accepted | optimize`.
 Nie otwierać automatycznej publikacji 500 000 layoutów bez bramki

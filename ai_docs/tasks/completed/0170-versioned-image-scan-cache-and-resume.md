@@ -1,6 +1,6 @@
 ---
 title: TASK-0170 versioned image scan cache and resume
-status: todo
+status: done
 release: "0.4"
 last_updated: 2026-08-04
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-04
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -49,13 +49,13 @@ powtarzania tej samej pracy podczas iteracji na stagingu 32 079 zdjęć.
 
 ## Acceptance criteria
 
-- [ ] Powtórny zgodny scan ma mierzalne cache hits i nie dekoduje trafionych
+- [x] Powtórny zgodny scan ma mierzalne cache hits i nie dekoduje trafionych
       JPEG-ów.
-- [ ] Zmiana fingerprintu lub pliku daje cache miss.
-- [ ] Uszkodzony lub częściowo zapisany cache jest ignorowany i odbudowywany.
-- [ ] Cache nie zmienia deterministycznych grup ani reprezentantów.
-- [ ] Manifest wynikowy nadal weryfikuje checksumy wybranych JPEG-ów.
-- [ ] Rozmiar cache rośnie liniowo i ma opisaną politykę bezpiecznego cleanupu.
+- [x] Zmiana fingerprintu lub pliku daje cache miss.
+- [x] Uszkodzony lub częściowo zapisany cache jest ignorowany i odbudowywany.
+- [x] Cache nie zmienia deterministycznych grup ani reprezentantów.
+- [x] Manifest wynikowy nadal weryfikuje checksumy wybranych JPEG-ów.
+- [x] Rozmiar cache rośnie liniowo i ma opisaną politykę bezpiecznego cleanupu.
 
 ## Technical notes
 
@@ -85,4 +85,26 @@ sprawdzany end-to-end.
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Dodano osobny `scan_adapter_fingerprint`, który obejmuje wyłącznie reduced
+decode, deskryptor/geometry adapter i metryki jakości. Cache zapisuje bounded
+obserwację bez obrazu i ścieżki jako atomowy, kanoniczny JSON adresowany checksumą
+JPEG-a i tym fingerprintem. Cache hit wiąże obserwację z aktualnym źródłem, ale
+nie zmienia checkpointu ani kolejności domenowej.
+
+Handler raportuje cache hit/miss, nieprawidłowe wpisy, błędy zapisu, liczbę i
+rozmiar nowych wpisów oraz szacowany czas zaoszczędzony z baseline'u. Uszkodzony
+wpis jest pomijany i odbudowywany, a niedostępny cache degraduje się do zwykłego
+skanu zamiast kończyć job. Końcowy publisher nadal liczy checksumę wybranego
+JPEG-a end-to-end.
+
+Weryfikacja 2026-08-05:
+
+- `pytest test_image_selection_job.py test_image_selection_adapters.py` —
+  `32 passed`,
+- `ruff check` oraz `ruff format --check` dla zmienionych modułów — zaliczone po
+  formatowaniu,
+- pełnego benchmarku 40 000 nie uruchamiano; należy do TASK-0171.
+
+Cleanup: przy zatrzymanym workerze można usunąć wyłącznie
+`data/cache/image-selection-scan/`. Jest to odtwarzalny cache; staging, manualne
+źródła i finalny output pozostają poza tą operacją.

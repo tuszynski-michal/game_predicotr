@@ -407,6 +407,26 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   spowodować ponowne policzenie najwyżej ośmiu rozpoczętych, lecz jeszcze
   nieskonsumowanych tanich obserwacji; nie może pominąć źródła ani zmienić
   zatwierdzonego `nextOrderIndex`.
+- Odtwarzalny cache lekkich obserwacji znajduje się wyłącznie pod
+  `data/cache/image-selection-scan/`. Klucz logiczny to
+  `sourceChecksumSha256 + scanAdapterFingerprint`, a krótka struktura katalogów
+  używa ich wspólnego SHA-256, aby nie przekraczać limitów ścieżek Windows.
+  Kanoniczny JSON nie zawiera obrazu ani ścieżki źródła. Przy cache hit
+  obserwacja zostaje związana z bieżącym rekordem źródła, a selektor nadal
+  konsumuje ją według `order_index`.
+- `scanAdapterFingerprint` obejmuje wersję i parametry reduced decode,
+  deskryptora/geometry adaptera oraz metryk jakości. Nie obejmuje progów granic,
+  top-k, rozmiaru batcha ani polityki reprezentanta, dlatego zgodna zmiana
+  domenowego grupowania może przeliczyć decyzje bez ponownego dekodowania.
+- Zapis cache używa unikalnego pliku `.part`, `fsync` i atomowego replace.
+  Uszkodzony lub częściowy wpis daje miss; błąd zapisu cache nie przerywa joba.
+  Checkpoint i projekcja PostgreSQL pozostają jedynym źródłem prawdy postępu.
+- Cleanup jest operacją operatorską, nigdy automatycznym skutkiem retry.
+  Bezpiecznie można usunąć wyłącznie cały katalog
+  `data/cache/image-selection-scan/` przy zatrzymanym workerze; nie wolno łączyć
+  tej operacji z kasowaniem `browser-selections`, manualnych źródeł ani finalnego
+  outputu. Cache odbuduje się liniowo, po jednym bounded JSON-ie na unikalną parę
+  checksumy i adaptera.
 - Bounded diagnostyka nie zawiera obrazów ani ścieżek absolutnych. Kanoniczny
   JSON jest adresowany checksumą pod
   `data/exports/is-job-diagnostics/<sha256>.json`; API ujawnia tylko checksumę.
@@ -483,6 +503,9 @@ collecting | auto_selected | manual_required | manually_selected
   użytecznego kandydata i jeden fallback.
 - Wersjonowany cache po checksumie i fingerprintcie lekkiego adaptera może
   usunąć dekodowanie przy zgodnym rerunie, ale nie wpływa na wynik domenowy.
+  Checkpoint i diagnostyka raportują `hitCount`, `missCount`,
+  `invalidEntryCount`, `writeErrorCount`, `writtenBytes` oraz
+  `estimatedSavedSeconds`.
 - Rekordy kandydatów zapisują się bounded partiami; obrazy nie trafiają do RAM
   ani PostgreSQL jako kolekcja.
 - Benchmark mierzy upload osobno od obliczeń, aby wolny dysk lub kopiowanie nie

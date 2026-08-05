@@ -213,6 +213,15 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 - Wersjonowany cache lekkiej obserwacji może przyspieszać retry i rerun, ale nie
   jest źródłem prawdy i nie zastępuje końcowej weryfikacji checksumy wybranego
   pliku.
+- Cache jest kluczowany checksumą JPEG-a i fingerprintem wyłącznie tych
+  adapterów oraz parametrów, które tworzą lekką obserwację. Zmiana zasad
+  grupowania może wykorzystać zgodny wpis, natomiast zmiana dekodera,
+  deskryptora, metryk jakości lub pliku zawsze powoduje miss.
+- Wpis zawiera wyłącznie bounded metryki i deskryptor. Nie zawiera obrazu,
+  ścieżki źródłowej, OCR ani geometrii właściwego Importu layoutów. Uszkodzony
+  wpis jest pomijany i atomowo odbudowywany bez przerywania selekcji.
+- Diagnostyka runu raportuje hit, miss, nieprawidłowe wpisy, błędy zapisu oraz
+  szacowany czas zaoszczędzony na podstawie czasu pierwszego skanu.
 - Krótkie profile realnego pierwszego przebiegu raportują throughput i regresje,
   zanim zostanie uruchomiona pełna próba 40 000 zdjęć.
 - Finalna bramka nie ma z góry ustalonego limitu czasu. System zapisuje pełny

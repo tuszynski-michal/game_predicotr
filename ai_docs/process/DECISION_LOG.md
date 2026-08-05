@@ -3647,6 +3647,28 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zastępuje wyłącznie przedaktywacyjny fingerprint v9 zapisany
   w D-148; decyzja o appearance-only grouping pozostaje bez zmian.
 
+## D-150 — Cache lekkiego skanu jest odtwarzalnym artefaktem plikowym
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** lekka obserwacja JPEG-a jest cache'owana jako bounded kanoniczny
+  JSON pod kontrolowanym `data/cache/image-selection-scan/`. Klucz logiczny
+  łączy checksumę źródła z osobnym fingerprintem adapterów i parametrów skanu.
+  Checkpoint i projekcja grup pozostają jedynym źródłem prawdy postępu, a
+  publikator zawsze ponownie sprawdza pełną checksumę wybranego pliku.
+- **Context:** crash przed bounded checkpointem i zgodny rerun stagingu mogły
+  powtarzać koszt reduced decode oraz deskryptora dla niezmienionych JPEG-ów.
+- **Reason:** cache usuwa powtarzaną pracę bez utrwalania obrazów, bez zmiany
+  kolejności i bez wiązania lifecycle selektora z bazą danych. Osobny fingerprint
+  pozwala ponownie użyć obserwacji po zmianie wyłącznie progów grupowania.
+- **Alternatives:** PostgreSQL BLOB, Redis i cache sieciowy odrzucono jako
+  niepotrzebną złożoność. Włączenie pełnego selector fingerprintu odrzucono,
+  ponieważ unieważniałoby poprawne obserwacje po samej zmianie decyzji domenowej.
+- **Consequences:** wpis uszkodzony daje miss i jest atomowo odbudowywany; błąd
+  zapisu nie kończy joba. Bezpieczny cleanup usuwa tylko osobny katalog cache
+  przy zatrzymanym workerze. Rozmiar rośnie liniowo względem unikalnych par
+  checksumy i adaptera, a diagnostyka mierzy hity, missy oraz baseline czasu.
+
 ## Szablon nowej decyzji
 
 ```text

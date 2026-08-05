@@ -245,7 +245,7 @@ def _fixture(
     for index in range(file_count):
         stored_name = f"{index + 1:08d}.jpg"
         image_path = source_root / stored_name
-        Image.new("RGB", (64, 48), (20 + index, 40, 80)).save(
+        Image.new("RGB", (64, 48), (20 + index * 20, 40, 80)).save(
             image_path,
             format="JPEG",
         )
@@ -346,6 +346,11 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert stage_timing["stages"]["output"]["count"] == 1
     assert stage_timing["stages"]["persistence"]["count"] >= 1
     assert stage_timing["counters"]["persistenceWrites"] >= 1
+    scan_cache = payload["scan_cache"]
+    assert isinstance(scan_cache, dict)
+    assert scan_cache["hitCount"] == 0
+    assert scan_cache["missCount"] == 3
+    assert scan_cache["writeCount"] == 3
     diagnostic = payload["diagnostic"]
     assert isinstance(diagnostic, dict)
     path = artifact_root / str(diagnostic["relativePath"])
@@ -467,9 +472,15 @@ def test_retry_reconciles_projection_written_just_before_checkpoint(
 
     resumed_handler(resumed_context, job)  # type: ignore[arg-type]
 
-    assert resumed_calls == [0]
+    assert resumed_calls == []
     assert len(store.groups) == 1
     assert store.published is not None
+    resumed_payload = resumed_context.checkpoints[-1]["checkpoint_payload"]
+    assert isinstance(resumed_payload, dict)
+    resumed_cache = resumed_payload["scan_cache"]
+    assert isinstance(resumed_cache, dict)
+    assert resumed_cache["hitCount"] == 1
+    assert resumed_cache["missCount"] == 0
 
 
 def test_manual_completion_resumes_without_progress_regression(

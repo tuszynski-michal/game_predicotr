@@ -319,6 +319,69 @@ class SelectorManifest:
             sort_keys=True,
         ).encode("utf-8")
 
+    def scan_adapter_dict(self) -> dict[str, object]:
+        """Return only inputs that can change a cheap scan observation.
+
+        Grouping thresholds, representative policy and batch sizing are
+        intentionally excluded.  A compatible selector rerun can therefore
+        reuse the decoded observation while still applying its own domain
+        decisions from the durable checkpoint.
+        """
+
+        payload: dict[str, object] = {
+            "contract": "image-selection-light-scan-v1",
+            "geometryAdapterVersion": self.geometry_adapter_version,
+            "qualityAdapterVersion": self.quality_adapter_version,
+            "qualityWeights": {
+                "boardVisibility": self.quality_weights.board_visibility,
+                "borderMargin": self.quality_weights.border_margin,
+                "exposure": self.quality_weights.exposure,
+                "glareResistance": self.quality_weights.glare_resistance,
+                "highlightRetention": self.quality_weights.highlight_retention,
+                "perspective": self.quality_weights.perspective,
+                "sharpness": self.quality_weights.sharpness,
+            },
+            "thumbnail": {
+                "adapterVersion": self.thumbnail_adapter_version,
+                "maxEdge": self.thumbnail_max_edge,
+            },
+            "visualFingerprintAdapterVersion": self.fingerprint_adapter_version,
+        }
+        if self.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+            descriptor = self.appearance_descriptor
+            payload["appearanceDescriptor"] = {
+                "crop": {
+                    "bottom": descriptor.crop_bottom,
+                    "left": descriptor.crop_left,
+                    "right": descriptor.crop_right,
+                    "top": descriptor.crop_top,
+                },
+                "edgeGridColumns": descriptor.edge_grid_columns,
+                "edgeGridRows": descriptor.edge_grid_rows,
+                "edgeOrientationBins": descriptor.edge_orientation_bins,
+                "hueBins": descriptor.hue_bins,
+                "phashInputSize": descriptor.phash_input_size,
+                "phashSize": descriptor.phash_size,
+                "saturationBins": descriptor.saturation_bins,
+                "valueBins": descriptor.value_bins,
+                "weights": {
+                    "edge": descriptor.edge_weight,
+                    "hsv": descriptor.hsv_weight,
+                    "phash": descriptor.phash_weight,
+                },
+            }
+        return payload
+
+    @property
+    def scan_adapter_fingerprint(self) -> str:
+        content = json.dumps(
+            self.scan_adapter_dict(),
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        return hashlib.sha256(content).hexdigest()
+
     @property
     def fingerprint(self) -> str:
         return hashlib.sha256(self.canonical_bytes()).hexdigest()

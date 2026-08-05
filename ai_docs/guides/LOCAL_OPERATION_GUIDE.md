@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-05
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -34,18 +34,22 @@ npm run db:up
 npm run db:migrate
 ```
 
-4. Uruchom osobne okna PowerShell:
+4. Uruchom oba workery w kontrolowanym tle:
+
+```powershell
+npm run workers:start
+```
+
+5. Uruchom osobne okna PowerShell:
 
 | Okno | Komenda | Kiedy jest potrzebne |
 |---|---|---|
 | 1 | `npm run api:dev` | zawsze dla Admina i Reviewera |
 | 2 | `npm run admin:dev` | podczas pracy w panelu Admin |
-| 3 | `npm run worker:poll` | Import layoutów i pozostałe ogólne joby |
-| 4 | `npm run worker:image-selection:poll` | tylko workspace `Selekcja zdjęć` |
-| 5 | `npm run reviewer:dev` | podczas zatwierdzania plansz |
+| 3 | `npm run reviewer:dev` | podczas zatwierdzania plansz |
 
-5. Otwórz Admin pod `http://127.0.0.1:3000/`.
-6. Reviewer otwieraj wyłącznie przez link i kod utworzone w sekcji
+6. Otwórz Admin pod `http://127.0.0.1:3000/`.
+7. Reviewer otwieraj wyłącznie przez link i kod utworzone w sekcji
    `Zatwierdzanie`.
 
 ## Jednorazowe przygotowanie Windows
@@ -153,22 +157,53 @@ Otwórz `http://127.0.0.1:3000/`. Dokumentacja API jest dostępna lokalnie pod
 `http://127.0.0.1:8000/docs`.
 
 Ogólne joby w stanie `created`, w tym właściwy `Import layoutów`, wymagają
-general workera. Uruchom go w osobnym oknie:
+general workera. `Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
+komenda uruchamia oba procesy w kontrolowanym tle i natychmiast zwraca terminal:
 
 ```powershell
-npm run worker:poll
+npm run workers:start
 ```
 
-`Selekcja zdjęć` ma odrębny lane i drugi proces. Uruchom go w kolejnym oknie:
+Ponowne wywołanie nie tworzy duplikatów. Status zawiera PID, czas startu oraz
+osobne ścieżki logów każdego lane:
 
 ```powershell
-npm run worker:image-selection:poll
+npm run workers:status
 ```
 
 Oba procesy korzystają z tego samego API, PostgreSQL i panelu Admin, ale nie
 blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
 równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
 niż wtedy, gdy jest jedynym obciążeniem komputera.
+
+Kontrolowane zatrzymanie obu procesów:
+
+```powershell
+npm run workers:stop
+```
+
+Po restarcie komputera procesy nie uruchamiają się automatycznie. Wystarczy
+ponownie wykonać `npm run workers:start`; supervisor rozpozna nieaktywny stan z
+poprzedniej sesji. Aby zarządzać tylko jednym lane, dopisz argument:
+
+```powershell
+npm run workers:start -- -Lane general
+npm run workers:stop -- -Lane general
+npm run workers:start -- -Lane image-selection
+npm run workers:stop -- -Lane image-selection
+```
+
+Ręczne komendy foreground pozostają dostępne diagnostycznie w osobnych
+terminalach:
+
+```powershell
+npm run worker:poll
+npm run worker:image-selection:poll
+```
+
+Nie łącz ręcznego procesu i supervisora dla tego samego lane. Supervisor może
+bezpiecznie zatrzymać wyłącznie proces, który sam uruchomił i zapisał w
+`.runtime\worker-lanes.json`.
 
 Do jednorazowego pobrania najwyżej jednego joba służy:
 

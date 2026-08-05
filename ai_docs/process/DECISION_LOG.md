@@ -3730,6 +3730,30 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zastępuje część D-077/D-139 zakładającą jeden globalny slot;
   zachowuje decyzję o PostgreSQL jobs, fenced lease i braku brokera.
 
+## D-153 — Lokalne worker lanes mają jeden kontrolowany supervisor procesów
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** oba procesy workera są domyślnie uruchamiane w tle przez jeden
+  skrypt operatorski z akcjami start/status/stop. Ignorowany stan runtime
+  przechowuje lane, PID, nazwę procesu, czas startu i ścieżki logów. Operacje
+  start/stop są serializowane krótką blokadą pliku; proces jest uznawany za
+  zarządzany wyłącznie po zgodności PID, nazwy oraz czasu startu.
+- **Context:** D-152 wymaga dwóch długotrwałych procesów. Ręczne utrzymywanie
+  dwóch dodatkowych terminali utrudnia obsługę, a sam PID nie chroni przed jego
+  ponownym użyciem po restarcie lub zakończeniu workera.
+- **Reason:** mały supervisor PowerShell upraszcza lokalną obsługę i trwale
+  zapobiega duplikatom bez zmiany runtime jobów, API lub infrastruktury.
+- **Alternatives:** autostart Windows, usługa systemowa, Docker Compose dla
+  workerów i zewnętrzny process manager zostały odłożone jako niepotrzebne dla
+  lokalnego produktu. Ręczne terminale pozostają trybem diagnostycznym.
+- **Consequences:** workerów trzeba jawnie uruchomić po restarcie komputera;
+  jedno polecenie odtwarza oba lane i usuwa logicznie stare wpisy. Supervisor
+  nie zatrzymuje procesów uruchomionych poza nim. Logi i stan są lokalne w
+  `.runtime` i nie trafiają do repozytorium.
+- **Supersedes:** uzupełnia operatorską część D-152; nie zmienia execution
+  slots, lease, fencing ani dozwolonych typów jobów.
+
 ## Szablon nowej decyzji
 
 ```text

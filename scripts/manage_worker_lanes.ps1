@@ -1,0 +1,392 @@
+[CmdletBinding()]
+param(
+    [ValidateSet('Start', 'Status', 'Stop')]
+    [string]$Action = 'Status',
+
+    [ValidateSet('all', 'general', 'image-selection')]
+    [string]$Lane = 'all',
+
+    [switch]$Json,
+
+    [ValidateRange(1, 30)]
+    [int]$TimeoutSeconds = 10
+)
+
+$ErrorActionPreference = 'Stop'
+Set-StrictMode -Version Latest
+
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$runtimeDirectory = Join-Path $projectRoot '.runtime'
+$statePath = Join-Path $runtimeDirectory 'worker-lanes.json'
+$lockPath = Join-Path $runtimeDirectory 'worker-lanes.lock'
+$pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
+$processEnvironmentScript = Join-Path $PSScriptRoot 'windows_process_environment.ps1'
+
+if (-not (Test-Path -LiteralPath $processEnvironmentScript -PathType Leaf)) {
+    throw "Windows process environment helper is unavailable: $processEnvironmentScript"
+}
+. $processEnvironmentScript
+Repair-WindowsProcessPath
+
+$laneDefinitions = [ordered]@{
+    'general' = [ordered]@{
+        argument = 'general'
+        displayName = 'General worker'
+    }
+    'image-selection' = [ordered]@{
+        argument = 'image-selection'
+        displayName = 'Image-selection worker'
+    }
+}
+
+function Get-TargetLaneNames {
+    if ($Lane -eq 'all') {
+        return @($laneDefinitions.Keys)
+    }
+    return @($Lane)
+}
+
+function Enter-StateLock {
+    New-Item -ItemType Directory -Path $runtimeDirectory -Force | Out-Null
+    $attempts = [Math]::Max(1, $TimeoutSeconds * 4)
+    for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
+        try {
+            return [IO.File]::Open(
+                $lockPath,
+                [IO.FileMode]::OpenOrCreate,
+                [IO.FileAccess]::ReadWrite,
+                [IO.FileShare]::None
+            )
+        }
+        catch [IO.IOException] {
+            if ($attempt -eq ($attempts - 1)) {
+                throw "Worker lane state is locked by another operation after $TimeoutSeconds seconds."
+            }
+            Start-Sleep -Milliseconds 250
+        }
+    }
+}
+
+function Read-State {
+    if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+        return $null
+    }
+
+    try {
+        $state = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 |
+            ConvertFrom-Json
+    }
+    catch {
+        throw "Worker lane state is invalid: $statePath. No process was changed."
+    }
+
+    if ($state.schemaVersion -ne 1) {
+        throw "Unsupported worker lane state schema: $($state.schemaVersion)."
+    }
+    if ([string]$state.repositoryRoot -ine $projectRoot) {
+        throw "Worker lane state belongs to another repository: $($state.repositoryRoot)."
+    }
+    return $state
+}
+
+function Get-StateRecord {
+    param(
+        [AllowNull()]
+        [object]$State,
+        [Parameter(Mandatory = $true)]
+        [string]$LaneName
+    )
+
+    if ($null -eq $State -or $null -eq $State.processes) {
+        return $null
+    }
+    $property = $State.processes.PSObject.Properties[$LaneName]
+    if ($null -eq $property) {
+        return $null
+    }
+    return $property.Value
+}
+
+function Test-RecordProcess {
+    param(
+        [AllowNull()]
+        [object]$Record
+    )
+
+    if ($null -eq $Record) {
+        return $null
+    }
+    $process = Get-Process -Id ([int]$Record.pid) -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        return $null
+    }
+    try {
+        $actualStart = $process.StartTime.ToUniversalTime().ToString('o')
+    }
+    catch {
+        return $null
+    }
+    if (
+        $process.ProcessName -ine [string]$Record.processName -or
+        $actualStart -ne [string]$Record.startTimeUtc
+    ) {
+        return $null
+    }
+    return $process
+}
+
+function Get-ActiveRecords {
+    param(
+        [AllowNull()]
+        [object]$State
+    )
+
+    $records = [ordered]@{}
+    foreach ($laneName in $laneDefinitions.Keys) {
+        $record = Get-StateRecord -State $State -LaneName $laneName
+        if ($null -ne (Test-RecordProcess -Record $record)) {
+            $records[$laneName] = $record
+        }
+    }
+    return $records
+}
+
+function Write-State {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Records
+    )
+
+    if ($Records.Count -eq 0) {
+        if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+            Remove-Item -LiteralPath $statePath -Force
+        }
+        return
+    }
+
+    $state = [ordered]@{
+        schemaVersion = 1
+        repositoryRoot = $projectRoot
+        updatedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
+        processes = $Records
+    }
+    $temporaryPath = "$statePath.$([Guid]::NewGuid().ToString('N')).tmp"
+    $stateJson = $state | ConvertTo-Json -Depth 8
+    try {
+        [IO.File]::WriteAllText(
+            $temporaryPath,
+            $stateJson,
+            [Text.UTF8Encoding]::new($false)
+        )
+        Move-Item -LiteralPath $temporaryPath -Destination $statePath -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+            Remove-Item -LiteralPath $temporaryPath -Force
+        }
+    }
+}
+
+function New-WorkerProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$LaneName
+    )
+
+    if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
+        throw "Python virtual environment is unavailable: $pythonPath"
+    }
+
+    $timestamp = [DateTimeOffset]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')
+    $stdoutPath = Join-Path $runtimeDirectory "worker-$LaneName-$timestamp.out.log"
+    $stderrPath = Join-Path $runtimeDirectory "worker-$LaneName-$timestamp.error.log"
+    $arguments = @(
+        '-m',
+        'game_predictor_worker',
+        '--poll',
+        '--lane',
+        [string]$laneDefinitions[$LaneName].argument
+    )
+    $process = Start-Process `
+        -FilePath $pythonPath `
+        -ArgumentList $arguments `
+        -WorkingDirectory $projectRoot `
+        -RedirectStandardOutput $stdoutPath `
+        -RedirectStandardError $stderrPath `
+        -PassThru `
+        -WindowStyle Hidden
+
+    for ($attempt = 0; $attempt -lt 4; $attempt++) {
+        Start-Sleep -Milliseconds 250
+        $process.Refresh()
+        if ($process.HasExited) {
+            $errorTail = ''
+            if (Test-Path -LiteralPath $stderrPath -PathType Leaf) {
+                $errorTail = (Get-Content -LiteralPath $stderrPath -Tail 10 -Encoding utf8) -join ' '
+            }
+            throw "$($laneDefinitions[$LaneName].displayName) exited during startup. $errorTail"
+        }
+    }
+
+    $process.Refresh()
+    return [ordered]@{
+        lane = $LaneName
+        pid = $process.Id
+        processName = $process.ProcessName
+        startTimeUtc = $process.StartTime.ToUniversalTime().ToString('o')
+        stdoutLog = $stdoutPath
+        stderrLog = $stderrPath
+        command = "$pythonPath -m game_predictor_worker --poll --lane $($laneDefinitions[$LaneName].argument)"
+    }
+}
+
+function Stop-WorkerProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Record
+    )
+
+    $process = Test-RecordProcess -Record $Record
+    if ($null -eq $process) {
+        return 'stale'
+    }
+
+    Stop-Process -Id $process.Id
+    $attempts = [Math]::Max(1, $TimeoutSeconds * 4)
+    for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
+        if ($null -eq (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
+            return 'stopped'
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    throw "Worker PID $($process.Id) did not stop within $TimeoutSeconds seconds."
+}
+
+function New-StatusResult {
+    param(
+        [AllowNull()]
+        [object]$State
+    )
+
+    $laneResults = @()
+    foreach ($laneName in (Get-TargetLaneNames)) {
+        $record = Get-StateRecord -State $State -LaneName $laneName
+        $process = Test-RecordProcess -Record $record
+        $laneState = if ($null -ne $process) {
+            'running'
+        }
+        elseif ($null -ne $record) {
+            'stale'
+        }
+        else {
+            'stopped'
+        }
+        $laneResults += [ordered]@{
+            lane = $laneName
+            displayName = [string]$laneDefinitions[$laneName].displayName
+            state = $laneState
+            pid = $(if ($null -ne $record) { [int]$record.pid } else { $null })
+            startTimeUtc = $(if ($null -ne $record) { [string]$record.startTimeUtc } else { $null })
+            stdoutLog = $(if ($null -ne $record) { [string]$record.stdoutLog } else { $null })
+            stderrLog = $(if ($null -ne $record) { [string]$record.stderrLog } else { $null })
+        }
+    }
+    $states = @($laneResults | ForEach-Object { $_.state })
+    $overallState = if ($states -contains 'stale') {
+        'degraded'
+    }
+    elseif ($states -notcontains 'running') {
+        'stopped'
+    }
+    elseif ($states -notcontains 'stopped') {
+        'running'
+    }
+    else {
+        'partial'
+    }
+    return [ordered]@{
+        state = $overallState
+        statePath = $statePath
+        lanes = $laneResults
+    }
+}
+
+function Write-Result {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IDictionary]$Result
+    )
+
+    if ($Json) {
+        Write-Output ($Result | ConvertTo-Json -Depth 8 -Compress)
+        return
+    }
+    Write-Host "Worker lanes: $($Result.state)"
+    foreach ($laneResult in $Result.lanes) {
+        $details = if ($laneResult.state -eq 'running') {
+            "PID $($laneResult.pid), since $($laneResult.startTimeUtc)"
+        }
+        elseif ($laneResult.state -eq 'stale') {
+            "stale PID $($laneResult.pid)"
+        }
+        else {
+            'not running'
+        }
+        Write-Host "- $($laneResult.displayName): $($laneResult.state) ($details)"
+        if ($null -ne $laneResult.stdoutLog) {
+            Write-Host "  stdout: $($laneResult.stdoutLog)"
+            Write-Host "  stderr: $($laneResult.stderrLog)"
+        }
+    }
+}
+
+if ($Action -eq 'Status') {
+    Write-Result -Result (New-StatusResult -State (Read-State))
+    exit 0
+}
+
+$stateLock = Enter-StateLock
+try {
+    $state = Read-State
+    $activeRecords = Get-ActiveRecords -State $state
+    Write-State -Records $activeRecords
+
+    if ($Action -eq 'Start') {
+        $startedThisInvocation = [System.Collections.Generic.List[string]]::new()
+        try {
+            foreach ($laneName in (Get-TargetLaneNames)) {
+                if ($activeRecords.Contains($laneName)) {
+                    continue
+                }
+                $activeRecords[$laneName] = New-WorkerProcess -LaneName $laneName
+                $startedThisInvocation.Add($laneName)
+                Write-State -Records $activeRecords
+            }
+        }
+        catch {
+            foreach ($laneName in $startedThisInvocation) {
+                [void](Stop-WorkerProcess -Record $activeRecords[$laneName])
+                $activeRecords.Remove($laneName)
+            }
+            Write-State -Records $activeRecords
+            throw
+        }
+    }
+    elseif ($Action -eq 'Stop') {
+        foreach ($laneName in (Get-TargetLaneNames)) {
+            if (-not $activeRecords.Contains($laneName)) {
+                continue
+            }
+            [void](Stop-WorkerProcess -Record $activeRecords[$laneName])
+            $activeRecords.Remove($laneName)
+            Write-State -Records $activeRecords
+        }
+    }
+
+    Write-Result -Result (New-StatusResult -State (Read-State))
+}
+finally {
+    if ($null -ne $stateLock) {
+        $stateLock.Dispose()
+    }
+}

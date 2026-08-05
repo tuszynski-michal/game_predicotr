@@ -420,6 +420,12 @@ last_updated: 2026-08-05
   head; test izolowanego PostgreSQL potwierdził dwa równoległe claimy i blokadę
   drugiej selekcji. Operator uruchamia `npm run worker:poll` oraz osobno
   `npm run worker:image-selection:poll`,
+- TASK-0173 zakończył lokalny supervisor, który uruchamia oba worker lanes w
+  ukrytym tle, zapisuje PID, nazwę i dokładny czas startu oraz osobne logi w
+  `.runtime`. `workers:start` jest idempotentny, `workers:status` rozpoznaje
+  stary proces, a `workers:stop` nie zatrzymuje PID bez zgodnej tożsamości.
+  Kontrolowany test obu lane, pojedynczego lane i odzyskania stale state
+  przeszedł bez osieroconych procesów,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są

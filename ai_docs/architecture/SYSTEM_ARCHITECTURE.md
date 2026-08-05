@@ -616,6 +616,12 @@ mikroserwisów i zdalnych workerów. TASK-0172 rozszerza wykonanie lokalne na dw
 filtrowane lane tego samego pakietu: general `execution_slot = 1` oraz
 image-selection `execution_slot = 2`. Każdy lane ma najwyżej jeden aktywny job;
 mogą działać równolegle, zachowując jedno API i bazę.
+TASK-0173 dodaje wyłącznie lokalną warstwę operatorską: jeden supervisor
+PowerShell uruchamia te dwa procesy w tle, atomowo zapisuje PID wraz z czasem
+startu i kieruje stdout/stderr do osobnych logów w `.runtime`. Status jest
+odczytem tego stanu i rzeczywistego procesu, a stop nie wysyła sygnału do PID,
+którego nazwa i czas startu nie odpowiadają zapisowi. Supervisor nie jest nową
+usługą, nie działa w ścieżce joba i nie zmienia lease ani execution slotów.
 Warunki ponownej oceny są częścią D-085 i raportu
 `m7-queue-architecture-decision-v1`; ich spełnienie otwiera nowe zadanie, ale
 nie uruchamia automatycznej migracji.

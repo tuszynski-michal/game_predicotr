@@ -436,7 +436,7 @@ def test_v9_manifest_is_versioned_but_not_activated_before_final_gate() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
-        == "65c19a84a959e38244613d2a56757d5b4aad87a6c1177912af9fa2305d5c4075"
+        == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
     assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v8"
     assert (

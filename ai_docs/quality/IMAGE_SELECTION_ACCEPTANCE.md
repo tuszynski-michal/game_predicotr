@@ -108,6 +108,37 @@ zachowania produktu. Nie należy powtarzać syntetycznych benchmarków 10k/30k.
 Najpierw obowiązują realne profile 500–1000 i 3000 zdjęć; dopiero po ich
 zaliczeniu jeden profil użyje kontrolowanego wejścia 40 000 zdjęć.
 
+### Wynik krótkiej bramki TASK-0171 — 2026-08-05
+
+Golden `image-selection-real-corpus-golden-v1.json` został przygotowany
+niezależnie od selektora przez ręczną identyfikację kolejnych ekranów. Obejmuje
+pierwsze 500 naturalnych zdjęć, 20 ekranów i dopuszczalne okna początku każdej
+granicy. Binarny pHash pierwszej próby był niestabilny dla podobnych klatek, więc
+przedaktywacyjny v9 otrzymał ciągłą, znormalizowaną sygnaturę DCT i
+wycentrowaną odległość cosinusową. Jego selector fingerprint to
+`eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`.
+
+| Profil | Cold czas | Throughput | Peak RSS delta | Grupy / output | Wynik goldena |
+|---:|---:|---:|---:|---:|---|
+| 500 | 16,725 s | 29,8947 pliku/s | 82 014 208 B | 20 / 20 | recall 100%, false merge 0, false split 0 |
+| 3000 | 131,558 s | 22,8036 pliku/s | 99 037 184 B | 217 / 217 | przypięte pierwsze 500 bez regresji |
+
+Warm-cache przebiegi były identyczne i trwały 2,281 s oraz 18,822 s przy
+odpowiednio 500 i 3000 trafień. Oba raporty mają zero wywołań OCR,
+`PageBoardDetector`, homografii, cropów i symbol inference. Raporty:
+
+- `image-selection-real-v9-500-w4-report.json`, SHA-256
+  `ce70b70adbac77b1e1f34c1aca3810a0a69130ee189a805f90f05a085bd760ef`,
+- `image-selection-real-v9-3000-w4-report.json`, SHA-256
+  `ab37f1f4d2c3903bb47626dccef5e6676b74ccb47f5d81182e49dfeb3c19e10c`.
+
+Status krótkiej bramki: `passed`. Status aktywacji: `optimize / pending full
+corpus`, ponieważ dostępne jest 32 079 naturalnych JPEG-ów, a D-146 wymaga
+dokładnie 40 000. Wyniku 217 grup dla 3000 wejść nie należy interpretować jako
+pełnego pomiaru jakości poza przypiętymi 500: punktowe oględziny dalszego korpusu
+potwierdzają bezpieczną nadsegmentację, lecz nie zastępują goldena. V9 pozostaje
+nieaktywny do pełnego profilu i decyzji właściciela `accepted | optimize`.
+
 Baseline TASK-0165 uruchamia się wyłącznie na niezmienianym stagingu po
 zwolnieniu workera. Przykład dla pierwszych 500 zdjęć:
 

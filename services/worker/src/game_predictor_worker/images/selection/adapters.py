@@ -246,7 +246,7 @@ def _appearance_descriptor(
 ) -> tuple[float, ...]:
     roi = _appearance_roi(rgb, config)
     gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
-    hsv = cv2.cvtColor(roi, cv2.COLOR_RGB2HSV)
+    hsv = np.asarray(cv2.cvtColor(roi, cv2.COLOR_RGB2HSV), dtype=np.uint8)
 
     phash_input = cv2.resize(
         gray,
@@ -254,10 +254,15 @@ def _appearance_descriptor(
         interpolation=cv2.INTER_AREA,
     ).astype(np.float32)
     low_frequency = cv2.dct(phash_input)[: config.phash_size, : config.phash_size]
-    flattened_frequency = low_frequency.reshape(-1)
-    median = float(np.median(flattened_frequency[1:]))
-    phash = (flattened_frequency >= median).astype(np.float32)
-    phash[0] = 0.0
+    low_frequency[0, 0] = 0.0
+    frequency_norm = max(float(np.linalg.norm(low_frequency)), 1e-6)
+    # Keep a continuous perceptual DCT signature instead of thresholding every
+    # coefficient into a bit.  Binary pHash was unstable around a coefficient's
+    # median: nearly identical consecutive photos flipped a bit and looked as
+    # different as a real page transition.  Mapping the normalized coefficients
+    # to [0, 1] keeps cache/checkpoint serialization compact and deterministic.
+    phash = np.clip((low_frequency / frequency_norm + 1.0) * 0.5, 0.0, 1.0).reshape(-1)
+    phash[0] = 0.5
 
     hue = _normalized_histogram(hsv[:, :, 0], bins=config.hue_bins, upper=180.0)
     saturation = _normalized_histogram(
@@ -302,7 +307,7 @@ def _appearance_fingerprint(signature: tuple[float, ...]) -> str:
 
 
 class OpenCvAppearanceFingerprintAnalyzer:
-    version = "opencv-appearance-descriptor-v1"
+    version = "opencv-appearance-descriptor-v2"
 
     def __init__(
         self,
@@ -791,7 +796,7 @@ class VisibleSequenceLabelRangeRecognizer:
         rgb_image: NDArray[np.uint8],
     ) -> tuple[_VisibleLabel, ...]:
         height, width = rgb_image.shape[:2]
-        hsv = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
+        hsv = np.asarray(cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV), dtype=np.uint8)
         mask = cls._label_mask(hsv)
         y_start = int(round(height * cls._roi_y_start))
         y_end = int(round(height * cls._roi_y_end))
@@ -862,7 +867,10 @@ class VisibleSequenceLabelRangeRecognizer:
     @classmethod
     def _label_mask(cls, hsv: NDArray[np.uint8]) -> NDArray[np.uint8]:
         del cls
-        return cv2.inRange(hsv, np.array((0, 0, 165)), np.array((179, 115, 255)))
+        return np.asarray(
+            cv2.inRange(hsv, np.array((0, 0, 165)), np.array((179, 115, 255))),
+            dtype=np.uint8,
+        )
 
     @classmethod
     def _range_hypotheses(
@@ -1004,7 +1012,7 @@ class BestEffortVisibleSequenceLabelRangeRecognizer(AdaptiveVisibleSequenceLabel
             np.array((5, 151, 145)),
             np.array((40, 255, 255)),
         )
-        return cv2.bitwise_or(neutral, warm)
+        return np.asarray(cv2.bitwise_or(neutral, warm), dtype=np.uint8)
 
 
 class NoRangeRecognizer:

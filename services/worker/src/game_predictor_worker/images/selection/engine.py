@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import statistics
 from collections import Counter, deque
 from collections.abc import Iterable, Iterator
@@ -92,7 +93,19 @@ def appearance_distance(
     def total_variation(start: int, end: int) -> float:
         return 0.5 * sum(abs(first[index] - second[index]) for index in range(start, end))
 
-    phash = mean_absolute(0, phash_count)
+    first_phash = tuple((first[index] - 0.5) * 2.0 for index in range(phash_count))
+    second_phash = tuple((second[index] - 0.5) * 2.0 for index in range(phash_count))
+    first_norm = math.sqrt(sum(value * value for value in first_phash))
+    second_norm = math.sqrt(sum(value * value for value in second_phash))
+    if first_norm <= 1e-9 and second_norm <= 1e-9:
+        phash = 0.0
+    elif first_norm <= 1e-9 or second_norm <= 1e-9:
+        phash = 1.0
+    else:
+        cosine = sum(
+            left * right for left, right in zip(first_phash, second_phash, strict=True)
+        ) / (first_norm * second_norm)
+        phash = (1.0 - max(-1.0, min(1.0, cosine))) * 0.5
     hsv = statistics.fmean(
         (
             total_variation(phash_count, hue_end),

@@ -143,10 +143,12 @@ Lekki skan per plik:
    `load()` i utworzeniem tablicy RGB; roboczy dłuższy bok pozostaje równy
    960 px, ponieważ warianty 384 i 480 nie przeszły realnego goldena granic,
 2. stosuje EXIF transpose,
-3. buduje deskryptor z perceptual hash, histogramu HSV oraz uproszczonego edge
-   signature kilku szerokich regionów ekranu. Wersjonowany wektor zawiera 64
-   wartości pHash 8×8, 20 koszyków H/S/V oraz 13 wartości siatki i orientacji
-   krawędzi; jego wagi, crop i progi należą do manifestu,
+3. z centralnego obszaru plansz buduje deskryptor z ciągłej,
+   znormalizowanej sygnatury DCT, histogramu HSV oraz uproszczonego edge
+   signature. Wersjonowany wektor zawiera 144 współczynniki DCT 12×12,
+   20 koszyków H/S/V oraz 13 wartości siatki i orientacji krawędzi. DCT jest
+   porównywane wycentrowaną odległością cosinusową; jego wagi, crop i progi
+   należą do manifestu,
 4. mierzy ostrość, ekspozycję, clipping i podstawową widoczność,
 5. nie uruchamia `PageBoardDetector`, OCR, homografii ani croppera.
 
@@ -188,7 +190,9 @@ wymaganego zakresu. Historyczne runy pozostają odtwarzalne po swoich
 fingerprintach.
 
 Bieżący przedaktywacyjny manifest v9 ma fingerprint
-`65c19a84a959e38244613d2a56757d5b4aad87a6c1177912af9fa2305d5c4075`.
+`eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`, a
+adapter lekkiego skanu fingerprint
+`408bd8574526e07d055958734ce6136288beff5a54cf1dcd9f76f6291edea396`.
 Verifier pełnego kandydata nie jest wywoływany; kandydat bez błędu dekodowania
 lub integralności staje się `auto_selected`, a fallback otrzymuje jawne
 `QUALITY_BEST_AVAILABLE`. Grupa zawierająca wyłącznie niedekodowalne pliki

@@ -1,6 +1,6 @@
 ---
 title: TASK-0171 fast selection real corpus regression and activation
-status: todo
+status: in_progress
 release: "0.4"
 last_updated: 2026-08-05
 ---
@@ -9,7 +9,7 @@ last_updated: 2026-08-05
 
 ## Status
 
-`todo`
+`in_progress`
 
 ## Goal
 
@@ -102,4 +102,42 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_image_selection_
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Realizacja rozpoczęta 2026-08-05 na wyzerowanej lokalnej bazie. Aktywny
+historyczny job `3b8d1d17-b4fd-4af8-8e83-54cc5afb262b` został kontrolowanie
+anulowany przy checkpointcie `6464 / 32079`, procesy API/worker/Admin zatrzymano,
+a lokalny PostgreSQL zresetowano i zmigrowano do head. Kontrola po resecie
+potwierdziła `games = 0`, `jobs = 0`, `image_selection_runs = 0` i `layouts = 0`.
+Źródłowy staging 32 079 JPEG-ów oraz artefakty APK pozostały nienaruszone.
+
+Niezależny golden
+`ai_docs/quality/image-selection-real-corpus-golden-v1.json` opisuje pierwsze
+500 naturalnie uporządkowanych zdjęć i 20 kolejnych ekranów od layoutów `1–9`
+do `172–180`. Pierwsza próba ujawniła, że binarny pHash był niestabilny dla
+niemal identycznych klatek, a historyczne progi były nieadekwatne do realnej
+skali odległości. Przedaktywacyjny v9 używa teraz ciągłego,
+znormalizowanego deskryptora DCT obszaru plansz oraz wycentrowanej odległości
+cosinusowej. Selector fingerprint wynosi
+`eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`, a
+scan-adapter fingerprint
+`408bd8574526e07d055958734ce6136288beff5a54cf1dcd9f76f6291edea396`.
+Domyślny produkcyjny manifest nadal pozostaje v8.
+
+Wyniki krótkich profili z `scanWorkers = 4`:
+
+| Wejście | Czas cold | Throughput | Peak RSS delta | Grupy / reprezentanci | Golden |
+|---:|---:|---:|---:|---:|---|
+| 500 | 16,725 s | 29,8947/s | 82 014 208 B | 20 / 20 | recall 100%, false merge 0, false split 0 |
+| 3000 | 131,558 s | 22,8036/s | 99 037 184 B | 217 / 217 | przypięte pierwsze 500: recall 100%, false merge 0, false split 0 |
+
+Warm-cache rerun był deterministycznie identyczny i trwał odpowiednio 2,281 s
+oraz 18,822 s przy 500/500 i 3000/3000 trafień. Oba profile raportują dokładnie
+zero wywołań OCR, `PageBoardDetector`, homografii, croppera i symbol inference.
+Testy selektora i adapterów przechodzą `81 passed`; Ruff oraz MyPy zmienionych
+modułów również przechodzą.
+
+TASK-0171 pozostaje otwarty. Dostępny naturalny staging zawiera 32 079, a
+zaakceptowana bramka D-146 wymaga dokładnie 40 000 naturalnych zdjęć. Nie wolno
+uzupełnić brakujących 7921 pozycji duplikatami tylko po to, aby zaliczyć pomiar.
+Po dostarczeniu pełnego korpusu trzeba wykonać jeden kontrolowany profil,
+zapisać porównanie z v8 i uzyskać jawną decyzję właściciela
+`accepted | optimize`; dopiero `accepted` pozwala aktywować v9.

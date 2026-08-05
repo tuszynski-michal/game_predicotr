@@ -487,26 +487,40 @@ def test_v9_private_real_page_tolerates_a_small_perspective_change() -> None:
             (width * 0.01, height * 0.99),
         )
     )
-    transformed = cv2.warpPerspective(
-        original,
-        cv2.getPerspectiveTransform(source_quad, destination_quad),
-        (width, height),
-        borderMode=cv2.BORDER_REFLECT,
-    )
     config = APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_descriptor
     analyzer = OpenCvAppearanceFingerprintAnalyzer(config)
-    original_descriptor = analyzer.analyze(ThumbnailFrame(original, width, height))
-    transformed_descriptor = analyzer.analyze(ThumbnailFrame(transformed, width, height))
+    descriptors = []
+    for progress in np.linspace(0.0, 1.0, 13):
+        intermediate_quad = np.asarray(
+            source_quad + (destination_quad - source_quad) * progress,
+            dtype=np.float32,
+        )
+        transformed = cv2.warpPerspective(
+            original,
+            cv2.getPerspectiveTransform(source_quad, intermediate_quad),
+            (width, height),
+            borderMode=cv2.BORDER_REFLECT,
+        )
+        descriptors.append(analyzer.analyze(ThumbnailFrame(transformed, width, height)))
 
-    distance = appearance_distance(
-        original_descriptor.appearance_signature,
-        transformed_descriptor.appearance_signature,
+    adjacent_distances = [
+        appearance_distance(
+            first.appearance_signature,
+            second.appearance_signature,
+            config,
+        )
+        for first, second in zip(descriptors, descriptors[1:], strict=False)
+    ]
+    full_drift_distance = appearance_distance(
+        descriptors[0].appearance_signature,
+        descriptors[-1].appearance_signature,
         config,
     )
 
-    assert distance < (
+    assert max(adjacent_distances) < (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.appearance_thresholds.adjacent_boundary_distance
     )
+    assert full_drift_distance > max(adjacent_distances)
 
 
 def test_corrupted_jpeg_is_isolated_as_a_bounded_scan_observation(

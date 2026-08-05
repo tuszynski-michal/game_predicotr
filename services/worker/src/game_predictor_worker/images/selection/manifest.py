@@ -130,29 +130,29 @@ class RangeFreeRepresentativePolicy:
 
 @dataclass(frozen=True, slots=True)
 class AppearanceDescriptorConfig:
-    crop_left: float = 0.06
-    crop_top: float = 0.12
-    crop_right: float = 0.94
-    crop_bottom: float = 0.82
+    crop_left: float = 0.12
+    crop_top: float = 0.20
+    crop_right: float = 0.88
+    crop_bottom: float = 0.56
     phash_input_size: int = 32
-    phash_size: int = 8
+    phash_size: int = 12
     hue_bins: int = 12
     saturation_bins: int = 4
     value_bins: int = 4
     edge_grid_rows: int = 3
     edge_grid_columns: int = 3
     edge_orientation_bins: int = 4
-    phash_weight: float = 0.50
-    hsv_weight: float = 0.30
-    edge_weight: float = 0.20
+    phash_weight: float = 0.80
+    hsv_weight: float = 0.10
+    edge_weight: float = 0.10
 
 
 @dataclass(frozen=True, slots=True)
 class AppearanceThresholds:
-    adjacent_boundary_distance: float = 0.12
-    centroid_boundary_distance: float = 0.10
-    strong_boundary_distance: float = 0.22
-    pending_same_group_distance: float = 0.14
+    adjacent_boundary_distance: float = 0.0012
+    centroid_boundary_distance: float = 0.004
+    strong_boundary_distance: float = 0.004
+    pending_same_group_distance: float = 0.002
 
 
 @dataclass(frozen=True, slots=True)
@@ -432,7 +432,7 @@ APPEARANCE_ONLY_SELECTOR_MANIFEST_V9 = SelectorManifest(
     algorithm_version=APPEARANCE_ONLY_SELECTOR_VERSION,
     quality_adapter_version="opencv-appearance-quality-v1",
     geometry_adapter_version=NO_RANGE_ADAPTER_VERSION,
-    fingerprint_adapter_version="opencv-appearance-descriptor-v1",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
     range_adapter_version=NO_RANGE_ADAPTER_VERSION,
     top_k=2,
 )

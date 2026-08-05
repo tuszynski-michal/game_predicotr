@@ -3669,6 +3669,40 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   przy zatrzymanym workerze. Rozmiar rośnie liniowo względem unikalnych par
   checksumy i adaptera, a diagnostyka mierzy hity, missy oraz baseline czasu.
 
+## D-151 — V9 używa ciągłej sygnatury DCT i pozostaje nieaktywny do pełnej bramki
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** przedaktywacyjny `fast-image-selector-v9` zastępuje binarny
+  pHash ciągłą, znormalizowaną sygnaturą DCT 12×12 obliczaną z centralnego
+  obszaru plansz. Składnik DCT jest porównywany wycentrowaną odległością
+  cosinusową. Jego waga wynosi 0,80, a histogramu HSV i edge signature po 0,10.
+  Progi i crop pozostają częścią kanonicznego manifestu. V9 nie staje się
+  domyślny po samych krótkich profilach; aktywacja wymaga pełnej bramki D-146 i
+  jawnej decyzji właściciela.
+- **Context:** realny golden 500 zdjęć wykazał, że medianowe progowanie pHash
+  potrafi odwrócić bity między niemal identycznymi klatkami. Stare progi
+  `.12/.10/.22` były jednocześnie wielokrotnie większe od realnych odległości,
+  więc 500 zdjęć zostało fałszywie scalonych w jedną grupę. Ciągła sygnatura
+  rozróżniła 20 kolejnych ekranów bez fałszywego scalenia i bez fragmentacji.
+- **Reason:** preselektor potrzebuje stabilnej miary podobieństwa obrazu, a nie
+  binarnej decyzji wrażliwej na położenie współczynnika względem mediany.
+  Centralny crop ogranicza wpływ stałego nagłówka automatu i dolnej obudowy,
+  zachowując obszar, w którym zmieniają się plansze.
+- **Alternatives:** dalsze podnoszenie progów binarnego pHash odrzucono, ponieważ
+  nie naprawia niestabilności deskryptora. Powrót do OCR lub geometrii odrzucono
+  jako sprzeczny z odpowiedzialnością v9 i wynikiem wydajnościowym.
+- **Consequences:** selector fingerprint wynosi
+  `eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`, a
+  scan-adapter fingerprint
+  `408bd8574526e07d055958734ce6136288beff5a54cf1dcd9f76f6291edea396`.
+  Profile 500 i 3000 przekroczyły 20 zdjęć/s, zachowały bounded pamięć i zerowe
+  liczniki ciężkich adapterów. Domyślny v8 oraz wszystkie historyczne
+  fingerprinty pozostają dostępne do wznowień.
+- **Supersedes:** zastępuje część D-148 opisującą binarny pHash 8×8 i
+  przedaktywacyjne fingerprinty v9 z D-148/D-149; nie zmienia range-free
+  odpowiedzialności ani polityki reprezentanta.
+
 ## Szablon nowej decyzji
 
 ```text

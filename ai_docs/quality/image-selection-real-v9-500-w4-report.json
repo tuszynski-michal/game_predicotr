@@ -1,0 +1,360 @@
+{
+  "benchmarkContract": "image-selection-real-corpus-benchmark-v2",
+  "cache": {
+    "cold": {
+      "contract": "image-selection-scan-cache-v1",
+      "estimatedSavedSeconds": 0.0,
+      "hitCount": 0,
+      "invalidEntryCount": 0,
+      "missCount": 500,
+      "scanAdapterFingerprint": "408bd8574526e07d055958734ce6136288beff5a54cf1dcd9f76f6291edea396",
+      "schemaVersion": 1,
+      "writeCount": 500,
+      "writeErrorCount": 0,
+      "writtenBytes": 1877877
+    },
+    "warm": {
+      "contract": "image-selection-scan-cache-v1",
+      "estimatedSavedSeconds": 61.979721,
+      "hitCount": 500,
+      "invalidEntryCount": 0,
+      "missCount": 0,
+      "scanAdapterFingerprint": "408bd8574526e07d055958734ce6136288beff5a54cf1dcd9f76f6291edea396",
+      "schemaVersion": 1,
+      "writeCount": 0,
+      "writeErrorCount": 0,
+      "writtenBytes": 0
+    },
+    "warmProcessingSeconds": 2.281419,
+    "warmResultIdentical": true
+  },
+  "cleanup": {
+    "cacheAndWorkRootPolicy": "always-remove-on-exit",
+    "sourceStagingPolicy": "read-only"
+  },
+  "expensiveOperations": {
+    "boardDetectorCalls": 0,
+    "cellCropperCalls": 0,
+    "homographyCalls": 0,
+    "ocrCalls": 0,
+    "ocrCrops": 0,
+    "symbolInferenceCalls": 0
+  },
+  "golden": {
+    "annotatedInputCount": 500,
+    "expectedScreenCount": 20,
+    "falseMergeCount": 0,
+    "falseSplitCount": 0,
+    "matchedBoundaries": [
+      {
+        "label": "layouts-10-18",
+        "predictedStartOrderIndex": 45,
+        "window": {
+          "maximum": 60,
+          "minimum": 41
+        }
+      },
+      {
+        "label": "layouts-19-27",
+        "predictedStartOrderIndex": 99,
+        "window": {
+          "maximum": 100,
+          "minimum": 81
+        }
+      },
+      {
+        "label": "layouts-28-36",
+        "predictedStartOrderIndex": 118,
+        "window": {
+          "maximum": 120,
+          "minimum": 101
+        }
+      },
+      {
+        "label": "layouts-37-45",
+        "predictedStartOrderIndex": 134,
+        "window": {
+          "maximum": 140,
+          "minimum": 121
+        }
+      },
+      {
+        "label": "layouts-46-54",
+        "predictedStartOrderIndex": 147,
+        "window": {
+          "maximum": 150,
+          "minimum": 141
+        }
+      },
+      {
+        "label": "layouts-55-63",
+        "predictedStartOrderIndex": 159,
+        "window": {
+          "maximum": 160,
+          "minimum": 151
+        }
+      },
+      {
+        "label": "layouts-64-72",
+        "predictedStartOrderIndex": 181,
+        "window": {
+          "maximum": 190,
+          "minimum": 181
+        }
+      },
+      {
+        "label": "layouts-73-81",
+        "predictedStartOrderIndex": 197,
+        "window": {
+          "maximum": 200,
+          "minimum": 191
+        }
+      },
+      {
+        "label": "layouts-82-90",
+        "predictedStartOrderIndex": 217,
+        "window": {
+          "maximum": 220,
+          "minimum": 201
+        }
+      },
+      {
+        "label": "layouts-91-99",
+        "predictedStartOrderIndex": 231,
+        "window": {
+          "maximum": 240,
+          "minimum": 221
+        }
+      },
+      {
+        "label": "layouts-100-108",
+        "predictedStartOrderIndex": 282,
+        "window": {
+          "maximum": 300,
+          "minimum": 281
+        }
+      },
+      {
+        "label": "layouts-109-117",
+        "predictedStartOrderIndex": 302,
+        "window": {
+          "maximum": 320,
+          "minimum": 301
+        }
+      },
+      {
+        "label": "layouts-118-126",
+        "predictedStartOrderIndex": 329,
+        "window": {
+          "maximum": 340,
+          "minimum": 321
+        }
+      },
+      {
+        "label": "layouts-127-135",
+        "predictedStartOrderIndex": 346,
+        "window": {
+          "maximum": 350,
+          "minimum": 341
+        }
+      },
+      {
+        "label": "layouts-136-144",
+        "predictedStartOrderIndex": 358,
+        "window": {
+          "maximum": 360,
+          "minimum": 351
+        }
+      },
+      {
+        "label": "layouts-145-153",
+        "predictedStartOrderIndex": 380,
+        "window": {
+          "maximum": 380,
+          "minimum": 361
+        }
+      },
+      {
+        "label": "layouts-154-162",
+        "predictedStartOrderIndex": 401,
+        "window": {
+          "maximum": 420,
+          "minimum": 401
+        }
+      },
+      {
+        "label": "layouts-163-171",
+        "predictedStartOrderIndex": 472,
+        "window": {
+          "maximum": 480,
+          "minimum": 461
+        }
+      },
+      {
+        "label": "layouts-172-180",
+        "predictedStartOrderIndex": 485,
+        "window": {
+          "maximum": 499,
+          "minimum": 481
+        }
+      }
+    ],
+    "missedScreenLabels": [],
+    "passed": true,
+    "predictedBoundaryStarts": [
+      45,
+      99,
+      118,
+      134,
+      147,
+      159,
+      181,
+      197,
+      217,
+      231,
+      282,
+      302,
+      329,
+      346,
+      358,
+      380,
+      401,
+      472,
+      485
+    ],
+    "recall": 1.0,
+    "unmatchedBoundaryStarts": []
+  },
+  "goldenFingerprint": "323bb5b93a05e9912671b1031b1642b050af1209ca3b31ba034e889aeab7d011",
+  "inputCount": 500,
+  "inputManifestSha256": "15f38e6e0f1f7084ec6a6f51bd010747348f806844a04081ab52f203d98fef8e",
+  "memory": {
+    "baselineRssBytes": 141410304,
+    "peakRssBytes": 223424512,
+    "peakRssDeltaBytes": 82014208,
+    "peakTracedPythonBytes": 45049038
+  },
+  "metrics": {
+    "bottlenecks": [
+      {
+        "stage": "decode",
+        "totalSeconds": 29.757213
+      },
+      {
+        "stage": "appearance",
+        "totalSeconds": 20.360624
+      },
+      {
+        "stage": "quality",
+        "totalSeconds": 8.790323
+      }
+    ],
+    "processingSeconds": 16.725355,
+    "throughputFilesPerSecond": 29.8947,
+    "verificationCount": 0
+  },
+  "output": {
+    "decodableGroupCount": 20,
+    "inputToOutputReduction": 25.0,
+    "passed": true,
+    "publishedRepresentativeCount": 20,
+    "totalGroupCount": 20
+  },
+  "schemaVersion": 1,
+  "selectionCodeFingerprint": "e4991df44c331f34d1e7339e056408ec5a53bc9a60a817b8dce989279e85698c",
+  "selectorFingerprint": "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb",
+  "selectorVersion": "fast-image-selector-v9",
+  "sourceIntegrity": {
+    "afterInventorySha256": "73ea61fd11f0ca97480cf1a3735f6f99d0390a4aeab1235867c505cb6e99192e",
+    "beforeInventorySha256": "73ea61fd11f0ca97480cf1a3735f6f99d0390a4aeab1235867c505cb6e99192e",
+    "inventoryPolicy": "metadata-size-mtime-v1-plus-per-scan-manifest-checksum",
+    "sourceUnchanged": true
+  },
+  "stageTiming": {
+    "contract": "image-selection-stage-timing-v1",
+    "counters": {
+      "checksumReads": 500,
+      "decoderCalls": 500
+    },
+    "percentileMethod": "log2-upper-bound",
+    "schemaVersion": 1,
+    "stages": {
+      "appearance": {
+        "count": 500,
+        "maxMs": 83.3399,
+        "meanMs": 40.721247,
+        "p50Ms": 67.108864,
+        "p95Ms": 67.108864,
+        "totalSeconds": 20.360624
+      },
+      "checksum": {
+        "count": 500,
+        "maxMs": 11.5354,
+        "meanMs": 2.391242,
+        "p50Ms": 2.097152,
+        "p95Ms": 8.388608,
+        "totalSeconds": 1.195621
+      },
+      "decode": {
+        "count": 500,
+        "maxMs": 101.0411,
+        "meanMs": 59.514426,
+        "p50Ms": 67.108864,
+        "p95Ms": 134.217728,
+        "totalSeconds": 29.757213
+      },
+      "geometry": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "ocr": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "output": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "persistence": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "quality": {
+        "count": 500,
+        "maxMs": 33.6376,
+        "meanMs": 17.580646,
+        "p50Ms": 33.554432,
+        "p95Ms": 33.554432,
+        "totalSeconds": 8.790323
+      }
+    },
+    "timingsAreInclusive": true,
+    "usedThreadCount": 4
+  },
+  "technicalGatePassed": true,
+  "threading": {
+    "configuredScanWorkers": 4,
+    "logicalCpuCount": 8,
+    "usedThreadCount": 4
+  },
+  "workload": {
+    "boundaryVerificationCount": 0,
+    "cheapScanCount": 500
+  }
+}

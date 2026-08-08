@@ -12,7 +12,7 @@ import argparse
 import json
 import statistics
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import Lock
 from time import perf_counter
@@ -22,13 +22,17 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 WORKER_SOURCE = REPOSITORY_ROOT / "services" / "worker" / "src"
 sys.path.insert(0, str(WORKER_SOURCE))
 
+from game_predictor_worker.benchmarks.performance import (  # noqa: E402
+    PeakMemorySampler,
+)
 from game_predictor_worker.images.selection.adapters import (  # noqa: E402
-    AccuracyFirstVisibleSequenceLabelRangeRecognizer,
     AnchoredSequenceRangeRecognizer,
+    DeterministicParallelCandidateVerifier,
+    IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
+    configure_opencv_thread_budget,
 )
 from game_predictor_worker.images.selection.contracts import (  # noqa: E402
-    CandidateVerification,
     CandidateVerifier,
     CheapImageAnalyzer,
     CheapImageObservation,
@@ -41,7 +45,7 @@ from game_predictor_worker.images.selection.io import (  # noqa: E402
     load_browser_selection_manifest,
 )
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
-    ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
+    ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
 )
 from game_predictor_worker.images.selection.telemetry import (  # noqa: E402
     StageTimingCollector,
@@ -61,6 +65,9 @@ class _FinalizedGroupTiming:
     elapsed_since_start_seconds: float
     status: str
     recognized_range: str | None
+    selected_checksum_sha256: str | None
+    selected_source_relative_path: str | None
+    top_candidates: tuple[dict[str, object], ...]
 
 
 class _ProgressAnalyzer:
@@ -83,28 +90,13 @@ class _ProgressAnalyzer:
         return result
 
 
-class _ProgressVerifier:
-    def __init__(self, inner: CandidateVerifier) -> None:
-        self._inner = inner
-
-    def verify(
-        self,
-        observation: CheapImageObservation,
-        *,
-        expected_board_count: int | None,
-    ) -> CandidateVerification:
-        return self._inner.verify(
-            observation,
-            expected_board_count=expected_board_count,
-        )
-
-
 class _TimingSink:
-    def __init__(self, started_at: float) -> None:
+    def __init__(self, started_at: float, *, first_source_index: int = 0) -> None:
         self._started_at = started_at
         self._previous_group_at = started_at
         self._groups: dict[int, _FinalizedGroupTiming] = {}
-        self._next_source_index = 0
+        self._source_index_offset = first_source_index
+        self._next_source_index = first_source_index
 
     def candidate_scanned(
         self,
@@ -138,6 +130,33 @@ class _TimingSink:
             elapsed_since_start_seconds=now - self._started_at,
             status=group.status.value,
             recognized_range=recognized,
+            selected_checksum_sha256=(
+                None
+                if group.selected_candidate is None
+                else group.selected_candidate.source.checksum_sha256
+            ),
+            selected_source_relative_path=(
+                None
+                if group.selected_candidate is None
+                else group.selected_candidate.source.relative_path
+            ),
+            top_candidates=tuple(
+                {
+                    "checksumSha256": candidate.source.checksum_sha256,
+                    "decision": candidate.decision.value,
+                    "orderIndex": candidate.source.order_index + self._source_index_offset,
+                    "recognizedRange": (
+                        None
+                        if candidate.recognized_range is None
+                        else (
+                            f"{candidate.recognized_range.start}-{candidate.recognized_range.end}"
+                        )
+                    ),
+                    "reasonCodes": list(candidate.reason_codes),
+                    "sourceRelativePath": candidate.source.relative_path,
+                }
+                for candidate in group.top_candidates
+            ),
         )
         self._groups[group.group_order] = timing
         self._next_source_index = last_source_index + 1
@@ -159,9 +178,16 @@ def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=200)
+    parser.add_argument("--start-index", type=int, default=0)
     parser.add_argument("--scan-workers", type=int, default=4)
+    parser.add_argument("--verification-workers", type=int, default=2)
     parser.add_argument("--max-seconds", type=float, default=1_800.0)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        default=REPOSITORY_ROOT / "artifacts" / "image-selection-v10-first-200-timing.json",
+    )
     parser.add_argument(
         "--ocr-model-root",
         type=Path,
@@ -174,13 +200,121 @@ def _round(value: float) -> float:
     return round(value, 6)
 
 
+def _build_verification_adapters(
+    source_root: Path,
+    model_root: Path,
+    telemetry: StageTimingCollector,
+) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+    manifest = ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
+    fallback_policy = manifest.progressive_visible_label_fallback_policy
+    if fallback_policy is None:
+        raise RuntimeError("The v10.1 profile requires progressive fallback policy.")
+    ocr = PaddleSequenceNumberRecognizer(model_root)
+    return build_default_adapters(
+        source_root,
+        range_recognizer=AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry),
+        fallback_range_recognizer=IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+            ocr,
+            fallback_policy,
+            telemetry=telemetry,
+        ),
+        manifest=manifest,
+        telemetry=telemetry,
+    )
+
+
+def _baseline_comparison(
+    baseline_path: Path,
+    *,
+    manifest_sha256: str,
+    image_count: int,
+    elapsed_seconds: float,
+    groups: tuple[_FinalizedGroupTiming, ...],
+) -> dict[str, object]:
+    if not baseline_path.is_file():
+        return {"available": False, "reason": "baseline_report_missing"}
+    try:
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return {"available": False, "reason": "baseline_report_invalid"}
+    source = baseline.get("source")
+    summary = baseline.get("summary")
+    baseline_groups = baseline.get("groups")
+    if (
+        not isinstance(source, dict)
+        or not isinstance(summary, dict)
+        or not isinstance(baseline_groups, list)
+    ):
+        return {"available": False, "reason": "baseline_contract_invalid"}
+    comparable_source = (
+        source.get("manifestSha256") == manifest_sha256
+        and source.get("analyzedImageCount") == image_count
+    )
+    baseline_boundaries = [
+        (item.get("firstSourceIndex"), item.get("lastSourceIndex"))
+        for item in baseline_groups
+        if isinstance(item, dict)
+    ]
+    current_boundaries = [(item.first_source_index, item.last_source_index) for item in groups]
+    baseline_ranges = [
+        item.get("recognizedRange") for item in baseline_groups if isinstance(item, dict)
+    ]
+    current_ranges = [item.recognized_range for item in groups]
+    baseline_checksums = [
+        item.get("selectedChecksumSha256") for item in baseline_groups if isinstance(item, dict)
+    ]
+    representative_comparison_available = len(baseline_checksums) == len(baseline_groups) and all(
+        isinstance(value, str) for value in baseline_checksums
+    )
+    changed_representatives = (
+        [
+            {
+                "group": item.group_order + 1,
+                "baselineChecksumSha256": baseline_checksums[index],
+                "currentChecksumSha256": item.selected_checksum_sha256,
+                "currentSourceRelativePath": item.selected_source_relative_path,
+            }
+            for index, item in enumerate(groups)
+            if baseline_checksums[index] != item.selected_checksum_sha256
+        ]
+        if representative_comparison_available and len(baseline_checksums) == len(groups)
+        else []
+    )
+    baseline_seconds_value = summary.get("totalSeconds")
+    baseline_seconds = (
+        float(baseline_seconds_value) if isinstance(baseline_seconds_value, int | float) else None
+    )
+    reduction = (
+        None
+        if baseline_seconds is None or baseline_seconds <= 0
+        else (baseline_seconds - elapsed_seconds) / baseline_seconds * 100
+    )
+    return {
+        "available": True,
+        "comparableSource": comparable_source,
+        "baselineTotalSeconds": baseline_seconds,
+        "timeReductionPercent": None if reduction is None else _round(reduction),
+        "firstTargetMet": elapsed_seconds <= 151,
+        "firstTargetBand": 113 <= elapsed_seconds <= 151,
+        "extendedTargetMet": elapsed_seconds < 113,
+        "boundaryMatch": baseline_boundaries == current_boundaries,
+        "rangeMatch": baseline_ranges == current_ranges,
+        "representativeComparisonAvailable": representative_comparison_available,
+        "changedRepresentatives": changed_representatives,
+    }
+
+
 def main() -> None:
     global _STARTED_AT
     args = _arguments()
     if not 1 <= args.limit <= 10_000:
         raise ValueError("--limit must be between 1 and 10000")
+    if args.start_index < 0:
+        raise ValueError("--start-index cannot be negative")
     if not 1 <= args.scan_workers <= 8:
         raise ValueError("--scan-workers must be between 1 and 8")
+    if not 1 <= args.verification_workers <= 2:
+        raise ValueError("--verification-workers must be one or two")
     if not 1 <= args.max_seconds <= 21_600:
         raise ValueError("--max-seconds must be between 1 and 21600")
 
@@ -188,39 +322,54 @@ def main() -> None:
     sources, manifest_sha256 = load_browser_selection_manifest(
         source_root / "_browser_manifest.json"
     )
-    selected_sources = sources[: args.limit]
-    if len(selected_sources) != args.limit:
+    source_slice = sources[args.start_index : args.start_index + args.limit]
+    if len(source_slice) != args.limit:
         raise ValueError(f"Staging contains only {len(sources)} images")
-    expected_order = tuple(range(args.limit))
-    if tuple(source.order_index for source in selected_sources) != expected_order:
+    expected_order = tuple(range(args.start_index, args.start_index + args.limit))
+    if tuple(source.order_index for source in source_slice) != expected_order:
         raise ValueError("Selected source slice does not preserve natural zero-based order")
+    # The production selector contract intentionally starts each run at zero.
+    # Rebase this read-only slice locally while retaining the original source
+    # indexes in timing and candidate diagnostics.
+    selected_sources = tuple(
+        replace(source, order_index=local_index) for local_index, source in enumerate(source_slice)
+    )
 
     telemetry = StageTimingCollector()
-    ocr = PaddleSequenceNumberRecognizer(args.ocr_model_root.resolve(strict=True))
-    analyzer, verifier = build_default_adapters(
+    configure_opencv_thread_budget(1)
+    model_root = args.ocr_model_root.resolve(strict=True)
+    analyzer, primary_verifier = _build_verification_adapters(
         source_root,
-        range_recognizer=AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry),
-        fallback_range_recognizer=AccuracyFirstVisibleSequenceLabelRangeRecognizer(
-            ocr,
-            telemetry=telemetry,
-        ),
-        manifest=ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
-        telemetry=telemetry,
+        model_root,
+        telemetry,
     )
+    verifier: CandidateVerifier = primary_verifier
+    if args.verification_workers == 2:
+        _, secondary_verifier = _build_verification_adapters(
+            source_root,
+            model_root,
+            telemetry,
+        )
+        verifier = DeterministicParallelCandidateVerifier(
+            (primary_verifier, secondary_verifier),
+            telemetry=telemetry,
+        )
 
     _STARTED_AT = perf_counter()
-    sink = _TimingSink(_STARTED_AT)
-    result = FastImageSelector(
-        ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
-        scan_workers=args.scan_workers,
-        scan_prefetch=min(args.scan_workers * 2, 64),
-    ).select(
-        selected_sources,
-        analyzer=_ProgressAnalyzer(analyzer, total=args.limit),
-        verifier=_ProgressVerifier(verifier),
-        audit_sink=sink,
-    )
-    elapsed = perf_counter() - _STARTED_AT
+    sink = _TimingSink(_STARTED_AT, first_source_index=args.start_index)
+    with PeakMemorySampler(interval_seconds=0.1) as memory_sampler:
+        result = FastImageSelector(
+            ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
+            scan_workers=args.scan_workers,
+            scan_prefetch=min(args.scan_workers * 2, 64),
+        ).select(
+            selected_sources,
+            analyzer=_ProgressAnalyzer(analyzer, total=args.limit),
+            verifier=verifier,
+            audit_sink=sink,
+        )
+        elapsed = perf_counter() - _STARTED_AT
+    memory = memory_sampler.summary()
     if elapsed > args.max_seconds:
         raise TimeoutError(f"Profile exceeded its declared {args.max_seconds:.0f}s time budget")
 
@@ -233,8 +382,8 @@ def main() -> None:
             "manifestSha256": manifest_sha256,
             "stagingImageCount": len(sources),
             "analyzedImageCount": args.limit,
-            "firstOrderIndex": 0,
-            "lastOrderIndex": args.limit - 1,
+            "firstOrderIndex": args.start_index,
+            "lastOrderIndex": args.start_index + args.limit - 1,
             "cachePolicy": "disabled-cold-analysis",
             "publicationPolicy": "disabled-read-only-profile",
         },
@@ -242,6 +391,7 @@ def main() -> None:
             "version": result.selector_version,
             "fingerprint": result.selector_fingerprint,
             "scanWorkers": args.scan_workers,
+            "verificationWorkers": args.verification_workers,
             "verificationCount": result.verification_count,
             "scanFailureCount": result.scan_failure_count,
         },
@@ -265,10 +415,21 @@ def main() -> None:
                 "elapsedSinceStartSeconds": _round(group.elapsed_since_start_seconds),
                 "status": group.status,
                 "recognizedRange": group.recognized_range,
+                "selectedChecksumSha256": group.selected_checksum_sha256,
+                "selectedSourceRelativePath": group.selected_source_relative_path,
+                "topCandidates": list(group.top_candidates),
             }
             for group in groups
         ],
         "stageTiming": telemetry.snapshot(),
+        "memory": memory.to_dict(),
+        "baselineComparison": _baseline_comparison(
+            args.baseline.resolve(),
+            manifest_sha256=manifest_sha256,
+            image_count=args.limit,
+            elapsed_seconds=elapsed,
+            groups=groups,
+        ),
     }
     output = args.output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)

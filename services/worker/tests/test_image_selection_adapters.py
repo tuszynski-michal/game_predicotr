@@ -23,6 +23,7 @@ from game_predictor_worker.images.selection.adapters import (
     ComposedCheapImageAnalyzer,
     DeterministicParallelCandidateVerifier,
     FullCandidateVerifier,
+    IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     OpenCvAppearanceFingerprintAnalyzer,
     OpenCvAppearanceQualityAnalyzer,
@@ -65,6 +66,9 @@ from game_predictor_worker.images.sequence_ocr import Recognition
 from PIL import Image, ImageOps, JpegImagePlugin
 
 ROOT = Path(__file__).resolve().parents[3]
+RANGE_55_63_REGRESSION_PATH = (
+    Path(__file__).resolve().parent / "fixtures" / "image_selection_range_55_63.json"
+)
 
 
 def _write_jpeg(path: Path, *, width: int = 320, height: int = 480) -> str:
@@ -1074,9 +1078,7 @@ def test_progressive_visible_label_fallback_keeps_v10_result_at_level_72() -> No
         first_complete_level=72,
         telemetry=progressive_telemetry,
     )
-    labels = progressive._ranked_label_candidates(
-        np.zeros((1080, 1920, 3), dtype=np.uint8)
-    )
+    labels = progressive._ranked_label_candidates(np.zeros((1080, 1920, 3), dtype=np.uint8))
 
     class _ScriptedLegacyRecognizer(AccuracyFirstVisibleSequenceLabelRangeRecognizer):
         @classmethod
@@ -1108,6 +1110,72 @@ def test_progressive_visible_label_candidates_keep_multi_digit_horizontal_margin
     assert len(labels) == 1
     assert labels[0].crop.shape[1] >= 108
     assert labels[0].crop.shape[0] >= 23
+
+
+def test_independent_endpoint_fallback_recovers_checksum_bound_55_63_case() -> None:
+    regression = json.loads(RANGE_55_63_REGRESSION_PATH.read_text(encoding="utf-8"))
+    assert regression["sourceChecksumSha256"] == (
+        "2ea1a6bf2708d384537ddcf2ce11cad80c6d5c8fa7c45da959242447af9b4037"
+    )
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    for index, item in enumerate(regression["evidence"]):
+        crop = np.full((20, 80, 3), index + 1, dtype=np.uint8)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(float(item["center"][0]), float(item["center"][1])),
+            )
+        )
+        recognitions[id(crop)] = Recognition(
+            str(item["number"]),
+            float(item["confidence"]),
+        )
+    while len(labels) < 72:
+        index = len(labels)
+        crop = np.full((20, 80, 3), index + 1, dtype=np.uint8)
+        labels.append(_VisibleLabel(crop=crop, center=(50.0 + index, 50.0 + index)))
+        recognitions[id(crop)] = Recognition("", 0.0)
+
+    class _HistoricalProgressive(ProgressiveVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    class _IndependentEndpoint(IndependentEndpointVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    image_shape = regression["imageShape"]
+    image = np.zeros((int(image_shape[0]), int(image_shape[1]), 3), dtype=np.uint8)
+    historical = _HistoricalProgressive(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(),
+    )
+    independent = _IndependentEndpoint(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(),
+    )
+
+    historical_range, historical_reasons = historical.recognize(image, ())
+    recognized, reasons = independent.recognize(image, ())
+
+    assert historical_range is None
+    assert historical_reasons == ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+    assert reasons == ()
+    assert recognized is not None
+    assert [recognized.start, recognized.end] == regression["expectedRange"]
+
+
+def test_independent_endpoint_fallback_does_not_infer_without_either_edge() -> None:
+    positions = (1, 2, 3, 4, 5, 6, 7)
+    recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer
+
+    assert not recognizer._candidate_position_coverage_is_valid(positions)
+    assert not recognizer._inlier_position_coverage_is_valid(positions)
 
 
 @dataclass

@@ -304,6 +304,13 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   albo konflikcie,
 - fallback widocznych etykiet działa progresywnie `18 -> 36 -> 72`; trudny
   przypadek zachowuje obecną pełną ścieżkę,
+- brak pojedynczej etykiety brzegowej nie może automatycznie unieważniać
+  lokalnego dowodu całej siatki. Adapter może odzyskać zakres wyłącznie z co
+  najmniej siedmiu zgodnych punktów RANSAC, gdy widoczna jest przynajmniej jedna
+  etykieta brzegowa i punkty obejmują wszystkie trzy wiersze oraz kolumny,
+- remis hipotez, brak etykiety brzegowej lub niepełne pokrycie siatki nadal
+  kończy się `manual_required`; poprzednia grupa nie może dostarczać brakującego
+  numeru,
 - rozpoznany zakres nie może być zastępowany przewidywanym kolejnym zakresem.
   Skok, np. `19–27 -> 400–408`, jest poprawny i musi pozostać rozpoznany,
 - `first_sequence_number` może kotwiczyć pierwszy ekran, ale nie narzuca
@@ -312,3 +319,8 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   Dalszy cel 70–85% jest dopuszczalny dopiero po porównaniu reprezentantów,
 - pomiar na tych samych pierwszych 200 zdjęciach poprzedza manualny run 5000 i
   32 000. Trudne grupy mogą nadal użyć pełnego kosztu v10.
+- optymalizacja pełnej geometrii musi zachowywać dokładnie ten sam obraz
+  wejściowy, krok wyszukiwania, tie-break i wynik. Skalowanie albo cropowanie
+  jest niedopuszczalne, jeżeli zmienia rezultat detektora; równoważne sumy
+  integralne maski binarnej mogą zastąpić wielokrotne skanowanie tych samych
+  prostokątnych okien.

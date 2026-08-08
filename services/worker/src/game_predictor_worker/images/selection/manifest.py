@@ -72,6 +72,10 @@ PROGRESSIVE_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v5:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v6:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
 NO_RANGE_ADAPTER_VERSION = "none-v2"
 LEGACY_THUMBNAIL_ADAPTER_VERSION = "pillow-exif-thumbnail-v1"
 REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION = "pillow-jpeg-draft-thumbnail-v2"
@@ -223,9 +227,7 @@ class SelectorManifest:
     representative_policy: RangeFreeRepresentativePolicy = RangeFreeRepresentativePolicy()
     full_geometry_policy: FullGeometryPolicy | None = None
     adaptive_range_consensus_policy: AdaptiveRangeConsensusPolicy | None = None
-    progressive_visible_label_fallback_policy: (
-        ProgressiveVisibleLabelFallbackPolicy | None
-    ) = None
+    progressive_visible_label_fallback_policy: ProgressiveVisibleLabelFallbackPolicy | None = None
 
     def __post_init__(self) -> None:
         if self.algorithm_version not in SUPPORTED_SELECTOR_VERSIONS or self.contract_version != 1:
@@ -580,8 +582,20 @@ ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK = SelectorManifest
     adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(),
     progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
 )
-DEFAULT_SELECTOR_MANIFEST = ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK
+ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE = SelectorManifest(
+    algorithm_version=ADAPTIVE_ACCURACY_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="page-board-detector-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    full_geometry_policy=FullGeometryPolicy(),
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
+)
+DEFAULT_SELECTOR_MANIFEST = ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
 SUPPORTED_SELECTOR_MANIFESTS = (
+    ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_GEOMETRY,
@@ -614,6 +628,7 @@ def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | No
 
 __all__ = [
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101",
+    "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE",
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK",
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_GEOMETRY",
     "ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INITIAL",
@@ -651,6 +666,7 @@ __all__ = [
     "FIRST_USABLE_SELECTOR_VERSION",
     "FIRST_USABLE_SELECTOR_VERSIONS",
     "FullGeometryPolicy",
+    "INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION",
     "LEGACY_RANGE_ADAPTER_VERSION",
     "LEGACY_THUMBNAIL_ADAPTER_VERSION",
     "LEGACY_SELECTOR_MANIFEST_V2",

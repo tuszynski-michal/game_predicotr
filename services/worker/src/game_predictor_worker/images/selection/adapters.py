@@ -1020,13 +1020,7 @@ class VisibleSequenceLabelRangeRecognizer:
                 if current is None or confidence > current[1]:
                     by_position[position] = (center, confidence)
             positions = tuple(sorted(by_position))
-            if (
-                len(positions) < cls._minimum_inlier_count
-                or positions[0] != 0
-                or positions[-1] != 8
-                or len({position // 3 for position in positions}) < 3
-                or len({position % 3 for position in positions}) < 3
-            ):
+            if not cls._candidate_position_coverage_is_valid(positions):
                 continue
             canonical = np.asarray(
                 [(position % 3, position // 3) for position in positions],
@@ -1053,11 +1047,7 @@ class VisibleSequenceLabelRangeRecognizer:
                 )
                 if bool(is_inlier)
             )
-            if (
-                len(inlier_positions) < cls._minimum_inlier_count
-                or 0 not in inlier_positions
-                or 8 not in inlier_positions
-            ):
+            if not cls._inlier_position_coverage_is_valid(inlier_positions):
                 continue
             mean_confidence = sum(by_position[position][1] for position in inlier_positions) / len(
                 inlier_positions
@@ -1079,6 +1069,20 @@ class VisibleSequenceLabelRangeRecognizer:
             key=lambda value: (value[0], -value[1].start),
             reverse=True,
         )
+
+    @classmethod
+    def _candidate_position_coverage_is_valid(cls, positions: tuple[int, ...]) -> bool:
+        return (
+            len(positions) >= cls._minimum_inlier_count
+            and positions[0] == 0
+            and positions[-1] == 8
+            and len({position // 3 for position in positions}) >= 3
+            and len({position % 3 for position in positions}) >= 3
+        )
+
+    @classmethod
+    def _inlier_position_coverage_is_valid(cls, positions: tuple[int, ...]) -> bool:
+        return len(positions) >= cls._minimum_inlier_count and 0 in positions and 8 in positions
 
 
 class AdaptiveVisibleSequenceLabelRangeRecognizer(VisibleSequenceLabelRangeRecognizer):
@@ -1218,6 +1222,36 @@ class ProgressiveVisibleSequenceLabelRangeRecognizer(
             return
         self._telemetry.increment(f"progressiveFallbackResolvedAtLevel{configured_level}")
         self._telemetry.increment("progressiveFallbackResolvedCropCount", crop_count)
+
+
+class IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+    ProgressiveVisibleSequenceLabelRangeRecognizer
+):
+    """Recover one unreadable edge label from a strong local 3x3 lattice.
+
+    This adapter derives the range only from OCR and geometry within the same
+    image. It deliberately does not use the previous group's sequence cursor.
+    """
+
+    version = "visible-sequence-label-range-v6"
+    _minimum_partial_inlier_count = 7
+
+    @classmethod
+    def _candidate_position_coverage_is_valid(cls, positions: tuple[int, ...]) -> bool:
+        return cls._independent_partial_coverage_is_valid(positions)
+
+    @classmethod
+    def _inlier_position_coverage_is_valid(cls, positions: tuple[int, ...]) -> bool:
+        return cls._independent_partial_coverage_is_valid(positions)
+
+    @classmethod
+    def _independent_partial_coverage_is_valid(cls, positions: tuple[int, ...]) -> bool:
+        return (
+            len(positions) >= cls._minimum_partial_inlier_count
+            and (0 in positions or 8 in positions)
+            and len({position // 3 for position in positions}) >= 3
+            and len({position % 3 for position in positions}) >= 3
+        )
 
 
 class NoRangeRecognizer:

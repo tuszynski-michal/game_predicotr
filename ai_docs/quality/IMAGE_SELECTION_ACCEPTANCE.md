@@ -215,3 +215,53 @@ TASK-0194 porównuje nową wersję dokładnie na indeksach 0–199 i wymaga:
 
 Po zaliczeniu profilu 200 właściciel decyduje o runie około 5000, a następnie
 32 000 zdjęć. Profil nie uruchamia publikacji ani Importu layoutów.
+
+### Wynik techniczny TASK-0194 — 2026-08-08
+
+Powtórny cold profile zachował dziewięć granic grup i zero błędów skanu, ale nie
+osiągnął celu czasu. Dwa verifiery uzyskały 366,322600 s, a jeden verifier
+310,859984 s wobec 377,530649 s baseline. Peak RSS obu wariantów wyniósł około
+457 MB. Adaptacja zmniejszyła pracę do 35 weryfikacji dowodu zakresu, 249
+wywołań OCR i 2211 cropów, lecz pełna geometria 99 reprezentantów nadal jest
+dominującym kosztem.
+
+Osiem zakresów pozostało zgodnych. Grupa 159–180 nie dostarczyła dowodu OCR i ma
+stan `manual_required`; v10 wypełniał ten zakres z kursora, czego v10.1 celowo
+nie robi z uwagi na dozwolone skoki numerów. Techniczna rekomendacja to
+`optimize`. Właściciel potwierdził tę decyzję 2026-08-08. Produkcyjna aktywacja
+dwóch verifierów została wycofana, run 5000/32 000 nie został uruchomiony, a
+następna iteracja ma najpierw poprawić dowód OCR dla grupy 55–63 i koszt pełnej
+geometrii.
+
+### Wynik techniczny TASK-0195 — 2026-08-08
+
+Checksum-bound regresja dla zdjęcia `1/1_010522.jpg` potwierdziła przyczynę:
+OCR poprawnie odczytywał siedem etykiet `55, 56, 57, 58, 59, 60, 62`, ale
+adapter v5 wymagał jednocześnie obu krawędzi 55 i 63. Nowy adapter v6 odzyskuje
+55–63 z lokalnej homografii 3×3, bez użycia poprzedniej grupy. Osobny test
+odrzuca siedem punktów wewnętrznych bez żadnej etykiety brzegowej.
+
+Cold profile wyłącznie problematycznej grupy indeksów 159–180 zakończył się w
+25,701488 s, bez błędów skanu. Przeanalizował 22 zdjęcia i 12 kandydatów pełnej
+weryfikacji, wybrał checksum
+`2ea1a6bf2708d384537ddcf2ce11cad80c6d5c8fa7c45da959242447af9b4037`
+oraz zwrócił `auto_selected` z zakresem 55–63. Pełny run 5000/32 000 nie został
+uruchomiony. Następna iteracja może skupić się na dominującym koszcie geometrii.
+
+### Wynik techniczny TASK-0196 — 2026-08-08
+
+Profil funkcji wykazał 163 194 powtarzane wywołania `numpy.mean` oraz 81 769
+alokacji masek podczas refinementu 22 zdjęć. Skalowanie do 1280 px zmieniło
+semantyczny wynik 14/22 obrazów, a szeroki crop również powodował regresje,
+dlatego oba skróty odrzucono. Dokładna suma integralna zachowała kanoniczny hash
+22 wyników
+`2f7397d516eda85f9ac4f05ff2df2f3e9a971298f6865fec5c3f51c59238806c`,
+a czas samego detektora spadł z 8,720996 s do 1,862312 s.
+
+Celowany profil grupy 55–63 spadł z 25,701488 s do 9,245810 s, zachowując ten
+sam checksum reprezentanta i zakres. Powtórny cold profile indeksów 0–199
+trwał 91,714346 s wobec 310,859984 s TASK-0194 i 377,530649 s v10. Zachował
+dziewięć granic, zwrócił wszystkie zakresy 1–9 do 73–81, nie zmienił żadnego z
+ośmiu wcześniej wybranych reprezentantów i miał zero błędów skanu. Geometria
+99 kandydatów spadła z 170,748913 s do 35,158739 s. Run 5000/32 000 nie został
+uruchomiony automatycznie.

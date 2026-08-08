@@ -640,8 +640,33 @@ ostatniej bramki, a typed client pobiera historię i szczegóły iteracji.
 
 ## Next recommended task
 
-Następnym aktywnym pionem wersji 0.4 jest TASK-0194 — powtórny profil pierwszych
-200 zdjęć oraz decyzja jakościowo-wydajnościowa przed runem 5000/32 000.
+TASK-0194 wykonał powtórny profil pierwszych 200 zdjęć. Wariant dwóch
+verifierów trwał 366,322600 s, a jednego 310,859984 s wobec baseline
+377,530649 s; cel 113–151 s nie został osiągnięty. Dziewięć granic grup
+pozostało identycznych, ale grupa 159–180 bez dowodu OCR trafiła do
+`manual_required` zamiast odziedziczyć zgadywany zakres 55–63. Produkcja wróciła
+do jednego verifiera. Właściciel wybrał `optimize` 2026-08-08; TASK-0194 jest
+zamknięty, a run 5000/32 000 nie został uruchomiony.
+
+TASK-0195 jest ukończony. Adapter v6 odzyskuje zakres 55–63 z co najmniej
+siedmiu lokalnych inlierów siatki 3×3, widocznej etykiety brzegowej i pełnego
+pokrycia wierszy/kolumn, bez cursora ciągłości. Cold profile indeksów 159–180
+wybrał `1/1_010522.jpg`, zwrócił `auto_selected` 55–63 i trwał 25,701488 s.
+Historyczny manifest v5 pozostaje rozwiązywalny; pełny run nie został
+uruchomiony.
+
+TASK-0196 jest ukończony. Dokładna suma integralna zastąpiła 163 tys. skanów
+border/interior bez zmiany kanonicznego wyniku detektora. Profil 0–199 trwał
+91,714346 s zamiast 310,859984 s TASK-0194, zachował dziewięć granic, wszystkie
+zakresy 1–9…73–81, dotychczasowe reprezentanty oraz zero błędów skanu.
+Fingerprint nie zmienił się; skalowanie i crop odrzucono jako regresyjne.
+
+TASK-0197 jest aktywny i realizuje pierwszy etap ręcznej bramki TASK-0186:
+kontrolowany, read-only profil indeksów 0–4999 na niezmiennym stagingu. Dopiero
+po ocenie jakości i czasu przez właściciela należy uruchamiać 32 000 zdjęć.
+Profil działa w tle jako PID `12388`, ma limit 5100 s i kontrolowane logi w
+`.runtime`; nie publikuje wyniku ani nie uruchamia Importu layoutów.
+
 TASK-0149 pozostaje
 następnym małym pionem M6.6 po zamknięciu bieżącej stabilizacji selektora.
 Manualny odbiór TASK-0186 nadal jest bramką wersji 0.4, ale rozpocznie się
@@ -730,13 +755,12 @@ poziom rozstrzygnięcia i wyczerpanie fallbacku. Historyczne fingerprinty
 pozostają rozwiązywalne. Ruff, mypy, 119 testów workera i 28 testów API
 przeszły; profil 200 pozostaje niewykonany.
 
-TASK-0193 jest ukończony. Adaptacyjne poziomy są wykonywane jako bounded batche
-na dwóch odizolowanych verifierach, z osobnym predictorem Paddle i szeregową
-partycją dla każdego workera. Wyniki są składane w kolejności shortlisty i
-przechodzą test pełnej identyczności z trybem pojedynczym. Produkcyjny budżet
-lane cztery dzieli się na dwa skanery i dwa verifiery; niższy budżet zachowuje
-jeden verifier. Ruff, mypy, 134 testy workera i 31 testów API/lane przeszły.
-Rzeczywisty zysk czasu i peak RSS dwóch predictorów pozostają bramką TASK-0194.
+TASK-0193 jest ukończony. Adaptacyjne poziomy mogą działać jako deterministyczne
+bounded batche na odizolowanych verifierach, ale pomiar TASK-0194 wykazał, że
+dwa predyktory Paddle/OpenCV konkurują o zasoby i są wolniejsze od jednego.
+Produkcyjny budżet lane cztery został więc trwale ustawiony na trzy scan workers
+i jeden verifier. Wyniki nadal zachowują kolejność shortlisty i parity trybu
+pojedynczego; aktywacja dwóch verifierów pozostaje wycofana.
 
 TASK-0177 zakończono z decyzją `passed`; test nie użył ani nie zmodyfikował
 bieżących gier, stagingu oraz zdjęć właściciela.

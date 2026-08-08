@@ -35,6 +35,7 @@ from game_predictor_worker.images.selection.manifest import (
     ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_GEOMETRY,
+    ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INITIAL,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK,
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
@@ -458,10 +459,7 @@ def test_v10_1_manifest_is_the_default_and_v10_remains_resolvable() -> None:
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert (
-        DEFAULT_SELECTOR_MANIFEST
-        is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK
-    )
+    assert DEFAULT_SELECTOR_MANIFEST is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
     assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.1"
     assert (
         ACCURACY_FIRST_SELECTOR_MANIFEST_V10.fingerprint
@@ -484,6 +482,10 @@ def test_v10_1_manifest_is_the_default_and_v10_remains_resolvable() -> None:
         == "da6e7a70821f7c418808b84480d47e7ca09f35025b8ee0a3cad7e93d1baa016d"
     )
     assert (
+        ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
+        == "286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40"
+    )
+    assert (
         selector_manifest_for_fingerprint(
             ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INITIAL.fingerprint
         )
@@ -496,9 +498,7 @@ def test_v10_1_manifest_is_the_default_and_v10_remains_resolvable() -> None:
         is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_GEOMETRY
     )
     assert (
-        selector_manifest_for_fingerprint(
-            ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101.fingerprint
-        )
+        selector_manifest_for_fingerprint(ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101.fingerprint)
         is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101
     )
     assert (
@@ -506,6 +506,12 @@ def test_v10_1_manifest_is_the_default_and_v10_remains_resolvable() -> None:
             ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK.fingerprint
         )
         is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK
+    )
+    assert (
+        selector_manifest_for_fingerprint(
+            ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
+        )
+        is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
     )
     assert (
         selector_manifest_for_fingerprint(ACCURACY_FIRST_SELECTOR_MANIFEST_V10.fingerprint)
@@ -748,9 +754,7 @@ def test_v10_1_parallel_verification_matches_single_worker_result_and_order() ->
     )
 
     assert parallel.to_dict() == sequential.to_dict()
-    assert sorted(
-        index for worker in parallel_workers for index in worker.verify_calls
-    ) == [0, 1]
+    assert sorted(index for worker in parallel_workers for index in worker.verify_calls) == [0, 1]
     assert sorted(
         index for worker in parallel_workers for index in worker.representative_calls
     ) == list(range(2, 12))

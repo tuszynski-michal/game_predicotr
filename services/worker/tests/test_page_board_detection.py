@@ -11,6 +11,8 @@ from game_predictor_worker.images.geometry import (
     BoardDetection,
     ClassicalPageBoardDetector,
     GeometryDetectionError,
+    _positive_integral,
+    _refinement_window_densities,
     detect_normalized_corpus,
 )
 from PIL import Image
@@ -67,6 +69,45 @@ def _partial_grid_image(board_count: int) -> np.ndarray:
             10,
         )
     return image
+
+
+@pytest.mark.parametrize(
+    ("x", "y", "width", "height"),
+    (
+        (0, 0, 31, 27),
+        (7, 11, 42, 35),
+        (19, 23, 60, 44),
+    ),
+)
+def test_integral_refinement_density_matches_boolean_mask_scan(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> None:
+    random = np.random.default_rng(20260808)
+    mask = np.asarray(random.random((73, 91)) > 0.72, dtype=np.uint8) * 255
+    roi = mask[y : y + height, x : x + width]
+    border_y = max(2, height // 10)
+    border_x = max(2, width // 16)
+    border = np.zeros(roi.shape, dtype=np.bool_)
+    border[:border_y, :] = True
+    border[-border_y:, :] = True
+    border[:, :border_x] = True
+    border[:, -border_x:] = True
+
+    actual = _refinement_window_densities(
+        _positive_integral(mask),
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+    )
+
+    assert actual == (
+        float(np.mean(roi[border] > 0)),
+        float(np.mean(roi[~border] > 0)),
+    )
 
 
 def test_synthetic_grid_returns_nine_boards_in_row_major_order() -> None:

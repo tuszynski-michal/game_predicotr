@@ -36,6 +36,7 @@ from .adapters import (
     AnchoredSequenceRangeRecognizer,
     BestEffortVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
+    IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
@@ -65,6 +66,7 @@ from .manifest import (
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
+    INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     SelectorManifest,
     selector_manifest_for_fingerprint,
@@ -336,17 +338,24 @@ class ImageSelectionJobHandler:
                 manifest=manifest,
                 telemetry=telemetry,
             )
+
         def build_isolated_adapters() -> tuple[CheapImageAnalyzer, CandidateVerifier]:
             model_root = (
-                self._repository_root
-                / "artifacts"
-                / "m5-models"
-                / "sequence-number-ocr-v1"
+                self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
             )
             ocr = PaddleSequenceNumberRecognizer(model_root)
             recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
             fallback_recognizer: SequenceRangeRecognizer
-            if manifest.progressive_visible_label_fallback_policy is not None:
+            if (
+                manifest.range_adapter_version == INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+            ):
+                fallback_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    telemetry=telemetry,
+                )
+            elif manifest.progressive_visible_label_fallback_policy is not None:
                 fallback_recognizer = ProgressiveVisibleSequenceLabelRangeRecognizer(
                     ocr,
                     manifest.progressive_visible_label_fallback_policy,
@@ -381,10 +390,7 @@ class ImageSelectionJobHandler:
             )
 
         analyzer, primary_verifier = build_isolated_adapters()
-        if (
-            self._verification_workers == 1
-            or manifest.adaptive_range_consensus_policy is None
-        ):
+        if self._verification_workers == 1 or manifest.adaptive_range_consensus_policy is None:
             return analyzer, primary_verifier
         _, secondary_verifier = build_isolated_adapters()
         return analyzer, DeterministicParallelCandidateVerifier(

@@ -54,7 +54,14 @@ grupę, wybiera najlepszy obraz i zapisuje ukończone wyniki w trakcie runu.
       poziomem 72 zachowanym dla trudnych przypadków.
 - [x] TASK-0193: dodać bezpieczną, deterministyczną równoległość dwóch
       izolowanych verifierów przy zachowaniu budżetu lane.
-- [ ] TASK-0194: powtórzyć profil 200 zdjęć przed odbiorem 5000/32 000.
+- [x] TASK-0194: powtórzyć profil 200 zdjęć przed odbiorem 5000/32 000;
+      właściciel wybrał `optimize`, więc duży odbiór pozostaje wstrzymany.
+- [x] TASK-0195: poprawić niezależny dowód OCR trudnej grupy 55–63 bez
+      przywracania zgadywanej ciągłości zakresów.
+- [x] TASK-0196: ograniczyć koszt pełnej geometrii z zachowaniem kanonicznie
+      identycznego wyniku i zaliczyć ponowny profil pierwszych 200 zdjęć.
+- [ ] TASK-0197: wykonać kontrolowany profil pierwszych 5000 zdjęć i przekazać
+      reprezentanty do ręcznej decyzji właściciela.
 
 ## Verification
 

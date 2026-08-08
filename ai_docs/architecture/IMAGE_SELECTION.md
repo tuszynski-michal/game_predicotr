@@ -619,6 +619,12 @@ Każdy kolejny poziom wykonuje OCR tylko dla nowych cropów, zachowując wyniki
 wcześniejszych partii. Maksymalny poziom używa tego samego deterministycznego
 zbioru 72 etykiet co historyczny adapter v4. Telemetria rozdziela próby i
 rozstrzygnięcia poziomów oraz raportuje całkowitą liczbę cropów fallbacku.
+Adapter `visible-sequence-label-range-v6` rozszerza wyłącznie lokalną bramkę
+przestrzenną fallbacku. Dopuszcza brak jednej lub dwóch etykiet, jeżeli RANSAC
+potwierdza co najmniej siedem punktów, widoczny jest początek albo koniec
+zakresu, a inliery obejmują wszystkie trzy wiersze i kolumny siatki. Hipotezy o
+równym wyniku pozostają niejednoznaczne. Adapter nie zna poprzedniego zakresu i
+nie używa cursora ciągłości.
 Po potwierdzeniu zakresu pozostałe elementy top-12 przechodzą nadal pełną ocenę
 reprezentanta, ale bez OCR. Poziomy i wymagane dwa zgodne odczyty są częścią
 `adaptiveRangeConsensusPolicy` w fingerprintcie manifestu. Telemetria zapisuje
@@ -630,17 +636,33 @@ Opcjonalna równoległość pełnej weryfikacji może używać wyłącznie osobn
 instancji lokalnego predictora i musi przejść test identyczności wyniku 1 vs 2
 workery. Nie wolno współdzielić jednego mutowalnego predictora Paddle pomiędzy
 wątkami.
-Implementacja dzieli każdy poziom adaptacyjny na najwyżej dwie szeregowe
-partycje. Każda partycja ma własny predictor, recognizery i detector, a wynik
-jest składany według indeksu wejściowego. Produkcyjny budżet lane równy cztery
-jest dzielony na dwa scan workers i dwa verification workers; mniejszy budżet
-pozostawia jeden verifier. Telemetria `parallelVerification*` nie uczestniczy w
-decyzji domenowej. Aktywacja podlega pomiarowi czasu i peak RSS w TASK-0194.
+Implementacja potrafi dzielić każdy poziom adaptacyjny na najwyżej dwie
+szeregowe partycje. Każda partycja ma własny predictor, recognizery i detector,
+a wynik jest składany według indeksu wejściowego. Pomiar TASK-0194 wykazał na
+komputerze właściciela konkurencję Paddle/OpenCV: dwa verifiery były wolniejsze
+od jednego. Produkcyjny budżet lane równy cztery używa dlatego trzech scan
+workers i jednego verification workera. Adapter dwóch izolowanych verifierów
+pozostaje nieaktywną opcją do ponownej bramki na innym sprzęcie. Telemetria
+`parallelVerification*` nie uczestniczy w decyzji domenowej.
 
 Zakres jest wynikiem dowodu OCR albo jawnej kotwicy pierwszej grupy. Cursor nie
 może nadpisywać poprawnego odczytu kolejnej grupy ani wypełniać skoku bez
 dowodu. `seq_<start>-<end>.jpg` używa zakresu grupy, choć sam wybrany JPEG może
 pochodzić z innej klatki niż dowód OCR.
+
+Aktywny manifest zachowuje wersję algorytmu `fast-image-selector-v10.1`, lecz
+ma nowy fingerprint
+`286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40` i range
+adapter v6. Fingerprint poprzedniego progresywnego adaptera v5 pozostaje
+rozwiązywalny, więc wznowienie historycznego runu nie zmienia jego zachowania.
+
+Refinement klasycznego detektora nie tworzy osobnej boolowskiej maski i nie
+skanuje jej dla każdego przesunięcia okna. Jedna suma integralna binarnej maski
+zwraca dokładne liczby pikseli border/interior w czasie O(1). Wzór scoringu,
+krok dwóch pikseli, kolejność kandydatów i tie-break pozostają bez zmian.
+Ponieważ wynik detektora jest kanonicznie identyczny, optymalizacja wykonawcza
+nie tworzy nowego selector fingerprintu. Próby skalowania oraz cropowania
+wejścia zostały odrzucone po regresji na realnych zdjęciach.
 
 ## Odrzucone warianty
 

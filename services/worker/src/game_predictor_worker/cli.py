@@ -24,8 +24,8 @@ from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLa
 from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 from game_predictor_worker.images.selection.adapters import (
     AnchoredSequenceRangeRecognizer,
+    IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
-    ProgressiveVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
     configure_opencv_thread_budget,
 )
@@ -207,7 +207,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]
     if options.lane == IMAGE_SELECTION_LANE:
-        verification_workers = 2 if thread_budget >= 4 else 1
+        # TASK-0194 showed that two Paddle/OpenCV verifier instances contend on
+        # the owner's CPU and make the real first-200 profile slower. Keep the
+        # deterministic parallel adapter available, but do not activate it in
+        # the production lane without a new hardware-specific gate.
+        verification_workers = 1
         scan_workers = min(
             DEFAULT_PARALLEL_SCAN_WORKERS,
             max(1, thread_budget - verification_workers),
@@ -335,7 +339,7 @@ def _run_standalone_image_selection(
             "Image selector output must be outside the read-only source staging.",
         )
     range_recognizer: NoRangeRecognizer | AnchoredSequenceRangeRecognizer
-    fallback_range_recognizer: ProgressiveVisibleSequenceLabelRangeRecognizer | None = None
+    fallback_range_recognizer: IndependentEndpointVisibleSequenceLabelRangeRecognizer | None = None
     if ocr_model_root is None:
         range_recognizer = NoRangeRecognizer()
         selector_manifest = replace(
@@ -347,7 +351,7 @@ def _run_standalone_image_selection(
         range_recognizer = AnchoredSequenceRangeRecognizer(ocr)
         fallback_policy = DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy
         assert fallback_policy is not None
-        fallback_range_recognizer = ProgressiveVisibleSequenceLabelRangeRecognizer(
+        fallback_range_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
             ocr,
             fallback_policy,
         )

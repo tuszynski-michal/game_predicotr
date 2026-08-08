@@ -194,6 +194,64 @@ def _initial_candidates(mask: NDArray[np.uint8]) -> list[_Candidate]:
     return candidates
 
 
+def _positive_integral(mask: NDArray[np.uint8]) -> NDArray[np.int32]:
+    """Return a summed-area table for exact non-zero pixel counts."""
+
+    binary = np.asarray(mask > 0, dtype=np.uint8)
+    return np.asarray(cv2.integral(binary, sdepth=cv2.CV_32S), dtype=np.int32)
+
+
+def _rectangle_positive_count(
+    integral: NDArray[np.int32],
+    *,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> int:
+    right = x + width
+    bottom = y + height
+    return int(integral[bottom, right] - integral[y, right] - integral[bottom, x] + integral[y, x])
+
+
+def _refinement_window_densities(
+    integral: NDArray[np.int32],
+    *,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> tuple[float, float]:
+    """Compute the existing rectangular border/interior densities in O(1)."""
+
+    border_y = max(2, height // 10)
+    border_x = max(2, width // 16)
+    interior_width = width - border_x * 2
+    interior_height = height - border_y * 2
+    if interior_width <= 0 or interior_height <= 0:
+        raise ValueError("Refinement window must contain a non-empty interior.")
+    total_count = _rectangle_positive_count(
+        integral,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+    )
+    interior_count = _rectangle_positive_count(
+        integral,
+        x=x + border_x,
+        y=y + border_y,
+        width=interior_width,
+        height=interior_height,
+    )
+    interior_pixels = interior_width * interior_height
+    border_pixels = width * height - interior_pixels
+    return (
+        (total_count - interior_count) / border_pixels,
+        interior_count / interior_pixels,
+    )
+
+
 def _row_major(candidates: Sequence[_Candidate]) -> list[list[_Candidate]]:
     by_y = sorted(candidates, key=lambda candidate: (candidate.center_y, candidate.center_x))
     return [
@@ -211,6 +269,7 @@ def _search_refined_candidate(
     target_height: int,
     search_fraction_x: float = 0.15,
     search_fraction_y: float = 0.15,
+    positive_integral: NDArray[np.int32] | None = None,
 ) -> _Candidate:
     image_height, image_width = mask.shape
     minimum_x = max(
@@ -229,31 +288,26 @@ def _search_refined_candidate(
         image_height - target_height,
         int(center_y - target_height / 2 + target_height * search_fraction_y),
     )
+    if positive_integral is None:
+        positive_integral = _positive_integral(mask)
     best: tuple[float, _Candidate] | None = None
     for y in range(minimum_y, maximum_y + 1, 2):
         for x in range(minimum_x, maximum_x + 1, 2):
-            candidate = _Candidate(
+            border_density, interior_density = _refinement_window_densities(
+                positive_integral,
                 x=x,
                 y=y,
                 width=target_width,
                 height=target_height,
-                red_border_score=0.0,
-                refined_from_grid=True,
             )
-            roi = mask[y : y + target_height, x : x + target_width]
-            border_y = max(2, target_height // 10)
-            border_x = max(2, target_width // 16)
-            border = np.zeros(roi.shape, dtype=np.bool_)
-            border[:border_y, :] = True
-            border[-border_y:, :] = True
-            border[:, :border_x] = True
-            border[:, -border_x:] = True
-            border_density = float(np.mean(roi[border] > 0))
-            interior_density = float(np.mean(roi[~border] > 0))
             score = border_density - 0.15 * interior_density
-            scored = replace(
-                candidate,
+            scored = _Candidate(
+                x=x,
+                y=y,
+                width=target_width,
+                height=target_height,
                 red_border_score=round(border_density, 6),
+                refined_from_grid=True,
             )
             if best is None or score > best[0]:
                 best = (score, scored)
@@ -362,6 +416,7 @@ def _recover_expected_grid(
         for row in range(required_rows)
     )
     recovered: list[_Candidate] = []
+    positive_integral = None if allow_occluded_cells else _positive_integral(mask)
     for position in range(expected_board_count):
         row = position // 3
         column = position % 3
@@ -413,6 +468,7 @@ def _recover_expected_grid(
             target_height=target_height,
             search_fraction_x=0.15,
             search_fraction_y=0.15,
+            positive_integral=positive_integral,
         )
         if candidate.red_border_score < 0.20 and not allow_occluded_cells:
             return None
@@ -462,16 +518,20 @@ def _refine_outliers(
         for row in rows
     ]
     refined_rows: list[list[_Candidate]] = []
+    positive_integral: NDArray[np.int32] | None = None
     for row_index, row in enumerate(rows):
         refined_row: list[_Candidate] = []
         for column_index, candidate in enumerate(row):
             if candidate.width > median_width * 1.45 or candidate.height > median_height * 1.45:
+                if positive_integral is None:
+                    positive_integral = _positive_integral(mask)
                 candidate = _search_refined_candidate(
                     mask,
                     center_x=column_centers[column_index],
                     center_y=row_centers[row_index],
                     target_width=column_widths[column_index],
                     target_height=row_heights[row_index],
+                    positive_integral=positive_integral,
                 )
             refined_row.append(candidate)
         refined_rows.append(refined_row)

@@ -1,6 +1,6 @@
 ---
 title: TASK-0143 cumulative verified training cohort contract
-status: todo
+status: done
 last_updated: 2026-08-01
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-08-01
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -56,19 +56,19 @@ dla późniejszej ponownej inferencji.
 
 ## Acceptance criteria
 
-- [ ] Kohorta jednej gry ma niezmienny manifest i SHA-256 zależne od pełnej
+- [x] Kohorta jednej gry ma niezmienny manifest i SHA-256 zależne od pełnej
       zawartości oraz pochodzenia.
-- [ ] Do kohorty wchodzą tylko kompletne plansze `accepted` lub `corrected` z
+- [x] Do kohorty wchodzą tylko kompletne plansze `accepted` lub `corrected` z
       zaakceptowaną geometrią i wszystkimi etykietami komórek.
-- [ ] `rejected`, `pending`, niekompletne oraz obce grze elementy nie wchodzą do
+- [x] `rejected`, `pending`, niekompletne oraz obce grze elementy nie wchodzą do
       treningu.
-- [ ] Identyczne wejście zwraca istniejącą kohortę; zmienione wejście tworzy
+- [x] Identyczne wejście zwraca istniejącą kohortę; zmienione wejście tworzy
       nową wersję i nie nadpisuje poprzedniej.
-- [ ] Kontrakt zapisuje crop checksum, source image, pipeline i geometry
+- [x] Kontrakt zapisuje crop checksum, source image, pipeline i geometry
       revision potrzebne do odtworzenia danych.
-- [ ] Test udowadnia, że żądanie zapisu automatycznej predykcji nie może zmienić
+- [x] Test udowadnia, że żądanie zapisu automatycznej predykcji nie może zmienić
       `accepted`, `corrected` ani `rejected`.
-- [ ] Schema powstaje wyłącznie przez migrację Alembic, a OpenAPI używa typów
+- [x] Schema powstaje wyłącznie przez migrację Alembic, a OpenAPI używa typów
       backendu.
 
 ## Technical notes
@@ -102,4 +102,23 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Dodano migrację `0034_verified_training_cohorts`, modele nagłówka i pozycji,
+game-scoped preview oraz idempotentne freeze przez Admin API. Manifest jest
+content-addressed, korzysta ze wspólnego adaptera kompletnej planszy istniejącego
+eksportu review i nie zapisuje obrazów w PostgreSQL. Pozycje wiążą import,
+source image, review, rewizję geometrii, pipeline i 15 checksum-bound cropów.
+
+Polityka domenowa i blokada repozytorium dopuszczają automatyczną predykcję
+wyłącznie dla bieżącego `pending` ze zgodnymi rewizjami. Testy dowodzą ochrony
+`accepted`, `corrected` i `rejected`, wykluczanie danych niekompletnych,
+idempotencję, nową iterację po zmianie etykiety, migrację i kontrakt OpenAPI.
+
+Weryfikacja: 60 skupionych testów i izolowany cykl PostgreSQL
+upgrade → downgrade → upgrade `passed`, Ruff `passed`, OpenAPI i generowany
+klient `current`, a klient TypeScript przeszedł 32/32 testy. Pełny mypy nadal
+raportuje istniejący problem klasyfikowania
+pakietu `game_predictor_worker` jako zewnętrznego bez `py.typed`; nie wykazał
+błędu specyficznego dla kohorty. UI, dataset, trening, ONNX i inferencja pozostają
+poza zakresem zgodnie z zadaniem. Lokalny PostgreSQL został kontrolowanie
+podniesiony z `0033` do `0034` przy zatrzymanych workerach; oba lane następnie
+wróciły do `running`, a nowe logi błędów pozostały puste.

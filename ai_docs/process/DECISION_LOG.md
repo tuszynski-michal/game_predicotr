@@ -3754,6 +3754,215 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** uzupełnia operatorską część D-152; nie zmienia execution
   slots, lease, fencing ani dozwolonych typów jobów.
 
+## D-154 — Status lane używa fenced heartbeat, a zasoby bounded thread budget
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** każdy lokalny worker lane zapisuje w PostgreSQL aktualną
+  instancję, losowy token, okresowy heartbeat i budżet wątków. Heartbeat działa
+  w osobnym lekkim wątku także przy pustej kolejce i podczas handlera. Panel
+  odczytuje wyłącznie stan, wersję, budżet i czasy. Supervisor ustawia domyślnie
+  dwa wątki dla general oraz cztery zewnętrzne scan workers dla image selection;
+  natywne biblioteki selekcji pozostają jednowątkowe.
+- **Context:** sam heartbeat aktywnego joba nie pokazuje zatrzymanego lub
+  bezczynnego procesu. Dwa równoległe procesy mogły też tworzyć zagnieżdżoną
+  nadsubskrypcję wątków mimo rozdzielonych execution slots.
+- **Reason:** mała projekcja daje wiarygodną obserwowalność po restarcie, a
+  przenośny budżet wątków ogranicza konkurencję bez Windows-only limitów,
+  mikroserwisu albo brokera.
+- **Alternatives:** odczyt `.runtime/worker-lanes.json` przez API odrzucono,
+  ponieważ nie potwierdza żywotności procesu. Windows Job Objects i twardy
+  procent CPU odłożono jako nieprzenośne i niewymagane przed pomiarem TASK-0177.
+- **Consequences:** nowa rejestracja odcina stary token. Po 15 sekundach bez
+  sygnału status jest `degraded`, po 60 `stopped`; jawne zakończenie działa
+  natychmiast. Limity opisują współbieżność, nie gwarantowany procent CPU.
+- **Supersedes:** uzupełnia D-152 i D-153 bez zmiany kolejki `jobs`, lease ani
+  fencing konkretnego joba.
+
+## D-155 — V9 jest aktywnym manifestem nowych runów przed pełnym pomiarem 40 000
+
+- **Status:** accepted
+- **Date:** 2026-08-05
+- **Decision:** na jawne polecenie właściciela
+  `APPEARANCE_ONLY_SELECTOR_MANIFEST_V9` staje się produkcyjnym
+  `DEFAULT_SELECTOR_MANIFEST` przed utworzeniem runu na dostępnych 40 000
+  naturalnych zdjęć. API zapisuje dla nowych runów fingerprint
+  `eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`, a worker
+  wykonuje range-free ścieżkę bez OCR, geometrii plansz i cropów.
+- **Context:** krótkie profile 500 i 3000 zdjęć oraz bramka dwóch worker lane
+  przeszły. Właściciel dostarczył pełny korpus i chce, aby właściwy produkcyjny
+  run był jednocześnie końcowym pomiarem v9, zamiast tworzyć najpierw kolejny
+  run v8.
+- **Reason:** aktywacja jest potrzebna, aby panel utworzył job z badanym
+  fingerprintem. Nie zmienia istniejącego stagingu ani historycznych runów.
+- **Alternatives:** osobny benchmark v9 przed przełączeniem defaultu został
+  odrzucony przez właściciela jako zbędny dodatkowy przebieg pełnego korpusu.
+- **Consequences:** wszystkie procesy API i workera uruchomione przed zmianą
+  trzeba zatrzymać i uruchomić ponownie. V2–v8 pozostają w rejestrze manifestów,
+  dlatego ich retry zachowuje poprzedni algorytm. TASK-0171 pozostaje otwarty do
+  zapisania metryk 40 000 zdjęć i decyzji właściciela `accepted | optimize`;
+  sama aktywacja nie jest odbiorem wydajności.
+- **Supersedes:** zmienia wyłącznie kolejność ostatniego punktu D-151: aktywacja
+  następuje przed pełnym runem na polecenie właściciela, ale nie usuwa końcowej
+  bramki jakości i wydajności.
+
+## D-156 — V10 wybiera najlepsze zdjęcie z całej grupy i zapisuje progresywnie
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** nowe runy używają `fast-image-selector-v10`. Każdy obraz jest
+  lekko oceniany, pełna weryfikacja obejmuje top-12 całej grupy, a wybór nie ma
+  early exit. Run utrwala kierunek i opcjonalny pierwszy numer. Admin wymaga
+  katalogu wynikowego przed katalogiem wejściowym i zapisuje każdą zakończoną
+  grupę jako `seq_<od>-<do>.jpg`.
+- **Context:** v9 skrócił realny run do około 40 minut, ale `first usable`, top-2
+  i brak pełnej weryfikacji obniżyły jakość wybieranych zdjęć.
+- **Reason:** poprawność wyboru jest ważniejsza od throughputu; użytkownik
+  dopuszcza orientacyjnie 3–5 razy dłuższy proces.
+- **Alternatives:** utrzymanie v9 i strojenie samych progów odrzucono, ponieważ
+  nie porównywał on najlepszych klatek całej grupy. Pełny pipeline każdego
+  zdjęcia również odrzucono; symbole i cropy pozostają w `Imporcie layoutów`.
+- **Consequences:** v2–v9 pozostają odtwarzalne przez zapisany fingerprint.
+  V10 może uruchomić do 12 pełnych weryfikacji na grupę. Odbiór czasu i jakości
+  jest ręczny na około 5000 i 32 000 zdjęć.
+- **Supersedes:** D-155 jako aktywny manifest nowych runów; D-155 pozostaje
+  historycznym opisem aktywacji i wyniku v9.
+
+## D-157 — Skumulowana kohorta gry jest osobnym, niezmiennym manifestem treningowym
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** TASK-0143 agreguje aktualny stan review wszystkich importów jednej
+  gry do content-addressed manifestu. Pozycje powstają wyłącznie dla kompletnych
+  `accepted` i `corrected`; `pending`, `rejected` i niekompletne decyzje są
+  uwzględnione w stanie oraz licznikach, ale nie tworzą próbek. Każda pozycja
+  wiąże review, import, źródło, geometrię, pipeline i dokładnie 15 cropów.
+- **Context:** dotychczasowy `image_verified_cohort_exports` poprawnie zamrażał
+  jeden import, lecz trening kolejnych iteracji wymaga pełnego, skumulowanego
+  stanu gry bez ręcznego łączenia eksportów i bez czytania zmiennych tabel live.
+- **Reason:** wspólny kanoniczny adapter planszy zachowuje jedną definicję
+  kompletnej decyzji, a osobny rejestr iteracji daje stabilną tożsamość całemu
+  wejściu treningowemu. SHA-256 obejmuje zawartość i proweniencję.
+- **Alternatives:** trening bezpośrednio z tabel review, kopiowanie binariów do
+  PostgreSQL oraz traktowanie eksportu pojedynczego importu jako skumulowanej
+  kohorty odrzucono z powodu braku odtwarzalności albo dublowania danych.
+- **Consequences:** identyczny manifest zwraca istniejącą kohortę, zmieniony stan
+  tworzy kolejną iterację, a operacje modelu muszą przed zapisem zablokować item
+  i potwierdzić `pending` oraz oczekiwane rewizje. TASK-0143 nie uruchamia
+  treningu, inferencji ani UI.
+- **Supersedes:** rozszerza D-090 z poziomu jednego importu do skumulowanego
+  wejścia treningowego gry; nie zmienia historycznych eksportów review.
+
+## D-158 — Dataset symboli ma stabilny hash splitu rodziny źródłowej
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** `verified-symbol-training-dataset-v1` grupuje wszystkie cropy
+  według checksumy zdjęcia źródłowego i przypisuje całą rodzinę stabilnym
+  hashem do 65% train, 15% validation, 10% test albo 10% regression. Seed,
+  polityka splitu i wersja transformacji są częścią manifestu.
+- **Context:** losowy split po cropach zawyżałby jakość, a ponowne
+  balansowanie całej kohorty przy każdej iteracji przenosiłoby stare przykłady
+  między zbiorem treningowym i kontrolnym.
+- **Reason:** stabilny hash zachowuje rozłączność pochodnych jednego źródła
+  oraz stały regression set w kolejnych skumulowanych iteracjach.
+- **Alternatives:** losowanie po cropach i globalne ponowne balansowanie przy
+  każdym buildzie odrzucono z powodu przecieku albo niestabilnej bramki.
+- **Consequences:** przy małej liczbie źródeł niektóre klasy lub splity mogą
+  mieć niskie pokrycie; manifest raportuje to jako advisory. Trening i promocja
+  modelu muszą respektować przypisanie manifestu i nigdy nie włączać
+  regression do train.
+- **Supersedes:** doprecyzowuje ogólną politykę source-aware splitu M6.6.
+
+## D-159 — Kandydat modelu kończy wspólną bramkę bez automatycznej aktywacji
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** trwały job `symbol_training` po checkpointcie `trained` wykonuje
+  eksport ONNX, parity, kalibrację, ocenę test/regression i zapis wspólnego
+  manifestu SHA-256. Kończy jako `candidate_ready`, kontrolowane `rejected` albo
+  techniczne `failed`. Żaden z tych stanów nie zmienia aktywnego modelu.
+- **Context:** checkpoint PyTorch nie gwarantuje zgodności produkcyjnego ONNX ani
+  braku regresji pojedynczego symbolu. Pierwsza iteracja może nie mieć aktywnej
+  bazy odniesienia.
+- **Reason:** jedna checkpointowana operacja zachowuje idempotencję i pełną
+  proweniencję, a jawny brak bazy jest bezpieczniejszy niż fałszywe porównanie.
+- **Alternatives:** automatyczną aktywację po treningu oraz osobny nietrwały
+  proces eksportu odrzucono jako nieaudytowalne i niebezpieczne dla importów.
+- **Consequences:** pierwszy kandydat raportuje `baseline_unavailable`; kolejne
+  muszą porównywać kandydata i aktywną bazę na identycznych próbkach. Regresja
+  recall pojedynczej klasy blokuje promocję nawet przy lepszym accuracy globalnym.
+- **Supersedes:** doprecyzowuje D-158; rejestr i aktywacja pozostają zakresem
+  TASK-0148.
+
+## D-160 — Aktywny model jest projekcją monotonicznego rejestru zdarzeń
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** aktywacja i rollback modelu symboli dopisują per gra niezmienne
+  zdarzenie z monotonicznym `activation_number`, nadawanym pod blokadą rekordu
+  gry. Aktywny model to zdarzenie z najwyższym numerem. Nowy image import
+  przypina pełny checksum-bound snapshot modelu i łączy jego fingerprint z
+  fingerprintem pipeline'u.
+- **Context:** kolejność po `created_at + UUID` nie gwarantuje kolejności
+  uzyskania blokady przez równoległe transakcje. Sam identyfikator aktywnej
+  iteracji nie wystarcza też do bezpiecznego użycia cache i odtworzenia
+  trwającego importu po późniejszej aktywacji.
+- **Reason:** monotoniczny numer daje jednoznaczną projekcję bez mutowalnego
+  wskaźnika, a snapshot w jobie izoluje trwający import od kolejnych komend.
+- **Alternatives:** osobna mutowalna kolumna aktywnego modelu w `games`, wybór po
+  czasie/UUID oraz odczyt aktywnego modelu dopiero przez workera zostały
+  odrzucone jako podatne na rozjazd albo zmianę modelu w połowie joba.
+- **Consequences:** rollback jest nowym zdarzeniem do wcześniej aktywnej,
+  kompletnej wersji. Brak zdarzeń używa jawnego bootstrap snapshotu. Drift
+  manifestu, ONNX, klas lub kalibracji blokuje nowy import bez fallbacku.
+- **Supersedes:** doprecyzowuje planowaną aktywację TASK-0148 i D-159.
+
+## D-161 — Lease joba jest odnawiany niezależnie od checkpointu handlera
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** wspólny runtime workera uruchamia dla każdego claimed joba lekki
+  keepalive odnawiający ten sam fenced lease co najwyżej co 15 sekund. Keepalive
+  działa niezależnie od heartbeat lane i częstotliwości checkpointów domenowych.
+- **Context:** realny run selektora v10 zatrzymał postęp na 96/32079. Analiza
+  jednej partii trwała dłużej niż 60-sekundowy lease, więc checkpoint był
+  odrzucany, a worker przeliczał tę samą partię w kolejnych attemptach.
+- **Reason:** koszt pojedynczego batcha zależy od danych i bibliotek natywnych;
+  checkpoint nie może być jedynym mechanizmem podtrzymania własności joba.
+- **Alternatives:** wydłużenie lease, zmniejszenie batcha tylko w selektorze i
+  heartbeat osadzony w każdym adapterze zostały odrzucone jako kruche albo
+  duplikujące mechanizm w treningu, OCR i kolejnych handlerach.
+- **Consequences:** checkpoint nadal określa trwały postęp i bounded retry.
+  Keepalive nie zapisuje postępu; błąd lub fencing zatrzymuje terminalny zapis.
+- **Supersedes:** uzupełnia D-033 i D-154; nie zmienia execution slots ani
+  polityki checkpointów domenowych.
+
+## D-162 — V10.1 rozdziela wybór reprezentanta od adaptacyjnego OCR zakresu
+
+- **Status:** accepted
+- **Date:** 2026-08-08
+- **Decision:** wszystkie zdjęcia grupy zachowują lekki scoring i top-12, ale
+  geometria oraz ranking reprezentanta są niezależne od dowodu numeru. OCR
+  używa kotwic, adaptacyjnych poziomów klatek `2 -> 4 -> 8 -> 12` i fallbacku
+  cropów `18 -> 36 -> 72`. Pełna ścieżka pozostaje dostępna dla konfliktów.
+  Rozpoznanego skoku zakresów nie wolno zastąpić przewidywaną ciągłością.
+- **Context:** profil 200 realnych zdjęć trwał 377,530649 s. 99 kandydatów
+  uruchomiło 792 batche i 7128 cropów OCR; OCR zużył 291,673863 s. Tani scoring
+  całej grupy nie był wąskim gardłem.
+- **Reason:** redukcja powtarzanego OCR może skrócić typową grupę bez powrotu do
+  niedokładnego `first usable` i bez pomijania zdjęć.
+- **Alternatives:** stałe obniżenie top-k odrzucono jako ryzyko utraty
+  najlepszego kadru. Całkowite usunięcie OCR odrzucono, ponieważ bieżący output
+  wymaga `seq_<start>-<end>.jpg`. Wymuszanie kolejnego zakresu odrzucono,
+  ponieważ poprawne dane mogą skakać, np. `19–27 -> 400–408`.
+- **Consequences:** powstaje wersjonowany manifest selektora. Bramka na tych
+  samych 200 zdjęciach oczekuje 60–70% krótszego czasu bez regresji jakości;
+  dopiero potem właściciel uruchomi 5000/32 000. Historyczne runy pozostają
+  odtwarzalne po swoich fingerprintach.
+- **Supersedes:** koryguje D-156 w zakresie wymuszonej ciągłości i pełnego OCR
+  całej shortlisty; nie zmienia pełnego scoringu grupy ani progresywnego zapisu.
+
 ## Szablon nowej decyzji
 
 ```text

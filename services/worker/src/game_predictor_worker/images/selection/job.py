@@ -15,6 +15,7 @@ from uuid import UUID, uuid5
 from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
     ImageSelectionGroupStatus,
+    ImageSelectionSequenceDirection,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobStatus
 from game_predictor_api.storage.models import (
@@ -30,9 +31,12 @@ from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecogn
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
 from .adapters import (
+    AccuracyFirstVisibleSequenceLabelRangeRecognizer,
     AdaptiveVisibleSequenceLabelRangeRecognizer,
     AnchoredSequenceRangeRecognizer,
     BestEffortVisibleSequenceLabelRangeRecognizer,
+    DeterministicParallelCandidateVerifier,
+    ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
 )
@@ -57,6 +61,7 @@ from .contracts import (
 from .engine import FastImageSelector
 from .io import load_browser_selection_manifest
 from .manifest import (
+    ACCURACY_FIRST_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
@@ -89,6 +94,8 @@ class ImageSelectionJobRun:
     selector_fingerprint: str
     output_manifest_sha256: str | None
     output_manifest_relative_path: str | None
+    sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
+    first_sequence_number: int | None = None
 
 
 class ImageSelectionJobStore(Protocol):
@@ -137,7 +144,10 @@ class ImageSelectionJobHandler:
         selector_manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
         scan_workers: int = 1,
         scan_prefetch: int | None = None,
+        verification_workers: int = 1,
     ) -> None:
+        if not 1 <= verification_workers <= 2:
+            raise ValueError("verification_workers must be one or two.")
         self._store = store
         self._browser_upload_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
         self._artifact_root = artifact_root.resolve()
@@ -145,6 +155,7 @@ class ImageSelectionJobHandler:
         self._selector_manifest = selector_manifest
         self._scan_workers = scan_workers
         self._scan_prefetch = scan_prefetch
+        self._verification_workers = verification_workers
         self._adapter_factory = adapter_factory
         self._publisher = CuratedImageOutputPublisher(self._artifact_root)
         self._scan_cache = FileImageScanObservationCache(self._artifact_root)
@@ -223,6 +234,8 @@ class ImageSelectionJobHandler:
                 audit_sink=sink,
                 resume_state=resume_state,
                 existing_groups=existing_groups,
+                sequence_direction=run.sequence_direction.value,
+                first_sequence_number=run.first_sequence_number,
             )
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
@@ -323,30 +336,59 @@ class ImageSelectionJobHandler:
                 manifest=manifest,
                 telemetry=telemetry,
             )
-        model_root = self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
-        ocr = PaddleSequenceNumberRecognizer(model_root)
-        recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
-        fallback_recognizer: SequenceRangeRecognizer
-        if manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
-            fallback_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(
-                ocr,
+        def build_isolated_adapters() -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+            model_root = (
+                self._repository_root
+                / "artifacts"
+                / "m5-models"
+                / "sequence-number-ocr-v1"
+            )
+            ocr = PaddleSequenceNumberRecognizer(model_root)
+            recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
+            fallback_recognizer: SequenceRangeRecognizer
+            if manifest.progressive_visible_label_fallback_policy is not None:
+                fallback_recognizer = ProgressiveVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    telemetry=telemetry,
+                )
+            elif manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS:
+                fallback_recognizer = AccuracyFirstVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            elif manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
+                fallback_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            elif manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
+                fallback_recognizer = AdaptiveVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            else:
+                fallback_recognizer = VisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            return build_default_adapters(
+                source_root,
+                range_recognizer=recognizer,
+                fallback_range_recognizer=fallback_recognizer,
+                manifest=manifest,
                 telemetry=telemetry,
             )
-        elif manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
-            fallback_recognizer = AdaptiveVisibleSequenceLabelRangeRecognizer(
-                ocr,
-                telemetry=telemetry,
-            )
-        else:
-            fallback_recognizer = VisibleSequenceLabelRangeRecognizer(
-                ocr,
-                telemetry=telemetry,
-            )
-        return build_default_adapters(
-            source_root,
-            range_recognizer=recognizer,
-            fallback_range_recognizer=fallback_recognizer,
-            manifest=manifest,
+
+        analyzer, primary_verifier = build_isolated_adapters()
+        if (
+            self._verification_workers == 1
+            or manifest.adaptive_range_consensus_policy is None
+        ):
+            return analyzer, primary_verifier
+        _, secondary_verifier = build_isolated_adapters()
+        return analyzer, DeterministicParallelCandidateVerifier(
+            (primary_verifier, secondary_verifier),
             telemetry=telemetry,
         )
 
@@ -929,6 +971,8 @@ def _job_run(record: ImageSelectionRunModel) -> ImageSelectionJobRun:
         selector_fingerprint=record.selector_fingerprint,
         output_manifest_sha256=record.output_manifest_sha256,
         output_manifest_relative_path=record.output_manifest_relative_path,
+        sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
+        first_sequence_number=record.first_sequence_number or None,
     )
 
 

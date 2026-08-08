@@ -13,6 +13,7 @@ from game_predictor_worker.images.selection.benchmark import (
     RealCorpusGolden,
     RealCorpusScreenAnnotation,
     ScaleAnnotations,
+    build_accuracy_first_group_annotations,
     build_group_annotations,
     canonical_pretty_json,
     load_scale_annotations,
@@ -74,6 +75,22 @@ def test_uncertain_duplicate_is_expected_to_remain_manual() -> None:
     )
 
     assert uncertain_duplicate.group_order == 57
+
+
+def test_accuracy_first_annotations_are_gap_free_and_keep_short_final_page() -> None:
+    annotations = load_scale_annotations(ANNOTATIONS_PATH)
+    profile = BenchmarkProfile("test", input_count=65, group_size=20, max_processing_seconds=30)
+
+    groups = build_accuracy_first_group_annotations(profile, annotations)
+
+    assert [(group.range_start, group.range_end) for group in groups] == [
+        (1, 9),
+        (10, 18),
+        (19, 27),
+        (28, 32),
+    ]
+    assert all(not group.manual_required for group in groups)
+    assert all(group.duplicate_of_group_order is None for group in groups)
 
 
 def test_smoke_benchmark_uses_production_scan_and_preserves_source(tmp_path: Path) -> None:

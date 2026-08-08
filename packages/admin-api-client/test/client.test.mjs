@@ -3,6 +3,130 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('generated client reads model quality and freezes the confirmed manifest', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/model-quality')) {
+        return Response.json({
+          activeHeavyJob: false,
+          activeModel: null,
+          advisoryThresholds: [],
+          canFreeze: true,
+          cellSampleCount: 15,
+          gameId,
+          incompleteItemCount: 0,
+          latestCohort: null,
+          manifestChecksumSha256: checksum,
+          newVerifiedLayoutCount: 1,
+          pendingItemCount: 0,
+          protectedItemCount: 1,
+          rejectedItemCount: 0,
+          resolvedLayoutCount: 1,
+          sourceImageCount: 1,
+          symbolCoverage: [],
+          warnings: [],
+        });
+      }
+      return Response.json({
+        cohort: {
+          artifactRelativePath: 'training/game/cohort.json',
+          cellSampleCount: 15,
+          createdAt: '2026-08-08T12:00:00Z',
+          createdBy: 'local-owner',
+          gameId,
+          id: '22222222-2222-4222-8222-222222222222',
+          incompleteItemCount: 0,
+          iterationNumber: 1,
+          manifestChecksumSha256: checksum,
+          manifestSchemaVersion: 1,
+          pendingItemCount: 0,
+          rejectedItemCount: 0,
+          resolvedLayoutCount: 1,
+          sourceImageCount: 1,
+        },
+        created: true,
+      });
+    },
+  });
+
+  await client.getModelQuality(gameId);
+  await client.freezeVerifiedTrainingCohort(gameId, {
+    createdBy: 'local-owner',
+    expectedManifestChecksumSha256: checksum,
+    idempotencyKey: '33333333-3333-4333-8333-333333333333',
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/games/${gameId}/model-quality`],
+      ['POST', `/api/v1/admin/games/${gameId}/verified-training-cohorts`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `verified-training-cohort:${gameId}`,
+  );
+});
+
+test('generated client creates a scoped durable symbol training job', async () => {
+  let captured;
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({ created: true, iteration: {}, job: {} });
+    },
+  });
+
+  await client.createSymbolTraining(gameId, {
+    cohortId: '22222222-2222-4222-8222-222222222222',
+    idempotencyKey: '33333333-3333-4333-8333-333333333333',
+  });
+
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/games/${gameId}/symbol-model-iterations`,
+  );
+  assert.equal(
+    captured.headers.get('X-Admin-Target'),
+    `symbol-model-iteration:${gameId}`,
+  );
+});
+
+test('generated client lists and reads checksum-bound candidate gate reports', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const iterationId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json([]);
+    },
+  });
+
+  await client.listSymbolModelIterations(gameId, { limit: 20 });
+  await client.getSymbolModelIteration(gameId, iterationId);
+
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      `/api/v1/admin/games/${gameId}/symbol-model-iterations`,
+      `/api/v1/admin/games/${gameId}/symbol-model-iterations/${iterationId}`,
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+});
+
 test('generated client calls the typed health operation', async () => {
   const requests = [];
   const mockFetch = async (request) => {
@@ -29,6 +153,43 @@ test('generated client calls the typed health operation', async () => {
   assert.equal(result.error, undefined);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, 'http://127.0.0.1:8000/api/v1/health');
+});
+
+test('generated client reads both local worker lanes', async () => {
+  const requests = [];
+  const lanes = [
+    {
+      heartbeatAt: '2026-08-05T12:00:00Z',
+      lane: 'general',
+      startedAt: '2026-08-05T11:00:00Z',
+      state: 'running',
+      threadBudget: 2,
+      workerVersion: 'worker-v10-general',
+    },
+    {
+      heartbeatAt: null,
+      lane: 'image_selection',
+      startedAt: null,
+      state: 'stopped',
+      threadBudget: null,
+      workerVersion: null,
+    },
+  ];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(lanes);
+    },
+  });
+
+  const result = await client.listWorkerLanes();
+
+  assert.deepEqual(result.data, lanes);
+  assert.equal(
+    requests[0].url,
+    'http://127.0.0.1:8000/api/v1/admin/worker-lanes',
+  );
 });
 
 test('generated client selects a folder and creates its image import', async () => {

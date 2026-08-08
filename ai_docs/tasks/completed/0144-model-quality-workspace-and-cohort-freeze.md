@@ -1,14 +1,14 @@
 ---
 title: TASK-0144 model quality workspace and cohort freeze
-status: todo
-last_updated: 2026-08-01
+status: done
+last_updated: 2026-08-08
 ---
 
 # TASK-0144 — Model quality workspace and cohort freeze
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -30,7 +30,7 @@ klas, źródeł i różnicę względem poprzedniej kohorty.
 - `ai_docs/architecture/SUPERVISED_MODEL_IMPROVEMENT.md`
 - `ai_docs/architecture/API_CONTRACT.md`
 - `ai_docs/delivery/MILESTONE_06_6_EXECUTION_PLAN.md`
-- `ai_docs/tasks/0143-cumulative-verified-training-cohort-contract.md`
+- `ai_docs/tasks/completed/0143-cumulative-verified-training-cohort-contract.md`
 
 ## Scope
 
@@ -53,17 +53,17 @@ klas, źródeł i różnicę względem poprzedniej kohorty.
 
 ## Acceptance criteria
 
-- [ ] Panel działa w kontekście jednej aktywnej gry i nie miesza danych gier.
-- [ ] UI pokazuje aktywną wersję, checksumę, liczby ogółem i delta oraz pokrycie
+- [x] Panel działa w kontekście jednej aktywnej gry i nie miesza danych gier.
+- [x] UI pokazuje aktywną wersję, checksumę, liczby ogółem i delta oraz pokrycie
       wszystkich symboli.
-- [ ] Preview rozdziela dane treningowe, odrzucone, niekompletne, oczekujące i
+- [x] Preview rozdziela dane treningowe, odrzucone, niekompletne, oczekujące i
       wszystkie chronione decyzje człowieka.
-- [ ] `Ulepsz rozpoznawanie` wymaga jawnego potwierdzenia manifestu, ale nie
+- [x] `Ulepsz rozpoznawanie` wymaga jawnego potwierdzenia manifestu, ale nie
       wymaga osiągnięcia dokładnie 100 albo 1000 plansz.
-- [ ] Powtórzenie requestu z tym samym kluczem idempotencji nie tworzy duplikatu.
-- [ ] Stan operacji nie blokuje trwale UI po błędzie, odświeżeniu ani zmianie
+- [x] Powtórzenie requestu z tym samym kluczem idempotencji nie tworzy duplikatu.
+- [x] Stan operacji nie blokuje trwale UI po błędzie, odświeżeniu ani zmianie
       gry.
-- [ ] Generowany klient OpenAPI jest jedynym źródłem typów frontendu.
+- [x] Generowany klient OpenAPI jest jedynym źródłem typów frontendu.
 
 ## Technical notes
 
@@ -100,4 +100,22 @@ npm.cmd run openapi:check
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Dodano game-scoped endpoint `GET /model-quality`, rozszerzony preview kohorty i
+checksum-bound freeze. Podsumowanie liczy deltę po checksumach pełnych pozycji,
+pokrycie wszystkich aktywnych symboli (również z wartością zero), źródła, progi
+doradcze 100/1000, wykluczenia oraz wszystkie chronione decyzje. Aktywny job
+`created`/`processing` tej samej gry czasowo blokuje zamrożenie.
+
+Admin otrzymał sekcję `Jakość rozpoznawania` w jednym wybranym kontekście gry.
+Akcja `Ulepsz rozpoznawanie` ma osobny krok potwierdzenia pełnej checksumy,
+stabilny klucz idempotencji na retry, kontrolowany błąd, odświeżenie i reset po
+zmianie gry. Model aktywny jest jawnie pusty do czasu rejestru z TASK-0148;
+TASK-0144 nie uruchamia treningu zgodnie z zaakceptowanym API.
+
+Weryfikacja: 9/9 skupionych testów kohorty, 25 testów backendu kohorta/OpenAPI/
+security, 174/174 testów Admina, 33/33 testy klienta, typecheck Admina i klienta,
+OpenAPI check, Ruff i zawężony mypy przeszły. Pełny ESLint Admina przeszedł bez
+błędów z jednym wcześniejszym ostrzeżeniem w `image-selection-workspace.tsx`.
+Pełna regresja API nie zgłosiła błędu do około 75% zestawu, ale osiągnęła jawny
+limit 120 sekund; zmieniony pion został dlatego zweryfikowany osobnym kompletem
+25 testów.

@@ -135,9 +135,20 @@ zero wywołań OCR, `PageBoardDetector`, homografii, croppera i symbol inference
 Testy selektora i adapterów przechodzą `81 passed`; Ruff oraz MyPy zmienionych
 modułów również przechodzą.
 
-TASK-0171 pozostaje otwarty. Dostępny naturalny staging zawiera 32 079, a
-zaakceptowana bramka D-146 wymaga dokładnie 40 000 naturalnych zdjęć. Nie wolno
-uzupełnić brakujących 7921 pozycji duplikatami tylko po to, aby zaliczyć pomiar.
-Po dostarczeniu pełnego korpusu trzeba wykonać jeden kontrolowany profil,
-zapisać porównanie z v8 i uzyskać jawną decyzję właściciela
-`accepted | optimize`; dopiero `accepted` pozwala aktywować v9.
+TASK-0171 pozostaje otwarty. Właściciel potwierdził 2026-08-05 dostępność
+40 000 naturalnych zdjęć i polecił aktywować v9 przed właściwym runem, aby nowy
+run utworzony z panelu był już badaną wersją. Produkcyjny
+`DEFAULT_SELECTOR_MANIFEST` oraz fingerprint nowych runów wskazują teraz
+`fast-image-selector-v9`; v2–v8 pozostają w rejestrze kompatybilności i mogą być
+wznawiane bez zmiany zachowania.
+
+Aktywacja nie oznacza jeszcze odbioru bramki. Po uruchomieniu pełnego korpusu
+trzeba zapisać czas, throughput, peak RSS, grupy, reprezentantów, cache i
+liczniki kosztownych adapterów, porównać wynik z v8 oraz uzyskać jawną decyzję
+właściciela `accepted | optimize`.
+
+Regresja aktywacji przeszła: `88 passed` dla selektora, adapterów i durable
+handlera oraz `28 passed` dla API tworzenia/rerunu stagingu. Ruff, MyPy i jawna
+kontrola importów potwierdziły, że API i worker widzą ten sam fingerprint v9.
+Oba worker lanes pozostają zatrzymane, aby właściciel uruchomił nowe procesy już
+z aktywnym manifestem.

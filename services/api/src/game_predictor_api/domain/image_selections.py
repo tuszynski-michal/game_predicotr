@@ -67,6 +67,11 @@ class ImageSelectionManualResolution(StrEnum):
     MISSING_IMAGE = "missing_image"
 
 
+class ImageSelectionSequenceDirection(StrEnum):
+    ASCENDING = "ascending"
+    DESCENDING = "descending"
+
+
 @dataclass(frozen=True, slots=True)
 class ImageSelectionRun:
     id: UUID
@@ -81,6 +86,8 @@ class ImageSelectionRun:
     output_manifest_relative_path: str | None
     created_at: datetime
     updated_at: datetime
+    sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
+    first_sequence_number: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +148,10 @@ def create_image_selection_run(
     source_selection_id: UUID,
     input_manifest_sha256: str,
     selector_fingerprint: str,
+    sequence_direction: ImageSelectionSequenceDirection = (
+        ImageSelectionSequenceDirection.ASCENDING
+    ),
+    first_sequence_number: int | None = None,
     created_at: datetime | None = None,
 ) -> ImageSelectionRun:
     if game_id.int == 0 or source_selection_id.int == 0:
@@ -150,6 +161,11 @@ def create_image_selection_run(
         )
     manifest = validate_sha256(input_manifest_sha256, field="inputManifestSha256")
     selector = validate_sha256(selector_fingerprint, field="selectorFingerprint")
+    if first_sequence_number is not None and first_sequence_number < 1:
+        raise ImageSelectionError(
+            "IMAGE_SELECTION_CONFIGURATION_INVALID",
+            "The optional first sequence number must be positive.",
+        )
     now = created_at or datetime.now(UTC)
     job = create_job(
         JobType.IMAGE_SELECTION,
@@ -160,6 +176,8 @@ def create_image_selection_run(
             "input_manifest_sha256": manifest,
             "selector_fingerprint": selector,
             "contract_version": IMAGE_SELECTION_CONTRACT_VERSION,
+            "sequence_direction": sequence_direction.value,
+            "first_sequence_number": first_sequence_number,
         },
         created_at=now,
     )
@@ -176,6 +194,8 @@ def create_image_selection_run(
         output_manifest_relative_path=None,
         created_at=now,
         updated_at=now,
+        sequence_direction=sequence_direction,
+        first_sequence_number=first_sequence_number,
     )
 
 

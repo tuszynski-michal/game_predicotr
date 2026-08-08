@@ -11,6 +11,7 @@ export const GAME_SECTIONS = [
   'symbols',
   'rules',
   'reviews',
+  'model-quality',
 ] as const;
 export type GameSection = (typeof GAME_SECTIONS)[number];
 

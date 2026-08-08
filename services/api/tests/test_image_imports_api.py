@@ -154,8 +154,10 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     job = created.json()["job"]
     assert job["jobType"] == "import"
     assert job["inputPayload"]["importKind"] == "image_directory"
+    assert job["inputPayload"]["schemaVersion"] == 2
     assert job["inputPayload"]["sourceDirectory"] == str(source.resolve())
     assert len(job["inputPayload"]["pipelineFingerprint"]) == 64
+    assert job["inputPayload"]["symbolModel"]["modelVersion"] == ("bootstrap-symbol-cnn-onnx-v1")
     assert replay.status_code == 422
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
@@ -353,12 +355,12 @@ def test_photo_selection_staging_uses_a_compact_append_only_journal(
             content=content,
         )
 
-    state = json.loads(
-        state_path.read_text(encoding="utf-8")
-    )
+    state = json.loads(state_path.read_text(encoding="utf-8"))
     journal_lines = (
-        upload_path / image_imports_module.UPLOAD_JOURNAL_FILE_NAME
-    ).read_text(encoding="utf-8").splitlines()
+        (upload_path / image_imports_module.UPLOAD_JOURNAL_FILE_NAME)
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
     resumed = BrowserImageSelectionService(
         selection_service,
         upload_root,
@@ -494,8 +496,7 @@ def test_file_upload_response_does_not_repeat_the_resume_index_inventory(
             },
         )
         uploaded = client.put(
-            "/api/v1/admin/image-imports/browser-selections/"
-            f"{created.json()['uploadId']}/files/0",
+            f"/api/v1/admin/image-imports/browser-selections/{created.json()['uploadId']}/files/0",
             content=content,
             headers={
                 "Content-Type": "application/octet-stream",

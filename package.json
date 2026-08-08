@@ -110,6 +110,7 @@
     "workers:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/manage_worker_lanes.ps1 -Action Start",
     "workers:status": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/manage_worker_lanes.ps1 -Action Status",
     "workers:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/manage_worker_lanes.ps1 -Action Stop",
+    "v04:concurrent-lanes:acceptance": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/acceptance_concurrent_worker_lanes.ps1",
     "windows:environment:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure_windows_user_environment.ps1",
     "windows:environment:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure_windows_user_environment.ps1 -CheckOnly",
     "windows:environment:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_windows_process_environment.ps1",

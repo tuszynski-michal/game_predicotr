@@ -5,6 +5,7 @@ import type {
   ImageJobOperationsResponse,
   ImageStorageInventoryResponse,
   JobResponse,
+  WorkerLaneStatusResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -19,6 +20,7 @@ export type JobsClient = Pick<
   | 'getImageStorageInventory'
   | 'listImageDiagnosticExports'
   | 'listJobs'
+  | 'listWorkerLanes'
   | 'retryImageJobFile'
   | 'retryJob'
 >;
@@ -46,6 +48,33 @@ export async function loadJobs(
       };
     }
     return { jobs: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export type WorkerLanesResult =
+  | { readonly lanes: readonly WorkerLaneStatusResponse[]; readonly ok: true }
+  | { readonly error: string; readonly ok: false };
+
+export async function loadWorkerLanes(
+  api: JobsClient,
+): Promise<WorkerLanesResult> {
+  try {
+    const result = await api.listWorkerLanes();
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać statusu workerów.',
+        ),
+        ok: false,
+      };
+    }
+    return { lanes: result.data, ok: true };
   } catch {
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',

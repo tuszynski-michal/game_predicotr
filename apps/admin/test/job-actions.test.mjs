@@ -9,9 +9,36 @@ import {
   loadImageJobOperations,
   loadImageStorageInventory,
   loadJobs,
+  loadWorkerLanes,
   retryImageJobFile,
   retryJob,
 } from '../src/features/jobs/job-actions.ts';
+
+test('loads both worker lanes independently from job filters', async () => {
+  const lanes = [
+    {
+      heartbeatAt: '2026-08-05T12:00:00Z',
+      lane: 'general',
+      startedAt: '2026-08-05T11:00:00Z',
+      state: 'running',
+      threadBudget: 2,
+      workerVersion: 'worker-v10-general',
+    },
+    {
+      heartbeatAt: null,
+      lane: 'image_selection',
+      startedAt: null,
+      state: 'stopped',
+      threadBudget: null,
+      workerVersion: null,
+    },
+  ];
+  const result = await loadWorkerLanes({
+    listWorkerLanes: async () => ({ data: lanes }),
+  });
+
+  assert.deepEqual(result, { lanes, ok: true });
+});
 
 const job = {
   attemptCount: 1,

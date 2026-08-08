@@ -7,22 +7,25 @@ import os
 import socket
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import UUID
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
+from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
 )
+from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
 from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 from game_predictor_worker.images.selection.adapters import (
     AnchoredSequenceRangeRecognizer,
-    BestEffortVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
+    ProgressiveVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
     configure_opencv_thread_budget,
 )
@@ -48,6 +51,7 @@ from game_predictor_worker.imports.store import SqlAlchemyLayoutImportStagingSto
 from game_predictor_worker.imports.validation_handler import (
     LayoutImportValidationHandler,
 )
+from game_predictor_worker.jobs.lane_runtime import WorkerLaneHeartbeat
 from game_predictor_worker.jobs.runtime import JobHandler, LocalJobWorker
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from game_predictor_worker.payouts.audit import JsonlPayoutAuditWriter
@@ -64,10 +68,16 @@ from game_predictor_worker.snapshots import (
     ProductionSnapshotGenerator,
     SqlAlchemyProductionSnapshotStore,
 )
+from game_predictor_worker.symbols.training_job import (
+    SymbolTrainingJobHandler,
+    SymbolTrainingJobStore,
+)
 
 WORKER_VERSION = "worker-v10"
 GENERAL_LANE = "general"
 IMAGE_SELECTION_LANE = "image-selection"
+DEFAULT_GENERAL_THREAD_BUDGET = 2
+DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 4
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
@@ -104,6 +114,23 @@ def main(arguments: Sequence[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--cpu-thread-budget",
+        type=int,
+        default=None,
+        help="Cooperative per-process budget for scan and native library threads.",
+    )
+    parser.add_argument(
+        "--lane-instance-token",
+        type=UUID,
+        default=None,
+        help="Supervisor-provided fencing token for this worker process.",
+    )
+    parser.add_argument(
+        "--mark-lane-stopped",
+        action="store_true",
+        help="Persist a fenced controlled-stop marker and exit without polling.",
+    )
+    parser.add_argument(
         "--artifact-root",
         type=Path,
         default=Path("artifacts"),
@@ -129,10 +156,24 @@ def main(arguments: Sequence[str] | None = None) -> int:
         parser.error("--lease-seconds must be between 5 and 3600.")
     if options.poll_interval <= 0:
         parser.error("--poll-interval must be positive.")
+    default_thread_budget = (
+        DEFAULT_IMAGE_SELECTION_THREAD_BUDGET
+        if options.lane == IMAGE_SELECTION_LANE
+        else DEFAULT_GENERAL_THREAD_BUDGET
+    )
+    thread_budget = options.cpu_thread_budget or default_thread_budget
+    if not 1 <= thread_budget <= 64:
+        parser.error("--cpu-thread-budget must be between 1 and 64.")
+    if options.mark_lane_stopped and options.lane_instance_token is None:
+        parser.error("--mark-lane-stopped requires --lane-instance-token.")
+    if options.mark_lane_stopped and options.poll:
+        parser.error("--mark-lane-stopped cannot be combined with --poll.")
     if (options.image_selection_manifest is None) != (options.image_selection_output is None):
         parser.error(
             "--image-selection-manifest and --image-selection-output must be used together."
         )
+    native_thread_budget = 1 if options.lane == IMAGE_SELECTION_LANE else thread_budget
+    _configure_native_thread_budget(native_thread_budget)
     configure_opencv_thread_budget()
     if options.image_selection_manifest is not None:
         if options.poll:
@@ -146,18 +187,40 @@ def main(arguments: Sequence[str] | None = None) -> int:
     settings = ApiSettings.from_environment()
     engine = create_database_engine(settings)
     session_factory = create_session_factory(engine)
+    runtime_lane = (
+        WorkerLaneName.IMAGE_SELECTION
+        if options.lane == IMAGE_SELECTION_LANE
+        else WorkerLaneName.GENERAL
+    )
+    if options.mark_lane_stopped:
+        try:
+            stopped = SqlAlchemyWorkerLaneRepository(session_factory).stop(
+                lane=runtime_lane,
+                instance_token=options.lane_instance_token,
+                stopped_at=datetime.now(UTC),
+            )
+            print("stopped" if stopped else "fenced")
+            return 0
+        finally:
+            engine.dispose()
     store = SqlAlchemyWorkerJobStore(session_factory)
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]
     if options.lane == IMAGE_SELECTION_LANE:
+        verification_workers = 2 if thread_budget >= 4 else 1
+        scan_workers = min(
+            DEFAULT_PARALLEL_SCAN_WORKERS,
+            max(1, thread_budget - verification_workers),
+        )
         handlers = {
             JobType.IMAGE_SELECTION: ImageSelectionJobHandler(
                 SqlAlchemyImageSelectionJobStore(session_factory),
                 browser_upload_root=settings.import_root,
                 artifact_root=artifact_root,
                 repository_root=Path.cwd(),
-                scan_workers=DEFAULT_PARALLEL_SCAN_WORKERS,
+                scan_workers=scan_workers,
                 scan_prefetch=DEFAULT_PARALLEL_SCAN_PREFETCH,
+                verification_workers=verification_workers,
             )
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION
@@ -205,6 +268,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
             JobType.VALIDATE: import_validation_handler,
             JobType.PAYOUT: payout_handler,
             JobType.ANDROID_BUILD: release_handler,
+            JobType.SYMBOL_TRAINING: SymbolTrainingJobHandler(
+                SymbolTrainingJobStore(session_factory, artifact_root)
+            ),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(
@@ -215,20 +281,42 @@ def main(arguments: Sequence[str] | None = None) -> int:
         execution_slot=execution_slot,
         lease_duration=timedelta(seconds=options.lease_seconds),
     )
+    lane_heartbeat = WorkerLaneHeartbeat(
+        SqlAlchemyWorkerLaneRepository(session_factory),
+        lane=runtime_lane,
+        worker_id=options.worker_id,
+        worker_version=f"{WORKER_VERSION}-{options.lane}",
+        process_id=os.getpid(),
+        thread_budget=thread_budget,
+        instance_token=options.lane_instance_token,
+    )
     try:
-        if options.poll:
-            worker.run_forever(
-                should_stop=lambda: False,
-                poll_interval_seconds=options.poll_interval,
-            )
+        with lane_heartbeat:
+            if options.poll:
+                worker.run_forever(
+                    should_stop=lambda: False,
+                    poll_interval_seconds=options.poll_interval,
+                )
+                return 0
+            result = worker.run_once()
+            print(result.value)
             return 0
-        result = worker.run_once()
-        print(result.value)
-        return 0
     except KeyboardInterrupt:
         return 130
     finally:
         engine.dispose()
+
+
+def _configure_native_thread_budget(thread_budget: int) -> None:
+    value = str(thread_budget)
+    for variable in (
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+        "VECLIB_MAXIMUM_THREADS",
+    ):
+        os.environ[variable] = value
 
 
 def _run_standalone_image_selection(
@@ -247,7 +335,7 @@ def _run_standalone_image_selection(
             "Image selector output must be outside the read-only source staging.",
         )
     range_recognizer: NoRangeRecognizer | AnchoredSequenceRangeRecognizer
-    fallback_range_recognizer: BestEffortVisibleSequenceLabelRangeRecognizer | None = None
+    fallback_range_recognizer: ProgressiveVisibleSequenceLabelRangeRecognizer | None = None
     if ocr_model_root is None:
         range_recognizer = NoRangeRecognizer()
         selector_manifest = replace(
@@ -257,7 +345,12 @@ def _run_standalone_image_selection(
     else:
         ocr = PaddleSequenceNumberRecognizer(ocr_model_root.resolve(strict=True))
         range_recognizer = AnchoredSequenceRangeRecognizer(ocr)
-        fallback_range_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(ocr)
+        fallback_policy = DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy
+        assert fallback_policy is not None
+        fallback_range_recognizer = ProgressiveVisibleSequenceLabelRangeRecognizer(
+            ocr,
+            fallback_policy,
+        )
         selector_manifest = DEFAULT_SELECTOR_MANIFEST
     analyzer, verifier = build_default_adapters(
         source_root,

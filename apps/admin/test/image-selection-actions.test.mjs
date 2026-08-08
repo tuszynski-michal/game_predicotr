@@ -5,9 +5,64 @@ import {
   continueWithAutomaticallySelectedImages,
   loadManualImageSelectionGroups,
   orderImageSelectionFiles,
+  saveFinalizedImageSelectionGroups,
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from '../src/features/image-selection/image-selection-actions.ts';
+
+test('saves each finalized group immediately without overwriting conflicts', async () => {
+  const payload = new Blob(['selected-jpeg'], { type: 'image/jpeg' });
+  const saved = new Map();
+  const api = {
+    getImageSelectionSelectedGroupFile: async () => ({ data: payload }),
+  };
+  const directory = {
+    getFileHandle: async (fileName, options) => {
+      if (options?.create !== true && !saved.has(fileName)) {
+        throw new DOMException('missing', 'NotFoundError');
+      }
+      return {
+        createWritable: async () => ({
+          abort: async () => undefined,
+          close: async () => undefined,
+          write: async (blob) =>
+            saved.set(fileName, new File([blob], fileName)),
+        }),
+        getFile: async () => saved.get(fileName),
+      };
+    },
+  };
+  const completed = new Set();
+  const groups = [
+    {
+      groupOrder: 0,
+      id: 'group-1',
+      rangeEnd: 9,
+      rangeStart: 1,
+      selectedCandidateId: 'candidate-1',
+      status: 'auto_selected',
+    },
+  ];
+
+  const first = await saveFinalizedImageSelectionGroups(
+    api,
+    'run-1',
+    groups,
+    directory,
+    completed,
+  );
+  const replay = await saveFinalizedImageSelectionGroups(
+    api,
+    'run-1',
+    groups,
+    directory,
+    completed,
+  );
+
+  assert.deepEqual(first, { error: null, savedCount: 1 });
+  assert.deepEqual(replay, { error: null, savedCount: 0 });
+  assert.equal(await saved.get('seq_1-9.jpg').text(), 'selected-jpeg');
+});
 
 test('loads the bounded group cursor and keeps only manual queue items', async () => {
   const cursors = [];

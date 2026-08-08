@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import replace
+from _thread import LockType
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from statistics import StatisticsError
+from threading import Lock
+from time import sleep
 
 import cv2
 import numpy as np
@@ -13,17 +16,21 @@ from game_predictor_api.domain.image_selections import IMAGE_SELECTION_SELECTOR_
 from game_predictor_worker.cli import main
 from game_predictor_worker.images.geometry import BoardDetection, DetectionResult, Point
 from game_predictor_worker.images.selection.adapters import (
+    AccuracyFirstVisibleSequenceLabelRangeRecognizer,
     AdaptiveVisibleSequenceLabelRangeRecognizer,
     AnchoredSequenceRangeRecognizer,
     BestEffortVisibleSequenceLabelRangeRecognizer,
     ComposedCheapImageAnalyzer,
+    DeterministicParallelCandidateVerifier,
     FullCandidateVerifier,
     NoRangeRecognizer,
     OpenCvAppearanceFingerprintAnalyzer,
     OpenCvAppearanceQualityAnalyzer,
     OpenCvImageQualityAnalyzer,
     PillowThumbnailLoader,
+    ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
+    _VisibleLabel,
     build_default_adapters,
     configure_opencv_thread_budget,
 )
@@ -32,16 +39,23 @@ from game_predictor_worker.images.selection.cache import (
     FileImageScanObservationCache,
 )
 from game_predictor_worker.images.selection.contracts import (
+    CandidateVerification,
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
+    RangeEvidence,
+    RepresentativeAssessment,
+    SequenceRange,
 )
 from game_predictor_worker.images.selection.engine import appearance_distance
 from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     DEFAULT_SELECTOR_MANIFEST,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
+    FullGeometryPolicy,
+    ProgressiveVisibleLabelFallbackPolicy,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -72,7 +86,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v8"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.1"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -261,9 +275,9 @@ def test_reduced_jpeg_loader_calls_draft_before_decode_and_preserves_source_size
 
 
 def test_reduced_manifest_preserves_historical_v8_resume_identity() -> None:
-    assert DEFAULT_SELECTOR_MANIFEST.thumbnail_max_edge == 960
+    assert REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8.thumbnail_max_edge == 960
     assert (
-        DEFAULT_SELECTOR_MANIFEST.thumbnail_adapter_version
+        REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8.thumbnail_adapter_version
         == REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION
     )
     assert FIRST_USABLE_SELECTOR_MANIFEST_V8.fingerprint == (
@@ -378,6 +392,88 @@ class _RecoveryProbeDetector:
             confidence_components={"candidateCount": 0.8},
             review_reasons=("BOARD_CANDIDATE_COUNT",),
         )
+
+
+class _FixedFallbackRangeRecognizer:
+    version = "fixed-fallback-range-v1"
+
+    def recognize(
+        self,
+        rgb_image: np.ndarray,
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        del rgb_image, boards
+        return SequenceRange(73, 81, 0.99), ()
+
+
+class _DetectedBoardsDetector:
+    version = "detected-boards-v1"
+
+    def __init__(self, board_count: int, *, confidence: float = 0.95) -> None:
+        self._board_count = board_count
+        self._confidence = confidence
+
+    def detect(
+        self,
+        rgb_image: np.ndarray,
+        *args: object,
+        **kwargs: object,
+    ) -> DetectionResult:
+        del args, kwargs
+        height, width = rgb_image.shape[:2]
+        boards = tuple(
+            BoardDetection(
+                position_index=index,
+                quad=(
+                    Point(20 + index * 2, 30),
+                    Point(80 + index * 2, 30),
+                    Point(80 + index * 2, 80),
+                    Point(20 + index * 2, 80),
+                ),
+                bounding_box=(20 + index * 2, 30, 60, 50),
+                red_border_score=0.9,
+                refined_from_grid=False,
+            )
+            for index in range(self._board_count)
+        )
+        return DetectionResult(
+            status="detected",
+            image_width=width,
+            image_height=height,
+            candidate_count=self._board_count,
+            page_quad=(
+                Point(5, 5),
+                Point(width - 6, 5),
+                Point(width - 6, height - 6),
+                Point(5, height - 6),
+            ),
+            boards=boards,
+            confidence=self._confidence,
+            confidence_components={"candidateCount": self._confidence},
+            review_reasons=(),
+        )
+
+
+class _RecordingRangeRecognizer:
+    version = "recording-range-v1"
+
+    def __init__(
+        self,
+        recognized_range: SequenceRange | None,
+        reasons: tuple[str, ...] = (),
+    ) -> None:
+        self._recognized_range = recognized_range
+        self._reasons = reasons
+        self.board_counts: list[int] = []
+
+    def recognize(
+        self,
+        rgb_image: np.ndarray,
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        del rgb_image
+        self.board_counts.append(len(boards))
+        return self._recognized_range, self._reasons
 
 
 def test_composed_scan_uses_explicit_ports_and_returns_bounded_observation(
@@ -600,6 +696,116 @@ def test_full_verifier_enables_guarded_grid_recovery_only_when_requested(
     assert adaptive_detector.recovery_flags == [True]
 
 
+def test_v10_1_fallback_range_does_not_claim_complete_representative_geometry(
+    tmp_path: Path,
+) -> None:
+    checksum = _write_jpeg(tmp_path / "00000001.jpg")
+    source = _source(checksum)
+    observation = ComposedCheapImageAnalyzer(
+        PillowThumbnailLoader(tmp_path, max_edge=320),
+        _FixedLatticeAnalyzer(),
+        _FixedQualityAnalyzer(),
+    ).analyze(source)
+
+    verified = FullCandidateVerifier(
+        tmp_path,
+        NoRangeRecognizer(),
+        fallback_range_recognizer=_FixedFallbackRangeRecognizer(),
+        detector=_RecoveryProbeDetector(),
+        allow_grid_recovery=True,
+        couple_fallback_to_representative=False,
+    ).verify(observation, expected_board_count=9)
+
+    assert verified.range_evidence.recognized_range == SequenceRange(73, 81, 0.99)
+    assert verified.representative.board_count is None
+    assert verified.representative.geometry_complete is False
+    assert verified.representative.full_frame_visible is False
+
+
+def test_v10_1_stable_full_geometry_uses_anchored_ocr_without_fallback(
+    tmp_path: Path,
+) -> None:
+    checksum = _write_jpeg(tmp_path / "00000001.jpg")
+    observation = ComposedCheapImageAnalyzer(
+        PillowThumbnailLoader(tmp_path, max_edge=320),
+        _FixedLatticeAnalyzer(),
+        _FixedQualityAnalyzer(),
+    ).analyze(_source(checksum))
+    anchored = _RecordingRangeRecognizer(SequenceRange(7300, 7308, 0.98))
+    fallback = _RecordingRangeRecognizer(SequenceRange(7300, 7308, 0.99))
+    telemetry = StageTimingCollector()
+
+    verifier = FullCandidateVerifier(
+        tmp_path,
+        anchored,
+        fallback_range_recognizer=fallback,
+        detector=_DetectedBoardsDetector(9),
+        allow_grid_recovery=True,
+        couple_fallback_to_representative=False,
+        full_geometry_policy=FullGeometryPolicy(),
+        telemetry=telemetry,
+    )
+    verified = verifier.verify(observation, expected_board_count=None)
+    verifier.record_adaptive_range_stop(
+        "confirmed",
+        evidence_count=2,
+        candidate_count=12,
+    )
+
+    assert verified.range_evidence.recognized_range == SequenceRange(7300, 7308, 0.98)
+    assert verified.representative.board_count == 9
+    assert verified.representative.geometry_complete is True
+    assert verified.representative.full_frame_visible is True
+    assert anchored.board_counts == [9]
+    assert fallback.board_counts == []
+    counters = telemetry.snapshot()["counters"]
+    assert isinstance(counters, dict)
+    assert counters["anchoredOcrAttempts"] == 1
+    assert counters["anchoredOcrSuccesses"] == 1
+    assert counters["rangeEvidenceVerifications"] == 1
+    assert counters["rangeConsensusConfirmed"] == 1
+    assert counters["rangeConsensusEvidenceCount"] == 2
+    assert counters["rangeConsensusCandidateCount"] == 12
+    assert "fallbackOcrAttempts" not in counters
+
+
+def test_v10_1_anchor_failure_runs_fallback_and_preserves_terminal_board_count(
+    tmp_path: Path,
+) -> None:
+    checksum = _write_jpeg(tmp_path / "00000001.jpg")
+    observation = ComposedCheapImageAnalyzer(
+        PillowThumbnailLoader(tmp_path, max_edge=320),
+        _FixedLatticeAnalyzer(),
+        _FixedQualityAnalyzer(),
+    ).analyze(_source(checksum))
+    anchored = _RecordingRangeRecognizer(None, ("RANGE_ANCHOR_INCONSISTENT",))
+    fallback = _RecordingRangeRecognizer(SequenceRange(100, 104, 0.97))
+    telemetry = StageTimingCollector()
+
+    verified = FullCandidateVerifier(
+        tmp_path,
+        anchored,
+        fallback_range_recognizer=fallback,
+        detector=_DetectedBoardsDetector(5),
+        allow_grid_recovery=True,
+        couple_fallback_to_representative=False,
+        full_geometry_policy=FullGeometryPolicy(),
+        telemetry=telemetry,
+    ).verify(observation, expected_board_count=None)
+
+    assert verified.range_evidence.recognized_range == SequenceRange(100, 104, 0.97)
+    assert verified.representative.board_count == 5
+    assert verified.representative.geometry_complete is True
+    assert anchored.board_counts == [5]
+    assert fallback.board_counts == [5]
+    counters = telemetry.snapshot()["counters"]
+    assert isinstance(counters, dict)
+    assert counters["anchoredOcrAttempts"] == 1
+    assert counters["anchoredOcrFailures"] == 1
+    assert counters["fallbackOcrAttempts"] == 1
+    assert counters["fallbackOcrSuccesses"] == 1
+
+
 def test_opencv_quality_scores_sharp_pattern_above_blurred_pattern() -> None:
     checker = np.indices((240, 320)).sum(axis=0) % 2
     sharp = np.repeat((checker * 255).astype(np.uint8)[:, :, None], 3, axis=2)
@@ -641,6 +847,16 @@ class _AnchorRecognizer:
         )
 
 
+class _WideAnchorRecognizer(_AnchorRecognizer):
+    def recognize_many(self, rgb_images: tuple[np.ndarray, ...]) -> tuple[Recognition, ...]:
+        assert len(rgb_images) == 3
+        return (
+            Recognition("7300", 0.99),
+            Recognition("7304", 0.98),
+            Recognition("7308", 0.97),
+        )
+
+
 def test_range_adapter_reads_only_first_middle_last_anchor() -> None:
     boards = tuple(
         BoardDetection(
@@ -667,6 +883,32 @@ def test_range_adapter_reads_only_first_middle_last_anchor() -> None:
     assert reasons == ()
     assert recognized is not None
     assert (recognized.start, recognized.end, recognized.confidence) == (400, 408, 0.97)
+
+
+def test_range_adapter_preserves_first_digit_of_four_digit_anchor() -> None:
+    boards = tuple(
+        BoardDetection(
+            position_index=index,
+            quad=(
+                Point(20 + (index % 3) * 100, 20 + (index // 3) * 100),
+                Point(100 + (index % 3) * 100, 20 + (index // 3) * 100),
+                Point(100 + (index % 3) * 100, 80 + (index // 3) * 100),
+                Point(20 + (index % 3) * 100, 80 + (index // 3) * 100),
+            ),
+            bounding_box=(20 + (index % 3) * 100, 20 + (index // 3) * 100, 80, 60),
+            red_border_score=0.9,
+            refined_from_grid=False,
+        )
+        for index in range(9)
+    )
+
+    recognized, reasons = AnchoredSequenceRangeRecognizer(_WideAnchorRecognizer()).recognize(
+        np.zeros((420, 340, 3), dtype=np.uint8),
+        boards,
+    )
+
+    assert reasons == ()
+    assert recognized == SequenceRange(7300, 7308, 0.97)
 
 
 class _VisibleLabelRecognizer(_AnchorRecognizer):
@@ -745,7 +987,217 @@ def test_best_effort_visible_label_adapter_reads_warm_tinted_labels() -> None:
     assert (recognized.start, recognized.end) == (73, 81)
 
 
-def test_standalone_cli_writes_manual_report_without_loading_ocr_model(
+class _ProgressiveLabelOcr(_AnchorRecognizer):
+    def __init__(self, recognitions: dict[int, Recognition]) -> None:
+        self._recognitions = recognitions
+        self.batch_sizes: list[int] = []
+
+    def recognize_many(self, rgb_images: tuple[np.ndarray, ...]) -> tuple[Recognition, ...]:
+        self.batch_sizes.append(len(rgb_images))
+        return tuple(self._recognitions[id(image)] for image in rgb_images)
+
+
+def _scripted_progressive_recognizer(
+    *,
+    first_complete_level: int,
+    telemetry: StageTimingCollector,
+) -> tuple[ProgressiveVisibleSequenceLabelRangeRecognizer, _ProgressiveLabelOcr]:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    first_good_index = first_complete_level - 9
+    for index in range(72):
+        crop = np.full((20, 80, 3), index, dtype=np.uint8)
+        if first_good_index <= index < first_complete_level:
+            position = index - first_good_index
+            row, column = divmod(position, 3)
+            center = (400.0 + column * 360.0, 300.0 + row * 100.0)
+            recognition = Recognition(str(7300 + position), 0.99)
+        else:
+            center = (50.0 + index, 50.0 + index)
+            recognition = Recognition("", 0.0)
+        labels.append(_VisibleLabel(crop=crop, center=center))
+        recognitions[id(crop)] = recognition
+
+    class _ScriptedProgressiveRecognizer(ProgressiveVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    ocr = _ProgressiveLabelOcr(recognitions)
+    return (
+        _ScriptedProgressiveRecognizer(
+            ocr,
+            ProgressiveVisibleLabelFallbackPolicy(),
+            telemetry=telemetry,
+        ),
+        ocr,
+    )
+
+
+@pytest.mark.parametrize(
+    ("resolved_level", "expected_batches"),
+    (
+        (18, [9, 9]),
+        (36, [9, 9, 9, 9]),
+        (72, [9, 9, 9, 9, 9, 9, 9, 9]),
+    ),
+)
+def test_progressive_visible_label_fallback_resolves_at_bounded_level(
+    resolved_level: int,
+    expected_batches: list[int],
+) -> None:
+    telemetry = StageTimingCollector()
+    recognizer, ocr = _scripted_progressive_recognizer(
+        first_complete_level=resolved_level,
+        telemetry=telemetry,
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert reasons == ()
+    assert recognized == SequenceRange(7300, 7308, 0.98025)
+    assert ocr.batch_sizes == expected_batches
+    counters = telemetry.snapshot()["counters"]
+    assert isinstance(counters, dict)
+    assert counters["progressiveFallbackCrops"] == resolved_level
+    assert counters["progressiveFallbackResolvedCropCount"] == resolved_level
+    assert counters[f"progressiveFallbackResolvedAtLevel{resolved_level}"] == 1
+
+
+def test_progressive_visible_label_fallback_keeps_v10_result_at_level_72() -> None:
+    progressive_telemetry = StageTimingCollector()
+    progressive, ocr = _scripted_progressive_recognizer(
+        first_complete_level=72,
+        telemetry=progressive_telemetry,
+    )
+    labels = progressive._ranked_label_candidates(
+        np.zeros((1080, 1920, 3), dtype=np.uint8)
+    )
+
+    class _ScriptedLegacyRecognizer(AccuracyFirstVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return labels
+
+    legacy = _ScriptedLegacyRecognizer(ocr)
+    legacy_range, legacy_reasons = legacy.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+    progressive_range, progressive_reasons = progressive.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert len(labels) == 72
+    assert legacy_reasons == progressive_reasons == ()
+    assert legacy_range == progressive_range == SequenceRange(7300, 7308, 0.98025)
+
+
+def test_progressive_visible_label_candidates_keep_multi_digit_horizontal_margin() -> None:
+    image = np.zeros((1080, 1920, 3), dtype=np.uint8)
+    image[300:313, 420:510] = 255
+
+    labels = ProgressiveVisibleSequenceLabelRangeRecognizer._ranked_label_candidates(image)
+
+    assert len(labels) == 1
+    assert labels[0].crop.shape[1] >= 108
+    assert labels[0].crop.shape[0] >= 23
+
+
+@dataclass
+class _ParallelProbeState:
+    lock: LockType = field(default_factory=Lock)
+    active: int = 0
+    maximum_active: int = 0
+
+
+@dataclass
+class _IsolatedVerifierProbe:
+    slot: int
+    state: _ParallelProbeState
+    calls: list[int] = field(default_factory=list)
+    active: bool = False
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del expected_board_count
+        with self.state.lock:
+            assert self.active is False
+            self.active = True
+            self.state.active += 1
+            self.state.maximum_active = max(self.state.maximum_active, self.state.active)
+        try:
+            sleep(0.02)
+            self.calls.append(observation.source.order_index)
+            start = 100 + observation.source.order_index * 9
+            return CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(SequenceRange(start, start + 8, 0.99)),
+            )
+        finally:
+            with self.state.lock:
+                self.active = False
+                self.state.active -= 1
+
+
+def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order() -> None:
+    state = _ParallelProbeState()
+    workers = (_IsolatedVerifierProbe(0, state), _IsolatedVerifierProbe(1, state))
+    telemetry = StageTimingCollector()
+    verifier = DeterministicParallelCandidateVerifier(workers, telemetry=telemetry)
+    observations = tuple(
+        CheapImageObservation(
+            source=replace(
+                _source(str(index) * 64),
+                order_index=index,
+                checksum_sha256=str(index) * 64,
+            ),
+            width=640,
+            height=480,
+            fingerprint_hex="a" * 64,
+            geometry_signature=(),
+            board_count=None,
+            geometry_confidence=0.0,
+            quality=ImageQualityMetrics(*(0.75 for _ in range(8))),
+            appearance_signature=(0.1, 0.2, 0.3),
+        )
+        for index in range(1, 5)
+    )
+
+    results = verifier.verify_many(
+        observations,
+        expected_board_count=None,
+        include_range_evidence=True,
+    )
+
+    assert verifier.worker_count == 2
+    assert state.maximum_active == 2
+    assert workers[0].calls == [1, 3]
+    assert workers[1].calls == [2, 4]
+    assert [result.recognized_range.start for result in results if result.recognized_range] == [
+        109,
+        118,
+        127,
+        136,
+    ]
+    counters = telemetry.snapshot()["counters"]
+    assert isinstance(counters, dict)
+    assert counters["parallelVerificationBatches"] == 1
+    assert counters["parallelVerificationItems"] == 4
+    assert counters["parallelVerificationWorkerSlots"] == 2
+
+
+def test_standalone_cli_uses_v10_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -786,7 +1238,7 @@ def test_standalone_cli_writes_manual_report_without_loading_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v8"
+    assert report["selectorVersion"] == "fast-image-selector-v10.1"
     assert report["groups"][0]["status"] == "manual_required"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()
@@ -800,7 +1252,10 @@ def test_private_real_corpus_cheap_scan_matches_pinned_observations() -> None:
     values = payload["observations"]
     if any(not (source_root / value["relativePath"]).is_file() for value in values):
         pytest.skip("The private user-provided image corpus is not present.")
-    analyzer, _ = build_default_adapters(source_root)
+    analyzer, _ = build_default_adapters(
+        source_root,
+        manifest=REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    )
     first_pass = []
     second_pass = []
     for index, value in enumerate(values):

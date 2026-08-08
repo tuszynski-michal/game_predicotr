@@ -12,8 +12,54 @@ from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
-HEAD_REVISION = "0021_reviewer_access"
+HEAD_REVISION = "0037_symbol_model_registry"
 TEST_DATABASE_NAME = "game_predictor_baseline_test"
+EXPECTED_TABLES = {
+    "alembic_version",
+    "cell_observations",
+    "cleanup_operations",
+    "dataset_versions",
+    "games",
+    "game_symbol_model_activations",
+    "image_board_geometry_revisions",
+    "image_file_executions",
+    "image_import_job_files",
+    "image_layout_staging_rows",
+    "image_pipeline_stage_results",
+    "image_review_items",
+    "image_review_resolution_events",
+    "image_selection_candidates",
+    "image_selection_groups",
+    "image_selection_manual_decisions",
+    "image_selection_runs",
+    "image_sequence_source_override_events",
+    "image_verified_cohort_exports",
+    "verified_training_cohort_items",
+    "verified_training_cohorts",
+    "jobs",
+    "layout_import_normalized_rows",
+    "layout_import_rows",
+    "layout_payouts",
+    "layouts",
+    "mobile_release_games",
+    "mobile_releases",
+    "paylines",
+    "payout_rules",
+    "recognized_boards",
+    "review_batches",
+    "review_feedback_exports",
+    "review_items",
+    "review_resolutions",
+    "reviewer_access_audit_events",
+    "reviewer_access_sessions",
+    "rules_version_symbols",
+    "rules_versions",
+    "source_images",
+    "symbol_bootstrap_runs",
+    "symbols",
+    "symbol_model_iterations",
+    "worker_lane_runtime",
+}
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
@@ -71,40 +117,7 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
     try:
         command.upgrade(config, "head")
         assert _current_revision(engine) == HEAD_REVISION
-        assert set(inspect(engine).get_table_names()) == {
-            "alembic_version",
-            "dataset_versions",
-            "games",
-            "jobs",
-            "image_file_executions",
-            "image_import_job_files",
-            "image_board_geometry_revisions",
-            "image_layout_staging_rows",
-            "image_pipeline_stage_results",
-            "image_review_items",
-            "image_review_resolution_events",
-            "image_verified_cohort_exports",
-            "layouts",
-            "layout_payouts",
-            "layout_import_rows",
-            "layout_import_normalized_rows",
-            "mobile_release_games",
-            "mobile_releases",
-            "paylines",
-            "payout_rules",
-            "rules_versions",
-            "rules_version_symbols",
-            "review_batches",
-            "review_feedback_exports",
-            "review_items",
-            "review_resolutions",
-            "reviewer_access_audit_events",
-            "reviewer_access_sessions",
-            "recognized_boards",
-            "cell_observations",
-            "source_images",
-            "symbols",
-        }
+        assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
 
         engine.dispose()
         command.downgrade(config, "base")
@@ -114,39 +127,6 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
         engine.dispose()
         command.upgrade(config, "head")
         assert _current_revision(engine) == HEAD_REVISION
-        assert set(inspect(engine).get_table_names()) == {
-            "alembic_version",
-            "dataset_versions",
-            "games",
-            "jobs",
-            "image_file_executions",
-            "image_import_job_files",
-            "image_board_geometry_revisions",
-            "image_layout_staging_rows",
-            "image_pipeline_stage_results",
-            "image_review_items",
-            "image_review_resolution_events",
-            "image_verified_cohort_exports",
-            "layouts",
-            "layout_payouts",
-            "layout_import_rows",
-            "layout_import_normalized_rows",
-            "mobile_release_games",
-            "mobile_releases",
-            "paylines",
-            "payout_rules",
-            "rules_versions",
-            "rules_version_symbols",
-            "review_batches",
-            "review_feedback_exports",
-            "review_items",
-            "review_resolutions",
-            "reviewer_access_audit_events",
-            "reviewer_access_sessions",
-            "recognized_boards",
-            "cell_observations",
-            "source_images",
-            "symbols",
-        }
+        assert set(inspect(engine).get_table_names()) == EXPECTED_TABLES
     finally:
         engine.dispose()

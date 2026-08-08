@@ -8,6 +8,12 @@ param(
 
     [switch]$Json,
 
+    [ValidateRange(1, 64)]
+    [int]$GeneralThreadBudget = 2,
+
+    [ValidateRange(1, 64)]
+    [int]$ImageSelectionThreadBudget = 4,
+
     [ValidateRange(1, 30)]
     [int]$TimeoutSeconds = 10
 )
@@ -32,10 +38,14 @@ $laneDefinitions = [ordered]@{
     'general' = [ordered]@{
         argument = 'general'
         displayName = 'General worker'
+        threadBudget = $GeneralThreadBudget
+        nativeThreadBudget = $GeneralThreadBudget
     }
     'image-selection' = [ordered]@{
         argument = 'image-selection'
         displayName = 'Image-selection worker'
+        threadBudget = $ImageSelectionThreadBudget
+        nativeThreadBudget = 1
     }
 }
 
@@ -198,6 +208,7 @@ function New-WorkerProcess {
     }
 
     $timestamp = [DateTimeOffset]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')
+    $instanceToken = [Guid]::NewGuid().ToString('D')
     $stdoutPath = Join-Path $runtimeDirectory "worker-$LaneName-$timestamp.out.log"
     $stderrPath = Join-Path $runtimeDirectory "worker-$LaneName-$timestamp.error.log"
     $arguments = @(
@@ -205,16 +216,56 @@ function New-WorkerProcess {
         'game_predictor_worker',
         '--poll',
         '--lane',
-        [string]$laneDefinitions[$LaneName].argument
+        [string]$laneDefinitions[$LaneName].argument,
+        '--cpu-thread-budget',
+        [string]$laneDefinitions[$LaneName].threadBudget,
+        '--lane-instance-token',
+        $instanceToken
     )
-    $process = Start-Process `
-        -FilePath $pythonPath `
-        -ArgumentList $arguments `
-        -WorkingDirectory $projectRoot `
-        -RedirectStandardOutput $stdoutPath `
-        -RedirectStandardError $stderrPath `
-        -PassThru `
-        -WindowStyle Hidden
+    $nativeThreadEnvironmentNames = @(
+        'OMP_NUM_THREADS',
+        'OPENBLAS_NUM_THREADS',
+        'MKL_NUM_THREADS',
+        'NUMEXPR_NUM_THREADS',
+        'VECLIB_MAXIMUM_THREADS'
+    )
+    $previousThreadEnvironment = @{}
+    $threadBudget = [string]$laneDefinitions[$LaneName].threadBudget
+    $threadEnvironmentNames = @('GAME_PREDICTOR_WORKER_THREAD_BUDGET') + $nativeThreadEnvironmentNames
+    foreach ($variableName in $threadEnvironmentNames) {
+        $previousThreadEnvironment[$variableName] = [Environment]::GetEnvironmentVariable(
+            $variableName,
+            [EnvironmentVariableTarget]::Process
+        )
+        [Environment]::SetEnvironmentVariable(
+            $variableName,
+            $(if ($variableName -eq 'GAME_PREDICTOR_WORKER_THREAD_BUDGET') {
+                $threadBudget
+            } else {
+                [string]$laneDefinitions[$LaneName].nativeThreadBudget
+            }),
+            [EnvironmentVariableTarget]::Process
+        )
+    }
+    try {
+        $process = Start-Process `
+            -FilePath $pythonPath `
+            -ArgumentList $arguments `
+            -WorkingDirectory $projectRoot `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath `
+            -PassThru `
+            -WindowStyle Hidden
+    }
+    finally {
+        foreach ($variableName in $threadEnvironmentNames) {
+            [Environment]::SetEnvironmentVariable(
+                $variableName,
+                $previousThreadEnvironment[$variableName],
+                [EnvironmentVariableTarget]::Process
+            )
+        }
+    }
 
     for ($attempt = 0; $attempt -lt 4; $attempt++) {
         Start-Sleep -Milliseconds 250
@@ -236,7 +287,10 @@ function New-WorkerProcess {
         startTimeUtc = $process.StartTime.ToUniversalTime().ToString('o')
         stdoutLog = $stdoutPath
         stderrLog = $stderrPath
-        command = "$pythonPath -m game_predictor_worker --poll --lane $($laneDefinitions[$LaneName].argument)"
+        threadBudget = [int]$laneDefinitions[$LaneName].threadBudget
+        nativeThreadBudget = [int]$laneDefinitions[$LaneName].nativeThreadBudget
+        instanceToken = $instanceToken
+        command = "$pythonPath -m game_predictor_worker --poll --lane $($laneDefinitions[$LaneName].argument) --cpu-thread-budget $threadBudget"
     }
 }
 
@@ -255,6 +309,41 @@ function Stop-WorkerProcess {
     $attempts = [Math]::Max(1, $TimeoutSeconds * 4)
     for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
         if ($null -eq (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
+            $instanceTokenProperty = $Record.PSObject.Properties['instanceToken']
+            if ($null -eq $instanceTokenProperty -or [string]::IsNullOrWhiteSpace([string]$instanceTokenProperty.Value)) {
+                return 'stopped'
+            }
+            $markArguments = @(
+                '-m',
+                'game_predictor_worker',
+                '--lane',
+                [string]$Record.lane,
+                '--lane-instance-token',
+                [string]$instanceTokenProperty.Value,
+                '--mark-lane-stopped'
+            )
+            $markProcess = Start-Process `
+                -FilePath $pythonPath `
+                -ArgumentList $markArguments `
+                -WorkingDirectory $projectRoot `
+                -PassThru `
+                -WindowStyle Hidden
+            $markAttempts = [Math]::Max(1, $TimeoutSeconds * 4)
+            for ($markAttempt = 0; $markAttempt -lt $markAttempts; $markAttempt++) {
+                $markProcess.Refresh()
+                if ($markProcess.HasExited) {
+                    break
+                }
+                Start-Sleep -Milliseconds 250
+            }
+            $markProcess.Refresh()
+            if (-not $markProcess.HasExited) {
+                Stop-Process -Id $markProcess.Id -ErrorAction SilentlyContinue
+                throw "Worker lane $($Record.lane) stopped, but finalizing its database status timed out."
+            }
+            if ($markProcess.ExitCode -ne 0) {
+                throw "Worker lane $($Record.lane) stopped, but its database status could not be finalized."
+            }
             return 'stopped'
         }
         Start-Sleep -Milliseconds 250
@@ -289,6 +378,8 @@ function New-StatusResult {
             startTimeUtc = $(if ($null -ne $record) { [string]$record.startTimeUtc } else { $null })
             stdoutLog = $(if ($null -ne $record) { [string]$record.stdoutLog } else { $null })
             stderrLog = $(if ($null -ne $record) { [string]$record.stderrLog } else { $null })
+            threadBudget = $(if ($null -ne $record -and $null -ne $record.threadBudget) { [int]$record.threadBudget } else { [int]$laneDefinitions[$laneName].threadBudget })
+            nativeThreadBudget = $(if ($null -ne $record -and $null -ne $record.nativeThreadBudget) { [int]$record.nativeThreadBudget } else { [int]$laneDefinitions[$laneName].nativeThreadBudget })
         }
     }
     $states = @($laneResults | ForEach-Object { $_.state })
@@ -324,7 +415,7 @@ function Write-Result {
     Write-Host "Worker lanes: $($Result.state)"
     foreach ($laneResult in $Result.lanes) {
         $details = if ($laneResult.state -eq 'running') {
-            "PID $($laneResult.pid), since $($laneResult.startTimeUtc)"
+            "PID $($laneResult.pid), since $($laneResult.startTimeUtc), threads $($laneResult.threadBudget), native $($laneResult.nativeThreadBudget)"
         }
         elseif ($laneResult.state -eq 'stale') {
             "stale PID $($laneResult.pid)"

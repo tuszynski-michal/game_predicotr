@@ -24,7 +24,10 @@ from game_predictor_worker.images.pipeline_contract import (
 
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
-from game_predictor_api.domain.image_selections import ImageSelectionRun
+from game_predictor_api.domain.image_selections import (
+    ImageSelectionRun,
+    ImageSelectionSequenceDirection,
+)
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
@@ -294,6 +297,8 @@ class ImageFolderSelectionService:
         game_id: UUID,
         selection_token: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> tuple[ImageSelectionRun, bool]:
         now = self._clock()
         with self._lock:
@@ -324,6 +329,8 @@ class ImageFolderSelectionService:
             source_selection_id=selected.selection_id,
             input_manifest_sha256=selected.input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
         with self._lock:
             self._selections.pop(selection_token, None)
@@ -740,9 +747,7 @@ class BrowserImageSelectionService:
             if schema_version not in {1, 2} or payload.get("uploadId") != str(upload_id):
                 return None
             file_payloads = (
-                payload["files"]
-                if schema_version == 1
-                else self._read_upload_records(upload_path)
+                payload["files"] if schema_version == 1 else self._read_upload_records(upload_path)
             )
             files: dict[int, BrowserUploadedFile] = {}
             for value in file_payloads:

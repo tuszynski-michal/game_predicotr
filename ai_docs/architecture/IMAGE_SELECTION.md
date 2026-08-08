@@ -281,6 +281,15 @@ nierozwiązany może przyjąć lepszego kandydata z późniejszego wystąpienia.
 Wagi, progi, rozmiar miniatury i guard interval są częścią wersjonowanego
 manifestu selektora. Nie mogą być ukrytymi stałymi rozproszonymi po UI i CLI.
 
+Od 2026-08-05 aktywnym manifestem nowych runów jest
+`fast-image-selector-v9` o fingerprintcie
+`eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`.
+API i worker korzystają z jednego `DEFAULT_SELECTOR_MANIFEST`. Zmiana nie
+przepisuje istniejących runów: ich zapisany fingerprint nadal rozwiązuje
+niezmienny manifest v2–v8. Aktywacja poprzedza pełny pomiar 40 000 zdjęć na
+jawne polecenie właściciela; decyzja odbiorowa TASK-0171 nadal pozostaje
+`accepted | optimize` po zakończeniu runu.
+
 Historyczna implementacja `fast-image-selector-v8` utrzymuje manifest w jednym
 module i wylicza z jego kanonicznego JSON fingerprint używany przez API
 `9dc754cca7e7e7afe23e8a25c8574e0ef4ed5f7fd5829a24984c25f4c256f42d`
@@ -394,6 +403,23 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   jobów przed pobraniem, a unikalność slotu pozwala na jeden aktywny job w każdym
   lane. Każda projekcja grupy i finalnego outputu nadal jest chroniona tym samym
   tokenem fencing co lease joba.
+- Każdy proces rejestruje osobny `instance_token` w
+  `worker_lane_runtime` i odnawia heartbeat w małym wątku diagnostycznym również
+  wtedy, gdy kolejka jest pusta albo handler długo pracuje. Rejestracja nowej
+  instancji atomowo odcina heartbeat starego tokenu. API wylicza `running` dla
+  sygnału nie starszego niż 15 sekund, `degraded` do 60 sekund, a następnie
+  `stopped`; jawne zakończenie od razu daje `stopped`.
+- Niezależnie od diagnostycznego heartbeat lane, każdy claimed job ma osobny
+  keepalive lease uruchomiony przez wspólny runtime workera. Odnawia on fenced
+  lease co najwyżej co 15 sekund również wtedy, gdy pojedynczy batch dekodowania,
+  OCR albo treningu trwa dłużej niż checkpoint. Błąd keepalive jest traktowany
+  jak utrata lease; handler nie może wtedy wykonać terminalnego zapisu.
+- Supervisor ustawia per proces budżet wątków dla OpenMP, OpenBLAS, MKL,
+  NumExpr i Accelerate oraz limit współbieżności CLI. General domyślnie używa
+  budżetu 2. Selekcja ma cztery zewnętrzne `scan_workers`, ale biblioteki
+  natywne wewnątrz każdego skanu pozostają jednowątkowe, aby nie tworzyć
+  zagnieżdżonej nadsubskrypcji. Jest to przenośny limit współbieżności, nie
+  twardy limit procentu CPU systemu operacyjnego.
 - Checkpoint JSON przechowuje tylko potwierdzony `nextOrderIndex`, bounded stan
   otwartej grupy, pending guard, top-k i liczniki. Pełne grupy oraz kandydaci
   pozostają w PostgreSQL.
@@ -525,6 +551,96 @@ collecting | auto_selected | manual_required | manually_selected
   merge oraz zerowe liczniki kosztownych adapterów należących do Importu
   layoutów. Czas i throughput są raportowane bez sztywnego limitu; właściciel
   podejmuje końcową decyzję akceptacyjną.
+
+## Architektura selektora v10
+
+V10 zachowuje strumieniowe grupowanie i cache deskryptorów v9, ale usuwa jego
+politykę `first usable`. `_OpenGroup` ocenia cały zakres źródeł i utrzymuje
+deterministyczne top-12 według metryk obszaru ekranu. Dopiero po zamknięciu
+grupy wykonywane są pełna geometria oraz OCR numerów dla shortlisty. Wynik OCR
+jest agregowany pomiędzy klatkami, a ranking końcowy uwzględnia zgodność z
+konsensusem, kompletność kadru, margines, ostrość i wynik jakości.
+
+Run przechowuje `sequence_direction` i opcjonalny `first_sequence_number`.
+Kotwica porządku jest częścią tożsamości runu. Dla kolejnych grup selektor
+wyznacza zakres bez luk, natomiast rozpoznanie starego, już ukończonego zakresu
+oznacza duplikat i nie przesuwa kursora. Kierunek malejący nie zmienia kolejności
+plików i nadal zapisuje kanoniczny zakres niższy–wyższy.
+
+Progresywny zapis ma dwie granice:
+
+1. worker zapisuje decyzję grupy trwale w PostgreSQL,
+2. Admin pobiera wybrany JPEG przez bounded endpoint grupy i natychmiast zapisuje
+   go przez File System Access API do wskazanego przed startem katalogu.
+
+Panel prowadzi ledger zapisanych `group_order` w bieżącej sesji. Replay jest
+idempotentny: identyczny plik zostaje pominięty, a kolizja innej zawartości
+zatrzymuje zapis bez nadpisania. Końcowy publisher nadal tworzy checksumowany
+manifest do handoffu, lecz na tym samym woluminie używa hardlinku, a kopiuje
+plik tylko gdy hardlink jest niedostępny.
+
+Nowy endpoint progresywny:
+
+```text
+GET /api/v1/admin/image-selections/{runId}/groups/{groupId}/selected-file
+```
+
+Pełny OCR plansz, cięcie komórek i rozpoznawanie symboli pozostają poza tym
+modułem.
+
+## Architektura selektora v10.1
+
+V10.1 zachowuje grupowanie, pełny lekki scoring i top-12 v10, ale rozdziela dwa
+wyniki pełnej weryfikacji:
+
+1. `representative assessment` ocenia geometrię, kompletność kadru i metryki
+   obrazu służące wyłącznie do wyboru JPEG-a,
+2. `range evidence` odczytuje numery z jednej lub kilku klatek i ustala zakres
+   grupy niezależnie od wybranego reprezentanta.
+
+Stabilna detekcja 1–9 plansz na pełnej rozdzielczości dostarcza rzeczywisty
+`board_count` także wtedy, gdy tani appearance scan celowo go nie oblicza.
+Verifier najpierw próbuje jednego batcha OCR kotwic: pierwszej, środkowej i
+ostatniej etykiety. Dopiero niepowodzenie kotwic uruchamia fallback etykiet.
+Próg tej ścieżki jest częścią fingerprintu manifestu w
+`fullGeometryPolicy`: liczba plansz `1–9` i minimalna confidence `0.64`.
+Telemetria rozróżnia próby, sukcesy i błędy ścieżek `anchoredOcr*` oraz
+`fallbackOcr*`; liczniki nie uczestniczą w decyzji domenowej.
+
+Kandydaci zakresu są pobierani deterministycznie według rankingu jakości.
+Domyślne poziomy dowodu to `2 -> 4 -> 8 -> 12`. Zgodne, wysokiej pewności
+odczyty dwóch niezależnych klatek kończą wyłącznie zbieranie dowodów numeru;
+nie kończą skanowania grupy i nie zmieniają rankingu reprezentanta. Konflikt,
+niska pewność albo brak odczytu rozszerza poziom. Fallback jednej klatki
+przetwarza kandydatów etykiet partiami `18 -> 36 -> 72` i zatrzymuje się tylko
+po spełnieniu istniejącej pełnej bramki przestrzennej.
+Poziomy należą do fingerprintowanej `progressiveVisibleLabelFallbackPolicy`.
+Każdy kolejny poziom wykonuje OCR tylko dla nowych cropów, zachowując wyniki
+wcześniejszych partii. Maksymalny poziom używa tego samego deterministycznego
+zbioru 72 etykiet co historyczny adapter v4. Telemetria rozdziela próby i
+rozstrzygnięcia poziomów oraz raportuje całkowitą liczbę cropów fallbacku.
+Po potwierdzeniu zakresu pozostałe elementy top-12 przechodzą nadal pełną ocenę
+reprezentanta, ale bez OCR. Poziomy i wymagane dwa zgodne odczyty są częścią
+`adaptiveRangeConsensusPolicy` w fingerprintcie manifestu. Telemetria zapisuje
+liczbę klatek dowodowych oraz powód `confirmed`, `conflict_exhausted` albo
+`no_consensus_exhausted` jako osobne liczniki.
+
+Wyniki zadań równoległych są zbierane w pierwotnej kolejności shortlisty.
+Opcjonalna równoległość pełnej weryfikacji może używać wyłącznie osobnych
+instancji lokalnego predictora i musi przejść test identyczności wyniku 1 vs 2
+workery. Nie wolno współdzielić jednego mutowalnego predictora Paddle pomiędzy
+wątkami.
+Implementacja dzieli każdy poziom adaptacyjny na najwyżej dwie szeregowe
+partycje. Każda partycja ma własny predictor, recognizery i detector, a wynik
+jest składany według indeksu wejściowego. Produkcyjny budżet lane równy cztery
+jest dzielony na dwa scan workers i dwa verification workers; mniejszy budżet
+pozostawia jeden verifier. Telemetria `parallelVerification*` nie uczestniczy w
+decyzji domenowej. Aktywacja podlega pomiarowi czasu i peak RSS w TASK-0194.
+
+Zakres jest wynikiem dowodu OCR albo jawnej kotwicy pierwszej grupy. Cursor nie
+może nadpisywać poprawnego odczytu kolejnej grupy ani wypełniać skoku bez
+dowodu. `seq_<start>-<end>.jpg` używa zakresu grupy, choć sam wybrany JPEG może
+pochodzić z innej klatki niż dowód OCR.
 
 ## Odrzucone warianty
 

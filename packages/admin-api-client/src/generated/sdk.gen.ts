@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ActivateSymbolModelData,
+  ActivateSymbolModelErrors,
+  ActivateSymbolModelResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -87,6 +90,9 @@ import type {
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  CreateSymbolTrainingData,
+  CreateSymbolTrainingErrors,
+  CreateSymbolTrainingResponses,
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
@@ -102,6 +108,9 @@ import type {
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
+  FreezeVerifiedTrainingCohortData,
+  FreezeVerifiedTrainingCohortErrors,
+  FreezeVerifiedTrainingCohortResponses,
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
@@ -134,6 +143,9 @@ import type {
   GetImageSelectionOutputFileResponses,
   GetImageSelectionOutputResponses,
   GetImageSelectionResponses,
+  GetImageSelectionSelectedGroupFileData,
+  GetImageSelectionSelectedGroupFileErrors,
+  GetImageSelectionSelectedGroupFileResponses,
   GetImageSequenceSourceSelectionData,
   GetImageSequenceSourceSelectionErrors,
   GetImageSequenceSourceSelectionResponses,
@@ -155,6 +167,9 @@ import type {
   GetMobileReleaseData,
   GetMobileReleaseErrors,
   GetMobileReleaseResponses,
+  GetModelQualityData,
+  GetModelQualityErrors,
+  GetModelQualityResponses,
   GetOperationalImageReviewBoardAssetData,
   GetOperationalImageReviewBoardAssetErrors,
   GetOperationalImageReviewBoardAssetResponses,
@@ -207,6 +222,9 @@ import type {
   GetSymbolImageCandidateAssetData,
   GetSymbolImageCandidateAssetErrors,
   GetSymbolImageCandidateAssetResponses,
+  GetSymbolModelIterationData,
+  GetSymbolModelIterationErrors,
+  GetSymbolModelIterationResponses,
   GetSymbolResponses,
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
@@ -280,12 +298,20 @@ import type {
   ListSymbolImageCandidatesData,
   ListSymbolImageCandidatesErrors,
   ListSymbolImageCandidatesResponses,
+  ListSymbolModelActivationsData,
+  ListSymbolModelActivationsErrors,
+  ListSymbolModelActivationsResponses,
+  ListSymbolModelIterationsData,
+  ListSymbolModelIterationsErrors,
+  ListSymbolModelIterationsResponses,
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
+  ListWorkerLanesData,
+  ListWorkerLanesResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
@@ -295,6 +321,12 @@ import type {
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
+  PreviewSymbolModelActivationData,
+  PreviewSymbolModelActivationErrors,
+  PreviewSymbolModelActivationResponses,
+  PreviewVerifiedTrainingCohortData,
+  PreviewVerifiedTrainingCohortErrors,
+  PreviewVerifiedTrainingCohortResponses,
   PublishDatasetVersionData,
   PublishDatasetVersionErrors,
   PublishDatasetVersionResponses,
@@ -331,6 +363,9 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  RollbackSymbolModelData,
+  RollbackSymbolModelErrors,
+  RollbackSymbolModelResponses,
   SelectImageSequenceSourceData,
   SelectImageSequenceSourceErrors,
   SelectImageSequenceSourceResponses,
@@ -655,6 +690,22 @@ export const previewGameLayoutDataReset = <
   });
 
 /**
+ * Read model and verified-data readiness for one game
+ */
+export const getModelQuality = <ThrowOnError extends boolean = false>(
+  options: Options<GetModelQualityData, ThrowOnError>,
+): RequestResult<
+  GetModelQualityResponses,
+  GetModelQualityErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetModelQualityResponses,
+    GetModelQualityErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/model-quality', ...options });
+
+/**
  * List game rules versions
  */
 export const listRulesVersions = <ThrowOnError extends boolean = false>(
@@ -751,6 +802,158 @@ export const resolveSymbolBootstrap = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Iterations
+ */
+export const listSymbolModelIterations = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolModelIterationsData, ThrowOnError>,
+): RequestResult<
+  ListSymbolModelIterationsResponses,
+  ListSymbolModelIterationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolModelIterationsResponses,
+    ListSymbolModelIterationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations',
+    ...options,
+  });
+
+/**
+ * Create Training
+ */
+export const createSymbolTraining = <ThrowOnError extends boolean = false>(
+  options: Options<CreateSymbolTrainingData, ThrowOnError>,
+): RequestResult<
+  CreateSymbolTrainingResponses,
+  CreateSymbolTrainingErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSymbolTrainingResponses,
+    CreateSymbolTrainingErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Activations
+ */
+export const listSymbolModelActivations = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSymbolModelActivationsData, ThrowOnError>,
+): RequestResult<
+  ListSymbolModelActivationsResponses,
+  ListSymbolModelActivationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolModelActivationsResponses,
+    ListSymbolModelActivationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations',
+    ...options,
+  });
+
+/**
+ * Get Iteration
+ */
+export const getSymbolModelIteration = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolModelIterationData, ThrowOnError>,
+): RequestResult<
+  GetSymbolModelIterationResponses,
+  GetSymbolModelIterationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolModelIterationResponses,
+    GetSymbolModelIterationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}',
+    ...options,
+  });
+
+/**
+ * Activate
+ */
+export const activateSymbolModel = <ThrowOnError extends boolean = false>(
+  options: Options<ActivateSymbolModelData, ThrowOnError>,
+): RequestResult<
+  ActivateSymbolModelResponses,
+  ActivateSymbolModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ActivateSymbolModelResponses,
+    ActivateSymbolModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Activation
+ */
+export const previewSymbolModelActivation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewSymbolModelActivationData, ThrowOnError>,
+): RequestResult<
+  PreviewSymbolModelActivationResponses,
+  PreviewSymbolModelActivationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewSymbolModelActivationResponses,
+    PreviewSymbolModelActivationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activation-preview',
+    ...options,
+  });
+
+/**
+ * Rollback
+ */
+export const rollbackSymbolModel = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackSymbolModelData, ThrowOnError>,
+): RequestResult<
+  RollbackSymbolModelResponses,
+  RollbackSymbolModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RollbackSymbolModelResponses,
+    RollbackSymbolModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/rollback',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -920,6 +1123,53 @@ export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image/asset',
+    ...options,
+  });
+
+/**
+ * Freeze an immutable cumulative human-verified training cohort
+ */
+export const freezeVerifiedTrainingCohort = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<FreezeVerifiedTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  FreezeVerifiedTrainingCohortResponses,
+  FreezeVerifiedTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeVerifiedTrainingCohortResponses,
+    FreezeVerifiedTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/verified-training-cohorts',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview the cumulative human-verified training cohort
+ */
+export const previewVerifiedTrainingCohort = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewVerifiedTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  PreviewVerifiedTrainingCohortResponses,
+  PreviewVerifiedTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewVerifiedTrainingCohortResponses,
+    PreviewVerifiedTrainingCohortErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/verified-training-cohorts/preview',
     ...options,
   });
 
@@ -1687,6 +1937,27 @@ export const getManualImageSelectionFile = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-files/{candidate_id}',
+    ...options,
+  });
+
+/**
+ * Read one selected JPEG as soon as its group is finalized
+ */
+export const getImageSelectionSelectedGroupFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSelectionSelectedGroupFileData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionSelectedGroupFileResponses,
+  GetImageSelectionSelectedGroupFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionSelectedGroupFileResponses,
+    GetImageSelectionSelectedGroupFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/selected-file',
     ...options,
   });
 
@@ -2786,6 +3057,18 @@ export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * List health and resource budgets for local worker lanes
+ */
+export const listWorkerLanes = <ThrowOnError extends boolean = false>(
+  options?: Options<ListWorkerLanesData, ThrowOnError>,
+): RequestResult<ListWorkerLanesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListWorkerLanesResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/worker-lanes', ...options });
 
 /**
  * Get API health

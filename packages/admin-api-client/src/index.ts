@@ -1,5 +1,6 @@
 import { createClient as createGeneratedClient } from './generated/client';
 import {
+  activateSymbolModel as activateGeneratedSymbolModel,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
@@ -19,6 +20,7 @@ import {
   createImageDiagnosticExport as createGeneratedImageDiagnosticExport,
   createOperationalImageReviewGeometryRevision as createGeneratedOperationalImageReviewGeometryRevision,
   freezeVerifiedImageReviewCohort as freezeGeneratedVerifiedImageReviewCohort,
+  freezeVerifiedTrainingCohort as freezeGeneratedVerifiedTrainingCohort,
   finalizeBrowserImageSelection as finalizeGeneratedBrowserImageSelection,
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
@@ -30,6 +32,7 @@ import {
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createSymbol as createGeneratedSymbol,
+  createSymbolTraining as createGeneratedSymbolTraining,
   deleteMobileRelease as deleteGeneratedMobileRelease,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
@@ -41,6 +44,7 @@ import {
   getImageSelection as getGeneratedImageSelection,
   getImageSelectionOutput as getGeneratedImageSelectionOutput,
   getImageSelectionOutputFile as getGeneratedImageSelectionOutputFile,
+  getImageSelectionSelectedGroupFile as getGeneratedImageSelectionSelectedGroupFile,
   getManualImageSelectionFile as getGeneratedManualImageSelectionFile,
   handoffImageSelection as handoffGeneratedImageSelection,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
@@ -58,15 +62,18 @@ import {
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
   getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
+  getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
   getSymbol as getGeneratedSymbol,
+  getSymbolModelIteration as getGeneratedSymbolModelIteration,
   listGames as listGeneratedGames,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
   listJobs as listGeneratedJobs,
+  listWorkerLanes as listGeneratedWorkerLanes,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
   listMobileReleases as listGeneratedMobileReleases,
   listOperationalImageReviewItems as listGeneratedOperationalImageReviewItems,
@@ -84,7 +91,11 @@ import {
   listReviewResolutions as listGeneratedReviewResolutions,
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
+  listSymbolModelIterations as listGeneratedSymbolModelIterations,
+  listSymbolModelActivations as listGeneratedSymbolModelActivations,
   publishRulesVersion as publishGeneratedRulesVersion,
+  previewVerifiedTrainingCohort as previewGeneratedVerifiedTrainingCohort,
+  previewSymbolModelActivation as previewGeneratedSymbolModelActivation,
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
@@ -92,6 +103,7 @@ import {
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  rollbackSymbolModel as rollbackGeneratedSymbolModel,
   rerunImageSelection as rerunGeneratedImageSelection,
   resetGameLayoutData as resetGeneratedGameLayoutData,
   retryImageJobFile as retryGeneratedImageJobFile,
@@ -118,6 +130,7 @@ import {
 import type {
   BrowserImageSelectionCreate,
   CreateJobData,
+  CreateSymbolTrainingCommand,
   CleanupCommandRequest,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
@@ -136,6 +149,7 @@ import type {
   OperationalImageReviewGeometryCommand,
   OperationalImageReviewGeometryPreviewCommand,
   VerifiedCohortFreezeCommand,
+  VerifiedTrainingCohortFreezeCommand,
   GameCreate,
   GameUpdate,
   PaylineCreate,
@@ -157,6 +171,9 @@ import type {
   SymbolBootstrapStartCommand,
   SymbolImageSelectionCommand,
   SymbolUpdate,
+  SymbolModelActivationAction,
+  SymbolModelActivationCommand,
+  WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
 export type {
@@ -246,6 +263,8 @@ export type {
   MobileReleaseResponse,
   MobileReleaseSnapshotResponse,
   MobileReleaseStatus,
+  ModelQualityAdvisoryThresholdResponse,
+  ModelQualityResponse,
   OperationalImageReviewAlternativeResponse,
   OperationalImageReviewCellResponse,
   OperationalImageReviewCountsResponse,
@@ -264,6 +283,19 @@ export type {
   VerifiedCohortExportResponse,
   VerifiedCohortFreezeCommand,
   VerifiedCohortFreezeResponse,
+  VerifiedTrainingCohortFreezeCommand,
+  VerifiedTrainingCohortFreezeResponse,
+  VerifiedTrainingCohortPreviewResponse,
+  VerifiedTrainingCohortResponse,
+  CreateSymbolTrainingCommand,
+  CreateSymbolTrainingResponse,
+  SymbolModelIterationResponse,
+  SymbolModelActivationAction,
+  SymbolModelActivationCommand,
+  SymbolModelActivationCommandResponse,
+  SymbolModelActivationPreviewResponse,
+  SymbolModelActivationResponse,
+  SymbolTrainingCoverageResponse,
   PaylineCreate,
   PaylineResponse,
   PaylineUpdate,
@@ -315,6 +347,7 @@ export type {
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
+  WorkerLaneStatusResponse,
   SnapshotJobCreate,
   SnapshotJobPayload,
   ValidateJobCreate,
@@ -483,6 +516,11 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         path: { file_name: fileName, run_id: runId },
       }),
+    getImageSelectionSelectedGroupFile: (runId: string, groupId: string) =>
+      getGeneratedImageSelectionSelectedGroupFile({
+        client,
+        path: { group_id: groupId, run_id: runId },
+      }),
     handoffImageSelection: (runId: string) =>
       handoffGeneratedImageSelection({
         client,
@@ -593,6 +631,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(filters.limit === undefined ? {} : { limit: filters.limit }),
         },
       }),
+    listWorkerLanes: () => listGeneratedWorkerLanes({ client }),
     getJob: (jobId: string) =>
       getGeneratedJob({ client, path: { job_id: jobId } }),
     cancelJob: (jobId: string) =>
@@ -754,6 +793,105 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         query: context,
+      }),
+    getModelQuality: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      getGeneratedModelQuality({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewVerifiedTrainingCohort: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedVerifiedTrainingCohort({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    freezeVerifiedTrainingCohort: (
+      gameId: string,
+      body: VerifiedTrainingCohortFreezeCommand,
+    ) =>
+      freezeGeneratedVerifiedTrainingCohort({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`verified-training-cohort:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    createSymbolTraining: (gameId: string, body: CreateSymbolTrainingCommand) =>
+      createGeneratedSymbolTraining({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-model-iteration:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    listSymbolModelIterations: (
+      gameId: string,
+      options: { readonly limit?: number; readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedSymbolModelIterations({
+        client,
+        path: { game_id: gameId },
+        query: { limit: options.limit ?? 50 },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    getSymbolModelIteration: (
+      gameId: string,
+      iterationId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      getGeneratedSymbolModelIteration({
+        client,
+        path: { game_id: gameId, iteration_id: iterationId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    listSymbolModelActivations: (
+      gameId: string,
+      options: { readonly limit?: number; readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedSymbolModelActivations({
+        client,
+        path: { game_id: gameId },
+        query: { limit: options.limit ?? 50 },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewSymbolModelActivation: (
+      gameId: string,
+      iterationId: string,
+      action: SymbolModelActivationAction,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedSymbolModelActivation({
+        client,
+        path: { game_id: gameId, iteration_id: iterationId },
+        query: { action },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    activateSymbolModel: (
+      gameId: string,
+      iterationId: string,
+      body: SymbolModelActivationCommand,
+    ) =>
+      activateGeneratedSymbolModel({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-model-activation:${gameId}`),
+        path: { game_id: gameId, iteration_id: iterationId },
+      }),
+    rollbackSymbolModel: (
+      gameId: string,
+      iterationId: string,
+      body: SymbolModelActivationCommand,
+    ) =>
+      rollbackGeneratedSymbolModel({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-model-rollback:${gameId}`),
+        path: { game_id: gameId, iteration_id: iterationId },
       }),
     getOperationalImageReviewItem: (
       reviewItemId: string,

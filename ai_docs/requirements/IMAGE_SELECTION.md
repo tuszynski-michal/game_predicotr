@@ -191,7 +191,11 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 
 ## Wydajność i bramka jakości
 
-- Nowe runy po realizacji TASK-0165–0171 używają `fast-image-selector-v9`.
+- Nowe runy od aktywacji 2026-08-05 używają `fast-image-selector-v9` o
+  fingerprintcie
+  `eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb`.
+  Istniejące runy zachowują zapisany fingerprint v2–v8 i są wznawiane przez
+  odpowiadający mu niezmienny manifest.
 - Lekki skan dekoduje JPEG bezpośrednio w zmniejszonej rozdzielczości i nie
   uruchamia geometrii ani OCR.
 - Granica serii jest oceniana z wyglądu kolejnych obserwacji oraz bounded
@@ -210,6 +214,12 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 - Najwyżej jeden job selekcji działa jednocześnie. Jego lane jest niezależny od
   pojedynczego lane ogólnych jobów; rozdzielenie usuwa blokowanie kolejki, ale
   nie gwarantuje braku konkurencji o CPU, RAM i dysk.
+- Workspace `Joby` pokazuje niezależnie stan procesu general i selekcji także
+  przy pustych kolejkach. Status wynika z trwałego heartbeat procesu, nie z
+  obecności joba, i rozróżnia `działa`, `brak świeżego sygnału` oraz
+  `zatrzymany`.
+- Supervisor nadaje obu procesom jawne budżety wątków. W 0.4 są to limity
+  współbieżności bibliotek i prefetch, a nie gwarancja dokładnego procentu CPU.
 - Produkcyjny worker może równolegle obliczać bounded okno lekkich obserwacji,
   ale wyniki są konsumowane dokładnie według naturalnego `order_index`.
   Liczba scan workers oraz wewnętrznych wątków OpenCV wynika z benchmarku i nie
@@ -250,3 +260,55 @@ wznowienie nie dotyczy joba `failed`; taki błąd nadal wymaga jawnej decyzji.
 - wymaganie ciągłości zakresów pomiędzy grupami,
 - Redis, Celery, usługa chmurowa lub osobny mikroserwis,
 - automatyczne rozpoczęcie pełnego importu bez decyzji użytkownika.
+
+## Korekta jakościowa v10 — 2026-08-08
+
+Poniższe reguły zastępują sprzeczne założenia v9 dotyczące pierwszego
+„wystarczającego” zdjęcia i zerowego OCR:
+
+- selekcja nadal nie rozpoznaje symboli i nie tworzy cropów komórek; te prace
+  należą do późniejszego `Importu layoutów`,
+- każde zdjęcie grupy otrzymuje lekki scoring, a maksymalnie 12 najlepszych
+  kandydatów przechodzi dokładną ocenę pełnej rozdzielczości,
+- wybór następuje dopiero po przejrzeniu całej grupy; early exit po pierwszym
+  akceptowalnym zdjęciu jest zabroniony,
+- jakość i poprawność numeru mają pierwszeństwo przed czasem wykonania,
+- przed startem użytkownik wybiera katalog wejściowy, katalog wynikowy,
+  kierunek `rosnąco | malejąco` oraz opcjonalny pierwszy numer,
+- bez numeru początkowego pierwszy zakres jest rozpoznawany automatycznie; po
+  ustaleniu kotwicy kolejne zakresy wynikają z porządku bez luk,
+- zdjęcia pozostają w naturalnym porządku folderu także dla kierunku malejącego;
+  odwracana jest wyłącznie interpretacja numerów,
+- każdy zatwierdzony automatycznie wynik jest zapisywany do wybranego katalogu
+  podczas trwania runu, a nie dopiero po jego końcu,
+- nazwa pliku ma historyczny format `seq_<od>-<do>.jpg`, np.
+  `seq_1-9.jpg`; zakres w nazwie zawsze jest kanonicznie rosnący,
+- istniejący plik o innej zawartości nie może zostać nadpisany,
+- pomiar 500/5000 jest poglądowy. Odbiór jakości i czasu wykonuje właściciel
+  ręcznie najpierw na około 5000, a następnie około 32 000 zdjęć. Czas 3–5 razy
+  dłuższy od v9 jest dopuszczalny, jeżeli jakość wyboru jest wyższa.
+
+## Korekta wydajnościowa v10.1 — 2026-08-08
+
+Profil pierwszych 200 rzeczywistych zdjęć wykazał, że pełny scoring grupy jest
+tani, natomiast 99 pełnych weryfikacji uruchomiło 792 batche i 7128 cropów OCR.
+Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
+
+- każde zdjęcie nadal przechodzi lekki scoring, a top-12 pozostaje bounded
+  shortlistą całej zakończonej grupy,
+- jakość reprezentanta jest rozstrzygana niezależnie od źródła dowodu numeru;
+  zdjęcie z najlepszymi planszami nie musi być klatką, z której odczytano zakres,
+- pełna geometria ma poprzedzać OCR i umożliwiać szybki odczyt trzech kotwic,
+- OCR kandydatów działa adaptacyjnie: potwierdza zakres na małej liczbie
+  najlepszych klatek i rozszerza pracę do top-12 wyłącznie przy braku pewności
+  albo konflikcie,
+- fallback widocznych etykiet działa progresywnie `18 -> 36 -> 72`; trudny
+  przypadek zachowuje obecną pełną ścieżkę,
+- rozpoznany zakres nie może być zastępowany przewidywanym kolejnym zakresem.
+  Skok, np. `19–27 -> 400–408`, jest poprawny i musi pozostać rozpoznany,
+- `first_sequence_number` może kotwiczyć pierwszy ekran, ale nie narzuca
+  ciągłości dalszych grup,
+- pierwsza bramka zakłada skrócenie czasu o 60–70% bez pogorszenia jakości.
+  Dalszy cel 70–85% jest dopuszczalny dopiero po porównaniu reprezentantów,
+- pomiar na tych samych pierwszych 200 zdjęciach poprzedza manualny run 5000 i
+  32 000. Trudne grupy mogą nadal użyć pełnego kosztu v10.

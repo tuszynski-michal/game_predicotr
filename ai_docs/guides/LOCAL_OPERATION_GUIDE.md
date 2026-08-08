@@ -164,8 +164,8 @@ komenda uruchamia oba procesy w kontrolowanym tle i natychmiast zwraca terminal:
 npm run workers:start
 ```
 
-Ponowne wywołanie nie tworzy duplikatów. Status zawiera PID, czas startu oraz
-osobne ścieżki logów każdego lane:
+Ponowne wywołanie nie tworzy duplikatów. Status konsoli zawiera PID, czas
+startu, budżet wątków oraz osobne ścieżki logów każdego lane:
 
 ```powershell
 npm run workers:status
@@ -175,6 +175,22 @@ Oba procesy korzystają z tego samego API, PostgreSQL i panelu Admin, ale nie
 blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
 równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
 niż wtedy, gdy jest jedynym obciążeniem komputera.
+
+Domyślny budżet wynosi 2 wątki dla general i 4 dla Selekcji. Można go zmienić
+przy starcie, nadal w zakresie 1–64:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 4
+```
+
+Nie przekazuj tych parametrów przez `npm run workers:start -- ...`: npm na
+Windows może usunąć nazwy argumentów i PowerShell zwiąże wartość `2` z
+parametrem `Lane`. Zwykłe `npm run workers:start` zawsze stosuje domyślne
+budżety `2/4`.
+
+Workspace `Joby` pokazuje oba procesy niezależnie jako `Działa`, `Brak świeżego
+sygnału` albo `Zatrzymany`, również gdy nie ma żadnego joba w kolejce. Status
+nie zastępuje postępu konkretnego joba.
 
 Kontrolowane zatrzymanie obu procesów:
 
@@ -215,6 +231,65 @@ npm run worker:image-selection:once
 Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawny
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
+
+### Uruchomienie pełnego runu 40 000 zdjęć na selektorze v9
+
+Nowe runy używają `fast-image-selector-v9`. Po aktualizacji kodu zatrzymaj
+procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
+zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
+
+```powershell
+cd C:\Users\user\Documents\game_predicotr
+npm run workers:stop
+npm run db:up
+npm run db:migrate
+npm run workers:start
+npm run workers:status
+```
+
+Komenda `workers:stop` może zgłosić, że nic nie działa — na świeżym starcie jest
+to poprawne. Sprawdź aktywny manifest:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST as m; print(m.algorithm_version); print(m.fingerprint)"
+```
+
+Oczekiwany wynik:
+
+```text
+fast-image-selector-v9
+eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb
+```
+
+Pozostaw pierwszy terminal dla API:
+
+```powershell
+npm run api:dev
+```
+
+W drugim PowerShell uruchom Admin:
+
+```powershell
+cd C:\Users\user\Documents\game_predicotr
+npm run admin:dev
+```
+
+Następnie otwórz `http://127.0.0.1:3000/`, wybierz grę i workspace
+`Selekcja zdjęć`. Wskaż folder zawierający dokładnie 40 000 naturalnie
+uporządkowanych JPEG-ów, poczekaj na zakończenie uploadu i uruchom selekcję.
+Nie uruchamiaj w tym samym czasie Importu layoutów, jeżeli ten przebieg ma być
+miarodajnym pomiarem v9. Postęp i stan procesu obserwuj w workspace `Joby` albo
+przez:
+
+```powershell
+npm run workers:status
+```
+
+Nie zatrzymuj API ani image-selection workera do czasu osiągnięcia przez job
+stanu terminalnego. Po zakończeniu pozostaw run i staging bez zmian — metryki,
+liczbę grup oraz diagnostykę wykorzystamy do zamknięcia TASK-0171. Jeżeli
+musisz przerwać próbę, użyj anulowania konkretnego joba w panelu; nie usuwaj
+folderu uploadu ani bazy.
 
 ### Jak używać panelu Admin
 

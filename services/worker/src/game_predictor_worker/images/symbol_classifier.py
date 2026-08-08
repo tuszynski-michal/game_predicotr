@@ -84,6 +84,7 @@ class PreparedTrainingData:
     train: tuple[ClassifierSample, ...]
     validation: tuple[ClassifierSample, ...]
     test: tuple[ClassifierSample, ...]
+    regression: tuple[ClassifierSample, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

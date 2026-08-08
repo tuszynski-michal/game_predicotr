@@ -19,6 +19,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionManualDecision,
     ImageSelectionManualResolution,
     ImageSelectionRun,
+    ImageSelectionSequenceDirection,
 )
 from game_predictor_api.domain.jobs import Job
 from game_predictor_api.storage.job_repository import (
@@ -55,6 +56,8 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         game_id: UUID,
         input_manifest_sha256: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         row = self._session.execute(
             select(ImageSelectionRunModel, JobModel)
@@ -63,6 +66,8 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 ImageSelectionRunModel.game_id == game_id,
                 ImageSelectionRunModel.input_manifest_sha256 == input_manifest_sha256,
                 ImageSelectionRunModel.selector_fingerprint == selector_fingerprint,
+                ImageSelectionRunModel.sequence_direction == sequence_direction.value,
+                ImageSelectionRunModel.first_sequence_number == (first_sequence_number or 0),
             )
         ).one_or_none()
         return None if row is None else _run_from_records(*row)
@@ -76,6 +81,8 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             input_manifest_sha256=run.input_manifest_sha256,
             selector_fingerprint=run.selector_fingerprint,
             ordering_policy=run.ordering_policy,
+            sequence_direction=run.sequence_direction.value,
+            first_sequence_number=run.first_sequence_number or 0,
             contract_version=run.contract_version,
             output_manifest_sha256=run.output_manifest_sha256,
             output_manifest_relative_path=run.output_manifest_relative_path,
@@ -96,6 +103,8 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 game_id=run.game_id,
                 input_manifest_sha256=run.input_manifest_sha256,
                 selector_fingerprint=run.selector_fingerprint,
+                sequence_direction=run.sequence_direction,
+                first_sequence_number=run.first_sequence_number,
             )
             if existing is not None:
                 return existing, False
@@ -423,6 +432,8 @@ def _run_from_records(
         output_manifest_relative_path=record.output_manifest_relative_path,
         created_at=record.created_at,
         updated_at=record.updated_at,
+        sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
+        first_sequence_number=record.first_sequence_number or None,
     )
 
 

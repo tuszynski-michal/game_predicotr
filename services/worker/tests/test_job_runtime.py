@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from time import sleep
 from uuid import UUID, uuid4
 
 from game_predictor_api.domain.jobs import (
@@ -217,6 +218,29 @@ class MemoryWorkerJobStore:
         return updated
 
 
+class CountingHeartbeatJobStore(MemoryWorkerJobStore):
+    def __init__(self, jobs: list[Job]) -> None:
+        super().__init__(jobs)
+        self.heartbeat_count = 0
+
+    def heartbeat(
+        self,
+        job_id: UUID,
+        *,
+        lease_token: UUID,
+        lease_duration: timedelta,
+        heartbeat_at: datetime,
+    ) -> Job:
+        updated = super().heartbeat(
+            job_id,
+            lease_token=lease_token,
+            lease_duration=lease_duration,
+            heartbeat_at=heartbeat_at,
+        )
+        self.heartbeat_count += 1
+        return updated
+
+
 def _job(
     clock: MutableClock,
     *,
@@ -277,6 +301,37 @@ def test_worker_claims_oldest_checkpoints_and_completes() -> None:
     }
     assert store.jobs[first.id].execution_slot is None
     assert store.jobs[second.id].status is JobStatus.CREATED
+
+
+def test_worker_keeps_lease_alive_while_handler_runs_without_checkpoints() -> None:
+    created_at = datetime.now(UTC)
+    source_job = create_job(
+        JobType.VALIDATE,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 1,
+            "dataset_version_id": str(uuid4()),
+        },
+        created_at=created_at,
+    )
+    store = CountingHeartbeatJobStore([source_job])
+
+    def slow_handler(_context: JobExecutionContext, _job: Job) -> None:
+        sleep(0.45)
+
+    worker = LocalJobWorker(
+        store,
+        {JobType.VALIDATE: slow_handler},
+        worker_id="worker-test",
+        worker_version="worker-v1",
+        lease_duration=timedelta(milliseconds=150),
+    )
+
+    assert worker.run_once() is JobExecutionResult.COMPLETED
+    completed = store.jobs[source_job.id]
+    assert completed.status is JobStatus.COMPLETED
+    assert completed.attempt_count == 1
+    assert store.heartbeat_count >= 2
 
 
 def test_cancel_request_stops_handler_at_safe_checkpoint() -> None:

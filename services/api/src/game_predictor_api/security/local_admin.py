@@ -114,6 +114,20 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ),
     (
         "POST",
+        "/api/v1/admin/games/{game_id}/verified-training-cohorts",
+    ): HighImpactOperation(
+        "freeze-verified-training-cohort",
+        "verified-training-cohort:{game_id}",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/symbol-model-iterations",
+    ): HighImpactOperation(
+        "create-symbol-training",
+        "symbol-model-iteration:{game_id}",
+    ),
+    (
+        "POST",
         "/api/v1/admin/reviewer-sessions/{session_id}/revoke",
     ): HighImpactOperation("revoke-reviewer-session", "reviewer-session:{session_id}"),
 }

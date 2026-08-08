@@ -26,11 +26,17 @@ from .contracts import (
     ImageQualityMetrics,
     ImageSelectionResult,
     ImageSelectionSource,
+    RangeEvidence,
+    RepresentativeAssessment,
     SelectionGroupStatus,
     SequenceRange,
 )
 from .engine import FastImageSelector
-from .manifest import DEFAULT_SELECTOR_MANIFEST, SelectorManifest
+from .manifest import (
+    ACCURACY_FIRST_SELECTOR_VERSIONS,
+    DEFAULT_SELECTOR_MANIFEST,
+    SelectorManifest,
+)
 from .telemetry import StageTimingCollector
 
 BENCHMARK_CONTRACT = "image-selection-scale-benchmark-v1"
@@ -326,6 +332,47 @@ def build_group_annotations(
     return tuple(groups)
 
 
+def build_accuracy_first_group_annotations(
+    profile: BenchmarkProfile,
+    annotations: ScaleAnnotations,
+) -> tuple[GroupAnnotation, ...]:
+    """Build the strict, gap-free sequence contract used by selector v10.
+
+    The historical scale fixture intentionally injected jumps, duplicate ranges,
+    and manual-only groups. Those cases belong to the older OCR-led selector and
+    contradict the v10 input contract where ordered folders advance one page at
+    a time and even a weak group retains its best available representative.
+    """
+
+    groups: list[GroupAnnotation] = []
+    next_sequence = 1
+    for group_order in range(profile.group_count):
+        first_index = group_order * profile.group_size
+        source_count = min(profile.group_size, profile.input_count - first_index)
+        board_count = (
+            annotations.final_page_board_count
+            if group_order == profile.group_count - 1
+            else annotations.page_size
+        )
+        start = next_sequence
+        end = start + board_count - 1
+        groups.append(
+            GroupAnnotation(
+                group_order=group_order,
+                first_order_index=first_index,
+                source_count=source_count,
+                range_start=start,
+                range_end=end,
+                board_count=board_count,
+                manual_required=False,
+                duplicate_of_group_order=None,
+                fingerprint_hex=hashlib.sha256(f"range:{start}:{end}".encode("ascii")).hexdigest(),
+            )
+        )
+        next_sequence = end + 1
+    return tuple(groups)
+
+
 def _quality(label: str, *, force_manual: bool) -> ImageQualityMetrics:
     if force_manual:
         label = "occluded"
@@ -387,6 +434,7 @@ class InstrumentedScaleAnalyzer:
             geometry_confidence=0.95,
             quality=_quality(label, force_manual=group.manual_required),
             reason_codes=(),
+            appearance_signature=measured.appearance_signature,
         )
 
 
@@ -417,21 +465,42 @@ class InstrumentedRangeVerifier:
         label = self._analyzer.label_for(observation.source.order_index)
         safe = label in self._annotations.expected_automatic_labels and not group.manual_required
         return CandidateVerification(
-            recognized_range=SequenceRange(
-                start=group.range_start,
-                end=group.range_end,
-                confidence=0.98,
+            representative=RepresentativeAssessment(
+                board_count=expected_board_count,
+                geometry_complete=safe,
+                full_frame_visible=safe,
+                reason_codes=() if safe else (f"BENCHMARK_{label.upper()}",),
             ),
-            board_count=expected_board_count,
-            geometry_complete=safe,
-            full_frame_visible=safe,
-            reason_codes=() if safe else (f"BENCHMARK_{label.upper()}",),
+            range_evidence=RangeEvidence(
+                recognized_range=SequenceRange(
+                    start=group.range_start,
+                    end=group.range_end,
+                    confidence=0.98,
+                ),
+            ),
         )
 
 
 def _write_template(path: Path, seed: int) -> str:
-    image = Image.new("RGB", (960, 720), (16, 20, 30))
+    background = (
+        12 + (seed * 29) % 48,
+        16 + (seed * 43) % 48,
+        24 + (seed * 61) % 48,
+    )
+    image = Image.new("RGB", (960, 720), background)
     draw = ImageDraw.Draw(image)
+    # Keep every synthetic screen visually stable inside its group while making
+    # adjacent groups meaningfully different to the production appearance
+    # descriptor. The previous fixture hard-linked one image for the entire run,
+    # which made an appearance-based selector correctly see one giant group.
+    for band in range(6):
+        x0 = 96 + band * 128
+        color = (
+            35 + (seed * 17 + band * 31) % 190,
+            35 + (seed * 37 + band * 47) % 190,
+            35 + (seed * 59 + band * 19) % 190,
+        )
+        draw.rectangle((x0, 170, x0 + 88, 570), fill=color)
     for index in range(36):
         x = 24 + (index * 73 + seed * 11) % 880
         y = 24 + (index * 47 + seed * 7) % 640
@@ -453,9 +522,7 @@ def stage_fixture(
 ) -> tuple[Path, tuple[ImageSelectionSource, ...], dict[str, object]]:
     source_root = work_root / "source"
     source_root.mkdir(parents=True, exist_ok=False)
-    template = work_root / "template-0000.jpg"
-    checksum = _write_template(template, annotations.seed)
-    size_bytes = template.stat().st_size
+    templates: dict[int, tuple[Path, str, int]] = {}
     sources: list[ImageSelectionSource] = []
     link_mode = "hardlink"
     started_at = perf_counter()
@@ -464,12 +531,16 @@ def stage_fixture(
             deadline.check("fixture staging")
         file_name = f"{index + 1:08d}.jpg"
         target = source_root / file_name
-        shard_index = index // 900
-        shard = work_root / f"template-{shard_index:04d}.jpg"
-        if shard_index > 0 and index % 900 == 0:
-            shutil.copyfile(template, shard)
+        group_order = index // profile.group_size
+        template_entry = templates.get(group_order)
+        if template_entry is None:
+            template = work_root / f"template-{group_order:04d}.jpg"
+            checksum = _write_template(template, annotations.seed + group_order * 997)
+            template_entry = (template, checksum, template.stat().st_size)
+            templates[group_order] = template_entry
+        template, checksum, size_bytes = template_entry
         try:
-            os.link(shard, target)
+            os.link(template, target)
         except OSError:
             link_mode = "copy"
             shutil.copyfile(template, target)
@@ -489,7 +560,7 @@ def stage_fixture(
         tuple(sources),
         {
             "elapsedSeconds": round(elapsed, 6),
-            "inputLogicalBytes": profile.input_count * size_bytes,
+            "inputLogicalBytes": sum(item.size_bytes for item in sources),
             "stagingMode": link_mode,
             "uniquePhysicalFileIds": len(unique_file_ids),
         },
@@ -701,7 +772,11 @@ def run_scale_benchmark(
         deadline,
         stage="pre-run source inventory",
     )
-    groups = build_group_annotations(profile, annotations)
+    groups = (
+        build_accuracy_first_group_annotations(profile, annotations)
+        if DEFAULT_SELECTOR_MANIFEST.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS
+        else build_group_annotations(profile, annotations)
+    )
     telemetry = StageTimingCollector()
     analyzer = InstrumentedScaleAnalyzer(
         source_root,

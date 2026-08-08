@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-05
+last_updated: 2026-08-08
 ---
 
 # Current State
 
 ## Phase
 
-`Version 0.4 in development — TASK-0151–0156, TASK-0165–0170 and TASK-0172–0175 complete; TASK-0157 and TASK-0171 in progress; owner acceptance 0.2/0.3 deferred`
+`Version 0.4 acceptance deferred; M6.6 implementation continued by owner decision; TASK-0143–0146 complete; owner acceptance 0.2/0.3 deferred`
 
 ## Aktywne tory wydań
 
@@ -435,6 +435,23 @@ last_updated: 2026-08-05
   oraz selection lease wygasają i są wznawiane niezależnie z zachowanym
   checkpointem, stare tokeny są odrzucane, a anulowanie general w safe poincie
   nie narusza aktywnej selekcji. Rozszerzona bramka zakończyła się `passed`,
+- TASK-0176 zakończył brakujący pion operacyjny: trwały, tokenowany heartbeat
+  bezczynnych i zajętych procesów, niezależny status obu lane w Adminie oraz
+  jawne budżety wątków `general=2` i `image_selection=4` z wyłączoną
+  nadsubskrypcją bibliotek natywnych. Bounded smoke potwierdził przejście obu
+  lane `running -> stopped` bez osieroconych procesów. Historyczne
+  TASK-0174/0175 zachowują faktyczny wykonany zakres; nie są przepisywane,
+- TASK-0177 zakończył rzeczywistą bramkę równoległych procesów na izolowanej
+  bazie i kontrolowanych fixture. Oba joby były jednocześnie `processing`,
+  cancel/retry general nie zatrzymał selekcji, oba workflow zakończyły się
+  poprawnie, a oba lane przeszły do `stopped` bez osieroconego procesu. Próba
+  `100 obrazów + 10 000 rekordów` trwała `12,219 s`; raport zawiera osobne
+  metryki CPU, RAM i I/O obu drzew procesów oraz decyzję `passed`,
+- właściciel potwierdził dostępność dokładnie 40 000 naturalnych zdjęć i polecił
+  aktywować v9 przed pełnym runem. Nowe runy używają teraz
+  `fast-image-selector-v9` o fingerprintcie `eaca91…4afb`; historyczne v2–v8
+  pozostają wznawialne. Regresja aktywacji przeszła `88 passed`. TASK-0171
+  pozostaje otwarty do wykonania pomiaru i decyzji `accepted | optimize`,
 - TASK-0159 dodał wykonawczy, niewpływający na selector fingerprint bounded
   ordered prefetch taniego skanu. `worker-v7` używał czterech
   wątków i najwyżej ośmiu futures; grupowanie, OCR, checkpoint i output nadal są
@@ -475,6 +492,38 @@ last_updated: 2026-08-05
   selektora 0.4,
 - M6.6 został zaakceptowany jako obowiązkowy tor iteracyjnego ulepszania modelu
   symboli przed pełnym automatycznym importem,
+- na jawne polecenie właściciela TASK-0143 został wykonany przed odroczonym
+  manualnym odbiorem selektora 0.4; nie otwiera to bramki release ani masowego
+  importu 0.5,
+- TASK-0143 dodał skumulowaną, game-scoped kohortę treningową: preview,
+  idempotentne freeze, content-addressed manifest, pozycje wiążące review,
+  źródło, geometrię, pipeline i 15 cropów oraz twardą politykę automatycznych
+  zapisów wyłącznie do aktualnego `pending`,
+- TASK-0144 dodał game-scoped sekcję `Jakość rozpoznawania` w Adminie oraz
+  endpoint `model-quality`. Panel pokazuje brak albo aktywną wersję modelu,
+  pełne i nowe plansze liczone po checksumach względem ostatniej kohorty,
+  źródła, pokrycie każdego aktywnego symbolu, progi doradcze 100/1000,
+  ostrzeżenia oraz wszystkie chronione decyzje człowieka. `Ulepsz
+  rozpoznawanie` wymaga jawnego potwierdzenia dokładnej checksumy preview;
+  zmiana manifestu albo aktywny ciężki job tej gry blokują freeze. Operacja
+  tworzy wyłącznie niezmienną kohortę i nie uruchamia jeszcze treningu,
+- TASK-0145 dodał deterministyczny builder
+  `verified-symbol-training-dataset-v1`. Builder weryfikuje checksumę kohorty,
+  komplet 15 etykiet planszy, aktywny katalog symboli oraz każdy plik cropu;
+  rodziny tego samego źródła trafiają przez stabilny hash wyłącznie do
+  train/validation/test/regression. Artefakty i manifest są content-addressed
+  pod `data/training`, powtórny build jest idempotentny, a raport pokazuje
+  splity, źródła, klasy, wykluczenia i niedoreprezentowanie. Zadanie nie
+  uruchamia jeszcze treningu ani nie zmienia decyzji review,
+- TASK-0146 dodał migrację `0035_symbol_model_training_jobs`, trwały typ joba
+  `symbol_training` i game-scoped iterację modelu. Request HTTP jedynie tworzy
+  idempotentny job; ogólny worker buduje przypięty dataset i trenuje wybrany
+  `spatial-symbol-cnn-v1` od zera. Każda epoka zapisuje content-addressed
+  checkpoint modelu, optimizera, najlepszego stanu, historii i fingerprintu,
+  a heartbeat działa także wewnątrz długiej epoki i kopiowania datasetu.
+  Anulowanie zachowuje ostatni checkpoint, retry odrzuca dryf wejścia, a status
+  `trained` nie aktywuje modelu. Admin uruchamia trening po freeze i pokazuje
+  postęp oraz stabilne błędy w `Joby`,
 - TASK-0143–0150 obejmują skumulowane kohorty per gra, panel jakości,
   source-aware dataset, trwały trening, bramkę ONNX, kontrolowaną aktywację,
   przeliczenie wyłącznie `pending` oraz odbiór dwóch iteracji,
@@ -499,8 +548,10 @@ last_updated: 2026-08-05
 
 ### Robocze
 
-- PostgreSQL ma w repozytorium head
-  `0030_image_selection_optional_exceptions`; migracja pozwala zapisać
+- Repozytorium ma head `0037_symbol_model_registry`; lokalny PostgreSQL pozostaje
+  tymczasowo na `0035_symbol_model_training_jobs`, ponieważ trwa rzeczywisty run
+  selekcji 32 079 zdjęć. Migracje `0036–0037` zostaną zastosowane przy
+  kontrolowanym zatrzymaniu usług przed użyciem rejestru modelu. Migracja `0030` pozwala zapisać
   nierozpoznany `missing_image` bez zakresu. Migracja
   `0029_image_selection_missing_images` dodaje terminalny stan `missing_image`,
   opcjonalny `candidate_id` powiązany z jawnym typem decyzji oraz pozwala
@@ -566,8 +617,9 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
   bramki `massImportAllowed`; rozpoczęte jest przygotowanie rzeczywistych danych
   wejściowych 0.5, a nie automatyczna publikacja 500 000 layoutów,
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
-- TASK-0143–0150 są zaplanowane w M6.6 wersji 0.5; nie rozpoczynają się przed
-  przejściem bramki selektora 0.4 i spełnieniem warunków wejścia M6.6,
+- TASK-0148 jest ukończony; TASK-0149–0150 pozostają zaplanowane w M6.6 wersji
+  0.5. TASK-0143–0148 wykonano wcześniej na jawne polecenie właściciela, bez
+  otwierania pozostałych bramek,
 - TASK-0151–0156 są ukończone. Syntetyczna część TASK-0157 jest zaliczona, ale
   rzeczywiste runy ujawniły fragmentację i koszt pełnego dekodowania, geometrii
   oraz OCR. Decyzja ma status `optimize`. TASK-0165–0171 implementują i mierzą
@@ -576,15 +628,118 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
   ani 0.3,
 - masowy import, nowe gry i pełne benchmarki danych nie mogą wejść do bramki 0.2.
 
+## Kandydat ONNX i bramka regresji (TASK-0147)
+
+TASK-0147 jest ukończony. Migracja `0036_symbol_model_candidate_gate` utrwala
+statusy `evaluating`, `candidate_ready` i `rejected`, konfigurację bramki,
+checksumy manifestu i raportu, metryki oraz powody odrzucenia. Trwały job
+`symbol_training` po checkpointcie `trained` wykonuje eksport ONNX, parity,
+kalibrację, ocenę na test/regression oraz manifest. Artefakty są
+content-addressed i nie zmieniają aktywnego modelu. Admin pokazuje wynik
+ostatniej bramki, a typed client pobiera historię i szczegóły iteracji.
+
 ## Next recommended task
 
-Kontynuować TASK-0171 od końcowej bramki: uzupełnić naturalny korpus z 32 079 do
-dokładnie 40 000 zdjęć, wykonać jeden kontrolowany profil i przedstawić czas,
-throughput, peak RSS oraz jakość właścicielowi do decyzji `accepted | optimize`.
-Krótkie bramki 500 i 3000 są zaliczone. Nie aktywować v9 ani nie uzupełniać
-brakujących 7921 pozycji sztucznymi duplikatami przed tą decyzją.
+Następnym aktywnym pionem wersji 0.4 jest TASK-0194 — powtórny profil pierwszych
+200 zdjęć oraz decyzja jakościowo-wydajnościowa przed runem 5000/32 000.
+TASK-0149 pozostaje
+następnym małym pionem M6.6 po zamknięciu bieżącej stabilizacji selektora.
+Manualny odbiór TASK-0186 nadal jest bramką wersji 0.4, ale rozpocznie się
+dopiero po TASK-0188–0194.
+
+TASK-0178 implementuje accuracy-first `fast-image-selector-v10`. Kod domeny,
+migracja `0033_image_selection_sequence_order`, shortlistowanie top-12,
+konsensus OCR, porządek rosnący/malejący, historyczne nazwy `seq_*` oraz
+progresywny zapis są w repozytorium. Migracja lokalnego PostgreSQL do 0033
+przeszła 2026-08-08.
+
+TASK-0185 został domknięty: regresje, typecheck, OpenAPI i migracja przeszły.
+Poglądowy smoke v10 na 240 zdjęciach rozpoznał 12/12 grup bez false merge/split
+w 30,252698 s. Jest to około 4,95 raza dłużej od zachowanego historycznego
+smoke 6,110191 s i mieści się na górnej granicy dopuszczonego kosztu. Raport:
+`ai_docs/quality/image-selection-v10-smoke-report.json`.
+
+Planowany wcześniej bezpośredni krok TASK-0186 został przesunięty za
+TASK-0188–0194. Najpierw obowiązuje powtórny profil tych samych 200 zdjęć;
+dopiero po jego ocenie właściciel odbiera około 5000, a następnie 32 000 zdjęć.
 Nie otwierać automatycznej publikacji 500 000 layoutów bez bramki
-`massImportAllowed`. Odbiory Admina 0.2 i Mobile 0.3 pozostają niezależne.
+`massImportAllowed`.
+
+TASK-0187 usunął pętlę utraty lease ujawnioną przez realny run 32 079 zdjęć.
+Wspólny runtime odnawia lease niezależnie od checkpointów, monitoring czyta
+zagnieżdżony kontrakt `progress`, a regresje workera i selektora przeszły.
+Po restarcie wyłącznie lane `image-selection` ten sam job wznowił się z
+checkpointu i zwiększył postęp z 96 do co najmniej 160 bez ponownego uploadu.
+
+Na polecenie właściciela ten rzeczywisty job został następnie anulowany na
+checkpointcie 704/32 079; staging 32 079 zdjęć pozostał nienaruszony. Izolowany
+profil pierwszych 200 zdjęć, bez cache, publikacji i zapisu domenowego, trwał
+377,530649 s i rozpoznał 9 grup bez błędu skanu. Mediana wyniosła 45,519357 s
+na grupę, a osiem pełniejszych grup domykało się w 44,1–47,7 s. OCR zużył
+291,673863 s i jest dominującym kosztem. Raport:
+`artifacts/image-selection-v10-first-200-timing.json`. Profil nie jest odbiorem
+5000/32 000 i nie zamyka TASK-0186.
+
+Właściciel zaakceptował plan v10.1: zachować pełny lekki scoring grupy, ale
+oddzielić wybór reprezentanta od OCR numeru, uruchamiać szybkie kotwice,
+adaptacyjny konsensus `2 -> 4 -> 8 -> 12` oraz progresywny fallback
+`18 -> 36 -> 72`. Pierwszym celem jest 60–70% krótszy czas bez pogorszenia
+jakości. Plan TASK-0188–0194 jest zapisany; implementacja rozpoczyna się od
+TASK-0189. Pełny run 5000/32 000 pozostaje wstrzymany do profilu 200.
+
+TASK-0188 jest ukończony. Nowe runy używają osobnego manifestu
+`fast-image-selector-v10.1`; historyczny fingerprint v10 pozostaje
+rozwiązywalny i zachowuje wcześniejsze zachowanie. W v10.1 kotwica pierwszego
+numeru dotyczy wyłącznie pierwszej grupy, a dalsze zakresy pochodzą z dowodu OCR,
+więc skok `19–27 -> 400–408` nie jest zastępowany cursorem. Konflikt kotwicy
+lub OCR trafia do `manual_required` z `RANGE_CONFLICT`. Ruff, zawężony mypy,
+95 testów obszaru selekcji i 28 testów API przeszły; nie wykonywano jeszcze
+profilu 200.
+
+TASK-0189 jest ukończony. Wewnętrzny wynik pełnej weryfikacji rozdziela teraz
+`RepresentativeAssessment` od `RangeEvidence`. V10.1 nie uznaje skutecznego
+fallbacku OCR za dowód kompletnej geometrii, a ranking reprezentanta nie zależy
+od confidence ani dostępności numeru na tym samym JPEG-u. Najlepszy pełny kadr
+może użyć zakresu z innej klatki; kadr przycięty nie wygrywa tylko dlatego, że
+ma czytelną etykietę. Publiczne API i baza nie zmieniły się. Ruff, mypy oraz 108
+testów obszaru przeszły; profil 200 pozostaje zadaniem późniejszej bramki.
+
+TASK-0190 jest ukończony. Manifest v10.1 ma fingerprintowaną politykę pełnej
+geometrii `1–9`, confidence co najmniej `0.64`. Stabilna pełna detekcja może
+ustalić lokalny `board_count` mimo `None` z appearance scan, uruchomić jeden
+batch OCR pierwszej, środkowej i ostatniej etykiety oraz pominąć fallback po
+sukcesie. Konflikt lub brak kotwic nadal uruchamia fallback. Telemetria rozdziela
+liczniki `anchoredOcr*` i `fallbackOcr*`; poprzedni fingerprint v10.1 pozostaje
+rozwiązywalny. Ruff, mypy, 111 testów workera i 28 testów API przeszły. Profil
+200 nie był jeszcze wykonywany.
+
+TASK-0191 jest ukończony. Fingerprintowana polityka konsensusu wykonuje OCR na
+poziomach `2 -> 4 -> 8 -> 12` i kończy zbieranie zakresu po dwóch zgodnych
+odczytach wysokiej pewności. Pozostałe klatki top-12 nadal przechodzą ocenę
+reprezentanta bez OCR. Brak wyniku rozszerza kolejny poziom, a konflikt wymusza
+całą shortlistę. Telemetria zapisuje liczbę dowodów, liczbę kandydatów i powód
+zatrzymania. Poprzednie fingerprinty v10.1 pozostają rozwiązywalne. Ruff, mypy,
+114 testów workera i 28 testów API przeszły; profil 200 pozostaje niewykonany.
+
+TASK-0192 jest ukończony. Nowy fingerprint v10.1 uruchamia fallback widocznych
+etykiet progresywnie `18 -> 36 -> 72`, wykonując OCR tylko dla nowej części
+rankingu. Wczesny wynik jest przyjmowany wyłącznie po pełnej bramce lattice, a
+trudny przypadek dochodzi do tego samego deterministycznego zbioru 72 co
+historyczny adapter v4. Telemetria raportuje próby poziomów, liczbę cropów,
+poziom rozstrzygnięcia i wyczerpanie fallbacku. Historyczne fingerprinty
+pozostają rozwiązywalne. Ruff, mypy, 119 testów workera i 28 testów API
+przeszły; profil 200 pozostaje niewykonany.
+
+TASK-0193 jest ukończony. Adaptacyjne poziomy są wykonywane jako bounded batche
+na dwóch odizolowanych verifierach, z osobnym predictorem Paddle i szeregową
+partycją dla każdego workera. Wyniki są składane w kolejności shortlisty i
+przechodzą test pełnej identyczności z trybem pojedynczym. Produkcyjny budżet
+lane cztery dzieli się na dwa skanery i dwa verifiery; niższy budżet zachowuje
+jeden verifier. Ruff, mypy, 134 testy workera i 31 testów API/lane przeszły.
+Rzeczywisty zysk czasu i peak RSS dwóch predictorów pozostają bramką TASK-0194.
+
+TASK-0177 zakończono z decyzją `passed`; test nie użył ani nie zmodyfikował
+bieżących gier, stagingu oraz zdjęć właściciela.
 
 ## Do not start yet
 

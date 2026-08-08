@@ -5,6 +5,20 @@ export type ClientOptions = {
 };
 
 /**
+ * ActiveSymbolModelResponse
+ */
+export type ActiveSymbolModelResponse = {
+  /**
+   * Checksumsha256
+   */
+  checksumSha256: string;
+  /**
+   * Version
+   */
+  version: string;
+};
+
+/**
  * AndroidBuildJobCreate
  */
 export type AndroidBuildJobCreate = {
@@ -227,6 +241,33 @@ export type CleanupResultResponse = {
    * Targetlabel
    */
   targetLabel: string;
+};
+
+/**
+ * CreateSymbolTrainingCommand
+ */
+export type CreateSymbolTrainingCommand = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  configuration?: SymbolTrainingConfigurationCommand;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * CreateSymbolTrainingResponse
+ */
+export type CreateSymbolTrainingResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  iteration: SymbolModelIterationResponse;
+  job: JobResponse;
 };
 
 /**
@@ -755,7 +796,7 @@ export type ImageImportJobPayload = {
   /**
    * Schemaversion
    */
-  schemaVersion?: 1;
+  schemaVersion: 2;
   /**
    * Sourcedirectory
    */
@@ -765,9 +806,14 @@ export type ImageImportJobPayload = {
    */
   sourceDisplayName?: string | null;
   /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
    * Sourceselectionid
    */
   sourceSelectionId?: string | null;
+  symbolModel: SymbolModelJobSnapshotPayload;
 };
 
 /**
@@ -970,6 +1016,10 @@ export type ImageSelectionCreate = {
    */
   contractVersion?: 1;
   /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber?: number | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -977,6 +1027,7 @@ export type ImageSelectionCreate = {
    * Selectiontoken
    */
   selectionToken: string;
+  sequenceDirection?: ImageSelectionSequenceDirection;
 };
 
 /**
@@ -1123,6 +1174,10 @@ export type ImageSelectionJobPayload = {
    */
   contractVersion: 1;
   /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber?: number | null;
+  /**
    * Inputmanifestsha256
    */
   inputManifestSha256: string;
@@ -1134,6 +1189,10 @@ export type ImageSelectionJobPayload = {
    * Selectorfingerprint
    */
   selectorFingerprint: string;
+  /**
+   * Sequencedirection
+   */
+  sequenceDirection?: 'ascending' | 'descending';
   /**
    * Sourceselectionid
    */
@@ -1355,6 +1414,10 @@ export type ImageSelectionRunResponse = {
    */
   createdAt: string;
   /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber?: number | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -1383,6 +1446,7 @@ export type ImageSelectionRunResponse = {
    * Selectorfingerprint
    */
   selectorFingerprint: string;
+  sequenceDirection: ImageSelectionSequenceDirection;
   /**
    * Sourceselectionid
    */
@@ -1392,6 +1456,11 @@ export type ImageSelectionRunResponse = {
    */
   updatedAt: string;
 };
+
+/**
+ * ImageSelectionSequenceDirection
+ */
+export type ImageSelectionSequenceDirection = 'ascending' | 'descending';
 
 /**
  * ImageSequenceSourceCandidateResponse
@@ -1709,13 +1778,15 @@ export type JobResponse = {
    */
   inputPayload:
     | ImportJobPayload
+    | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
-    | AndroidBuildJobPayload;
+    | AndroidBuildJobPayload
+    | SymbolTrainingJobPayload;
   jobType: JobType;
   /**
    * Leaseexpiresat
@@ -1757,7 +1828,8 @@ export type JobType =
   | 'validate'
   | 'payout'
   | 'snapshot'
-  | 'android_build';
+  | 'android_build'
+  | 'symbol_training';
 
 /**
  * LayoutImportDuplicateSequenceGroupResponse
@@ -2102,6 +2174,40 @@ export type LayoutImportValidateJobPayload = {
 };
 
 /**
+ * LegacyImageImportJobPayload
+ */
+export type LegacyImageImportJobPayload = {
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory?: string | null;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName?: string | null;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId?: string | null;
+};
+
+/**
  * MobileReleaseApkResponse
  */
 export type MobileReleaseApkResponse = {
@@ -2277,6 +2383,88 @@ export type MockDatasetCreate = {
    * Seed
    */
   seed: number;
+};
+
+/**
+ * ModelQualityAdvisoryThresholdResponse
+ */
+export type ModelQualityAdvisoryThresholdResponse = {
+  /**
+   * Layoutcount
+   */
+  layoutCount: number;
+  /**
+   * Reached
+   */
+  reached: boolean;
+};
+
+/**
+ * ModelQualityResponse
+ */
+export type ModelQualityResponse = {
+  /**
+   * Activeheavyjob
+   */
+  activeHeavyJob: boolean;
+  activeModel: ActiveSymbolModelResponse | null;
+  /**
+   * Advisorythresholds
+   */
+  advisoryThresholds: Array<ModelQualityAdvisoryThresholdResponse>;
+  /**
+   * Canfreeze
+   */
+  canFreeze: boolean;
+  /**
+   * Cellsamplecount
+   */
+  cellSampleCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Incompleteitemcount
+   */
+  incompleteItemCount: number;
+  latestCohort: VerifiedTrainingCohortResponse | null;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Newverifiedlayoutcount
+   */
+  newVerifiedLayoutCount: number;
+  /**
+   * Pendingitemcount
+   */
+  pendingItemCount: number;
+  /**
+   * Protecteditemcount
+   */
+  protectedItemCount: number;
+  /**
+   * Rejecteditemcount
+   */
+  rejectedItemCount: number;
+  /**
+   * Resolvedlayoutcount
+   */
+  resolvedLayoutCount: number;
+  /**
+   * Sourceimagecount
+   */
+  sourceImageCount: number;
+  /**
+   * Symbolcoverage
+   */
+  symbolCoverage: Array<SymbolTrainingCoverageResponse>;
+  /**
+   * Warnings
+   */
+  warnings: Array<string>;
 };
 
 /**
@@ -4138,6 +4326,288 @@ export type SymbolImageSelectionCommand = {
 };
 
 /**
+ * SymbolModelActivationAction
+ */
+export type SymbolModelActivationAction = 'activate' | 'rollback';
+
+/**
+ * SymbolModelActivationCommand
+ */
+export type SymbolModelActivationCommand = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Expectedcurrentmodeliterationid
+   */
+  expectedCurrentModelIterationId?: string | null;
+  /**
+   * Expectedmanifestchecksumsha256
+   */
+  expectedManifestChecksumSha256: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Reason
+   */
+  reason?: string | null;
+};
+
+/**
+ * SymbolModelActivationCommandResponse
+ */
+export type SymbolModelActivationCommandResponse = {
+  activation: SymbolModelActivationResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+};
+
+/**
+ * SymbolModelActivationPreviewResponse
+ */
+export type SymbolModelActivationPreviewResponse = {
+  /**
+   * Action
+   */
+  action: string;
+  /**
+   * Canactivate
+   */
+  canActivate: boolean;
+  /**
+   * Candidatemanifestchecksumsha256
+   */
+  candidateManifestChecksumSha256: string;
+  /**
+   * Currentmodeliterationid
+   */
+  currentModelIterationId: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Modeliterationid
+   */
+  modelIterationId: string;
+};
+
+/**
+ * SymbolModelActivationResponse
+ */
+export type SymbolModelActivationResponse = {
+  /**
+   * Action
+   */
+  action: string;
+  /**
+   * Activationnumber
+   */
+  activationNumber: number;
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Modeliterationid
+   */
+  modelIterationId: string;
+  /**
+   * Previousmodeliterationid
+   */
+  previousModelIterationId: string | null;
+  /**
+   * Reason
+   */
+  reason: string | null;
+};
+
+/**
+ * SymbolModelIterationResponse
+ */
+export type SymbolModelIterationResponse = {
+  /**
+   * Candidatemanifestchecksumsha256
+   */
+  candidateManifestChecksumSha256: string | null;
+  /**
+   * Candidatemanifestrelativepath
+   */
+  candidateManifestRelativePath: string | null;
+  /**
+   * Checkpointchecksumsha256
+   */
+  checkpointChecksumSha256: string | null;
+  /**
+   * Checkpointrelativepath
+   */
+  checkpointRelativePath: string | null;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Configuration
+   */
+  configuration: {
+    [key: string]: unknown;
+  };
+  /**
+   * Configurationfingerprint
+   */
+  configurationFingerprint: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Datasetmanifestchecksumsha256
+   */
+  datasetManifestChecksumSha256: string | null;
+  /**
+   * Datasetmanifestrelativepath
+   */
+  datasetManifestRelativePath: string | null;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Errormessage
+   */
+  errorMessage: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gateconfiguration
+   */
+  gateConfiguration: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Gateconfigurationfingerprint
+   */
+  gateConfigurationFingerprint: string | null;
+  /**
+   * Gatemetrics
+   */
+  gateMetrics: {
+    [key: string]: unknown;
+  };
+  /**
+   * Gatereportchecksumsha256
+   */
+  gateReportChecksumSha256: string | null;
+  /**
+   * Gatereportrelativepath
+   */
+  gateReportRelativePath: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Iterationnumber
+   */
+  iterationNumber: number;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Lastcompletedepoch
+   */
+  lastCompletedEpoch: number;
+  /**
+   * Partialmetrics
+   */
+  partialMetrics: {
+    [key: string]: unknown;
+  };
+  /**
+   * Rejectionreasons
+   */
+  rejectionReasons: Array<string>;
+  /**
+   * Status
+   */
+  status: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * SymbolModelJobSnapshotPayload
+ */
+export type SymbolModelJobSnapshotPayload = {
+  /**
+   * Classcodes
+   */
+  classCodes: Array<string>;
+  /**
+   * Inferencefingerprint
+   */
+  inferenceFingerprint: string;
+  /**
+   * Inputsize
+   */
+  inputSize: number;
+  /**
+   * Iterationid
+   */
+  iterationId?: string | null;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Onnxchecksumsha256
+   */
+  onnxChecksumSha256: string;
+  /**
+   * Onnxrelativepath
+   */
+  onnxRelativePath: string;
+  /**
+   * Storageroot
+   */
+  storageRoot: 'repository' | 'artifact';
+  /**
+   * Temperature
+   */
+  temperature: number;
+};
+
+/**
  * SymbolResponse
  */
 export type SymbolResponse = {
@@ -4188,6 +4658,82 @@ export type SymbolResponse = {
  * SymbolStatus
  */
 export type SymbolStatus = 'active' | 'archived';
+
+/**
+ * SymbolTrainingConfigurationCommand
+ */
+export type SymbolTrainingConfigurationCommand = {
+  /**
+   * Batchsize
+   */
+  batchSize?: number;
+  /**
+   * Epochs
+   */
+  epochs?: number;
+  /**
+   * Inputsize
+   */
+  inputSize?: number;
+  /**
+   * Learningrate
+   */
+  learningRate?: number;
+  /**
+   * Seed
+   */
+  seed?: number;
+  /**
+   * Weightdecay
+   */
+  weightDecay?: number;
+};
+
+/**
+ * SymbolTrainingCoverageResponse
+ */
+export type SymbolTrainingCoverageResponse = {
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
+ * SymbolTrainingJobPayload
+ */
+export type SymbolTrainingJobPayload = {
+  /**
+   * Cohortchecksumsha256
+   */
+  cohortChecksumSha256: string;
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Configuration
+   */
+  configuration: {
+    [key: string]: unknown;
+  };
+  /**
+   * Configurationfingerprint
+   */
+  configurationFingerprint: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
 
 /**
  * SymbolUpdate
@@ -4357,6 +4903,181 @@ export type VerifiedCohortFreezeResponse = {
    */
   created: boolean;
   export: VerifiedCohortExportResponse;
+};
+
+/**
+ * VerifiedTrainingCohortFreezeCommand
+ */
+export type VerifiedTrainingCohortFreezeCommand = {
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Expectedmanifestchecksumsha256
+   */
+  expectedManifestChecksumSha256: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * VerifiedTrainingCohortFreezeResponse
+ */
+export type VerifiedTrainingCohortFreezeResponse = {
+  cohort: VerifiedTrainingCohortResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+};
+
+/**
+ * VerifiedTrainingCohortPreviewResponse
+ */
+export type VerifiedTrainingCohortPreviewResponse = {
+  /**
+   * Cellsamplecount
+   */
+  cellSampleCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Incompleteitemcount
+   */
+  incompleteItemCount: number;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Manifestschemaversion
+   */
+  manifestSchemaVersion: number;
+  /**
+   * Pendingitemcount
+   */
+  pendingItemCount: number;
+  /**
+   * Protecteditemcount
+   */
+  protectedItemCount: number;
+  /**
+   * Rejecteditemcount
+   */
+  rejectedItemCount: number;
+  /**
+   * Resolvedlayoutcount
+   */
+  resolvedLayoutCount: number;
+  /**
+   * Sourceimagecount
+   */
+  sourceImageCount: number;
+  /**
+   * Warnings
+   */
+  warnings: Array<string>;
+};
+
+/**
+ * VerifiedTrainingCohortResponse
+ */
+export type VerifiedTrainingCohortResponse = {
+  /**
+   * Artifactrelativepath
+   */
+  artifactRelativePath: string;
+  /**
+   * Cellsamplecount
+   */
+  cellSampleCount: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Createdby
+   */
+  createdBy: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Incompleteitemcount
+   */
+  incompleteItemCount: number;
+  /**
+   * Iterationnumber
+   */
+  iterationNumber: number;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Manifestschemaversion
+   */
+  manifestSchemaVersion: number;
+  /**
+   * Pendingitemcount
+   */
+  pendingItemCount: number;
+  /**
+   * Rejecteditemcount
+   */
+  rejectedItemCount: number;
+  /**
+   * Resolvedlayoutcount
+   */
+  resolvedLayoutCount: number;
+  /**
+   * Sourceimagecount
+   */
+  sourceImageCount: number;
+};
+
+/**
+ * WorkerLaneName
+ */
+export type WorkerLaneName = 'general' | 'image_selection';
+
+/**
+ * WorkerLaneState
+ */
+export type WorkerLaneState = 'running' | 'degraded' | 'stopped';
+
+/**
+ * WorkerLaneStatusResponse
+ */
+export type WorkerLaneStatusResponse = {
+  /**
+   * Heartbeatat
+   */
+  heartbeatAt: string | null;
+  lane: WorkerLaneName;
+  /**
+   * Startedat
+   */
+  startedAt: string | null;
+  state: WorkerLaneState;
+  /**
+   * Threadbudget
+   */
+  threadBudget: number | null;
+  /**
+   * Workerversion
+   */
+  workerVersion: string | null;
 };
 
 export type ArchiveDatasetVersionData = {
@@ -4940,6 +5661,46 @@ export type PreviewGameLayoutDataResetResponses = {
 export type PreviewGameLayoutDataResetResponse =
   PreviewGameLayoutDataResetResponses[keyof PreviewGameLayoutDataResetResponses];
 
+export type GetModelQualityData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/model-quality';
+};
+
+export type GetModelQualityErrors = {
+  /**
+   * Training cohort resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Training cohort conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetModelQualityError =
+  GetModelQualityErrors[keyof GetModelQualityErrors];
+
+export type GetModelQualityResponses = {
+  /**
+   * Successful Response
+   */
+  200: ModelQualityResponse;
+};
+
+export type GetModelQualityResponse =
+  GetModelQualityResponses[keyof GetModelQualityResponses];
+
 export type ListRulesVersionsData = {
   body?: never;
   path: {
@@ -5159,6 +5920,334 @@ export type ResolveSymbolBootstrapResponses = {
 
 export type ResolveSymbolBootstrapResponse =
   ResolveSymbolBootstrapResponses[keyof ResolveSymbolBootstrapResponses];
+
+export type ListSymbolModelIterationsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations';
+};
+
+export type ListSymbolModelIterationsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolModelIterationsError =
+  ListSymbolModelIterationsErrors[keyof ListSymbolModelIterationsErrors];
+
+export type ListSymbolModelIterationsResponses = {
+  /**
+   * Response Listsymbolmodeliterations
+   *
+   * Successful Response
+   */
+  200: Array<SymbolModelIterationResponse>;
+};
+
+export type ListSymbolModelIterationsResponse =
+  ListSymbolModelIterationsResponses[keyof ListSymbolModelIterationsResponses];
+
+export type CreateSymbolTrainingData = {
+  body: CreateSymbolTrainingCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations';
+};
+
+export type CreateSymbolTrainingErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type CreateSymbolTrainingError =
+  CreateSymbolTrainingErrors[keyof CreateSymbolTrainingErrors];
+
+export type CreateSymbolTrainingResponses = {
+  /**
+   * Successful Response
+   */
+  200: CreateSymbolTrainingResponse;
+};
+
+export type CreateSymbolTrainingResponse2 =
+  CreateSymbolTrainingResponses[keyof CreateSymbolTrainingResponses];
+
+export type ListSymbolModelActivationsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations';
+};
+
+export type ListSymbolModelActivationsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListSymbolModelActivationsError =
+  ListSymbolModelActivationsErrors[keyof ListSymbolModelActivationsErrors];
+
+export type ListSymbolModelActivationsResponses = {
+  /**
+   * Response Listsymbolmodelactivations
+   *
+   * Successful Response
+   */
+  200: Array<SymbolModelActivationResponse>;
+};
+
+export type ListSymbolModelActivationsResponse =
+  ListSymbolModelActivationsResponses[keyof ListSymbolModelActivationsResponses];
+
+export type GetSymbolModelIterationData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Iteration Id
+     */
+    iteration_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}';
+};
+
+export type GetSymbolModelIterationErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type GetSymbolModelIterationError =
+  GetSymbolModelIterationErrors[keyof GetSymbolModelIterationErrors];
+
+export type GetSymbolModelIterationResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolModelIterationResponse;
+};
+
+export type GetSymbolModelIterationResponse =
+  GetSymbolModelIterationResponses[keyof GetSymbolModelIterationResponses];
+
+export type ActivateSymbolModelData = {
+  body: SymbolModelActivationCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Iteration Id
+     */
+    iteration_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activate';
+};
+
+export type ActivateSymbolModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ActivateSymbolModelError =
+  ActivateSymbolModelErrors[keyof ActivateSymbolModelErrors];
+
+export type ActivateSymbolModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolModelActivationCommandResponse;
+};
+
+export type ActivateSymbolModelResponse =
+  ActivateSymbolModelResponses[keyof ActivateSymbolModelResponses];
+
+export type PreviewSymbolModelActivationData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Iteration Id
+     */
+    iteration_id: string;
+  };
+  query?: {
+    action?: SymbolModelActivationAction;
+  };
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activation-preview';
+};
+
+export type PreviewSymbolModelActivationErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewSymbolModelActivationError =
+  PreviewSymbolModelActivationErrors[keyof PreviewSymbolModelActivationErrors];
+
+export type PreviewSymbolModelActivationResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolModelActivationPreviewResponse;
+};
+
+export type PreviewSymbolModelActivationResponse =
+  PreviewSymbolModelActivationResponses[keyof PreviewSymbolModelActivationResponses];
+
+export type RollbackSymbolModelData = {
+  body: SymbolModelActivationCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Iteration Id
+     */
+    iteration_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/rollback';
+};
+
+export type RollbackSymbolModelErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type RollbackSymbolModelError =
+  RollbackSymbolModelErrors[keyof RollbackSymbolModelErrors];
+
+export type RollbackSymbolModelResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolModelActivationCommandResponse;
+};
+
+export type RollbackSymbolModelResponse =
+  RollbackSymbolModelResponses[keyof RollbackSymbolModelResponses];
 
 export type ListSymbolsData = {
   body?: never;
@@ -5574,6 +6663,94 @@ export type GetSymbolImageAssetResponses = {
    */
   200: unknown;
 };
+
+export type FreezeVerifiedTrainingCohortData = {
+  body: VerifiedTrainingCohortFreezeCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/verified-training-cohorts';
+};
+
+export type FreezeVerifiedTrainingCohortErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Training cohort resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Training cohort conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type FreezeVerifiedTrainingCohortError =
+  FreezeVerifiedTrainingCohortErrors[keyof FreezeVerifiedTrainingCohortErrors];
+
+export type FreezeVerifiedTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: VerifiedTrainingCohortFreezeResponse;
+};
+
+export type FreezeVerifiedTrainingCohortResponse =
+  FreezeVerifiedTrainingCohortResponses[keyof FreezeVerifiedTrainingCohortResponses];
+
+export type PreviewVerifiedTrainingCohortData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/verified-training-cohorts/preview';
+};
+
+export type PreviewVerifiedTrainingCohortErrors = {
+  /**
+   * Training cohort resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Training cohort conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewVerifiedTrainingCohortError =
+  PreviewVerifiedTrainingCohortErrors[keyof PreviewVerifiedTrainingCohortErrors];
+
+export type PreviewVerifiedTrainingCohortResponses = {
+  /**
+   * Successful Response
+   */
+  200: VerifiedTrainingCohortPreviewResponse;
+};
+
+export type PreviewVerifiedTrainingCohortResponse =
+  PreviewVerifiedTrainingCohortResponses[keyof PreviewVerifiedTrainingCohortResponses];
 
 export type CreateImageFolderImportData = {
   body: ImageFolderImportCreate;
@@ -7168,6 +8345,47 @@ export type GetManualImageSelectionFileError =
   GetManualImageSelectionFileErrors[keyof GetManualImageSelectionFileErrors];
 
 export type GetManualImageSelectionFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetImageSelectionSelectedGroupFileData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/selected-file';
+};
+
+export type GetImageSelectionSelectedGroupFileErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSelectionSelectedGroupFileError =
+  GetImageSelectionSelectedGroupFileErrors[keyof GetImageSelectionSelectedGroupFileErrors];
+
+export type GetImageSelectionSelectedGroupFileResponses = {
   /**
    * Successful Response
    */
@@ -9609,6 +10827,25 @@ export type UpdateRulesVersionSymbolResponses = {
 
 export type UpdateRulesVersionSymbolResponse =
   UpdateRulesVersionSymbolResponses[keyof UpdateRulesVersionSymbolResponses];
+
+export type ListWorkerLanesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/worker-lanes';
+};
+
+export type ListWorkerLanesResponses = {
+  /**
+   * Response Listworkerlanes
+   *
+   * Successful Response
+   */
+  200: Array<WorkerLaneStatusResponse>;
+};
+
+export type ListWorkerLanesResponse =
+  ListWorkerLanesResponses[keyof ListWorkerLanesResponses];
 
 export type GetHealthData = {
   body?: never;

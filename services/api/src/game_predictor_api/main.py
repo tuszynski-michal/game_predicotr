@@ -62,6 +62,13 @@ from game_predictor_api.application.reviewer_ingress import (
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.symbol_bootstrap import SymbolBootstrapService
+from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
+from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
+from game_predictor_api.application.verified_training_cohorts import (
+    VerifiedTrainingCohortArtifactStore,
+    VerifiedTrainingCohortService,
+)
+from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
@@ -156,6 +163,21 @@ from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepositor
 from game_predictor_api.storage.symbol_bootstrap_repository import (
     SqlAlchemySymbolBootstrapRepository,
 )
+from game_predictor_api.storage.symbol_model_iteration_repository import (
+    SqlAlchemySymbolModelIterationRepository,
+)
+from game_predictor_api.storage.symbol_model_registry_repository import (
+    SqlAlchemySymbolModelRegistryRepository,
+)
+from game_predictor_api.storage.symbol_model_snapshot_resolver import (
+    SqlAlchemySymbolModelSnapshotResolver,
+)
+from game_predictor_api.storage.verified_training_cohort_repository import (
+    SqlAlchemyVerifiedTrainingCohortRepository,
+)
+from game_predictor_api.storage.worker_lane_repository import (
+    SqlAlchemyWorkerLaneRepository,
+)
 
 
 def create_app(
@@ -179,6 +201,10 @@ def create_app(
     reviewer_access_service_dependency: Callable[..., object] | None = None,
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
     symbol_bootstrap_service_dependency: Callable[..., object] | None = None,
+    worker_lane_status_service_dependency: Callable[..., object] | None = None,
+    verified_training_cohort_service_dependency: Callable[..., object] | None = None,
+    symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
+    symbol_model_registry_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -253,6 +279,10 @@ def create_app(
                         resolved_settings.import_root,
                         max_bytes=resolved_settings.import_max_bytes,
                     ),
+                    SqlAlchemySymbolModelSnapshotResolver(
+                        session,
+                        artifact_root=resolved_settings.artifact_root,
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -260,6 +290,13 @@ def create_app(
                 raise
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency
+
+    def default_worker_lane_status_service_dependency() -> Iterator[WorkerLaneStatusService]:
+        yield WorkerLaneStatusService(SqlAlchemyWorkerLaneRepository(session_factory))
+
+    resolved_worker_lane_status_dependency = (
+        worker_lane_status_service_dependency or default_worker_lane_status_service_dependency
+    )
 
     def default_image_selection_service_dependency() -> Iterator[ImageSelectionService]:
         with session_factory() as session:
@@ -355,6 +392,58 @@ def create_app(
 
     resolved_image_review_cohort_dependency = (
         image_review_cohort_service_dependency or default_image_review_cohort_service_dependency
+    )
+
+    def default_verified_training_cohort_service_dependency() -> Iterator[
+        VerifiedTrainingCohortService
+    ]:
+        with session_factory() as session:
+            try:
+                yield VerifiedTrainingCohortService(
+                    SqlAlchemyOperationalImageReviewRepository(session),
+                    SqlAlchemyVerifiedTrainingCohortRepository(session),
+                    VerifiedTrainingCohortArtifactStore(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_verified_training_cohort_dependency = (
+        verified_training_cohort_service_dependency
+        or default_verified_training_cohort_service_dependency
+    )
+
+    def default_symbol_model_iteration_service_dependency() -> Iterator[
+        SymbolModelIterationService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolModelIterationService(SqlAlchemySymbolModelIterationRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_model_iteration_dependency = (
+        symbol_model_iteration_service_dependency
+        or default_symbol_model_iteration_service_dependency
+    )
+
+    def default_symbol_model_registry_service_dependency() -> Iterator[
+        SymbolModelRegistryService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolModelRegistryService(SqlAlchemySymbolModelRegistryRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_model_registry_dependency = (
+        symbol_model_registry_service_dependency
+        or default_symbol_model_registry_service_dependency
     )
 
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
@@ -480,6 +569,10 @@ def create_app(
             resolved_reviewer_access_dependency,
             resolved_reviewer_ingress_dependency,
             resolved_symbol_bootstrap_dependency,
+            resolved_worker_lane_status_dependency,
+            resolved_verified_training_cohort_dependency,
+            resolved_symbol_model_iteration_dependency,
+            resolved_symbol_model_registry_dependency,
         )
     )
 

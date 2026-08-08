@@ -1,6 +1,6 @@
 ---
 title: TASK-0148 model registry and controlled activation
-status: todo
+status: done
 last_updated: 2026-08-01
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-08-01
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -50,17 +50,17 @@ wymaga aktywnego wskaźnika per gra i przypięcia dokładnej wersji do joba.
 
 ## Acceptance criteria
 
-- [ ] Każda gra ma najwyżej jedną skuteczną aktywną wersję modelu.
-- [ ] Tylko kandydat z kompletnym manifestem i przejściem bramki może być
+- [x] Każda gra ma najwyżej jedną skuteczną aktywną wersję modelu.
+- [x] Tylko kandydat z kompletnym manifestem i przejściem bramki może być
       aktywowany.
-- [ ] Aktywacja oraz rollback zapisują aktora, czas, poprzednią i nową wersję.
-- [ ] Job utworzony przed aktywacją kończy pracę na poprzedniej przypiętej
+- [x] Aktywacja oraz rollback zapisują aktora, czas, poprzednią i nową wersję.
+- [x] Job utworzony przed aktywacją kończy pracę na poprzedniej przypiętej
       wersji.
-- [ ] Job utworzony po aktywacji używa nowej wersji i potwierdza checksumę
+- [x] Job utworzony po aktywacji używa nowej wersji i potwierdza checksumę
       artefaktu przed inferencją.
-- [ ] Brak lub uszkodzenie artefaktu zatrzymuje nowy job ze stabilnym błędem,
+- [x] Brak lub uszkodzenie artefaktu zatrzymuje nowy job ze stabilnym błędem,
       bez cichego fallbacku do innego modelu.
-- [ ] Aktywacja i rollback nie modyfikują decyzji review ani predykcji.
+- [x] Aktywacja i rollback nie modyfikują decyzji review ani predykcji.
 
 ## Technical notes
 
@@ -98,4 +98,22 @@ npm.cmd test --workspace @game-predictor/admin
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Migracja `0037_symbol_model_registry` dodaje append-only historię aktywacji z
+monotonicznym `activation_number`, idempotencją i checksumą komendy. Preview,
+aktywacja, rollback i bounded historia mają typowany kontrakt OpenAPI oraz UI w
+sekcji jakości modelu. Resolver przypina nowemu image importowi pełny,
+checksum-bound snapshot aktywnego modelu; import historyczny zachowuje jawny
+bootstrap. Efektywny fingerprint pipeline'u obejmuje model, więc predykcje nie
+przechodzą z cache między wersjami.
+
+Weryfikacja 2026-08-08:
+
+- API rejestru, snapshotu, jobów, importów i migracji: 62/62 passed przed
+  doprecyzowaniem porządku; finalna regresja rejestru/migracji: 34/34 passed,
+- worker workflow, pinning, drift i bramka: 19/19 passed,
+- Admin: 176/176 passed; typecheck i skupiony ESLint: passed,
+- Ruff API/workera/skryptów i aktualność OpenAPI/generowanego klienta: passed.
+
+Lokalna baza pozostaje na 0035 do kontrolowanego zakończenia bieżącej selekcji;
+nie jest to obejście implementacji. Przed użyciem endpointów rejestru operator
+wykonuje standardowe `npm run db:migrate` przy zatrzymanych workerach.

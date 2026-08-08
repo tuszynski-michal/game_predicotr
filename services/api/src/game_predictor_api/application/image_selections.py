@@ -28,6 +28,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionManualDecision,
     ImageSelectionNotFoundError,
     ImageSelectionRun,
+    ImageSelectionSequenceDirection,
     create_image_selection_run,
     create_manual_decision,
     create_missing_image_decision,
@@ -245,6 +246,8 @@ class ImageSelectionRepository(Protocol):
         game_id: UUID,
         input_manifest_sha256: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> ImageSelectionRun | None: ...
 
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]: ...
@@ -334,6 +337,10 @@ class ImageSelectionService:
         source_selection_id: UUID,
         input_manifest_sha256: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection = (
+            ImageSelectionSequenceDirection.ASCENDING
+        ),
+        first_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         if not self._repository.game_exists(game_id):
             raise ImageSelectionNotFoundError(
@@ -345,6 +352,8 @@ class ImageSelectionService:
             game_id=game_id,
             input_manifest_sha256=input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
         if existing is not None:
             return existing, False
@@ -353,6 +362,8 @@ class ImageSelectionService:
             source_selection_id=source_selection_id,
             input_manifest_sha256=input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
         return self._repository.add_run(run)
 
@@ -406,6 +417,8 @@ class ImageSelectionService:
             source_selection_id=source_run.source_selection_id,
             input_manifest_sha256=source_run.input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=source_run.sequence_direction,
+            first_sequence_number=source_run.first_sequence_number,
         )
         if created or rerun.job.status not in {
             JobStatus.CANCELLED,
@@ -773,6 +786,61 @@ class ImageSelectionService:
                 "Managed manual image storage is not configured.",
             )
         return self._manual_file_store.resolve(candidate)
+
+    def get_selected_group_file(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+    ) -> tuple[Path, str]:
+        run = self.get_run(run_id)
+        group = self._repository.get_group(run_id=run_id, group_id=group_id)
+        if (
+            group is None
+            or group.selected_candidate_id is None
+            or group.range_start is None
+            or group.range_end is None
+            or group.status
+            not in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+            }
+        ):
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_GROUP_OUTPUT_NOT_READY",
+                "The group does not have a selected JPEG with a sequence range yet.",
+            )
+        candidate = self._repository.get_candidate(
+            run_id=run_id,
+            candidate_id=group.selected_candidate_id,
+        )
+        if candidate is None or candidate.group_id != group.id:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                "The selected group JPEG does not exist.",
+            )
+        if candidate.source_relative_path.startswith("data/working/is-manual/"):
+            if self._manual_file_store is None:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_STORAGE_UNAVAILABLE",
+                    "Managed manual image storage is not configured.",
+                )
+            path = self._manual_file_store.resolve(candidate)
+        else:
+            if self._browser_upload_root is None:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
+                    "The managed browser staging is unavailable.",
+                )
+            source_root = (self._browser_upload_root / str(run.source_selection_id)).resolve()
+            relative_parts = PurePosixPath(candidate.source_relative_path).parts
+            path = (source_root / Path(*relative_parts)).resolve()
+            if not path.is_relative_to(source_root) or not path.is_file():
+                raise ImageSelectionNotFoundError(
+                    "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                    "The selected group JPEG no longer exists in managed staging.",
+                )
+        return path, f"seq_{group.range_start}-{group.range_end}.jpg"
 
     def prepare_handoff(self, run_id: UUID) -> ImageSelectionHandoffSource:
         run = self.get_run(run_id)

@@ -205,13 +205,8 @@ class CuratedImageOutputPublisher:
                     else f"seq_{recognized.start}-{recognized.end}.jpg"
                 )
                 output_path = images_root / file_name
-                _copy_and_fsync(source_path, output_path)
-                copied_checksum = _sha256_file(output_path)
-                if copied_checksum != source_checksum:
-                    _fail(
-                        "IMAGE_SELECTION_MANIFEST_MISMATCH",
-                        "A curated image differs from its selected source.",
-                    )
+                _link_or_copy(source_path, output_path)
+                copied_checksum = source_checksum
                 try:
                     width, height = read_jpeg_dimensions(output_path)
                 except ImageFileError as error:
@@ -460,11 +455,23 @@ def _safe_child(root: Path, relative_path: str) -> Path:
     return child
 
 
-def _copy_and_fsync(source: Path, destination: Path) -> None:
-    with source.open("rb") as input_file, destination.open("xb") as output_file:
-        shutil.copyfileobj(input_file, output_file, length=1024 * 1024)
-        output_file.flush()
-        os.fsync(output_file.fileno())
+def _link_or_copy(source: Path, destination: Path) -> None:
+    """Materialize cheaply on one volume and copy only when linking is unavailable."""
+
+    try:
+        os.link(source, destination)
+        return
+    except OSError:
+        pass
+    try:
+        with destination.open("xb") as output_file:
+            with source.open("rb") as input_file:
+                shutil.copyfileobj(input_file, output_file, length=4 * 1024 * 1024)
+            output_file.flush()
+            os.fsync(output_file.fileno())
+    except OSError:
+        destination.unlink(missing_ok=True)
+        raise
 
 
 def _write_and_fsync(destination: Path, content: bytes) -> None:

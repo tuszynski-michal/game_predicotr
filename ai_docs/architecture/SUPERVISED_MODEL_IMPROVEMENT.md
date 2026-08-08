@@ -84,6 +84,14 @@ train/validation/test i osobny stały zestaw regresyjny. Ta sama grupa nie może
 wystąpić w kilku częściach. Kolejna iteracja trenuje od początku na całej
 skumulowanej kohorcie, co ogranicza dryf i pozwala dokładnie odtworzyć wynik.
 
+Implementacja `verified-symbol-training-dataset-v1` przypisuje całą rodzinę
+źródła przez stabilny hash checksumy oryginału. Domyślny podział wynosi
+65% train, 15% validation, 10% test i 10% regression. Seed, wersja polityki
+splitu oraz wersja transformacji wchodzą do manifestu. Dzięki przypisaniu
+niezależnemu od liczby rekordów nowe iteracje nie przenoszą starszych źródeł
+między splitami. Regression jest rozłączny z train, a niskie pokrycie klasy
+jest jawnym advisory zamiast ukrytego przetasowania danych.
+
 ## Artefakty
 
 Artefakty są content-addressed, nie są zapisywane jako duże BLOB-y w tabelach:
@@ -91,6 +99,8 @@ Artefakty są content-addressed, nie są zapisywane jako duże BLOB-y w tabelach
 ```text
 data/
   training/<game-code>/<cohort-sha256>/
+    assets/<prefix>/<crop-sha256>.png
+    manifests/<dataset-manifest-sha256>.json
   models/<game-code>/<iteration-id>/<manifest-sha256>/
   exports/model-quality/<game-code>/<iteration-id>/
 ```
@@ -111,6 +121,20 @@ Każdy etap zapisuje checkpoint. Retry potwierdza fingerprint wejścia i nie
 tworzy drugiej wersji z tym samym kluczem idempotencji. Początkowo blokada per
 gra dopuszcza najwyżej jeden ciężki trening albo masową ponowną inferencję.
 
+TASK-0146 realizuje pierwsze dwa etapy workera: `dataset_build` i `training`.
+Używa wybranej wcześniej architektury `spatial-symbol-cnn-v1`, trenuje od zera
+na pełnej kohorcie i zapisuje po każdej epoce niezmienny checkpoint modelu,
+optimizera, najlepszego stanu i historii metryk. Fingerprint wiąże checksumę
+kohorty, konfigurację i wersję runtime. Heartbeat jest odnawiany również w
+długiej epoce i podczas materializacji datasetu. Anulowanie zachowuje ostatni
+poprawny checkpoint, a retry odrzuca dryf wejścia. Status `trained` nie oznacza
+aktywacji; eksport ONNX i bramka pozostają w TASK-0147.
+
+TASK-0147 rozszerza ten sam trwały job o `onnx_export`, `calibration`,
+`evaluation` i zapis manifestu. Status `trained` jest checkpointem po treningu,
+`evaluating` oznacza działającą bramkę, a dopiero `candidate_ready` lub
+kontrolowane `rejected` kończy iterację. Błąd techniczny ustawia `failed`.
+
 ## Bramka kandydata
 
 Kandydat musi przejść:
@@ -125,15 +149,33 @@ Kandydat musi przejść:
 Dokładne progi są wersjonowaną konfiguracją bramki. Przejście bramki nadaje
 status `candidate_ready`, ale nie aktywuje modelu.
 
+ONNX, checkpoint, katalog klas, kalibracja i raport są content-addressed i
+powiązane wspólnym manifestem SHA-256. Validation służy wyłącznie do dopasowania
+temperatury, natomiast test i regression pozostają rozłączne od treningu.
+Pierwszy kandydat jawnie raportuje `baseline_unavailable`; od kolejnej aktywnej
+wersji kandydat i baza muszą być mierzone na dokładnie tych samych próbkach.
+Regresja recall pojedynczego symbolu blokuje kandydata nawet przy wzroście
+metryki globalnej.
+
 ## Aktywacja, rollback i przypięcie importu
 
-Aktywacja jest osobną, audytowalną komendą i atomowo zmienia aktywny wskaźnik
-danej gry. Poprzednie wersje pozostają niezmienne, więc rollback jest kolejnym
-zdarzeniem aktywacji.
+Aktywacja jest osobną, audytowalną komendą i dopisuje zdarzenie pod blokadą
+rekordu gry. Nie istnieje drugi, mutowalny wskaźnik: aktywny model jest projekcją
+zdarzenia o najwyższym monotonicznym `activation_number`. Poprzednie wersje
+pozostają niezmienne, więc rollback jest kolejnym zdarzeniem aktywacji.
 
-Tworzenie image import joba zapisuje `symbolModelIterationId`, manifest SHA-256
-i fingerprint inferencji. Worker zawsze używa tego snapshotu do końca joba.
-Aktywacja w trakcie importu wpływa dopiero na następny import.
+Jeżeli gra nie ma jeszcze zdarzenia, resolver zwraca jawny, checksum-bound
+snapshot kontrolowanego modelu bootstrapowego. Po pierwszej aktywacji resolver
+sprawdza manifest, ONNX, katalog klas i kalibrację przed utworzeniem joba; brak
+lub drift artefaktu zatrzymuje nowy import bez cichego fallbacku.
+
+Tworzenie image import joba schema v2 zapisuje dokładny snapshot modelu:
+identyfikator iteracji, manifest SHA-256, ONNX SHA-256, wersję, katalog klas,
+kalibrację, parametry wejścia i fingerprint inferencji. Efektywny fingerprint
+pipeline'u obejmuje fingerprint bazowego pipeline'u oraz modelu, więc cache
+predykcji nie może zostać użyty między różnymi modelami. Worker zawsze używa
+tego snapshotu do końca joba. Historyczny schema v1 zachowuje kontrolowany
+bootstrap; aktywacja w trakcie importu wpływa dopiero na następny import.
 
 ## Przeliczenie oczekujących
 

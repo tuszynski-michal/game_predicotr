@@ -41,6 +41,7 @@ from game_predictor_api.domain.reviews import (
     ReviewResolutionAction,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.metadata import Base
 
 
@@ -55,6 +56,7 @@ def _enum_values(
         | type[ReviewResolutionAction]
         | type[SymbolStatus]
         | type[RulesVersionStatus]
+        | type[WorkerLaneName]
     ),
 ) -> list[str]:
     return [member.value for member in enum_type]
@@ -566,6 +568,53 @@ class JobModel(Base):
     )
 
 
+class WorkerLaneRuntimeModel(Base):
+    __tablename__ = "worker_lane_runtime"
+    __table_args__ = (
+        CheckConstraint(
+            "process_id > 0",
+            name="ck_worker_lane_runtime_process_id_positive",
+        ),
+        CheckConstraint(
+            "thread_budget BETWEEN 1 AND 64",
+            name="ck_worker_lane_runtime_thread_budget",
+        ),
+        CheckConstraint(
+            "heartbeat_at >= started_at",
+            name="ck_worker_lane_runtime_heartbeat_order",
+        ),
+        CheckConstraint(
+            "stopped_at IS NULL OR stopped_at >= started_at",
+            name="ck_worker_lane_runtime_stopped_order",
+        ),
+    )
+
+    lane: Mapped[WorkerLaneName] = mapped_column(
+        Enum(
+            WorkerLaneName,
+            name="worker_lane_name",
+            native_enum=False,
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        primary_key=True,
+    )
+    instance_token: Mapped[UUID] = mapped_column(nullable=False)
+    worker_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    worker_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    process_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    thread_budget: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class ImageSelectionRunModel(Base):
     __tablename__ = "image_selection_runs"
     __table_args__ = (
@@ -584,6 +633,14 @@ class ImageSelectionRunModel(Base):
         CheckConstraint(
             f"ordering_policy = '{IMAGE_SELECTION_ORDERING_POLICY}'",
             name="ck_image_selection_runs_ordering_policy",
+        ),
+        CheckConstraint(
+            "sequence_direction IN ('ascending', 'descending')",
+            name="ck_image_selection_runs_sequence_direction",
+        ),
+        CheckConstraint(
+            "first_sequence_number >= 0",
+            name="ck_image_selection_runs_first_sequence_positive",
         ),
         CheckConstraint(
             "(output_manifest_sha256 IS NULL AND "
@@ -605,6 +662,8 @@ class ImageSelectionRunModel(Base):
             "game_id",
             "input_manifest_sha256",
             "selector_fingerprint",
+            "sequence_direction",
+            "first_sequence_number",
             name="uq_image_selection_runs_identity",
         ),
         Index(
@@ -634,6 +693,16 @@ class ImageSelectionRunModel(Base):
         String(100),
         nullable=False,
         default=IMAGE_SELECTION_ORDERING_POLICY,
+    )
+    sequence_direction: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="ascending",
+    )
+    first_sequence_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
     )
     contract_version: Mapped[int] = mapped_column(
         SmallInteger,
@@ -1637,6 +1706,267 @@ class ImageVerifiedCohortExportModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class VerifiedTrainingCohortModel(Base):
+    __tablename__ = "verified_training_cohorts"
+    __table_args__ = (
+        CheckConstraint(
+            "iteration_number > 0 AND manifest_schema_version > 0",
+            name="ck_verified_training_cohorts_versions",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_verified_training_cohorts_sha256",
+        ),
+        CheckConstraint(
+            "resolved_layout_count > 0 "
+            "AND cell_sample_count = resolved_layout_count * 15 "
+            "AND source_image_count > 0 "
+            "AND pending_item_count >= 0 "
+            "AND rejected_item_count >= 0 "
+            "AND incomplete_item_count >= 0",
+            name="ck_verified_training_cohorts_counts",
+        ),
+        CheckConstraint(
+            r"length(btrim(artifact_relative_path)) > 0 "
+            r"AND artifact_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_verified_training_cohorts_relative_path",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "iteration_number",
+            name="uq_verified_training_cohorts_iteration",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "manifest_checksum_sha256",
+            name="uq_verified_training_cohorts_manifest",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_verified_training_cohorts_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    resolved_layout_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    cell_sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_image_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    pending_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    rejected_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    incomplete_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class VerifiedTrainingCohortItemModel(Base):
+    __tablename__ = "verified_training_cohort_items"
+    __table_args__ = (
+        CheckConstraint(
+            "item_order >= 0 AND sequence_number > 0 "
+            "AND resolution_revision > 0 AND geometry_revision >= 0",
+            name="ck_verified_training_cohort_items_values",
+        ),
+        CheckConstraint(
+            "decision_status IN ('accepted', 'corrected')",
+            name="ck_verified_training_cohort_items_status",
+        ),
+        CheckConstraint(
+            "item_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND pipeline_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_verified_training_cohort_items_sha256",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(board_manifest) = 'object' "
+            "AND jsonb_array_length(board_manifest -> 'cells') = 15",
+            name="ck_verified_training_cohort_items_manifest",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "item_order",
+            name="uq_verified_training_cohort_items_order",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "review_item_id",
+            name="uq_verified_training_cohort_items_review",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    item_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    decision_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    item_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+
+
+class SymbolModelIterationModel(Base):
+    __tablename__ = "symbol_model_iterations"
+    __table_args__ = (
+        CheckConstraint(
+            "iteration_number > 0 AND last_completed_epoch >= 0",
+            name="ck_symbol_model_iterations_numbers",
+        ),
+        CheckConstraint(
+            "status IN ('created','dataset_build','training','trained','evaluating',"
+            "'candidate_ready','rejected','failed','cancelled')",
+            name="ck_symbol_model_iterations_status",
+        ),
+        CheckConstraint(
+            "(gate_configuration_fingerprint IS NULL "
+            "OR gate_configuration_fingerprint ~ '^[0-9a-f]{64}$') "
+            "AND (candidate_manifest_checksum_sha256 IS NULL "
+            "OR candidate_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$') "
+            "AND (gate_report_checksum_sha256 IS NULL "
+            "OR gate_report_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_symbol_model_iterations_gate_sha256",
+        ),
+        UniqueConstraint(
+            "game_id", "iteration_number", name="uq_symbol_model_iterations_number"
+        ),
+        UniqueConstraint("job_id", name="uq_symbol_model_iterations_job"),
+        UniqueConstraint(
+            "game_id",
+            "cohort_id",
+            "configuration_fingerprint",
+            name="uq_symbol_model_iterations_input",
+        ),
+        Index("ix_symbol_model_iterations_game_status", "game_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    configuration_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    configuration_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    dataset_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    dataset_manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    checkpoint_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    checkpoint_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    gate_configuration_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    gate_configuration_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    candidate_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    candidate_manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    gate_report_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    gate_report_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    gate_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    rejection_reasons: Mapped[list[str]] = mapped_column(
+        ARRAY(String(100)), nullable=False, default=list
+    )
+    last_completed_epoch: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    partial_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GameSymbolModelActivationModel(Base):
+    __tablename__ = "game_symbol_model_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('activate','rollback')",
+            name="ck_game_symbol_model_activations_action",
+        ),
+        CheckConstraint(
+            "activation_number > 0 AND btrim(actor) <> '' "
+            "AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_game_symbol_model_activations_values",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_game_symbol_model_activations_idempotency",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "activation_number",
+            name="uq_game_symbol_model_activations_number",
+        ),
+        Index(
+            "ix_game_symbol_model_activations_current",
+            "game_id",
+            "activation_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_iteration_id: Mapped[UUID] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_model_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    activation_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 

@@ -34,10 +34,14 @@ test('does not expose duplicate Dataset or Manual Review workspaces', () => {
   assert.doesNotMatch(workspaceSource, /Manual Review/i);
   assert.match(workspaceSource, /ImageFolderImportPanel/);
   assert.match(workspaceSource, /ReviewerAccessLauncher/);
+  assert.match(workspaceSource, /ModelQualityWorkspace/);
+  assert.match(workspaceSource, /Jakość rozpoznawania/);
 });
 
 test('keeps destructive game cleanup after every ordinary game section', () => {
-  const gameSectionsIndex = workspaceSource.indexOf('{GAME_SECTION_OPTIONS.map');
+  const gameSectionsIndex = workspaceSource.indexOf(
+    '{GAME_SECTION_OPTIONS.map',
+  );
   const cleanupIndex = workspaceSource.indexOf('<CleanupControl');
 
   assert.notEqual(gameSectionsIndex, -1);

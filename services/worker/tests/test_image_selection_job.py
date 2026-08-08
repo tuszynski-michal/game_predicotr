@@ -18,12 +18,17 @@ from game_predictor_api.domain.jobs import (
     create_job,
     start_job,
 )
+from game_predictor_worker.images.selection.adapters import (
+    DeterministicParallelCandidateVerifier,
+)
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
     CandidateVerification,
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
+    RangeEvidence,
+    RepresentativeAssessment,
     SelectionGroupResult,
     SelectionGroupStatus,
     SequenceRange,
@@ -35,6 +40,7 @@ from game_predictor_worker.images.selection.job import (
 )
 from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+    DEFAULT_SELECTOR_MANIFEST,
     LEGACY_SELECTOR_MANIFEST_V2,
     SelectorManifest,
 )
@@ -73,6 +79,68 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
 
     assert analyzer is not None
     assert verifier is not None
+
+
+def test_v10_1_production_factory_builds_two_isolated_verifiers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    predictors: list[object] = []
+    built_verifiers: list[object] = []
+
+    def build_predictor(*_args: object, **_kwargs: object) -> object:
+        predictor = object()
+        predictors.append(predictor)
+        return predictor
+
+    class _FactoryVerifier:
+        def verify(
+            self,
+            observation: CheapImageObservation,
+            *,
+            expected_board_count: int | None,
+        ) -> CandidateVerification:
+            del observation, expected_board_count
+            return CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(None),
+            )
+
+    def build_adapters(*_args: object, **_kwargs: object) -> tuple[object, _FactoryVerifier]:
+        verifier = _FactoryVerifier()
+        built_verifiers.append(verifier)
+        return object(), verifier
+
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.job.PaddleSequenceNumberRecognizer",
+        build_predictor,
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.job.build_default_adapters",
+        build_adapters,
+    )
+    handler = ImageSelectionJobHandler(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        browser_upload_root=tmp_path,
+        artifact_root=tmp_path,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        verification_workers=2,
+    )
+
+    _, verifier = handler._default_adapter_factory(  # noqa: SLF001
+        source_root,
+        DEFAULT_SELECTOR_MANIFEST,
+        StageTimingCollector(),
+    )
+
+    assert len(predictors) == 2
+    assert len({id(predictor) for predictor in predictors}) == 2
+    assert len({id(item) for item in built_verifiers}) == 2
+    assert isinstance(verifier, DeterministicParallelCandidateVerifier)
+    assert verifier.worker_count == 2
 
 
 @dataclass
@@ -197,11 +265,12 @@ class _Verifier:
     ) -> CandidateVerification:
         del observation
         return CandidateVerification(
-            recognized_range=SequenceRange(1, 9, 0.98),
-            board_count=expected_board_count,
-            geometry_complete=True,
-            full_frame_visible=True,
-            reason_codes=(),
+            representative=RepresentativeAssessment(
+                expected_board_count,
+                True,
+                True,
+            ),
+            range_evidence=RangeEvidence(SequenceRange(1, 9, 0.98)),
         )
 
 
@@ -214,11 +283,11 @@ class _ManualVerifier:
     ) -> CandidateVerification:
         del observation, expected_board_count
         return CandidateVerification(
-            recognized_range=None,
-            board_count=None,
-            geometry_complete=False,
-            full_frame_visible=False,
-            reason_codes=("RANGE_ANCHOR_UNREADABLE",),
+            representative=RepresentativeAssessment(None, False, False),
+            range_evidence=RangeEvidence(
+                None,
+                ("RANGE_ANCHOR_UNREADABLE",),
+            ),
         )
 
 

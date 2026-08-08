@@ -79,6 +79,7 @@ class ImageReviewItem:
     id: UUID
     game_id: UUID
     import_job_id: UUID
+    source_image_id: UUID
     recognized_board_id: UUID
     status: str
     source_order_index: int

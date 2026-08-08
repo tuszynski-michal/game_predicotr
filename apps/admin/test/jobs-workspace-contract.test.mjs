@@ -34,3 +34,11 @@ test('preserves polling, retry, cancellation and image diagnostics', () => {
   assert.match(monitorSource, /cancelJob\(api, job\.id\)/);
   assert.match(monitorSource, /<ImageJobOperationsPanel/);
 });
+
+test('shows independent worker health even when the job list is empty', () => {
+  assert.match(monitorSource, /loadWorkerLanes\(api\)/);
+  assert.match(monitorSource, /Status lokalnych workerów/);
+  assert.match(monitorSource, /General/);
+  assert.match(monitorSource, /Selekcja zdjęć/);
+  assert.match(monitorSource, /Brak świeżego sygnału/);
+});

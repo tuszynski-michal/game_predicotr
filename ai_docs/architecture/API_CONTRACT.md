@@ -1054,6 +1054,34 @@ pipeline’u Android.
 Zwraca najwyżej 200 najnowszych rekordów. Obsługuje filtry `status`,
 `job_type`, `game_id` oraz bounded `limit`, domyślnie 50.
 
+### GET `/api/v1/admin/worker-lanes`
+
+Zwraca zawsze dwa rekordy w kolejności `general`, `image_selection`, niezależnie
+od obecności jobów oraz filtra listy. Status `running | degraded | stopped`
+wynika z heartbeat procesu. Odpowiedź nie ujawnia PID, `workerId`, komendy ani
+lokalnych ścieżek:
+
+```json
+[
+  {
+    "lane": "general",
+    "state": "running",
+    "workerVersion": "worker-v10-general",
+    "threadBudget": 2,
+    "startedAt": "2026-08-05T12:00:00Z",
+    "heartbeatAt": "2026-08-05T12:00:05Z"
+  },
+  {
+    "lane": "image_selection",
+    "state": "stopped",
+    "workerVersion": null,
+    "threadBudget": null,
+    "startedAt": null,
+    "heartbeatAt": null
+  }
+]
+```
+
 ### GET `/api/v1/admin/jobs/{jobId}`
 
 ```json
@@ -1486,56 +1514,97 @@ sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
 próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
 zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
 
-## Planowany Admin API M6.6 — jakość modelu symboli
+## Admin API M6.6 — jakość modelu symboli
 
-Endpointy tego rozdziału są planowanym kontraktem TASK-0143–0149 i nie są
-jeszcze dostępne w wersji 0.2. Odpowiedzi zostaną dodane do OpenAPI backendu, a
-frontend użyje wyłącznie wygenerowanego klienta.
+Endpointy kohorty z TASK-0143 oraz game-scoped podsumowanie gotowości z
+TASK-0144 są dostępne w backendzie, wygenerowanym kliencie i panelu Admina.
+Pozostałe endpointy TASK-0145–0149 są nadal planowane. Nie są częścią panelu
+wersji 0.2.
 
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
-Zwraca aktywny model, liczby zweryfikowanych plansz ogółem i od ostatniej
-kohorty, pokrycie symboli i źródeł, bieżącą iterację oraz dozwolone akcje.
+Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), liczby
+zweryfikowanych plansz ogółem i pozycje zmienione od ostatniej kohorty,
+pokrycie wszystkich aktywnych symboli, liczbę źródeł, progi doradcze 100/1000,
+ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta porównuje checksumy
+pełnych pozycji, dlatego zmieniona etykieta jest nowym elementem również wtedy,
+gdy liczba plansz się nie zmieniła. Aktywny job `created` albo `processing` tej
+samej gry ustawia `activeHeavyJob = true` i czasowo blokuje freeze. Ostrzeżenie
+o małym pokryciu klasy pojawia się poniżej 10 cropów symbolu, a ostrzeżenie o
+małej różnorodności źródeł poniżej 3 zdjęć; oba progi są doradcze i nie blokują
+operacji.
 
-### GET `/api/v1/admin/games/{gameId}/verified-training-cohorts/preview`
+### GET `/api/v1/admin/games/{game_id}/verified-training-cohorts/preview`
 
 Zwraca dokładne liczniki elementów kwalifikujących, wykluczonych i chronionych,
-manifest preview oraz ostrzeżenia o małym pokryciu. Progi 100 i 1000 są
-informacją, nie warunkiem endpointu.
+checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
+`resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
+`incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
+nie warunkiem endpointu.
 
-### POST `/api/v1/admin/games/{gameId}/verified-training-cohorts`
+### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
-Z kluczem idempotencji zamraża pełną, skumulowaną kohortę jednej gry. Nie
-uruchamia treningu i nie zmienia review.
+Body zawiera `idempotencyKey`, `createdBy` i
+`expectedManifestChecksumSha256` pochodzące z jawnie potwierdzonego preview.
+Komenda zamraża pełną, skumulowaną kohortę jednej gry. Zmiana stanu po preview
+zwraca `VERIFIED_TRAINING_COHORT_PREVIEW_STALE`, a aktywna ciężka operacja tej
+gry zwraca `VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE`. Identyczny stan zwraca
+istniejącą kohortę, a zmiana stanu tworzy kolejną iterację. Nie uruchamia
+treningu i nie zmienia review.
 
 ### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations`
 
 Tworzy trwały job treningowy dla wskazanej kohorty i wersjonowanej konfiguracji.
-Odpowiedź zawiera `jobId` oraz `modelIterationId`; request nie wykonuje treningu
-w procesie API.
+Body zawiera `cohortId`, `idempotencyKey` i opcjonalną konfigurację treningu.
+Odpowiedź zawiera zagnieżdżone `job`, `iteration` oraz flagę `created`; request
+nie wykonuje treningu w procesie API. Powtórzenie identycznej komendy zwraca ten
+sam job i iterację, a drugi aktywny trening tej samej gry zwraca konflikt.
 
 ### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations`
 
-Zwraca bounded historię wersji, statusy, checksumy i skrócone metryki.
+Zwraca bounded historię wersji, statusy, checksumy checkpointów, ostatnią
+ukończoną epokę i metryki cząstkowe.
+
+Lista zawiera również checksumy manifestu i raportu kandydata, wersjonowaną
+konfigurację bramki, `gateMetrics` oraz stabilne `rejectionReasons`.
 
 ### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}`
 
-Zwraca manifest, pełne metryki kandydata, porównanie z aktywnym modelem oraz
-stan bramki. Nie zwraca absolutnych ścieżek ani danych obrazu.
+W TASK-0146 zwraca przypiętą kohortę, konfigurację, fingerprint, stan datasetu,
+checkpoint, epokę i metryki cząstkowe. Pełne metryki kandydata, porównanie z
+aktywnym modelem i stan bramki zostaną rozszerzone w TASK-0147. Endpoint nie
+zwraca absolutnych ścieżek ani danych obrazu.
+
+Od TASK-0147 endpoint zwraca pełne metryki kandydata, opcjonalne porównanie z
+aktywną bazą, parity PyTorch–ONNX i wynik smoke CPU. Ścieżki artefaktów są
+względne wobec zarządzanego storage; API nie ujawnia ścieżek absolutnych.
+
+### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/activation-preview`
+
+Parametr `action = activate | rollback` zwraca dokładną checksumę manifestu
+kandydata i bieżący `currentModelIterationId`. Preview nie zmienia rejestru.
 
 ### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/activate`
 
-Po preview i jawnym potwierdzeniu aktywuje wyłącznie `candidate_ready`.
-Komenda jest audytowalna i nie wpływa na model przypięty do trwającego importu.
-
-### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/reject`
-
-Odrzuca kandydata z przyczyną bez zmiany aktywnego modelu.
+Body zawiera `expectedManifestChecksumSha256`,
+`expectedCurrentModelIterationId`, `idempotencyKey`, `actor` i opcjonalny
+`reason`. Komenda aktywuje wyłącznie kompletny `candidate_ready`, którego
+manifest i bieżący aktywny model są zgodne z preview. Dokładne ponowienie zwraca
+`created = false`; ponowne użycie klucza dla innej komendy zwraca konflikt.
+Aktywacja nie wpływa na model przypięty do trwającego importu.
 
 ### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/rollback`
 
 Tworzy nowe zdarzenie aktywacji wcześniej poprawnej wersji. Nie nadpisuje
-historii i nie przelicza danych.
+historii i nie przelicza danych. Target rollbacku musiał już wcześniej być
+aktywny dla tej samej gry i nadal mieć kompletny, checksum-bound manifest.
+
+### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/registry/activations`
+
+Zwraca ograniczoną historię aktywacji i rollbacków w malejącej kolejności
+`activationNumber`. Rekord zawiera poprzednią i nową iterację, akcję, aktora,
+powód, klucz idempotencji i czas. Bieżący model to iteracja z najwyższym
+`activationNumber`.
 
 ### GET `/api/v1/admin/games/{gameId}/pending-reinference-preview`
 

@@ -77,6 +77,8 @@ def create_image_selections_router(
             game_id=payload.game_id,
             selection_token=payload.selection_token,
             selector_fingerprint=IMAGE_SELECTION_SELECTOR_FINGERPRINT,
+            sequence_direction=payload.sequence_direction,
+            first_sequence_number=payload.first_sequence_number,
         )
         return ImageSelectionCreateResponse(
             run=to_image_selection_run_response(run),
@@ -267,6 +269,24 @@ def create_image_selections_router(
             group=to_image_selection_group_response(resolved.group),
             decision=to_manual_decision_response(resolved.decision),
         )
+
+    @router.get(
+        "/{run_id}/groups/{group_id}/selected-file",
+        response_class=FileResponse,
+        operation_id="getImageSelectionSelectedGroupFile",
+        summary="Read one selected JPEG as soon as its group is finalized",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_selection_selected_group_file(
+        run_id: UUID,
+        group_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> FileResponse:
+        path, file_name = service.get_selected_group_file(
+            run_id=run_id,
+            group_id=group_id,
+        )
+        return FileResponse(path, media_type="image/jpeg", filename=file_name)
 
     @router.get(
         "/{run_id}/output",

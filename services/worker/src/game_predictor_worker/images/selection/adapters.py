@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -36,16 +37,23 @@ from .contracts import (
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
+    RangeEvidence,
+    RepresentativeAssessment,
     SelectionContractError,
     SequenceRange,
 )
 from .manifest import (
+    ACCURACY_FIRST_SELECTOR_VERSIONS,
+    ADAPTIVE_ACCURACY_SELECTOR_VERSION,
+    APPEARANCE_GROUPING_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
     LEGACY_THUMBNAIL_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
     AppearanceDescriptorConfig,
+    FullGeometryPolicy,
+    ProgressiveVisibleLabelFallbackPolicy,
     QualityWeights,
     SelectorManifest,
 )
@@ -586,6 +594,90 @@ class OpenCvAppearanceQualityAnalyzer:
             )
 
 
+class OpenCvAccuracyFirstQualityAnalyzer(OpenCvAppearanceQualityAnalyzer):
+    """Board-area quality proxy used to shortlist every frame in a v10 group."""
+
+    version = "opencv-appearance-quality-v2"
+
+    def measure(
+        self,
+        frame: ThumbnailFrame,
+        lattice: LatticeFingerprint,
+    ) -> ImageQualityMetrics:
+        del lattice
+        timing = (
+            self._telemetry.measure("quality") if self._telemetry is not None else nullcontext()
+        )
+        with timing:
+            return self._measure(frame)
+
+    def _measure(
+        self,
+        frame: ThumbnailFrame,
+    ) -> ImageQualityMetrics:
+        rgb = frame.rgb
+        height, width = rgb.shape[:2]
+        top = int(round(height * 0.16))
+        bottom = int(round(height * 0.82))
+        left = int(round(width * 0.08))
+        right = int(round(width * 0.92))
+        region = rgb[top:bottom, left:right]
+        if region.size == 0:
+            region = rgb
+        gray = cv2.cvtColor(region, cv2.COLOR_RGB2GRAY)
+        hsv = cv2.cvtColor(region, cv2.COLOR_RGB2HSV)
+        laplacian_variance = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+        sharpness = laplacian_variance / (laplacian_variance + 420.0)
+        mean_luminance = float(np.mean(gray))
+        exposure = max(0.0, 1.0 - abs(mean_luminance - 127.5) / 127.5)
+        clipped_fraction = float(np.mean((gray <= 4) | (gray >= 251)))
+        highlight_retention = max(0.0, 1.0 - clipped_fraction * 2.5)
+        glare_fraction = float(np.mean((hsv[:, :, 2] >= 242) & (hsv[:, :, 1] <= 45)))
+        glare_resistance = max(0.0, 1.0 - glare_fraction * 6.0)
+        edge_map = np.abs(cv2.Laplacian(gray, cv2.CV_32F))
+        edge_strength = float(np.mean(edge_map))
+        contrast = float(np.std(gray))
+        board_visibility = max(
+            0.0,
+            min(
+                1.0,
+                0.55 * contrast / (contrast + 30.0) + 0.45 * edge_strength / (edge_strength + 18.0),
+            ),
+        )
+        border_band = max(2, int(round(min(region.shape[:2]) * 0.035)))
+        border_values = np.concatenate(
+            (
+                edge_map[:border_band, :].reshape(-1),
+                edge_map[-border_band:, :].reshape(-1),
+                edge_map[:, :border_band].reshape(-1),
+                edge_map[:, -border_band:].reshape(-1),
+            )
+        )
+        border_activity = float(np.mean(border_values)) if border_values.size else 0.0
+        border_margin = max(0.0, min(1.0, 1.0 - border_activity / (border_activity + 24.0)))
+        perspective = board_visibility
+        components = {
+            "board_visibility": board_visibility,
+            "border_margin": border_margin,
+            "exposure": exposure,
+            "glare_resistance": glare_resistance,
+            "highlight_retention": highlight_retention,
+            "perspective": perspective,
+            "sharpness": sharpness,
+        }
+        overall = sum(components[name] * getattr(self._weights, name) for name in components)
+        return ImageQualityMetrics(
+            sharpness=round(sharpness, 6),
+            exposure=round(exposure, 6),
+            highlight_retention=round(highlight_retention, 6),
+            glare_resistance=round(glare_resistance, 6),
+            perspective=round(perspective, 6),
+            border_margin=round(border_margin, 6),
+            board_visibility=round(board_visibility, 6),
+            overall_score=round(max(0.0, min(1.0, overall)), 6),
+        )
+
+
 class ComposedCheapImageAnalyzer:
     """Compose explicit thumbnail, lattice/fingerprint and quality ports."""
 
@@ -740,6 +832,8 @@ class VisibleSequenceLabelRangeRecognizer:
     _minimum_fill_ratio = 0.57
     _maximum_width_to_height_ratio: float | None = None
     _candidate_limit: int | None = None
+    _horizontal_padding_ratio = 0.35
+    _vertical_padding_ratio = 0.25
 
     def __init__(
         self,
@@ -763,7 +857,16 @@ class VisibleSequenceLabelRangeRecognizer:
             recognitions = self._recognize_many(tuple(label.crop for label in labels))
         except (SequenceOcrError, ValueError):
             return None, ("RANGE_LABEL_OCR_FAILED",)
-        hypotheses = self._range_hypotheses(labels, recognitions, rgb_image.shape[:2])
+        return self._resolve_range(labels, recognitions, rgb_image.shape[:2])
+
+    @classmethod
+    def _resolve_range(
+        cls,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        hypotheses = cls._range_hypotheses(labels, recognitions, image_shape)
         if not hypotheses:
             return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
         best_score, best_range = hypotheses[0]
@@ -792,6 +895,15 @@ class VisibleSequenceLabelRangeRecognizer:
 
     @classmethod
     def _label_candidates(
+        cls,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[_VisibleLabel, ...]:
+        selected = list(cls._ranked_label_candidates(rgb_image))
+        selected.sort(key=lambda value: (value.center[1], value.center[0]))
+        return tuple(selected)
+
+    @classmethod
+    def _ranked_label_candidates(
         cls,
         rgb_image: NDArray[np.uint8],
     ) -> tuple[_VisibleLabel, ...]:
@@ -839,8 +951,8 @@ class VisibleSequenceLabelRangeRecognizer:
             fill_ratio = area / (component_width * component_height)
             if area < minimum_area or fill_ratio < cls._minimum_fill_ratio:
                 continue
-            pad_x = max(2, int(round(component_height * 0.35)))
-            pad_y = max(2, int(round(component_height * 0.25)))
+            pad_x = max(2, int(round(component_height * cls._horizontal_padding_ratio)))
+            pad_y = max(2, int(round(component_height * cls._vertical_padding_ratio)))
             left = max(0, x - pad_x)
             top = max(0, y - pad_y)
             right = min(width, x + component_width + pad_x)
@@ -856,13 +968,17 @@ class VisibleSequenceLabelRangeRecognizer:
                         ),
                     )
                 )
-        if cls._candidate_limit is not None and len(labels) > cls._candidate_limit:
-            labels = sorted(labels, key=lambda value: value[0], reverse=True)[
-                : cls._candidate_limit
-            ]
-        selected = [value[1] for value in labels]
-        selected.sort(key=lambda value: (value.center[1], value.center[0]))
-        return tuple(selected)
+        labels.sort(
+            key=lambda value: (
+                -value[0][0],
+                -value[0][1],
+                value[1].center[1],
+                value[1].center[0],
+            )
+        )
+        if cls._candidate_limit is not None:
+            labels = labels[: cls._candidate_limit]
+        return tuple(value[1] for value in labels)
 
     @classmethod
     def _label_mask(cls, hsv: NDArray[np.uint8]) -> NDArray[np.uint8]:
@@ -1015,6 +1131,95 @@ class BestEffortVisibleSequenceLabelRangeRecognizer(AdaptiveVisibleSequenceLabel
         return np.asarray(cv2.bitwise_or(neutral, warm), dtype=np.uint8)
 
 
+class AccuracyFirstVisibleSequenceLabelRangeRecognizer(
+    BestEffortVisibleSequenceLabelRangeRecognizer
+):
+    """Preserve complete multi-digit labels for accuracy-first selection."""
+
+    version = "visible-sequence-label-range-v4"
+    _roi_y_start = 0.18
+    _roi_y_end = 0.55
+    _roi_x_start = 0.06
+    _roi_x_end = 0.94
+    _maximum_component_width = 0.16
+    _maximum_width_to_height_ratio = 10.0
+    _candidate_limit = 72
+    _horizontal_padding_ratio = 0.70
+    _vertical_padding_ratio = 0.40
+
+
+class ProgressiveVisibleSequenceLabelRangeRecognizer(
+    AccuracyFirstVisibleSequenceLabelRangeRecognizer
+):
+    """Evaluate the same bounded label set in progressively larger OCR stages."""
+
+    version = "visible-sequence-label-range-v5"
+
+    def __init__(
+        self,
+        recognizer: SequenceNumberRecognizer,
+        policy: ProgressiveVisibleLabelFallbackPolicy,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        super().__init__(recognizer, telemetry=telemetry)
+        self._candidate_levels = policy.candidate_levels
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        del boards
+        labels = self._ranked_label_candidates(rgb_image)
+        if len(labels) < self._minimum_inlier_count:
+            return None, ("RANGE_LABEL_LATTICE_MISSING",)
+
+        recognitions: list[Recognition] = []
+        last_reasons: tuple[str, ...] = ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+        previous_count = 0
+        for configured_level in self._candidate_levels:
+            candidate_count = min(configured_level, len(labels))
+            if candidate_count <= previous_count:
+                continue
+            batch_labels = labels[previous_count:candidate_count]
+            self._record_level_attempt(configured_level, len(batch_labels))
+            try:
+                recognitions.extend(
+                    self._recognize_many(tuple(label.crop for label in batch_labels))
+                )
+            except (SequenceOcrError, ValueError):
+                return None, ("RANGE_LABEL_OCR_FAILED",)
+            recognized_range, last_reasons = self._resolve_range(
+                labels[:candidate_count],
+                recognitions,
+                rgb_image.shape[:2],
+            )
+            if recognized_range is not None:
+                self._record_level_resolution(configured_level, candidate_count)
+                return recognized_range, ()
+            previous_count = candidate_count
+            if candidate_count == len(labels):
+                break
+
+        if self._telemetry is not None:
+            self._telemetry.increment("progressiveFallbackExhausted")
+        return None, last_reasons
+
+    def _record_level_attempt(self, configured_level: int, added_crops: int) -> None:
+        if self._telemetry is None:
+            return
+        self._telemetry.increment("progressiveFallbackLevelsAttempted")
+        self._telemetry.increment(f"progressiveFallbackLevel{configured_level}Attempts")
+        self._telemetry.increment("progressiveFallbackCrops", added_crops)
+
+    def _record_level_resolution(self, configured_level: int, crop_count: int) -> None:
+        if self._telemetry is None:
+            return
+        self._telemetry.increment(f"progressiveFallbackResolvedAtLevel{configured_level}")
+        self._telemetry.increment("progressiveFallbackResolvedCropCount", crop_count)
+
+
 class NoRangeRecognizer:
     version = "no-range-recognizer-v1"
 
@@ -1038,6 +1243,8 @@ class FullCandidateVerifier:
         detector: PageBoardDetector | None = None,
         *,
         allow_grid_recovery: bool = False,
+        couple_fallback_to_representative: bool = True,
+        full_geometry_policy: FullGeometryPolicy | None = None,
         telemetry: StageTimingCollector | None = None,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
@@ -1045,6 +1252,8 @@ class FullCandidateVerifier:
         self._fallback_range_recognizer = fallback_range_recognizer
         self._detector = detector or ClassicalPageBoardDetector()
         self._allow_grid_recovery = allow_grid_recovery
+        self._couple_fallback_to_representative = couple_fallback_to_representative
+        self._full_geometry_policy = full_geometry_policy
         self._telemetry = telemetry
 
     def verify(
@@ -1053,6 +1262,33 @@ class FullCandidateVerifier:
         *,
         expected_board_count: int | None,
     ) -> CandidateVerification:
+        return self._verify(
+            observation,
+            expected_board_count=expected_board_count,
+            include_range_evidence=True,
+        )
+
+    def assess_representative(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        return self._verify(
+            observation,
+            expected_board_count=expected_board_count,
+            include_range_evidence=False,
+        )
+
+    def _verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> CandidateVerification:
+        if include_range_evidence and self._telemetry is not None:
+            self._telemetry.increment("rangeEvidenceVerifications")
         try:
             path = _safe_source_path(
                 self._source_root,
@@ -1078,25 +1314,37 @@ class FullCandidateVerifier:
                 )
         except (SelectionContractError, StatisticsError) as error:
             return CandidateVerification(
-                recognized_range=None,
-                board_count=None,
-                geometry_complete=False,
-                full_frame_visible=False,
-                reason_codes=(
-                    error.code
-                    if isinstance(error, SelectionContractError)
-                    else "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+                representative=RepresentativeAssessment(
+                    board_count=None,
+                    geometry_complete=False,
+                    full_frame_visible=False,
+                    reason_codes=(
+                        error.code
+                        if isinstance(error, SelectionContractError)
+                        else "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+                    ),
                 ),
+                range_evidence=RangeEvidence(recognized_range=None),
             )
-        geometry_complete = expected_board_count is not None and (
-            detection.status == "detected" and len(detection.boards) == expected_board_count
+        detected_board_count = len(detection.boards)
+        expected_geometry_complete = (
+            expected_board_count is not None and detected_board_count == expected_board_count
+        )
+        local_geometry_complete = self._is_stable_local_geometry(
+            detection,
+            expected_board_count=expected_board_count,
+        )
+        geometry_complete = detection.status == "detected" and (
+            expected_geometry_complete or local_geometry_complete
         )
         full_frame_visible = geometry_complete and self._full_frame_visible(
             detection, rgb.shape[1], rgb.shape[0]
         )
         recognized_range: SequenceRange | None = None
         range_reasons: tuple[str, ...] = ()
-        if geometry_complete:
+        if include_range_evidence and geometry_complete:
+            if self._telemetry is not None:
+                self._telemetry.increment("anchoredOcrAttempts")
             timing = (
                 self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
@@ -1105,7 +1353,19 @@ class FullCandidateVerifier:
                     rgb,
                     detection.boards,
                 )
-        if recognized_range is None and self._fallback_range_recognizer is not None:
+            if self._telemetry is not None:
+                self._telemetry.increment(
+                    "anchoredOcrSuccesses"
+                    if recognized_range is not None
+                    else "anchoredOcrFailures"
+                )
+        if (
+            include_range_evidence
+            and recognized_range is None
+            and self._fallback_range_recognizer is not None
+        ):
+            if self._telemetry is not None:
+                self._telemetry.increment("fallbackOcrAttempts")
             timing = (
                 self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
@@ -1116,12 +1376,19 @@ class FullCandidateVerifier:
                 )
             if fallback_range is not None:
                 recognized_range = fallback_range
-                geometry_complete = True
-                full_frame_visible = True
+                if self._couple_fallback_to_representative:
+                    geometry_complete = True
+                    full_frame_visible = True
                 range_reasons = ()
+                if self._telemetry is not None:
+                    self._telemetry.increment("fallbackOcrSuccesses")
             else:
                 range_reasons = tuple(dict.fromkeys((*range_reasons, *fallback_reasons)))
-        if recognized_range is None:
+                if self._telemetry is not None:
+                    self._telemetry.increment("fallbackOcrFailures")
+        if not include_range_evidence:
+            range_reasons = ("RANGE_EVIDENCE_NOT_REQUESTED",)
+        elif recognized_range is None:
             detection_reasons = tuple(detection.review_reasons) or (
                 "BOARD_COUNT_CONSENSUS_UNKNOWN"
                 if expected_board_count is None
@@ -1129,16 +1396,40 @@ class FullCandidateVerifier:
             )
             range_reasons = tuple(dict.fromkeys((*detection_reasons, *range_reasons)))
         return CandidateVerification(
-            recognized_range=recognized_range,
-            board_count=(
-                recognized_range.board_count
-                if recognized_range is not None
-                else (len(detection.boards) or None)
+            representative=RepresentativeAssessment(
+                board_count=(
+                    recognized_range.board_count
+                    if self._couple_fallback_to_representative and recognized_range is not None
+                    else (len(detection.boards) or None)
+                ),
+                geometry_complete=geometry_complete,
+                full_frame_visible=full_frame_visible,
             ),
-            geometry_complete=geometry_complete,
-            full_frame_visible=full_frame_visible,
-            reason_codes=range_reasons,
+            range_evidence=RangeEvidence(
+                recognized_range=recognized_range,
+                reason_codes=range_reasons,
+            ),
         )
+
+    def record_adaptive_range_stop(
+        self,
+        reason: str,
+        *,
+        evidence_count: int,
+        candidate_count: int,
+    ) -> None:
+        if self._telemetry is None:
+            return
+        counter = {
+            "confirmed": "rangeConsensusConfirmed",
+            "conflict_exhausted": "rangeConsensusConflictExhausted",
+            "no_consensus_exhausted": "rangeConsensusNoConsensusExhausted",
+        }.get(reason)
+        if counter is None:
+            raise ValueError(f"Unsupported adaptive range stop reason: {reason}")
+        self._telemetry.increment(counter)
+        self._telemetry.increment("rangeConsensusEvidenceCount", evidence_count)
+        self._telemetry.increment("rangeConsensusCandidateCount", candidate_count)
 
     @staticmethod
     def _full_frame_visible(detection: DetectionResult, width: int, height: int) -> bool:
@@ -1149,6 +1440,197 @@ class FullCandidateVerifier:
             margin <= point.x < width - margin and margin <= point.y < height - margin
             for point in detection.page_quad
         )
+
+    def _is_stable_local_geometry(
+        self,
+        detection: DetectionResult,
+        *,
+        expected_board_count: int | None,
+    ) -> bool:
+        policy = self._full_geometry_policy
+        if policy is None or expected_board_count is not None:
+            return False
+        board_count = len(detection.boards)
+        return (
+            detection.status == "detected"
+            and policy.minimum_board_count <= board_count <= policy.maximum_board_count
+            and detection.confidence >= policy.minimum_confidence
+        )
+
+
+class DeterministicParallelCandidateVerifier:
+    """Run bounded candidate batches on isolated verifier instances."""
+
+    def __init__(
+        self,
+        verifiers: tuple[CandidateVerifier, ...],
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        if not 1 <= len(verifiers) <= 2:
+            raise ValueError("Candidate verification supports one or two isolated workers.")
+        if len({id(verifier) for verifier in verifiers}) != len(verifiers):
+            raise ValueError("Parallel candidate workers must use distinct verifier instances.")
+        self._verifiers = verifiers
+        self._telemetry = telemetry
+
+    @property
+    def worker_count(self) -> int:
+        return len(self._verifiers)
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        return self._verifiers[0].verify(
+            observation,
+            expected_board_count=expected_board_count,
+        )
+
+    def assess_representative(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        return self._assess(
+            self._verifiers[0],
+            observation,
+            expected_board_count=expected_board_count,
+        )
+
+    def verify_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> tuple[CandidateVerification, ...]:
+        if not observations:
+            return ()
+        worker_count = min(len(self._verifiers), len(observations))
+        if self._telemetry is not None:
+            self._telemetry.increment("parallelVerificationBatches")
+            self._telemetry.increment("parallelVerificationItems", len(observations))
+            self._telemetry.increment("parallelVerificationWorkerSlots", worker_count)
+        partitions: list[list[tuple[int, CheapImageObservation]]] = [
+            [] for _ in range(worker_count)
+        ]
+        for index, observation in enumerate(observations):
+            partitions[index % worker_count].append((index, observation))
+        ordered: list[CandidateVerification | None] = [None] * len(observations)
+        partition_results: tuple[tuple[tuple[int, CandidateVerification], ...], ...]
+        if worker_count == 1:
+            partition_results = (
+                self._verify_partition(
+                    self._verifiers[0],
+                    tuple(partitions[0]),
+                    expected_board_count=expected_board_count,
+                    include_range_evidence=include_range_evidence,
+                ),
+            )
+        else:
+            with ThreadPoolExecutor(
+                max_workers=worker_count,
+                thread_name_prefix="candidate-verifier",
+            ) as executor:
+                futures = tuple(
+                    executor.submit(
+                        self._verify_partition,
+                        self._verifiers[worker_index],
+                        tuple(partition),
+                        expected_board_count=expected_board_count,
+                        include_range_evidence=include_range_evidence,
+                    )
+                    for worker_index, partition in enumerate(partitions)
+                )
+                partition_results = tuple(future.result() for future in futures)
+        for partition in partition_results:
+            for index, verification in partition:
+                ordered[index] = verification
+        if any(verification is None for verification in ordered):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                "Parallel candidate verification returned an incomplete batch.",
+            )
+        return tuple(cast(CandidateVerification, verification) for verification in ordered)
+
+    @classmethod
+    def _verify_partition(
+        cls,
+        verifier: CandidateVerifier,
+        partition: tuple[tuple[int, CheapImageObservation], ...],
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> tuple[tuple[int, CandidateVerification], ...]:
+        results: list[tuple[int, CandidateVerification]] = []
+        for index, observation in partition:
+            verification = (
+                verifier.verify(
+                    observation,
+                    expected_board_count=expected_board_count,
+                )
+                if include_range_evidence
+                else cls._assess(
+                    verifier,
+                    observation,
+                    expected_board_count=expected_board_count,
+                )
+            )
+            if not isinstance(verification, CandidateVerification):
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                    "Parallel candidate verification returned an invalid result.",
+                )
+            results.append((index, verification))
+        return tuple(results)
+
+    @staticmethod
+    def _assess(
+        verifier: CandidateVerifier,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        assess = getattr(verifier, "assess_representative", None)
+        result = (
+            assess(observation, expected_board_count=expected_board_count)
+            if callable(assess)
+            else verifier.verify(
+                observation,
+                expected_board_count=expected_board_count,
+            )
+        )
+        if not isinstance(result, CandidateVerification):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                "Representative assessment returned an invalid result.",
+            )
+        return CandidateVerification(
+            representative=result.representative,
+            range_evidence=RangeEvidence(
+                recognized_range=None,
+                reason_codes=("RANGE_EVIDENCE_NOT_REQUESTED",),
+            ),
+        )
+
+    def record_adaptive_range_stop(
+        self,
+        reason: str,
+        *,
+        evidence_count: int,
+        candidate_count: int,
+    ) -> None:
+        record = getattr(self._verifiers[0], "record_adaptive_range_stop", None)
+        if callable(record):
+            record(
+                reason,
+                evidence_count=evidence_count,
+                candidate_count=candidate_count,
+            )
 
 
 def build_default_adapters(
@@ -1165,21 +1647,44 @@ def build_default_adapters(
         adapter_version=manifest.thumbnail_adapter_version,
         telemetry=telemetry,
     )
-    if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
-        return (
-            ComposedCheapImageAnalyzer(
-                thumbnail_loader,
-                OpenCvAppearanceFingerprintAnalyzer(
-                    manifest.appearance_descriptor,
-                    telemetry=telemetry,
-                ),
-                OpenCvAppearanceQualityAnalyzer(
+    if manifest.algorithm_version in APPEARANCE_GROUPING_SELECTOR_VERSIONS:
+        analyzer = ComposedCheapImageAnalyzer(
+            thumbnail_loader,
+            OpenCvAppearanceFingerprintAnalyzer(
+                manifest.appearance_descriptor,
+                telemetry=telemetry,
+            ),
+            (
+                OpenCvAccuracyFirstQualityAnalyzer(
                     manifest.quality_weights,
                     manifest.appearance_descriptor,
                     telemetry=telemetry,
-                ),
+                )
+                if manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS
+                else OpenCvAppearanceQualityAnalyzer(
+                    manifest.quality_weights,
+                    manifest.appearance_descriptor,
+                    telemetry=telemetry,
+                )
             ),
-            AppearanceOnlyCandidateVerifier(),
+        )
+        if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+            return analyzer, AppearanceOnlyCandidateVerifier()
+        detector = ClassicalPageBoardDetector()
+        return (
+            analyzer,
+            FullCandidateVerifier(
+                source_root,
+                range_recognizer or NoRangeRecognizer(),
+                fallback_range_recognizer,
+                detector,
+                allow_grid_recovery=True,
+                couple_fallback_to_representative=(
+                    manifest.algorithm_version != ADAPTIVE_ACCURACY_SELECTOR_VERSION
+                ),
+                full_geometry_policy=manifest.full_geometry_policy,
+                telemetry=telemetry,
+            ),
         )
     detector = ClassicalPageBoardDetector()
     analyzer = ComposedCheapImageAnalyzer(
@@ -1200,18 +1705,22 @@ def build_default_adapters(
 
 __all__ = [
     "AdaptiveVisibleSequenceLabelRangeRecognizer",
+    "AccuracyFirstVisibleSequenceLabelRangeRecognizer",
     "AnchoredSequenceRangeRecognizer",
     "AppearanceOnlyCandidateVerifier",
     "BestEffortVisibleSequenceLabelRangeRecognizer",
     "ComposedCheapImageAnalyzer",
+    "DeterministicParallelCandidateVerifier",
     "FullCandidateVerifier",
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",
     "OpenCvAppearanceFingerprintAnalyzer",
     "OpenCvAppearanceQualityAnalyzer",
+    "OpenCvAccuracyFirstQualityAnalyzer",
     "OpenCvLatticeFingerprintAnalyzer",
     "OPENCV_INTERNAL_THREAD_BUDGET",
     "PillowThumbnailLoader",
+    "ProgressiveVisibleSequenceLabelRangeRecognizer",
     "VisibleSequenceLabelRangeRecognizer",
     "build_default_adapters",
     "configure_opencv_thread_budget",

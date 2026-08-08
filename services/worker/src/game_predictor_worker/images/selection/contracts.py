@@ -276,12 +276,49 @@ class CheapImageObservation:
 
 
 @dataclass(frozen=True, slots=True)
-class CandidateVerification:
-    recognized_range: SequenceRange | None
+class RepresentativeAssessment:
+    """Full-resolution evidence used only to judge the exported JPEG."""
+
     board_count: int | None
     geometry_complete: bool
     full_frame_visible: bool
     reason_codes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RangeEvidence:
+    """OCR evidence used only to resolve the sequence range of a group."""
+
+    recognized_range: SequenceRange | None
+    reason_codes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateVerification:
+    representative: RepresentativeAssessment
+    range_evidence: RangeEvidence
+
+    @property
+    def recognized_range(self) -> SequenceRange | None:
+        return self.range_evidence.recognized_range
+
+    @property
+    def board_count(self) -> int | None:
+        return self.representative.board_count
+
+    @property
+    def geometry_complete(self) -> bool:
+        return self.representative.geometry_complete
+
+    @property
+    def full_frame_visible(self) -> bool:
+        return self.representative.full_frame_visible
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys((*self.representative.reason_codes, *self.range_evidence.reason_codes))
+        )
 
 
 @dataclass(frozen=True, slots=True)

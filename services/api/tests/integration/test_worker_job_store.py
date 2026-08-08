@@ -4,12 +4,14 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.jobs import (
@@ -21,6 +23,7 @@ from game_predictor_api.domain.jobs import (
     create_job,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
@@ -31,6 +34,9 @@ from game_predictor_api.storage.models import (
     LayoutImportRowModel,
     RulesVersionModel,
     RulesVersionSymbolModel,
+)
+from game_predictor_api.storage.worker_lane_repository import (
+    SqlAlchemyWorkerLaneRepository,
 )
 from game_predictor_worker.imports.contracts import StagedLayoutImportRow
 from game_predictor_worker.imports.normalization import normalize_layout_import_row
@@ -273,6 +279,63 @@ def test_worker_store_fences_cancellation_resume_and_concurrent_claims(
             winner.id,
             lease_token=winner.lease_token,
             completed_at=now + timedelta(minutes=4, seconds=10),
+        )
+    finally:
+        engine.dispose()
+
+
+def test_worker_lane_runtime_fences_stale_process_heartbeats(
+    isolated_worker_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_worker_database), "head")
+    engine = create_engine(isolated_worker_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    repository = SqlAlchemyWorkerLaneRepository(session_factory)
+    now = datetime(2026, 8, 5, 12, tzinfo=UTC)
+    first_token = uuid4()
+    second_token = uuid4()
+
+    try:
+        repository.register(
+            lane=WorkerLaneName.IMAGE_SELECTION,
+            instance_token=first_token,
+            worker_id="selection-first",
+            worker_version="worker-v10-image-selection",
+            process_id=100,
+            thread_budget=4,
+            started_at=now,
+        )
+        repository.register(
+            lane=WorkerLaneName.IMAGE_SELECTION,
+            instance_token=second_token,
+            worker_id="selection-second",
+            worker_version="worker-v10-image-selection",
+            process_id=200,
+            thread_budget=3,
+            started_at=now + timedelta(seconds=1),
+        )
+
+        assert not repository.heartbeat(
+            lane=WorkerLaneName.IMAGE_SELECTION,
+            instance_token=first_token,
+            heartbeat_at=now + timedelta(seconds=2),
+        )
+        assert repository.heartbeat(
+            lane=WorkerLaneName.IMAGE_SELECTION,
+            instance_token=second_token,
+            heartbeat_at=now + timedelta(seconds=3),
+        )
+        statuses = WorkerLaneStatusService(
+            repository,
+            clock=lambda: now + timedelta(seconds=4),
+        ).list_statuses()
+
+        assert statuses[1].state.value == "running"
+        assert statuses[1].thread_budget == 3
+        assert not repository.stop(
+            lane=WorkerLaneName.IMAGE_SELECTION,
+            instance_token=first_token,
+            stopped_at=now + timedelta(seconds=5),
         )
     finally:
         engine.dispose()

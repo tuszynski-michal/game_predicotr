@@ -1,6 +1,26 @@
 {
   "components": {
     "schemas": {
+      "ActiveSymbolModelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "checksumSha256"
+        ],
+        "title": "ActiveSymbolModelResponse",
+        "type": "object"
+      },
       "AndroidBuildJobCreate": {
         "additionalProperties": false,
         "properties": {
@@ -362,6 +382,52 @@
           "alreadyCompleted"
         ],
         "title": "CleanupResultResponse",
+        "type": "object"
+      },
+      "CreateSymbolTrainingCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/SymbolTrainingConfigurationCommand"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cohortId",
+          "idempotencyKey"
+        ],
+        "title": "CreateSymbolTrainingCommand",
+        "type": "object"
+      },
+      "CreateSymbolTrainingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "iteration": {
+            "$ref": "#/components/schemas/SymbolModelIterationResponse"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          }
+        },
+        "required": [
+          "iteration",
+          "job",
+          "created"
+        ],
+        "title": "CreateSymbolTrainingResponse",
         "type": "object"
       },
       "DatasetLayoutPageResponse": {
@@ -1235,8 +1301,7 @@
             "type": "string"
           },
           "schemaVersion": {
-            "const": 1,
-            "default": 1,
+            "const": 2,
             "title": "Schemaversion",
             "type": "integer"
           },
@@ -1266,6 +1331,11 @@
             ],
             "title": "Sourcedisplayname"
           },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
           "sourceSelectionId": {
             "anyOf": [
               {
@@ -1277,11 +1347,17 @@
               }
             ],
             "title": "Sourceselectionid"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
           }
         },
         "required": [
+          "schemaVersion",
           "importKind",
-          "pipelineFingerprint"
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "symbolModel"
         ],
         "title": "ImageImportJobPayload",
         "type": "object"
@@ -1610,6 +1686,18 @@
             "title": "Contractversion",
             "type": "integer"
           },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -1620,6 +1708,10 @@
             "minLength": 32,
             "title": "Selectiontoken",
             "type": "string"
+          },
+          "sequenceDirection": {
+            "$ref": "#/components/schemas/ImageSelectionSequenceDirection",
+            "default": "ascending"
           }
         },
         "required": [
@@ -1883,6 +1975,18 @@
             "title": "Contractversion",
             "type": "integer"
           },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          },
           "inputManifestSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Inputmanifestsha256",
@@ -1897,6 +2001,15 @@
           "selectorFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Selectorfingerprint",
+            "type": "string"
+          },
+          "sequenceDirection": {
+            "default": "ascending",
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "title": "Sequencedirection",
             "type": "string"
           },
           "sourceSelectionId": {
@@ -2313,6 +2426,18 @@
             "title": "Createdat",
             "type": "string"
           },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -2364,6 +2489,9 @@
             "title": "Selectorfingerprint",
             "type": "string"
           },
+          "sequenceDirection": {
+            "$ref": "#/components/schemas/ImageSelectionSequenceDirection"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
@@ -2387,10 +2515,19 @@
           "outputManifestSha256",
           "outputManifestRelativePath",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "sequenceDirection"
         ],
         "title": "ImageSelectionRunResponse",
         "type": "object"
+      },
+      "ImageSelectionSequenceDirection": {
+        "enum": [
+          "ascending",
+          "descending"
+        ],
+        "title": "ImageSelectionSequenceDirection",
+        "type": "string"
       },
       "ImageSequenceSourceCandidateResponse": {
         "additionalProperties": false,
@@ -2921,6 +3058,9 @@
                 "$ref": "#/components/schemas/ImportJobPayload"
               },
               {
+                "$ref": "#/components/schemas/LegacyImageImportJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/ImageImportJobPayload"
               },
               {
@@ -2940,6 +3080,9 @@
               },
               {
                 "$ref": "#/components/schemas/AndroidBuildJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/SymbolTrainingJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -3034,7 +3177,8 @@
           "validate",
           "payout",
           "snapshot",
-          "android_build"
+          "android_build",
+          "symbol_training"
         ],
         "title": "JobType",
         "type": "string"
@@ -3599,6 +3743,83 @@
         "title": "LayoutImportValidateJobPayload",
         "type": "object"
       },
+      "LegacyImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcedirectory"
+          },
+          "sourceDisplayName": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcedisplayname"
+          },
+          "sourceSelectionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceselectionid"
+          }
+        },
+        "required": [
+          "importKind",
+          "pipelineFingerprint"
+        ],
+        "title": "LegacyImageImportJobPayload",
+        "type": "object"
+      },
       "MobileReleaseApkResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3898,6 +4119,151 @@
           "seed"
         ],
         "title": "MockDatasetCreate",
+        "type": "object"
+      },
+      "ModelQualityAdvisoryThresholdResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "layoutCount": {
+            "minimum": 1.0,
+            "title": "Layoutcount",
+            "type": "integer"
+          },
+          "reached": {
+            "title": "Reached",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layoutCount",
+          "reached"
+        ],
+        "title": "ModelQualityAdvisoryThresholdResponse",
+        "type": "object"
+      },
+      "ModelQualityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeHeavyJob": {
+            "title": "Activeheavyjob",
+            "type": "boolean"
+          },
+          "activeModel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveSymbolModelResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "advisoryThresholds": {
+            "items": {
+              "$ref": "#/components/schemas/ModelQualityAdvisoryThresholdResponse"
+            },
+            "title": "Advisorythresholds",
+            "type": "array"
+          },
+          "canFreeze": {
+            "title": "Canfreeze",
+            "type": "boolean"
+          },
+          "cellSampleCount": {
+            "minimum": 0.0,
+            "title": "Cellsamplecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "incompleteItemCount": {
+            "minimum": 0.0,
+            "title": "Incompleteitemcount",
+            "type": "integer"
+          },
+          "latestCohort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifiedTrainingCohortResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "newVerifiedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Newverifiedlayoutcount",
+            "type": "integer"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "protectedItemCount": {
+            "minimum": 0.0,
+            "title": "Protecteditemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "resolvedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Resolvedlayoutcount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "symbolCoverage": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolTrainingCoverageResponse"
+            },
+            "title": "Symbolcoverage",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "activeModel",
+          "latestCohort",
+          "manifestChecksumSha256",
+          "resolvedLayoutCount",
+          "newVerifiedLayoutCount",
+          "cellSampleCount",
+          "sourceImageCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "incompleteItemCount",
+          "protectedItemCount",
+          "symbolCoverage",
+          "advisoryThresholds",
+          "warnings",
+          "activeHeavyJob",
+          "canFreeze"
+        ],
+        "title": "ModelQualityResponse",
         "type": "object"
       },
       "OperationalImageReviewAlternativeResponse": {
@@ -6982,6 +7348,531 @@
         "title": "SymbolImageSelectionCommand",
         "type": "object"
       },
+      "SymbolModelActivationAction": {
+        "enum": [
+          "activate",
+          "rollback"
+        ],
+        "title": "SymbolModelActivationAction",
+        "type": "string"
+      },
+      "SymbolModelActivationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedCurrentModelIterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcurrentmodeliterationid"
+          },
+          "expectedManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedmanifestchecksumsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expectedManifestChecksumSha256",
+          "idempotencyKey",
+          "actor"
+        ],
+        "title": "SymbolModelActivationCommand",
+        "type": "object"
+      },
+      "SymbolModelActivationCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/SymbolModelActivationResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "activation",
+          "created"
+        ],
+        "title": "SymbolModelActivationCommandResponse",
+        "type": "object"
+      },
+      "SymbolModelActivationPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "canActivate": {
+            "title": "Canactivate",
+            "type": "boolean"
+          },
+          "candidateManifestChecksumSha256": {
+            "title": "Candidatemanifestchecksumsha256",
+            "type": "string"
+          },
+          "currentModelIterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentmodeliterationid"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "modelIterationId": {
+            "format": "uuid",
+            "title": "Modeliterationid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "modelIterationId",
+          "candidateManifestChecksumSha256",
+          "currentModelIterationId",
+          "action",
+          "canActivate"
+        ],
+        "title": "SymbolModelActivationPreviewResponse",
+        "type": "object"
+      },
+      "SymbolModelActivationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "activationNumber": {
+            "title": "Activationnumber",
+            "type": "integer"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "modelIterationId": {
+            "format": "uuid",
+            "title": "Modeliterationid",
+            "type": "string"
+          },
+          "previousModelIterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousmodeliterationid"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "modelIterationId",
+          "previousModelIterationId",
+          "action",
+          "activationNumber",
+          "actor",
+          "reason",
+          "idempotencyKey",
+          "createdAt"
+        ],
+        "title": "SymbolModelActivationResponse",
+        "type": "object"
+      },
+      "SymbolModelIterationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatemanifestchecksumsha256"
+          },
+          "candidateManifestRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatemanifestrelativepath"
+          },
+          "checkpointChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpointchecksumsha256"
+          },
+          "checkpointRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpointrelativepath"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "configurationFingerprint": {
+            "title": "Configurationfingerprint",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "datasetManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datasetmanifestchecksumsha256"
+          },
+          "datasetManifestRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datasetmanifestrelativepath"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gateConfiguration": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateconfiguration"
+          },
+          "gateConfigurationFingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateconfigurationfingerprint"
+          },
+          "gateMetrics": {
+            "additionalProperties": true,
+            "title": "Gatemetrics",
+            "type": "object"
+          },
+          "gateReportChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatereportchecksumsha256"
+          },
+          "gateReportRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatereportrelativepath"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "iterationNumber": {
+            "title": "Iterationnumber",
+            "type": "integer"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "lastCompletedEpoch": {
+            "title": "Lastcompletedepoch",
+            "type": "integer"
+          },
+          "partialMetrics": {
+            "additionalProperties": true,
+            "title": "Partialmetrics",
+            "type": "object"
+          },
+          "rejectionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rejectionreasons",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "cohortId",
+          "jobId",
+          "iterationNumber",
+          "status",
+          "configurationFingerprint",
+          "configuration",
+          "datasetManifestChecksumSha256",
+          "datasetManifestRelativePath",
+          "checkpointChecksumSha256",
+          "checkpointRelativePath",
+          "gateConfigurationFingerprint",
+          "gateConfiguration",
+          "candidateManifestChecksumSha256",
+          "candidateManifestRelativePath",
+          "gateReportChecksumSha256",
+          "gateReportRelativePath",
+          "gateMetrics",
+          "rejectionReasons",
+          "lastCompletedEpoch",
+          "partialMetrics",
+          "errorCode",
+          "errorMessage",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "SymbolModelIterationResponse",
+        "type": "object"
+      },
+      "SymbolModelJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "classCodes": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Classcodes",
+            "type": "array"
+          },
+          "inferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inferencefingerprint",
+            "type": "string"
+          },
+          "inputSize": {
+            "minimum": 16.0,
+            "title": "Inputsize",
+            "type": "integer"
+          },
+          "iterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iterationid"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "modelVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "onnxChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Onnxchecksumsha256",
+            "type": "string"
+          },
+          "onnxRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Onnxrelativepath",
+            "type": "string"
+          },
+          "storageRoot": {
+            "enum": [
+              "repository",
+              "artifact"
+            ],
+            "title": "Storageroot",
+            "type": "string"
+          },
+          "temperature": {
+            "exclusiveMinimum": 0.0,
+            "title": "Temperature",
+            "type": "number"
+          }
+        },
+        "required": [
+          "modelVersion",
+          "manifestChecksumSha256",
+          "onnxChecksumSha256",
+          "onnxRelativePath",
+          "storageRoot",
+          "classCodes",
+          "inputSize",
+          "temperature",
+          "inferenceFingerprint"
+        ],
+        "title": "SymbolModelJobSnapshotPayload",
+        "type": "object"
+      },
       "SymbolResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7075,6 +7966,119 @@
         ],
         "title": "SymbolStatus",
         "type": "string"
+      },
+      "SymbolTrainingConfigurationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "batchSize": {
+            "default": 32,
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Batchsize",
+            "type": "integer"
+          },
+          "epochs": {
+            "default": 40,
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Epochs",
+            "type": "integer"
+          },
+          "inputSize": {
+            "default": 64,
+            "maximum": 512.0,
+            "minimum": 16.0,
+            "title": "Inputsize",
+            "type": "integer"
+          },
+          "learningRate": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Learningrate",
+            "type": "number"
+          },
+          "seed": {
+            "default": 61061,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "weightDecay": {
+            "default": 0.0001,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Weightdecay",
+            "type": "number"
+          }
+        },
+        "title": "SymbolTrainingConfigurationCommand",
+        "type": "object"
+      },
+      "SymbolTrainingCoverageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sampleCount": {
+            "minimum": 0.0,
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "symbolCode": {
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolCode",
+          "sampleCount"
+        ],
+        "title": "SymbolTrainingCoverageResponse",
+        "type": "object"
+      },
+      "SymbolTrainingJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cohortchecksumsha256",
+            "type": "string"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "configurationFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configurationfingerprint",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cohortId",
+          "cohortChecksumSha256",
+          "configuration",
+          "configurationFingerprint",
+          "idempotencyKey"
+        ],
+        "title": "SymbolTrainingJobPayload",
+        "type": "object"
       },
       "SymbolUpdate": {
         "additionalProperties": false,
@@ -7378,6 +8382,304 @@
           "created"
         ],
         "title": "VerifiedCohortFreezeResponse",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortFreezeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "createdBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Createdby",
+            "type": "string"
+          },
+          "expectedManifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedmanifestchecksumsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "createdBy",
+          "expectedManifestChecksumSha256"
+        ],
+        "title": "VerifiedTrainingCohortFreezeCommand",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortFreezeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort": {
+            "$ref": "#/components/schemas/VerifiedTrainingCohortResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cohort",
+          "created"
+        ],
+        "title": "VerifiedTrainingCohortFreezeResponse",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellSampleCount": {
+            "minimum": 0.0,
+            "title": "Cellsamplecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "incompleteItemCount": {
+            "minimum": 0.0,
+            "title": "Incompleteitemcount",
+            "type": "integer"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestSchemaVersion": {
+            "minimum": 1.0,
+            "title": "Manifestschemaversion",
+            "type": "integer"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "protectedItemCount": {
+            "minimum": 0.0,
+            "title": "Protecteditemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "resolvedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Resolvedlayoutcount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "manifestSchemaVersion",
+          "manifestChecksumSha256",
+          "resolvedLayoutCount",
+          "cellSampleCount",
+          "sourceImageCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "incompleteItemCount",
+          "protectedItemCount",
+          "warnings"
+        ],
+        "title": "VerifiedTrainingCohortPreviewResponse",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactRelativePath": {
+            "title": "Artifactrelativepath",
+            "type": "string"
+          },
+          "cellSampleCount": {
+            "minimum": 15.0,
+            "title": "Cellsamplecount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "title": "Createdby",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "incompleteItemCount": {
+            "minimum": 0.0,
+            "title": "Incompleteitemcount",
+            "type": "integer"
+          },
+          "iterationNumber": {
+            "minimum": 1.0,
+            "title": "Iterationnumber",
+            "type": "integer"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestSchemaVersion": {
+            "minimum": 1.0,
+            "title": "Manifestschemaversion",
+            "type": "integer"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "resolvedLayoutCount": {
+            "minimum": 1.0,
+            "title": "Resolvedlayoutcount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 1.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "iterationNumber",
+          "manifestSchemaVersion",
+          "manifestChecksumSha256",
+          "resolvedLayoutCount",
+          "cellSampleCount",
+          "sourceImageCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "incompleteItemCount",
+          "artifactRelativePath",
+          "createdBy",
+          "createdAt"
+        ],
+        "title": "VerifiedTrainingCohortResponse",
+        "type": "object"
+      },
+      "WorkerLaneName": {
+        "enum": [
+          "general",
+          "image_selection"
+        ],
+        "title": "WorkerLaneName",
+        "type": "string"
+      },
+      "WorkerLaneState": {
+        "enum": [
+          "running",
+          "degraded",
+          "stopped"
+        ],
+        "title": "WorkerLaneState",
+        "type": "string"
+      },
+      "WorkerLaneStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "heartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeatat"
+          },
+          "lane": {
+            "$ref": "#/components/schemas/WorkerLaneName"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkerLaneState"
+          },
+          "threadBudget": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadbudget"
+          },
+          "workerVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workerversion"
+          }
+        },
+        "required": [
+          "lane",
+          "state",
+          "workerVersion",
+          "threadBudget",
+          "startedAt",
+          "heartbeatAt"
+        ],
+        "title": "WorkerLaneStatusResponse",
         "type": "object"
       }
     },
@@ -8451,6 +9753,69 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/model-quality": {
+      "get": {
+        "operationId": "getModelQuality",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelQualityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read model and verified-data readiness for one game",
+        "tags": [
+          "verified-training-cohorts"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/rules-versions": {
       "get": {
         "operationId": "listRulesVersions",
@@ -8856,6 +10221,618 @@
         "summary": "Resolve a symbol cluster-count conflict",
         "tags": [
           "symbol-bootstrap"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations": {
+      "get": {
+        "operationId": "listSymbolModelIterations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SymbolModelIterationResponse"
+                  },
+                  "title": "Response Listsymbolmodeliterations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Iterations",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      },
+      "post": {
+        "operationId": "createSymbolTraining",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSymbolTrainingCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSymbolTrainingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Training",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations": {
+      "get": {
+        "operationId": "listSymbolModelActivations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SymbolModelActivationResponse"
+                  },
+                  "title": "Response Listsymbolmodelactivations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Activations",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}": {
+      "get": {
+        "operationId": "getSymbolModelIteration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelIterationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Get Iteration",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activate": {
+      "post": {
+        "operationId": "activateSymbolModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolModelActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Activate",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activation-preview": {
+      "get": {
+        "operationId": "previewSymbolModelActivation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SymbolModelActivationAction",
+              "default": "activate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Activation",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/rollback": {
+      "post": {
+        "operationId": "rollbackSymbolModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolModelActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rollback",
+        "tags": [
+          "symbol-model-iterations"
         ]
       }
     },
@@ -9625,6 +11602,174 @@
         "summary": "Read the current checksum-bound symbol reference image",
         "tags": [
           "symbol-bootstrap"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/verified-training-cohorts": {
+      "post": {
+        "operationId": "freezeVerifiedTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifiedTrainingCohortFreezeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedTrainingCohortFreezeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Freeze an immutable cumulative human-verified training cohort",
+        "tags": [
+          "verified-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/verified-training-cohorts/preview": {
+      "get": {
+        "operationId": "previewVerifiedTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedTrainingCohortPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview the cumulative human-verified training cohort",
+        "tags": [
+          "verified-training-cohorts"
         ]
       }
     },
@@ -12595,6 +14740,72 @@
           }
         },
         "summary": "Read one managed manual-review JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/selected-file": {
+      "get": {
+        "operationId": "getImageSelectionSelectedGroupFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read one selected JPEG as soon as its group is finalized",
         "tags": [
           "image-selections"
         ]
@@ -17017,6 +19228,31 @@
         "summary": "Configure a draft rules-version symbol",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/worker-lanes": {
+      "get": {
+        "operationId": "listWorkerLanes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkerLaneStatusResponse"
+                  },
+                  "title": "Response Listworkerlanes",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List health and resource budgets for local worker lanes",
+        "tags": [
+          "worker-lanes"
         ]
       }
     },

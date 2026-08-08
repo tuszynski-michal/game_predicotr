@@ -17,6 +17,7 @@ class JobType(StrEnum):
     PAYOUT = "payout"
     SNAPSHOT = "snapshot"
     ANDROID_BUILD = "android_build"
+    SYMBOL_TRAINING = "symbol_training"
 
 
 class JobStatus(StrEnum):
@@ -94,10 +95,15 @@ def create_job(
     created_at: datetime | None = None,
 ) -> Job:
     schema_version = input_payload.get("schema_version")
-    if schema_version != 1:
+    supports_pinned_image_model = (
+        schema_version == 2
+        and job_type is JobType.IMPORT
+        and input_payload.get("import_kind") == "image_directory"
+    )
+    if schema_version != 1 and not supports_pinned_image_model:
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
-            "Job inputPayload must use schemaVersion 1.",
+            "Job inputPayload must use a supported schema version.",
             details={"schemaVersion": schema_version},
         )
     now = created_at or datetime.now(UTC)

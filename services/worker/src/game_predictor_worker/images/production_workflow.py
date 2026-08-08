@@ -9,10 +9,16 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
+from uuid import UUID
 
 import cv2
 import numpy as np
 from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.symbol_model_snapshots import (
+    SymbolModelJobSnapshot,
+    SymbolModelStorageRoot,
+    bootstrap_symbol_model_snapshot,
+)
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.orm import Session, sessionmaker
@@ -38,26 +44,12 @@ from .sequence_ocr import (
 )
 from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginalStore
 from .symbol_model_release import build_symbol_predictions
-from .symbol_onnx import LocalSymbolOnnxAdapter
+from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
 NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
 DETECTION_ADAPTER_VERSION = "page-board-detector-v2"
 CROP_ADAPTER_VERSION = "board-cell-crops-v16-reviewed-v14-merge-v1"
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
-SYMBOL_MODEL_VERSION = "bootstrap-symbol-cnn-onnx-v1"
-SYMBOL_MODEL_SHA256 = "e03f66f2ab092b6049920fee6fb2839900a95eb94af42fbd5ef7e35c473b5fb8"
-SYMBOL_CLASS_CODES = (
-    "cherries",
-    "grapes",
-    "lemon",
-    "orange",
-    "plum",
-    "seven",
-    "star",
-    "watermelon",
-)
-SYMBOL_INPUT_SIZE = 64
-SYMBOL_TEMPERATURE = 1.0338382913
 
 
 class ProductionImageImportWorkflow:
@@ -110,6 +102,7 @@ class ProductionImageImportWorkflow:
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
             repository_root=self._repository_root,
+            symbol_model=_symbol_model_snapshot(job),
         ).adapters()
         pipeline = ImageBatchHandler(
             self._batch_store,
@@ -196,9 +189,12 @@ class ProductionImageStageAdapterSuite:
         artifact_root: Path,
         *,
         repository_root: Path,
+        symbol_model: SymbolModelJobSnapshot | None = None,
     ) -> None:
+        self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
         self._repository_root = repository_root
+        self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
         self._detector = ClassicalPageBoardDetector()
         self._cropper = PerspectiveBoardCellCropperV2()
         self._ocr: PaddleSequenceNumberRecognizer | None = None
@@ -410,7 +406,10 @@ class ProductionImageStageAdapterSuite:
                 rgb = self._artifacts.load_rgb(_text(cell, "cropRelativePath"))
                 resized = cv2.resize(
                     rgb,
-                    (SYMBOL_INPUT_SIZE, SYMBOL_INPUT_SIZE),
+                    (
+                        self._symbol_model_snapshot.input_size,
+                        self._symbol_model_snapshot.input_size,
+                    ),
                     interpolation=cv2.INTER_AREA,
                 )
                 normalized = resized.astype(np.float32).transpose(2, 0, 1) / 255.0
@@ -421,11 +420,14 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_SYMBOL_INPUT_EMPTY",
                 "The image pipeline produced no cell crops for symbol inference.",
             )
-        inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
+        try:
+            inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
+        except SymbolOnnxError as error:
+            raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
         predictions = build_symbol_predictions(
             inference.logits,
-            temperature=SYMBOL_TEMPERATURE,
-            class_codes=SYMBOL_CLASS_CODES,
+            temperature=self._symbol_model_snapshot.temperature,
+            class_codes=self._symbol_model_snapshot.class_codes,
             alternative_limit=3,
         )
         by_position: dict[int, list[dict[str, object]]] = {}
@@ -445,7 +447,13 @@ class ProductionImageStageAdapterSuite:
                 }
                 for position in sorted(by_position)
             ],
-            "modelVersion": SYMBOL_MODEL_VERSION,
+            "modelIterationId": (
+                None
+                if self._symbol_model_snapshot.iteration_id is None
+                else str(self._symbol_model_snapshot.iteration_id)
+            ),
+            "modelManifestChecksumSha256": (self._symbol_model_snapshot.manifest_checksum_sha256),
+            "modelVersion": self._symbol_model_snapshot.model_version,
         }
 
     def _ocr_recognizer(self) -> PaddleSequenceNumberRecognizer:
@@ -457,13 +465,31 @@ class ProductionImageStageAdapterSuite:
 
     def _symbol_adapter(self) -> LocalSymbolOnnxAdapter:
         if self._symbol_model is None:
-            self._symbol_model = LocalSymbolOnnxAdapter(
+            root = (
                 self._repository_root
-                / "artifacts/m6-symbol-classifier-onnx/bootstrap-symbol-cnn-v1.onnx",
-                expected_sha256=SYMBOL_MODEL_SHA256,
-                class_codes=SYMBOL_CLASS_CODES,
-                input_size=SYMBOL_INPUT_SIZE,
+                if self._symbol_model_snapshot.storage_root is SymbolModelStorageRoot.REPOSITORY
+                else self._artifact_root
             )
+            relative = PurePosixPath(self._symbol_model_snapshot.onnx_relative_path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_SYMBOL_MODEL_PATH_INVALID", "Pinned symbol model path is unsafe."
+                )
+            model_path = root.joinpath(*relative.parts).resolve()
+            if not model_path.is_relative_to(root):
+                raise ImagePipelineExecutionError(
+                    "IMAGE_SYMBOL_MODEL_PATH_INVALID",
+                    "Pinned symbol model path escapes its storage root.",
+                )
+            try:
+                self._symbol_model = LocalSymbolOnnxAdapter(
+                    model_path,
+                    expected_sha256=self._symbol_model_snapshot.onnx_checksum_sha256,
+                    class_codes=self._symbol_model_snapshot.class_codes,
+                    input_size=self._symbol_model_snapshot.input_size,
+                )
+            except SymbolOnnxError as error:
+                raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
         return self._symbol_model
 
 
@@ -561,6 +587,66 @@ def _pipeline_fingerprint(job: Job) -> str:
             "The image import pipeline fingerprint is missing.",
         )
     return value
+
+
+def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:
+    value = job.input_payload.get("symbol_model")
+    schema_version = job.input_payload.get("schema_version", 1)
+    if value is None and schema_version == 1:
+        return bootstrap_symbol_model_snapshot()
+    if not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_MISSING",
+            "The image import has no pinned symbol model snapshot.",
+        )
+    try:
+        iteration_value = value.get("iterationId")
+        iteration_id = None if iteration_value is None else UUID(str(iteration_value))
+        storage_root = SymbolModelStorageRoot(_text(value, "storageRoot"))
+        class_values = _sequence(value.get("classCodes"), "symbol_model.classCodes")
+        if not class_values or not all(isinstance(item, str) and item for item in class_values):
+            raise ValueError("Invalid class catalog.")
+        class_codes = tuple(cast(Sequence[str], class_values))
+        if len(set(class_codes)) != len(class_codes):
+            raise ValueError("Duplicate class code.")
+        input_size = _integer(value, "inputSize")
+        temperature_value = value.get("temperature")
+        if (
+            input_size < 16
+            or isinstance(temperature_value, bool)
+            or not isinstance(temperature_value, int | float)
+            or float(temperature_value) <= 0
+        ):
+            raise ValueError("Invalid model runtime values.")
+        snapshot = SymbolModelJobSnapshot(
+            iteration_id=iteration_id,
+            model_version=_text(value, "modelVersion"),
+            manifest_checksum_sha256=_sha_text(value, "manifestChecksumSha256"),
+            onnx_checksum_sha256=_sha_text(value, "onnxChecksumSha256"),
+            onnx_relative_path=_text(value, "onnxRelativePath"),
+            storage_root=storage_root,
+            class_codes=class_codes,
+            input_size=input_size,
+            temperature=float(temperature_value),
+        )
+    except (TypeError, ValueError, ImagePipelineExecutionError) as error:
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_INVALID",
+            "The pinned symbol model snapshot is invalid.",
+        ) from error
+    if value.get("inferenceFingerprint") != snapshot.inference_fingerprint:
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_DRIFT",
+            "The pinned symbol model inference fingerprint changed.",
+        )
+    return snapshot
+
+
+def _sha_text(value: Mapping[str, object], key: str) -> str:
+    item = _text(value, key)
+    if len(item) != 64 or any(character not in "0123456789abcdef" for character in item):
+        raise ValueError(f"{key} must be SHA-256.")
+    return item
 
 
 def _data_relative_path(value: str) -> str:

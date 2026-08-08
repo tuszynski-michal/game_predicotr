@@ -39,6 +39,12 @@ IMAGE_SELECTION_VERSIONED_RERUNS_REVISION = "0028_image_selection_versioned_reru
 IMAGE_SELECTION_MISSING_IMAGES_REVISION = "0029_image_selection_missing_images"
 IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION = "0030_image_selection_optional_exceptions"
 JOB_EXECUTION_LANES_REVISION = "0031_job_execution_lanes"
+WORKER_LANE_RUNTIME_REVISION = "0032_worker_lane_runtime"
+IMAGE_SELECTION_SEQUENCE_ORDER_REVISION = "0033_image_selection_sequence_order"
+VERIFIED_TRAINING_COHORTS_REVISION = "0034_verified_training_cohorts"
+SYMBOL_MODEL_TRAINING_REVISION = "0035_symbol_model_training_jobs"
+SYMBOL_MODEL_CANDIDATE_GATE_REVISION = "0036_symbol_model_candidate_gate"
+SYMBOL_MODEL_REGISTRY_REVISION = "0037_symbol_model_registry"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -84,8 +90,14 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     missing_images = script.get_revision(IMAGE_SELECTION_MISSING_IMAGES_REVISION)
     optional_exceptions = script.get_revision(IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION)
     job_execution_lanes = script.get_revision(JOB_EXECUTION_LANES_REVISION)
+    worker_lane_runtime = script.get_revision(WORKER_LANE_RUNTIME_REVISION)
+    image_selection_sequence_order = script.get_revision(IMAGE_SELECTION_SEQUENCE_ORDER_REVISION)
+    verified_training_cohorts = script.get_revision(VERIFIED_TRAINING_COHORTS_REVISION)
+    symbol_model_training = script.get_revision(SYMBOL_MODEL_TRAINING_REVISION)
+    symbol_model_candidate_gate = script.get_revision(SYMBOL_MODEL_CANDIDATE_GATE_REVISION)
+    symbol_model_registry = script.get_revision(SYMBOL_MODEL_REGISTRY_REVISION)
 
-    assert script.get_heads() == [JOB_EXECUTION_LANES_REVISION]
+    assert script.get_heads() == [SYMBOL_MODEL_REGISTRY_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -153,6 +165,109 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert optional_exceptions.down_revision == IMAGE_SELECTION_MISSING_IMAGES_REVISION
     assert job_execution_lanes is not None
     assert job_execution_lanes.down_revision == IMAGE_SELECTION_OPTIONAL_EXCEPTIONS_REVISION
+    assert worker_lane_runtime is not None
+    assert worker_lane_runtime.down_revision == JOB_EXECUTION_LANES_REVISION
+    assert image_selection_sequence_order is not None
+    assert image_selection_sequence_order.down_revision == WORKER_LANE_RUNTIME_REVISION
+    assert verified_training_cohorts is not None
+    assert verified_training_cohorts.down_revision == IMAGE_SELECTION_SEQUENCE_ORDER_REVISION
+    assert symbol_model_training is not None
+    assert symbol_model_training.down_revision == VERIFIED_TRAINING_COHORTS_REVISION
+    assert symbol_model_candidate_gate is not None
+    assert symbol_model_candidate_gate.down_revision == SYMBOL_MODEL_TRAINING_REVISION
+    assert symbol_model_registry is not None
+    assert symbol_model_registry.down_revision == SYMBOL_MODEL_CANDIDATE_GATE_REVISION
+
+
+def test_symbol_model_registry_migration_adds_append_only_activation_history() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{SYMBOL_MODEL_CANDIDATE_GATE_REVISION}:{SYMBOL_MODEL_REGISTRY_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_MODEL_REGISTRY_REVISION}:{SYMBOL_MODEL_CANDIDATE_GATE_REVISION}",
+        sql=True,
+    )
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table game_symbol_model_activations" in upgrade_sql
+    assert "uq_game_symbol_model_activations_idempotency" in upgrade_sql
+    assert "uq_game_symbol_model_activations_number" in upgrade_sql
+    assert "activation_number" in upgrade_sql
+    assert "previous_model_iteration_id" in upgrade_sql
+    assert "drop table game_symbol_model_activations" in downgrade_output.getvalue().lower()
+
+
+def test_symbol_model_candidate_gate_migration_adds_fail_closed_artifact_state() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{SYMBOL_MODEL_TRAINING_REVISION}:{SYMBOL_MODEL_CANDIDATE_GATE_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_MODEL_CANDIDATE_GATE_REVISION}:{SYMBOL_MODEL_TRAINING_REVISION}",
+        sql=True,
+    )
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "candidate_ready" in upgrade_sql
+    assert "candidate_manifest_checksum_sha256" in upgrade_sql
+    assert "gate_report_checksum_sha256" in upgrade_sql
+    assert "rejection_reasons" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop column candidate_manifest_checksum_sha256" in downgrade_sql
+
+
+def test_symbol_model_training_migration_adds_durable_iteration_state() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{VERIFIED_TRAINING_COHORTS_REVISION}:{SYMBOL_MODEL_TRAINING_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{SYMBOL_MODEL_TRAINING_REVISION}:{VERIFIED_TRAINING_COHORTS_REVISION}",
+        sql=True,
+    )
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add value if not exists 'symbol_training'" in upgrade_sql
+    assert "create table symbol_model_iterations" in upgrade_sql
+    assert "uq_symbol_model_iterations_input" in upgrade_sql
+    assert "checkpoint_checksum_sha256" in upgrade_sql
+    assert "last_completed_epoch" in upgrade_sql
+    assert "drop table symbol_model_iterations" in downgrade_output.getvalue().lower()
+
+
+def test_verified_training_cohort_migration_adds_manifest_and_positions() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_SEQUENCE_ORDER_REVISION}:{VERIFIED_TRAINING_COHORTS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{VERIFIED_TRAINING_COHORTS_REVISION}:{IMAGE_SELECTION_SEQUENCE_ORDER_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "create table verified_training_cohorts" in upgrade_sql
+    assert "create table verified_training_cohort_items" in upgrade_sql
+    assert "uq_verified_training_cohorts_manifest" in upgrade_sql
+    assert "uq_verified_training_cohorts_idempotency" in upgrade_sql
+    assert "jsonb_array_length(board_manifest -> 'cells') = 15" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop table verified_training_cohort_items" in downgrade_sql
+    assert "drop table verified_training_cohorts" in downgrade_sql
 
 
 def test_job_execution_lanes_allow_general_and_image_selection_slots() -> None:

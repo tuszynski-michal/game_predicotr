@@ -28,7 +28,7 @@ class ImportJobPayload(ApiModel):
     contract_version: Literal[1]
 
 
-class ImageImportJobPayload(ApiModel):
+class LegacyImageImportJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     import_kind: Literal["image_directory"]
     source_selection_id: UUID | None = None
@@ -38,12 +38,39 @@ class ImageImportJobPayload(ApiModel):
     image_selection_run_id: UUID | None = None
 
 
+class SymbolModelJobSnapshotPayload(ApiModel):
+    iteration_id: UUID | None = None
+    model_version: str = Field(min_length=1, max_length=255)
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    onnx_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    onnx_relative_path: str = Field(min_length=1, max_length=2048)
+    storage_root: Literal["repository", "artifact"]
+    class_codes: tuple[str, ...] = Field(min_length=1)
+    input_size: int = Field(ge=16)
+    temperature: float = Field(gt=0)
+    inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ImageImportJobPayload(ApiModel):
+    schema_version: Literal[2]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID | None = None
+    source_directory: str | None = Field(default=None, min_length=1, max_length=2048)
+    source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID | None = None
+    symbol_model: SymbolModelJobSnapshotPayload
+
+
 class ImageSelectionJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     source_selection_id: UUID
     input_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     selector_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     contract_version: Literal[1]
+    sequence_direction: Literal["ascending", "descending"] = "ascending"
+    first_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class ValidateJobPayload(ApiModel):
@@ -73,6 +100,15 @@ class SnapshotJobPayload(ApiModel):
 class AndroidBuildJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     mobile_release_id: UUID
+
+
+class SymbolTrainingJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    cohort_id: UUID
+    cohort_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration: dict[str, object]
+    configuration_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    idempotency_key: UUID
 
 
 class ImportJobCreate(ApiModel):
@@ -116,6 +152,7 @@ JobCreateRequest = Annotated[
 
 JobPayloadResponse = (
     ImportJobPayload
+    | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
@@ -123,6 +160,7 @@ JobPayloadResponse = (
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
+    | SymbolTrainingJobPayload
 )
 
 
@@ -217,11 +255,7 @@ def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | N
     if payload.get("workflow") != "image_selection":
         return None
     diagnostic = payload.get("diagnostic")
-    checksum = (
-        diagnostic.get("checksumSha256")
-        if isinstance(diagnostic, dict)
-        else None
-    )
+    checksum = diagnostic.get("checksumSha256") if isinstance(diagnostic, dict) else None
     processing_seconds_value = payload.get("processing_duration_seconds")
     try:
         return ImageSelectionJobProgressResponse(
@@ -241,9 +275,7 @@ def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | N
                 if processing_seconds_value is None
                 else _progress_float(processing_seconds_value)
             ),
-            diagnostic_checksum_sha256=(
-                checksum if isinstance(checksum, str) else None
-            ),
+            diagnostic_checksum_sha256=(checksum if isinstance(checksum, str) else None),
         )
     except (TypeError, ValueError):
         return None
@@ -264,6 +296,8 @@ def _progress_float(value: object) -> float:
 def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMPORT:
         if job.input_payload.get("import_kind") == "image_directory":
+            if job.input_payload.get("schema_version") == 1:
+                return LegacyImageImportJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:
@@ -276,4 +310,6 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return PayoutJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.SNAPSHOT:
         return SnapshotJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SYMBOL_TRAINING:
+        return SymbolTrainingJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)

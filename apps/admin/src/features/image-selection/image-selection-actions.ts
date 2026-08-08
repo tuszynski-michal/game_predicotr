@@ -25,6 +25,7 @@ export type ImageSelectionClient = Pick<
   | 'getImageSelection'
   | 'getImageSelectionOutput'
   | 'getImageSelectionOutputFile'
+  | 'getImageSelectionSelectedGroupFile'
   | 'handoffImageSelection'
   | 'listImageSelectionGroups'
   | 'listImageSelectionGroupCandidates'
@@ -55,12 +56,14 @@ interface WritableOutputFile {
 
 interface OutputFileHandle {
   createWritable(): Promise<WritableOutputFile>;
+  getFile(): Promise<File>;
 }
 
-interface OutputDirectoryHandle {
+export interface OutputDirectoryHandle {
+  readonly name?: string;
   getFileHandle(
     name: string,
-    options: { readonly create: true },
+    options?: { readonly create?: boolean },
   ): Promise<OutputFileHandle>;
 }
 
@@ -100,6 +103,8 @@ export async function uploadPhotoSelectionFolder(
   options: {
     readonly onProgress?: (progress: ImageSelectionUploadProgress) => void;
     readonly resume?: ResumableImageSelectionUpload | null;
+    readonly sequenceDirection?: 'ascending' | 'descending';
+    readonly firstSequenceNumber?: number | null;
   } = {},
 ): Promise<ImageSelectionUploadResult> {
   const files = options.resume?.files ?? orderImageSelectionFiles(sourceFiles);
@@ -243,7 +248,9 @@ export async function uploadPhotoSelectionFolder(
     }
     const created = await api.createImageSelection({
       contractVersion: 1,
+      firstSequenceNumber: options.firstSequenceNumber ?? null,
       gameId,
+      sequenceDirection: options.sequenceDirection ?? 'ascending',
       selectionToken: finalized.data.selectionToken,
     });
     if (created.error !== undefined || created.data === undefined) {
@@ -267,6 +274,73 @@ export async function uploadPhotoSelectionFolder(
   }
 }
 
+export async function saveFinalizedImageSelectionGroups(
+  api: ImageSelectionClient,
+  runId: string,
+  groups: readonly ImageSelectionGroupResponse[],
+  directory: OutputDirectoryHandle,
+  savedGroupOrders: Set<number>,
+): Promise<{ readonly error: string | null; readonly savedCount: number }> {
+  let savedCount = 0;
+  const ready = groups
+    .filter(
+      (group) =>
+        !savedGroupOrders.has(group.groupOrder) &&
+        group.selectedCandidateId !== null &&
+        group.rangeStart !== null &&
+        group.rangeEnd !== null &&
+        (group.status === 'auto_selected' ||
+          group.status === 'manually_selected'),
+    )
+    .sort((left, right) => left.groupOrder - right.groupOrder);
+  for (const group of ready) {
+    const fileName = `seq_${group.rangeStart}-${group.rangeEnd}.jpg`;
+    const downloaded = await api.getImageSelectionSelectedGroupFile(
+      runId,
+      group.id,
+    );
+    if (downloaded.error !== undefined || downloaded.data === undefined) {
+      return {
+        error: `Nie udało się pobrać wybranego zdjęcia ${fileName}.`,
+        savedCount,
+      };
+    }
+    const blob = toBlob(downloaded.data);
+    if (blob === null) {
+      return { error: `Nieprawidłowe dane pliku ${fileName}.`, savedCount };
+    }
+    let fileHandle: OutputFileHandle;
+    try {
+      fileHandle = await directory.getFileHandle(fileName);
+      const existing = await fileHandle.getFile();
+      if ((await sha256(existing)) !== (await sha256(blob))) {
+        return {
+          error: `Plik ${fileName} już istnieje i ma inną zawartość. Nie został nadpisany.`,
+          savedCount,
+        };
+      }
+      savedGroupOrders.add(group.groupOrder);
+      continue;
+    } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'NotFoundError') {
+        return { error: `Nie udało się sprawdzić ${fileName}.`, savedCount };
+      }
+      fileHandle = await directory.getFileHandle(fileName, { create: true });
+    }
+    const writable = await fileHandle.createWritable();
+    try {
+      await writable.write(blob);
+      await writable.close();
+      savedGroupOrders.add(group.groupOrder);
+      savedCount += 1;
+    } catch {
+      await writable.abort().catch(() => undefined);
+      return { error: `Nie udało się zapisać ${fileName}.`, savedCount };
+    }
+  }
+  return { error: null, savedCount };
+}
+
 export async function cancelPhotoSelectionUpload(
   api: ImageSelectionClient,
   upload: ResumableImageSelectionUpload,
@@ -275,6 +349,21 @@ export async function cancelPhotoSelectionUpload(
 }
 
 export async function loadManualImageSelectionGroups(
+  api: ImageSelectionClient,
+  runId: string,
+): Promise<ImageSelectionGroupResponse[]> {
+  const groups = await loadAllImageSelectionGroups(api, runId);
+  return groups
+    .filter(
+      (group) =>
+        group.status === 'manual_required' ||
+        group.status === 'manually_selected' ||
+        group.status === 'missing_image',
+    )
+    .map((group) => suggestBoundedMissingRange(group, groups));
+}
+
+export async function loadAllImageSelectionGroups(
   api: ImageSelectionClient,
   runId: string,
 ): Promise<ImageSelectionGroupResponse[]> {
@@ -291,14 +380,7 @@ export async function loadManualImageSelectionGroups(
     groups.push(...result.data.items);
     afterGroupOrder = result.data.nextAfterGroupOrder ?? undefined;
   } while (afterGroupOrder !== undefined);
-  return groups
-    .filter(
-      (group) =>
-        group.status === 'manual_required' ||
-        group.status === 'manually_selected' ||
-        group.status === 'missing_image',
-    )
-    .map((group) => suggestBoundedMissingRange(group, groups));
+  return groups;
 }
 
 export async function continueWithAutomaticallySelectedImages(
@@ -463,12 +545,16 @@ function relativePath(file: File | undefined): string {
   return file?.webkitRelativePath || file?.name || '';
 }
 
-function pickOutputDirectory(): Promise<OutputDirectoryHandle> {
+export function pickImageSelectionOutputDirectory(): Promise<OutputDirectoryHandle> {
   const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
   if (picker === undefined) {
     throw new Error('DIRECTORY_PICKER_UNAVAILABLE');
   }
   return picker({ mode: 'readwrite' });
+}
+
+function pickOutputDirectory(): Promise<OutputDirectoryHandle> {
+  return pickImageSelectionOutputDirectory();
 }
 
 function isPickerCancellation(error: unknown): boolean {

@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const source = await readFile(
+  new URL(
+    '../src/features/model-quality/model-quality-workspace.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
+
+test('shows active model, deltas, all symbol coverage and advisory thresholds', () => {
+  assert.match(source, /Aktywny model/);
+  assert.match(source, /newVerifiedLayoutCount/);
+  assert.match(source, /symbolCoverage\.map/);
+  assert.match(source, /Progi 100 i 1000 są wskazówką/);
+  assert.match(source, /protectedItemCount/);
+  assert.match(source, /Ostatnia bramka kandydata/);
+  assert.match(source, /rejectionReasons/);
+  assert.match(source, /gateReportRelativePath/);
+  assert.match(source, /Rejestr i aktywacja modelu/);
+  assert.match(source, /Aktywuj ostatniego kandydata/);
+  assert.match(source, /Przywróć poprzedni model/);
+  assert.match(source, /candidateManifestChecksumSha256/);
+});
+
+test('requires an explicit checksum-bound confirmation and recovers after errors', () => {
+  assert.match(source, /Potwierdź niezmienny manifest/);
+  assert.match(source, /expectedManifestChecksumSha256|manifestChecksumSha256/);
+  assert.match(source, /crypto\.randomUUID\(\)/);
+  assert.match(source, /Spróbuj ponownie/);
+  assert.match(source, /controller\.abort\(\)/);
+  assert.match(source, /Ulepsz rozpoznawanie/);
+});

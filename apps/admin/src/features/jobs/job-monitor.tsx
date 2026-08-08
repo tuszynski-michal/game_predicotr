@@ -6,6 +6,7 @@ import type {
   ImageStorageInventoryResponse,
   JobResponse,
   JobStatus,
+  WorkerLaneStatusResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -19,6 +20,7 @@ import {
   loadImageJobOperations,
   loadImageStorageInventory,
   loadJobs,
+  loadWorkerLanes,
   retryImageJobFile,
   retryJob,
 } from '@/features/jobs/job-actions';
@@ -62,6 +64,10 @@ export function JobMonitor({
     [apiBaseUrl, client],
   );
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
+  const [workerLanes, setWorkerLanes] = useState<
+    readonly WorkerLaneStatusResponse[]
+  >([]);
+  const [workerLaneError, setWorkerLaneError] = useState('');
   const [statusFilter, setStatusFilter] = useState<JobStatus | ''>('');
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [error, setError] = useState('');
@@ -85,12 +91,21 @@ export function JobMonitor({
       if (initial) setLoadState('loading');
       else setIsRefreshing(true);
       setError('');
-      const result = await loadJobs(api, {
-        ...(statusFilter === '' ? {} : { status: statusFilter }),
-      });
+      const [result, laneResult] = await Promise.all([
+        loadJobs(api, {
+          ...(statusFilter === '' ? {} : { status: statusFilter }),
+        }),
+        loadWorkerLanes(api),
+      ]);
       if (!mounted.current || currentRequest !== requestId.current) return;
       requestInProgress.current = false;
       setIsRefreshing(false);
+      if (laneResult.ok) {
+        setWorkerLanes(laneResult.lanes);
+        setWorkerLaneError('');
+      } else {
+        setWorkerLaneError(laneResult.error);
+      }
       if (!result.ok) {
         setError(result.error);
         if (initial || !hasLoadedSuccessfully.current) setLoadState('error');
@@ -114,12 +129,12 @@ export function JobMonitor({
   const hasActiveJob = jobs.some(isActiveJob);
 
   useEffect(() => {
-    if (!hasActiveJob || pollIntervalMs <= 0) return;
+    if (pollIntervalMs <= 0) return;
     const interval = window.setInterval(() => {
       void refresh(false);
     }, pollIntervalMs);
     return () => window.clearInterval(interval);
-  }, [hasActiveJob, pollIntervalMs, refresh]);
+  }, [pollIntervalMs, refresh]);
 
   async function confirmCancel(job: JobResponse) {
     if (mutationInProgress.current || !canCancelJob(job)) return;
@@ -185,6 +200,8 @@ export function JobMonitor({
         </button>
       </header>
 
+      <WorkerLaneSummary error={workerLaneError} lanes={workerLanes} />
+
       <div className="jobFilters" aria-label="Filtry zadań">
         <label>
           Status
@@ -205,7 +222,7 @@ export function JobMonitor({
         <p aria-live="polite">
           {hasActiveJob
             ? 'Automatyczne odświeżanie aktywne · co 2 sekundy'
-            : 'Automatyczne odświeżanie zatrzymane'}
+            : 'Monitoring workerów aktywny · co 2 sekundy'}
         </p>
       </div>
 
@@ -254,6 +271,59 @@ export function JobMonitor({
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function WorkerLaneSummary({
+  error,
+  lanes,
+}: {
+  readonly error: string;
+  readonly lanes: readonly WorkerLaneStatusResponse[];
+}) {
+  if (lanes.length === 0 && error === '') {
+    return <p className="workerLaneMessage">Pobieram status workerów…</p>;
+  }
+  return (
+    <section aria-label="Status lokalnych workerów" className="workerLanePanel">
+      {lanes.map((lane) => (
+        <article
+          className={`workerLaneCard workerLaneCard-${lane.state}`}
+          key={lane.lane}
+        >
+          <span className="workerLaneState" aria-hidden="true" />
+          <div>
+            <strong>
+              {lane.lane === 'general' ? 'General' : 'Selekcja zdjęć'}
+            </strong>
+            <small>
+              {lane.state === 'running'
+                ? 'Działa'
+                : lane.state === 'degraded'
+                  ? 'Brak świeżego sygnału'
+                  : 'Zatrzymany'}
+            </small>
+          </div>
+          <div>
+            <small>
+              {lane.threadBudget === null
+                ? 'Budżet niedostępny'
+                : `${lane.threadBudget} wątki`}
+            </small>
+            <small>
+              {lane.heartbeatAt === null
+                ? 'Brak heartbeat'
+                : `Sygnał ${formatJobTimestamp(lane.heartbeatAt)}`}
+            </small>
+          </div>
+        </article>
+      ))}
+      {error ? (
+        <p className="workerLaneMessage workerLaneMessageError" role="alert">
+          {error}
+        </p>
+      ) : null}
     </section>
   );
 }

@@ -20,10 +20,14 @@ import {
 import {
   type ImageSelectionClient,
   type ImageSelectionUploadProgress,
+  type OutputDirectoryHandle,
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
   continueWithAutomaticallySelectedImages,
+  loadAllImageSelectionGroups,
   loadManualImageSelectionGroups,
+  pickImageSelectionOutputDirectory,
+  saveFinalizedImageSelectionGroups,
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from './image-selection-actions';
@@ -62,6 +66,9 @@ export function ImageSelectionWorkspace({
     [apiBaseUrl, client],
   );
   const folderInputRef = useRef<HTMLInputElement | null>(null);
+  const outputDirectoryRef = useRef<OutputDirectoryHandle | null>(null);
+  const savedGroupOrdersRef = useRef(new Set<number>());
+  const progressiveSaveRunningRef = useRef(false);
   const pollingWindowRef = useRef<{
     readonly deadline: number;
     readonly runId: string;
@@ -83,6 +90,11 @@ export function ImageSelectionWorkspace({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshWarning, setRefreshWarning] = useState('');
+  const [outputFolderName, setOutputFolderName] = useState('');
+  const [sequenceDirection, setSequenceDirection] = useState<
+    'ascending' | 'descending'
+  >('ascending');
+  const [firstSequenceNumber, setFirstSequenceNumber] = useState('');
   const activeRunId = run?.id ?? null;
   const activeRunStatus = run?.job.status ?? null;
 
@@ -194,6 +206,46 @@ export function ImageSelectionWorkspace({
     };
   }, [api, run]);
 
+  useEffect(() => {
+    if (
+      activeRunId === null ||
+      outputDirectoryRef.current === null ||
+      progressiveSaveRunningRef.current
+    ) {
+      return;
+    }
+    let cancelled = false;
+    progressiveSaveRunningRef.current = true;
+    queueMicrotask(async () => {
+      try {
+        const groups = await loadAllImageSelectionGroups(api, activeRunId);
+        if (cancelled || outputDirectoryRef.current === null) return;
+        const result = await saveFinalizedImageSelectionGroups(
+          api,
+          activeRunId,
+          groups,
+          outputDirectoryRef.current,
+          savedGroupOrdersRef.current,
+        );
+        if (!cancelled && result.error !== null) setError(result.error);
+        if (!cancelled && result.savedCount > 0) {
+          setNotice(
+            `Zapisano na bieżąco ${result.savedCount.toLocaleString('pl-PL')} nowych zdjęć.`,
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setRefreshWarning('Nie udało się zapisać nowych wyników do folderu.');
+        }
+      } finally {
+        progressiveSaveRunningRef.current = false;
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRunId, api, run]);
+
   async function startUpload(files: readonly File[], activeResume = resume) {
     if (busy) return;
     setBusy(true);
@@ -202,6 +254,9 @@ export function ImageSelectionWorkspace({
     const result = await uploadPhotoSelectionFolder(api, gameId, files, {
       onProgress: setProgress,
       resume: activeResume,
+      sequenceDirection,
+      firstSequenceNumber:
+        firstSequenceNumber.trim() === '' ? null : Number(firstSequenceNumber),
     });
     if (!result.ok) {
       setError(result.error);
@@ -261,6 +316,24 @@ export function ImageSelectionWorkspace({
       setBusy(false);
     } finally {
       setPreparingFolder(false);
+    }
+  }
+
+  async function chooseOutputFolder() {
+    if (busy) return;
+    setError('');
+    try {
+      const directory = await pickImageSelectionOutputDirectory();
+      outputDirectoryRef.current = directory;
+      savedGroupOrdersRef.current.clear();
+      setOutputFolderName(directory.name ?? 'Wybrany folder');
+      setNotice('Folder wynikowy wybrany. Teraz wybierz folder ze zdjęciami.');
+    } catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'AbortError') {
+        setError(
+          'Nie udało się wybrać folderu wynikowego. Użyj aktualnej wersji Chrome lub Edge.',
+        );
+      }
     }
   }
 
@@ -502,19 +575,57 @@ export function ImageSelectionWorkspace({
           }}
           type="file"
         />
-        <button
-          aria-busy={busy}
-          className="primaryButton"
-          disabled={busy}
-          onClick={() => folderInputRef.current?.click()}
-          type="button"
-        >
-          {preparingFolder
-            ? 'Przygotowywanie…'
-            : busy
-              ? 'Przesyłanie…'
-              : 'Wybierz folder zdjęć'}
-        </button>
+        <div className="imageSelectionStartControls">
+          <label>
+            Kolejność
+            <select
+              disabled={busy}
+              onChange={(event) =>
+                setSequenceDirection(
+                  event.target.value as 'ascending' | 'descending',
+                )
+              }
+              value={sequenceDirection}
+            >
+              <option value="ascending">Rosnąco</option>
+              <option value="descending">Malejąco</option>
+            </select>
+          </label>
+          <label>
+            Pierwszy numer (opcjonalnie)
+            <input
+              disabled={busy}
+              min={1}
+              onChange={(event) => setFirstSequenceNumber(event.target.value)}
+              placeholder="Rozpoznaj automatycznie"
+              type="number"
+              value={firstSequenceNumber}
+            />
+          </label>
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => void chooseOutputFolder()}
+            type="button"
+          >
+            {outputFolderName === ''
+              ? '1. Wybierz folder zapisu'
+              : `Folder zapisu: ${outputFolderName}`}
+          </button>
+          <button
+            aria-busy={busy}
+            className="primaryButton"
+            disabled={busy || outputFolderName === ''}
+            onClick={() => folderInputRef.current?.click()}
+            type="button"
+          >
+            {preparingFolder
+              ? 'Przygotowywanie…'
+              : busy
+                ? 'Przesyłanie…'
+                : '2. Wybierz folder zdjęć'}
+          </button>
+        </div>
       </header>
 
       {preparingFolder ? (
@@ -604,7 +715,10 @@ export function ImageSelectionWorkspace({
 
             <dl className="imageSelectionMetrics">
               <Metric label="Grupy" value={selectionProgress?.groups} />
-              <Metric label="Wybrane grupy" value={selectionProgress?.selected} />
+              <Metric
+                label="Wybrane grupy"
+                value={selectionProgress?.selected}
+              />
               <Metric
                 label={
                   isPollableRunStatus(run.job.status)

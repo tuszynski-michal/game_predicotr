@@ -26,41 +26,41 @@ nadpisać planszy rozstrzygniętej przez użytkownika. `accepted`, `corrected` i
 
 ### M6.6.1 — Kontrakt danych treningowych
 
-- **TASK-0143** — cumulative verified training cohort contract.
+- **TASK-0143** — cumulative verified training cohort contract — `done`.
 
 Rezultat: game-scoped, checksum-bound kohorta i ochrona decyzji człowieka na
 poziomie modelu danych oraz testów.
 
 ### M6.6.2 — Workspace jakości i zamrożenie kohorty
 
-- **TASK-0144** — model quality workspace and cohort freeze.
+- **TASK-0144** — model quality workspace and cohort freeze — `done`.
 
 Rezultat: użytkownik widzi gotowość danych oraz jawnie rozpoczyna iterację;
 progi 100/1000 pozostają wskazówką.
 
 ### M6.6.3 — Deterministyczny dataset
 
-- **TASK-0145** — source-aware cumulative training dataset.
+- **TASK-0145** — source-aware cumulative training dataset — `done`.
 
 Rezultat: odtwarzalny, skumulowany podział bez przecieku między zdjęciami.
 
 ### M6.6.4 — Trwały trening lokalny
 
-- **TASK-0146** — durable symbol model training job.
+- **TASK-0146** — durable symbol model training job — `done`.
 
 Rezultat: lokalny trening od początku ma checkpointy, postęp, retry i nie
 dotyka danych review.
 
 ### M6.6.5 — Kandydat i bramka regresji
 
-- **TASK-0147** — candidate ONNX, calibration and regression gate.
+- **TASK-0147** — candidate ONNX, calibration and regression gate — `done`.
 
 Rezultat: kandydat ma komplet artefaktów i porównanie z aktywnym modelem, lecz
 nie aktywuje się automatycznie.
 
 ### M6.6.6 — Rejestr i kontrolowana aktywacja
 
-- **TASK-0148** — model registry and controlled activation.
+- **TASK-0148** — model registry and controlled activation — `done`.
 
 Rezultat: jedna aktywna wersja per gra, audytowalna aktywacja i rollback oraz
 przypinanie wersji do nowych importów.

@@ -190,6 +190,7 @@ def _verified_item(
         id=item_id,
         game_id=game_id,
         import_job_id=import_job_id,
+        source_image_id=uuid4(),
         recognized_board_id=board_id,
         status=status,
         source_order_index=sequence_number - 1,

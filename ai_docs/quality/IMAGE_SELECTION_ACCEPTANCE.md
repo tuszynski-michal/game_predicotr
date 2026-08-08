@@ -174,3 +174,44 @@ profilu nie jest docelowym limitem pełnego runu 40 000 zdjęć.
 Po potwierdzeniu tych punktów status zmienia się na `accepted`, TASK-0157 można
 przenieść do `completed/`, a wersję 0.4 zamknąć. TASK-0076 pozostaje osobno
 zablokowany do bramek dużych rzeczywistych danych i `massImportAllowed` w 0.5.
+
+## Bramka v10 accuracy-first
+
+- regression set potwierdza brak early exit i wybór najlepszego kandydata z
+  całej grupy,
+- przypadki wielocyfrowe nie tracą skrajnej cyfry przez zbyt ciasny crop,
+- kierunki rosnący i malejący tworzą deterministyczne zakresy bez odwracania
+  kolejności plików,
+- wynik zapisuje się progresywnie jako `seq_<od>-<do>.jpg`, a kolizja nie
+  nadpisuje danych,
+- krótki syntetyczny smoke raportuje czas, grupy, liczbę weryfikacji i błędy;
+  nie jest automatyczną bramką czasu ani substytutem realnych zdjęć,
+- końcowy odbiór wykonuje właściciel na realnych zestawach około 5000 i 32 000
+  zdjęć. Akceptacja jakości ma pierwszeństwo przed throughputem.
+
+Smoke v10 z 2026-08-08 przetworzył 240 zdjęć i 12 grup w 30,252698 s:
+precision/recall 1.0, brak false merge/split, 144/144 dozwolonych dokładnych
+weryfikacji i zachowana integralność źródeł. Raport:
+`ai_docs/quality/image-selection-v10-smoke-report.json`. Realny odbiór pozostaje
+otwarty.
+
+## Bramka v10.1 — adaptacyjna weryfikacja
+
+Baseline pierwszych 200 zdjęć z realnego stagingu 32 079 wynosi 377,530649 s,
+9 grup, 99 pełnych weryfikacji, 792 wywołania OCR i 7128 cropów OCR. Wszystkie
+grupy `1–9` do `73–81` otrzymały `auto_selected`; błędów skanu nie było.
+
+TASK-0194 porównuje nową wersję dokładnie na indeksach 0–199 i wymaga:
+
+- identycznych granic grup albo jawnie lepszego wyniku zaakceptowanego przez
+  właściciela,
+- braku regresji rozpoznanych zakresów i przypadku wielocyfrowego,
+- porównania checksum wybranych reprezentantów oraz oględzin zmian,
+- braku wymuszonej ciągłości dla poprawnego skoku numerów,
+- raportu liczby geometrii, kandydatów, batchy i cropów OCR,
+- pierwszego celu 113–151 s, czyli 60–70% krócej od baseline; przekroczenie nie
+  jest automatycznym odrzuceniem, lecz wymaga decyzji właściciela,
+- trudna grupa może wykorzystać pełne top-12 i 72 cropy bez naruszenia bramki.
+
+Po zaliczeniu profilu 200 właściciel decyduje o runie około 5000, a następnie
+32 000 zdjęć. Profil nie uruchamia publikacji ani Importu layoutów.

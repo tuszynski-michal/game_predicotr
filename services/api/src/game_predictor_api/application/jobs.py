@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,6 +23,10 @@ from game_predictor_api.domain.jobs import (
     requeue_job,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.symbol_model_snapshots import (
+    SymbolModelJobSnapshot,
+    bootstrap_symbol_model_snapshot,
+)
 
 PAYOUT_ALGORITHM_VERSION = "payout-v2"
 
@@ -88,14 +93,20 @@ class JobRepository(Protocol):
     def save_job(self, job: Job) -> Job: ...
 
 
+class SymbolModelSnapshotResolver(Protocol):
+    def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot: ...
+
+
 class JobService:
     def __init__(
         self,
         repository: JobRepository,
         import_source_inspector: LayoutImportSourceInspector | None = None,
+        symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
     ) -> None:
         self._repository = repository
         self._import_source_inspector = import_source_inspector
+        self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
 
     def create_job(
         self,
@@ -185,13 +196,23 @@ class JobService:
                 "IMAGE_FOLDER_NOT_DIRECTORY",
                 "The selected image source must be a directory.",
             )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
+        ).hexdigest()
         input_payload: dict[str, object] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "import_kind": "image_directory",
             "source_selection_id": str(selection_id),
             "source_directory": str(resolved),
             "source_display_name": source_display_name,
-            "pipeline_fingerprint": pipeline_fingerprint,
+            "pipeline_fingerprint": effective_pipeline_fingerprint,
+            "source_pipeline_fingerprint": pipeline_fingerprint,
+            "symbol_model": symbol_model.to_payload(),
         }
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)

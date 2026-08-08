@@ -19,6 +19,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   payout: 'Obliczanie payoutów',
   snapshot: 'Snapshot SQLite',
   android_build: 'Build APK',
+  symbol_training: 'Trening modelu symboli',
   image_selection: 'Selekcja zdjęć',
 };
 

@@ -1,14 +1,15 @@
 ---
 title: TASK-0146 durable symbol model training job
-status: todo
-last_updated: 2026-08-01
+status: done
+last_updated: 2026-08-08
+completed_at: 2026-08-08
 ---
 
 # TASK-0146 — Durable symbol model training job
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -28,7 +29,7 @@ odświeżeniu Admina. Awaria nie może zmienić aktywnego modelu ani danych revi
 - `ai_docs/architecture/SUPERVISED_MODEL_IMPROVEMENT.md`
 - `ai_docs/architecture/DATA_MODEL.md`
 - `ai_docs/delivery/MILESTONE_06_6_EXECUTION_PLAN.md`
-- `ai_docs/tasks/0145-source-aware-cumulative-training-dataset.md`
+- `ai_docs/tasks/completed/0145-source-aware-cumulative-training-dataset.md`
 
 ## Scope
 
@@ -50,15 +51,15 @@ odświeżeniu Admina. Awaria nie może zmienić aktywnego modelu ani danych revi
 
 ## Acceptance criteria
 
-- [ ] Request HTTP szybko tworzy job i nie wykonuje treningu w procesie API.
-- [ ] Job zapisuje heartbeat, etap, postęp i checkpoint wystarczający do
+- [x] Request HTTP szybko tworzy job i nie wykonuje treningu w procesie API.
+- [x] Job zapisuje heartbeat, etap, postęp i checkpoint wystarczający do
       kontrolowanego retry.
-- [ ] Ponowienie z identycznym kluczem nie tworzy konkurencyjnego treningu.
-- [ ] Restart workera nie zmienia fingerprintu ani danych wejściowych.
-- [ ] Błąd lub anulowanie pozostawia bieżący aktywny model bez zmian.
-- [ ] Test porównuje checksumy danych review przed i po sukcesie, błędzie i
+- [x] Ponowienie z identycznym kluczem nie tworzy konkurencyjnego treningu.
+- [x] Restart workera nie zmienia fingerprintu ani danych wejściowych.
+- [x] Błąd lub anulowanie pozostawia bieżący aktywny model bez zmian.
+- [x] Test porównuje checksumy danych review przed i po sukcesie, błędzie i
       retry; pozostają identyczne.
-- [ ] Komendy treningowe i benchmarkowe mają jawne limity oraz kontrolowane
+- [x] Komendy treningowe i benchmarkowe mają jawne limity oraz kontrolowane
       logowanie postępu.
 
 ## Technical notes
@@ -79,9 +80,9 @@ ciężkiego procesu, dopóki pomiary nie uzasadnią innej architektury.
 ## Verification
 
 ```powershell
-python -m pytest services/worker/tests -q
-python -m pytest services/api/tests -q
-npm.cmd test --workspace @game-predictor/admin
+.venv\Scripts\python.exe -m pytest services/worker/tests -q
+.venv\Scripts\python.exe -m pytest services/api/tests -q
+.tooling\node\npm.cmd test --workspace @game-predictor/admin
 ```
 
 ## Risks / open questions
@@ -91,4 +92,13 @@ npm.cmd test --workspace @game-predictor/admin
 
 ## Outcome
 
-Do uzupełnienia po realizacji.
+Dodano migrację `0035_symbol_model_training_jobs`, typ `symbol_training`,
+idempotentne API iteracji, handler ogólnego workera oraz niezmienne artefakty
+konfiguracji i checkpointów. Wybrany `spatial-symbol-cnn-v1` trenuje od zera na
+całej kohorcie. Dataset i każda epoka odnawiają heartbeat; checkpoint zawiera
+model, optimizer, najlepszy stan, historię i pełny fingerprint. Kontrolowane
+anulowanie zachowuje checkpoint, a retry wznawia wyłącznie zgodne wejście.
+Admin uruchamia job po zamrożeniu kohorty i pokazuje go w istniejącej zakładce
+`Joby`. Mały rzeczywisty test PyTorch potwierdził sukces oraz cancel → retry;
+wejściowe cropy zachowały identyczne checksumy. Eksport ONNX, bramka i aktywacja
+pozostają celowo w TASK-0147/0148.

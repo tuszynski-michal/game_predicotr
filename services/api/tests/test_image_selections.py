@@ -23,6 +23,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
     ImageSelectionRun,
+    ImageSelectionSequenceDirection,
     safe_relative_path,
     validate_candidate,
     validate_image_selection_group,
@@ -61,6 +62,8 @@ class MemoryImageSelectionRepository:
         game_id: UUID,
         input_manifest_sha256: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         return next(
             (
@@ -69,6 +72,8 @@ class MemoryImageSelectionRepository:
                 if run.game_id == game_id
                 and run.input_manifest_sha256 == input_manifest_sha256
                 and run.selector_fingerprint == selector_fingerprint
+                and run.sequence_direction is sequence_direction
+                and run.first_sequence_number == first_sequence_number
             ),
             None,
         )
@@ -78,6 +83,8 @@ class MemoryImageSelectionRepository:
             game_id=run.game_id,
             input_manifest_sha256=run.input_manifest_sha256,
             selector_fingerprint=run.selector_fingerprint,
+            sequence_direction=run.sequence_direction,
+            first_sequence_number=run.first_sequence_number,
         )
         if existing is not None:
             return existing, False
@@ -247,6 +254,8 @@ class FakeAttestedPhotoSelection:
         game_id: UUID,
         selection_token: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> tuple[ImageSelectionRun, bool]:
         assert selection_token == "s" * 32
         return service.create_run(
@@ -254,6 +263,8 @@ class FakeAttestedPhotoSelection:
             source_selection_id=UUID("00000000-0000-0000-0000-000000000151"),
             input_manifest_sha256="1" * 64,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
 
 
@@ -330,6 +341,8 @@ def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
         "input_manifest_sha256": "a" * 64,
         "selector_fingerprint": "b" * 64,
         "contract_version": 1,
+        "sequence_direction": "ascending",
+        "first_sequence_number": None,
     }
 
 
@@ -684,6 +697,8 @@ def test_image_selection_api_create_get_and_bounded_groups() -> None:
         "gameId": str(game_id),
         "selectionToken": "s" * 32,
         "contractVersion": 1,
+        "sequenceDirection": "descending",
+        "firstSequenceNumber": 7300,
     }
 
     with client:
@@ -701,6 +716,8 @@ def test_image_selection_api_create_get_and_bounded_groups() -> None:
     assert created.status_code == 200
     assert created.json()["created"] is True
     assert created.json()["run"]["job"]["jobType"] == "image_selection"
+    assert created.json()["run"]["sequenceDirection"] == "descending"
+    assert created.json()["run"]["firstSequenceNumber"] == 7300
     assert repeated.status_code == 200
     assert repeated.json()["created"] is False
     assert repeated.json()["run"]["id"] == created.json()["run"]["id"]

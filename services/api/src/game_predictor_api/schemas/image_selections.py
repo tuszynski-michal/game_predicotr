@@ -18,6 +18,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionManualDecision,
     ImageSelectionManualResolution,
     ImageSelectionRun,
+    ImageSelectionSequenceDirection,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
@@ -29,6 +30,8 @@ class ImageSelectionCreate(ApiModel):
     game_id: UUID
     selection_token: str = Field(min_length=32, max_length=200)
     contract_version: Literal[1] = 1
+    sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
+    first_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class ImageSelectionRunResponse(ApiModel):
@@ -44,6 +47,8 @@ class ImageSelectionRunResponse(ApiModel):
     output_manifest_relative_path: str | None
     created_at: datetime
     updated_at: datetime
+    sequence_direction: ImageSelectionSequenceDirection
+    first_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class ImageSelectionCreateResponse(ApiModel):
@@ -164,6 +169,8 @@ def to_image_selection_run_response(
         output_manifest_relative_path=run.output_manifest_relative_path,
         created_at=run.created_at,
         updated_at=run.updated_at,
+        sequence_direction=run.sequence_direction,
+        first_sequence_number=run.first_sequence_number,
     )
 
 

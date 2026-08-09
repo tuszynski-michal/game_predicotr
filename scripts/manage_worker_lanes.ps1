@@ -21,6 +21,84 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+if ($null -eq ('WorkerProcessTree' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+
+public static class WorkerProcessTree
+{
+    private const uint TH32CS_SNAPPROCESS = 0x00000002;
+    private static readonly IntPtr InvalidHandleValue = new IntPtr(-1);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct PROCESSENTRY32
+    {
+        public uint dwSize;
+        public uint cntUsage;
+        public uint th32ProcessID;
+        public IntPtr th32DefaultHeapID;
+        public uint th32ModuleID;
+        public uint cntThreads;
+        public uint th32ParentProcessID;
+        public int pcPriClassBase;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+        public string szExeFile;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint processId);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool Process32FirstW(IntPtr snapshot, ref PROCESSENTRY32 entry);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool Process32NextW(IntPtr snapshot, ref PROCESSENTRY32 entry);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
+
+    public static int[] Descendants(int rootProcessId)
+    {
+        var parentByProcess = new Dictionary<int, int>();
+        IntPtr snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot == InvalidHandleValue) {
+            throw new InvalidOperationException("Unable to enumerate the Windows process tree.");
+        }
+        try {
+            var entry = new PROCESSENTRY32();
+            entry.dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32));
+            if (Process32FirstW(snapshot, ref entry)) {
+                do {
+                    parentByProcess[(int)entry.th32ProcessID] = (int)entry.th32ParentProcessID;
+                    entry.dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32));
+                } while (Process32NextW(snapshot, ref entry));
+            }
+        }
+        finally {
+            CloseHandle(snapshot);
+        }
+
+        var result = new List<int>();
+        var frontier = new Queue<int>();
+        frontier.Enqueue(rootProcessId);
+        while (frontier.Count > 0) {
+            int parent = frontier.Dequeue();
+            foreach (var pair in parentByProcess) {
+                if (pair.Value == parent && !result.Contains(pair.Key)) {
+                    result.Add(pair.Key);
+                    frontier.Enqueue(pair.Key);
+                }
+            }
+        }
+        return result.ToArray();
+    }
+}
+'@
+}
+
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $runtimeDirectory = Join-Path $projectRoot '.runtime'
 $statePath = Join-Path $runtimeDirectory 'worker-lanes.json'
@@ -90,13 +168,41 @@ function Read-State {
         throw "Worker lane state is invalid: $statePath. No process was changed."
     }
 
-    if ($state.schemaVersion -ne 1) {
+    if ($state.schemaVersion -notin @(1, 2)) {
         throw "Unsupported worker lane state schema: $($state.schemaVersion)."
     }
     if ([string]$state.repositoryRoot -ine $projectRoot) {
         throw "Worker lane state belongs to another repository: $($state.repositoryRoot)."
     }
     return $state
+}
+
+function Test-ProcessIdentity {
+    param(
+        [AllowNull()]
+        [object]$Identity
+    )
+
+    if ($null -eq $Identity) {
+        return $null
+    }
+    $process = Get-Process -Id ([int]$Identity.pid) -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        return $null
+    }
+    try {
+        $actualStart = $process.StartTime.ToUniversalTime().ToString('o')
+    }
+    catch {
+        return $null
+    }
+    if (
+        $process.ProcessName -ine [string]$Identity.processName -or
+        $actualStart -ne [string]$Identity.startTimeUtc
+    ) {
+        return $null
+    }
+    return $process
 }
 
 function Get-StateRecord {
@@ -126,23 +232,33 @@ function Test-RecordProcess {
     if ($null -eq $Record) {
         return $null
     }
-    $process = Get-Process -Id ([int]$Record.pid) -ErrorAction SilentlyContinue
-    if ($null -eq $process) {
-        return $null
+    return Test-ProcessIdentity -Identity $Record
+}
+
+function Get-VerifiedRecordProcesses {
+    param(
+        [AllowNull()]
+        [object]$Record
+    )
+
+    if ($null -eq $Record) {
+        return @()
     }
-    try {
-        $actualStart = $process.StartTime.ToUniversalTime().ToString('o')
+    $result = [System.Collections.Generic.List[object]]::new()
+    $root = Test-RecordProcess -Record $Record
+    if ($null -ne $root) {
+        $result.Add($root)
     }
-    catch {
-        return $null
+    $treeProperty = $Record.PSObject.Properties['processTree']
+    if ($null -ne $treeProperty -and $null -ne $treeProperty.Value) {
+        foreach ($identity in @($treeProperty.Value)) {
+            $process = Test-ProcessIdentity -Identity $identity
+            if ($null -ne $process -and -not ($result.Id -contains $process.Id)) {
+                $result.Add($process)
+            }
+        }
     }
-    if (
-        $process.ProcessName -ine [string]$Record.processName -or
-        $actualStart -ne [string]$Record.startTimeUtc
-    ) {
-        return $null
-    }
-    return $process
+    return @($result)
 }
 
 function Get-ActiveRecords {
@@ -154,7 +270,7 @@ function Get-ActiveRecords {
     $records = [ordered]@{}
     foreach ($laneName in $laneDefinitions.Keys) {
         $record = Get-StateRecord -State $State -LaneName $laneName
-        if ($null -ne (Test-RecordProcess -Record $record)) {
+        if (@(Get-VerifiedRecordProcesses -Record $record).Count -gt 0) {
             $records[$laneName] = $record
         }
     }
@@ -175,7 +291,7 @@ function Write-State {
     }
 
     $state = [ordered]@{
-        schemaVersion = 1
+        schemaVersion = 2
         repositoryRoot = $projectRoot
         updatedAtUtc = [DateTimeOffset]::UtcNow.ToString('o')
         processes = $Records
@@ -280,6 +396,25 @@ function New-WorkerProcess {
     }
 
     $process.Refresh()
+    $processTree = [System.Collections.Generic.List[object]]::new()
+    $knownDescendants = @()
+    for ($attempt = 0; $attempt -lt 8; $attempt++) {
+        $knownDescendants = @([WorkerProcessTree]::Descendants($process.Id))
+        if ($knownDescendants.Count -gt 0) {
+            break
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    foreach ($processId in $knownDescendants) {
+        $child = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($null -ne $child) {
+            $processTree.Add([ordered]@{
+                pid = $child.Id
+                processName = $child.ProcessName
+                startTimeUtc = $child.StartTime.ToUniversalTime().ToString('o')
+            })
+        }
+    }
     return [ordered]@{
         lane = $LaneName
         pid = $process.Id
@@ -290,6 +425,8 @@ function New-WorkerProcess {
         threadBudget = [int]$laneDefinitions[$LaneName].threadBudget
         nativeThreadBudget = [int]$laneDefinitions[$LaneName].nativeThreadBudget
         instanceToken = $instanceToken
+        processTree = @($processTree)
+        workerPid = $(if ($processTree.Count -gt 0) { [int]$processTree[$processTree.Count - 1].pid } else { [int]$process.Id })
         command = "$pythonPath -m game_predictor_worker --poll --lane $($laneDefinitions[$LaneName].argument) --cpu-thread-budget $threadBudget"
     }
 }
@@ -300,15 +437,28 @@ function Stop-WorkerProcess {
         [object]$Record
     )
 
-    $process = Test-RecordProcess -Record $Record
-    if ($null -eq $process) {
+    $processes = @(Get-VerifiedRecordProcesses -Record $Record)
+    if ($processes.Count -eq 0) {
         return 'stale'
     }
-
-    Stop-Process -Id $process.Id
+    $root = Test-RecordProcess -Record $Record
+    if ($null -ne $root) {
+        foreach ($descendantId in @([WorkerProcessTree]::Descendants($root.Id))) {
+            $descendant = Get-Process -Id $descendantId -ErrorAction SilentlyContinue
+            if ($null -ne $descendant -and -not ($processes.Id -contains $descendant.Id)) {
+                $processes += $descendant
+            }
+        }
+    }
+    foreach ($process in @($processes | Sort-Object Id -Descending)) {
+        Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+    }
     $attempts = [Math]::Max(1, $TimeoutSeconds * 4)
     for ($attempt = 0; $attempt -lt $attempts; $attempt++) {
-        if ($null -eq (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
+        $remaining = @($processes | Where-Object {
+            $null -ne (Get-Process -Id $_.Id -ErrorAction SilentlyContinue)
+        })
+        if ($remaining.Count -eq 0) {
             $instanceTokenProperty = $Record.PSObject.Properties['instanceToken']
             if ($null -eq $instanceTokenProperty -or [string]::IsNullOrWhiteSpace([string]$instanceTokenProperty.Value)) {
                 return 'stopped'
@@ -348,7 +498,7 @@ function Stop-WorkerProcess {
         }
         Start-Sleep -Milliseconds 250
     }
-    throw "Worker PID $($process.Id) did not stop within $TimeoutSeconds seconds."
+    throw "Worker process tree for lane $($Record.lane) did not stop within $TimeoutSeconds seconds."
 }
 
 function New-StatusResult {
@@ -360,9 +510,13 @@ function New-StatusResult {
     $laneResults = @()
     foreach ($laneName in (Get-TargetLaneNames)) {
         $record = Get-StateRecord -State $State -LaneName $laneName
-        $process = Test-RecordProcess -Record $record
-        $laneState = if ($null -ne $process) {
+        $processes = @(Get-VerifiedRecordProcesses -Record $record)
+        $root = Test-RecordProcess -Record $record
+        $laneState = if ($null -ne $root -and $processes.Count -gt 0) {
             'running'
+        }
+        elseif ($processes.Count -gt 0) {
+            'degraded'
         }
         elseif ($null -ne $record) {
             'stale'
@@ -375,6 +529,7 @@ function New-StatusResult {
             displayName = [string]$laneDefinitions[$laneName].displayName
             state = $laneState
             pid = $(if ($null -ne $record) { [int]$record.pid } else { $null })
+            workerPid = $(if ($null -ne $record -and $null -ne $record.PSObject.Properties['workerPid']) { [int]$record.workerPid } else { $null })
             startTimeUtc = $(if ($null -ne $record) { [string]$record.startTimeUtc } else { $null })
             stdoutLog = $(if ($null -ne $record) { [string]$record.stdoutLog } else { $null })
             stderrLog = $(if ($null -ne $record) { [string]$record.stderrLog } else { $null })
@@ -383,7 +538,7 @@ function New-StatusResult {
         }
     }
     $states = @($laneResults | ForEach-Object { $_.state })
-    $overallState = if ($states -contains 'stale') {
+    $overallState = if ($states -contains 'stale' -or $states -contains 'degraded') {
         'degraded'
     }
     elseif ($states -notcontains 'running') {
@@ -415,9 +570,9 @@ function Write-Result {
     Write-Host "Worker lanes: $($Result.state)"
     foreach ($laneResult in $Result.lanes) {
         $details = if ($laneResult.state -eq 'running') {
-            "PID $($laneResult.pid), since $($laneResult.startTimeUtc), threads $($laneResult.threadBudget), native $($laneResult.nativeThreadBudget)"
+            "launcher PID $($laneResult.pid), worker PID $($laneResult.workerPid), since $($laneResult.startTimeUtc), threads $($laneResult.threadBudget), native $($laneResult.nativeThreadBudget)"
         }
-        elseif ($laneResult.state -eq 'stale') {
+        elseif ($laneResult.state -in @('stale', 'degraded')) {
             "stale PID $($laneResult.pid)"
         }
         else {

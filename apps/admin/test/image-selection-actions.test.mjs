@@ -3,12 +3,44 @@ import test from 'node:test';
 
 import {
   continueWithAutomaticallySelectedImages,
+  loadImageSelectionGroupsAfter,
   loadManualImageSelectionGroups,
   orderImageSelectionFiles,
   saveFinalizedImageSelectionGroups,
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from '../src/features/image-selection/image-selection-actions.ts';
+
+test('loads only image-selection groups after the progressive export cursor', async () => {
+  const cursors = [];
+  const api = {
+    listImageSelectionGroups: async (_runId, options) => {
+      cursors.push(options.afterGroupOrder);
+      return options.afterGroupOrder === 17
+        ? {
+            data: {
+              items: [{ groupOrder: 18 }, { groupOrder: 19 }],
+              nextAfterGroupOrder: 19,
+            },
+          }
+        : {
+            data: {
+              items: [{ groupOrder: 20 }],
+              nextAfterGroupOrder: null,
+            },
+          };
+    },
+  };
+
+  const result = await loadImageSelectionGroupsAfter(api, 'run-1', 17);
+
+  assert.deepEqual(cursors, [17, 19]);
+  assert.deepEqual(
+    result.groups.map((group) => group.groupOrder),
+    [18, 19, 20],
+  );
+  assert.equal(result.lastGroupOrder, 20);
+});
 
 test('saves each finalized group immediately without overwriting conflicts', async () => {
   const payload = new Blob(['selected-jpeg'], { type: 'image/jpeg' });

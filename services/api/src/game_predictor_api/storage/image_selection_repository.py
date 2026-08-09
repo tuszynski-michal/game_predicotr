@@ -122,6 +122,26 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         ).one_or_none()
         return None if row is None else _run_from_records(*row)
 
+    def list_runs(
+        self,
+        *,
+        game_id: UUID,
+        offset: int,
+        limit: int,
+    ) -> Sequence[ImageSelectionRun]:
+        rows = self._session.execute(
+            select(ImageSelectionRunModel, JobModel)
+            .join(JobModel, JobModel.id == ImageSelectionRunModel.job_id)
+            .where(ImageSelectionRunModel.game_id == game_id)
+            .order_by(
+                ImageSelectionRunModel.created_at.desc(),
+                ImageSelectionRunModel.id.desc(),
+            )
+            .offset(offset)
+            .limit(limit)
+        )
+        return tuple(_run_from_records(*row) for row in rows)
+
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         record = self._session.get(ImageSelectionRunModel, run.id)
         if record is None:
@@ -142,6 +162,19 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         record.updated_at = run.updated_at
         self._flush_or_conflict()
         job_record = self._session.get(JobModel, run.job.id)
+        return _run_from_records(record, job_record)
+
+    def invalidate_output(self, run_id: UUID) -> ImageSelectionRun:
+        record = self._session.get(ImageSelectionRunModel, run_id)
+        if record is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_NOT_FOUND",
+                "Image selection run no longer exists.",
+            )
+        record.output_manifest_sha256 = None
+        record.output_manifest_relative_path = None
+        self._session.flush()
+        job_record = self._session.get(JobModel, record.job_id)
         return _run_from_records(record, job_record)
 
     def list_groups(

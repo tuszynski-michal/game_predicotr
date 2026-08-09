@@ -30,6 +30,7 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionMissingImageCommand,
     ImageSelectionOutputFileResponse,
     ImageSelectionOutputResponse,
+    ImageSelectionRunPageResponse,
     ImageSelectionRunResponse,
     to_image_selection_candidate_response,
     to_image_selection_group_candidates_response,
@@ -83,6 +84,29 @@ def create_image_selections_router(
         return ImageSelectionCreateResponse(
             run=to_image_selection_run_response(run),
             created=created,
+        )
+
+    @router.get(
+        "",
+        response_model=ImageSelectionRunPageResponse,
+        operation_id="listImageSelections",
+        summary="List durable image-selection runs for one game",
+        responses=ERROR_RESPONSES,
+    )
+    def list_image_selections(
+        service: Annotated[ImageSelectionService, service_parameter],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        offset: Annotated[int, Query(ge=0)] = 0,
+        limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    ) -> ImageSelectionRunPageResponse:
+        runs, next_offset = service.list_runs(
+            game_id=game_id,
+            offset=offset,
+            limit=limit,
+        )
+        return ImageSelectionRunPageResponse(
+            items=[to_image_selection_run_response(run) for run in runs],
+            next_offset=next_offset,
         )
 
     @router.get(
@@ -158,7 +182,7 @@ def create_image_selections_router(
         run_id: UUID,
         group_id: UUID,
         service: Annotated[ImageSelectionService, service_parameter],
-        limit: Annotated[int, Query(ge=1, le=100)] = 20,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
     ) -> ImageSelectionGroupCandidatesResponse:
         return to_image_selection_group_candidates_response(
             group_id=group_id,
@@ -218,6 +242,26 @@ def create_image_selections_router(
             media_type="image/jpeg",
             filename="manual-selection.jpg",
         )
+
+    @router.get(
+        "/{run_id}/groups/{group_id}/candidates/{candidate_id}/file",
+        response_class=FileResponse,
+        operation_id="getImageSelectionCandidateFile",
+        summary="Read one staged or manually uploaded candidate JPEG",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_selection_candidate_file(
+        run_id: UUID,
+        group_id: UUID,
+        candidate_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> FileResponse:
+        path, file_name = service.get_candidate_file(
+            run_id=run_id,
+            group_id=group_id,
+            candidate_id=candidate_id,
+        )
+        return FileResponse(path, media_type="image/jpeg", filename=file_name)
 
     @router.post(
         "/{run_id}/groups/{group_id}/approve",

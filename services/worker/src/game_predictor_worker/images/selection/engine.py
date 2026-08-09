@@ -33,11 +33,12 @@ from .contracts import (
 from .manifest import (
     ACCURACY_FIRST_SELECTOR_VERSION,
     ACCURACY_FIRST_SELECTOR_VERSIONS,
-    ADAPTIVE_ACCURACY_SELECTOR_VERSION,
+    ADAPTIVE_ACCURACY_SELECTOR_VERSIONS,
     APPEARANCE_GROUPING_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_AVAILABLE_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
+    COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
     EXACT_MULTI_GAP_SELECTOR_VERSIONS,
     FIRST_USABLE_POLICY,
@@ -1039,7 +1040,7 @@ class FastImageSelector:
                 direction=sequence_direction,
             )
         elif (
-            self.manifest.algorithm_version == ADAPTIVE_ACCURACY_SELECTOR_VERSION
+            self.manifest.algorithm_version in ADAPTIVE_ACCURACY_SELECTOR_VERSIONS
             and group.group_order == 0
             and first_sequence_number is not None
         ):
@@ -1086,13 +1087,28 @@ class FastImageSelector:
         ]
         if recognized_range is None:
             recognized_range = self._group_range(candidates)
-        selected = None if not eligible else self._select_automatic(eligible[0])
-        if selected is not None and recognized_range is not None:
-            selected = replace(selected, recognized_range=recognized_range)
+        extra_verification_count = 0
+        if self.manifest.algorithm_version == COHERENT_REPRESENTATIVE_SELECTOR_VERSION:
+            selected, candidates, extra_verification_count = (
+                self._select_coherent_representative(
+                    eligible=eligible,
+                    candidates=candidates,
+                    verified=verified,
+                    verifier=verifier,
+                    expected_range=recognized_range,
+                    board_count_consensus=consensus,
+                    range_conflict=range_conflict,
+                )
+            )
+        else:
+            selected = None if not eligible else self._select_automatic(eligible[0])
+            if selected is not None and recognized_range is not None:
+                selected = replace(selected, recognized_range=recognized_range)
         if (
             selected is None
             and recognized_range is not None
             and self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS
+            and self.manifest.algorithm_version != COHERENT_REPRESENTATIVE_SELECTOR_VERSION
         ):
             best_available = next(
                 (
@@ -1144,7 +1160,7 @@ class FastImageSelector:
                         duplicate_of_group_order=completed_ranges[range_key],
                         reference_fingerprint_hex=group.reference.fingerprint_hex,
                     ),
-                    len(verified),
+                    len(verified) + extra_verification_count,
                 )
             unresolved_order = unresolved_ranges.get(range_key)
             if unresolved_order is None:
@@ -1184,7 +1200,7 @@ class FastImageSelector:
                         duplicate_of_group_order=unresolved_order,
                         reference_fingerprint_hex=group.reference.fingerprint_hex,
                     ),
-                    len(verified),
+                    len(verified) + extra_verification_count,
                 )
             return (
                 SelectionGroupResult(
@@ -1198,7 +1214,7 @@ class FastImageSelector:
                     top_candidates=candidates,
                     reference_fingerprint_hex=group.reference.fingerprint_hex,
                 ),
-                len(verified),
+                len(verified) + extra_verification_count,
             )
 
         return (
@@ -1213,8 +1229,99 @@ class FastImageSelector:
                 top_candidates=candidates,
                 reference_fingerprint_hex=group.reference.fingerprint_hex,
             ),
-            len(verified),
+            len(verified) + extra_verification_count,
         )
+
+    def _select_coherent_representative(
+        self,
+        *,
+        eligible: list[CandidateResult],
+        candidates: tuple[CandidateResult, ...],
+        verified: list[tuple[CheapImageObservation, CandidateVerification]],
+        verifier: CandidateVerifier,
+        expected_range: SequenceRange | None,
+        board_count_consensus: int | None,
+        range_conflict: bool,
+    ) -> tuple[CandidateResult | None, tuple[CandidateResult, ...], int]:
+        """Select the best candidate whose own OCR agrees with the group range.
+
+        v10.1 deliberately allowed the best-looking frame to borrow range
+        evidence from another frame.  A false appearance merge can therefore
+        export a newer screen under the previous screen's ``seq_*`` name.  The
+        v10.2 gate verifies candidates in quality order and sends the group to
+        manual review when no representative proves the same range.
+        """
+
+        if expected_range is None or range_conflict:
+            return None, candidates, 0
+        by_identity = {
+            (observation.source.order_index, observation.source.checksum_sha256): (
+                observation,
+                verification,
+            )
+            for observation, verification in verified
+        }
+        updated = list(candidates)
+        extra_verification_count = 0
+        threshold = self.manifest.thresholds.minimum_range_confidence
+        expected_key = (expected_range.start, expected_range.end)
+
+        for candidate in eligible:
+            identity = (candidate.source.order_index, candidate.source.checksum_sha256)
+            observation, verification = by_identity[identity]
+            own_range = verification.recognized_range
+            if own_range is None or own_range.confidence < threshold:
+                verification = self._verify_candidate_batch(
+                    verifier,
+                    (observation,),
+                    expected_board_count=board_count_consensus,
+                    include_range_evidence=True,
+                )[0]
+                extra_verification_count += 1
+                own_range = verification.recognized_range
+
+            checked = self._candidate_result(
+                observation,
+                verification,
+                board_count_consensus=board_count_consensus,
+                range_conflict=range_conflict,
+            )
+            own_key = None if own_range is None else (own_range.start, own_range.end)
+            if (
+                checked.decision is CandidateDecision.ELIGIBLE
+                and own_range is not None
+                and own_range.confidence >= threshold
+                and own_key == expected_key
+            ):
+                selected = self._select_automatic(checked)
+                updated = [
+                    selected
+                    if (item.source.order_index, item.source.checksum_sha256) == identity
+                    else item
+                    for item in updated
+                ]
+                return selected, tuple(updated), extra_verification_count
+
+            coherence_reason = (
+                "REPRESENTATIVE_RANGE_UNKNOWN"
+                if own_range is None or own_range.confidence < threshold
+                else "REPRESENTATIVE_RANGE_MISMATCH"
+            )
+            rejected = replace(
+                checked,
+                decision=CandidateDecision.REJECTED,
+                reason_codes=tuple(
+                    dict.fromkeys((*checked.reason_codes, coherence_reason))
+                ),
+            )
+            updated = [
+                rejected
+                if (item.source.order_index, item.source.checksum_sha256) == identity
+                else item
+                for item in updated
+            ]
+
+        return None, tuple(updated), extra_verification_count
 
     @staticmethod
     def _range_from_anchor(
@@ -1379,7 +1486,7 @@ class FastImageSelector:
         candidates: tuple[CandidateResult, ...],
         recognized_range: SequenceRange | None,
     ) -> tuple[CandidateResult, ...]:
-        if self.manifest.algorithm_version == ADAPTIVE_ACCURACY_SELECTOR_VERSION:
+        if self.manifest.algorithm_version in ADAPTIVE_ACCURACY_SELECTOR_VERSIONS:
             return tuple(sorted(candidates, key=_representative_candidate_rank))
         if self.manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS:
             return tuple(
@@ -1532,7 +1639,7 @@ class FastImageSelector:
                 board_count_consensus is None or representative.board_count == board_count_consensus
             )
         )
-        adaptive_accuracy = self.manifest.algorithm_version == ADAPTIVE_ACCURACY_SELECTOR_VERSION
+        adaptive_accuracy = self.manifest.algorithm_version in ADAPTIVE_ACCURACY_SELECTOR_VERSIONS
         trusted_assessment = (
             trusted_representative_assessment if adaptive_accuracy else trusted_full_verification
         )

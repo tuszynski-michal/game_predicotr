@@ -2,6 +2,7 @@ from argparse import Namespace
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -108,3 +109,102 @@ def test_existing_rerun_writes_resumable_report(
     assert saved["runId"] == "new-run"
     assert saved["jobId"] == "new-job"
     assert saved["savedOutputFiles"] == 0
+    assert saved["schemaVersion"] == 2
+    assert saved["exportCursor"] == -1
+
+
+def test_progressive_export_advances_cursor_without_rescanning_old_groups(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _monitor_module()
+    calls: list[int] = []
+    pages = {
+        -1: {
+            "items": [
+                {
+                    "groupOrder": 0,
+                    "id": "group-0",
+                    "rangeStart": 1,
+                    "rangeEnd": 9,
+                    "status": "auto_selected",
+                },
+                {
+                    "groupOrder": 1,
+                    "id": "group-1",
+                    "rangeStart": None,
+                    "rangeEnd": None,
+                    "status": "manual_required",
+                },
+            ],
+            "nextAfterGroupOrder": None,
+        },
+        1: {
+            "items": [
+                {
+                    "groupOrder": 2,
+                    "id": "group-2",
+                    "rangeStart": 10,
+                    "rangeEnd": 18,
+                    "status": "auto_selected",
+                }
+            ],
+            "nextAfterGroupOrder": None,
+        },
+        2: {"items": [], "nextAfterGroupOrder": None},
+    }
+
+    class _Response:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            pass
+
+    class _Client:
+        def get(self, path: str) -> _Response:
+            return _Response(path.encode("ascii"))
+
+    def request_json(
+        _client: object,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+        **_: object,
+    ) -> dict[str, Any]:
+        after = int(params["afterGroupOrder"])
+        calls.append(after)
+        return pages[after]
+
+    monkeypatch.setattr(monitor, "_request_json", request_json)
+    saved_orders: set[int] = set()
+
+    saved, cursor = monitor._save_ready_groups(
+        _Client(),
+        "run",
+        tmp_path,
+        saved_orders,
+        after_group_order=-1,
+    )
+    saved_again, cursor = monitor._save_ready_groups(
+        _Client(),
+        "run",
+        tmp_path,
+        saved_orders,
+        after_group_order=cursor,
+    )
+    saved_last, cursor = monitor._save_ready_groups(
+        _Client(),
+        "run",
+        tmp_path,
+        saved_orders,
+        after_group_order=cursor,
+    )
+
+    assert (saved, saved_again, saved_last) == (1, 1, 0)
+    assert cursor == 2
+    assert calls == [-1, 1, 2]
+    assert saved_orders == {0, 2}
+    assert (tmp_path / "seq_1-9.jpg").is_file()
+    assert (tmp_path / "seq_10-18.jpg").is_file()

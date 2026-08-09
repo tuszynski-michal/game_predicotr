@@ -124,6 +124,21 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
             "upload_duration_seconds": 15.5,
             "processing_duration_seconds": 8.25,
             "diagnostic": {"checksumSha256": "c" * 64},
+            "recent_window": {
+                "fromProcessed": 64,
+                "toProcessed": 96,
+                "elapsedSeconds": 12.5,
+                "groupsFinalized": 3,
+                "verifications": 18,
+                "manual": 2,
+            },
+            "stage_timing": {
+                "counters": {"anchoredOcrAttempts": 8, "fallbackOcrAttempts": 3},
+                "stages": {
+                    "geometry": {"totalSeconds": 4.5},
+                    "ocr": {"totalSeconds": 7.25},
+                },
+            },
         },
     )
 
@@ -139,6 +154,19 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
         "uploadDurationSeconds": 15.5,
         "processingDurationSeconds": 8.25,
         "diagnosticChecksumSha256": "c" * 64,
+        "recentWindow": {
+            "fromProcessed": 64,
+            "toProcessed": 96,
+            "elapsedSeconds": 12.5,
+            "groupsFinalized": 3,
+            "verifications": 18,
+            "manual": 2,
+        },
+        "stageSeconds": {"geometry": 4.5, "ocr": 7.25},
+        "telemetryCounters": {
+            "anchoredOcrAttempts": 8,
+            "fallbackOcrAttempts": 3,
+        },
     }
 
 

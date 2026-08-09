@@ -396,6 +396,30 @@ def requeue_job(
     )
 
 
+def reopen_completed_job_for_revision(
+    job: Job,
+    *,
+    updated_at: datetime | None = None,
+) -> Job:
+    """Requeue a completed image-selection job after an audited manual revision."""
+
+    if job.status is not JobStatus.COMPLETED or job.job_type is not JobType.IMAGE_SELECTION:
+        _raise_invalid_transition(job, JobStatus.CREATED)
+    now = updated_at or datetime.now(UTC)
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.CREATED,
+            stage="image_selection:manual_revision",
+            updated_at=now,
+            finished_at=None,
+            cancel_requested_at=None,
+            error_code=None,
+            error_message=None,
+        )
+    )
+
+
 def complete_job(
     job: Job,
     *,

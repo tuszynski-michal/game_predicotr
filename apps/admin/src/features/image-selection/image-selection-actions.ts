@@ -23,12 +23,14 @@ export type ImageSelectionClient = Pick<
   | 'createImageSelection'
   | 'rerunImageSelection'
   | 'getImageSelection'
+  | 'listImageSelections'
   | 'getImageSelectionOutput'
   | 'getImageSelectionOutputFile'
   | 'getImageSelectionSelectedGroupFile'
   | 'handoffImageSelection'
   | 'listImageSelectionGroups'
   | 'listImageSelectionGroupCandidates'
+  | 'getImageSelectionCandidateFile'
   | 'uploadManualImageSelectionFile'
   | 'approveManualImageSelection'
   | 'continueImageSelectionWithoutImage'
@@ -381,6 +383,34 @@ export async function loadAllImageSelectionGroups(
     afterGroupOrder = result.data.nextAfterGroupOrder ?? undefined;
   } while (afterGroupOrder !== undefined);
   return groups;
+}
+
+export async function loadImageSelectionGroupsAfter(
+  api: ImageSelectionClient,
+  runId: string,
+  afterGroupOrder: number,
+): Promise<{
+  readonly groups: ImageSelectionGroupResponse[];
+  readonly lastGroupOrder: number;
+}> {
+  const groups: ImageSelectionGroupResponse[] = [];
+  let cursor = afterGroupOrder;
+  let next: number | undefined = afterGroupOrder;
+  do {
+    const result = await api.listImageSelectionGroups(runId, {
+      afterGroupOrder: next,
+      limit: 100,
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      throw new Error('IMAGE_SELECTION_GROUPS_UNAVAILABLE');
+    }
+    groups.push(...result.data.items);
+    if (result.data.items.length > 0) {
+      cursor = result.data.items.at(-1)?.groupOrder ?? cursor;
+    }
+    next = result.data.nextAfterGroupOrder ?? undefined;
+  } while (next !== undefined);
+  return { groups, lastGroupOrder: cursor };
 }
 
 export async function continueWithAutomaticallySelectedImages(

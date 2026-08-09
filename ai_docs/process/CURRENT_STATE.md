@@ -689,7 +689,7 @@ wszystkie checksumy reprezentantów oraz zero błędów skanu. Jest o 71,10% szy
 od baseline v10 i mieści się w pierwotnym celu czasu; raport to
 `artifacts/image-selection-v101-first-200-task0194-repeat.json`.
 
-TASK-0197 pozostaje aktywny jako pełna ręczna bramka TASK-0186. Poprzedni
+TASK-0197 zakończył się decyzją właściciela `rejected`. Poprzedni
 profil 0–4999 zatrzymano na polecenie właściciela przy około 660
 źródłach, aby powtórka TASK-0194 nie konkurowała o zasoby. Nie powstał raport
 końcowy, a staging 32 079 zdjęć jest niezmieniony. Po zaliczeniu powtórki
@@ -811,6 +811,38 @@ Monitor PID `18844` zapisuje każdy gotowy reprezentant natychmiast do
 `C:\Users\user\Documents\1 - 19809`; przy 128/32 079 istniały już pliki
 `seq_1-9.jpg`, `seq_10-18.jpg` i `seq_19-27.jpg`. Raport przyrostowy:
 `artifacts/image-selection-v101-live-32079-task0197-current.json`.
+
+Run anulowano przy 29 888 / 32 079 po 30 590,702 s. Monitor zakończył się, a
+automatyczny start kolejnego zbioru jest wstrzymany. Grupa 2109 błędnie połączyła
+ekrany `18406-18414` i `18415-18423`; zakres pierwszych klatek został przypisany
+lepszemu reprezentantowi drugiego ekranu. Plan TASK-0209–0218 wprowadza
+bezpieczniejsze wykonanie, bramkę zgodności reprezentanta, historię runów i
+ręczną galerię kandydatów.
+
+Implementacja planu TASK-0209–0218 jest aktywna. Selektor v10.2 ma nowy
+fingerprint i blokuje automatyczny eksport, gdy zakres finalnego reprezentanta
+nie zgadza się z zakresem grupy. Skrypt live oraz Admin używają przyrostowego
+kursora eksportu, pełna weryfikacja ma rekonstruowalny cache, a checkpoint/API
+zawierają telemetrię ostatniego okna. Admin udostępnia historię runów i galerię
+miniatur; nowe runy zachowują metadane wszystkich źródeł grupy, natomiast starsze
+jawnie pokazują tylko dostępną shortlistę. Ręczne uzupełnienie opublikowanego
+wcześniej runu unieważnia jego manifest, wznawia kontrolowaną rewizję i dopisuje
+brakujący plik do ponownie wskazanego katalogu bez cichego nadpisania.
+
+Automatyczne testy na tym etapie: selektor/job/monitor 83/83, adaptery 39/39,
+API i joby 30/30 oraz Admin 179/179 z typecheckiem klienta i aplikacji. Nie
+uruchomiono kolejnego dużego runu. Dwa bieżące cykle stop/start lane selekcji
+przeszły bez osieroconego PID; aktywny worker ma root PID 19540 i interpreter
+PID 14656. Otwarte pozostają: powtórzenie kontroli po restarcie komputera,
+bramka jednego/dwóch verifierów, mała regresja realnych zdjęć i manualny odbiór
+galerii.
+
+TASK-0215 ma zaimplementowaną powtarzalną bramkę jednego i dwóch verifierów.
+Profil korzysta z aktywnego manifestu v10.2, a raport dopuszcza dwa verifiery
+wyłącznie przy kanonicznie identycznych decyzjach i poprawie czasu co najmniej
+10%. Automatyczne testy bramki oraz zawężona regresja workera przechodzą 127/127;
+realny pomiar pozostaje do wykonania bez konkurujących jobów, dlatego produkcja
+nadal używa jednego verifiera.
 
 ## Do not start yet
 

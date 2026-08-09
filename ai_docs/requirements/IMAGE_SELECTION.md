@@ -290,6 +290,50 @@ Poniższe reguły zastępują sprzeczne założenia v9 dotyczące pierwszego
 
 ## Korekta wydajnościowa v10.1 — 2026-08-08
 
+### Korekta spójności i ręcznego odzyskiwania — 2026-08-09
+
+- Zakres zapisany w nazwie `seq_<start>-<end>.jpg` musi być zgodny z numerami
+  widocznymi na wybranym reprezentancie. Dowodu OCR z jednej klatki nie wolno
+  bez dodatkowej kontroli przypisać reprezentantowi przedstawiającemu inny
+  ekran.
+- Jeżeli grupa zawiera zdjęcia co najmniej dwóch zakresów, selektor dzieli ją
+  ponownie albo oznacza konflikt do ręcznej decyzji. Nie może wyeksportować
+  pliku z pewną, ale niezgodną nazwą.
+- Dopuszczalna jest niewielka utrata automatycznego recall lub dodatkowy
+  `manual_required`, jeżeli daje istotny zysk czasu. Niedopuszczalny pozostaje
+  automatyczny wybór zdjęcia z błędnym zakresem.
+- Automatyczna selekcja może ograniczać kosztowne próby po spełnieniu
+  mierzalnej bramki jakości, ale zawsze analizuje pełną grupę lekkim scoringiem
+  i zachowuje najlepszych kandydatów do ręcznego wyboru.
+- Workspace przechowuje historię runów dla aktywnej gry. Użytkownik może wrócić
+  do zakończonego, anulowanego albo oczekującego na review joba i kontynuować
+  jego ręczne braki bez ponownego uploadu.
+- Dla nowych runów ręczny review zachowuje lekkie metadane każdego zdjęcia
+  należącego do zakończonej grupy i pokazuje całą grupę jako lazy-load
+  miniatury. JPEG pozostaje pojedynczym plikiem w stagingu; baza nie przechowuje
+  jego kopii. Kliknięcie miniatury otwiera pełny podgląd, a `Zatwierdź` wybiera
+  istniejący plik bez ręcznego szukania go w katalogu źródłowym.
+- Historyczny run utworzony przed tą korektą może mieć zachowane wyłącznie
+  top-12. Modal pokazuje wtedy licznik `zachowane / wszystkie` i jasną informację
+  o ograniczeniu; opcjonalny upload pojedynczego JPEG-a pozostaje drogą
+  uzupełnienia takiej grupy.
+- Header galerii pokazuje run, numer grupy, rozpoznany albo nierozpoznany zakres,
+  liczbę źródeł oraz postęp `rozwiązane / wymagające decyzji`.
+- Ręczne wskazanie pliku spoza zachowanej shortlisty pozostaje opcjonalnym
+  fallbackiem.
+- Zatwierdzony ręcznie kandydat jest natychmiast i idempotentnie dopisywany do
+  katalogu wynikowego powiązanego z danym runem. Powrót do joba uzupełnia luki,
+  nie kopiuje ponownie istniejących plików i nigdy ich po cichu nie nadpisuje.
+- Liczba pominiętych grup jest raportowana oddzielnie od liczby pominiętych
+  zdjęć. Każda grupa `manual_required` lub `missing_image` pozostaje dostępna w
+  historii joba, aby można było wrócić do niej po zakończeniu automatycznej
+  selekcji i uzupełnić katalog wynikowy.
+- Status `skipped_existing_range` oznacza duplikat rozpoznanego zakresu, a nie
+  brak zdjęcia. UI pokazuje osobno: duplikaty, grupy bez dowodu zakresu, konflikty
+  zakresu oraz pliki niedekodowalne.
+
+### Zachowane wymagania wydajnościowe v10.1
+
 Profil pierwszych 200 rzeczywistych zdjęć wykazał, że pełny scoring grupy jest
 tani, natomiast 99 pełnych weryfikacji uruchomiło 792 batche i 7128 cropów OCR.
 Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.

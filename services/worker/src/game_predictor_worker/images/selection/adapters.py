@@ -44,7 +44,7 @@ from .contracts import (
 )
 from .manifest import (
     ACCURACY_FIRST_SELECTOR_VERSIONS,
-    ADAPTIVE_ACCURACY_SELECTOR_VERSION,
+    ADAPTIVE_ACCURACY_SELECTOR_VERSIONS,
     APPEARANCE_GROUPING_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
@@ -1714,7 +1714,7 @@ def build_default_adapters(
                 detector,
                 allow_grid_recovery=True,
                 couple_fallback_to_representative=(
-                    manifest.algorithm_version != ADAPTIVE_ACCURACY_SELECTOR_VERSION
+                    manifest.algorithm_version not in ADAPTIVE_ACCURACY_SELECTOR_VERSIONS
                 ),
                 full_geometry_policy=manifest.full_geometry_policy,
                 telemetry=telemetry,

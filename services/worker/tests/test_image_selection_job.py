@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -148,6 +149,9 @@ class _Store:
     run: ImageSelectionJobRun
     groups: tuple[SelectionGroupResult, ...] = ()
     published: PublishedImageSelection | None = None
+    gallery_sources: dict[int, tuple[CheapImageObservation, ...]] = field(
+        default_factory=dict
+    )
 
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun:
         assert job_id == self.run.job_id
@@ -164,6 +168,7 @@ class _Store:
         run_id: UUID,
         lease_token: UUID,
         groups: tuple[SelectionGroupResult, ...],
+        group_sources: Mapping[int, Sequence[CheapImageObservation]],
         persisted_at: datetime,
     ) -> None:
         del lease_token, persisted_at
@@ -171,6 +176,9 @@ class _Store:
         values = {group.group_order: group for group in self.groups}
         values.update({group.group_order: group for group in groups})
         self.groups = tuple(values[index] for index in sorted(values))
+        self.gallery_sources.update(
+            {group_order: tuple(sources) for group_order, sources in group_sources.items()}
+        )
 
     def record_output(
         self,
@@ -405,6 +413,11 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     handler(context, job)  # type: ignore[arg-type]
 
     assert calls == [0, 1, 2]
+    assert sorted(
+        observation.source.order_index
+        for sources in store.gallery_sources.values()
+        for observation in sources
+    ) == [0, 1, 2]
     assert store.published is not None
     final = context.checkpoints[-1]
     payload = final["checkpoint_payload"]
@@ -412,6 +425,12 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert payload["error_count"] == 1
     assert payload["upload_duration_seconds"] == 12.5
     assert float(payload["processing_duration_seconds"]) > 0
+    recent_window = payload["recent_window"]
+    assert isinstance(recent_window, dict)
+    assert recent_window["toProcessed"] == 3
+    assert recent_window["fromProcessed"] in {0, 2}
+    assert recent_window["elapsedSeconds"] >= 0
+    assert recent_window["verifications"] >= 0
     stage_timing = payload["stage_timing"]
     assert isinstance(stage_timing, dict)
     assert stage_timing["stages"]["output"]["count"] == 1

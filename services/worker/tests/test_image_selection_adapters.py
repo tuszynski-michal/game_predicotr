@@ -36,8 +36,10 @@ from game_predictor_worker.images.selection.adapters import (
     configure_opencv_thread_budget,
 )
 from game_predictor_worker.images.selection.cache import (
+    CachedCandidateVerifier,
     CachedCheapImageAnalyzer,
     FileImageScanObservationCache,
+    FileImageVerificationCache,
 )
 from game_predictor_worker.images.selection.contracts import (
     CandidateVerification,
@@ -90,7 +92,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.1"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.2"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -220,6 +222,156 @@ def test_scan_cache_misses_after_key_change_and_rebuilds_corrupt_entry(
     entries = tuple(cache.root.rglob("*.json"))
     assert len(entries) == 3
     assert sum(item.stat().st_size for item in entries) < 48 * 1024
+
+
+class _BatchCandidateVerifier:
+    def __init__(self) -> None:
+        self.batch_calls: list[tuple[tuple[int, ...], bool]] = []
+        self.representative_calls: list[int] = []
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        return self._result(observation, include_range_evidence=True)
+
+    def assess_representative(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del expected_board_count
+        self.representative_calls.append(observation.source.order_index)
+        return self._result(observation, include_range_evidence=False)
+
+    def verify_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> tuple[CandidateVerification, ...]:
+        del expected_board_count
+        self.batch_calls.append(
+            (tuple(item.source.order_index for item in observations), include_range_evidence)
+        )
+        return tuple(
+            self._result(item, include_range_evidence=include_range_evidence)
+            for item in observations
+        )
+
+    @staticmethod
+    def _result(
+        observation: CheapImageObservation,
+        *,
+        include_range_evidence: bool,
+    ) -> CandidateVerification:
+        start = observation.source.order_index * 9 + 1
+        return CandidateVerification(
+            representative=RepresentativeAssessment(
+                board_count=9,
+                geometry_complete=True,
+                full_frame_visible=True,
+                reason_codes=(),
+            ),
+            range_evidence=RangeEvidence(
+                recognized_range=(
+                    SequenceRange(start, start + 8, 0.95)
+                    if include_range_evidence
+                    else None
+                ),
+                reason_codes=(),
+            ),
+        )
+
+
+def test_verification_cache_preserves_batch_order_and_separates_modes(
+    tmp_path: Path,
+) -> None:
+    cache = FileImageVerificationCache(tmp_path)
+    fingerprint = "5" * 64
+    observations = tuple(
+        replace(
+            _CountingCheapAnalyzer().analyze(_source(str(index + 6) * 64)),
+            source=replace(
+                _source(str(index + 6) * 64),
+                order_index=index,
+            ),
+        )
+        for index in range(2)
+    )
+    cold_delegate = _BatchCandidateVerifier()
+    cold = CachedCandidateVerifier(
+        cold_delegate,
+        cache,
+        selector_fingerprint=fingerprint,
+    )
+
+    expected = cold.verify_many(
+        observations,
+        expected_board_count=9,
+        include_range_evidence=True,
+    )
+    warm_delegate = _BatchCandidateVerifier()
+    warm = CachedCandidateVerifier(
+        warm_delegate,
+        cache,
+        selector_fingerprint=fingerprint,
+    )
+    actual = warm.verify_many(
+        observations,
+        expected_board_count=9,
+        include_range_evidence=True,
+    )
+    representative = warm.assess_representative(
+        observations[0],
+        expected_board_count=9,
+    )
+
+    assert actual == expected
+    assert cold_delegate.batch_calls == [((0, 1), True)]
+    assert warm_delegate.batch_calls == []
+    assert warm.snapshot()["hitCount"] == 2
+    assert representative.range_evidence.recognized_range is None
+    assert warm_delegate.representative_calls == [0]
+    assert len(tuple(cache.root.rglob("*.json"))) == 3
+
+
+def test_verification_cache_ignores_corruption_and_fingerprint_change(
+    tmp_path: Path,
+) -> None:
+    cache = FileImageVerificationCache(tmp_path)
+    source = _source("8" * 64)
+    observation = _CountingCheapAnalyzer().analyze(source)
+    first = CachedCandidateVerifier(
+        _BatchCandidateVerifier(),
+        cache,
+        selector_fingerprint="9" * 64,
+    )
+    first.verify(observation, expected_board_count=9)
+    entry = next(cache.root.rglob("*.json"))
+    entry.write_text('{"partial":', encoding="utf-8")
+    repair_delegate = _BatchCandidateVerifier()
+    repaired = CachedCandidateVerifier(
+        repair_delegate,
+        cache,
+        selector_fingerprint="9" * 64,
+    )
+    repaired.verify(observation, expected_board_count=9)
+    changed_delegate = _BatchCandidateVerifier()
+    changed = CachedCandidateVerifier(
+        changed_delegate,
+        cache,
+        selector_fingerprint="a" * 64,
+    )
+    changed.verify(observation, expected_board_count=9)
+
+    assert repaired.snapshot()["invalidEntryCount"] == 1
+    assert changed.snapshot()["missCount"] == 1
+    assert len(tuple(cache.root.rglob("*.json"))) == 2
 
 
 def test_pillow_thumbnail_loader_verifies_checksum_and_applies_exif(tmp_path: Path) -> None:
@@ -1306,7 +1458,7 @@ def test_standalone_cli_uses_v10_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.1"
+    assert report["selectorVersion"] == "fast-image-selector-v10.2"
     assert report["groups"][0]["status"] == "manual_required"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

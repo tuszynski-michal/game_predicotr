@@ -130,8 +130,13 @@ def _upload_one(
     raise RuntimeError(f"Upload failed for file {index + 1}: {relative}") from last_error
 
 
-def _all_groups(client: httpx.Client, run_id: str) -> list[dict[str, Any]]:
-    after = -1
+def _groups_after(
+    client: httpx.Client,
+    run_id: str,
+    *,
+    after_group_order: int,
+) -> tuple[list[dict[str, Any]], int]:
+    after = after_group_order
     result: list[dict[str, Any]] = []
     while True:
         page = _request_json(
@@ -143,10 +148,13 @@ def _all_groups(client: httpx.Client, run_id: str) -> list[dict[str, Any]]:
         items = page.get("items")
         if not isinstance(items, list):
             raise RuntimeError("Image-selection group page is invalid.")
-        result.extend(item for item in items if isinstance(item, dict))
+        page_items = [item for item in items if isinstance(item, dict)]
+        result.extend(page_items)
+        if page_items:
+            after = max(after, *(int(item["groupOrder"]) for item in page_items))
         next_after = page.get("nextAfterGroupOrder")
         if next_after is None:
-            return result
+            return result, after
         after = int(next_after)
 
 
@@ -155,9 +163,15 @@ def _save_ready_groups(
     run_id: str,
     output_root: Path,
     saved_orders: set[int],
+    *,
+    after_group_order: int,
 ) -> tuple[int, int]:
     saved_now = 0
-    groups = _all_groups(client, run_id)
+    groups, export_cursor = _groups_after(
+        client,
+        run_id,
+        after_group_order=after_group_order,
+    )
     for group in sorted(groups, key=lambda item: int(item["groupOrder"])):
         group_order = int(group["groupOrder"])
         if group_order in saved_orders:
@@ -192,7 +206,7 @@ def _save_ready_groups(
         os.replace(temporary, destination)
         saved_orders.add(group_order)
         saved_now += 1
-    return saved_now, len(groups)
+    return saved_now, export_cursor
 
 
 def _parse_args() -> argparse.Namespace:
@@ -252,7 +266,7 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
     if not isinstance(run_id, str) or not isinstance(job_id, str):
         raise RuntimeError("Image-selection rerun response contains invalid identifiers.")
     report: dict[str, object] = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "selecting",
         "sourceRunId": options.rerun_id,
         "outputDirectory": str(output_root),
@@ -261,6 +275,7 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
         "runId": run_id,
         "jobId": job_id,
         "savedOutputFiles": 0,
+        "exportCursor": -1,
         "rerunCreated": bool(created.get("created")),
     }
     _write_report(options.report, report)
@@ -273,6 +288,9 @@ def _resume_existing(options: argparse.Namespace) -> int:
     selection_started_at = datetime.fromisoformat(str(report["selectionStartedAt"]))
     output_root = options.output.resolve(strict=True)
     saved_orders: set[int] = set()
+    # A resumed monitor performs one complete reconciliation against the output
+    # directory. Every later poll advances monotonically from this cursor.
+    export_cursor = -1
     with httpx.Client(
         base_url=options.api_base_url,
         headers=ADMIN_HEADERS,
@@ -283,7 +301,13 @@ def _resume_existing(options: argparse.Namespace) -> int:
             current_run = _request_json(client, "GET", f"/api/v1/admin/image-selections/{run_id}")
             job = current_run["job"]
             progress = _job_progress(job)
-            saved_now, group_count = _save_ready_groups(client, run_id, output_root, saved_orders)
+            saved_now, export_cursor = _save_ready_groups(
+                client,
+                run_id,
+                output_root,
+                saved_orders,
+                after_group_order=export_cursor,
+            )
             elapsed = round((datetime.now(UTC) - selection_started_at).total_seconds(), 3)
             report.update(
                 {
@@ -302,8 +326,9 @@ def _resume_existing(options: argparse.Namespace) -> int:
                             "verifications",
                         )
                     },
-                    "groupCount": group_count,
+                    "groupCount": progress["groups"],
                     "savedOutputFiles": len(saved_orders),
+                    "exportCursor": export_cursor,
                     "selectionElapsedSeconds": elapsed,
                 }
             )
@@ -312,7 +337,7 @@ def _resume_existing(options: argparse.Namespace) -> int:
                 print(
                     f"selection status={job['status']} stage={progress['stage']} "
                     f"progress={progress['current']}/{progress['total']} "
-                    f"groups={group_count} saved={len(saved_orders)} elapsed={elapsed}s",
+                    f"groups={progress['groups']} saved={len(saved_orders)} elapsed={elapsed}s",
                     flush=True,
                 )
                 last_log = time.monotonic()
@@ -362,7 +387,7 @@ def main() -> int:
         raise RuntimeError("Source directory contains no JPEG files.")
     total_bytes = sum(path.stat().st_size for path in files)
     report: dict[str, object] = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "status": "starting",
         "sourceDirectory": str(source_root),
         "outputDirectory": str(output_root),
@@ -374,6 +399,7 @@ def main() -> int:
         "uploadedFiles": 0,
         "uploadedBytes": 0,
         "savedOutputFiles": 0,
+        "exportCursor": -1,
     }
     _write_report(options.report, report)
     with httpx.Client(
@@ -461,12 +487,19 @@ def main() -> int:
         )
         _write_report(options.report, report)
         saved_orders: set[int] = set()
+        export_cursor = -1
         last_log = 0.0
         while True:
             current_run = _request_json(client, "GET", f"/api/v1/admin/image-selections/{run_id}")
             job = current_run["job"]
             progress = _job_progress(job)
-            saved_now, group_count = _save_ready_groups(client, run_id, output_root, saved_orders)
+            saved_now, export_cursor = _save_ready_groups(
+                client,
+                run_id,
+                output_root,
+                saved_orders,
+                after_group_order=export_cursor,
+            )
             report.update(
                 {
                     "jobStatus": job["status"],
@@ -484,8 +517,9 @@ def main() -> int:
                             "verifications",
                         )
                     },
-                    "groupCount": group_count,
+                    "groupCount": progress["groups"],
                     "savedOutputFiles": len(saved_orders),
+                    "exportCursor": export_cursor,
                     "selectionElapsedSeconds": _duration(selection_started),
                 }
             )
@@ -494,7 +528,7 @@ def main() -> int:
                 print(
                     f"selection status={job['status']} stage={progress['stage']} "
                     f"progress={progress['current']}/{progress['total']} "
-                    f"groups={group_count} saved={len(saved_orders)} "
+                    f"groups={progress['groups']} saved={len(saved_orders)} "
                     f"elapsed={report['selectionElapsedSeconds']}s",
                     flush=True,
                 )

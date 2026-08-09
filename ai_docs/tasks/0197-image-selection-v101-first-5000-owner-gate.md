@@ -1,6 +1,6 @@
 ---
 title: TASK-0197 v10.1 full 32079 real-image owner gate
-status: in_progress
+status: done
 release: "0.4"
 last_updated: 2026-08-09
 ---
@@ -125,3 +125,9 @@ raport przyrostowy w
 `artifacts/image-selection-v101-live-32079-task0197-current.json`, a JPEG-i w
 `C:\Users\user\Documents\1 - 19809`. Kontrola przy 128/32 079 potwierdziła
 trzy fizyczne pliki: `seq_1-9.jpg`, `seq_10-18.jpg` i `seq_19-27.jpg`.
+
+Właściciel anulował run przy 29 888 / 32 079 po 30 590,702 s. Bramka została
+odrzucona z powodu zbyt wolnej końcówki oraz potwierdzonego false merge grupy
+2109, który utworzył `seq_18406-18414.jpg` z obrazem layoutów `18415-18423`.
+Szczegóły zachowuje
+`ai_docs/quality/image-selection-v101-cancelled-run-diagnostic.json`.

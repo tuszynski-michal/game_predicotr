@@ -46,6 +46,7 @@ import {
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
   getCuratedImageImportSource as getGeneratedCuratedImageImportSource,
   getImageSelection as getGeneratedImageSelection,
+  getImageSelectionCandidateFile as getGeneratedImageSelectionCandidateFile,
   getImageSelectionOutput as getGeneratedImageSelectionOutput,
   getImageSelectionOutputFile as getGeneratedImageSelectionOutputFile,
   getImageSelectionSelectedGroupFile as getGeneratedImageSelectionSelectedGroupFile,
@@ -79,6 +80,7 @@ import {
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
+  listImageSelections as listGeneratedImageSelections,
   listJobs as listGeneratedJobs,
   listWorkerLanes as listGeneratedWorkerLanes,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
@@ -241,6 +243,7 @@ export type {
   ImageSelectionGroupStatus,
   ImageSelectionJobPayload,
   ImageSelectionRunResponse,
+  ImageSelectionRunPageResponse,
   ImageSelectionCandidateResponse,
   ImageSelectionManualApprovalCommand,
   ImageSelectionManualApprovalResponse,
@@ -528,6 +531,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { run_id: runId },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
+    listImageSelections: (
+      gameId: string,
+      options: {
+        readonly offset?: number;
+        readonly limit?: number;
+      } = {},
+    ) =>
+      listGeneratedImageSelections({
+        client,
+        query: {
+          gameId,
+          ...(options.offset === undefined ? {} : { offset: options.offset }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
     rerunImageSelection: (runId: string) =>
       rerunGeneratedImageSelection({
         client,
@@ -582,6 +600,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { group_id: groupId, run_id: runId },
         query: {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getImageSelectionCandidateFile: (
+      runId: string,
+      groupId: string,
+      candidateId: string,
+    ) =>
+      getGeneratedImageSelectionCandidateFile({
+        client,
+        path: {
+          candidate_id: candidateId,
+          group_id: groupId,
+          run_id: runId,
         },
       }),
     uploadManualImageSelectionFile: (

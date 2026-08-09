@@ -117,7 +117,11 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   assert.match(manualModalSource, /Zakres layoutów nierozpoznany/);
   assert.match(manualModalSource, /listImageSelectionGroupCandidates/);
   assert.match(manualModalSource, /pliki kandydatów/);
-  assert.match(workspaceSource, /Sprawdź nierozpoznane zestawy/);
+  assert.match(workspaceSource, /manualGroups\.length > 0/);
+  assert.match(manualModalSource, /manualSelectionCandidateGallery/);
+  assert.match(manualModalSource, /candidateFileUrl/);
+  assert.match(workspaceSource, /listImageSelections/);
+  assert.match(workspaceSource, /imageSelectionHistory/);
   assert.match(workspaceSource, /Pominięte grupy-duplikaty/);
   assert.match(workspaceSource, /refreshRunAfterManualApproval\(activeRunId\)/);
   assert.match(workspaceSource, /setRun\(result\.data\)/);

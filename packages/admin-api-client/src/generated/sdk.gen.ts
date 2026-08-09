@@ -146,6 +146,9 @@ import type {
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
+  GetImageSelectionCandidateFileData,
+  GetImageSelectionCandidateFileErrors,
+  GetImageSelectionCandidateFileResponses,
   GetImageSelectionData,
   GetImageSelectionErrors,
   GetImageSelectionOutputData,
@@ -270,6 +273,9 @@ import type {
   ListImageSelectionGroupsData,
   ListImageSelectionGroupsErrors,
   ListImageSelectionGroupsResponses,
+  ListImageSelectionsData,
+  ListImageSelectionsErrors,
+  ListImageSelectionsResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -2018,6 +2024,22 @@ export const listOperationalImageReviewResolutionEvents = <
   });
 
 /**
+ * List durable image-selection runs for one game
+ */
+export const listImageSelections = <ThrowOnError extends boolean = false>(
+  options: Options<ListImageSelectionsData, ThrowOnError>,
+): RequestResult<
+  ListImageSelectionsResponses,
+  ListImageSelectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageSelectionsResponses,
+    ListImageSelectionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-selections', ...options });
+
+/**
  * Create or return an idempotent image-selection run
  */
 export const createImageSelection = <ThrowOnError extends boolean = false>(
@@ -2117,6 +2139,27 @@ export const listImageSelectionGroupCandidates = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates',
+    ...options,
+  });
+
+/**
+ * Read one staged or manually uploaded candidate JPEG
+ */
+export const getImageSelectionCandidateFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSelectionCandidateFileData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionCandidateFileResponses,
+  GetImageSelectionCandidateFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionCandidateFileResponses,
+    GetImageSelectionCandidateFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates/{candidate_id}/file',
     ...options,
   });
 

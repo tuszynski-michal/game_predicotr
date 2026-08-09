@@ -3999,6 +3999,52 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   korekt na reprezentatywnej partii należy zaproponować model neuronowy i użyć
   zachowanej kohorty obraz–cztery narożniki.
 
+## D-165 — Automatyczna nazwa wymaga zgodności zakresu z reprezentantem
+
+- **Status:** accepted
+- **Date:** 2026-08-09
+- **Decision:** selektor może używać kilku klatek do ustalenia zakresu, ale
+  przed automatycznym eksportem finalny JPEG musi potwierdzić ten sam zakres.
+  Konflikt dzieli grupę albo kieruje ją do manualnego review. Dopuszczalna jest
+  niewielka utrata automatycznego recall na rzecz czasu, lecz nie błędna nazwa.
+- **Context:** realna grupa 2109 połączyła klatki `18406-18414` oraz
+  `18415-18423`. OCR pierwszych klatek ustalił starszy zakres, a ranking jakości
+  wybrał późniejszy obraz i utworzył niespójny `seq_18406-18414.jpg`.
+- **Reason:** poprawność pliku wynikowego jest ważniejsza niż pełna automatyzacja;
+  jeden bounded check reprezentanta kosztuje mniej niż ponowny import i ręczna
+  naprawa błędnie nazwanych danych.
+- **Alternatives:** bezwarunkowe przenoszenie zakresu całej grupy na dowolny
+  reprezentant odrzucono. Pełny OCR wszystkich zdjęć pozostaje niepotrzebny.
+- **Consequences:** powstaje v10.2 i nowy fingerprint przy każdej zmianie decyzji
+  domenowej. Historyczne runy zachowują swoje wyniki. Manualny workspace musi
+  umożliwić wybór istniejącego kandydata i powrót do konkretnego joba.
+- **Supersedes:** ogranicza D-162 w zakresie niezależności reprezentanta od OCR.
+
+## D-166 — Ręczna galeria zachowuje członkostwo grupy bez kopiowania obrazów
+
+- **Status:** accepted
+- **Date:** 2026-08-09
+- **Decision:** dla nowych runów worker utrwala po jednym lekkim rekordzie
+  kandydata dla każdej obserwacji zakończonej grupy. Rekord wskazuje istniejący
+  JPEG stagingu i ma znacznik `manualGalleryOnly`; nie zawiera BLOB-a i jest
+  pomijany przy odtwarzaniu decyzji selektora. Admin pokazuje te rekordy jako
+  lazy-load miniatury, a pełny obraz pobiera dopiero po wyborze. Historyczne runy
+  mogą pokazać wyłącznie zachowane top-12 i muszą ujawnić to licznikiem.
+- **Context:** duży run pozostawił wiele grup wymagających ręcznej decyzji.
+  Użytkownik nie może szukać właściwego JPEG-a ręcznie w folderze 32 000 źródeł
+  ani tracić możliwości powrotu do zakończonego joba.
+- **Reason:** rekordy metadanych są małe, wykorzystują ten sam bezpieczny staging
+  i pozwalają wybrać najlepszy obraz całej grupy bez ponownego OCR lub kopiowania
+  wszystkich JPEG-ów.
+- **Alternatives:** zapisywanie tylko top-12 nie realizuje pełnego wyboru
+  manualnego; kopiowanie obrazów do bazy lub osobnego katalogu dubluje dane;
+  rekonstrukcja historycznych granic grup na podstawie domysłów jest
+  niedeterministyczna.
+- **Consequences:** limit galerii wynosi 500 źródeł na grupę, co przekracza
+  oczekiwane 50–100. Ręczna decyzja może unieważnić opublikowany manifest i
+  uruchomić jego kontrolowaną rewizję, ale nie zmienia wcześniejszych wpisów
+  audytu ani wyniku innych grup.
+
 ## Szablon nowej decyzji
 
 ```text

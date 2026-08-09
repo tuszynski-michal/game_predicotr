@@ -299,6 +299,7 @@ def create_manual_decision(
     if group.status not in {
         ImageSelectionGroupStatus.MANUAL_REQUIRED,
         ImageSelectionGroupStatus.MANUALLY_SELECTED,
+        ImageSelectionGroupStatus.MISSING_IMAGE,
     }:
         raise ImageSelectionConflictError(
             "IMAGE_SELECTION_GROUP_NOT_MANUAL",

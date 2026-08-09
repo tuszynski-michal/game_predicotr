@@ -24,7 +24,7 @@ import {
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
   continueWithAutomaticallySelectedImages,
-  loadAllImageSelectionGroups,
+  loadImageSelectionGroupsAfter,
   loadManualImageSelectionGroups,
   pickImageSelectionOutputDirectory,
   saveFinalizedImageSelectionGroups,
@@ -69,6 +69,10 @@ export function ImageSelectionWorkspace({
   const outputDirectoryRef = useRef<OutputDirectoryHandle | null>(null);
   const savedGroupOrdersRef = useRef(new Set<number>());
   const progressiveSaveRunningRef = useRef(false);
+  const progressiveCursorRef = useRef<{
+    readonly afterGroupOrder: number;
+    readonly runId: string;
+  } | null>(null);
   const pollingWindowRef = useRef<{
     readonly deadline: number;
     readonly runId: string;
@@ -78,6 +82,8 @@ export function ImageSelectionWorkspace({
     null,
   );
   const [run, setRun] = useState<ImageSelectionRunResponse | null>(null);
+  const [runHistory, setRunHistory] = useState<ImageSelectionRunResponse[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [manualGroups, setManualGroups] = useState<
     ImageSelectionGroupResponse[]
   >([]);
@@ -97,6 +103,37 @@ export function ImageSelectionWorkspace({
   const [firstSequenceNumber, setFirstSequenceNumber] = useState('');
   const activeRunId = run?.id ?? null;
   const activeRunStatus = run?.job.status ?? null;
+  const activeRunProgressCurrent = run?.job.progress.current ?? null;
+
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(async () => {
+      if (!cancelled) setHistoryLoading(true);
+      try {
+        const result = await api.listImageSelections(gameId, { limit: 50 });
+        if (cancelled) return;
+        if (result.error !== undefined || result.data === undefined) {
+          setRefreshWarning(
+            'Nie udało się odczytać historii procesów selekcji.',
+          );
+          return;
+        }
+        setRunHistory(result.data.items);
+        setRun((current) => current ?? result.data?.items[0] ?? null);
+      } catch {
+        if (!cancelled) {
+          setRefreshWarning(
+            'Nie udało się odczytać historii procesów selekcji.',
+          );
+        }
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, gameId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,11 +226,11 @@ export function ImageSelectionWorkspace({
   }, [activeRunId, activeRunStatus, api, gameId]);
 
   useEffect(() => {
-    if (run === null) return;
+    if (activeRunId === null) return;
     let cancelled = false;
     queueMicrotask(async () => {
       try {
-        const groups = await loadManualImageSelectionGroups(api, run.id);
+        const groups = await loadManualImageSelectionGroups(api, activeRunId);
         if (!cancelled) setManualGroups(groups);
       } catch {
         if (!cancelled) {
@@ -204,7 +241,7 @@ export function ImageSelectionWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, run]);
+  }, [activeRunId, api]);
 
   useEffect(() => {
     if (
@@ -218,16 +255,30 @@ export function ImageSelectionWorkspace({
     progressiveSaveRunningRef.current = true;
     queueMicrotask(async () => {
       try {
-        const groups = await loadAllImageSelectionGroups(api, activeRunId);
+        const cursor =
+          progressiveCursorRef.current?.runId === activeRunId
+            ? progressiveCursorRef.current.afterGroupOrder
+            : -1;
+        const page = await loadImageSelectionGroupsAfter(
+          api,
+          activeRunId,
+          cursor,
+        );
         if (cancelled || outputDirectoryRef.current === null) return;
         const result = await saveFinalizedImageSelectionGroups(
           api,
           activeRunId,
-          groups,
+          page.groups,
           outputDirectoryRef.current,
           savedGroupOrdersRef.current,
         );
         if (!cancelled && result.error !== null) setError(result.error);
+        if (!cancelled && result.error === null) {
+          progressiveCursorRef.current = {
+            afterGroupOrder: page.lastGroupOrder,
+            runId: activeRunId,
+          };
+        }
         if (!cancelled && result.savedCount > 0) {
           setNotice(
             `Zapisano na bieżąco ${result.savedCount.toLocaleString('pl-PL')} nowych zdjęć.`,
@@ -244,7 +295,13 @@ export function ImageSelectionWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [activeRunId, api, run]);
+  }, [
+    activeRunId,
+    activeRunProgressCurrent,
+    activeRunStatus,
+    api,
+    outputFolderName,
+  ]);
 
   async function startUpload(files: readonly File[], activeResume = resume) {
     if (busy) return;
@@ -266,6 +323,10 @@ export function ImageSelectionWorkspace({
     }
     setResume(null);
     setRun(result.created.run);
+    setRunHistory((items) => [
+      result.created.run,
+      ...items.filter((item) => item.id !== result.created.run.id),
+    ]);
     setProgress(EMPTY_PROGRESS);
     window.localStorage.setItem(storageKey(gameId), result.created.run.id);
     setNotice(
@@ -326,6 +387,10 @@ export function ImageSelectionWorkspace({
       const directory = await pickImageSelectionOutputDirectory();
       outputDirectoryRef.current = directory;
       savedGroupOrdersRef.current.clear();
+      progressiveCursorRef.current =
+        activeRunId === null
+          ? null
+          : { afterGroupOrder: -1, runId: activeRunId };
       setOutputFolderName(directory.name ?? 'Wybrany folder');
       setNotice('Folder wynikowy wybrany. Teraz wybierz folder ze zdjęciami.');
     } catch (error) {
@@ -393,6 +458,10 @@ export function ImageSelectionWorkspace({
         return;
       }
       setRun(result.data.run);
+      setRunHistory((items) => [
+        result.data.run,
+        ...items.filter((item) => item.id !== result.data?.run.id),
+      ]);
       setManualGroups([]);
       setManualOpen(false);
       pollingWindowRef.current = null;
@@ -460,6 +529,23 @@ export function ImageSelectionWorkspace({
     }
   }
 
+  function selectRun(runId: string) {
+    const selected = runHistory.find((item) => item.id === runId);
+    if (selected === undefined || selected.id === run?.id) return;
+    outputDirectoryRef.current = null;
+    savedGroupOrdersRef.current.clear();
+    progressiveCursorRef.current = null;
+    setOutputFolderName('');
+    setManualOpen(false);
+    setManualGroups([]);
+    setRun(selected);
+    setError('');
+    setNotice(
+      'Wybrano zapisany proces. Wybierz folder zapisu, aby uzupełniać w nim ręcznie zatwierdzone braki.',
+    );
+    window.localStorage.setItem(storageKey(gameId), selected.id);
+  }
+
   async function continueWithSelectedImages() {
     if (run === null || busy || manualLoading) return;
     setBusy(true);
@@ -508,6 +594,23 @@ export function ImageSelectionWorkspace({
       groups.map((group) => (group.id === updated.id ? updated : group)),
     );
     if (activeRunId !== null) {
+      const directory = outputDirectoryRef.current;
+      if (directory !== null) {
+        void saveFinalizedImageSelectionGroups(
+          api,
+          activeRunId,
+          [updated],
+          directory,
+          savedGroupOrdersRef.current,
+        ).then((result) => {
+          if (result.error !== null) setError(result.error);
+          if (result.savedCount > 0) {
+            setNotice(
+              'RÄ™cznie wybrane zdjÄ™cie dopisano do katalogu wynikowego.',
+            );
+          }
+        });
+      }
       void refreshRunAfterManualApproval(activeRunId);
     }
   }
@@ -647,6 +750,36 @@ export function ImageSelectionWorkspace({
         </p>
       ) : null}
       {notice ? <p className="feedbackBanner">{notice}</p> : null}
+
+      <section
+        aria-label="Historia procesów selekcji zdjęć"
+        className="imageSelectionHistory"
+      >
+        <div>
+          <strong>Zapisane procesy</strong>
+          <span>
+            Wróć do zakończonej partii, wybierz brakujące zdjęcia i uzupełnij
+            jej katalog wynikowy.
+          </span>
+        </div>
+        <label>
+          Proces
+          <select
+            disabled={historyLoading || runHistory.length === 0}
+            onChange={(event) => selectRun(event.target.value)}
+            value={run?.id ?? ''}
+          >
+            {runHistory.length === 0 ? (
+              <option value="">Brak zapisanych procesów</option>
+            ) : null}
+            {runHistory.map((item) => (
+              <option key={item.id} value={item.id}>
+                {formatRunHistoryLabel(item)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       {progress.totalFiles > 0 ? (
         <section className="imageSelectionProgress" aria-label="Postęp uploadu">
@@ -804,9 +937,7 @@ export function ImageSelectionWorkspace({
                     : 'Kontynuuj z wybranymi zdjęciami'}
                 </button>
               ) : null}
-              {manualGroups.some(
-                (group) => group.status === 'manual_required',
-              ) ? (
+              {manualGroups.length > 0 ? (
                 <button
                   className="secondaryButton"
                   disabled={busy || manualLoading}
@@ -815,7 +946,7 @@ export function ImageSelectionWorkspace({
                 >
                   {manualLoading
                     ? 'Odczytywanie…'
-                    : `Sprawdź nierozpoznane zestawy (${unresolvedGroupCount})`}
+                    : `Ręczna selekcja (${unresolvedGroupCount} do uzupełnienia)`}
                 </button>
               ) : null}
               <button
@@ -891,6 +1022,14 @@ function Metric({
 
 function storageKey(gameId: string): string {
   return `game-predictor:image-selection-run:${gameId}`;
+}
+
+function formatRunHistoryLabel(run: ImageSelectionRunResponse): string {
+  const created = new Intl.DateTimeFormat('pl-PL', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(run.createdAt));
+  return `${created} · ${jobStatusLabel(run.job.status)} · ${run.id.slice(0, 8)}`;
 }
 
 function isPollableRunStatus(status: string): boolean {

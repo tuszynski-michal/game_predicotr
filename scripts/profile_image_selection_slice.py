@@ -45,7 +45,8 @@ from game_predictor_worker.images.selection.io import (  # noqa: E402
     load_browser_selection_manifest,
 )
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
-    ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
+    DEFAULT_SELECTOR_MANIFEST,
+    SelectorManifest,
 )
 from game_predictor_worker.images.selection.telemetry import (  # noqa: E402
     StageTimingCollector,
@@ -204,11 +205,11 @@ def _build_verification_adapters(
     source_root: Path,
     model_root: Path,
     telemetry: StageTimingCollector,
+    manifest: SelectorManifest,
 ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
-    manifest = ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
     fallback_policy = manifest.progressive_visible_label_fallback_policy
     if fallback_policy is None:
-        raise RuntimeError("The v10.1 profile requires progressive fallback policy.")
+        raise RuntimeError("The active selector profile requires progressive fallback policy.")
     ocr = PaddleSequenceNumberRecognizer(model_root)
     return build_default_adapters(
         source_root,
@@ -338,10 +339,12 @@ def main() -> None:
     telemetry = StageTimingCollector()
     configure_opencv_thread_budget(1)
     model_root = args.ocr_model_root.resolve(strict=True)
+    manifest = DEFAULT_SELECTOR_MANIFEST
     analyzer, primary_verifier = _build_verification_adapters(
         source_root,
         model_root,
         telemetry,
+        manifest,
     )
     verifier: CandidateVerifier = primary_verifier
     if args.verification_workers == 2:
@@ -349,6 +352,7 @@ def main() -> None:
             source_root,
             model_root,
             telemetry,
+            manifest,
         )
         verifier = DeterministicParallelCandidateVerifier(
             (primary_verifier, secondary_verifier),
@@ -359,7 +363,7 @@ def main() -> None:
     sink = _TimingSink(_STARTED_AT, first_source_index=args.start_index)
     with PeakMemorySampler(interval_seconds=0.1) as memory_sampler:
         result = FastImageSelector(
-            ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
+            manifest,
             scan_workers=args.scan_workers,
             scan_prefetch=min(args.scan_workers * 2, 64),
         ).select(

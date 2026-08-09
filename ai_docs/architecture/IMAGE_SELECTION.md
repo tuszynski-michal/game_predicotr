@@ -645,6 +645,12 @@ workers i jednego verification workera. Adapter dwóch izolowanych verifierów
 pozostaje nieaktywną opcją do ponownej bramki na innym sprzęcie. Telemetria
 `parallelVerification*` nie uczestniczy w decyzji domenowej.
 
+Powtarzalna bramka `scripts/run_image_selection_verifier_gate.py` uruchamia oba
+warianty sekwencyjnie na tym samym wycinku i tym samym aktywnym manifeście.
+Porównanie obejmuje pełną kanoniczną decyzję grupy, nie tylko czas. Dwa
+verifiery mogą zostać zalecone dopiero przy identycznym wyniku i poprawie czasu
+o co najmniej 10%. Sam skrypt nie zmienia konfiguracji produkcyjnej.
+
 Zakres jest wynikiem dowodu OCR albo jawnej kotwicy pierwszej grupy. Cursor nie
 może nadpisywać poprawnego odczytu kolejnej grupy ani wypełniać skoku bez
 dowodu. `seq_<start>-<end>.jpg` używa zakresu grupy, choć sam wybrany JPEG może
@@ -663,6 +669,59 @@ krok dwóch pikseli, kolejność kandydatów i tie-break pozostają bez zmian.
 Ponieważ wynik detektora jest kanonicznie identyczny, optymalizacja wykonawcza
 nie tworzy nowego selector fingerprintu. Próby skalowania oraz cropowania
 wejścia zostały odrzucone po regresji na realnych zdjęciach.
+
+## Architektura korekty v10.2
+
+Przypadek realny `seq_18406-18414.jpg`, którego JPEG przedstawia zakres
+`18415-18423`, ujawnił false merge grupy. Dwie wcześniejsze klatki dostarczyły
+konsensus OCR `18406-18414`, natomiast niezależny ranking reprezentanta wybrał
+późniejszą klatkę następnego ekranu. Eksporter poprawnie zapisał niespójną
+decyzję domenową; nie był źródłem błędu.
+
+V10.2 zachowuje rozdzielenie dowodu zakresu i oceny obrazu, ale wprowadza
+`representative-range coherence gate`:
+
+1. dowód zakresu zachowuje proweniencję kandydatów,
+2. finalny reprezentant przechodzi pojedynczą kontrolę zakresu,
+3. zgodny zakres pozwala na automatyczny eksport,
+4. inny zakres uruchamia deterministyczny podział mieszanej grupy, jeżeli
+   istnieje stabilna granica w kolejności źródeł,
+5. brak jednoznacznego podziału kończy się `manual_required`, nigdy błędną nazwą.
+
+Kontrola finalnego reprezentanta jest bounded do jednego obrazu na grupę.
+Wariant szybszy może ograniczyć liczbę dodatkowych dowodów i zwiększyć liczbę
+manualnych przypadków, lecz nie może ominąć kontroli spójności pliku i nazwy.
+
+API otrzymuje stronicowaną historię runów gry oraz bezpieczny endpoint JPEG-a
+kandydata. Endpoint weryfikuje `runId + groupId + candidateId` i serwuje tylko
+plik znajdujący się w zarządzanym stagingu albo storage manualnym. Nie ujawnia
+ścieżki absolutnej.
+
+Admin utrzymuje wybrany `runId` w URL/stanie workspace'u. Sekcja historii
+pokazuje status, czasy, liczby grup i nierozwiązanych decyzji. Modal review
+pobiera do 500 metadanych źródeł grupy, renderuje lekkie miniatury z lazy-load,
+otwiera jeden pełny obraz na żądanie i zapisuje decyzję istniejącym kontraktem
+idempotencji. Worker zapisuje dla nowych grup rekord `manualGalleryOnly` dla
+każdej lekkiej obserwacji. Rekord wskazuje istniejący plik stagingu i nie zawiera
+BLOB-a. Przy odtwarzaniu domenowego stanu selektora rekordy te są filtrowane,
+więc galeria nie zmienia shortlisty, wznowienia ani wyniku algorytmu.
+
+Runy historyczne mogą zawierać wyłącznie top-12, ponieważ wcześniejszy worker nie
+utrwalał pełnego członkostwa grupy. API zwraca `sourceCount`, a UI pokazuje
+`items.length / sourceCount`; ręczny upload JPEG-a pozostaje kompatybilnym
+fallbackiem.
+
+Katalog wynikowy pozostaje uchwytem przeglądarki przypisanym do bieżącej sesji.
+Ledger `runId + groupOrder + checksum` umożliwia późniejsze dopisanie ręcznie
+wybranych plików. Po utracie uchwytu użytkownik wskazuje ponownie ten sam folder;
+zgodne checksumy są pomijane, a kolizja zatrzymuje operację.
+
+Progresywny eksporter używa kursora `afterGroupOrder`; po wznowieniu wykonuje
+jedno pełne uzgodnienie, a następnie pobiera wyłącznie nowe grupy. Ręczne
+uzupełnienie wcześniejszej luki omija monotonny polling: callback zatwierdzenia
+zapisuje dokładnie zmienioną grupę bezpośrednio do wybranego folderu. Jeżeli run
+miał już manifest wynikowy, backend unieważnia go, wznawia ten sam zakończony job
+jako rewizję i publikuje nowy checksumowany manifest bez zmiany historii decyzji.
 
 ## Odrzucone warianty
 

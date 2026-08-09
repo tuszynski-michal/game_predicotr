@@ -15,6 +15,7 @@ from game_predictor_worker.images.selection.adapters import (
 )
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
+    CandidateResult,
     CandidateVerification,
     CheapImageObservation,
     ImageQualityMetrics,
@@ -41,6 +42,7 @@ from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
+    COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102,
     CONTINUITY_SELECTOR_MANIFEST_V3,
     DEFAULT_SELECTOR_MANIFEST,
     DIGIT_AWARE_SELECTOR_MANIFEST_V5,
@@ -453,14 +455,18 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_1_manifest_is_the_default_and_v10_remains_resolvable() -> None:
+def test_v10_2_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.1"
+    assert DEFAULT_SELECTOR_MANIFEST is COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.2"
+    assert (
+        COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102.fingerprint
+        == "793aa567d59b6f443d774c84b11349dbbe8a797e8ea46c8d15d186b800566143"
+    )
     assert (
         ACCURACY_FIRST_SELECTOR_MANIFEST_V10.fingerprint
         == "464d7af527f3532d4115c14666f4160831a9b0074343408584d1e2376614004c"
@@ -484,6 +490,12 @@ def test_v10_1_manifest_is_the_default_and_v10_remains_resolvable() -> None:
     assert (
         ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
         == "286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40"
+    )
+    assert (
+        selector_manifest_for_fingerprint(
+            COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102.fingerprint
+        )
+        is COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102
     )
     assert (
         selector_manifest_for_fingerprint(
@@ -787,6 +799,115 @@ def test_v10_1_best_representative_can_use_range_from_another_frame() -> None:
     assert group.selected_candidate is not None
     assert group.selected_candidate.source.order_index == 0
     assert group.selected_candidate.recognized_range == group.range
+
+
+def test_v10_2_rejects_wrong_screen_representative_and_selects_matching_frame() -> None:
+    sources = _sources("v10-2-false-merge", 2)
+    analyzer = _AppearanceAnalyzer(
+        (_appearance_signature(0), _appearance_signature(0)),
+        (_quality("good"), _quality("reflection")),
+    )
+    observations = [analyzer.analyze(source) for source in sources]
+    old_range = SequenceRange(18_406, 18_414, 0.99)
+    new_range = SequenceRange(18_415, 18_423, 0.99)
+    verified = [
+        (
+            observations[0],
+            CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(None, ("RANGE_EVIDENCE_NOT_REQUESTED",)),
+            ),
+        ),
+        (
+            observations[1],
+            CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(old_range),
+            ),
+        ),
+    ]
+    candidates = tuple(
+        CandidateResult(
+            source=observation.source,
+            decision=CandidateDecision.ELIGIBLE,
+            quality=observation.quality,
+            recognized_range=verification.recognized_range,
+            reason_codes=(),
+            width=observation.width,
+            height=observation.height,
+        )
+        for observation, verification in verified
+    )
+    verifier = _SeparatedEvidenceVerifier(
+        (
+            CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(new_range),
+            ),
+            verified[1][1],
+        )
+    )
+
+    selected, updated, extra = FastImageSelector(
+        COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102
+    )._select_coherent_representative(
+        eligible=list(candidates),
+        candidates=candidates,
+        verified=verified,
+        verifier=verifier,
+        expected_range=old_range,
+        board_count_consensus=9,
+        range_conflict=False,
+    )
+
+    assert selected is not None
+    assert selected.source.order_index == 1
+    assert extra == 1
+    wrong_screen = updated[0]
+    assert wrong_screen.decision is CandidateDecision.REJECTED
+    assert "REPRESENTATIVE_RANGE_MISMATCH" in wrong_screen.reason_codes
+
+
+def test_v10_2_requires_manual_review_when_no_representative_proves_group_range() -> None:
+    source = _sources("v10-2-no-coherent-representative", 1)[0]
+    observation = _AppearanceAnalyzer((_appearance_signature(0),)).analyze(source)
+    initial = CandidateVerification(
+        representative=RepresentativeAssessment(9, True, True),
+        range_evidence=RangeEvidence(None, ("RANGE_EVIDENCE_NOT_REQUESTED",)),
+    )
+    candidate = CandidateResult(
+        source=source,
+        decision=CandidateDecision.ELIGIBLE,
+        quality=observation.quality,
+        recognized_range=None,
+        reason_codes=(),
+        width=observation.width,
+        height=observation.height,
+    )
+    verifier = _SeparatedEvidenceVerifier(
+        (
+            CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(SequenceRange(18_415, 18_423, 0.99)),
+            ),
+        )
+    )
+
+    selected, updated, extra = FastImageSelector(
+        COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102
+    )._select_coherent_representative(
+        eligible=[candidate],
+        candidates=(candidate,),
+        verified=[(observation, initial)],
+        verifier=verifier,
+        expected_range=SequenceRange(18_406, 18_414, 0.99),
+        board_count_consensus=9,
+        range_conflict=False,
+    )
+
+    assert selected is None
+    assert extra == 1
+    assert "REPRESENTATIVE_RANGE_MISMATCH" in updated[0].reason_codes
 
 
 def test_v10_1_readable_number_does_not_promote_cropped_representative() -> None:

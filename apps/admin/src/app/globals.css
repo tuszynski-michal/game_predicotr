@@ -737,6 +737,33 @@ nav {
   min-width: 0;
 }
 
+.imageSelectionHistory {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+  align-items: end;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.imageSelectionHistory > div,
+.imageSelectionHistory label {
+  display: grid;
+  gap: 6px;
+}
+
+.imageSelectionHistory span,
+.imageSelectionHistory label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.imageSelectionHistory select {
+  width: 100%;
+}
+
 .imageSelectionTechnicalDetails summary {
   width: fit-content;
   color: var(--muted);
@@ -822,8 +849,60 @@ nav {
 .manualSelectionBody {
   display: grid;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 250px;
+  grid-template-columns: minmax(0, 1fr) 260px 250px;
   gap: 14px;
+}
+
+.manualSelectionCandidateGallery {
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.manualSelectionCandidateGallery > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manualSelectionCandidate {
+  display: grid;
+  min-width: 0;
+  align-self: start;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 8, 18, 0.8);
+  color: var(--text);
+  text-align: left;
+}
+
+.manualSelectionCandidate:hover,
+.manualSelectionCandidateSelected {
+  border-color: var(--accent);
+  background: rgba(119, 147, 255, 0.12);
+}
+
+.manualSelectionCandidate img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.manualSelectionCandidate span {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .manualSelectionPreview {
@@ -1050,7 +1129,8 @@ nav {
   }
 
   .imageSelectionHeader,
-  .imageSelectionRunCard {
+  .imageSelectionRunCard,
+  .imageSelectionHistory {
     grid-template-columns: 1fr;
   }
 

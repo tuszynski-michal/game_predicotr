@@ -41,7 +41,12 @@ from .adapters import (
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
 )
-from .cache import CachedCheapImageAnalyzer, FileImageScanObservationCache
+from .cache import (
+    CachedCandidateVerifier,
+    CachedCheapImageAnalyzer,
+    FileImageScanObservationCache,
+    FileImageVerificationCache,
+)
 from .contracts import (
     CandidateDecision,
     CandidateResult,
@@ -112,6 +117,7 @@ class ImageSelectionJobStore(Protocol):
         run_id: UUID,
         lease_token: UUID,
         groups: Sequence[SelectionGroupResult],
+        group_sources: Mapping[int, Sequence[CheapImageObservation]],
         persisted_at: datetime,
     ) -> None: ...
 
@@ -161,6 +167,7 @@ class ImageSelectionJobHandler:
         self._adapter_factory = adapter_factory
         self._publisher = CuratedImageOutputPublisher(self._artifact_root)
         self._scan_cache = FileImageScanObservationCache(self._artifact_root)
+        self._verification_cache = FileImageVerificationCache(self._artifact_root)
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         run = self._store.get_run_for_job(job.id)
@@ -213,6 +220,11 @@ class ImageSelectionJobHandler:
                 self._scan_cache,
                 scan_adapter_fingerprint=selector_manifest.scan_adapter_fingerprint,
             )
+            cached_verifier = CachedCandidateVerifier(
+                verifier,
+                self._verification_cache,
+                selector_fingerprint=selector_manifest.fingerprint,
+            )
             sink = _DurableSelectionSink(
                 context,
                 self._store,
@@ -224,6 +236,7 @@ class ImageSelectionJobHandler:
                 existing_groups=existing_groups,
                 telemetry=telemetry,
                 scan_cache_metrics=cached_analyzer.snapshot,
+                verification_cache_metrics=cached_verifier.snapshot,
             )
             result = FastImageSelector(
                 selector_manifest,
@@ -232,7 +245,7 @@ class ImageSelectionJobHandler:
             ).select(
                 sources,
                 analyzer=cached_analyzer,
-                verifier=verifier,
+                verifier=cached_verifier,
                 audit_sink=sink,
                 resume_state=resume_state,
                 existing_groups=existing_groups,
@@ -413,6 +426,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         existing_groups: Sequence[SelectionGroupResult],
         telemetry: StageTimingCollector,
         scan_cache_metrics: Callable[[], dict[str, object]],
+        verification_cache_metrics: Callable[[], dict[str, object]],
     ) -> None:
         self._context = context
         self._store = store
@@ -421,6 +435,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         self._upload_duration_seconds = upload_duration_seconds
         self._artifact_root = artifact_root.resolve()
         self._pending_groups: dict[int, SelectionGroupResult] = {}
+        self._pending_group_sources: dict[int, list[CheapImageObservation]] = {}
         self._latest_groups: dict[int, SelectionGroupResult] = {
             group.group_order: group for group in existing_groups
         }
@@ -431,6 +446,16 @@ class _DurableSelectionSink(SelectionAuditSink):
         self._prior_processing_seconds = _prior_processing_duration(prior_checkpoint)
         self._telemetry = telemetry
         self._scan_cache_metrics = scan_cache_metrics
+        self._verification_cache_metrics = verification_cache_metrics
+        self._window_started_at = self._processing_started_at
+        self._window_processed_count = _prior_processed_count(prior_checkpoint)
+        self._window_group_count = _checkpoint_int(prior_checkpoint, "group_count")
+        self._window_verification_count = _checkpoint_int(
+            prior_checkpoint,
+            "verification_count",
+        )
+        self._window_manual_count = _checkpoint_int(prior_checkpoint, "manual_count")
+        self._last_recent_window = _prior_recent_window(prior_checkpoint)
 
     def candidate_scanned(
         self,
@@ -438,7 +463,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         *,
         group_order: int,
     ) -> None:
-        del group_order
+        self._pending_group_sources.setdefault(group_order, []).append(observation)
         reasons = tuple(
             reason
             for reason in observation.reason_codes
@@ -467,7 +492,13 @@ class _DurableSelectionSink(SelectionAuditSink):
                     job_id=self._run.job_id,
                     run_id=self._run.id,
                     lease_token=self._context.lease_token,
-                    groups=tuple(self._pending_groups[key] for key in sorted(self._pending_groups)),
+                    groups=tuple(
+                        self._pending_groups[key] for key in sorted(self._pending_groups)
+                    ),
+                    group_sources={
+                        key: tuple(self._pending_group_sources.pop(key, ()))
+                        for key in sorted(self._pending_groups)
+                    },
                     persisted_at=self._context.now(),
                 )
             self._telemetry.increment("persistenceWrites")
@@ -534,6 +565,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             "selectorFingerprint": result.selector_fingerprint,
             "verificationCount": result.verification_count,
             "scanCache": self._scan_cache_metrics(),
+            "verificationCache": self._verification_cache_metrics(),
             "stageTiming": self._telemetry.snapshot(),
         }
         content = json.dumps(
@@ -582,6 +614,23 @@ class _DurableSelectionSink(SelectionAuditSink):
         )
         manual = sum(group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups)
         missing = sum(group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups)
+        checkpoint_now = self._context.now()
+        window_advanced = state.checkpoint.processed_count > self._window_processed_count
+        if window_advanced:
+            self._last_recent_window = {
+                "fromProcessed": self._window_processed_count,
+                "toProcessed": state.checkpoint.processed_count,
+                "elapsedSeconds": round(
+                    max(0.0, (checkpoint_now - self._window_started_at).total_seconds()),
+                    6,
+                ),
+                "groupsFinalized": max(0, len(groups) - self._window_group_count),
+                "verifications": max(
+                    0,
+                    state.verification_count - self._window_verification_count,
+                ),
+                "manual": max(0, manual - self._window_manual_count),
+            }
         payload: dict[str, object] = {
             "schema_version": CHECKPOINT_SCHEMA_VERSION,
             "workflow": "image_selection",
@@ -600,8 +649,11 @@ class _DurableSelectionSink(SelectionAuditSink):
             "error_samples": self._error_samples,
             "upload_duration_seconds": self._upload_duration_seconds,
             "scan_cache": self._scan_cache_metrics(),
+            "verification_cache": self._verification_cache_metrics(),
             "stage_timing": self._telemetry.snapshot(),
         }
+        if self._last_recent_window is not None:
+            payload["recent_window"] = dict(self._last_recent_window)
         if self._diagnostic is not None:
             payload["diagnostic"] = self._diagnostic
         if publication is not None:
@@ -622,6 +674,12 @@ class _DurableSelectionSink(SelectionAuditSink):
                 review_count=max(self._context.job.review_count, manual),
             )
         self._telemetry.increment("persistenceWrites")
+        if window_advanced:
+            self._window_started_at = checkpoint_now
+            self._window_processed_count = state.checkpoint.processed_count
+            self._window_group_count = len(groups)
+            self._window_verification_count = state.verification_count
+            self._window_manual_count = manual
 
 
 class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
@@ -673,12 +731,21 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         run_id: UUID,
         lease_token: UUID,
         groups: Sequence[SelectionGroupResult],
+        group_sources: Mapping[int, Sequence[CheapImageObservation]],
         persisted_at: datetime,
     ) -> None:
         with self._session_factory() as session, session.begin():
             _assert_fence(session, job_id, lease_token, persisted_at)
             for group in sorted(groups, key=lambda value: value.group_order):
-                self._persist_group(session, run_id, group, persisted_at)
+                group_id = self._persist_group(session, run_id, group, persisted_at)
+                self._persist_gallery_sources(
+                    session,
+                    run_id=run_id,
+                    group_id=group_id,
+                    group=group,
+                    observations=group_sources.get(group.group_order, ()),
+                    persisted_at=persisted_at,
+                )
 
     def record_output(
         self,
@@ -719,7 +786,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         run_id: UUID,
         group: SelectionGroupResult,
         persisted_at: datetime,
-    ) -> None:
+    ) -> UUID:
         record = session.scalar(
             select(ImageSelectionGroupModel)
             .where(
@@ -748,7 +815,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             SelectionGroupStatus.MANUALLY_SELECTED,
             SelectionGroupStatus.MISSING_IMAGE,
         }:
-            return
+            return group_id
         record.range_start = None if group.range is None else group.range.start
         record.range_end = None if group.range is None else group.range.end
         record.fingerprint_sha256 = group.fingerprint_sha256
@@ -791,6 +858,71 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 decision=decision,
                 persisted_at=persisted_at,
             )
+        return group_id
+
+    @staticmethod
+    def _persist_gallery_sources(
+        session: Session,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        group: SelectionGroupResult,
+        observations: Sequence[CheapImageObservation],
+        persisted_at: datetime,
+    ) -> None:
+        if not observations:
+            return
+        indexes = tuple(observation.source.order_index for observation in observations)
+        existing = {
+            record.order_index: record
+            for record in session.scalars(
+                select(ImageSelectionCandidateModel).where(
+                    ImageSelectionCandidateModel.run_id == run_id,
+                    ImageSelectionCandidateModel.order_index.in_(indexes),
+                )
+            )
+        }
+        for observation in observations:
+            source = observation.source
+            record = existing.get(source.order_index)
+            if record is not None and not record.quality_metrics.get("manualGalleryOnly", False):
+                continue
+            metrics: dict[str, object] = {
+                **observation.quality.to_dict(),
+                "displayName": PurePosixPath(source.relative_path).name,
+                "groupSourceCount": group.source_count,
+                "manualGalleryOnly": True,
+                "sourceOriginalRelativePath": source.relative_path,
+                "sourceSizeBytes": source.size_bytes,
+            }
+            if record is None:
+                record = ImageSelectionCandidateModel(
+                    id=uuid5(
+                        run_id,
+                        "image-selection-candidate:"
+                        f"{source.order_index}:{source.checksum_sha256}",
+                    ),
+                    run_id=run_id,
+                    group_id=group_id,
+                    order_index=source.order_index,
+                    source_relative_path=source.stored_relative_path,
+                    checksum_sha256=source.checksum_sha256,
+                    created_at=persisted_at,
+                )
+                session.add(record)
+            elif record.group_id != group_id or record.checksum_sha256 != source.checksum_sha256:
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                    "A gallery source already belongs to another selector group.",
+                )
+            record.width = observation.width
+            record.height = observation.height
+            record.quality_metrics = metrics
+            record.range_confidence = None
+            record.reason_codes = list(
+                dict.fromkeys((*observation.reason_codes, "MANUAL_GALLERY_SOURCE"))
+            )
+            record.decision = ImageSelectionCandidateDecision.ELIGIBLE
 
 
 def _upsert_candidate(
@@ -855,11 +987,18 @@ def _selection_group_from_records(
     group: ImageSelectionGroupModel,
     candidates: Sequence[ImageSelectionCandidateModel],
 ) -> SelectionGroupResult:
-    values = tuple(_candidate_from_record(candidate, group=group) for candidate in candidates)
+    domain_candidates = tuple(
+        candidate
+        for candidate in candidates
+        if not candidate.quality_metrics.get("manualGalleryOnly", False)
+    )
+    values = tuple(
+        _candidate_from_record(candidate, group=group) for candidate in domain_candidates
+    )
     selected = next(
         (
             candidate
-            for candidate, record in zip(values, candidates, strict=True)
+            for candidate, record in zip(values, domain_candidates, strict=True)
             if ImageSelectionCandidateDecision(record.decision)
             in {
                 ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
@@ -868,7 +1007,7 @@ def _selection_group_from_records(
         ),
         None,
     )
-    metrics = candidates[0].quality_metrics if candidates else {}
+    metrics = domain_candidates[0].quality_metrics if domain_candidates else {}
     source_count = _positive_int(metrics.get("groupSourceCount"), default=max(1, len(values)))
     reference = metrics.get("referenceFingerprintHex")
     recognized_range = (
@@ -1058,6 +1197,45 @@ def _prior_processing_duration(
     if isinstance(value, bool) or not isinstance(value, int | float):
         return 0.0
     return max(0.0, float(value))
+
+
+def _checkpoint_int(checkpoint: Mapping[str, object] | None, key: str) -> int:
+    if checkpoint is None:
+        return 0
+    value = checkpoint.get(key, 0)
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return 0
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return 0
+
+
+def _prior_processed_count(checkpoint: Mapping[str, object] | None) -> int:
+    if checkpoint is None:
+        return 0
+    selector_state = checkpoint.get("selector_state")
+    if not isinstance(selector_state, Mapping):
+        return 0
+    selector_checkpoint = selector_state.get("checkpoint")
+    if not isinstance(selector_checkpoint, Mapping):
+        return 0
+    value = selector_checkpoint.get("processedCount", 0)
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return 0
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return 0
+
+
+def _prior_recent_window(
+    checkpoint: Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    if checkpoint is None:
+        return None
+    value = checkpoint.get("recent_window")
+    return dict(value) if isinstance(value, Mapping) else None
 
 
 def _safe_child(root: Path, relative_path: str) -> Path:

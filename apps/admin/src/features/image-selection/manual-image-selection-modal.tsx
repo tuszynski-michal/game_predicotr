@@ -98,7 +98,7 @@ export function ManualImageSelectionModal({
       [groupId]: { data: null, error: false, loading: true },
     }));
     void client
-      .listImageSelectionGroupCandidates(runId, groupId, { limit: 20 })
+      .listImageSelectionGroupCandidates(runId, groupId, { limit: 500 })
       .then((result) => {
         setSourceSummaries((value) => ({
           ...value,
@@ -128,6 +128,21 @@ export function ManualImageSelectionModal({
       const existing = value[groupId];
       if (existing === undefined) return value;
       return { ...value, [groupId]: { ...existing, ...patch } };
+    });
+  }
+
+  function chooseCandidate(candidateId: string, fileName: string) {
+    if (current === undefined || uploading || approving) return;
+    const previousUrl = drafts[current.id]?.previewUrl ?? '';
+    if (previousUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previousUrl);
+      objectUrlsRef.current.delete(previousUrl);
+    }
+    updateDraft(current.id, {
+      candidateId,
+      fileName,
+      idempotencyKey: null,
+      previewUrl: candidateFileUrl(apiBaseUrl, runId, current.id, candidateId),
     });
   }
 
@@ -381,6 +396,62 @@ export function ManualImageSelectionModal({
               </p>
             )}
           </div>
+          <div
+            aria-label="Zdjęcia należące do bieżącej grupy"
+            className="manualSelectionCandidateGallery"
+          >
+            {currentSourceSummary?.loading ? (
+              <p>Ładowanie miniaturek…</p>
+            ) : null}
+            {currentSourceSummary?.error ? (
+              <p>Nie udało się pobrać zdjęć tej grupy.</p>
+            ) : null}
+            {currentSourceSummary?.data ? (
+              <p>
+                Zdjęcia: {currentSourceSummary.data.items.length} /{' '}
+                {currentSourceSummary.data.sourceCount}
+                {currentSourceSummary.data.items.length <
+                currentSourceSummary.data.sourceCount
+                  ? ' (starszy run zachował tylko shortlistę)'
+                  : ''}
+              </p>
+            ) : null}
+            {currentSourceSummary?.data?.items.map((candidate) => {
+              const selected = currentDraft.candidateId === candidate.id;
+              const previewUrl = candidateFileUrl(
+                apiBaseUrl,
+                runId,
+                current.id,
+                candidate.id,
+              );
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={
+                    selected
+                      ? 'manualSelectionCandidate manualSelectionCandidateSelected'
+                      : 'manualSelectionCandidate'
+                  }
+                  key={candidate.id}
+                  onClick={() =>
+                    chooseCandidate(candidate.id, candidate.displayName)
+                  }
+                  onKeyDown={(event) => event.stopPropagation()}
+                  type="button"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt={candidate.displayName}
+                    loading="lazy"
+                    src={previewUrl}
+                  />
+                  <span title={candidate.displayName}>
+                    {candidate.displayName}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           <aside className="manualSelectionControls">
             <input
               accept=".jpg,.jpeg,image/jpeg"
@@ -489,7 +560,7 @@ function buildInitialDrafts(
           previewUrl:
             candidateId === null
               ? ''
-              : manualFileUrl(apiBaseUrl, runId, group.id, candidateId),
+              : candidateFileUrl(apiBaseUrl, runId, group.id, candidateId),
           rangeEnd: group.rangeEnd === null ? '' : String(group.rangeEnd),
           rangeStart: group.rangeStart === null ? '' : String(group.rangeStart),
         },
@@ -498,13 +569,13 @@ function buildInitialDrafts(
   );
 }
 
-function manualFileUrl(
+function candidateFileUrl(
   apiBaseUrl: string,
   runId: string,
   groupId: string,
   candidateId: string,
 ): string {
-  return `${apiBaseUrl.replace(/\/$/, '')}/admin/image-selections/${encodeURIComponent(runId)}/groups/${encodeURIComponent(groupId)}/manual-files/${encodeURIComponent(candidateId)}`;
+  return `${apiBaseUrl.replace(/\/$/, '')}/admin/image-selections/${encodeURIComponent(runId)}/groups/${encodeURIComponent(groupId)}/candidates/${encodeURIComponent(candidateId)}/file`;
 }
 
 function firstPendingIndex(

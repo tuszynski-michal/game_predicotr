@@ -94,9 +94,33 @@ class MemoryImageSelectionRepository:
     def get_run(self, run_id: UUID) -> ImageSelectionRun | None:
         return self.runs.get(run_id)
 
+    def list_runs(
+        self,
+        *,
+        game_id: UUID,
+        offset: int,
+        limit: int,
+    ) -> Sequence[ImageSelectionRun]:
+        values = sorted(
+            (run for run in self.runs.values() if run.game_id == game_id),
+            key=lambda run: (run.created_at, str(run.id)),
+            reverse=True,
+        )
+        return tuple(values[offset : offset + limit])
+
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         self.runs[run.id] = run
         return run
+
+    def invalidate_output(self, run_id: UUID) -> ImageSelectionRun:
+        run = self.runs[run_id]
+        invalidated = replace(
+            run,
+            output_manifest_sha256=None,
+            output_manifest_relative_path=None,
+        )
+        self.runs[run_id] = invalidated
+        return invalidated
 
     def get_job_for_update(self, job_id: UUID) -> Job | None:
         return next(
@@ -344,6 +368,69 @@ def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
         "sequence_direction": "ascending",
         "first_sequence_number": None,
     }
+
+
+def test_run_history_and_staged_candidate_preview_are_available_after_restart(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    image_path = source_root / "00000001.jpg"
+    Image.new("RGB", (120, 80), (240, 180, 20)).save(image_path, format="JPEG")
+    content = image_path.read_bytes()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256="a" * 64,
+        selector_fingerprint="b" * 64,
+    )
+    group = _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
+    candidate = ImageSelectionCandidate(
+        id=uuid4(),
+        run_id=run.id,
+        group_id=group.id,
+        order_index=0,
+        source_relative_path="00000001.jpg",
+        checksum_sha256=hashlib.sha256(content).hexdigest(),
+        width=120,
+        height=80,
+        quality_metrics={"displayName": "camera-0001.jpg", "groupSourceCount": 1},
+        range_confidence=None,
+        reason_codes=("REPRESENTATIVE_RANGE_UNKNOWN",),
+        decision=ImageSelectionCandidateDecision.ELIGIBLE,
+        created_at=datetime(2026, 8, 9, tzinfo=UTC),
+    )
+    repository.groups.append(group)
+    repository.candidates.append(candidate)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+
+    with client:
+        history = client.get(
+            "/api/v1/admin/image-selections",
+            params={"gameId": str(game_id), "limit": 20},
+        )
+        preview = client.get(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/candidates/{candidate.id}/file"
+        )
+
+    assert history.status_code == 200, history.text
+    assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
+    assert history.json()["nextOffset"] is None
+    assert preview.status_code == 200, preview.text
+    assert preview.content == content
 
 
 def test_rerun_reuses_unchanged_browser_staging_and_is_idempotent(
@@ -1129,3 +1216,53 @@ def test_manual_jpeg_approval_is_idempotent_revisable_and_audited(
     )
     assert decision_manifest.is_file()
     assert len(json.loads(decision_manifest.read_text())["decisions"]) == 2
+
+
+def test_manual_gap_can_be_filled_after_publication_and_requeues_output_revision() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="6" * 64,
+        selector_fingerprint="7" * 64,
+    )
+    finished_at = datetime(2026, 8, 9, 18, 0, tzinfo=UTC)
+    published = replace(
+        run,
+        output_manifest_sha256="8" * 64,
+        output_manifest_relative_path="data/exports/image-selections/manifest.json",
+        job=replace(
+            run.job,
+            status=JobStatus.COMPLETED,
+            stage="image_selection:ready_for_import",
+            finished_at=finished_at,
+            updated_at=finished_at,
+        ),
+    )
+    repository.runs[run.id] = published
+    group = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.MISSING_IMAGE),
+        range_start=1,
+        range_end=9,
+    )
+    candidate = _manual_candidate(run.id, group.id, order_index=0)
+    repository.groups.append(group)
+    repository.candidates.append(candidate)
+
+    approved = service.approve_manual_file(
+        run_id=run.id,
+        group_id=group.id,
+        candidate_id=candidate.id,
+        idempotency_key=uuid4(),
+        range_start=1,
+        range_end=9,
+    )
+
+    refreshed = repository.runs[run.id]
+    assert approved.group.status is ImageSelectionGroupStatus.MANUALLY_SELECTED
+    assert refreshed.output_manifest_sha256 is None
+    assert refreshed.output_manifest_relative_path is None
+    assert refreshed.job.status is JobStatus.CREATED
+    assert refreshed.job.stage == "image_selection:manual_revision"

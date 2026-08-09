@@ -40,6 +40,16 @@ uruchomiony kosztowny `Import layoutów`.
 | 12 | TASK-0170 | wersjonowany cache lekkich obserwacji i bezpieczne resume |
 | 13 | TASK-0171 | regresja realnego korpusu i aktywacja v9 |
 | 14 | TASK-0157 | końcowy odbiór właściciela i zamknięcie bramki 0.4 |
+| 15 | TASK-0209 | zabezpieczenie odrzuconego baseline'u i diagnostyka false merge |
+| 16 | TASK-0210 | przyrostowy eksporter bez pełnego skanowania grup |
+| 17 | TASK-0211 | trwałe zarządzanie drzewem procesów Windows |
+| 18 | TASK-0212 | telemetria trudnych partii i kosztów etapów |
+| 19 | TASK-0213 | cache pełnej weryfikacji dla retry/rerun |
+| 20 | TASK-0214 | zgodność zakresu z reprezentantem i regresja mieszanej grupy |
+| 21 | TASK-0215 | bramka verifierów i opcjonalnego batchowania OCR |
+| 22 | TASK-0216 | historia runów oraz bezpieczny preview kandydatów |
+| 23 | TASK-0217 | pełna galeria grupy, miniatury i pełny podgląd |
+| 24 | TASK-0218 | uzupełnianie katalogu, mała regresja i odbiór właściciela |
 
 ## Piony wykonawcze
 
@@ -83,24 +93,41 @@ joba właściciela.
 ## Bramka M7.0
 
 - workspace pokazuje aktywną grę, upload, postęp, wynik i kolejkę manualną,
-- selekcja nie przewiduje zakresów ani luk; skoki rozstrzyga późniejszy import,
+- aktywny selektor v10.2 rozpoznaje zakres wyłącznie do poprawnego nazwania
+  reprezentanta; nie rozpoznaje symboli ani nie tworzy cropów komórek,
 - każda kolejna wizualna grupa z dekodowalnym JPEG-em ma reprezentanta,
 - częściowo zasłonięte, przycięte i słabe zdjęcia pozostają kandydatami
   best-available; blokowany jest tylko niedekodowalny plik albo twardy błąd
   integralności,
 - output ma jedno zdjęcie na wykrytą grupę, bez modyfikacji folderu wejściowego,
-- output v9 używa `selection_<groupOrder>.jpg`; zakres powstaje dopiero w
-  `Imporcie layoutów`,
+- output v10.2 używa `seq_<start>-<end>.jpg`, a finalny reprezentant musi
+  potwierdzić zakres widoczny w nazwie,
 - manualny modal działa myszą i klawiaturą zgodnie z wymaganiami,
 - handoff uruchamia istniejący import dopiero po jawnej akcji,
 - restart workera wznawia run bez powtarzania zakończonych grup,
-- selekcja wykonuje zero OCR, detekcji plansz, homografii i cropów,
+- OCR i geometria w Selekcji Zdjęć są bounded do dowodu zakresu i rankingu
+  reprezentanta; pełne cięcie plansz, komórek i klasyfikacja symboli pozostają w
+  `Imporcie layoutów`,
 - krótkie realne profile nie wykazują regresji jakości, a pełny run 40 000 zdjęć
   raportuje rzeczywisty czas, throughput i peak RSS bez sztywnego limitu,
 - właściciel akceptuje zmierzony czas 40 000 zdjęć albo kieruje zadanie do
   kolejnej optymalizacji,
 - golden ma zero false merge różnych kolejnych ekranów i 100% recall ekranów,
 - benchmark nie pozostawia osieroconego procesu i ma własny twardy timeout.
+
+### Bramka ręcznego odzyskiwania v10.2
+
+- historia pozwala wybrać wcześniejszy run tej samej gry bez ponownego uploadu,
+- nowe runy zachowują całe członkostwo grupy jako lekkie rekordy wskazujące
+  staging; runy historyczne jawnie pokazują ograniczenie do zachowanej shortlisty,
+- modal pokazuje miniatury, jeden pełny podgląd i wybór istniejącego zdjęcia;
+  upload z dysku pozostaje opcjonalny,
+- ręcznie uzupełniona grupa dopisuje brakujący `seq_<start>-<end>.jpg` do folderu
+  wybranego dla tego runu, bez ponownego kopiowania zgodnej zawartości i bez
+  nadpisania kolizji,
+- liczba grup pominiętych, nierozpoznanych, konfliktowych i niedekodowalnych jest
+  prezentowana oddzielnie; większy udział manual review jest akceptowalny tylko
+  wtedy, gdy nie powstają automatyczne pliki z błędną nazwą.
 
 ## Zakres świadomie odłożony
 

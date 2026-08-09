@@ -56,6 +56,11 @@ class ImageSelectionCreateResponse(ApiModel):
     created: bool
 
 
+class ImageSelectionRunPageResponse(ApiModel):
+    items: list[ImageSelectionRunResponse]
+    next_offset: int | None = Field(default=None, ge=0)
+
+
 class ImageSelectionHandoffResponse(ApiModel):
     run_id: UUID
     game_id: UUID
@@ -264,6 +269,7 @@ __all__ = [
     "ImageSelectionGroupCandidatesResponse",
     "ImageSelectionGroupResponse",
     "ImageSelectionRunResponse",
+    "ImageSelectionRunPageResponse",
     "ImageSelectionHandoffResponse",
     "ImageSelectionManualApprovalCommand",
     "ImageSelectionManualApprovalResponse",

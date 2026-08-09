@@ -193,6 +193,15 @@ JobPayloadResponse = (
 )
 
 
+class ImageSelectionRecentWindowResponse(ApiModel):
+    from_processed: int
+    to_processed: int
+    elapsed_seconds: float
+    groups_finalized: int
+    verifications: int
+    manual: int
+
+
 class ImageSelectionJobProgressResponse(ApiModel):
     groups: int
     selected: int
@@ -203,6 +212,9 @@ class ImageSelectionJobProgressResponse(ApiModel):
     upload_duration_seconds: float | None = None
     processing_duration_seconds: float | None = None
     diagnostic_checksum_sha256: str | None = None
+    recent_window: ImageSelectionRecentWindowResponse | None = None
+    stage_seconds: dict[str, float] | None = None
+    telemetry_counters: dict[str, int] | None = None
 
 
 class JobProgressResponse(ApiModel):
@@ -305,6 +317,9 @@ def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | N
                 else _progress_float(processing_seconds_value)
             ),
             diagnostic_checksum_sha256=(checksum if isinstance(checksum, str) else None),
+            recent_window=_image_selection_recent_window(payload.get("recent_window")),
+            stage_seconds=_image_selection_stage_seconds(payload.get("stage_timing")),
+            telemetry_counters=_image_selection_counters(payload.get("stage_timing")),
         )
     except (TypeError, ValueError):
         return None
@@ -320,6 +335,52 @@ def _progress_float(value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, str | int | float):
         raise TypeError
     return float(value)
+
+
+def _image_selection_recent_window(
+    value: object,
+) -> ImageSelectionRecentWindowResponse | None:
+    if not isinstance(value, dict):
+        return None
+    try:
+        return ImageSelectionRecentWindowResponse(
+            from_processed=_progress_integer(value["fromProcessed"]),
+            to_processed=_progress_integer(value["toProcessed"]),
+            elapsed_seconds=_progress_float(value["elapsedSeconds"]),
+            groups_finalized=_progress_integer(value["groupsFinalized"]),
+            verifications=_progress_integer(value["verifications"]),
+            manual=_progress_integer(value["manual"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _image_selection_stage_seconds(value: object) -> dict[str, float] | None:
+    if not isinstance(value, dict) or not isinstance(value.get("stages"), dict):
+        return None
+    stages: dict[str, float] = {}
+    for name, stage in value["stages"].items():
+        if not isinstance(name, str) or not isinstance(stage, dict):
+            continue
+        try:
+            stages[name] = _progress_float(stage["totalSeconds"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return stages or None
+
+
+def _image_selection_counters(value: object) -> dict[str, int] | None:
+    if not isinstance(value, dict) or not isinstance(value.get("counters"), dict):
+        return None
+    counters: dict[str, int] = {}
+    for name, count in value["counters"].items():
+        if not isinstance(name, str):
+            continue
+        try:
+            counters[name] = _progress_integer(count)
+        except (TypeError, ValueError):
+            continue
+    return counters or None
 
 
 def _payload_from_domain(job: Job) -> JobPayloadResponse:

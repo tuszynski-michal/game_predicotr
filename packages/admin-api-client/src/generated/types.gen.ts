@@ -1648,6 +1648,7 @@ export type ImageSelectionJobProgressResponse = {
    * Processingdurationseconds
    */
   processingDurationSeconds?: number | null;
+  recentWindow?: ImageSelectionRecentWindowResponse | null;
   /**
    * Selected
    */
@@ -1656,6 +1657,18 @@ export type ImageSelectionJobProgressResponse = {
    * Skipped
    */
   skipped: number;
+  /**
+   * Stageseconds
+   */
+  stageSeconds?: {
+    [key: string]: number;
+  } | null;
+  /**
+   * Telemetrycounters
+   */
+  telemetryCounters?: {
+    [key: string]: number;
+  } | null;
   /**
    * Uploaddurationseconds
    */
@@ -1825,6 +1838,50 @@ export type ImageSelectionOutputResponse = {
  * ImageSelectionPurpose
  */
 export type ImageSelectionPurpose = 'layout_import' | 'photo_selection';
+
+/**
+ * ImageSelectionRecentWindowResponse
+ */
+export type ImageSelectionRecentWindowResponse = {
+  /**
+   * Elapsedseconds
+   */
+  elapsedSeconds: number;
+  /**
+   * Fromprocessed
+   */
+  fromProcessed: number;
+  /**
+   * Groupsfinalized
+   */
+  groupsFinalized: number;
+  /**
+   * Manual
+   */
+  manual: number;
+  /**
+   * Toprocessed
+   */
+  toProcessed: number;
+  /**
+   * Verifications
+   */
+  verifications: number;
+};
+
+/**
+ * ImageSelectionRunPageResponse
+ */
+export type ImageSelectionRunPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<ImageSelectionRunResponse>;
+  /**
+   * Nextoffset
+   */
+  nextOffset?: number | null;
+};
 
 /**
  * ImageSelectionRunResponse
@@ -8843,6 +8900,54 @@ export type ListOperationalImageReviewResolutionEventsResponses = {
 export type ListOperationalImageReviewResolutionEventsResponse =
   ListOperationalImageReviewResolutionEventsResponses[keyof ListOperationalImageReviewResolutionEventsResponses];
 
+export type ListImageSelectionsData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-selections';
+};
+
+export type ListImageSelectionsErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListImageSelectionsError =
+  ListImageSelectionsErrors[keyof ListImageSelectionsErrors];
+
+export type ListImageSelectionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionRunPageResponse;
+};
+
+export type ListImageSelectionsResponse =
+  ListImageSelectionsResponses[keyof ListImageSelectionsResponses];
+
 export type CreateImageSelectionData = {
   body: ImageSelectionCreate;
   path?: never;
@@ -9071,6 +9176,51 @@ export type ListImageSelectionGroupCandidatesResponses = {
 
 export type ListImageSelectionGroupCandidatesResponse =
   ListImageSelectionGroupCandidatesResponses[keyof ListImageSelectionGroupCandidatesResponses];
+
+export type GetImageSelectionCandidateFileData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+    /**
+     * Candidate Id
+     */
+    candidate_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates/{candidate_id}/file';
+};
+
+export type GetImageSelectionCandidateFileErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageSelectionCandidateFileError =
+  GetImageSelectionCandidateFileErrors[keyof GetImageSelectionCandidateFileErrors];
+
+export type GetImageSelectionCandidateFileResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ContinueImageSelectionWithoutImageData = {
   body: ImageSelectionMissingImageCommand;

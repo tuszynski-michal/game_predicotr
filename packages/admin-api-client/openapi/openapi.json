@@ -2736,6 +2736,16 @@
             ],
             "title": "Processingdurationseconds"
           },
+          "recentWindow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageSelectionRecentWindowResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "selected": {
             "title": "Selected",
             "type": "integer"
@@ -2743,6 +2753,34 @@
           "skipped": {
             "title": "Skipped",
             "type": "integer"
+          },
+          "stageSeconds": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stageseconds"
+          },
+          "telemetryCounters": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telemetrycounters"
           },
           "uploadDurationSeconds": {
             "anyOf": [
@@ -3083,6 +3121,74 @@
         ],
         "title": "ImageSelectionPurpose",
         "type": "string"
+      },
+      "ImageSelectionRecentWindowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "elapsedSeconds": {
+            "title": "Elapsedseconds",
+            "type": "number"
+          },
+          "fromProcessed": {
+            "title": "Fromprocessed",
+            "type": "integer"
+          },
+          "groupsFinalized": {
+            "title": "Groupsfinalized",
+            "type": "integer"
+          },
+          "manual": {
+            "title": "Manual",
+            "type": "integer"
+          },
+          "toProcessed": {
+            "title": "Toprocessed",
+            "type": "integer"
+          },
+          "verifications": {
+            "title": "Verifications",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fromProcessed",
+          "toProcessed",
+          "elapsedSeconds",
+          "groupsFinalized",
+          "verifications",
+          "manual"
+        ],
+        "title": "ImageSelectionRecentWindowResponse",
+        "type": "object"
+      },
+      "ImageSelectionRunPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionRunResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextoffset"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ImageSelectionRunPageResponse",
+        "type": "object"
       },
       "ImageSelectionRunResponse": {
         "additionalProperties": false,
@@ -15516,6 +15622,90 @@
       }
     },
     "/api/v1/admin/image-selections": {
+      "get": {
+        "operationId": "listImageSelections",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionRunPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List durable image-selection runs for one game",
+        "tags": [
+          "image-selections"
+        ]
+      },
       "post": {
         "operationId": "createImageSelection",
         "parameters": [],
@@ -15884,8 +16074,8 @@
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 20,
-              "maximum": 100,
+              "default": 100,
+              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
@@ -15935,6 +16125,82 @@
           }
         },
         "summary": "List bounded source candidates identifying one review group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates/{candidate_id}/file": {
+      "get": {
+        "operationId": "getImageSelectionCandidateFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read one staged or manually uploaded candidate JPEG",
         "tags": [
           "image-selections"
         ]

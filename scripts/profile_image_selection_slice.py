@@ -307,16 +307,16 @@ def _baseline_comparison(
 def main() -> None:
     global _STARTED_AT
     args = _arguments()
-    if not 1 <= args.limit <= 10_000:
-        raise ValueError("--limit must be between 1 and 10000")
+    if not 1 <= args.limit <= 100_000:
+        raise ValueError("--limit must be between 1 and 100000")
     if args.start_index < 0:
         raise ValueError("--start-index cannot be negative")
     if not 1 <= args.scan_workers <= 8:
         raise ValueError("--scan-workers must be between 1 and 8")
     if not 1 <= args.verification_workers <= 2:
         raise ValueError("--verification-workers must be one or two")
-    if not 1 <= args.max_seconds <= 21_600:
-        raise ValueError("--max-seconds must be between 1 and 21600")
+    if not 1 <= args.max_seconds <= 43_200:
+        raise ValueError("--max-seconds must be between 1 and 43200")
 
     source_root = args.source_root.resolve(strict=True)
     sources, manifest_sha256 = load_browser_selection_manifest(

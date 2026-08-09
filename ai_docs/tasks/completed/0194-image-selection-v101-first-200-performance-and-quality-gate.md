@@ -94,3 +94,28 @@ Raporty robocze:
 - `artifacts/image-selection-v101-first-200-timing-v2.json` — dwa verifiery,
 - `artifacts/image-selection-v101-first-200-timing-v3-single-verifier.json` —
   jeden verifier.
+
+## Powtórka po TASK-0195 i TASK-0196 — 2026-08-08
+
+Na polecenie właściciela TASK-0194 powtórzono na bieżącym kodzie z adapterem
+zakresu v6 i dokładną optymalizacją geometrii opartą na sumie integralnej.
+Profil użył tego samego stagingu, indeksów `0–199`, cold-cache, trzech scan
+workers, jednego verifiera oraz trybu read-only bez publikacji i zapisu
+domenowego.
+
+| Pomiar | Czas | Zmiana vs v10 | Grupy | Peak RSS |
+|---|---:|---:|---:|---:|
+| v10 baseline | 377,530649 s | — | 9 | brak pomiaru |
+| pierwszy profil po TASK-0196 | 91,714346 s | -75,71% | 9 | brak porównywalnego odczytu |
+| powtórka TASK-0194 | 109,111404 s | -71,10% | 9 | 449 204 224 B |
+
+Powtórka zachowała dokładnie te same granice dziewięciu grup, zakresy `1–9`
+do `73–81` oraz checksumy wszystkich dziewięciu reprezentantów co pierwszy
+profil po TASK-0196. Grupa indeksów `159–180` nadal zwraca `55–63` i reprezentant
+`1/1_010522.jpg`. Liczba błędów skanu wyniosła zero.
+
+Telemetria powtórki: 99 pełnych ocen geometrii, 19 weryfikacji dowodu zakresu,
+118 wywołań OCR i 1050 cropów OCR. Różnica czasu względem pierwszego profilu po
+TASK-0196 wynosi +18,97%, ale wynik nadal spełnia pierwotny cel 113–151 s i
+potwierdza deterministyczną jakość. Raport:
+`artifacts/image-selection-v101-first-200-task0194-repeat.json`.

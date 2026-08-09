@@ -197,9 +197,23 @@ def _save_ready_groups(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--game-id", required=True)
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--source", type=Path)
+    source.add_argument(
+        "--rerun-id",
+        help="Reuse immutable browser staging from an existing image-selection run.",
+    )
+    configured_output = os.environ.get("GAME_PREDICTOR_SELECTION_OUTPUT")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None if configured_output is None else Path(configured_output),
+        help=(
+            "Selected JPEG output directory. May also be supplied through "
+            "GAME_PREDICTOR_SELECTION_OUTPUT."
+        ),
+    )
+    parser.add_argument("--game-id")
     parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--upload-workers", type=int, default=4, choices=range(1, 9))
@@ -210,6 +224,47 @@ def _parse_args() -> argparse.Namespace:
         help="Resume polling and progressive export from IDs stored in --report.",
     )
     return parser.parse_args()
+
+
+def _start_existing_rerun(options: argparse.Namespace) -> int:
+    output_root = options.output.resolve(strict=True)
+    if any(output_root.iterdir()):
+        raise RuntimeError("Output directory must be empty before the acceptance run.")
+    started_at = _utc_now()
+    with httpx.Client(
+        base_url=options.api_base_url,
+        headers=ADMIN_HEADERS,
+        timeout=httpx.Timeout(60.0, connect=10.0),
+    ) as client:
+        created = _request_json(
+            client,
+            "POST",
+            f"/api/v1/admin/image-selections/{options.rerun_id}/rerun",
+        )
+    run = created.get("run")
+    if not isinstance(run, dict):
+        raise RuntimeError("Image-selection rerun response is missing the run.")
+    job = run.get("job")
+    if not isinstance(job, dict):
+        raise RuntimeError("Image-selection rerun response is missing the job.")
+    run_id = run.get("id")
+    job_id = job.get("id")
+    if not isinstance(run_id, str) or not isinstance(job_id, str):
+        raise RuntimeError("Image-selection rerun response contains invalid identifiers.")
+    report: dict[str, object] = {
+        "schemaVersion": 1,
+        "status": "selecting",
+        "sourceRunId": options.rerun_id,
+        "outputDirectory": str(output_root),
+        "selectionStartedAt": started_at,
+        "startedAt": started_at,
+        "runId": run_id,
+        "jobId": job_id,
+        "savedOutputFiles": 0,
+        "rerunCreated": bool(created.get("created")),
+    }
+    _write_report(options.report, report)
+    return _resume_existing(options)
 
 
 def _resume_existing(options: argparse.Namespace) -> int:
@@ -279,8 +334,16 @@ def _resume_existing(options: argparse.Namespace) -> int:
 
 def main() -> int:
     options = _parse_args()
+    if options.output is None:
+        raise RuntimeError(
+            "--output or GAME_PREDICTOR_SELECTION_OUTPUT is required."
+        )
     if options.resume_existing:
         return _resume_existing(options)
+    if options.rerun_id is not None:
+        return _start_existing_rerun(options)
+    if options.source is None or options.game_id is None:
+        raise RuntimeError("--source and --game-id are required for a new upload.")
     source_root = options.source.resolve(strict=True)
     output_root = options.output.resolve(strict=True)
     if source_root == output_root or source_root in output_root.parents:

@@ -6,10 +6,10 @@ param(
     [ValidateRange(0, 100000)]
     [int]$StartIndex = 0,
 
-    [ValidateRange(1, 10000)]
+    [ValidateRange(1, 100000)]
     [int]$Limit = 5000,
 
-    [ValidateRange(1, 21600)]
+    [ValidateRange(1, 43200)]
     [int]$MaxSeconds = 5100,
 
     [Parameter(Mandatory = $true)]
@@ -116,11 +116,13 @@ $process = Start-Process `
     -PassThru `
     -WindowStyle Hidden
 
-Start-Sleep -Seconds 1
-$process.Refresh()
-if ($process.HasExited) {
-    $errorTail = (Get-Content -LiteralPath $stderrPath -Tail 20 -ErrorAction SilentlyContinue) -join ' '
-    throw "Image-selection profile exited during startup. $errorTail"
+for ($attempt = 1; $attempt -le 10; $attempt++) {
+    Start-Sleep -Seconds 1
+    $process.Refresh()
+    if ($process.HasExited) {
+        $errorTail = (Get-Content -LiteralPath $stderrPath -Tail 20 -ErrorAction SilentlyContinue) -join ' '
+        throw "Image-selection profile exited during startup. $errorTail"
+    }
 }
 
 $record = [ordered]@{

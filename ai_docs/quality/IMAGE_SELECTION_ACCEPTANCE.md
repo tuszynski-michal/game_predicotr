@@ -1,7 +1,7 @@
 ---
 title: Image selection acceptance
 status: pending_owner_acceptance
-last_updated: 2026-08-05
+last_updated: 2026-08-09
 ---
 
 # Odbiór selekcji zdjęć 0.4
@@ -265,3 +265,38 @@ dziewięć granic, zwrócił wszystkie zakresy 1–9 do 73–81, nie zmienił ż
 ośmiu wcześniej wybranych reprezentantów i miał zero błędów skanu. Geometria
 99 kandydatów spadła z 170,748913 s do 35,158739 s. Run 5000/32 000 nie został
 uruchomiony automatycznie.
+
+### Powtórka TASK-0194 po optymalizacji — 2026-08-08
+
+Kontrolowana powtórka na indeksach `0–199` trwała 109,111404 s, czyli 71,10%
+krócej niż baseline v10. Wszystkie dziewięć granic grup, zakresy `1–9` do
+`73–81` oraz checksumy reprezentantów są identyczne z pierwszym profilem po
+TASK-0196. Błędów skanu nie było. Peak RSS wyniósł 449 204 224 B, a delta wobec
+stanu początkowego 132 567 040 B.
+
+Wynik jest o 18,97% wolniejszy od poprzedniego pomiaru 91,714346 s, ale nadal
+spełnia cel czasu TASK-0194 i nie pokazuje regresji jakościowej. Raport:
+`artifacts/image-selection-v101-first-200-task0194-repeat.json`.
+
+Po tym wyniku właściciel 2026-08-09 jawnie zastąpił etap pośredni 5000
+bezpośrednią bramką całego dostępnego stagingu 32 079 zdjęć. Profil pozostaje
+read-only i nie publikuje outputu; decyzja odbiorowa nadal wymaga ręcznej oceny
+wynikowych reprezentantów. Pierwsza próba kontrolna została zatrzymana przy 180
+źródłach, gdy tempo wskazało około dziewięciu godzin i przekroczenie pierwotnego
+limitu sześciu godzin. Finalny profil otrzymuje limit bezpieczeństwa 43 200 s;
+raport końcowy ma powstać jako
+`artifacts/image-selection-v101-exact-geometry-full-32079-task0197.json`.
+
+### Produkcyjny rerun TASK-0197 z zapisem przyrostowym — 2026-08-09
+
+Właściciel odrzucił dalsze wykonywanie pełnego profilu read-only, ponieważ nie
+zapisywał on wybranych zdjęć podczas pracy. Proces został bezpiecznie zatrzymany
+i zastąpiony rerunem tego samego stagingu 32 079 zdjęć. Każda rozstrzygnięta
+grupa jest teraz zapisywana atomowo podczas selekcji jako
+`seq_<od>-<do>.jpg`; nie ma końcowego etapu kopiowania wszystkich wyników.
+
+Aktualny run `8d86fb77-531a-4999-a9c1-d02ed15d0af0` używa fingerprintu
+`286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40`.
+Kontrola przy 128/32 079 potwierdziła trzy zapisane JPEG-i (`1–9`, `10–18`,
+`19–27`) w katalogu właściciela. Decyzja jakościowa nadal wymaga obejrzenia
+wyników po zakończeniu całego przebiegu.

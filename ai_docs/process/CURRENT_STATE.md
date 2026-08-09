@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-08
+last_updated: 2026-08-09
 ---
 
 # Current State
@@ -661,11 +661,24 @@ border/interior bez zmiany kanonicznego wyniku detektora. Profil 0–199 trwał
 zakresy 1–9…73–81, dotychczasowe reprezentanty oraz zero błędów skanu.
 Fingerprint nie zmienił się; skalowanie i crop odrzucono jako regresyjne.
 
-TASK-0197 jest aktywny i realizuje pierwszy etap ręcznej bramki TASK-0186:
-kontrolowany, read-only profil indeksów 0–4999 na niezmiennym stagingu. Dopiero
-po ocenie jakości i czasu przez właściciela należy uruchamiać 32 000 zdjęć.
-Profil działa w tle jako PID `12388`, ma limit 5100 s i kontrolowane logi w
-`.runtime`; nie publikuje wyniku ani nie uruchamia Importu layoutów.
+TASK-0194 powtórzono po TASK-0195 i TASK-0196. Cold profile indeksów 0–199 trwał
+109,111404 s, zachował dokładnie dziewięć granic, zakresy `1–9` do `73–81`,
+wszystkie checksumy reprezentantów oraz zero błędów skanu. Jest o 71,10% szybszy
+od baseline v10 i mieści się w pierwotnym celu czasu; raport to
+`artifacts/image-selection-v101-first-200-task0194-repeat.json`.
+
+TASK-0197 pozostaje aktywny jako pełna ręczna bramka TASK-0186. Poprzedni
+profil 0–4999 zatrzymano na polecenie właściciela przy około 660
+źródłach, aby powtórka TASK-0194 nie konkurowała o zasoby. Nie powstał raport
+końcowy, a staging 32 079 zdjęć jest niezmieniony. Po zaliczeniu powtórki
+TASK-0194 właściciel 2026-08-09 zastąpił ponowny etap 5000 bezpośrednim profilem
+całego stagingu 0–32078. Pierwszą próbę zatrzymano przy 180 źródłach, ponieważ
+jej bieżące tempo wskazywało około dziewięciu godzin, a limit 21 600 s
+odrzuciłby ukończony raport. Finalny profil używa limitu bezpieczeństwa 43 200 s,
+trzech scan workers i jednego verifiera. Wystartował jako PID `3472`; kontrola
+startowa potwierdziła postęp co najmniej 40/32 079 i brak tracebacku. Proces
+jest read-only, bez publikacji i Importu layoutów; wynik czasu i jakości podlega
+ręcznej ocenie właściciela.
 
 TASK-0149 pozostaje
 następnym małym pionem M6.6 po zamknięciu bieżącej stabilizacji selektora.
@@ -764,6 +777,17 @@ pojedynczego; aktywacja dwóch verifierów pozostaje wycofana.
 
 TASK-0177 zakończono z decyzją `passed`; test nie użył ani nie zmodyfikował
 bieżących gier, stagingu oraz zdjęć właściciela.
+
+TASK-0197 został przełączony z profilu read-only na produkcyjny rerun z
+progresywnym eksportem. Profil PID `3472` zatrzymano; staging 32 079 zdjęć
+pozostał niezmieniony. Aktualny run
+`8d86fb77-531a-4999-a9c1-d02ed15d0af0` i job
+`6b7289da-2312-4b08-8c42-5a6a42aeb3c9` pracują na fingerprintcie v10.1
+`286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40`.
+Monitor PID `18844` zapisuje każdy gotowy reprezentant natychmiast do
+`C:\Users\user\Documents\1 - 19809`; przy 128/32 079 istniały już pliki
+`seq_1-9.jpg`, `seq_10-18.jpg` i `seq_19-27.jpg`. Raport przyrostowy:
+`artifacts/image-selection-v101-live-32079-task0197-current.json`.
 
 ## Do not start yet
 

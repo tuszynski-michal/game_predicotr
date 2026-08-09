@@ -1,6 +1,6 @@
 ---
 title: TASK-0215 verifier and OCR batching gate
-status: in_progress
+status: done
 release: "0.4"
 last_updated: 2026-08-09
 ---
@@ -27,8 +27,11 @@ porównuje kanonicznie granice, zakresy, statusy, reprezentantów oraz shortlist
 Dwa verifiery mogą zostać zalecone wyłącznie przy identycznym wyniku i zysku co
 najmniej 10%; w każdym innym przypadku raport wymusza `keep_one_verifier`.
 
-Pełna zawężona regresja selekcji przechodzi 127/127. Realny pomiar 1 vs 2 na
-tym samym stagingu pozostaje odroczony do kontrolowanego okna bez konkurujących
-jobów. Produkcja nadal używa jednego verifiera. Istniejące recognizery już
+Pełna zawężona regresja selekcji przechodzi 127/127. Kontrolowana bramka na
+pierwszych 200 rzeczywistych zdjęciach zakończyła się kanonicznie identycznym
+wynikiem obu wariantów. Jeden verifier trwał 123,427 s, dwa 118,363 s, czyli
+zysk wyniósł tylko 4,10% i nie osiągnął progu 10%. Raport
+`artifacts/image-selection-v102-verifier-gate-task0215.json` wymusza decyzję
+`keep_one_verifier`; produkcja nadal używa jednego verifiera. Istniejące recognizery już
 batchują kotwice oraz kolejne poziomy fallbacku; dodatkowe batchowanie między
 kandydatami nie zostanie aktywowane bez pomiaru wykazującego potrzebę i parity.

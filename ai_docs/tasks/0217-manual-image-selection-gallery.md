@@ -24,3 +24,8 @@ i wybór istniejącego kandydata. Nowy worker utrwala lekkie rekordy wszystkich
 źródeł grupy; nie są one używane przy wznowieniu algorytmu. Starszy run pokazuje
 licznik zachowanej shortlisty względem `sourceCount`. Manualny test przeglądarki
 pozostaje w TASK-0218.
+
+Automatyczna regresja Admina przeszła 179/179 wraz z typecheckiem. Obejmuje
+historię procesu, bounded kolejki manualne, fallback pojedynczego JPEG-a,
+natychmiastowy zapis grupy i stany dostępności. Mysz, klawiatura, lazy loading
+i pełny preview pozostają do sprawdzenia przez właściciela.

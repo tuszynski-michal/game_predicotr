@@ -1,6 +1,6 @@
 ---
 title: TASK-0213 full verification cache
-status: in_progress
+status: done
 release: "0.4"
 last_updated: 2026-08-09
 ---
@@ -20,5 +20,6 @@ Cold/warm parity, uszkodzony wpis daje miss, zmiana fingerprintu izoluje cache.
 
 Dodano atomowy cache rozdzielający ocenę reprezentanta i dowód zakresu według
 checksumy, fingerprintu, wersji adaptera i oczekiwanej liczby plansz. Testy
-cold/warm, uszkodzonego wpisu i izolacji fingerprintu przechodzą; realny pomiar
-warm rerun pozostaje w TASK-0218.
+cold/warm, uszkodzonego wpisu i izolacji fingerprintu przechodzą w skupionej
+regresji 149/149. Realny pomiar zysku warm rerun pozostaje bramką
+wydajnościową TASK-0218; nie wpływa na poprawność ani aktywację cache.

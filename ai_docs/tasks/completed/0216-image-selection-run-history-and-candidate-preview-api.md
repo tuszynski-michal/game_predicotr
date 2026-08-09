@@ -1,6 +1,6 @@
 ---
 title: TASK-0216 image-selection run history and candidate preview API
-status: in_progress
+status: done
 release: "0.4"
 last_updated: 2026-08-09
 ---
@@ -21,5 +21,6 @@ ujawnienia ścieżek absolutnych.
 
 Dodano stronicowaną historię runów gry oraz endpoint JPEG-a kandydata z kontrolą
 `run + group + candidate` i rozwiązywaniem tylko w zarządzanym stagingu/manual
-storage. Testy API obejmują izolację i odczyt pliku; odbiór UI pozostaje w
-TASK-0218.
+storage. Skupiona regresja workera/API przeszła 149/149, w tym izolację,
+bounded stronę, restart i odczyt pliku bez ujawnienia ścieżki absolutnej.
+Odbiór UI pozostaje w TASK-0218 i nie blokuje ukończenia kontraktu API.

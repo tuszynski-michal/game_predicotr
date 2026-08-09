@@ -6,6 +6,10 @@ last_updated: 2026-08-09
 
 # Current State
 
+Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
+partia dokumentacyjna jest wydaniem `v0.5.2`; następny commit otrzyma
+`v0.5.3`.
+
 ## Phase
 
 `Version 0.5 iterative import implemented through TASK-0207; TASK-0208 scaling acceptance pending; owner acceptance 0.2/0.3/0.4 deferred`
@@ -829,20 +833,23 @@ jawnie pokazują tylko dostępną shortlistę. Ręczne uzupełnienie opublikowan
 wcześniej runu unieważnia jego manifest, wznawia kontrolowaną rewizję i dopisuje
 brakujący plik do ponownie wskazanego katalogu bez cichego nadpisania.
 
-Automatyczne testy na tym etapie: selektor/job/monitor 83/83, adaptery 39/39,
-API i joby 30/30 oraz Admin 179/179 z typecheckiem klienta i aplikacji. Nie
+Automatyczne testy na tym etapie: 149 skupionych testów selektora, adapterów,
+telemetrii, monitora i API oraz Admin 179/179 z typecheckiem klienta i aplikacji. Nie
 uruchomiono kolejnego dużego runu. Dwa bieżące cykle stop/start lane selekcji
 przeszły bez osieroconego PID; aktywny worker ma root PID 19540 i interpreter
 PID 14656. Otwarte pozostają: powtórzenie kontroli po restarcie komputera,
-bramka jednego/dwóch verifierów, mała regresja realnych zdjęć i manualny odbiór
-galerii.
+pomiar realnego eksportera i warm cache oraz manualny odbiór galerii.
 
-TASK-0215 ma zaimplementowaną powtarzalną bramkę jednego i dwóch verifierów.
-Profil korzysta z aktywnego manifestu v10.2, a raport dopuszcza dwa verifiery
-wyłącznie przy kanonicznie identycznych decyzjach i poprawie czasu co najmniej
-10%. Automatyczne testy bramki oraz zawężona regresja workera przechodzą 127/127;
-realny pomiar pozostaje do wykonania bez konkurujących jobów, dlatego produkcja
-nadal używa jednego verifiera.
+TASK-0210, TASK-0212, TASK-0213, TASK-0214, TASK-0215 i TASK-0216 są ukończone.
+Przyrostowy eksporter, cache pełnej weryfikacji oraz bezpieczna historia/preview
+mają zaliczone kontrakty automatyczne; rzeczywiste pomiary eksportera i warm
+cache pozostają składową bramki TASK-0218. Read-only profil rzeczywistego
+wycinka `29640–29739` skierował mieszaną grupę z klatkami `1_040014` i
+`1_040025` do `manual_required`, bez wybranego pliku i bez ponownego utworzenia
+błędnej nazwy `seq_18406-18414.jpg`. Telemetria wskazała OCR jako dominujący
+koszt trudnego wycinka: 219,648 s z 254,422 s. Bramka pierwszych 200 zdjęć
+potwierdziła identyczne decyzje jednego i dwóch verifierów, ale poprawa czasu
+wyniosła tylko 4,10%, dlatego produkcja pozostaje przy jednym verifierze.
 
 ## Do not start yet
 

@@ -49,6 +49,16 @@ zadanie odwołuje się do nich jawnie.
 
 ## Cykl wykonania zadania
 
+### Wersjonowanie commitów
+
+- W aktywnym torze wersji `0.5` każdy kolejny commit zwiększa trzecią cyfrę
+  wersji o jeden: `v0.5.2`, `v0.5.3`, `v0.5.4` itd.
+- Numer patch jest przypisany do kolejności commitów, nie do liczby zadań w
+  commicie. Nie wolno ponownie użyć ani pominąć numeru bez jawnej decyzji
+  użytkownika.
+- Komunikat commita zaczyna się od pełnej wersji `v0.5.N`; po niej może zawierać
+  krótki opis zakresu.
+
 ### Przed kodowaniem
 
 1. Potwierdź zakres zadania na podstawie dokumentacji.

@@ -25,3 +25,7 @@ cykl zmienił drzewo `17228 + 11288 + 11648` na `19540 + 14656`; żaden PID
 poprzedniego drzewa nie pozostał aktywny. Worker image-selection działa z nowym
 stanem v2. Powtórzenie testu po restarcie komputera pozostaje częścią odbioru
 operatorskiego.
+
+Nowy proces PowerShell odczytał stan 2026-08-09 i potwierdził pojedyncze drzewo
+lane selekcji: launcher `19540`, interpreter `14656`. Test po fizycznym
+restarcie komputera nadal wymaga obecności właściciela i pozostaje otwarty.

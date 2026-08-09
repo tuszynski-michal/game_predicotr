@@ -232,9 +232,9 @@ Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawn
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
 
-### Uruchomienie pełnego runu 40 000 zdjęć na selektorze v9
+### Uruchomienie dużego runu Selekcji Zdjęć na selektorze v10.2
 
-Nowe runy używają `fast-image-selector-v9`. Po aktualizacji kodu zatrzymaj
+Nowe runy używają `fast-image-selector-v10.2`. Po aktualizacji kodu zatrzymaj
 procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
 zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
 
@@ -257,8 +257,8 @@ to poprawne. Sprawdź aktywny manifest:
 Oczekiwany wynik:
 
 ```text
-fast-image-selector-v9
-eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb
+fast-image-selector-v10.2
+793aa567d59b6f443d774c84b11349dbbe8a797e8ea46c8d15d186b800566143
 ```
 
 Pozostaw pierwszy terminal dla API:
@@ -275,10 +275,10 @@ npm run admin:dev
 ```
 
 Następnie otwórz `http://127.0.0.1:3000/`, wybierz grę i workspace
-`Selekcja zdjęć`. Wskaż folder zawierający dokładnie 40 000 naturalnie
-uporządkowanych JPEG-ów, poczekaj na zakończenie uploadu i uruchom selekcję.
+`Selekcja zdjęć`. Wskaż folder zawierający naturalnie uporządkowane JPEG-i,
+poczekaj na zakończenie uploadu i uruchom selekcję.
 Nie uruchamiaj w tym samym czasie Importu layoutów, jeżeli ten przebieg ma być
-miarodajnym pomiarem v9. Postęp i stan procesu obserwuj w workspace `Joby` albo
+miarodajnym pomiarem v10.2. Postęp i stan procesu obserwuj w workspace `Joby` albo
 przez:
 
 ```powershell

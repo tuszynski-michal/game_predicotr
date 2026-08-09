@@ -10,14 +10,52 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
+from game_predictor_worker.images.geometry import Point
 from game_predictor_worker.images.pipeline_execution import ImageStageContext
 from game_predictor_worker.images.production_workflow import (
     ProductionImageStageAdapterSuite,
+    _calibrated_quad,
     _symbol_model_snapshot,
 )
 from game_predictor_worker.images.symbol_onnx import OnnxInference
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
+
+
+def test_grid_profile_uses_run_scope_and_falls_back_without_mutating_detector_quad() -> None:
+    detector_quad = (
+        Point(10, 10),
+        Point(90, 10),
+        Point(90, 90),
+        Point(10, 90),
+    )
+    profile = {
+        "scopes": [
+            {
+                "imageSelectionRunId": "run-1",
+                "positionIndex": 0,
+                "normalizedCornerOffsets": [
+                    {"x": 0.1, "y": 0.05},
+                    {"x": 0.1, "y": 0.05},
+                    {"x": 0.1, "y": 0.05},
+                    {"x": 0.1, "y": 0.05},
+                ],
+            }
+        ],
+        "positionFallbacks": [],
+    }
+
+    calibrated = _calibrated_quad(
+        detector_quad,
+        profile=profile,
+        image_selection_run_id="run-1",
+        position_index=0,
+        image_width=100,
+        image_height=100,
+    )
+
+    assert calibrated[0] == Point(20, 15)
+    assert detector_quad[0] == Point(10, 10)
 
 
 def _grid_image() -> np.ndarray:

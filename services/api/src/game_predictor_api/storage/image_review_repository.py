@@ -825,6 +825,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The corrected geometry projection is incomplete.",
             )
         revision = board.geometry_revision + 1
+        revised_geometry = dict(artifacts.geometry)
+        sequence_label_quad = board.board_geometry.get("sequenceLabelQuad")
+        if sequence_label_quad is not None:
+            revised_geometry["sequenceLabelQuad"] = sequence_label_quad
         record = ImageBoardGeometryRevisionModel(
             review_item_id=review_item_id,
             recognized_board_id=board.id,
@@ -832,7 +836,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             idempotency_key=idempotency_key,
             command_sha256=command.command_sha256,
             corners=[{"x": point.x, "y": point.y} for point in command.corners],
-            geometry=dict(artifacts.geometry),
+            geometry=revised_geometry,
             board_relative_path=artifacts.board_relative_path,
             board_checksum_sha256=artifacts.board_checksum_sha256,
             cropper_version=artifacts.cropper_version,
@@ -856,7 +860,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         item_record.resolved_at = None
         item_record.resolution_revision += 1
         board.geometry_revision = revision
-        board.board_geometry = dict(artifacts.geometry)
+        board.board_geometry = revised_geometry
         board.board_relative_path = artifacts.board_relative_path
         board.board_checksum_sha256 = artifacts.board_checksum_sha256
         board.status = "pending_review"

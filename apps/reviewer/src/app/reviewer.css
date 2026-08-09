@@ -81,7 +81,6 @@
   cursor: not-allowed;
 }
 
-.reviewerShell .operationalReviewBoardReference > img,
 .reviewerShell
   .operationalReviewBoardReference
   > .operationalReviewImageMissing {
@@ -90,6 +89,19 @@
   height: min(300px, 28vw);
   object-fit: contain;
   background: #03070d;
+}
+
+.reviewerShell .operationalReviewNativeContext {
+  position: relative;
+  width: 100%;
+  max-height: min(360px, 32vw);
+  overflow: hidden;
+  background: #03070d;
+}
+
+.reviewerShell .operationalReviewNativeContext > img {
+  display: block;
+  height: auto;
 }
 
 @media (max-width: 900px) {

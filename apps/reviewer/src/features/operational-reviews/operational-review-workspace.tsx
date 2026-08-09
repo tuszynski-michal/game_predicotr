@@ -35,6 +35,7 @@ import {
   operationalReviewDraftSymbols,
   operationalReviewJobLabel,
   operationalReviewKeyboardAction,
+  operationalReviewNativeContextViewport,
   operationalReviewSequence,
   operationalReviewStatusLabel,
   updateOperationalReviewCounts,
@@ -1144,15 +1145,16 @@ function OperationalReviewBoard({
           </div>
 
           <section className="operationalReviewBoardReference">
-            <OperationalReviewImage
-              alt={`Wycięta plansza układu ${displaySequence ?? 'bez numeru'}`}
+            <OperationalReviewNativeContext
+              alt={`Oryginalna plansza i numer układu ${displaySequence ?? 'bez numeru'}`}
+              item={item}
               key={item.id}
               src={operationalReviewAssetUrl(
                 apiBaseUrl,
                 context,
                 item.id,
-                'board',
-                { version: item.boardChecksumSha256 },
+                'source',
+                { version: item.sourceChecksumSha256 },
               )}
             />
           </section>
@@ -1190,6 +1192,76 @@ function OperationalReviewImage({
   // Local checksum-bound review assets cannot use Next's remote image optimizer.
   // eslint-disable-next-line @next/next/no-img-element
   return <img alt={alt} onError={() => setFailed(true)} src={src} />;
+}
+
+function OperationalReviewNativeContext({
+  alt,
+  item,
+  src,
+}: {
+  readonly alt: string;
+  readonly item: OperationalImageReviewItemResponse;
+  readonly src: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const [naturalSize, setNaturalSize] = useState<{
+    readonly height: number;
+    readonly width: number;
+  } | null>(null);
+  if (failed) {
+    return (
+      <div
+        className="operationalReviewImageMissing"
+        role="img"
+        aria-label={alt}
+      >
+        <span aria-hidden="true">!</span>
+        <p>Brak oryginalnego obrazu. Metadane planszy pozostają dostępne.</p>
+      </div>
+    );
+  }
+  const viewport =
+    naturalSize === null
+      ? null
+      : operationalReviewNativeContextViewport(
+          item,
+          naturalSize.width,
+          naturalSize.height,
+        );
+  return (
+    <div
+      className="operationalReviewNativeContext"
+      style={
+        viewport === null
+          ? undefined
+          : { aspectRatio: `${viewport.width} / ${viewport.height}` }
+      }
+    >
+      {/* Checksum-bound local assets intentionally bypass Next image optimization. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        alt={alt}
+        onError={() => setFailed(true)}
+        onLoad={(event) =>
+          setNaturalSize({
+            height: event.currentTarget.naturalHeight,
+            width: event.currentTarget.naturalWidth,
+          })
+        }
+        src={src}
+        style={
+          viewport === null || naturalSize === null
+            ? undefined
+            : {
+                maxWidth: 'none',
+                transform: `translate(-${(viewport.x / naturalSize.width) * 100}%, -${(viewport.y / naturalSize.height) * 100}%)`,
+                transformOrigin: 'top left',
+                width: `${(naturalSize.width / viewport.width) * 100}%`,
+              }
+        }
+      />
+    </div>
+  );
 }
 
 function OperationalReviewEmpty({

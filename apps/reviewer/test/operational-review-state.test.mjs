@@ -13,6 +13,7 @@ import {
   operationalReviewKeyboardAction,
   operationalReviewGeometryCorners,
   operationalReviewGeometryViewport,
+  operationalReviewNativeContextViewport,
   operationalReviewPointInCanvas,
   operationalReviewPointInGeometryViewport,
   operationalReviewPointInSourceImage,
@@ -113,6 +114,36 @@ test('maps pointer coordinates through object-fit letterboxing', () => {
     point: { x: 1000, y: 500 },
     scale: 0.5,
   });
+});
+
+test('native context includes the OCR number quad and uses a safe historical fallback', () => {
+  const item = {
+    ...reviewItem(),
+    geometry: {
+      sourceQuad: [
+        { x: 200, y: 200 },
+        { x: 600, y: 200 },
+        { x: 600, y: 400 },
+        { x: 200, y: 400 },
+      ],
+      sequenceLabelQuad: [
+        { x: 320, y: 430 },
+        { x: 480, y: 430 },
+        { x: 480, y: 470 },
+        { x: 320, y: 470 },
+      ],
+    },
+  };
+  const withLabel = operationalReviewNativeContextViewport(item, 1000, 800);
+  const historical = operationalReviewNativeContextViewport(
+    { ...item, geometry: { sourceQuad: item.geometry.sourceQuad } },
+    1000,
+    800,
+  );
+
+  assert.ok(withLabel.y < 200);
+  assert.ok(withLabel.y + withLabel.height > 470);
+  assert.ok(historical.y + historical.height > 500);
 });
 
 test('prefers accepted sequence and formats textual status and confidence', () => {

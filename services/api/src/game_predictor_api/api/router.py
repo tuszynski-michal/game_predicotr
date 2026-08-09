@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
+from game_predictor_api.api.grid_calibration import create_grid_calibration_router
 from game_predictor_api.api.health import create_health_router
 from game_predictor_api.api.image_imports import create_image_imports_router
 from game_predictor_api.api.image_jobs import create_image_jobs_router
@@ -46,6 +47,7 @@ def create_api_router(
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
+    iterative_image_import_service_dependency: Callable[..., object],
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
@@ -59,6 +61,7 @@ def create_api_router(
     verified_training_cohort_service_dependency: Callable[..., object],
     symbol_model_iteration_service_dependency: Callable[..., object],
     symbol_model_registry_service_dependency: Callable[..., object],
+    grid_calibration_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -93,6 +96,7 @@ def create_api_router(
             image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
             job_service_dependency,
+            iterative_image_import_service_dependency,
         )
     )
     router.include_router(
@@ -119,6 +123,7 @@ def create_api_router(
             symbol_model_registry_service_dependency,
         )
     )
+    router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))
     router.include_router(
         create_layout_import_reports_router(layout_import_report_service_dependency)
     )

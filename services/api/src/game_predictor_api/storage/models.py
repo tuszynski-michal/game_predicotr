@@ -730,6 +730,105 @@ class ImageSelectionRunModel(Base):
     )
 
 
+class CuratedImageImportSourceModel(Base):
+    __tablename__ = "curated_image_import_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_curated_image_import_sources_manifest_checksum",
+        ),
+        CheckConstraint(
+            "manifest_relative_path !~ '(^|/)\\.\\.(/|$)' AND "
+            "manifest_relative_path !~ '^[A-Za-z]:' AND "
+            "manifest_relative_path NOT LIKE '/%' AND "
+            "manifest_relative_path NOT LIKE '%\\\\%'",
+            name="ck_curated_image_import_sources_manifest_path",
+        ),
+        CheckConstraint(
+            "total_entries > 0 AND next_entry_index >= 0 AND next_entry_index <= total_entries",
+            name="ck_curated_image_import_sources_cursor",
+        ),
+        UniqueConstraint(
+            "image_selection_run_id",
+            name="uq_curated_image_import_sources_selection_run",
+        ),
+        Index(
+            "ix_curated_image_import_sources_game_created",
+            "game_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    image_selection_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    total_entries: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    next_entry_index: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class CuratedImageImportBatchModel(Base):
+    __tablename__ = "curated_image_import_batches"
+    __table_args__ = (
+        CheckConstraint(
+            "batch_number > 0 AND start_index >= 0 AND end_index > start_index",
+            name="ck_curated_image_import_batches_range",
+        ),
+        UniqueConstraint(
+            "source_id",
+            "batch_number",
+            name="uq_curated_image_import_batches_number",
+        ),
+        UniqueConstraint(
+            "source_id",
+            "start_index",
+            name="uq_curated_image_import_batches_start",
+        ),
+        UniqueConstraint("job_id", name="uq_curated_image_import_batches_job"),
+        Index(
+            "ix_curated_image_import_batches_source_created",
+            "source_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    source_id: Mapped[UUID] = mapped_column(
+        ForeignKey("curated_image_import_sources.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    batch_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    end_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageSelectionGroupModel(Base):
     __tablename__ = "image_selection_groups"
     __table_args__ = (
@@ -1717,8 +1816,7 @@ class VerifiedTrainingCohortModel(Base):
             name="ck_verified_training_cohorts_versions",
         ),
         CheckConstraint(
-            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND command_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_verified_training_cohorts_sha256",
         ),
         CheckConstraint(
@@ -1867,9 +1965,7 @@ class SymbolModelIterationModel(Base):
             "OR gate_report_checksum_sha256 ~ '^[0-9a-f]{64}$')",
             name="ck_symbol_model_iterations_gate_sha256",
         ),
-        UniqueConstraint(
-            "game_id", "iteration_number", name="uq_symbol_model_iterations_number"
-        ),
+        UniqueConstraint("game_id", "iteration_number", name="uq_symbol_model_iterations_number"),
         UniqueConstraint("job_id", name="uq_symbol_model_iterations_job"),
         UniqueConstraint(
             "game_id",
@@ -1887,9 +1983,7 @@ class SymbolModelIterationModel(Base):
     cohort_id: Mapped[UUID] = mapped_column(
         ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
     )
-    job_id: Mapped[UUID] = mapped_column(
-        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
-    )
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
     iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     configuration_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -1928,8 +2022,7 @@ class GameSymbolModelActivationModel(Base):
             name="ck_game_symbol_model_activations_action",
         ),
         CheckConstraint(
-            "activation_number > 0 AND btrim(actor) <> '' "
-            "AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            "activation_number > 0 AND btrim(actor) <> '' AND command_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_game_symbol_model_activations_values",
         ),
         UniqueConstraint(
@@ -1958,6 +2051,125 @@ class GameSymbolModelActivationModel(Base):
     )
     previous_model_iteration_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    activation_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GridGeometryCohortModel(Base):
+    __tablename__ = "grid_geometry_cohorts"
+    __table_args__ = (
+        CheckConstraint(
+            "cohort_number > 0 AND sample_count > 0 AND source_image_count > 0 "
+            "AND training_count >= 0 AND validation_count >= 0 "
+            "AND training_count + validation_count = sample_count",
+            name="ck_grid_geometry_cohorts_counts",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_grid_geometry_cohorts_manifest_checksum",
+        ),
+        UniqueConstraint("game_id", "cohort_number", name="uq_grid_geometry_cohorts_number"),
+        UniqueConstraint(
+            "game_id",
+            "manifest_checksum_sha256",
+            name="uq_grid_geometry_cohorts_manifest",
+        ),
+        Index("ix_grid_geometry_cohorts_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    cohort_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_image_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    training_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    validation_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GridCalibrationProfileModel(Base):
+    __tablename__ = "grid_calibration_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "profile_number > 0 AND status IN ('candidate_ready','rejected')",
+            name="ck_grid_calibration_profiles_values",
+        ),
+        CheckConstraint(
+            "profile_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_grid_calibration_profiles_checksum",
+        ),
+        UniqueConstraint("game_id", "profile_number", name="uq_grid_calibration_profiles_number"),
+        UniqueConstraint("cohort_id", name="uq_grid_calibration_profiles_cohort"),
+        Index("ix_grid_calibration_profiles_game_status", "game_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("grid_geometry_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    profile_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    profile_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    profile_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    gate_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    rejection_reasons: Mapped[list[str]] = mapped_column(
+        ARRAY(String(100)), nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GameGridProfileActivationModel(Base):
+    __tablename__ = "game_grid_profile_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('activate','rollback')",
+            name="ck_game_grid_profile_activations_action",
+        ),
+        CheckConstraint(
+            "activation_number > 0 AND btrim(actor) <> '' AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_game_grid_profile_activations_values",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_game_grid_profile_activations_idempotency",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "activation_number",
+            name="uq_game_grid_profile_activations_number",
+        ),
+        Index("ix_game_grid_profile_activations_current", "game_id", "activation_number"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("grid_calibration_profiles.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_profile_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("grid_calibration_profiles.id", ondelete="RESTRICT")
     )
     action: Mapped[str] = mapped_column(String(20), nullable=False)
     activation_number: Mapped[int] = mapped_column(Integer, nullable=False)

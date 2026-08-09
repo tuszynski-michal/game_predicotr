@@ -1,7 +1,7 @@
 ---
 title: Iterative supervised symbol model improvement requirements
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-09
 ---
 
 # Iteracyjne ulepszanie rozpoznawania symboli
@@ -131,6 +131,14 @@ Panel Admina dla aktywnej gry pokazuje co najmniej:
 - poprawa geometrii plansz i OCR numerów sekwencji; te elementy wymagają
   osobnych wersji pipeline'u i osobnych bramek jakości,
 - chmura, Redis/Celery i zewnętrzny serwis treningowy.
+
+## Rozszerzenie geometrii w wersji 0.5
+
+Uczenie symboli pozostaje niezależne od kalibracji siatki. Wersja 0.5 dodaje
+osobny, opisany w ITERATIVE_IMAGE_IMPORT.md, wersjonowany profil korekt
+geometrii. Nie jest to uczenie online i nie zmienia istniejących decyzji review.
+Aktywowany profil działa wyłącznie w nowych partiach importu. Automatyczne
+przeliczenie wcześniejszych pending jest w bieżącym zakresie odroczone.
 
 ## Kryterium produktu
 

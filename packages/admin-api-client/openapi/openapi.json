@@ -384,6 +384,28 @@
         "title": "CleanupResultResponse",
         "type": "object"
       },
+      "CreateGridCalibrationCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort": {
+            "$ref": "#/components/schemas/GeometryCohortResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/GridCalibrationProfileResponse"
+          }
+        },
+        "required": [
+          "cohort",
+          "profile",
+          "created"
+        ],
+        "title": "CreateGridCalibrationCandidateResponse",
+        "type": "object"
+      },
       "CreateSymbolTrainingCommand": {
         "additionalProperties": false,
         "properties": {
@@ -428,6 +450,273 @@
           "created"
         ],
         "title": "CreateSymbolTrainingResponse",
+        "type": "object"
+      },
+      "CuratedImageImportBatchCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "imageCount": {
+            "default": 10,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Imagecount",
+            "type": "integer"
+          }
+        },
+        "title": "CuratedImageImportBatchCreate",
+        "type": "object"
+      },
+      "CuratedImageImportBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchNumber": {
+            "title": "Batchnumber",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "endIndex": {
+            "title": "Endindex",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "imageCount": {
+            "title": "Imagecount",
+            "type": "integer"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "startIndex": {
+            "title": "Startindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "batchNumber",
+          "startIndex",
+          "endIndex",
+          "imageCount",
+          "job",
+          "createdAt"
+        ],
+        "title": "CuratedImageImportBatchResponse",
+        "type": "object"
+      },
+      "CuratedImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "curatedImageImportBatchId": {
+            "format": "uuid",
+            "title": "Curatedimageimportbatchid",
+            "type": "string"
+          },
+          "curatedImageImportSourceId": {
+            "format": "uuid",
+            "title": "Curatedimageimportsourceid",
+            "type": "string"
+          },
+          "curatedManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Curatedmanifestchecksumsha256",
+            "type": "string"
+          },
+          "curatedManifestEntryCount": {
+            "minimum": 1.0,
+            "title": "Curatedmanifestentrycount",
+            "type": "integer"
+          },
+          "curatedManifestEntryStart": {
+            "minimum": 0.0,
+            "title": "Curatedmanifestentrystart",
+            "type": "integer"
+          },
+          "curatedManifestRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Curatedmanifestrelativepath",
+            "type": "string"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageSelectionRunId": {
+            "format": "uuid",
+            "title": "Imageselectionrunid",
+            "type": "string"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 3,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "imageSelectionRunId",
+          "curatedImageImportSourceId",
+          "curatedImageImportBatchId",
+          "curatedManifestRelativePath",
+          "curatedManifestChecksumSha256",
+          "curatedManifestEntryStart",
+          "curatedManifestEntryCount",
+          "symbolModel",
+          "gridProfile"
+        ],
+        "title": "CuratedImageImportJobPayload",
+        "type": "object"
+      },
+      "CuratedImageImportSourceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "imageSelectionRunId": {
+            "format": "uuid",
+            "title": "Imageselectionrunid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "imageSelectionRunId"
+        ],
+        "title": "CuratedImageImportSourceCreate",
+        "type": "object"
+      },
+      "CuratedImageImportSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/CuratedImageImportBatchResponse"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "failedEntries": {
+            "title": "Failedentries",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "imageSelectionRunId": {
+            "format": "uuid",
+            "title": "Imageselectionrunid",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "nextEntryIndex": {
+            "title": "Nextentryindex",
+            "type": "integer"
+          },
+          "processedEntries": {
+            "title": "Processedentries",
+            "type": "integer"
+          },
+          "remainingEntries": {
+            "title": "Remainingentries",
+            "type": "integer"
+          },
+          "reservedEntries": {
+            "title": "Reservedentries",
+            "type": "integer"
+          },
+          "totalEntries": {
+            "title": "Totalentries",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "imageSelectionRunId",
+          "manifestChecksumSha256",
+          "totalEntries",
+          "reservedEntries",
+          "processedEntries",
+          "failedEntries",
+          "remainingEntries",
+          "nextEntryIndex",
+          "batches",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "CuratedImageImportSourceResponse",
         "type": "object"
       },
       "DatasetLayoutPageResponse": {
@@ -979,6 +1268,389 @@
           }
         },
         "title": "GameUpdate",
+        "type": "object"
+      },
+      "GeometryCohortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortNumber": {
+            "title": "Cohortnumber",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "sampleCount": {
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "trainingCount": {
+            "title": "Trainingcount",
+            "type": "integer"
+          },
+          "validationCount": {
+            "title": "Validationcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "cohortNumber",
+          "manifestChecksumSha256",
+          "sampleCount",
+          "sourceImageCount",
+          "trainingCount",
+          "validationCount",
+          "createdAt"
+        ],
+        "title": "GeometryCohortResponse",
+        "type": "object"
+      },
+      "GridCalibrationProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gateMetrics": {
+            "additionalProperties": true,
+            "title": "Gatemetrics",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "profileChecksumSha256": {
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileNumber": {
+            "title": "Profilenumber",
+            "type": "integer"
+          },
+          "rejectionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rejectionreasons",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "cohortId",
+          "profileNumber",
+          "status",
+          "profileChecksumSha256",
+          "gateMetrics",
+          "rejectionReasons",
+          "createdAt"
+        ],
+        "title": "GridCalibrationProfileResponse",
+        "type": "object"
+      },
+      "GridProfileActivationAction": {
+        "enum": [
+          "activate",
+          "rollback"
+        ],
+        "title": "GridProfileActivationAction",
+        "type": "string"
+      },
+      "GridProfileActivationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedCurrentProfileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcurrentprofileid"
+          },
+          "expectedProfileChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedprofilechecksumsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expectedProfileChecksumSha256",
+          "idempotencyKey",
+          "actor"
+        ],
+        "title": "GridProfileActivationCommand",
+        "type": "object"
+      },
+      "GridProfileActivationCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/GridProfileActivationResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "activation",
+          "created"
+        ],
+        "title": "GridProfileActivationCommandResponse",
+        "type": "object"
+      },
+      "GridProfileActivationPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "canActivate": {
+            "title": "Canactivate",
+            "type": "boolean"
+          },
+          "currentProfileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentprofileid"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "profileChecksumSha256": {
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileId": {
+            "format": "uuid",
+            "title": "Profileid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "profileId",
+          "profileChecksumSha256",
+          "currentProfileId",
+          "action",
+          "canActivate"
+        ],
+        "title": "GridProfileActivationPreviewResponse",
+        "type": "object"
+      },
+      "GridProfileActivationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "activationNumber": {
+            "title": "Activationnumber",
+            "type": "integer"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "previousProfileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousprofileid"
+          },
+          "profileId": {
+            "format": "uuid",
+            "title": "Profileid",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "profileId",
+          "previousProfileId",
+          "action",
+          "activationNumber",
+          "actor",
+          "reason",
+          "idempotencyKey",
+          "createdAt"
+        ],
+        "title": "GridProfileActivationResponse",
+        "type": "object"
+      },
+      "GridProfileJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "activationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activationid"
+          },
+          "inferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inferencefingerprint",
+            "type": "string"
+          },
+          "profileChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileid"
+          },
+          "profilePayload": {
+            "additionalProperties": true,
+            "title": "Profilepayload",
+            "type": "object"
+          },
+          "profileVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Profileversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileVersion",
+          "profileChecksumSha256",
+          "profilePayload",
+          "inferenceFingerprint"
+        ],
+        "title": "GridProfileJobSnapshotPayload",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -3062,6 +3734,9 @@
               },
               {
                 "$ref": "#/components/schemas/ImageImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/CuratedImageImportJobPayload"
               },
               {
                 "$ref": "#/components/schemas/ImageSelectionJobPayload"
@@ -9585,6 +10260,518 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles": {
+      "get": {
+        "operationId": "listGridCalibrationProfiles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridCalibrationProfileResponse"
+                  },
+                  "title": "Response Listgridcalibrationprofiles",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Profiles",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      },
+      "post": {
+        "operationId": "createGridCalibrationCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateGridCalibrationCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Candidate",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations": {
+      "get": {
+        "operationId": "listGridProfileActivations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridProfileActivationResponse"
+                  },
+                  "title": "Response Listgridprofileactivations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Activations",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activate": {
+      "post": {
+        "operationId": "activateGridProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridProfileActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridProfileActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Activate",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activation-preview": {
+      "get": {
+        "operationId": "previewGridProfileActivation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/GridProfileActivationAction",
+              "default": "activate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridProfileActivationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Activation",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/rollback": {
+      "post": {
+        "operationId": "rollbackGridProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridProfileActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridProfileActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rollback",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/layout-data": {
       "delete": {
         "operationId": "resetGameLayoutData",
@@ -12242,6 +13429,299 @@
           }
         ],
         "summary": "Finalize a browser-native image folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/curated-sources": {
+      "get": {
+        "operationId": "listCuratedImageImportSources",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                  },
+                  "title": "Response Listcuratedimageimportsources",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List incremental curated sources for one game",
+        "tags": [
+          "image-imports"
+        ]
+      },
+      "post": {
+        "operationId": "registerCuratedImageImportSource",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CuratedImageImportSourceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Register verified image-selection output for incremental import",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/curated-sources/{source_id}": {
+      "get": {
+        "operationId": "getCuratedImageImportSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "Get durable progress for one incremental curated source",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/curated-sources/{source_id}/batches": {
+      "post": {
+        "operationId": "createNextCuratedImageImportBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CuratedImageImportBatchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Atomically reserve and import the next N curated images",
         "tags": [
           "image-imports"
         ]

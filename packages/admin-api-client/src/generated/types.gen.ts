@@ -244,6 +244,18 @@ export type CleanupResultResponse = {
 };
 
 /**
+ * CreateGridCalibrationCandidateResponse
+ */
+export type CreateGridCalibrationCandidateResponse = {
+  cohort: GeometryCohortResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+  profile: GridCalibrationProfileResponse;
+};
+
+/**
  * CreateSymbolTrainingCommand
  */
 export type CreateSymbolTrainingCommand = {
@@ -268,6 +280,183 @@ export type CreateSymbolTrainingResponse = {
   created: boolean;
   iteration: SymbolModelIterationResponse;
   job: JobResponse;
+};
+
+/**
+ * CuratedImageImportBatchCreate
+ */
+export type CuratedImageImportBatchCreate = {
+  /**
+   * Imagecount
+   */
+  imageCount?: number;
+};
+
+/**
+ * CuratedImageImportBatchResponse
+ */
+export type CuratedImageImportBatchResponse = {
+  /**
+   * Batchnumber
+   */
+  batchNumber: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Endindex
+   */
+  endIndex: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Imagecount
+   */
+  imageCount: number;
+  job: JobResponse;
+  /**
+   * Startindex
+   */
+  startIndex: number;
+};
+
+/**
+ * CuratedImageImportJobPayload
+ */
+export type CuratedImageImportJobPayload = {
+  /**
+   * Curatedimageimportbatchid
+   */
+  curatedImageImportBatchId: string;
+  /**
+   * Curatedimageimportsourceid
+   */
+  curatedImageImportSourceId: string;
+  /**
+   * Curatedmanifestchecksumsha256
+   */
+  curatedManifestChecksumSha256: string;
+  /**
+   * Curatedmanifestentrycount
+   */
+  curatedManifestEntryCount: number;
+  /**
+   * Curatedmanifestentrystart
+   */
+  curatedManifestEntryStart: number;
+  /**
+   * Curatedmanifestrelativepath
+   */
+  curatedManifestRelativePath: string;
+  gridProfile: GridProfileJobSnapshotPayload;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId: string;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 3;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  symbolModel: SymbolModelJobSnapshotPayload;
+};
+
+/**
+ * CuratedImageImportSourceCreate
+ */
+export type CuratedImageImportSourceCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId: string;
+};
+
+/**
+ * CuratedImageImportSourceResponse
+ */
+export type CuratedImageImportSourceResponse = {
+  /**
+   * Batches
+   */
+  batches: Array<CuratedImageImportBatchResponse>;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Failedentries
+   */
+  failedEntries: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Nextentryindex
+   */
+  nextEntryIndex: number;
+  /**
+   * Processedentries
+   */
+  processedEntries: number;
+  /**
+   * Remainingentries
+   */
+  remainingEntries: number;
+  /**
+   * Reservedentries
+   */
+  reservedEntries: number;
+  /**
+   * Totalentries
+   */
+  totalEntries: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
 };
 
 /**
@@ -600,6 +789,242 @@ export type GameUpdate = {
    */
   name?: string | null;
   status?: GameStatus | null;
+};
+
+/**
+ * GeometryCohortResponse
+ */
+export type GeometryCohortResponse = {
+  /**
+   * Cohortnumber
+   */
+  cohortNumber: number;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Manifestchecksumsha256
+   */
+  manifestChecksumSha256: string;
+  /**
+   * Samplecount
+   */
+  sampleCount: number;
+  /**
+   * Sourceimagecount
+   */
+  sourceImageCount: number;
+  /**
+   * Trainingcount
+   */
+  trainingCount: number;
+  /**
+   * Validationcount
+   */
+  validationCount: number;
+};
+
+/**
+ * GridCalibrationProfileResponse
+ */
+export type GridCalibrationProfileResponse = {
+  /**
+   * Cohortid
+   */
+  cohortId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gatemetrics
+   */
+  gateMetrics: {
+    [key: string]: unknown;
+  };
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Profilechecksumsha256
+   */
+  profileChecksumSha256: string;
+  /**
+   * Profilenumber
+   */
+  profileNumber: number;
+  /**
+   * Rejectionreasons
+   */
+  rejectionReasons: Array<string>;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * GridProfileActivationAction
+ */
+export type GridProfileActivationAction = 'activate' | 'rollback';
+
+/**
+ * GridProfileActivationCommand
+ */
+export type GridProfileActivationCommand = {
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Expectedcurrentprofileid
+   */
+  expectedCurrentProfileId?: string | null;
+  /**
+   * Expectedprofilechecksumsha256
+   */
+  expectedProfileChecksumSha256: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Reason
+   */
+  reason?: string | null;
+};
+
+/**
+ * GridProfileActivationCommandResponse
+ */
+export type GridProfileActivationCommandResponse = {
+  activation: GridProfileActivationResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+};
+
+/**
+ * GridProfileActivationPreviewResponse
+ */
+export type GridProfileActivationPreviewResponse = {
+  /**
+   * Action
+   */
+  action: string;
+  /**
+   * Canactivate
+   */
+  canActivate: boolean;
+  /**
+   * Currentprofileid
+   */
+  currentProfileId: string | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Profilechecksumsha256
+   */
+  profileChecksumSha256: string;
+  /**
+   * Profileid
+   */
+  profileId: string;
+};
+
+/**
+ * GridProfileActivationResponse
+ */
+export type GridProfileActivationResponse = {
+  /**
+   * Action
+   */
+  action: string;
+  /**
+   * Activationnumber
+   */
+  activationNumber: number;
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Previousprofileid
+   */
+  previousProfileId: string | null;
+  /**
+   * Profileid
+   */
+  profileId: string;
+  /**
+   * Reason
+   */
+  reason: string | null;
+};
+
+/**
+ * GridProfileJobSnapshotPayload
+ */
+export type GridProfileJobSnapshotPayload = {
+  /**
+   * Activationid
+   */
+  activationId?: string | null;
+  /**
+   * Inferencefingerprint
+   */
+  inferenceFingerprint: string;
+  /**
+   * Profilechecksumsha256
+   */
+  profileChecksumSha256: string;
+  /**
+   * Profileid
+   */
+  profileId?: string | null;
+  /**
+   * Profilepayload
+   */
+  profilePayload: {
+    [key: string]: unknown;
+  };
+  /**
+   * Profileversion
+   */
+  profileVersion: string;
 };
 
 /**
@@ -1780,6 +2205,7 @@ export type JobResponse = {
     | ImportJobPayload
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
+    | CuratedImageImportJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
@@ -5573,6 +5999,286 @@ export type GenerateMockDatasetResponses = {
 export type GenerateMockDatasetResponse =
   GenerateMockDatasetResponses[keyof GenerateMockDatasetResponses];
 
+export type ListGridCalibrationProfilesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles';
+};
+
+export type ListGridCalibrationProfilesErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListGridCalibrationProfilesError =
+  ListGridCalibrationProfilesErrors[keyof ListGridCalibrationProfilesErrors];
+
+export type ListGridCalibrationProfilesResponses = {
+  /**
+   * Response Listgridcalibrationprofiles
+   *
+   * Successful Response
+   */
+  200: Array<GridCalibrationProfileResponse>;
+};
+
+export type ListGridCalibrationProfilesResponse =
+  ListGridCalibrationProfilesResponses[keyof ListGridCalibrationProfilesResponses];
+
+export type CreateGridCalibrationCandidateData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles';
+};
+
+export type CreateGridCalibrationCandidateErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type CreateGridCalibrationCandidateError =
+  CreateGridCalibrationCandidateErrors[keyof CreateGridCalibrationCandidateErrors];
+
+export type CreateGridCalibrationCandidateResponses = {
+  /**
+   * Successful Response
+   */
+  200: CreateGridCalibrationCandidateResponse;
+};
+
+export type CreateGridCalibrationCandidateResponse2 =
+  CreateGridCalibrationCandidateResponses[keyof CreateGridCalibrationCandidateResponses];
+
+export type ListGridProfileActivationsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations';
+};
+
+export type ListGridProfileActivationsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListGridProfileActivationsError =
+  ListGridProfileActivationsErrors[keyof ListGridProfileActivationsErrors];
+
+export type ListGridProfileActivationsResponses = {
+  /**
+   * Response Listgridprofileactivations
+   *
+   * Successful Response
+   */
+  200: Array<GridProfileActivationResponse>;
+};
+
+export type ListGridProfileActivationsResponse =
+  ListGridProfileActivationsResponses[keyof ListGridProfileActivationsResponses];
+
+export type ActivateGridProfileData = {
+  body: GridProfileActivationCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activate';
+};
+
+export type ActivateGridProfileErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ActivateGridProfileError =
+  ActivateGridProfileErrors[keyof ActivateGridProfileErrors];
+
+export type ActivateGridProfileResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridProfileActivationCommandResponse;
+};
+
+export type ActivateGridProfileResponse =
+  ActivateGridProfileResponses[keyof ActivateGridProfileResponses];
+
+export type PreviewGridProfileActivationData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+  };
+  query?: {
+    action?: GridProfileActivationAction;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activation-preview';
+};
+
+export type PreviewGridProfileActivationErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewGridProfileActivationError =
+  PreviewGridProfileActivationErrors[keyof PreviewGridProfileActivationErrors];
+
+export type PreviewGridProfileActivationResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridProfileActivationPreviewResponse;
+};
+
+export type PreviewGridProfileActivationResponse =
+  PreviewGridProfileActivationResponses[keyof PreviewGridProfileActivationResponses];
+
+export type RollbackGridProfileData = {
+  body: GridProfileActivationCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Profile Id
+     */
+    profile_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/rollback';
+};
+
+export type RollbackGridProfileErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type RollbackGridProfileError =
+  RollbackGridProfileErrors[keyof RollbackGridProfileErrors];
+
+export type RollbackGridProfileResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridProfileActivationCommandResponse;
+};
+
+export type RollbackGridProfileResponse =
+  RollbackGridProfileResponses[keyof RollbackGridProfileResponses];
+
 export type ResetGameLayoutDataData = {
   body: CleanupCommandRequest;
   headers: {
@@ -7014,6 +7720,171 @@ export type FinalizeBrowserImageSelectionResponses = {
 
 export type FinalizeBrowserImageSelectionResponse =
   FinalizeBrowserImageSelectionResponses[keyof FinalizeBrowserImageSelectionResponses];
+
+export type ListCuratedImageImportSourcesData = {
+  body?: never;
+  path?: never;
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+  };
+  url: '/api/v1/admin/image-imports/curated-sources';
+};
+
+export type ListCuratedImageImportSourcesErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListCuratedImageImportSourcesError =
+  ListCuratedImageImportSourcesErrors[keyof ListCuratedImageImportSourcesErrors];
+
+export type ListCuratedImageImportSourcesResponses = {
+  /**
+   * Response Listcuratedimageimportsources
+   *
+   * Successful Response
+   */
+  200: Array<CuratedImageImportSourceResponse>;
+};
+
+export type ListCuratedImageImportSourcesResponse =
+  ListCuratedImageImportSourcesResponses[keyof ListCuratedImageImportSourcesResponses];
+
+export type RegisterCuratedImageImportSourceData = {
+  body: CuratedImageImportSourceCreate;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/image-imports/curated-sources';
+};
+
+export type RegisterCuratedImageImportSourceErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RegisterCuratedImageImportSourceError =
+  RegisterCuratedImageImportSourceErrors[keyof RegisterCuratedImageImportSourceErrors];
+
+export type RegisterCuratedImageImportSourceResponses = {
+  /**
+   * Successful Response
+   */
+  201: CuratedImageImportSourceResponse;
+};
+
+export type RegisterCuratedImageImportSourceResponse =
+  RegisterCuratedImageImportSourceResponses[keyof RegisterCuratedImageImportSourceResponses];
+
+export type GetCuratedImageImportSourceData = {
+  body?: never;
+  path: {
+    /**
+     * Source Id
+     */
+    source_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/curated-sources/{source_id}';
+};
+
+export type GetCuratedImageImportSourceErrors = {
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetCuratedImageImportSourceError =
+  GetCuratedImageImportSourceErrors[keyof GetCuratedImageImportSourceErrors];
+
+export type GetCuratedImageImportSourceResponses = {
+  /**
+   * Successful Response
+   */
+  200: CuratedImageImportSourceResponse;
+};
+
+export type GetCuratedImageImportSourceResponse =
+  GetCuratedImageImportSourceResponses[keyof GetCuratedImageImportSourceResponses];
+
+export type CreateNextCuratedImageImportBatchData = {
+  body: CuratedImageImportBatchCreate;
+  path: {
+    /**
+     * Source Id
+     */
+    source_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/curated-sources/{source_id}/batches';
+};
+
+export type CreateNextCuratedImageImportBatchErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type CreateNextCuratedImageImportBatchError =
+  CreateNextCuratedImageImportBatchErrors[keyof CreateNextCuratedImageImportBatchErrors];
+
+export type CreateNextCuratedImageImportBatchResponses = {
+  /**
+   * Successful Response
+   */
+  201: CuratedImageImportSourceResponse;
+};
+
+export type CreateNextCuratedImageImportBatchResponse =
+  CreateNextCuratedImageImportBatchResponses[keyof CreateNextCuratedImageImportBatchResponses];
 
 export type SelectLocalImageFolderData = {
   body?: never;

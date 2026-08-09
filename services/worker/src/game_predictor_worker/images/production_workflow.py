@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -33,6 +34,7 @@ from .pipeline_execution import (
     ImagePipelineExecutionError,
     ImagePipelineStageExecutor,
     ImageStageContext,
+    VersionedImageStageAdapter,
 )
 from .pipeline_store import SqlAlchemyImagePipelineStore
 from .rectification import BoardGeometry, PageGeometry, PerspectiveBoardCellCropperV2
@@ -103,6 +105,8 @@ class ProductionImageImportWorkflow:
             self._artifact_root,
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
+            grid_profile=_grid_profile_snapshot(job),
+            image_selection_run_id=_image_selection_run_id(job),
         ).adapters()
         pipeline = ImageBatchHandler(
             self._batch_store,
@@ -190,17 +194,21 @@ class ProductionImageStageAdapterSuite:
         *,
         repository_root: Path,
         symbol_model: SymbolModelJobSnapshot | None = None,
+        grid_profile: Mapping[str, object] | None = None,
+        image_selection_run_id: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
         self._repository_root = repository_root
         self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
+        self._grid_profile = dict(grid_profile or {})
+        self._image_selection_run_id = image_selection_run_id
         self._detector = ClassicalPageBoardDetector()
         self._cropper = PerspectiveBoardCellCropperV2()
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
 
-    def adapters(self) -> tuple[FunctionImageStageAdapter, ...]:
+    def adapters(self) -> tuple[VersionedImageStageAdapter, ...]:
         return (
             FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
             FunctionImageStageAdapter(
@@ -276,18 +284,27 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW",
                 "The page grid could not be recovered automatically.",
             )
-        return {
-            "boards": [
+        projected_boards: list[dict[str, object]] = []
+        for board in result.boards:
+            calibrated = _calibrated_quad(
+                board.quad,
+                profile=self._grid_profile,
+                image_selection_run_id=self._image_selection_run_id,
+                position_index=board.position_index,
+                image_width=int(rgb.shape[1]),
+                image_height=int(rgb.shape[0]),
+            )
+            projected_boards.append(
                 {
                     "confidence": max(0.0, min(1.0, board.red_border_score)),
                     "geometry": {
-                        "quad": [point.to_dict() for point in board.quad],
+                        "quad": [point.to_dict() for point in calibrated],
+                        "detectorQuad": [point.to_dict() for point in board.quad],
                     },
                     "positionIndex": board.position_index,
                 }
-                for board in result.boards
-            ]
-        }
+            )
+        return {"boards": [board for board in projected_boards]}
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
@@ -352,30 +369,39 @@ class ProductionImageStageAdapterSuite:
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         recognizer = self._ocr_recognizer()
         prepared: list[NDArray[np.uint8] | None] = []
+        crop_quads: list[list[dict[str, float]] | None] = []
         reason_sets: list[list[str]] = []
         for board in detections:
             reasons = ["SEQUENCE_OCR_MANUAL_REVIEW_REQUIRED"]
             try:
-                _raw, processed, _crop_quad = extract_sequence_number_crop(
+                _raw, processed_crop, detected_crop_quad = extract_sequence_number_crop(
                     rgb,
                     _quad(_mapping(board.get("geometry"), "geometry")),
                 )
-                prepared.append(processed)
+                prepared.append(processed_crop)
+                crop_quads.append(
+                    [
+                        {"x": round(float(point[0]), 6), "y": round(float(point[1]), 6)}
+                        for point in detected_crop_quad
+                    ]
+                )
             except SequenceOcrError as error:
                 reasons.append(error.code)
                 prepared.append(None)
+                crop_quads.append(None)
             reason_sets.append(reasons)
         recognized = iter(
             recognizer.recognize_many(tuple(item for item in prepared if item is not None))
         )
         boards: list[dict[str, object]] = []
-        for board, processed, reasons in zip(
+        for board, prepared_crop, sequence_quad_payload, reasons in zip(
             detections,
             prepared,
+            crop_quads,
             reason_sets,
             strict=True,
         ):
-            if processed is None:
+            if prepared_crop is None:
                 raw_text = ""
                 confidence = 0.0
             else:
@@ -383,15 +409,16 @@ class ProductionImageStageAdapterSuite:
                 raw_text = recognition.raw_text
                 confidence = recognition.confidence
             normalized_number = int(raw_text) if raw_text.isdigit() and int(raw_text) > 0 else None
-            boards.append(
-                {
-                    "confidence": confidence,
-                    "normalizedNumber": normalized_number,
-                    "positionIndex": _integer(board, "positionIndex"),
-                    "rawText": raw_text,
-                    "reviewReasons": reasons,
-                }
-            )
+            projected: dict[str, object] = {
+                "confidence": confidence,
+                "normalizedNumber": normalized_number,
+                "positionIndex": _integer(board, "positionIndex"),
+                "rawText": raw_text,
+                "reviewReasons": reasons,
+            }
+            if sequence_quad_payload is not None:
+                projected["sequenceLabelQuad"] = sequence_quad_payload
+            boards.append(projected)
         return {"boards": boards}
 
     def symbol_inference(self, context: ImageStageContext) -> Mapping[str, object]:
@@ -642,6 +669,140 @@ def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:
     return snapshot
 
 
+def _grid_profile_snapshot(job: Job) -> Mapping[str, object]:
+    value = job.input_payload.get("grid_profile")
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "IMAGE_GRID_PROFILE_SNAPSHOT_INVALID",
+            "The pinned grid profile snapshot is invalid.",
+        )
+    fingerprint = value.get("inferenceFingerprint")
+    profile_payload = value.get("profilePayload")
+    if (
+        not isinstance(fingerprint, str)
+        or len(fingerprint) != 64
+        or not isinstance(profile_payload, Mapping)
+    ):
+        raise JobHandlerError(
+            "IMAGE_GRID_PROFILE_SNAPSHOT_INVALID",
+            "The pinned grid profile payload is incomplete.",
+        )
+    canonical_value = dict(value)
+    canonical_value.pop("inferenceFingerprint", None)
+    canonical = json.dumps(
+        canonical_value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+    ).encode("ascii")
+    if hashlib.sha256(canonical).hexdigest() != fingerprint:
+        raise JobHandlerError(
+            "IMAGE_GRID_PROFILE_SNAPSHOT_DRIFT",
+            "The pinned grid profile fingerprint changed.",
+        )
+    profile_id = value.get("profileId")
+    checksum = value.get("profileChecksumSha256")
+    if profile_id is not None:
+        profile_canonical = json.dumps(
+            profile_payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+        if (
+            not isinstance(checksum, str)
+            or hashlib.sha256(profile_canonical).hexdigest() != checksum
+        ):
+            raise JobHandlerError(
+                "IMAGE_GRID_PROFILE_SNAPSHOT_DRIFT",
+                "The pinned grid profile checksum changed.",
+            )
+    return cast(Mapping[str, object], profile_payload)
+
+
+def _image_selection_run_id(job: Job) -> str | None:
+    value = job.input_payload.get("image_selection_run_id")
+    return value if isinstance(value, str) and value else None
+
+
+def _calibrated_quad(
+    quad: Quad,
+    *,
+    profile: Mapping[str, object],
+    image_selection_run_id: str | None,
+    position_index: int,
+    image_width: int,
+    image_height: int,
+) -> Quad:
+    offsets = _grid_offsets(
+        profile,
+        image_selection_run_id=image_selection_run_id,
+        position_index=position_index,
+    )
+    if offsets is None:
+        return quad
+    adjusted = tuple(
+        Point(
+            max(0, min(image_width - 1, round(point.x + offsets[index][0] * image_width))),
+            max(0, min(image_height - 1, round(point.y + offsets[index][1] * image_height))),
+        )
+        for index, point in enumerate(quad)
+    )
+    calibrated = cast(Quad, adjusted)
+    if (
+        abs(
+            sum(
+                calibrated[index].x * calibrated[(index + 1) % 4].y
+                - calibrated[(index + 1) % 4].x * calibrated[index].y
+                for index in range(4)
+            )
+        )
+        <= 2
+    ):
+        return quad
+    return calibrated
+
+
+def _grid_offsets(
+    profile: Mapping[str, object],
+    *,
+    image_selection_run_id: str | None,
+    position_index: int,
+) -> tuple[tuple[float, float], ...] | None:
+    for key, require_run in (("scopes", True),):
+        values = profile.get(key)
+        if not isinstance(values, Sequence) or isinstance(values, str | bytes):
+            continue
+        for raw in values:
+            if not isinstance(raw, Mapping) or raw.get("positionIndex") != position_index:
+                continue
+            if require_run and raw.get("imageSelectionRunId") != image_selection_run_id:
+                continue
+            corners = raw.get("normalizedCornerOffsets")
+            if (
+                not isinstance(corners, Sequence)
+                or isinstance(corners, str | bytes)
+                or len(corners) != 4
+            ):
+                continue
+            parsed: list[tuple[float, float]] = []
+            for corner in corners:
+                if not isinstance(corner, Mapping):
+                    break
+                x = corner.get("x")
+                y = corner.get("y")
+                if (
+                    not isinstance(x, int | float)
+                    or isinstance(x, bool)
+                    or not isinstance(y, int | float)
+                    or isinstance(y, bool)
+                ):
+                    break
+                parsed.append((float(x), float(y)))
+            if len(parsed) == 4:
+                return tuple(parsed)
+    return None
+
+
 def _sha_text(value: Mapping[str, object], key: str) -> str:
     item = _text(value, key)
     if len(item) != 64 or any(character not in "0123456789abcdef" for character in item):
@@ -666,7 +827,7 @@ def _previous(context: ImageStageContext, stage: str) -> Mapping[str, object]:
             "IMAGE_PIPELINE_STAGE_DEPENDENCY_MISSING",
             f"The {stage} stage must complete first.",
         )
-    return cast(Mapping[str, object], value)
+    return _mapping(value, stage)
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:

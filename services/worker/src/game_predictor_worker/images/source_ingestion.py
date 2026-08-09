@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import cast
+from uuid import UUID
 
 from game_predictor_api.domain.jobs import Job
 
@@ -18,6 +19,11 @@ from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerEr
 
 from .discovery import ImageDiscoveryError, SourceManifest, discover_images
 from .image_file import ImageFileError, sha256_file
+from .selection.output import (
+    CuratedImageEntry,
+    CuratedImageManifest,
+    verify_curated_image_manifest,
+)
 
 SOURCE_INGESTION_CONTRACT = "image-source-ingestion-v1"
 COPY_CHECKPOINT_BATCH_SIZE = 25
@@ -58,6 +64,10 @@ class ManagedOriginalStore:
         relative_path = f"data/originals/manifests/{job.id}.json"
         destination = self._safe_path(relative_path)
         if destination.exists():
+            return self._load_manifest(destination, relative_path, job)
+        if job.input_payload.get("schema_version") == 3:
+            content = _curated_manifest_bytes(job, source_directory)
+            self._write_immutable(destination, content)
             return self._load_manifest(destination, relative_path, job)
         try:
             discovered = discover_images(source_directory)
@@ -333,6 +343,98 @@ def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:
     return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
         "utf-8"
     )
+
+
+def _curated_manifest_bytes(job: Job, source: Path) -> bytes:
+    payload = job.input_payload
+    checksum = payload.get("curated_manifest_checksum_sha256")
+    start = payload.get("curated_manifest_entry_start")
+    count = payload.get("curated_manifest_entry_count")
+    run_value = payload.get("image_selection_run_id")
+    if (
+        not isinstance(checksum, str)
+        or not SHA256_PATTERN.fullmatch(checksum)
+        or not isinstance(start, int)
+        or isinstance(start, bool)
+        or start < 0
+        or not isinstance(count, int)
+        or isinstance(count, bool)
+        or count < 1
+        or not isinstance(run_value, str)
+    ):
+        raise JobHandlerError(
+            "CURATED_IMAGE_IMPORT_PAYLOAD_INVALID",
+            "The curated manifest slice payload is incomplete.",
+        )
+    try:
+        run_id = UUID(run_value)
+        manifest = verify_curated_image_manifest(
+            source,
+            expected_manifest_sha256=checksum,
+            expected_run_id=run_id,
+            verify_entry_indexes=range(start, start + count),
+        )
+    except (OSError, ValueError) as error:
+        raise JobHandlerError(
+            "CURATED_IMAGE_IMPORT_MANIFEST_MISMATCH",
+            "The curated manifest or one of the selected JPEG files changed.",
+        ) from error
+    ordered = _ordered_curated_entries(manifest)
+    selected = ordered[start : start + count]
+    if len(selected) != count:
+        raise JobHandlerError(
+            "CURATED_IMAGE_IMPORT_RANGE_INVALID",
+            "The curated manifest slice exceeds the available entries.",
+        )
+    originals = [
+        {
+            "checksumSha256": entry.output_checksum_sha256,
+            "curatedGroupOrder": entry.group_order,
+            "curatedRangeEnd": entry.range_end,
+            "curatedRangeStart": entry.range_start,
+            "managedRelativePath": (
+                "data/originals/"
+                f"{entry.output_checksum_sha256[:2]}/{entry.output_checksum_sha256}.jpg"
+            ),
+            "sizeBytes": entry.size_bytes,
+            "sourceRelativePath": entry.output_relative_path,
+            "sourceRelativePaths": [entry.output_relative_path],
+        }
+        for entry in selected
+    ]
+    managed_payload = {
+        "contractVersion": SOURCE_INGESTION_CONTRACT,
+        "curatedSource": {
+            "batchId": payload.get("curated_image_import_batch_id"),
+            "entryCount": count,
+            "entryStart": start,
+            "manifestChecksumSha256": checksum,
+            "runId": run_value,
+            "sourceId": payload.get("curated_image_import_source_id"),
+        },
+        "gameId": None if job.game_id is None else str(job.game_id),
+        "jobId": str(job.id),
+        "originals": originals,
+        "schemaVersion": 1,
+        "sourceDirectory": str(source.resolve(strict=True)),
+    }
+    return (
+        json.dumps(managed_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+
+
+def _ordered_curated_entries(
+    manifest: CuratedImageManifest,
+) -> tuple[CuratedImageEntry, ...]:
+    ordered = tuple(sorted(manifest.entries, key=lambda entry: entry.group_order))
+    if tuple(entry.group_order for entry in manifest.entries) != tuple(
+        entry.group_order for entry in ordered
+    ):
+        raise JobHandlerError(
+            "CURATED_IMAGE_IMPORT_ORDER_INVALID",
+            "The curated manifest is not ordered by groupOrder.",
+        )
+    return ordered
 
 
 def _parse_original(value: object) -> ManagedOriginal:

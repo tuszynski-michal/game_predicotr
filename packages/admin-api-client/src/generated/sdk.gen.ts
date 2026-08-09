@@ -9,6 +9,9 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ActivateGridProfileData,
+  ActivateGridProfileErrors,
+  ActivateGridProfileResponses,
   ActivateSymbolModelData,
   ActivateSymbolModelErrors,
   ActivateSymbolModelResponses,
@@ -51,6 +54,9 @@ import type {
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
+  CreateGridCalibrationCandidateData,
+  CreateGridCalibrationCandidateErrors,
+  CreateGridCalibrationCandidateResponses,
   CreateImageDiagnosticExportData,
   CreateImageDiagnosticExportErrors,
   CreateImageDiagnosticExportResponses,
@@ -66,6 +72,9 @@ import type {
   CreateMobileReleaseData,
   CreateMobileReleaseErrors,
   CreateMobileReleaseResponses,
+  CreateNextCuratedImageImportBatchData,
+  CreateNextCuratedImageImportBatchErrors,
+  CreateNextCuratedImageImportBatchResponses,
   CreateOperationalImageReviewGeometryRevisionData,
   CreateOperationalImageReviewGeometryRevisionErrors,
   CreateOperationalImageReviewGeometryRevisionResponses,
@@ -117,6 +126,9 @@ import type {
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
+  GetCuratedImageImportSourceData,
+  GetCuratedImageImportSourceErrors,
+  GetCuratedImageImportSourceResponses,
   GetDatasetValidationReportData,
   GetDatasetValidationReportErrors,
   GetDatasetValidationReportResponses,
@@ -232,6 +244,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListCuratedImageImportSourcesData,
+  ListCuratedImageImportSourcesErrors,
+  ListCuratedImageImportSourcesResponses,
   ListDatasetLayoutsData,
   ListDatasetLayoutsErrors,
   ListDatasetLayoutsResponses,
@@ -240,6 +255,12 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListGridCalibrationProfilesData,
+  ListGridCalibrationProfilesErrors,
+  ListGridCalibrationProfilesResponses,
+  ListGridProfileActivationsData,
+  ListGridProfileActivationsErrors,
+  ListGridProfileActivationsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
@@ -315,6 +336,9 @@ import type {
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
+  PreviewGridProfileActivationData,
+  PreviewGridProfileActivationErrors,
+  PreviewGridProfileActivationResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
@@ -336,6 +360,9 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  RegisterCuratedImageImportSourceData,
+  RegisterCuratedImageImportSourceErrors,
+  RegisterCuratedImageImportSourceResponses,
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
@@ -363,6 +390,9 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  RollbackGridProfileData,
+  RollbackGridProfileErrors,
+  RollbackGridProfileResponses,
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
@@ -637,6 +667,139 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/dataset-versions/mock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Profiles
+ */
+export const listGridCalibrationProfiles = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridCalibrationProfilesData, ThrowOnError>,
+): RequestResult<
+  ListGridCalibrationProfilesResponses,
+  ListGridCalibrationProfilesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridCalibrationProfilesResponses,
+    ListGridCalibrationProfilesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
+    ...options,
+  });
+
+/**
+ * Create Candidate
+ */
+export const createGridCalibrationCandidate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateGridCalibrationCandidateData, ThrowOnError>,
+): RequestResult<
+  CreateGridCalibrationCandidateResponses,
+  CreateGridCalibrationCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridCalibrationCandidateResponses,
+    CreateGridCalibrationCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
+    ...options,
+  });
+
+/**
+ * List Activations
+ */
+export const listGridProfileActivations = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridProfileActivationsData, ThrowOnError>,
+): RequestResult<
+  ListGridProfileActivationsResponses,
+  ListGridProfileActivationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridProfileActivationsResponses,
+    ListGridProfileActivationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations',
+    ...options,
+  });
+
+/**
+ * Activate
+ */
+export const activateGridProfile = <ThrowOnError extends boolean = false>(
+  options: Options<ActivateGridProfileData, ThrowOnError>,
+): RequestResult<
+  ActivateGridProfileResponses,
+  ActivateGridProfileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ActivateGridProfileResponses,
+    ActivateGridProfileErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Activation
+ */
+export const previewGridProfileActivation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGridProfileActivationData, ThrowOnError>,
+): RequestResult<
+  PreviewGridProfileActivationResponses,
+  PreviewGridProfileActivationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGridProfileActivationResponses,
+    PreviewGridProfileActivationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activation-preview',
+    ...options,
+  });
+
+/**
+ * Rollback
+ */
+export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackGridProfileData, ThrowOnError>,
+): RequestResult<
+  RollbackGridProfileResponses,
+  RollbackGridProfileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RollbackGridProfileResponses,
+    RollbackGridProfileErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/rollback',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -1311,6 +1474,97 @@ export const finalizeBrowserImageSelection = <
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
     ...options,
+  });
+
+/**
+ * List incremental curated sources for one game
+ */
+export const listCuratedImageImportSources = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListCuratedImageImportSourcesData, ThrowOnError>,
+): RequestResult<
+  ListCuratedImageImportSourcesResponses,
+  ListCuratedImageImportSourcesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListCuratedImageImportSourcesResponses,
+    ListCuratedImageImportSourcesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-imports/curated-sources', ...options });
+
+/**
+ * Register verified image-selection output for incremental import
+ */
+export const registerCuratedImageImportSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RegisterCuratedImageImportSourceData, ThrowOnError>,
+): RequestResult<
+  RegisterCuratedImageImportSourceResponses,
+  RegisterCuratedImageImportSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RegisterCuratedImageImportSourceResponses,
+    RegisterCuratedImageImportSourceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/curated-sources',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get durable progress for one incremental curated source
+ */
+export const getCuratedImageImportSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetCuratedImageImportSourceData, ThrowOnError>,
+): RequestResult<
+  GetCuratedImageImportSourceResponses,
+  GetCuratedImageImportSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetCuratedImageImportSourceResponses,
+    GetCuratedImageImportSourceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/curated-sources/{source_id}',
+    ...options,
+  });
+
+/**
+ * Atomically reserve and import the next N curated images
+ */
+export const createNextCuratedImageImportBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateNextCuratedImageImportBatchData, ThrowOnError>,
+): RequestResult<
+  CreateNextCuratedImageImportBatchResponses,
+  CreateNextCuratedImageImportBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateNextCuratedImageImportBatchResponses,
+    CreateNextCuratedImageImportBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/curated-sources/{source_id}/batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

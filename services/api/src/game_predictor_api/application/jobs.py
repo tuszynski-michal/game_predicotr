@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -97,16 +98,22 @@ class SymbolModelSnapshotResolver(Protocol):
     def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot: ...
 
 
+class GridProfileSnapshotResolver(Protocol):
+    def resolve(self, *, game_id: UUID) -> dict[str, object]: ...
+
+
 class JobService:
     def __init__(
         self,
         repository: JobRepository,
         import_source_inspector: LayoutImportSourceInspector | None = None,
         symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
+        grid_profile_snapshot_resolver: GridProfileSnapshotResolver | None = None,
     ) -> None:
         self._repository = repository
         self._import_source_inspector = import_source_inspector
         self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
+        self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
 
     def create_job(
         self,
@@ -220,6 +227,94 @@ class JobService:
             JobType.IMPORT,
             game_id=game_id,
             input_payload=input_payload,
+            game_already_validated=True,
+        )
+
+    def create_curated_image_import_job(
+        self,
+        *,
+        game_id: UUID,
+        source_id: UUID,
+        batch_id: UUID,
+        source_directory: Path,
+        source_display_name: str,
+        manifest_relative_path: str,
+        manifest_checksum_sha256: str,
+        entry_start: int,
+        entry_count: int,
+        image_selection_run_id: UUID,
+        pipeline_fingerprint: str,
+        grid_profile: dict[str, object] | None = None,
+    ) -> Job:
+        """Create a job pinned to one verified, ordered curated-manifest slice."""
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        try:
+            resolved = source_directory.resolve(strict=True)
+        except OSError as error:
+            raise JobError(
+                "IMAGE_FOLDER_NOT_FOUND",
+                "The curated image output does not exist or is unavailable.",
+            ) from error
+        if not resolved.is_dir():
+            raise JobError(
+                "IMAGE_FOLDER_NOT_DIRECTORY",
+                "The curated image source must be a directory.",
+            )
+        if entry_start < 0 or entry_count < 1:
+            raise JobError(
+                "CURATED_IMAGE_IMPORT_RANGE_INVALID",
+                "The curated image manifest slice is invalid.",
+            )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        pinned_grid_profile = grid_profile or (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        grid_fingerprint = pinned_grid_profile.get("inferenceFingerprint")
+        if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The pinned grid profile snapshot is invalid.",
+            )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            (
+                f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:"
+                f"{grid_fingerprint}:{manifest_checksum_sha256}:"
+                f"{entry_start}:{entry_count}"
+            ).encode("ascii")
+        ).hexdigest()
+        return self._persist_job(
+            JobType.IMPORT,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 3,
+                "import_kind": "image_directory",
+                "source_selection_id": str(source_id),
+                "source_directory": str(resolved),
+                "source_display_name": source_display_name,
+                "pipeline_fingerprint": effective_pipeline_fingerprint,
+                "source_pipeline_fingerprint": pipeline_fingerprint,
+                "image_selection_run_id": str(image_selection_run_id),
+                "curated_image_import_source_id": str(source_id),
+                "curated_image_import_batch_id": str(batch_id),
+                "curated_manifest_relative_path": manifest_relative_path,
+                "curated_manifest_checksum_sha256": manifest_checksum_sha256,
+                "curated_manifest_entry_start": entry_start,
+                "curated_manifest_entry_count": entry_count,
+                "symbol_model": symbol_model.to_payload(),
+                "grid_profile": pinned_grid_profile,
+            },
             game_already_validated=True,
         )
 
@@ -449,3 +544,26 @@ class JobService:
                 details={"jobId": str(job_id)},
             )
         return self._repository.save_job(requeue_job(job))
+
+
+def _baseline_grid_profile_snapshot() -> dict[str, object]:
+    value: dict[str, object] = {
+        "profileId": None,
+        "profileVersion": "detector-baseline-v1",
+        "profileChecksumSha256": hashlib.sha256(b"detector-baseline-v1").hexdigest(),
+        "activationId": None,
+        "profilePayload": {
+            "schemaVersion": 1,
+            "calibrationPolicy": "detector-baseline-v1",
+            "scopes": [],
+            "positionFallbacks": [],
+        },
+    }
+    canonical = json.dumps(
+        value,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    value["inferenceFingerprint"] = hashlib.sha256(canonical).hexdigest()
+    return value

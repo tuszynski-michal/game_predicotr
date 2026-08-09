@@ -63,6 +63,34 @@ class ImageImportJobPayload(ApiModel):
     symbol_model: SymbolModelJobSnapshotPayload
 
 
+class GridProfileJobSnapshotPayload(ApiModel):
+    profile_id: UUID | None = None
+    profile_version: str = Field(min_length=1, max_length=255)
+    profile_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    activation_id: UUID | None = None
+    profile_payload: dict[str, object]
+    inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CuratedImageImportJobPayload(ApiModel):
+    schema_version: Literal[3]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID
+    curated_image_import_source_id: UUID
+    curated_image_import_batch_id: UUID
+    curated_manifest_relative_path: str = Field(min_length=1, max_length=2048)
+    curated_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    curated_manifest_entry_start: int = Field(ge=0)
+    curated_manifest_entry_count: int = Field(ge=1)
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+
+
 class ImageSelectionJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     source_selection_id: UUID
@@ -154,6 +182,7 @@ JobPayloadResponse = (
     ImportJobPayload
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
+    | CuratedImageImportJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
@@ -298,6 +327,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         if job.input_payload.get("import_kind") == "image_directory":
             if job.input_payload.get("schema_version") == 1:
                 return LegacyImageImportJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 3:
+                return CuratedImageImportJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:

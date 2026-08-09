@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -8,6 +9,11 @@ from game_predictor_api.domain.jobs import (
     checkpoint_job,
     create_job,
     start_job,
+)
+from game_predictor_worker.images.selection.output import (
+    OUTPUT_MANIFEST_FILE,
+    CuratedImageEntry,
+    CuratedImageManifest,
 )
 from game_predictor_worker.images.source_ingestion import (
     SOURCE_INGESTION_CONTRACT,
@@ -136,3 +142,75 @@ def test_ingestion_rejects_unsupported_image_issue(tmp_path: Path) -> None:
         )
 
     assert caught.value.code == "IMAGE_DISCOVERY_REQUIRES_REVIEW"
+
+
+def test_curated_ingestion_uses_only_the_pinned_manifest_slice(tmp_path: Path) -> None:
+    source = tmp_path / "curated"
+    images = source / "images"
+    images.mkdir(parents=True)
+    run_id = uuid4()
+    entries: list[CuratedImageEntry] = []
+    for index, color in enumerate(((255, 0, 0), (0, 255, 0), (0, 0, 255))):
+        path = images / f"seq_{index * 9 + 1}-{index * 9 + 9}.jpg"
+        Image.new("RGB", (32, 24), color).save(path, "JPEG")
+        content = path.read_bytes()
+        checksum = hashlib.sha256(content).hexdigest()
+        entries.append(
+            CuratedImageEntry(
+                group_order=index,
+                range_start=index * 9 + 1,
+                range_end=index * 9 + 9,
+                source_order_index=index * 10,
+                source_relative_path=f"raw/{index}.jpg",
+                source_checksum_sha256=checksum,
+                output_relative_path=f"images/{path.name}",
+                output_checksum_sha256=checksum,
+                size_bytes=len(content),
+                width=32,
+                height=24,
+                quality_metrics={},
+                reason_codes=("test",),
+                selection_method="automatic",
+            )
+        )
+    curated = CuratedImageManifest(
+        run_id=run_id,
+        input_manifest_sha256="b" * 64,
+        selector_version="test-selector",
+        selector_fingerprint="c" * 64,
+        entries=tuple(entries),
+    )
+    (source / OUTPUT_MANIFEST_FILE).write_bytes(curated.canonical_bytes)
+    job = create_job(
+        JobType.IMPORT,
+        game_id=uuid4(),
+        input_payload={
+            "schema_version": 3,
+            "import_kind": "image_directory",
+            "source_selection_id": str(uuid4()),
+            "source_directory": str(source.resolve()),
+            "source_display_name": "curated test",
+            "pipeline_fingerprint": FINGERPRINT,
+            "source_pipeline_fingerprint": "d" * 64,
+            "image_selection_run_id": str(run_id),
+            "curated_image_import_source_id": str(uuid4()),
+            "curated_image_import_batch_id": str(uuid4()),
+            "curated_manifest_relative_path": "data/exports/test/manifest.json",
+            "curated_manifest_checksum_sha256": curated.checksum_sha256,
+            "curated_manifest_entry_start": 1,
+            "curated_manifest_entry_count": 2,
+            "symbol_model": {},
+            "grid_profile": {},
+        },
+        created_at=NOW,
+    )
+
+    manifest = ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+        job,
+        source_directory=source,
+    )
+
+    assert [item.source_relative_path for item in manifest.originals] == [
+        "images/seq_10-18.jpg",
+        "images/seq_19-27.jpg",
+    ]

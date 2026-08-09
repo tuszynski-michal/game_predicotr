@@ -1,6 +1,12 @@
 import type {
   AdminApiClient,
+  CreateGridCalibrationCandidateResponse,
   CreateSymbolTrainingResponse,
+  GridCalibrationProfileResponse,
+  GridProfileActivationAction,
+  GridProfileActivationCommandResponse,
+  GridProfileActivationPreviewResponse,
+  GridProfileActivationResponse,
   ModelQualityResponse,
   SymbolModelActivationAction,
   SymbolModelActivationCommandResponse,
@@ -25,6 +31,192 @@ export type ModelQualityClient = Pick<
   | 'previewVerifiedTrainingCohort'
   | 'rollbackSymbolModel'
 >;
+
+export type GridQualityClient = Pick<
+  AdminApiClient,
+  | 'activateGridProfile'
+  | 'createGridCalibrationCandidate'
+  | 'listGridCalibrationProfiles'
+  | 'listGridProfileActivations'
+  | 'previewGridProfileActivation'
+  | 'rollbackGridProfile'
+>;
+
+export type GridQualityLoadResult =
+  | {
+      readonly ok: true;
+      readonly profiles: readonly GridCalibrationProfileResponse[];
+      readonly activations: readonly GridProfileActivationResponse[];
+    }
+  | { readonly error: string; readonly ok: false };
+
+export type GridCandidateResult =
+  | {
+      readonly ok: true;
+      readonly response: CreateGridCalibrationCandidateResponse;
+    }
+  | { readonly error: string; readonly ok: false };
+
+export type GridActivationPreviewResult =
+  | {
+      readonly ok: true;
+      readonly preview: GridProfileActivationPreviewResponse;
+    }
+  | { readonly error: string; readonly ok: false };
+
+export type GridActivationResult =
+  | {
+      readonly ok: true;
+      readonly response: GridProfileActivationCommandResponse;
+    }
+  | { readonly error: string; readonly ok: false };
+
+export async function loadGridQuality(
+  api: GridQualityClient,
+  gameId: string,
+  signal?: AbortSignal,
+): Promise<GridQualityLoadResult> {
+  try {
+    const [profileResult, activationResult] = await Promise.all([
+      api.listGridCalibrationProfiles(gameId, { limit: 20, signal }),
+      api.listGridProfileActivations(gameId, { limit: 50, signal }),
+    ]);
+    if (
+      profileResult.error !== undefined ||
+      profileResult.data === undefined ||
+      activationResult.error !== undefined ||
+      activationResult.data === undefined
+    ) {
+      return {
+        error: apiErrorMessage(
+          profileResult.error ?? activationResult.error,
+          'Nie udało się pobrać stanu kalibracji siatki.',
+        ),
+        ok: false,
+      };
+    }
+    return {
+      ok: true,
+      profiles: profileResult.data,
+      activations: activationResult.data,
+    };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      return { error: 'REQUEST_ABORTED', ok: false };
+    }
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function createGridCandidate(
+  api: GridQualityClient,
+  gameId: string,
+): Promise<GridCandidateResult> {
+  try {
+    const result = await api.createGridCalibrationCandidate(gameId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się utworzyć kandydata kalibracji siatki.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, response: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function previewGridActivation(
+  api: GridQualityClient,
+  input: {
+    readonly action: GridProfileActivationAction;
+    readonly gameId: string;
+    readonly profileId: string;
+  },
+): Promise<GridActivationPreviewResult> {
+  try {
+    const result = await api.previewGridProfileActivation(
+      input.gameId,
+      input.profileId,
+      input.action,
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przygotować aktywacji kalibracji siatki.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, preview: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function confirmGridActivation(
+  api: GridQualityClient,
+  input: {
+    readonly action: GridProfileActivationAction;
+    readonly actor: string;
+    readonly gameId: string;
+    readonly idempotencyKey: string;
+    readonly preview: GridProfileActivationPreviewResponse;
+  },
+): Promise<GridActivationResult> {
+  const command = {
+    actor: input.actor,
+    expectedCurrentProfileId: input.preview.currentProfileId,
+    expectedProfileChecksumSha256: input.preview.profileChecksumSha256,
+    idempotencyKey: input.idempotencyKey,
+    reason:
+      input.action === 'rollback'
+        ? 'Owner-confirmed grid calibration rollback.'
+        : 'Owner-confirmed grid calibration activation.',
+  } as const;
+  try {
+    const result =
+      input.action === 'rollback'
+        ? await api.rollbackGridProfile(
+            input.gameId,
+            input.preview.profileId,
+            command,
+          )
+        : await api.activateGridProfile(
+            input.gameId,
+            input.preview.profileId,
+            command,
+          );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się zmienić aktywnego profilu siatki.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, response: result.data };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
 
 export type ModelQualityLoadResult =
   | {

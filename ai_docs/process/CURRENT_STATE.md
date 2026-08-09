@@ -8,7 +8,7 @@ last_updated: 2026-08-09
 
 ## Phase
 
-`Version 0.4 acceptance deferred; M6.6 implementation continued by owner decision; TASK-0143–0146 complete; owner acceptance 0.2/0.3 deferred`
+`Version 0.5 iterative import implemented through TASK-0207; TASK-0208 scaling acceptance pending; owner acceptance 0.2/0.3/0.4 deferred`
 
 ## Aktywne tory wydań
 
@@ -532,6 +532,21 @@ last_updated: 2026-08-09
 - TASK-0076 realizuje pełny import około 500 000 rzeczywistych layoutów na grę,
 - nowe gry, wielogrowy snapshot/APK, benchmarki pełnego pipeline'u i
   TASK-0080–0089 domykają skalę oraz hardening 0.5.
+- zaakceptowano iteracyjny import ukończonego manifestu Selekcji Zdjęć:
+  automatyczne następne N, trwały monotoniczny kursor i brak ponownego
+  przetwarzania wcześniejszych partii,
+- nowe modele symboli i profile siatki mają działać wyłącznie dla importów
+  utworzonych po jawnej aktywacji; TASK-0149 został odroczony poza ten przepływ,
+- TASK-0198–0207 są ukończone: checksum-bound źródło i atomowe partie
+  następnych N zdjęć, wykonanie dokładnego wycinka przez worker, trwały postęp
+  w Adminie, natywny kontekst z numerem w Reviewerze oraz wersjonowana
+  kalibracja siatki z osobną aktywacją i rollbackiem,
+- profil siatki jest przypinany do nowego joba wraz z payloadem, checksumą i
+  fingerprintem; działa tylko dla dokładnego `imageSelectionRunId +
+  positionIndex`, a brak dopasowania bezpiecznie pozostawia wynik detektora,
+- TASK-0208 ma gotową obserwowalność i bounded skrypt pomiarowy; rzeczywiste
+  pomiary 10/100/1000 oraz warunkowe 5000 pozostają odbiorem właściciela,
+- Selekcja Zdjęć pozostaje oddzielnym, niezmienianym modułem v0.4.
 
 ## Dane i artefakty
 
@@ -548,7 +563,7 @@ last_updated: 2026-08-09
 
 ### Robocze
 
-- Repozytorium ma head `0037_symbol_model_registry`; lokalny PostgreSQL pozostaje
+- Repozytorium ma head `0039_grid_calibration_profiles`; lokalny PostgreSQL pozostaje
   tymczasowo na `0035_symbol_model_training_jobs`, ponieważ trwa rzeczywisty run
   selekcji 32 079 zdjęć. Migracje `0036–0037` zostaną zastosowane przy
   kontrolowanym zatrzymaniu usług przed użyciem rejestru modelu. Migracja `0030` pozwala zapisać
@@ -617,9 +632,10 @@ Q-020 pozostaje niezależne od Admina 0.2 i nie blokuje TASK-0134.
   bramki `massImportAllowed`; rozpoczęte jest przygotowanie rzeczywistych danych
   wejściowych 0.5, a nie automatyczna publikacja 500 000 layoutów,
 - TASK-0080–0089 należą do pełnego hardeningu 0.5,
-- TASK-0148 jest ukończony; TASK-0149–0150 pozostają zaplanowane w M6.6 wersji
-  0.5. TASK-0143–0148 wykonano wcześniej na jawne polecenie właściciela, bez
-  otwierania pozostałych bramek,
+- TASK-0148 jest ukończony; TASK-0149 został odroczony decyzją o stosowaniu
+  ulepszeń tylko do nowych partii, a TASK-0150 pozostaje końcowym odbiorem
+  iteracyjnego przepływu. TASK-0143–0148 wykonano wcześniej na jawne polecenie
+  właściciela, bez otwierania pozostałych bramek,
 - TASK-0151–0156 są ukończone. Syntetyczna część TASK-0157 jest zaliczona, ale
   rzeczywiste runy ujawniły fragmentację i koszt pełnego dekodowania, geometrii
   oraz OCR. Decyzja ma status `optimize`. TASK-0165–0171 implementują i mierzą
@@ -639,6 +655,12 @@ content-addressed i nie zmieniają aktywnego modelu. Admin pokazuje wynik
 ostatniej bramki, a typed client pobiera historię i szczegóły iteracji.
 
 ## Next recommended task
+
+TASK-0208 jest następną bramką v0.5. Kod i skrypt pomiarowy są gotowe; należy
+wykonać partie 10, 100 i 1000 zdjęć, ocenić czas, throughput, peak RSS oraz
+udział etapów, a dopiero po akceptacji trendu uruchomić 5000. Następnie
+TASK-0150 przeprowadzi dwie iteracje import → review → ulepszenie → nowy import.
+Żaden z tych kroków nie zmienia już zatwierdzonych plansz.
 
 TASK-0194 wykonał powtórny profil pierwszych 200 zdjęć. Wariant dwóch
 verifierów trwał 366,322600 s, a jednego 310,859984 s wobec baseline
@@ -680,8 +702,9 @@ startowa potwierdziła postęp co najmniej 40/32 079 i brak tracebacku. Proces
 jest read-only, bez publikacji i Importu layoutów; wynik czasu i jakości podlega
 ręcznej ocenie właściciela.
 
-TASK-0149 pozostaje
-następnym małym pionem M6.6 po zamknięciu bieżącej stabilizacji selektora.
+TASK-0198–0207 zakończyły pion implementacyjny v0.5. TASK-0149 pozostaje
+odroczony; bieżący przepływ nie przelicza wcześniejszych pending ani decyzji
+człowieka.
 Manualny odbiór TASK-0186 nadal jest bramką wersji 0.4, ale rozpocznie się
 dopiero po TASK-0188–0194.
 

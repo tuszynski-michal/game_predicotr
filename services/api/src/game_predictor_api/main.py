@@ -22,6 +22,7 @@ from game_predictor_api.application.cleanup import (
     ManagedCleanupArtifactStore,
 )
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -41,6 +42,7 @@ from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
 )
+from game_predictor_api.application.iterative_image_imports import IterativeImageImportService
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.layout_import_reports import (
     LayoutImportReportService,
@@ -95,6 +97,11 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionError,
     ImageSelectionNotFoundError,
 )
+from game_predictor_api.domain.iterative_image_imports import (
+    IterativeImageImportConflictError,
+    IterativeImageImportError,
+    IterativeImageImportNotFoundError,
+)
 from game_predictor_api.domain.jobs import (
     JobConflictError,
     JobError,
@@ -134,6 +141,12 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.grid_calibration_repository import (
+    SqlAlchemyGridCalibrationRepository,
+)
+from game_predictor_api.storage.grid_profile_snapshot_resolver import (
+    SqlAlchemyGridProfileSnapshotResolver,
+)
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
@@ -145,6 +158,9 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
+)
+from game_predictor_api.storage.iterative_image_import_repository import (
+    SqlAlchemyIterativeImageImportRepository,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.layout_import_report_repository import (
@@ -192,6 +208,7 @@ def create_app(
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
+    iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -205,6 +222,7 @@ def create_app(
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
+    grid_calibration_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -283,6 +301,7 @@ def create_app(
                         session,
                         artifact_root=resolved_settings.artifact_root,
                     ),
+                    SqlAlchemyGridProfileSnapshotResolver(session),
                 )
                 session.commit()
             except BaseException:
@@ -329,6 +348,41 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+
+    def default_iterative_image_import_service_dependency() -> Iterator[
+        IterativeImageImportService
+    ]:
+        with session_factory() as session:
+            try:
+                image_selection_service = ImageSelectionService(
+                    SqlAlchemyImageSelectionRepository(session),
+                    artifact_root=resolved_settings.artifact_root,
+                    browser_upload_root=resolved_settings.import_root,
+                )
+                job_service = JobService(
+                    SqlAlchemyJobRepository(session),
+                    None,
+                    SqlAlchemySymbolModelSnapshotResolver(
+                        session,
+                        artifact_root=resolved_settings.artifact_root,
+                    ),
+                    SqlAlchemyGridProfileSnapshotResolver(session),
+                )
+                yield IterativeImageImportService(
+                    SqlAlchemyIterativeImageImportRepository(session),
+                    image_selection_service,
+                    job_service,
+                    artifact_root=resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_iterative_image_import_dependency = (
+        iterative_image_import_service_dependency
+        or default_iterative_image_import_service_dependency
     )
 
     def default_image_job_service_dependency() -> Iterator[ImageJobOperationsService]:
@@ -430,9 +484,7 @@ def create_app(
         or default_symbol_model_iteration_service_dependency
     )
 
-    def default_symbol_model_registry_service_dependency() -> Iterator[
-        SymbolModelRegistryService
-    ]:
+    def default_symbol_model_registry_service_dependency() -> Iterator[SymbolModelRegistryService]:
         with session_factory() as session:
             try:
                 yield SymbolModelRegistryService(SqlAlchemySymbolModelRegistryRepository(session))
@@ -442,8 +494,20 @@ def create_app(
                 raise
 
     resolved_symbol_model_registry_dependency = (
-        symbol_model_registry_service_dependency
-        or default_symbol_model_registry_service_dependency
+        symbol_model_registry_service_dependency or default_symbol_model_registry_service_dependency
+    )
+
+    def default_grid_calibration_service_dependency() -> Iterator[GridCalibrationService]:
+        with session_factory() as session:
+            try:
+                yield GridCalibrationService(SqlAlchemyGridCalibrationRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_grid_calibration_dependency = (
+        grid_calibration_service_dependency or default_grid_calibration_service_dependency
     )
 
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
@@ -560,6 +624,7 @@ def create_app(
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
+            resolved_iterative_image_import_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_review_cohort_dependency,
@@ -573,6 +638,7 @@ def create_app(
             resolved_verified_training_cohort_dependency,
             resolved_symbol_model_iteration_dependency,
             resolved_symbol_model_registry_dependency,
+            resolved_grid_calibration_dependency,
         )
     )
 
@@ -642,6 +708,25 @@ def create_app(
         if isinstance(error, ImageSelectionNotFoundError):
             status_code = 404
         elif isinstance(error, ImageSelectionConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(IterativeImageImportError)
+    async def handle_iterative_image_import_error(
+        _request: Request,
+        error: IterativeImageImportError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, IterativeImageImportNotFoundError):
+            status_code = 404
+        elif isinstance(error, IterativeImageImportConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,

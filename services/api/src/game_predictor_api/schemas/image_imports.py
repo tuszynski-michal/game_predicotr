@@ -10,6 +10,9 @@ from game_predictor_api.application.image_imports import (
     ImageSelectionPurpose,
     SelectedImageFolder,
 )
+from game_predictor_api.application.iterative_image_imports import (
+    CuratedImageImportProgress,
+)
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -77,3 +80,71 @@ class BrowserImageSelectionFileUploadResponse(ApiModel):
     uploaded_file_count: int
     expected_total_bytes: int
     uploaded_bytes: int
+
+
+class CuratedImageImportSourceCreate(ApiModel):
+    game_id: UUID
+    image_selection_run_id: UUID
+
+
+class CuratedImageImportBatchCreate(ApiModel):
+    image_count: int = Field(default=10, ge=1, le=100_000)
+
+
+class CuratedImageImportBatchResponse(ApiModel):
+    id: UUID
+    batch_number: int
+    start_index: int
+    end_index: int
+    image_count: int
+    job: JobResponse
+    created_at: datetime
+
+
+class CuratedImageImportSourceResponse(ApiModel):
+    id: UUID
+    game_id: UUID
+    image_selection_run_id: UUID
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    total_entries: int
+    reserved_entries: int
+    processed_entries: int
+    failed_entries: int
+    remaining_entries: int
+    next_entry_index: int
+    batches: list[CuratedImageImportBatchResponse]
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_domain(
+        cls,
+        progress: CuratedImageImportProgress,
+    ) -> "CuratedImageImportSourceResponse":
+        source = progress.source
+        return cls(
+            id=source.id,
+            game_id=source.game_id,
+            image_selection_run_id=source.image_selection_run_id,
+            manifest_checksum_sha256=source.manifest_checksum_sha256,
+            total_entries=source.total_entries,
+            reserved_entries=progress.reserved_entries,
+            processed_entries=progress.processed_entries,
+            failed_entries=progress.failed_entries,
+            remaining_entries=progress.remaining_entries,
+            next_entry_index=source.next_entry_index,
+            batches=[
+                CuratedImageImportBatchResponse(
+                    id=batch.id,
+                    batch_number=batch.batch_number,
+                    start_index=batch.start_index,
+                    end_index=batch.end_index,
+                    image_count=batch.image_count,
+                    job=JobResponse.from_domain(batch.job),
+                    created_at=batch.created_at,
+                )
+                for batch in progress.batches
+            ],
+            created_at=source.created_at,
+            updated_at=source.updated_at,
+        )

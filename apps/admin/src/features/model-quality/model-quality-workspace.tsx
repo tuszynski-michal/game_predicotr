@@ -11,6 +11,7 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { GridQualityPanel } from '@/features/model-quality/grid-quality-panel';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
@@ -184,21 +185,29 @@ export function ModelQualityWorkspace({
   }
 
   if (loading && quality === null) {
-    return <p className="modelQualityLoading">Ładowanie jakości modelu…</p>;
+    return (
+      <section className="modelQualityWorkspace">
+        <p className="modelQualityLoading">Ładowanie jakości modelu…</p>
+        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+      </section>
+    );
   }
 
   if (quality === null || preview === null) {
     return (
-      <div className="modelQualityError" role="alert">
-        <p>{error || 'Brak danych jakości modelu.'}</p>
-        <button
-          className="secondaryButton"
-          onClick={() => void refresh()}
-          type="button"
-        >
-          Spróbuj ponownie
-        </button>
-      </div>
+      <section className="modelQualityWorkspace">
+        <div className="modelQualityError" role="alert">
+          <p>{error || 'Brak danych jakości modelu.'}</p>
+          <button
+            className="secondaryButton"
+            onClick={() => void refresh()}
+            type="button"
+          >
+            Spróbuj ponownie
+          </button>
+        </div>
+        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+      </section>
     );
   }
 
@@ -494,6 +503,8 @@ export function ModelQualityWorkspace({
           </section>
         ) : null}
       </section>
+
+      <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
 
       {quality.warnings.length > 0 ? (
         <aside

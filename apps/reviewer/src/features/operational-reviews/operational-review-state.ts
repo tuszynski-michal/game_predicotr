@@ -310,6 +310,62 @@ export function operationalReviewGeometryViewport(
   };
 }
 
+export function operationalReviewNativeContextViewport(
+  item: OperationalImageReviewItemResponse,
+  imageWidth: number,
+  imageHeight: number,
+): OperationalReviewGeometryViewport {
+  const boundedWidth = Math.max(1, Math.round(imageWidth));
+  const boundedHeight = Math.max(1, Math.round(imageHeight));
+  const board = operationalReviewGeometryCorners(
+    item,
+    boundedWidth,
+    boundedHeight,
+  );
+  const rawLabel = item.geometry.sequenceLabelQuad;
+  const parsedLabel = Array.isArray(rawLabel)
+    ? rawLabel.map(parseGeometryPoint)
+    : [];
+  const hasLabel =
+    parsedLabel.length === 4 && parsedLabel.every((point) => point !== null);
+  const label = hasLabel
+    ? (parsedLabel as OperationalImageReviewGeometryPoint[])
+    : [];
+  const points = [...board, ...label];
+  const xs = points.map((point) =>
+    Math.min(boundedWidth - 1, Math.max(0, point.x)),
+  );
+  const ys = points.map((point) =>
+    Math.min(boundedHeight - 1, Math.max(0, point.y)),
+  );
+  const boardXs = board.map((point) => point.x);
+  const boardYs = board.map((point) => point.y);
+  const boardWidth = Math.max(1, Math.max(...boardXs) - Math.min(...boardXs));
+  const boardHeight = Math.max(1, Math.max(...boardYs) - Math.min(...boardYs));
+  const horizontalPadding = Math.max(12, Math.round(boardWidth * 0.1));
+  const topPadding = Math.max(12, Math.round(boardHeight * 0.12));
+  const bottomPadding = Math.max(
+    12,
+    Math.round(boardHeight * (hasLabel ? 0.12 : 0.55)),
+  );
+  const x = Math.max(0, Math.floor(Math.min(...xs) - horizontalPadding));
+  const y = Math.max(0, Math.floor(Math.min(...ys) - topPadding));
+  const right = Math.min(
+    boundedWidth,
+    Math.ceil(Math.max(...xs) + horizontalPadding),
+  );
+  const bottom = Math.min(
+    boundedHeight,
+    Math.ceil(Math.max(...ys) + bottomPadding),
+  );
+  return {
+    height: Math.max(1, bottom - y),
+    width: Math.max(1, right - x),
+    x,
+    y,
+  };
+}
+
 export function operationalReviewPointInGeometryViewport(
   point: OperationalImageReviewGeometryPoint,
   viewport: OperationalReviewGeometryViewport,

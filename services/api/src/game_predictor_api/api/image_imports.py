@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, Response, status
+from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
 
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
@@ -12,12 +12,18 @@ from game_predictor_api.application.image_imports import (
     BrowserImageUpload,
     ImageFolderSelectionService,
 )
+from game_predictor_api.application.iterative_image_imports import (
+    IterativeImageImportService,
+)
 from game_predictor_api.application.jobs import JobService
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_imports import (
     BrowserImageSelectionCreate,
     BrowserImageSelectionFileUploadResponse,
     BrowserImageSelectionUploadResponse,
+    CuratedImageImportBatchCreate,
+    CuratedImageImportSourceCreate,
+    CuratedImageImportSourceResponse,
     ImageFolderImportCreate,
     ImageFolderImportResponse,
     ImageFolderSelectionResponse,
@@ -29,11 +35,13 @@ def create_image_imports_router(
     selection_service_dependency: Callable[..., object],
     browser_selection_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
+    iterative_import_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/image-imports", tags=["image-imports"])
     selection_parameter = Depends(selection_service_dependency)
     browser_selection_parameter = Depends(browser_selection_service_dependency)
     job_parameter = Depends(job_service_dependency)
+    iterative_import_parameter = Depends(iterative_import_service_dependency)
     responses: dict[int | str, dict[str, object]] = {
         404: {"model": ErrorResponse, "description": "Game or folder not found"},
         409: {"model": ErrorResponse, "description": "Import conflict"},
@@ -190,6 +198,71 @@ def create_image_imports_router(
             selection_token=payload.selection_token,
         )
         return ImageFolderImportResponse(job=JobResponse.from_domain(job))
+
+    @router.post(
+        "/curated-sources",
+        response_model=CuratedImageImportSourceResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="registerCuratedImageImportSource",
+        summary="Register verified image-selection output for incremental import",
+        responses=responses,
+    )
+    def register_curated_source(
+        payload: CuratedImageImportSourceCreate,
+        service: Annotated[IterativeImageImportService, iterative_import_parameter],
+    ) -> CuratedImageImportSourceResponse:
+        return CuratedImageImportSourceResponse.from_domain(
+            service.register_source(
+                game_id=payload.game_id,
+                image_selection_run_id=payload.image_selection_run_id,
+            )
+        )
+
+    @router.get(
+        "/curated-sources",
+        response_model=list[CuratedImageImportSourceResponse],
+        operation_id="listCuratedImageImportSources",
+        summary="List incremental curated sources for one game",
+        responses=responses,
+    )
+    def list_curated_sources(
+        game_id: Annotated[UUID, Query(alias="gameId")],
+        service: Annotated[IterativeImageImportService, iterative_import_parameter],
+    ) -> list[CuratedImageImportSourceResponse]:
+        return [
+            CuratedImageImportSourceResponse.from_domain(item)
+            for item in service.list_sources(game_id=game_id)
+        ]
+
+    @router.get(
+        "/curated-sources/{source_id}",
+        response_model=CuratedImageImportSourceResponse,
+        operation_id="getCuratedImageImportSource",
+        summary="Get durable progress for one incremental curated source",
+        responses=responses,
+    )
+    def get_curated_source(
+        source_id: UUID,
+        service: Annotated[IterativeImageImportService, iterative_import_parameter],
+    ) -> CuratedImageImportSourceResponse:
+        return CuratedImageImportSourceResponse.from_domain(service.get_source(source_id))
+
+    @router.post(
+        "/curated-sources/{source_id}/batches",
+        response_model=CuratedImageImportSourceResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="createNextCuratedImageImportBatch",
+        summary="Atomically reserve and import the next N curated images",
+        responses=responses,
+    )
+    def create_next_curated_batch(
+        source_id: UUID,
+        payload: CuratedImageImportBatchCreate,
+        service: Annotated[IterativeImageImportService, iterative_import_parameter],
+    ) -> CuratedImageImportSourceResponse:
+        return CuratedImageImportSourceResponse.from_domain(
+            service.create_next_batch(source_id, requested_count=payload.image_count)
+        )
 
     return router
 

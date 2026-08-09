@@ -3963,6 +3963,42 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** koryguje D-156 w zakresie wymuszonej ciągłości i pełnego OCR
   całej shortlisty; nie zmienia pełnego scoringu grupy ani progresywnego zapisu.
 
+## D-163 — Iteracyjny import używa trwałego kursora manifestu
+
+- **Status:** accepted
+- **Date:** 2026-08-09
+- **Decision:** ukończony manifest Selekcji Zdjęć jest rejestrowany jako trwałe
+  źródło v0.5. Każdy import atomowo rezerwuje kolejne N wpisów według
+  groupOrder. Model symboli i profil siatki są przypinane przy tworzeniu joba i
+  działają wyłącznie dla nowych partii.
+- **Context:** pojedynczy wynik może zawierać ponad 2100 zdjęć i około 19000
+  layoutów. Import całości uniemożliwia krótką pętlę review–ulepszenie–import.
+- **Reason:** monotoniczny kursor usuwa ręczne liczenie plików, luki i duplikaty,
+  a małe partie pozwalają poprawiać jakość bez zmiany decyzji człowieka.
+- **Alternatives:** ręczne wskazywanie zakresów i automatyczne przeliczanie
+  wcześniejszych pending odrzucono jako podatne na błędy i rozszerzające zakres.
+- **Consequences:** retry wznawia ten sam zakres; nowa partia nie powstaje w
+  trakcie aktywnej. Selekcja Zdjęć pozostaje niezmieniona.
+
+## D-164 — Geometria v0.5 używa wersjonowanej kalibracji
+
+- **Status:** accepted
+- **Date:** 2026-08-09
+- **Decision:** zaakceptowane quady z Reviewera budują osobny profil korekt
+  istniejącego detektora. Kandydat ma własną bramkę, aktywację i rollback.
+- **Context:** pierwsze iteracje obejmują dziesiątki lub setki zdjęć, czyli za
+  mało zróżnicowanych danych na bezpieczny nowy model neuronowy.
+- **Reason:** odporna mediana znormalizowanych przesunięć narożników dla
+  dokładnego scope `image_selection_run_id + position_index` jest
+  deterministyczna i daje szybki efekt w tej samej serii zdjęć. Profil nie
+  interpoluje po numerze sekwencji, ponieważ numer powstaje dopiero w OCR po
+  cropowaniu; brak scope oznacza użycie detektora bazowego.
+- **Alternatives:** trening detektora neuronowego od pierwszej partii odrzucono
+  z powodu ryzyka przeuczenia i większej złożoności.
+- **Consequences:** po dwóch nieskutecznych iteracjach lub ponad 10% ręcznych
+  korekt na reprezentatywnej partii należy zaproponować model neuronowy i użyć
+  zachowanej kohorty obraz–cztery narożniki.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -221,6 +221,10 @@ class SqlAlchemyImagePipelineStore:
                     "cells": list(cast(Sequence[object], symbol["cells"])),
                     "modelVersion": model_version,
                 }
+                board_geometry = dict(cast(Mapping[str, object], detected["geometry"]))
+                sequence_label_quad = sequence.get("sequenceLabelQuad")
+                if sequence_label_quad is not None:
+                    board_geometry["sequenceLabelQuad"] = sequence_label_quad
                 if board is None:
                     board = RecognizedBoardModel(
                         source_image_id=source.id,
@@ -228,7 +232,7 @@ class SqlAlchemyImagePipelineStore:
                         sequence_number_raw=cast(str, sequence["rawText"]),
                         sequence_number=cast(int | None, sequence["normalizedNumber"]),
                         sequence_confidence=float(cast(float, sequence["confidence"])),
-                        board_geometry=dict(cast(Mapping[str, object], detected["geometry"])),
+                        board_geometry=board_geometry,
                         board_relative_path=cast(str, cropped["boardRelativePath"]),
                         board_checksum_sha256=cast(
                             str,
@@ -802,11 +806,14 @@ def _require_same_board(
     sequence: Mapping[str, object],
     prediction: Mapping[str, object],
 ) -> None:
+    expected_geometry = dict(cast(Mapping[str, object], detected["geometry"]))
+    if sequence.get("sequenceLabelQuad") is not None:
+        expected_geometry["sequenceLabelQuad"] = sequence["sequenceLabelQuad"]
     if (
         board.sequence_number_raw != sequence["rawText"]
         or board.sequence_number != sequence["normalizedNumber"]
         or board.sequence_confidence != float(cast(float, sequence["confidence"]))
-        or canonical_json_bytes(board.board_geometry) != canonical_json_bytes(detected["geometry"])
+        or canonical_json_bytes(board.board_geometry) != canonical_json_bytes(expected_geometry)
         or board.board_relative_path != cropped["boardRelativePath"]
         or board.board_checksum_sha256 != cropped["boardChecksumSha256"]
         or canonical_json_bytes(board.cells_prediction) != canonical_json_bytes(prediction)
@@ -880,7 +887,7 @@ def _upsert_review_item(
         "boardChecksumSha256": cropped["boardChecksumSha256"],
         "boardRelativePath": cropped["boardRelativePath"],
         "cells": prediction["cells"],
-        "geometry": detected["geometry"],
+        "geometry": dict(board.board_geometry),
         "pipelineFingerprint": board.pipeline_fingerprint,
         "positionIndex": board.position_index,
         "sequence": dict(sequence),

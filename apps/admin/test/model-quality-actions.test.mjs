@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  confirmGridActivation,
+  createGridCandidate,
   confirmModelActivation,
   freezeModelQualityCohort,
   loadModelQuality,
+  loadGridQuality,
+  previewGridActivation,
   previewModelActivation,
 } from '../src/features/model-quality/model-quality-actions.ts';
 
@@ -243,4 +247,63 @@ test('freezes exactly the confirmed manifest with a stable idempotency key', asy
     expectedManifestChecksumSha256: checksum,
     idempotencyKey: 'idempotency-1',
   });
+});
+
+test('loads, creates and explicitly activates grid quality independently', async () => {
+  const profile = {
+    id: 'profile-1',
+    gameId,
+    profileChecksumSha256: checksum,
+    profileNumber: 1,
+    status: 'candidate_ready',
+  };
+  const activationPreview = {
+    action: 'activate',
+    canActivate: true,
+    currentProfileId: null,
+    gameId,
+    profileChecksumSha256: checksum,
+    profileId: profile.id,
+  };
+  const client = {
+    listGridCalibrationProfiles: async () => ({ data: [profile] }),
+    listGridProfileActivations: async () => ({ data: [] }),
+    createGridCalibrationCandidate: async () => ({
+      data: { created: true, profile },
+    }),
+    previewGridProfileActivation: async (_gameId, _profileId, action) => {
+      assert.equal(action, 'activate');
+      return { data: activationPreview };
+    },
+    activateGridProfile: async (_gameId, _profileId, command) => {
+      assert.equal(command.expectedProfileChecksumSha256, checksum);
+      assert.equal(command.expectedCurrentProfileId, null);
+      return { data: { activation: { id: 'activation-1' }, created: true } };
+    },
+  };
+
+  assert.equal((await loadGridQuality(client, gameId)).ok, true);
+  assert.equal((await createGridCandidate(client, gameId)).ok, true);
+  assert.equal(
+    (
+      await previewGridActivation(client, {
+        action: 'activate',
+        gameId,
+        profileId: profile.id,
+      })
+    ).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await confirmGridActivation(client, {
+        action: 'activate',
+        actor: 'local-owner',
+        gameId,
+        idempotencyKey: 'grid-key',
+        preview: activationPreview,
+      })
+    ).ok,
+    true,
+  );
 });

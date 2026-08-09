@@ -292,6 +292,7 @@ def verify_curated_image_manifest(
     *,
     expected_manifest_sha256: str,
     expected_run_id: UUID | None = None,
+    verify_entry_indexes: range | None = None,
 ) -> CuratedImageManifest:
     _validate_sha256(expected_manifest_sha256)
     root = output_directory.resolve(strict=True)
@@ -344,7 +345,12 @@ def verify_curated_image_manifest(
     seen_ranges: set[tuple[int, int]] = set()
     seen_group_orders: set[int] = set()
     expected_files = {OUTPUT_MANIFEST_FILE}
-    for entry in manifest.entries:
+    selected_indexes = None if verify_entry_indexes is None else set(verify_entry_indexes)
+    if selected_indexes is not None and (
+        any(index < 0 or index >= len(manifest.entries) for index in selected_indexes)
+    ):
+        _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "Requested manifest slice is invalid.")
+    for entry_index, entry in enumerate(manifest.entries):
         if entry.group_order in seen_group_orders:
             _fail("IMAGE_SELECTION_GROUP_CONFLICT", "Output manifest repeats a group order.")
         seen_group_orders.add(entry.group_order)
@@ -354,6 +360,9 @@ def verify_curated_image_manifest(
                 _fail("IMAGE_SELECTION_RANGE_CONFLICT", "Output manifest repeats a sequence range.")
             seen_ranges.add(key)
         image_path = _safe_child(root, entry.output_relative_path)
+        expected_files.add(entry.output_relative_path)
+        if selected_indexes is not None and entry_index not in selected_indexes:
+            continue
         if _sha256_file(image_path) != entry.output_checksum_sha256:
             _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "A curated image checksum changed.")
         if image_path.stat().st_size != entry.size_bytes:
@@ -367,10 +376,12 @@ def verify_curated_image_manifest(
             ) from error
         if dimensions != (entry.width, entry.height):
             _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "Curated image dimensions changed.")
-        expected_files.add(entry.output_relative_path)
-    actual_files = {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()}
-    if actual_files != expected_files:
-        _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "Output directory differs from manifest.")
+    if selected_indexes is None:
+        actual_files = {
+            path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+        }
+        if actual_files != expected_files:
+            _fail("IMAGE_SELECTION_MANIFEST_MISMATCH", "Output directory differs from manifest.")
     return manifest
 
 

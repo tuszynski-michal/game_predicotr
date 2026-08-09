@@ -9,6 +9,13 @@ const source = await readFile(
   ),
   'utf8',
 );
+const gridSource = await readFile(
+  new URL(
+    '../src/features/model-quality/grid-quality-panel.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 test('shows active model, deltas, all symbol coverage and advisory thresholds', () => {
   assert.match(source, /Aktywny model/);
@@ -23,6 +30,16 @@ test('shows active model, deltas, all symbol coverage and advisory thresholds', 
   assert.match(source, /Aktywuj ostatniego kandydata/);
   assert.match(source, /Przywróć poprzedni model/);
   assert.match(source, /candidateManifestChecksumSha256/);
+});
+
+test('keeps grid calibration separate, gated and future-batch only', () => {
+  assert.match(source, /GridQualityPanel/);
+  assert.match(gridSource, /Kalibracja siatki/);
+  assert.match(gridSource, /Ulepsz cięcie siatki/);
+  assert.match(gridSource, /Aktywuj kandydata/);
+  assert.match(gridSource, /tylko nowych partii/);
+  assert.match(gridSource, /meanNormalizedCornerError/);
+  assert.match(gridSource, /p95NormalizedCornerError/);
 });
 
 test('requires an explicit checksum-bound confirmation and recovers after errors', () => {

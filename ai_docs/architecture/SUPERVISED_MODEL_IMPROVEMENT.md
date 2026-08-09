@@ -1,7 +1,7 @@
 ---
 title: Supervised symbol model improvement architecture
 status: accepted
-last_updated: 2026-08-01
+last_updated: 2026-08-09
 ---
 
 # Architektura iteracyjnego ulepszania modelu symboli
@@ -12,6 +12,11 @@ Ten pion obejmuje model rozpoznawania symboli. Nie zmienia wersji geometrii,
 croppera ani OCR numerów sekwencji. Właścicielem reguł produktowych jest
 `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`; ten dokument opisuje sposób ich
 realizacji.
+
+Kalibracja geometrii w wersji 0.5 pozostaje osobnym pionem z własną kohortą,
+bramką, rejestrem aktywacji i snapshotem importu. Jej kontrakt opisuje
+architecture/ITERATIVE_IMAGE_IMPORT.md; model symboli nie może ukrycie
+aktywować ani zmieniać profilu siatki.
 
 ## Przepływ
 

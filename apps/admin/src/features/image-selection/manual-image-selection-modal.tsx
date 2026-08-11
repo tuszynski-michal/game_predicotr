@@ -16,11 +16,16 @@ import {
 
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 import type { ImageSelectionClient } from './image-selection-actions';
+import {
+  defaultManualCandidateIndex,
+  nextUnresolvedManualIndex,
+} from './manual-image-selection-policy';
 
 interface ManualImageSelectionModalProps {
   readonly apiBaseUrl: string;
   readonly client: ImageSelectionClient;
   readonly groups: readonly ImageSelectionGroupResponse[];
+  readonly mode?: 'manual' | 'automatic-verification';
   readonly onClose: () => void;
   readonly onGroupUpdated: (group: ImageSelectionGroupResponse) => void;
   readonly runId: string;
@@ -41,14 +46,23 @@ interface GroupSourceSummary {
   readonly loading: boolean;
 }
 
+interface DuplicateRangeConflict {
+  readonly groupId: string;
+  readonly idempotencyKey: string;
+  readonly rangeEnd: number;
+  readonly rangeStart: number;
+}
+
 export function ManualImageSelectionModal({
   apiBaseUrl,
   client,
   groups,
+  mode = 'manual',
   onClose,
   onGroupUpdated,
   runId,
 }: ManualImageSelectionModalProps) {
+  const verificationMode = mode === 'automatic-verification';
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const approvalInFlightRef = useRef(false);
@@ -61,6 +75,10 @@ export function ManualImageSelectionModal({
   const [uploading, setUploading] = useState(false);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState('');
+  const [duplicateRangeConflict, setDuplicateRangeConflict] =
+    useState<DuplicateRangeConflict | null>(null);
+  const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
+  const [previewZoomed, setPreviewZoomed] = useState(false);
   const [sourceSummaries, setSourceSummaries] = useState<
     Record<string, GroupSourceSummary>
   >({});
@@ -68,15 +86,19 @@ export function ManualImageSelectionModal({
   const currentDraft = current === undefined ? undefined : drafts[current.id];
   const currentSourceSummary =
     current === undefined ? undefined : sourceSummaries[current.id];
-  const approvedCount = useMemo(
-    () =>
-      groups.filter(
-        (group) =>
-          group.status === 'manually_selected' ||
-          group.status === 'missing_image',
-      ).length,
-    [groups],
-  );
+  const decisionCounts = useMemo(() => {
+    const selected = groups.filter(
+      (group) => group.status === 'manually_selected',
+    ).length;
+    const skipped = groups.filter(
+      (group) => group.status === 'missing_image',
+    ).length;
+    return {
+      remaining: groups.length - selected - skipped,
+      selected,
+      skipped,
+    };
+  }, [groups]);
 
   useEffect(() => {
     const objectUrls = objectUrlsRef.current;
@@ -100,6 +122,7 @@ export function ManualImageSelectionModal({
     void client
       .listImageSelectionGroupCandidates(runId, groupId, { limit: 500 })
       .then((result) => {
+        const candidates = result.data?.items;
         setSourceSummaries((value) => ({
           ...value,
           [groupId]: {
@@ -108,6 +131,40 @@ export function ManualImageSelectionModal({
             loading: false,
           },
         }));
+        if (candidates === undefined || candidates.length === 0) return;
+        setDrafts((value) => {
+          const existing = value[groupId];
+          if (existing === undefined) return value;
+          const candidate =
+            (existing.candidateId === null
+              ? candidates[defaultManualCandidateIndex(candidates.length) ?? -1]
+              : candidates.find((item) => item.id === existing.candidateId)) ??
+            null;
+          if (candidate === null) return value;
+          const previewUrl = candidateFileUrl(
+            apiBaseUrl,
+            runId,
+            groupId,
+            candidate.id,
+          );
+          if (
+            existing.candidateId === candidate.id &&
+            existing.fileName === candidate.displayName &&
+            existing.previewUrl === previewUrl
+          ) {
+            return value;
+          }
+          return {
+            ...value,
+            [groupId]: {
+              ...existing,
+              candidateId: candidate.id,
+              fileName: candidate.displayName,
+              idempotencyKey: null,
+              previewUrl,
+            },
+          };
+        });
       })
       .catch(() => {
         setSourceSummaries((value) => ({
@@ -115,12 +172,19 @@ export function ManualImageSelectionModal({
           [groupId]: { data: null, error: true, loading: false },
         }));
       });
-  }, [client, current, runId]);
+  }, [apiBaseUrl, client, current, runId]);
 
   function navigate(offset: number) {
     if (groups.length < 2 || uploading || approving) return;
+    closeFullScreenPreview();
     setError('');
+    setDuplicateRangeConflict(null);
     setIndex((value) => (value + offset + groups.length) % groups.length);
+  }
+
+  function closeFullScreenPreview() {
+    setFullScreenPreviewOpen(false);
+    setPreviewZoomed(false);
   }
 
   function updateDraft(groupId: string, patch: Partial<ManualDraft>) {
@@ -129,6 +193,16 @@ export function ManualImageSelectionModal({
       if (existing === undefined) return value;
       return { ...value, [groupId]: { ...existing, ...patch } };
     });
+  }
+
+  function updateRangeDraft(
+    groupId: string,
+    field: 'rangeEnd' | 'rangeStart',
+    value: string,
+  ) {
+    setDuplicateRangeConflict(null);
+    setError('');
+    updateDraft(groupId, { [field]: value });
   }
 
   function chooseCandidate(candidateId: string, fileName: string) {
@@ -150,7 +224,7 @@ export function ManualImageSelectionModal({
     const input = event.currentTarget;
     const file = input.files?.[0];
     input.value = '';
-    if (current === undefined || file === undefined) return;
+    if (verificationMode || current === undefined || file === undefined) return;
     if (
       !/\.jpe?g$/i.test(file.name) ||
       !['image/jpeg', ''].includes(file.type)
@@ -196,52 +270,119 @@ export function ManualImageSelectionModal({
     }
   }
 
-  async function approveCurrent() {
+  async function approveCurrent(candidateOverride?: {
+    readonly candidateId: string;
+    readonly fileName: string;
+  }) {
     if (
+      verificationMode ||
       current === undefined ||
       currentDraft === undefined ||
       approvalInFlightRef.current
     ) {
       return;
     }
-    const rangeStart = parseOptionalSequence(currentDraft.rangeStart);
-    const rangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    const defaultCandidate =
+      currentSourceSummary?.data?.items[
+        defaultManualCandidateIndex(currentSourceSummary.data.items.length) ??
+          -1
+      ];
+    const draftForApproval =
+      candidateOverride !== undefined
+        ? {
+            ...currentDraft,
+            candidateId: candidateOverride.candidateId,
+            fileName: candidateOverride.fileName,
+            previewUrl: candidateFileUrl(
+              apiBaseUrl,
+              runId,
+              current.id,
+              candidateOverride.candidateId,
+            ),
+          }
+        : currentDraft.candidateId === null && defaultCandidate !== undefined
+          ? {
+              ...currentDraft,
+              candidateId: defaultCandidate.id,
+              fileName: defaultCandidate.displayName,
+              previewUrl: candidateFileUrl(
+                apiBaseUrl,
+                runId,
+                current.id,
+                defaultCandidate.id,
+              ),
+            }
+          : currentDraft;
+    if (
+      current.status === 'manual_required' &&
+      draftForApproval.candidateId === null &&
+      (currentSourceSummary === undefined || currentSourceSummary.loading)
+    ) {
+      setError('Poczekaj, aż galeria wybierze domyślne zdjęcie.');
+      return;
+    }
+    const rangeStart = parseOptionalSequence(draftForApproval.rangeStart);
+    const rangeEnd = parseOptionalSequence(draftForApproval.rangeEnd);
     const hasCompleteRange = rangeStart !== null && rangeEnd !== null;
     const rangeInvalid =
       (rangeStart === null) !== (rangeEnd === null) ||
       (hasCompleteRange && rangeEnd < rangeStart);
     if (
       rangeInvalid ||
-      (currentDraft.candidateId !== null && !hasCompleteRange)
+      (draftForApproval.candidateId !== null && !hasCompleteRange)
     ) {
       setError(
-        currentDraft.candidateId === null
+        draftForApproval.candidateId === null
           ? 'Podaj oba numery zakresu albo pozostaw oba pola puste.'
           : 'Aby zachować zdjęcie, podaj dodatni, rosnący zakres layoutów.',
       );
       return;
     }
+    if (
+      duplicateRangeConflict?.groupId === current.id &&
+      duplicateRangeConflict.rangeStart === rangeStart &&
+      duplicateRangeConflict.rangeEnd === rangeEnd
+    ) {
+      await discardDuplicateCurrent();
+      return;
+    }
     const idempotencyKey =
-      currentDraft.idempotencyKey ?? window.crypto.randomUUID();
-    updateDraft(current.id, { idempotencyKey });
+      draftForApproval.idempotencyKey ?? window.crypto.randomUUID();
+    updateDraft(current.id, { ...draftForApproval, idempotencyKey });
     approvalInFlightRef.current = true;
     setApproving(true);
     setError('');
     try {
       const result =
-        currentDraft.candidateId === null
+        draftForApproval.candidateId === null
           ? await client.continueImageSelectionWithoutImage(runId, current.id, {
               idempotencyKey,
               ...(rangeEnd === null ? {} : { rangeEnd }),
               ...(rangeStart === null ? {} : { rangeStart }),
             })
           : await client.approveManualImageSelection(runId, current.id, {
-              candidateId: currentDraft.candidateId,
+              candidateId: draftForApproval.candidateId,
               idempotencyKey,
               rangeEnd,
               rangeStart,
             });
       if (result.error !== undefined || result.data === undefined) {
+        if (
+          apiErrorCode(result.error) === 'IMAGE_SELECTION_RANGE_CONFLICT' &&
+          rangeStart !== null &&
+          rangeEnd !== null
+        ) {
+          setDuplicateRangeConflict({
+            groupId: current.id,
+            idempotencyKey: window.crypto.randomUUID(),
+            rangeEnd,
+            rangeStart,
+          });
+          setError(
+            `Zakres ${rangeStart}–${rangeEnd} jest już używany przez inną wybraną grupę. Popraw zakres albo odrzuć tę grupę jako duplikat i przejdź dalej.`,
+          );
+          return;
+        }
         setError(
           apiErrorMessage(
             result.error,
@@ -261,7 +402,57 @@ export function ManualImageSelectionModal({
     }
   }
 
+  async function discardDuplicateCurrent() {
+    if (
+      verificationMode ||
+      current === undefined ||
+      currentDraft === undefined ||
+      approvalInFlightRef.current
+    ) {
+      return;
+    }
+    const rangeStart = parseOptionalSequence(currentDraft.rangeStart);
+    const rangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    if (rangeStart === null || rangeEnd === null || rangeEnd < rangeStart) {
+      setError('Podaj dodatni, rosnący zakres przed odrzuceniem duplikatu.');
+      return;
+    }
+    const idempotencyKey =
+      duplicateRangeConflict?.groupId === current.id &&
+      duplicateRangeConflict.rangeStart === rangeStart &&
+      duplicateRangeConflict.rangeEnd === rangeEnd
+        ? duplicateRangeConflict.idempotencyKey
+        : window.crypto.randomUUID();
+    approvalInFlightRef.current = true;
+    setApproving(true);
+    setError('');
+    try {
+      const result = await client.discardDuplicateImageSelectionGroup(
+        runId,
+        current.id,
+        { idempotencyKey, rangeEnd, rangeStart },
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się odrzucić grupy jako duplikatu.',
+          ),
+        );
+        return;
+      }
+      handleApproval(result.data);
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      approvalInFlightRef.current = false;
+      setApproving(false);
+    }
+  }
+
   function handleApproval(result: ImageSelectionManualApprovalResponse) {
+    setDuplicateRangeConflict(null);
+    setError('');
     updateDraft(result.group.id, {
       idempotencyKey: null,
       rangeEnd:
@@ -269,22 +460,59 @@ export function ManualImageSelectionModal({
       rangeStart:
         result.group.rangeStart === null ? '' : String(result.group.rangeStart),
     });
+    const discarded = result.group.status === 'skipped_existing_range';
+    const remainingGroups = discarded
+      ? groups.filter((group) => group.id !== result.group.id)
+      : groups;
     onGroupUpdated(result.group);
-    if (groups.length > 1) setIndex((value) => (value + 1) % groups.length);
+    if (remainingGroups.length === 0) {
+      onClose();
+      return;
+    }
+    if (discarded) {
+      const nextPendingId = findNextPendingGroupId(groups, result.group.id);
+      const nextIndex = remainingGroups.findIndex(
+        (group) => group.id === nextPendingId,
+      );
+      setIndex(nextIndex < 0 ? 0 : nextIndex);
+      return;
+    }
+    if (groups.length > 1) {
+      setIndex((value) =>
+        nextUnresolvedManualIndex(
+          groups.map(
+            (group) =>
+              group.id !== result.group.id &&
+              group.status === 'manual_required',
+          ),
+          value,
+        ),
+      );
+    }
   }
 
   function handleDialogKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (fullScreenPreviewOpen) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeFullScreenPreview();
+      }
+      return;
+    }
     const target = event.target as HTMLElement;
     const editsText = ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName);
+    const activatesButton = target.closest('button') !== null;
     if (event.key === 'ArrowLeft' && !editsText) {
       event.preventDefault();
       navigate(-1);
     } else if (event.key === 'ArrowRight' && !editsText) {
       event.preventDefault();
-      navigate(1);
-    } else if (event.key === 'Enter' && !event.repeat) {
+      if (verificationMode) navigate(1);
+      else void approveCurrent();
+    } else if (event.key === 'Enter' && !event.repeat && !activatesButton) {
       event.preventDefault();
-      void approveCurrent();
+      if (verificationMode) navigate(1);
+      else void approveCurrent();
     } else if (event.key === 'Escape') {
       event.preventDefault();
       onClose();
@@ -308,6 +536,13 @@ export function ManualImageSelectionModal({
     current.groupOrder,
     currentSourceSummary,
   );
+  const waitingForDefaultCandidate =
+    current.status === 'manual_required' &&
+    currentDraft.candidateId === null &&
+    (currentSourceSummary === undefined || currentSourceSummary.loading);
+  const algorithmCandidate = currentSourceSummary?.data?.items.find(
+    (candidate) => candidate.id === current.selectedCandidateId,
+  );
 
   return (
     <div className="manualSelectionOverlay">
@@ -323,14 +558,34 @@ export function ManualImageSelectionModal({
         <header className="manualSelectionHeader">
           <div>
             <p className="eyebrow">
-              {approvedCount} / {groups.length} zatwierdzonych
+              {verificationMode ? (
+                <>
+                  Kontrola wyborów algorytmu · {index + 1} / {groups.length}
+                </>
+              ) : (
+                <>
+                  Wybrane: {decisionCounts.selected} · pominięte:{' '}
+                  {decisionCounts.skipped} · pozostało:{' '}
+                  {decisionCounts.remaining}
+                </>
+              )}
             </p>
             <h2 id="manual-selection-title">{rangeLabel}</h2>
             <p className="manualSelectionSourceIdentity">{sourceIdentity}</p>
           </div>
-          <nav aria-label="Nawigacja między wyjątkami">
+          <nav
+            aria-label={
+              verificationMode
+                ? 'Nawigacja między automatycznymi wyborami'
+                : 'Nawigacja między wyjątkami'
+            }
+          >
             <button
-              aria-label="Poprzedni wyjątek"
+              aria-label={
+                verificationMode
+                  ? 'Poprzedni wybór algorytmu'
+                  : 'Poprzedni wyjątek'
+              }
               className="secondaryButton"
               disabled={groups.length < 2 || uploading || approving}
               onClick={() => navigate(-1)}
@@ -342,10 +597,21 @@ export function ManualImageSelectionModal({
               {index + 1} / {groups.length}
             </span>
             <button
-              aria-label="Następny wyjątek"
+              aria-label={
+                verificationMode
+                  ? 'Następny wybór algorytmu'
+                  : 'Zatwierdź i przejdź do następnego wyjątku'
+              }
               className="secondaryButton"
-              disabled={groups.length < 2 || uploading || approving}
-              onClick={() => navigate(1)}
+              disabled={
+                groups.length < 2 ||
+                uploading ||
+                approving ||
+                waitingForDefaultCandidate
+              }
+              onClick={() =>
+                verificationMode ? navigate(1) : void approveCurrent()
+              }
               type="button"
             >
               →
@@ -353,18 +619,34 @@ export function ManualImageSelectionModal({
           </nav>
           <button
             className="primaryButton"
-            disabled={approving || uploading}
-            onClick={() => void approveCurrent()}
+            disabled={
+              approving ||
+              uploading ||
+              waitingForDefaultCandidate ||
+              (verificationMode && groups.length < 2)
+            }
+            onClick={() =>
+              verificationMode ? navigate(1) : void approveCurrent()
+            }
+            onKeyDown={(event) => event.stopPropagation()}
             type="button"
           >
-            {approving
-              ? 'Zapisywanie…'
-              : currentDraft.candidateId === null
-                ? 'Pomiń'
-                : 'Zatwierdź'}
+            {verificationMode
+              ? 'Następna grupa'
+              : approving
+                ? 'Zapisywanie…'
+                : duplicateRangeConflict?.groupId === current.id
+                  ? 'Odrzuć duplikat i dalej'
+                  : currentDraft.candidateId === null
+                    ? 'Pomiń'
+                    : 'Zatwierdź'}
           </button>
           <button
-            aria-label="Zamknij ręczną selekcję"
+            aria-label={
+              verificationMode
+                ? 'Zamknij kontrolę wyborów algorytmu'
+                : 'Zamknij ręczną selekcję'
+            }
             className="secondaryButton"
             disabled={approving || uploading}
             onClick={onClose}
@@ -374,21 +656,49 @@ export function ManualImageSelectionModal({
           </button>
         </header>
 
-        {error ? (
-          <p className="feedbackBanner feedbackBannerError" role="alert">
-            {error}
-          </p>
-        ) : null}
+        <div className="manualSelectionFeedbackSlot">
+          {error ? (
+            duplicateRangeConflict?.groupId === current.id ? (
+              <div className="feedbackBanner feedbackBannerError" role="alert">
+                <p>{error}</p>
+                <button
+                  className="primaryButton"
+                  disabled={approving || uploading}
+                  onClick={() => void discardDuplicateCurrent()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  type="button"
+                >
+                  {approving ? 'Zapisywanie…' : 'Odrzuć duplikat i dalej'}
+                </button>
+              </div>
+            ) : (
+              <p className="feedbackBanner feedbackBannerError" role="alert">
+                {error}
+              </p>
+            )
+          ) : null}
+        </div>
 
         <div className="manualSelectionBody">
           <div className="manualSelectionPreview">
             {currentDraft.previewUrl ? (
-              // The URL is either a local object URL or a scoped Admin API asset.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={`Wybrane zdjęcie: ${currentDraft.fileName}`}
-                src={currentDraft.previewUrl}
-              />
+              <button
+                aria-label={`Otwórz pełny podgląd zdjęcia ${currentDraft.fileName}`}
+                className="manualSelectionPreviewButton"
+                onClick={() => setFullScreenPreviewOpen(true)}
+                onKeyDown={(event) => event.stopPropagation()}
+                type="button"
+              >
+                {/* The URL is either a local object URL or a scoped Admin API asset. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt={`Wybrane zdjęcie: ${currentDraft.fileName}`}
+                  src={currentDraft.previewUrl}
+                />
+                <span className="manualSelectionPreviewAction">
+                  <span aria-hidden="true">🔍</span> Pełny ekran
+                </span>
+              </button>
             ) : (
               <p>
                 Możesz kontynuować bez zdjęcia albo opcjonalnie dodać jeden
@@ -399,6 +709,8 @@ export function ManualImageSelectionModal({
           <div
             aria-label="Zdjęcia należące do bieżącej grupy"
             className="manualSelectionCandidateGallery"
+            role="region"
+            tabIndex={0}
           >
             {currentSourceSummary?.loading ? (
               <p>Ładowanie miniaturek…</p>
@@ -407,17 +719,20 @@ export function ManualImageSelectionModal({
               <p>Nie udało się pobrać zdjęć tej grupy.</p>
             ) : null}
             {currentSourceSummary?.data ? (
-              <p>
+              <p className="manualSelectionCandidateGallerySummary">
                 Zdjęcia: {currentSourceSummary.data.items.length} /{' '}
                 {currentSourceSummary.data.sourceCount}
                 {currentSourceSummary.data.items.length <
                 currentSourceSummary.data.sourceCount
                   ? ' (starszy run zachował tylko shortlistę)'
                   : ''}
+                {' · przewiń listę, aby zobaczyć wszystkie'}
               </p>
             ) : null}
             {currentSourceSummary?.data?.items.map((candidate) => {
               const selected = currentDraft.candidateId === candidate.id;
+              const selectedByAlgorithm =
+                current.selectedCandidateId === candidate.id;
               const previewUrl = candidateFileUrl(
                 apiBaseUrl,
                 runId,
@@ -427,16 +742,31 @@ export function ManualImageSelectionModal({
               return (
                 <button
                   aria-pressed={selected}
-                  className={
-                    selected
-                      ? 'manualSelectionCandidate manualSelectionCandidateSelected'
-                      : 'manualSelectionCandidate'
-                  }
+                  className={[
+                    'manualSelectionCandidate',
+                    selected ? 'manualSelectionCandidateSelected' : '',
+                    verificationMode && selectedByAlgorithm
+                      ? 'manualSelectionCandidateAlgorithm'
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   key={candidate.id}
                   onClick={() =>
                     chooseCandidate(candidate.id, candidate.displayName)
                   }
-                  onKeyDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' || event.repeat) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    chooseCandidate(candidate.id, candidate.displayName);
+                    if (!verificationMode) {
+                      void approveCurrent({
+                        candidateId: candidate.id,
+                        fileName: candidate.displayName,
+                      });
+                    }
+                  }}
                   type="button"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -448,71 +778,164 @@ export function ManualImageSelectionModal({
                   <span title={candidate.displayName}>
                     {candidate.displayName}
                   </span>
+                  {verificationMode && selectedByAlgorithm ? (
+                    <strong className="manualSelectionAlgorithmBadge">
+                      Wybór algorytmu
+                    </strong>
+                  ) : null}
                 </button>
               );
             })}
           </div>
           <aside className="manualSelectionControls">
-            <input
-              accept=".jpg,.jpeg,image/jpeg"
-              hidden
-              onChange={(event) => void chooseFile(event)}
-              ref={fileInputRef}
-              type="file"
-            />
-            <button
-              className="secondaryButton"
-              disabled={uploading || approving}
-              onClick={() => fileInputRef.current?.click()}
-              type="button"
-            >
-              {uploading ? 'Kopiowanie…' : 'Dodaj opcjonalne zdjęcie'}
-            </button>
-            <span className="manualSelectionFileName">
-              {currentDraft.fileName || 'Brak zdjęcia — możesz kontynuować'}
-            </span>
-            {currentDraft.candidateId !== null || hasDisplayedRange ? (
+            {verificationMode ? (
               <>
-                <label>
-                  Początek zakresu
-                  <input
-                    inputMode="numeric"
-                    min={1}
-                    onChange={(event) =>
-                      updateDraft(current.id, {
-                        rangeStart: event.target.value,
-                      })
-                    }
-                    type="number"
-                    value={currentDraft.rangeStart}
-                  />
-                </label>
-                <label>
-                  Koniec zakresu
-                  <input
-                    inputMode="numeric"
-                    min={1}
-                    onChange={(event) =>
-                      updateDraft(current.id, { rangeEnd: event.target.value })
-                    }
-                    type="number"
-                    value={currentDraft.rangeEnd}
-                  />
-                </label>
+                <strong>Algorytm wybrał</strong>
+                <span className="manualSelectionFileName">
+                  {algorithmCandidate?.displayName ?? currentDraft.fileName}
+                </span>
+                <p>
+                  Zdjęcie z oznaczeniem „Wybór algorytmu” jest zapisanym
+                  reprezentantem. Klikaj pozostałe miniatury, aby porównać całą
+                  grupę. Ten tryb niczego nie zmienia w jobie ani w katalogu.
+                </p>
+                <p>← wraca · → lub Enter przechodzi do następnej grupy</p>
               </>
             ) : (
-              <p>
-                System nie potrafi wiarygodnie podać numerów layoutów dla tego
-                zestawu. Odszukaj go po nazwach plików pokazanych w nagłówku
-                albo pomiń — pewne zdjęcia nadal przejdą dalej.
-              </p>
+              <>
+                <input
+                  accept=".jpg,.jpeg,image/jpeg"
+                  hidden
+                  onChange={(event) => void chooseFile(event)}
+                  ref={fileInputRef}
+                  type="file"
+                />
+                <button
+                  className="secondaryButton"
+                  disabled={uploading || approving}
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                >
+                  {uploading ? 'Kopiowanie…' : 'Dodaj opcjonalne zdjęcie'}
+                </button>
+                {current.status === 'manual_required' && hasDisplayedRange ? (
+                  <button
+                    className="secondaryButton"
+                    disabled={uploading || approving}
+                    onClick={() => void discardDuplicateCurrent()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    type="button"
+                  >
+                    Odrzuć jako duplikat
+                  </button>
+                ) : null}
+                <span className="manualSelectionFileName">
+                  {currentDraft.fileName || 'Brak zdjęcia — możesz kontynuować'}
+                </span>
+                {currentDraft.candidateId !== null || hasDisplayedRange ? (
+                  <>
+                    <label>
+                      Początek zakresu
+                      <input
+                        inputMode="numeric"
+                        min={1}
+                        onChange={(event) =>
+                          updateRangeDraft(
+                            current.id,
+                            'rangeStart',
+                            event.target.value,
+                          )
+                        }
+                        type="number"
+                        value={currentDraft.rangeStart}
+                      />
+                    </label>
+                    <label>
+                      Koniec zakresu
+                      <input
+                        inputMode="numeric"
+                        min={1}
+                        onChange={(event) =>
+                          updateRangeDraft(
+                            current.id,
+                            'rangeEnd',
+                            event.target.value,
+                          )
+                        }
+                        type="number"
+                        value={currentDraft.rangeEnd}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <p>
+                    System nie potrafi wiarygodnie podać numerów layoutów dla
+                    tego zestawu. Odszukaj go po nazwach plików pokazanych w
+                    nagłówku albo pomiń — pewne zdjęcia nadal przejdą dalej.
+                  </p>
+                )}
+                <p>
+                  ← wraca · → lub Enter zatwierdza i przechodzi dalej · zapisany
+                  wybór możesz później poprawić
+                </p>
+              </>
             )}
-            <p>
-              ← / → nawigują · Enter zatwierdza · zapisany wybór możesz później
-              poprawić
-            </p>
           </aside>
         </div>
+        {fullScreenPreviewOpen && currentDraft.previewUrl ? (
+          <div
+            aria-label={`Pełny podgląd zdjęcia ${currentDraft.fileName}`}
+            aria-modal="true"
+            className="manualSelectionFullscreenOverlay"
+            role="dialog"
+          >
+            <header className="manualSelectionFullscreenHeader">
+              <strong>{currentDraft.fileName}</strong>
+              <div>
+                <button
+                  aria-pressed={previewZoomed}
+                  className="secondaryButton"
+                  onClick={() => setPreviewZoomed((value) => !value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  type="button"
+                >
+                  <span aria-hidden="true">🔍</span>{' '}
+                  {previewZoomed ? 'Dopasuj' : 'Powiększ'}
+                </button>
+                <button
+                  aria-label="Zamknij pełny podgląd"
+                  className="secondaryButton"
+                  onClick={closeFullScreenPreview}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  type="button"
+                >
+                  Zamknij
+                </button>
+              </div>
+            </header>
+            <button
+              aria-label={
+                previewZoomed
+                  ? 'Dopasuj zdjęcie do ekranu'
+                  : 'Powiększ zdjęcie do rozmiaru oryginalnego'
+              }
+              className={
+                previewZoomed
+                  ? 'manualSelectionFullscreenPreview manualSelectionFullscreenPreviewZoomed'
+                  : 'manualSelectionFullscreenPreview'
+              }
+              onClick={() => setPreviewZoomed((value) => !value)}
+              onKeyDown={(event) => event.stopPropagation()}
+              type="button"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={`Pełny podgląd: ${currentDraft.fileName}`}
+                src={currentDraft.previewUrl}
+              />
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -541,6 +964,18 @@ function parseOptionalSequence(value: string): number | null {
   if (value.trim() === '') return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 1 ? parsed : null;
+}
+
+function apiErrorCode(error: unknown): string | null {
+  if (
+    typeof error !== 'object' ||
+    error === null ||
+    !('code' in error) ||
+    typeof error.code !== 'string'
+  ) {
+    return null;
+  }
+  return error.code;
 }
 
 function buildInitialDrafts(
@@ -575,7 +1010,7 @@ function candidateFileUrl(
   groupId: string,
   candidateId: string,
 ): string {
-  return `${apiBaseUrl.replace(/\/$/, '')}/admin/image-selections/${encodeURIComponent(runId)}/groups/${encodeURIComponent(groupId)}/candidates/${encodeURIComponent(candidateId)}/file`;
+  return `${apiBaseUrl.replace(/\/$/, '')}/api/v1/admin/image-selections/${encodeURIComponent(runId)}/groups/${encodeURIComponent(groupId)}/candidates/${encodeURIComponent(candidateId)}/file`;
 }
 
 function firstPendingIndex(
@@ -583,4 +1018,16 @@ function firstPendingIndex(
 ): number {
   const index = groups.findIndex((group) => group.status === 'manual_required');
   return index < 0 ? 0 : index;
+}
+
+function findNextPendingGroupId(
+  groups: readonly ImageSelectionGroupResponse[],
+  currentGroupId: string,
+): string | null {
+  const currentIndex = groups.findIndex((group) => group.id === currentGroupId);
+  for (let offset = 1; offset < groups.length; offset += 1) {
+    const candidate = groups[(currentIndex + offset) % groups.length];
+    if (candidate?.status === 'manual_required') return candidate.id;
+  }
+  return null;
 }

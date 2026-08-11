@@ -41,6 +41,7 @@ from game_predictor_worker.images.selection.contracts import (
     SelectorCheckpoint,
     SequenceRange,
 )
+from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
 from game_predictor_worker.images.selection.output import CuratedImageOutputPublisher
 from PIL import Image
 
@@ -390,7 +391,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         game_id=game_id,
         source_selection_id=source_selection_id,
         input_manifest_sha256="a" * 64,
-        selector_fingerprint="b" * 64,
+        selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
     )
     group = _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
     candidate = ImageSelectionCandidate(
@@ -428,6 +429,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
+    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.5"
     assert history.json()["nextOffset"] is None
     assert preview.status_code == 200, preview.text
     assert preview.content == content
@@ -454,6 +456,7 @@ def test_rerun_reuses_unchanged_browser_staging_and_is_idempotent(
         source_selection_id=source_selection_id,
         input_manifest_sha256=manifest_sha256,
         selector_fingerprint="1" * 64,
+        first_sequence_number=1,
     )
 
     rerun, created = service.rerun(
@@ -473,6 +476,34 @@ def test_rerun_reuses_unchanged_browser_staging_and_is_idempotent(
     assert rerun.input_manifest_sha256 == original.input_manifest_sha256
     assert rerun.selector_fingerprint == "2" * 64
     assert original.selector_fingerprint == "1" * 64
+
+
+def test_rerun_can_add_required_first_sequence_to_historical_run(tmp_path: Path) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository, browser_upload_root=browser_upload_root)
+    historical, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
+        selector_fingerprint="1" * 64,
+    )
+
+    rerun, created = service.rerun(
+        run_id=historical.id,
+        selector_fingerprint="2" * 64,
+        first_sequence_number=7300,
+    )
+
+    assert created is True
+    assert rerun.first_sequence_number == 7300
+    assert historical.first_sequence_number is None
 
 
 @pytest.mark.parametrize("terminal_status", [JobStatus.CANCELLED, JobStatus.FAILED])
@@ -498,6 +529,7 @@ def test_rerun_requeues_existing_terminal_selector_run_from_checkpoint(
         source_selection_id=source_selection_id,
         input_manifest_sha256=manifest_sha256,
         selector_fingerprint="2" * 64,
+        first_sequence_number=1,
     )
     finished_at = datetime(2026, 8, 4, 15, 53, tzinfo=UTC)
     repository.runs[original.id] = replace(
@@ -554,6 +586,7 @@ def test_rerun_rejects_missing_or_changed_browser_staging(tmp_path: Path) -> Non
         source_selection_id=source_selection_id,
         input_manifest_sha256="3" * 64,
         selector_fingerprint="4" * 64,
+        first_sequence_number=1,
     )
 
     with pytest.raises(ImageSelectionConflictError) as missing:
@@ -741,6 +774,109 @@ def test_unknown_group_can_be_skipped_without_range_and_requeues_without_jpeg() 
     assert len(repository.manual_decisions) == 1
 
 
+def test_manual_group_can_be_discarded_when_another_group_owns_the_same_range() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="d" * 64,
+        selector_fingerprint="e" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(
+            run.job,
+            status=JobStatus.WAITING_FOR_REVIEW,
+            stage="image_selection:manual_review",
+            review_count=1,
+        ),
+    )
+    existing = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.AUTO_SELECTED),
+        range_start=1,
+        range_end=9,
+    )
+    duplicate = replace(
+        _group(run.id, 1, status=ImageSelectionGroupStatus.MANUAL_REQUIRED),
+        range_start=1,
+        range_end=9,
+    )
+    repository.groups.extend((existing, duplicate))
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    key = uuid4()
+    command = {
+        "idempotencyKey": str(key),
+        "rangeStart": 1,
+        "rangeEnd": 9,
+    }
+
+    with client:
+        discarded = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{duplicate.id}/discard-duplicate",
+            json=command,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{duplicate.id}/discard-duplicate",
+            json=command,
+        )
+
+    assert discarded.status_code == 200, discarded.text
+    assert replay.json() == discarded.json()
+    assert discarded.json()["group"]["status"] == "skipped_existing_range"
+    assert discarded.json()["group"]["selectedCandidateId"] is None
+    assert discarded.json()["decision"]["resolution"] == "duplicate_range"
+    assert discarded.json()["decision"]["rangeStart"] == 1
+    assert discarded.json()["decision"]["rangeEnd"] == 9
+    assert repository.get_run(run.id).job.status is JobStatus.CREATED
+    assert len(repository.manual_decisions) == 1
+
+
+def test_manual_group_cannot_be_discarded_without_an_existing_range_owner() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="c" * 64,
+        selector_fingerprint="f" * 64,
+    )
+    group = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED),
+        range_start=1,
+        range_end=9,
+    )
+    repository.groups.append(group)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+
+    with client:
+        rejected = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/discard-duplicate",
+            json={
+                "idempotencyKey": str(uuid4()),
+                "rangeStart": 1,
+                "rangeEnd": 9,
+            },
+        )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["code"] == "IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND"
+    assert repository.groups[0].status is ImageSelectionGroupStatus.MANUAL_REQUIRED
+    assert repository.manual_decisions == []
+
+
 def test_domain_rejects_unsafe_paths_and_invalid_ranges() -> None:
     with pytest.raises(ImageSelectionError) as unsafe:
         safe_relative_path(r"C:\private\photo.jpg")
@@ -789,6 +925,10 @@ def test_image_selection_api_create_get_and_bounded_groups() -> None:
     }
 
     with client:
+        missing_anchor = client.post(
+            "/api/v1/admin/image-selections",
+            json={key: value for key, value in payload.items() if key != "firstSequenceNumber"},
+        )
         created = client.post("/api/v1/admin/image-selections", json=payload)
         repeated = client.post("/api/v1/admin/image-selections", json=payload)
         run_id = UUID(created.json()["run"]["id"])
@@ -800,6 +940,7 @@ def test_image_selection_api_create_get_and_bounded_groups() -> None:
         )
         missing = client.get(f"/api/v1/admin/image-selections/{uuid4()}")
 
+    assert missing_anchor.status_code == 422
     assert created.status_code == 200
     assert created.json()["created"] is True
     assert created.json()["run"]["job"]["jobType"] == "image_selection"
@@ -834,6 +975,7 @@ def test_image_selection_api_reruns_existing_managed_staging(tmp_path: Path) -> 
         source_selection_id=source_selection_id,
         input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
         selector_fingerprint="6" * 64,
+        first_sequence_number=1,
     )
     client = TestClient(
         create_app(

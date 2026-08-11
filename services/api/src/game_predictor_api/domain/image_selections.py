@@ -65,6 +65,7 @@ class ImageSelectionCandidateDecision(StrEnum):
 class ImageSelectionManualResolution(StrEnum):
     SELECTED_IMAGE = "selected_image"
     MISSING_IMAGE = "missing_image"
+    DUPLICATE_RANGE = "duplicate_range"
 
 
 class ImageSelectionSequenceDirection(StrEnum):
@@ -420,6 +421,66 @@ def create_missing_image_decision(
     )
 
 
+def create_duplicate_range_decision(
+    *,
+    idempotency_key: UUID,
+    group: ImageSelectionGroup,
+    range_start: int,
+    range_end: int,
+    revision: int,
+    created_at: datetime | None = None,
+) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+    if idempotency_key.int == 0 or revision < 1:
+        _configuration_error("Manual decision identifiers and revision must be valid.")
+    if group.status not in {
+        ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+    }:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_GROUP_NOT_MANUAL",
+            "Only an unresolved manual-review group can be discarded as a duplicate.",
+        )
+    validate_image_selection_group(
+        group_order=group.group_order,
+        range_start=range_start,
+        range_end=range_end,
+        fingerprint_sha256=group.fingerprint_sha256,
+        board_count_consensus=group.board_count_consensus,
+    )
+    payload = {
+        "candidateId": None,
+        "groupId": str(group.id),
+        "rangeEnd": range_end,
+        "rangeStart": range_start,
+        "resolution": ImageSelectionManualResolution.DUPLICATE_RANGE.value,
+        "runId": str(group.run_id),
+    }
+    payload_sha256 = hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    now = created_at or datetime.now(UTC)
+    updated_group = replace(
+        group,
+        range_start=range_start,
+        range_end=range_end,
+        status=ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+        selected_candidate_id=None,
+        updated_at=now,
+    )
+    return updated_group, ImageSelectionManualDecision(
+        idempotency_key=idempotency_key,
+        run_id=group.run_id,
+        group_id=group.id,
+        candidate_id=None,
+        resolution=ImageSelectionManualResolution.DUPLICATE_RANGE,
+        range_start=range_start,
+        range_end=range_end,
+        revision=revision,
+        payload_sha256=payload_sha256,
+        created_at=now,
+    )
+
+
 def validate_sha256(value: str, *, field: str) -> str:
     normalized = value.strip()
     if _SHA256_PATTERN.fullmatch(normalized) is None:
@@ -464,6 +525,7 @@ __all__ = [
     "ImageSelectionManualResolution",
     "ImageSelectionNotFoundError",
     "ImageSelectionRun",
+    "create_duplicate_range_decision",
     "create_image_selection_run",
     "create_manual_decision",
     "create_missing_image_decision",

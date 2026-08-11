@@ -4,6 +4,7 @@ import {
   activateSymbolModel as activateGeneratedSymbolModel,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
+  discardDuplicateImageSelectionGroup as discardGeneratedDuplicateImageSelectionGroup,
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
@@ -151,8 +152,10 @@ import type {
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
   ImageSelectionCreate,
+  ImageSelectionDuplicateRangeCommand,
   ImageSelectionManualApprovalCommand,
   ImageSelectionMissingImageCommand,
+  ImageSelectionRerunCommand,
   ImageSelectionGroupStatus,
   ImageSequenceSourceOverrideCommand,
   JobStatus,
@@ -236,6 +239,7 @@ export type {
   ImageFolderSelectionResponse,
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
+  ImageSelectionDuplicateRangeCommand,
   ImageSelectionHandoffResponse,
   ImageSelectionGroupCandidatesResponse,
   ImageSelectionGroupPageResponse,
@@ -546,8 +550,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
-    rerunImageSelection: (runId: string) =>
+    rerunImageSelection: (runId: string, body?: ImageSelectionRerunCommand) =>
       rerunGeneratedImageSelection({
+        ...(body === undefined ? {} : { body }),
         client,
         path: { run_id: runId },
       }),
@@ -668,6 +673,19 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(
           `image-selection:${runId}:${groupId}:missing-image`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    discardDuplicateImageSelectionGroup: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionDuplicateRangeCommand,
+    ) =>
+      discardGeneratedDuplicateImageSelectionGroup({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:discard-duplicate`,
         ),
         path: { group_id: groupId, run_id: runId },
       }),

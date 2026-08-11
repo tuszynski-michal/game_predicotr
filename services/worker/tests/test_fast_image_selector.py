@@ -43,12 +43,15 @@ from game_predictor_worker.images.selection.manifest import (
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
     COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102,
+    CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103,
     CONTINUITY_SELECTOR_MANIFEST_V3,
     DEFAULT_SELECTOR_MANIFEST,
     DIGIT_AWARE_SELECTOR_MANIFEST_V5,
     EXACT_GAP_SELECTOR_MANIFEST_V6,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     LEGACY_SELECTOR_MANIFEST_V2,
+    QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
     SelectorManifest,
     selector_manifest_for_fingerprint,
@@ -56,6 +59,9 @@ from game_predictor_worker.images.selection.manifest import (
 
 ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_PATH = ROOT / "ai_docs" / "quality" / "fast-image-selector-v2-golden.json"
+V105_ACCEPTANCE_PATH = (
+    ROOT / "ai_docs" / "quality" / "image-selection-v105-acceptance-contract.json"
+)
 FINGERPRINTS = {
     "a": "0" * 64,
     "b": "f" * 64,
@@ -455,17 +461,29 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_2_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_5_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.2"
+    assert DEFAULT_SELECTOR_MANIFEST is QUALITY_RECOVERY_SELECTOR_MANIFEST_V105
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.5"
+    assert (
+        DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "6ba81ff5a277c92a0cbf01b88aea7f8c896eee76aebb8323b2ed9cb4b3e28a32"
+    )
+    assert (
+        HYBRID_BOUNDED_SELECTOR_MANIFEST_V104.fingerprint
+        == "8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e"
+    )
     assert (
         COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102.fingerprint
         == "793aa567d59b6f443d774c84b11349dbbe8a797e8ea46c8d15d186b800566143"
+    )
+    assert (
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103.fingerprint
+        == "b5210620e3127fa4addebcb158d4e717df7d89ed08c6d09f354756bf18cab7e4"
     )
     assert (
         ACCURACY_FIRST_SELECTOR_MANIFEST_V10.fingerprint
@@ -490,6 +508,16 @@ def test_v10_2_manifest_is_the_default_and_older_versions_remain_resolvable() ->
     assert (
         ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
         == "286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40"
+    )
+    assert (
+        selector_manifest_for_fingerprint(QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.fingerprint)
+        is QUALITY_RECOVERY_SELECTOR_MANIFEST_V105
+    )
+    assert (
+        selector_manifest_for_fingerprint(
+            CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103.fingerprint
+        )
+        is CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103
     )
     assert (
         selector_manifest_for_fingerprint(
@@ -525,6 +553,20 @@ def test_v10_2_manifest_is_the_default_and_older_versions_remain_resolvable() ->
         )
         is ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE
     )
+
+
+def test_v10_5_acceptance_contract_is_pinned_to_the_default_manifest() -> None:
+    contract = json.loads(V105_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
+
+    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["gates"] == {
+        "maximumFullRunSeconds": 18_000,
+        "maximumManualPercent": 35.0,
+        "minimumKnownRangePercent": 95.0,
+        "ownerReviewedWrongRangeCount": 0,
+        "ownerReviewedWrongRepresentativeCount": 0,
+    }
     assert (
         selector_manifest_for_fingerprint(ACCURACY_FIRST_SELECTOR_MANIFEST_V10.fingerprint)
         is ACCURACY_FIRST_SELECTOR_MANIFEST_V10
@@ -695,6 +737,182 @@ def test_v10_1_adaptive_consensus_stops_ocr_after_two_agreeing_frames() -> None:
     assert group.range == SequenceRange(400, 408, 0.98)
     assert group.selected_candidate is not None
     assert group.selected_candidate.source.order_index == 2
+
+
+def test_v10_4_verifies_only_two_range_frames_and_selects_best_whole_group_image() -> None:
+    signatures = tuple(_appearance_signature(0) for _ in range(12))
+    qualities = (_quality("reflection"), _quality("reflection"), _quality("good")) + tuple(
+        _quality("quality_fallback") for _ in range(9)
+    )
+    verifier = _AdaptiveConsensusVerifier(tuple(SequenceRange(400, 408, 0.98) for _ in range(12)))
+
+    result = FastImageSelector(HYBRID_BOUNDED_SELECTOR_MANIFEST_V104).select(
+        _sources("v10-4-bounded-whole-group", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, qualities),
+        verifier=verifier,
+        first_sequence_number=400,
+    )
+
+    group = result.groups[0]
+    assert verifier.verify_calls == [2, 0]
+    assert verifier.representative_calls == []
+    assert result.verification_count == 2
+    assert group.range == SequenceRange(400, 408, 0.98)
+    assert group.selected_candidate is not None
+    assert group.selected_candidate.source.order_index == 2
+
+
+def test_v10_5_stops_after_one_exact_range_and_keeps_full_group_quality_ranking() -> None:
+    signatures = tuple(_appearance_signature(0) for _ in range(12))
+    verifier = _AdaptiveConsensusVerifier(
+        tuple(SequenceRange(7300, 7308, 0.98) for _ in range(12))
+    )
+
+    result = FastImageSelector(QUALITY_RECOVERY_SELECTOR_MANIFEST_V105).select(
+        _sources("v10-5-exact-first", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+        first_sequence_number=7300,
+    )
+
+    group = result.groups[0]
+    assert verifier.verify_calls == [0]
+    assert result.verification_count == 1
+    assert group.status is SelectionGroupStatus.AUTO_SELECTED
+    assert group.range == SequenceRange(7300, 7308, 0.98)
+    assert group.selected_candidate is not None
+    assert group.selected_candidate.source.order_index == 0
+
+
+def test_v10_5_accepts_two_matching_fuzzy_reads_but_never_one() -> None:
+    @dataclass
+    class FuzzyVerifier:
+        calls: list[int] = field(default_factory=list)
+
+        def verify(
+            self,
+            observation: CheapImageObservation,
+            *,
+            expected_board_count: int | None,
+        ) -> CandidateVerification:
+            del expected_board_count
+            self.calls.append(observation.source.order_index)
+            return CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(
+                    SequenceRange(7300, 7308, 0.82),
+                    ("RANGE_OCR_FUZZY_CANDIDATE",),
+                ),
+            )
+
+    verifier = FuzzyVerifier()
+    signatures = (_appearance_signature(0), _appearance_signature(0, drift=0.1))
+    result = FastImageSelector(QUALITY_RECOVERY_SELECTOR_MANIFEST_V105).select(
+        _sources("v10-5-fuzzy-consensus", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+        first_sequence_number=7300,
+    )
+
+    assert verifier.calls == [0, 1]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].range == SequenceRange(7300, 7308, 0.92)
+    assert result.groups[0].selected_candidate is not None
+    assert "RANGE_OCR_FUZZY_CONSENSUS" in result.groups[0].selected_candidate.reason_codes
+
+
+def test_v10_5_keeps_v10_4_boundary_buffer_with_the_broad_descriptor() -> None:
+    signatures = (
+        _appearance_signature(0),
+        _appearance_signature(1, drift=-1.0),
+        _appearance_signature(1, drift=1.0),
+    )
+    verifier = _AdaptiveConsensusVerifier(
+        (
+            SequenceRange(100, 108, 0.98),
+            SequenceRange(109, 117, 0.98),
+            SequenceRange(109, 117, 0.98),
+        )
+    )
+
+    result = FastImageSelector(QUALITY_RECOVERY_SELECTOR_MANIFEST_V105).select(
+        _sources("v10-5-boundary-buffer", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+        first_sequence_number=100,
+    )
+
+    assert [group.source_count for group in result.groups] == [1, 2]
+    assert [group.range for group in result.groups] == [
+        SequenceRange(100, 108, 0.98),
+        SequenceRange(109, 117, 0.98),
+    ]
+
+
+def test_v10_4_pending_frames_only_need_to_confirm_change_from_old_group() -> None:
+    signatures = (
+        _appearance_signature(0),
+        _appearance_signature(1, drift=-1.0),
+        _appearance_signature(1, drift=1.0),
+    )
+    verifier = _AdaptiveConsensusVerifier(
+        (
+            SequenceRange(100, 108, 0.98),
+            SequenceRange(109, 117, 0.98),
+            SequenceRange(109, 117, 0.98),
+        )
+    )
+
+    result = FastImageSelector(HYBRID_BOUNDED_SELECTOR_MANIFEST_V104).select(
+        _sources("v10-4-boundary-buffer", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+        first_sequence_number=100,
+    )
+
+    assert [group.source_count for group in result.groups] == [1, 2]
+    assert [group.range for group in result.groups] == [
+        SequenceRange(100, 108, 0.98),
+        SequenceRange(109, 117, 0.98),
+    ]
+    assert verifier.verify_calls == [0, 1, 2]
+
+
+def test_v10_4_accepts_fuzzy_range_only_from_two_matching_grid_reads() -> None:
+    @dataclass
+    class FuzzyVerifier:
+        calls: list[int] = field(default_factory=list)
+
+        def verify(
+            self,
+            observation: CheapImageObservation,
+            *,
+            expected_board_count: int | None,
+        ) -> CandidateVerification:
+            del expected_board_count
+            self.calls.append(observation.source.order_index)
+            return CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(
+                    SequenceRange(7300, 7308, 0.82),
+                    ("RANGE_OCR_FUZZY_CANDIDATE",),
+                ),
+            )
+
+    verifier = FuzzyVerifier()
+    signatures = (_appearance_signature(0), _appearance_signature(0, drift=0.1))
+
+    result = FastImageSelector(HYBRID_BOUNDED_SELECTOR_MANIFEST_V104).select(
+        _sources("v10-4-fuzzy-consensus", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=verifier,
+    )
+
+    assert verifier.calls == [0, 1]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].range == SequenceRange(7300, 7308, 0.92)
+    assert result.groups[0].selected_candidate is not None
+    assert "RANGE_OCR_FUZZY_CONSENSUS" in result.groups[0].selected_candidate.reason_codes
 
 
 def test_v10_1_missing_evidence_expands_to_the_next_level() -> None:
@@ -908,6 +1126,84 @@ def test_v10_2_requires_manual_review_when_no_representative_proves_group_range(
     assert selected is None
     assert extra == 1
     assert "REPRESENTATIVE_RANGE_MISMATCH" in updated[0].reason_codes
+
+
+def test_v10_3_selects_soft_geometry_candidate_that_proves_consensus_range() -> None:
+    source = _sources("v10-3-consensus-backed-representative", 1)[0]
+    observation = _AppearanceAnalyzer((_appearance_signature(0),)).analyze(source)
+    expected_range = SequenceRange(73, 81, 0.99)
+    verification = CandidateVerification(
+        representative=RepresentativeAssessment(5, False, False),
+        range_evidence=RangeEvidence(expected_range),
+    )
+    candidate = CandidateResult(
+        source=source,
+        decision=CandidateDecision.REJECTED,
+        quality=observation.quality,
+        recognized_range=expected_range,
+        reason_codes=(
+            "GEOMETRY_INCOMPLETE",
+            "FRAME_NOT_FULLY_VISIBLE",
+            "RANGE_BOARD_COUNT_MISMATCH",
+        ),
+        width=observation.width,
+        height=observation.height,
+    )
+
+    selected, updated, extra = FastImageSelector(
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103
+    )._select_coherent_representative(
+        eligible=[],
+        candidates=(candidate,),
+        verified=[(observation, verification)],
+        verifier=_SeparatedEvidenceVerifier((verification,)),
+        expected_range=expected_range,
+        board_count_consensus=9,
+        range_conflict=False,
+    )
+
+    assert selected is not None
+    assert selected.source.order_index == 0
+    assert selected.recognized_range == expected_range
+    assert "RANGE_COHERENT_BEST_AVAILABLE" in selected.reason_codes
+    assert updated[0] == selected
+    assert extra == 0
+
+
+def test_v10_3_does_not_select_soft_candidate_with_mismatched_range() -> None:
+    source = _sources("v10-3-mismatched-consensus", 1)[0]
+    observation = _AppearanceAnalyzer((_appearance_signature(0),)).analyze(source)
+    expected_range = SequenceRange(73, 81, 0.99)
+    wrong_range = SequenceRange(82, 90, 0.99)
+    verification = CandidateVerification(
+        representative=RepresentativeAssessment(9, False, False),
+        range_evidence=RangeEvidence(wrong_range),
+    )
+    candidate = CandidateResult(
+        source=source,
+        decision=CandidateDecision.REJECTED,
+        quality=observation.quality,
+        recognized_range=wrong_range,
+        reason_codes=("GEOMETRY_INCOMPLETE",),
+        width=observation.width,
+        height=observation.height,
+    )
+
+    selected, updated, extra = FastImageSelector(
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103
+    )._select_coherent_representative(
+        eligible=[],
+        candidates=(candidate,),
+        verified=[(observation, verification)],
+        verifier=_SeparatedEvidenceVerifier((verification,)),
+        expected_range=expected_range,
+        board_count_consensus=9,
+        range_conflict=False,
+    )
+
+    assert selected is None
+    assert "REPRESENTATIVE_RANGE_MISMATCH" in updated[0].reason_codes
+    assert extra == 0
 
 
 def test_v10_1_readable_number_does_not_promote_cropped_representative() -> None:
@@ -1704,6 +2000,61 @@ def test_v5_does_not_assign_one_gap_to_multiple_unresolved_groups() -> None:
         "manual_required",
         "auto_selected",
     ]
+
+
+def test_v10_2_resolved_manual_group_owns_recovery_candidates_only_once() -> None:
+    observations = (
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "occluded",
+            "range": [280, 288, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "a",
+            "quality": "occluded",
+            "range": [280, 288, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "b",
+            "quality": "good",
+            "range": [280, 288, 0.99],
+        },
+        {
+            "boardCount": 9,
+            "fingerprint": "b",
+            "quality": "good",
+            "range": [280, 288, 0.99],
+        },
+    )
+
+    result = FastImageSelector(CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103).select(
+        _sources("resolved-manual-range", len(observations)),
+        analyzer=_AppearanceAnalyzer(
+            (
+                _appearance_signature(0),
+                _appearance_signature(0, drift=0.02),
+                _appearance_signature(1),
+                _appearance_signature(1, drift=0.02),
+            ),
+            qualities=tuple(_quality(str(value["quality"])) for value in observations),
+        ),
+        verifier=GoldenVerifier(observations),
+    )
+
+    resolved, duplicate = result.groups
+    assert resolved.status is SelectionGroupStatus.AUTO_SELECTED
+    assert resolved.selected_candidate is not None
+    assert resolved.selected_candidate.source.order_index in {2, 3}
+    assert duplicate.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    assert duplicate.duplicate_of_group_order == resolved.group_order
+    assert duplicate.selected_candidate is None
+    assert duplicate.top_candidates == ()
+    resolved_orders = {candidate.source.order_index for candidate in resolved.top_candidates}
+    duplicate_orders = {candidate.source.order_index for candidate in duplicate.top_candidates}
+    assert resolved_orders.isdisjoint(duplicate_orders)
 
 
 @pytest.mark.parametrize(

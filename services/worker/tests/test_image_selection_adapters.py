@@ -20,9 +20,11 @@ from game_predictor_worker.images.selection.adapters import (
     AdaptiveVisibleSequenceLabelRangeRecognizer,
     AnchoredSequenceRangeRecognizer,
     BestEffortVisibleSequenceLabelRangeRecognizer,
+    BoundedGridCandidateVerifier,
     ComposedCheapImageAnalyzer,
     DeterministicParallelCandidateVerifier,
     FullCandidateVerifier,
+    GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     OpenCvAppearanceFingerprintAnalyzer,
@@ -55,6 +57,7 @@ from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     DEFAULT_SELECTOR_MANIFEST,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
     FullGeometryPolicy,
@@ -92,10 +95,23 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.2"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.5"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
+
+
+def test_v10_5_uses_lightweight_range_verification_without_full_geometry(
+    tmp_path: Path,
+) -> None:
+    _analyzer, verifier = build_default_adapters(
+        tmp_path,
+        range_recognizer=NoRangeRecognizer(),
+        fallback_range_recognizer=NoRangeRecognizer(),
+        manifest=QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
+    )
+
+    assert isinstance(verifier, BoundedGridCandidateVerifier)
 
 
 def test_scan_adapter_fingerprint_excludes_domain_grouping_policy() -> None:
@@ -279,9 +295,7 @@ class _BatchCandidateVerifier:
             ),
             range_evidence=RangeEvidence(
                 recognized_range=(
-                    SequenceRange(start, start + 8, 0.95)
-                    if include_range_evidence
-                    else None
+                    SequenceRange(start, start + 8, 0.95) if include_range_evidence else None
                 ),
                 reason_codes=(),
             ),
@@ -1330,6 +1344,63 @@ def test_independent_endpoint_fallback_does_not_infer_without_either_edge() -> N
     assert not recognizer._inlier_position_coverage_is_valid(positions)
 
 
+def test_grid_first_recognizer_corrects_one_missing_leading_digit_from_lattice() -> None:
+    labels = tuple(
+        _VisibleLabel(
+            crop=np.full((20, 80, 3), position + 1, dtype=np.uint8),
+            center=(400.0 + (position % 3) * 360.0, 300.0 + (position // 3) * 100.0),
+        )
+        for position in range(9)
+    )
+    recognitions = (
+        Recognition("300", 0.98),
+        *(Recognition(str(7300 + position), 0.98) for position in range(1, 9)),
+    )
+
+    recognized, reasons = GridFirstVisibleSequenceLabelRangeRecognizer._resolve_range(
+        labels,
+        recognitions,
+        (1080, 1920),
+    )
+
+    assert recognized == SequenceRange(7300, 7308, 0.96)
+    assert reasons == ("RANGE_OCR_EXACT",)
+
+
+def test_grid_first_recognizer_uses_one_nine_crop_ocr_batch() -> None:
+    labels = tuple(
+        _VisibleLabel(
+            crop=np.full((20, 80, 3), position + 1, dtype=np.uint8),
+            center=(400.0 + (position % 3) * 360.0, 300.0 + (position // 3) * 100.0),
+        )
+        for position in range(9)
+    )
+    recognitions = {
+        id(label.crop): Recognition(str(7300 + position), 0.98)
+        for position, label in enumerate(labels)
+    }
+
+    class _GridRecognizer(GridFirstVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return labels
+
+    ocr = _ProgressiveLabelOcr(recognitions)
+    telemetry = StageTimingCollector()
+    recognizer = _GridRecognizer(ocr, telemetry=telemetry)
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized == SequenceRange(7300, 7308, 0.96)
+    assert reasons == ("RANGE_OCR_EXACT",)
+    assert ocr.batch_sizes == [9]
+    assert telemetry.snapshot()["counters"] == {"ocrCalls": 1, "ocrCrops": 9}
+
+
 @dataclass
 class _ParallelProbeState:
     lock: LockType = field(default_factory=Lock)
@@ -1417,7 +1488,7 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert counters["parallelVerificationWorkerSlots"] == 2
 
 
-def test_standalone_cli_uses_v10_and_fails_closed_without_ocr_model(
+def test_standalone_cli_uses_v10_4_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -1447,18 +1518,32 @@ def test_standalone_cli_uses_v10_and_fails_closed_without_ocr_model(
     )
     output_root = tmp_path / "output"
 
+    with pytest.raises(SystemExit) as missing_anchor:
+        main(
+            (
+                "--image-selection-manifest",
+                str(manifest_path),
+                "--image-selection-output",
+                str(output_root),
+            )
+        )
+
+    assert missing_anchor.value.code == 2
+
     exit_code = main(
         (
             "--image-selection-manifest",
             str(manifest_path),
             "--image-selection-output",
             str(output_root),
+            "--first-sequence-number",
+            "1",
         )
     )
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.2"
+    assert report["selectorVersion"] == "fast-image-selector-v10.5"
     assert report["groups"][0]["status"] == "manual_required"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

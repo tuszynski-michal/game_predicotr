@@ -24,6 +24,7 @@ from game_predictor_worker.images.selection.adapters import (
 )
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
+    CandidateResult,
     CandidateVerification,
     CheapImageObservation,
     ImageQualityMetrics,
@@ -38,6 +39,7 @@ from game_predictor_worker.images.selection.job import (
     ImageSelectionJobHandler,
     ImageSelectionJobRun,
     _assert_fence,
+    _upsert_candidate,
 )
 from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
@@ -47,9 +49,95 @@ from game_predictor_worker.images.selection.manifest import (
 )
 from game_predictor_worker.images.selection.output import PublishedImageSelection
 from game_predictor_worker.images.selection.telemetry import StageTimingCollector
+from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
 
 NOW = datetime(2026, 8, 3, 10, tzinfo=UTC)
+
+
+def _persistence_candidate(order_index: int = 7) -> CandidateResult:
+    source = ImageSelectionSource(
+        order_index=order_index,
+        relative_path=f"source/{order_index}.jpg",
+        stored_relative_path=f"{order_index:08d}.jpg",
+        checksum_sha256=hashlib.sha256(f"candidate:{order_index}".encode()).hexdigest(),
+        size_bytes=1024,
+    )
+    return CandidateResult(
+        source=source,
+        decision=CandidateDecision.ELIGIBLE,
+        quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+        recognized_range=SequenceRange(280, 288, 0.99),
+        reason_codes=(),
+        width=1080,
+        height=1920,
+    )
+
+
+def _persistence_group(candidate: CandidateResult) -> SelectionGroupResult:
+    return SelectionGroupResult(
+        group_order=3,
+        source_count=2,
+        range=candidate.recognized_range,
+        fingerprint_sha256="0" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.AUTO_SELECTED,
+        selected_candidate=candidate,
+        top_candidates=(candidate,),
+    )
+
+
+def test_full_candidate_promotes_same_gallery_source_to_authoritative_group() -> None:
+    candidate = _persistence_candidate()
+    group = _persistence_group(candidate)
+    final_group_id = uuid4()
+    record = SimpleNamespace(
+        group_id=uuid4(),
+        checksum_sha256=candidate.source.checksum_sha256,
+        quality_metrics={"manualGalleryOnly": True},
+    )
+    session = SimpleNamespace(scalar=lambda _query: record)
+
+    _upsert_candidate(
+        session,  # type: ignore[arg-type]
+        run_id=uuid4(),
+        group_id=final_group_id,
+        group=group,
+        candidate=candidate,
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        persisted_at=NOW,
+    )
+
+    assert record.group_id == final_group_id
+    assert record.quality_metrics.get("manualGalleryOnly") is None
+    assert record.decision.value == CandidateDecision.SELECTED_AUTOMATIC.value
+
+
+@pytest.mark.parametrize("gallery_only", (False, True))
+def test_full_candidate_keeps_real_persistence_conflicts(
+    gallery_only: bool,
+) -> None:
+    candidate = _persistence_candidate()
+    group = _persistence_group(candidate)
+    record = SimpleNamespace(
+        group_id=uuid4(),
+        checksum_sha256=(candidate.source.checksum_sha256 if not gallery_only else "f" * 64),
+        quality_metrics={"manualGalleryOnly": gallery_only},
+    )
+    session = SimpleNamespace(scalar=lambda _query: record)
+
+    with pytest.raises(JobHandlerError) as raised:
+        _upsert_candidate(
+            session,  # type: ignore[arg-type]
+            run_id=uuid4(),
+            group_id=uuid4(),
+            group=group,
+            candidate=candidate,
+            decision=CandidateDecision.SELECTED_AUTOMATIC,
+            persisted_at=NOW,
+        )
+
+    assert raised.value.code == "IMAGE_SELECTION_PERSISTENCE_CONFLICT"
 
 
 def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
@@ -149,9 +237,7 @@ class _Store:
     run: ImageSelectionJobRun
     groups: tuple[SelectionGroupResult, ...] = ()
     published: PublishedImageSelection | None = None
-    gallery_sources: dict[int, tuple[CheapImageObservation, ...]] = field(
-        default_factory=dict
-    )
+    gallery_sources: dict[int, tuple[CheapImageObservation, ...]] = field(default_factory=dict)
 
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun:
         assert job_id == self.run.job_id
@@ -385,6 +471,27 @@ def _fixture(
         output_manifest_relative_path=None,
     )
     return import_root, artifact_root, claimed, _Store(run)
+
+
+def test_v10_4_job_fails_closed_without_first_sequence_number(tmp_path: Path) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=1,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (_Analyzer(), _Verifier()),
+    )
+
+    with pytest.raises(JobHandlerError) as raised:
+        handler(_Context(job), job)  # type: ignore[arg-type]
+
+    assert raised.value.code == "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED"
 
 
 def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(

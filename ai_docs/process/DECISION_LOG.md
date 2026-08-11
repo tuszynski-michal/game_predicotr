@@ -4045,6 +4045,94 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   uruchomić jego kontrolowaną rewizję, ale nie zmienia wcześniejszych wpisów
   audytu ani wyniku innych grup.
 
+## D-167 — Zgodny własny OCR może zmiękczyć bramkę geometrii reprezentanta
+
+- **Status:** accepted
+- **Date:** 2026-08-10
+- **Decision:** po potwierdzeniu zakresu przez konsensus selektor może wybrać
+  kandydata z miękkim błędem geometrii lub jakości, jeżeli ten sam JPEG
+  samodzielnie odczytuje dokładnie ten zakres z confidence co najmniej `0.90`.
+  Inny albo nieznany zakres nadal wymaga ręcznej decyzji.
+- **Context:** v10.2 zmniejszył ryzyko błędnych nazw, ale produkcyjny run kierował
+  około 37% grup do review. Zapisane dane pokazały dokładnie zgodne odczyty na
+  JPEG-ach odrzuconych głównie przez niepełną geometrię i różnicę liczby plansz.
+- **Reason:** poprawność nazwy pochodzi z własnego OCR pliku, natomiast pełna
+  geometria jest miarą jakości i kompletności późniejszego cięcia. Nie powinna
+  sama odrzucać poprawnie nazwanego najlepszego dostępnego źródła.
+- **Alternatives:** powrót do bezwarunkowego pożyczania zakresu z v10.1 odrzucono
+  przez realny false merge. Pozostawienie wszystkich przypadków w review
+  odrzucono z powodu nieakceptowalnego kosztu ręcznego.
+- **Consequences:** powstaje `fast-image-selector-v10.3` i nowy fingerprint.
+  Wyniki v10.2 pozostają niezmienne; worker musi zostać przeładowany przed nowym
+  runem.
+- **Supersedes:** doprecyzowuje D-165, nie znosi wymagania zgodności nazwy.
+
+## D-168 — V10.4 używa siatki etykiet i obowiązkowej kotwicy pierwszej grupy
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** nowe runy `fast-image-selector-v10.4` wymagają dodatniego
+  `first_sequence_number`, rozpoznają zakres z maksymalnie dwóch batchów siatki
+  `3×3` i wybierają reprezentanta po lekkiej ocenie całej grupy. Historyczne
+  runy i kolumna bazy pozostają nullable oraz odtwarzalne po fingerprintach.
+- **Context:** v10.2–v10.3 ograniczyły błędne nazwy, ale pełna geometria i
+  progresywny OCR `18/36/72` dominowały czas, a ręczne galerie ujawniły dobre
+  JPEG-i odrzucane przez zbyt kosztowną i zbyt ostrą ścieżkę. Pierwsza klatka
+  następnego ekranu mogła też wejść do galerii poprzedniej grupy.
+- **Reason:** dziewięć etykiet ma znaną topologię i pozwala korygować pojedynczy
+  błąd OCR bez hardcode. Jawna pierwsza kotwica usuwa koszt i ryzyko startowego
+  zgadywania, ale nie fałszuje późniejszych skoków numeracji.
+- **Alternatives:** powrót do `first usable`, pożyczanie dowodu z dowolnego JPEG-a
+  i ciągły cursor odrzucono ze względu na jakość oraz realny false merge. Pełny
+  OCR top-12 odrzucono jako zbyt kosztowny.
+- **Consequences:** zwykła grupa ma najwyżej 18 cropów OCR, wszystkie zdjęcia są
+  nadal porównane tanim scoringiem, a niejednoznaczny przypadek pozostaje
+  dostępny w trwałej galerii ręcznej. Odbiór na danych następuje osobno.
+- **Supersedes:** zastępuje domyślną ścieżkę OCR v10.1–v10.3 dla nowych runów;
+  nie zmienia historycznych manifestów.
+
+## D-169 — Duplikat zakresu wymaga jawnej i zweryfikowanej decyzji
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** grupa manualna może zostać odrzucona jako duplikat tylko jawną
+  akcją administratora i tylko wtedy, gdy backend znajdzie inną rozwiązaną
+  grupę tego runu z identycznym zakresem. Decyzja `duplicate_range` projektuje
+  grupę do `skipped_existing_range` bez wybranego kandydata.
+- **Context:** poprawna ochrona unikalności zwracała
+  `IMAGE_SELECTION_RANGE_CONFLICT`, ale modal nie pozwalał zakończyć faktycznej
+  kopii. Taka grupa wracała do kolejki po ponownym otwarciu.
+- **Reason:** jawna akcja usuwa blokadę pracy, zachowując ochronę przed
+  przypadkowym odrzuceniem grupy z błędnie wpisanym numerem.
+- **Alternatives:** automatyczne ukrycie po każdym konflikcie odrzucono, ponieważ
+  konflikt może oznaczać pomyłkę w zakresie, a nie duplikat obrazu.
+- **Consequences:** kontrakt i migracja audytu otrzymują nową rezolucję; plik
+  istniejącego zakresu nie jest kopiowany ani nadpisywany.
+- **Supersedes:** doprecyzowuje D-129 i D-167.
+
+## D-170 — V10.4 nie przechodzi odbioru; v10.5 odzyskuje OCR v10.3
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** v10.4 nie może pozostać domyślnym selektorem. V10.5 używa
+  szerokiego grupowania v10.3, bounded bufora granicy v10.4 i lekkiego
+  niezależnego OCR na poziomach kandydatów `1/2/4`, bez pełnej geometrii.
+- **Context:** realny run 42 403 zdjęć utworzył 3 840 grup, z których 3 388
+  (88,23%) trafiło do manualnego wyboru. Tyle samo grup nie miało zakresu, a
+  7 401 z 7 680 prób zakończyło się `RANGE_LABEL_GRID_NO_HYPOTHESIS` mimo
+  czytelnych etykiet. Podejście v10.4 okazało się zdecydowanie nieskuteczne.
+- **Reason:** syntetyczne testy topologii siatki nie reprezentowały rzeczywistego
+  rozkładu cropów i OCR. Optymalizacja czasu usunęła recall dojrzałego
+  recognizera, przez co przeniosła koszt na użytkownika.
+- **Alternatives:** dalsze obniżanie progów grid-only odrzucono jako ryzyko
+  błędnych nazw. Pełny powrót do geometrii v10.3 odrzucono z powodu czasu.
+- **Consequences:** kolejna wersja nie może zostać domyślna wyłącznie po testach
+  syntetycznych. Wymagane jest porównanie na tym samym rzeczywistym wycinku,
+  minimum 95% znanych zakresów, maksimum 35% manualnych i zero błędnych nazw w
+  zatwierdzonym regression secie.
+- **Supersedes:** D-168 w zakresie domyślnego OCR i descriptoru grupowania;
+  zachowuje obowiązkową kotwicę oraz bezpieczny bufor granicy.
+
 ## Szablon nowej decyzji
 
 ```text

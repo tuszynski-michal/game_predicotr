@@ -594,6 +594,20 @@ GET runu zwraca lifecycle przez zagnieżdżony `job`. GET grup przyjmuje opcjona
 25). Odpowiedź ma `items` oraz opcjonalny `nextAfterGroupOrder`. Endpoint nie
 zwraca pełnej listy kandydatów.
 
+Aktualny kontrakt tworzenia runu v10.4 wymaga również dodatniego pola
+`firstSequenceNumber`. Historyczne rekordy odpowiedzi zachowują pole nullable,
+ponieważ runy v9–v10.3 mogły powstać bez kotwicy. Ponowne użycie istniejącego
+stagingu ma endpoint:
+
+```text
+POST /api/v1/admin/image-selections/{runId}/rerun
+```
+
+Opcjonalne body `{ "firstSequenceNumber": 7300 }` nadpisuje lub uzupełnia
+kotwicę źródłowego runu. Dla selektora v10.4 brak wartości zarówno w body, jak i
+w źródłowym runie zwraca `IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED`; nie powstaje
+job. Dla historycznego fingerprintu nullable pozostaje dozwolone.
+
 Stabilne błędy dostarczone w TASK-0151:
 
 ```text
@@ -611,6 +625,7 @@ TASK-0154–0155 rozszerzają kontrakt o:
 PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
 GET  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-files/{candidateId}
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/discard-duplicate
 POST /api/v1/admin/image-selections/{runId}/handoff
 ```
 
@@ -637,6 +652,12 @@ zmiana payloadu pod tym samym kluczem jest konfliktem. Kolejna korekta używa
 nowego UUID i tworzy append-only rewizję. Handoff działa wyłącznie dla
 kompletnego checksumowanego manifestu i zwraca poświadczone źródło do
 istniejącego `POST /image-imports`; nie uruchamia sam ciężkiego pipeline'u.
+
+`POST .../discard-duplicate` używa body `idempotencyKey`, `rangeStart` i
+`rangeEnd`. Zwraca ten sam typ co zatwierdzenie manualne, z decyzją
+`duplicate_range` i grupą `skipped_existing_range`. API nie wykonuje operacji,
+jeżeli inna rozwiązana grupa runu nie ma identycznego zakresu; stabilny kod
+błędu to `IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND`.
 
 TASK-0154 zamraża odpowiedź handoffu:
 
@@ -1954,3 +1975,9 @@ npm run openapi:check
 
 Generowanie nie wymaga uruchomionego API ani połączenia sieciowego. Klient
 pozostaje wyłącznie zależnością panelu; mobile nie importuje tego workspace.
+
+`ImageSelectionRunResponse` zwraca również `selectorVersion`. Backend wyznacza
+wartość z zapisanego `selectorFingerprint` przez rejestr niezmiennych manifestów;
+dla nieznanego historycznego fingerprintu zwraca `unknown`. Panel używa pola do
+opisania pozycji w historii runów, ale fingerprint pozostaje techniczną
+tożsamością zachowania selektora.

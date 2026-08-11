@@ -17,8 +17,11 @@ APPEARANCE_ONLY_SELECTOR_VERSION = "fast-image-selector-v9"
 ACCURACY_FIRST_SELECTOR_VERSION = "fast-image-selector-v10"
 ADAPTIVE_ACCURACY_SELECTOR_VERSION = "fast-image-selector-v10.1"
 COHERENT_REPRESENTATIVE_SELECTOR_VERSION = "fast-image-selector-v10.2"
+CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION = "fast-image-selector-v10.3"
+HYBRID_BOUNDED_SELECTOR_VERSION = "fast-image-selector-v10.4"
+QUALITY_RECOVERY_SELECTOR_VERSION = "fast-image-selector-v10.5"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = COHERENT_REPRESENTATIVE_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = QUALITY_RECOVERY_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -29,6 +32,9 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         ACCURACY_FIRST_SELECTOR_VERSION,
         ADAPTIVE_ACCURACY_SELECTOR_VERSION,
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -52,6 +58,9 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         ACCURACY_FIRST_SELECTOR_VERSION,
         ADAPTIVE_ACCURACY_SELECTOR_VERSION,
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
     }
 )
 
@@ -79,6 +88,9 @@ INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v6:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+GRID_FIRST_RANGE_ADAPTER_VERSION = (
+    "visible-sequence-label-grid-v1:sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
 NO_RANGE_ADAPTER_VERSION = "none-v2"
 LEGACY_THUMBNAIL_ADAPTER_VERSION = "pillow-exif-thumbnail-v1"
 REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION = "pillow-jpeg-draft-thumbnail-v2"
@@ -95,6 +107,9 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         ACCURACY_FIRST_SELECTOR_VERSION,
         ADAPTIVE_ACCURACY_SELECTOR_VERSION,
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -105,6 +120,9 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         ACCURACY_FIRST_SELECTOR_VERSION,
         ADAPTIVE_ACCURACY_SELECTOR_VERSION,
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -112,17 +130,40 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         ACCURACY_FIRST_SELECTOR_VERSION,
         ADAPTIVE_ACCURACY_SELECTOR_VERSION,
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
 ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
-    {ADAPTIVE_ACCURACY_SELECTOR_VERSION, COHERENT_REPRESENTATIVE_SELECTOR_VERSION}
+    {
+        ADAPTIVE_ACCURACY_SELECTOR_VERSION,
+        COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
+    }
+)
+COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
+    {
+        COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+        CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
+    }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
     {
         EXACT_GAP_SELECTOR_VERSION,
         BEST_EFFORT_SELECTOR_VERSION,
         FIRST_USABLE_SELECTOR_VERSION,
+        HYBRID_BOUNDED_SELECTOR_VERSION,
     }
+)
+HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
+    {HYBRID_BOUNDED_SELECTOR_VERSION, QUALITY_RECOVERY_SELECTOR_VERSION}
+)
+OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
+    {HYBRID_BOUNDED_SELECTOR_VERSION, QUALITY_RECOVERY_SELECTOR_VERSION}
 )
 
 
@@ -299,7 +340,8 @@ class SelectorManifest:
             if not (
                 levels
                 and tuple(sorted(set(levels))) == levels
-                and levels[0] >= consensus_policy.minimum_agreeing_frames >= 2
+                and consensus_policy.minimum_agreeing_frames >= 2
+                and levels[-1] >= consensus_policy.minimum_agreeing_frames
                 and levels[-1] <= self.top_k
             ):
                 raise ValueError("Adaptive range consensus policy is outside supported bounds.")
@@ -616,8 +658,53 @@ COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102 = SelectorManifest(
     adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(),
     progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
 )
-DEFAULT_SELECTOR_MANIFEST = COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102
+CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103 = SelectorManifest(
+    algorithm_version=CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="page-board-detector-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    full_geometry_policy=FullGeometryPolicy(),
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
+)
+HYBRID_BOUNDED_SELECTOR_MANIFEST_V104 = SelectorManifest(
+    algorithm_version=HYBRID_BOUNDED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="visible-label-grid-v1",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v3",
+    range_adapter_version=GRID_FIRST_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    appearance_descriptor=AppearanceDescriptorConfig(
+        crop_left=0.14,
+        crop_top=0.34,
+        crop_right=0.86,
+        crop_bottom=0.58,
+    ),
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(2,),
+        minimum_agreeing_frames=2,
+    ),
+)
+QUALITY_RECOVERY_SELECTOR_MANIFEST_V105 = SelectorManifest(
+    algorithm_version=QUALITY_RECOVERY_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="visible-label-range-lightweight-v1",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
+)
+DEFAULT_SELECTOR_MANIFEST = QUALITY_RECOVERY_SELECTOR_MANIFEST_V105
 SUPPORTED_SELECTOR_MANIFESTS = (
+    QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
+    HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
+    CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103,
     COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK,
@@ -683,6 +770,9 @@ __all__ = [
     "CONTINUITY_SELECTOR_VERSION",
     "COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102",
     "COHERENT_REPRESENTATIVE_SELECTOR_VERSION",
+    "COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS",
+    "CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103",
+    "CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION",
     "DIGIT_AWARE_SELECTOR_MANIFEST_V5",
     "DIGIT_AWARE_SELECTOR_VERSION",
     "EXACT_GAP_SELECTOR_MANIFEST_V6",
@@ -694,6 +784,13 @@ __all__ = [
     "FIRST_USABLE_SELECTOR_VERSIONS",
     "FullGeometryPolicy",
     "INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION",
+    "GRID_FIRST_RANGE_ADAPTER_VERSION",
+    "HYBRID_BOUNDED_SELECTOR_MANIFEST_V104",
+    "HYBRID_BOUNDED_SELECTOR_VERSION",
+    "HYBRID_BOUNDED_SELECTOR_VERSIONS",
+    "OWNER_ANCHORED_SELECTOR_VERSIONS",
+    "QUALITY_RECOVERY_SELECTOR_MANIFEST_V105",
+    "QUALITY_RECOVERY_SELECTOR_VERSION",
     "LEGACY_RANGE_ADAPTER_VERSION",
     "LEGACY_THUMBNAIL_ADAPTER_VERSION",
     "LEGACY_SELECTOR_MANIFEST_V2",

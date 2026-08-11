@@ -232,9 +232,9 @@ Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawn
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
 
-### Uruchomienie dużego runu Selekcji Zdjęć na selektorze v10.2
+### Uruchomienie dużego runu Selekcji Zdjęć na selektorze v10.4
 
-Nowe runy używają `fast-image-selector-v10.2`. Po aktualizacji kodu zatrzymaj
+Nowe runy używają `fast-image-selector-v10.4`. Po aktualizacji kodu zatrzymaj
 procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
 zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
 
@@ -257,8 +257,8 @@ to poprawne. Sprawdź aktywny manifest:
 Oczekiwany wynik:
 
 ```text
-fast-image-selector-v10.2
-793aa567d59b6f443d774c84b11349dbbe8a797e8ea46c8d15d186b800566143
+fast-image-selector-v10.4
+8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e
 ```
 
 Pozostaw pierwszy terminal dla API:
@@ -276,9 +276,10 @@ npm run admin:dev
 
 Następnie otwórz `http://127.0.0.1:3000/`, wybierz grę i workspace
 `Selekcja zdjęć`. Wskaż folder zawierający naturalnie uporządkowane JPEG-i,
-poczekaj na zakończenie uploadu i uruchom selekcję.
+poczekaj na zakończenie uploadu, wpisz dodatni numer pierwszego layoutu i
+uruchom selekcję. V10.4 nie rozpocznie nowego runu bez tej kotwicy.
 Nie uruchamiaj w tym samym czasie Importu layoutów, jeżeli ten przebieg ma być
-miarodajnym pomiarem v10.2. Postęp i stan procesu obserwuj w workspace `Joby` albo
+miarodajnym pomiarem v10.4. Postęp i stan procesu obserwuj w workspace `Joby` albo
 przez:
 
 ```powershell
@@ -290,6 +291,14 @@ stanu terminalnego. Po zakończeniu pozostaw run i staging bez zmian — metryki
 liczbę grup oraz diagnostykę wykorzystamy do zamknięcia TASK-0171. Jeżeli
 musisz przerwać próbę, użyj anulowania konkretnego joba w panelu; nie usuwaj
 folderu uploadu ani bazy.
+
+Rozpoczęty run zachowuje fingerprint selektora, z którym został utworzony.
+Dlatego runu v10.2 nie przełącza się w locie na v10.3: należy pozwolić mu dojść
+do stanu terminalnego, zakończyć jego monitor eksportu, a następnie przeładować
+API i lane `image-selection` przed utworzeniem kolejnego runu. Historia oraz
+galeria ręcznej selekcji wcześniejszego runu pozostają w bazie i są dostępne po
+wybraniu tego runu w Adminie, o ile operator nie wyczyści danych gry lub
+stagingu.
 
 ### Jak używać panelu Admin
 

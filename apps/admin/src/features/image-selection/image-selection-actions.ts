@@ -34,6 +34,7 @@ export type ImageSelectionClient = Pick<
   | 'uploadManualImageSelectionFile'
   | 'approveManualImageSelection'
   | 'continueImageSelectionWithoutImage'
+  | 'discardDuplicateImageSelectionGroup'
 >;
 
 export interface ImageSelectionUploadProgress {
@@ -109,6 +110,18 @@ export async function uploadPhotoSelectionFolder(
     readonly firstSequenceNumber?: number | null;
   } = {},
 ): Promise<ImageSelectionUploadResult> {
+  if (
+    options.firstSequenceNumber === null ||
+    options.firstSequenceNumber === undefined ||
+    !Number.isInteger(options.firstSequenceNumber) ||
+    options.firstSequenceNumber < 1
+  ) {
+    return {
+      error: 'Podaj numer pierwszego layoutu przed rozpoczęciem uploadu.',
+      ok: false,
+      resume: null,
+    };
+  }
   const files = options.resume?.files ?? orderImageSelectionFiles(sourceFiles);
   if (files.length === 0) {
     return {
@@ -250,7 +263,7 @@ export async function uploadPhotoSelectionFolder(
     }
     const created = await api.createImageSelection({
       contractVersion: 1,
-      firstSequenceNumber: options.firstSequenceNumber ?? null,
+      firstSequenceNumber: options.firstSequenceNumber,
       gameId,
       sequenceDirection: options.sequenceDirection ?? 'ascending',
       selectionToken: finalized.data.selectionToken,
@@ -363,6 +376,27 @@ export async function loadManualImageSelectionGroups(
         group.status === 'missing_image',
     )
     .map((group) => suggestBoundedMissingRange(group, groups));
+}
+
+export async function loadAutomaticallySelectedImageSelectionGroups(
+  api: ImageSelectionClient,
+  runId: string,
+): Promise<ImageSelectionGroupResponse[]> {
+  const groups: ImageSelectionGroupResponse[] = [];
+  let afterGroupOrder: number | undefined;
+  do {
+    const result = await api.listImageSelectionGroups(runId, {
+      ...(afterGroupOrder === undefined ? {} : { afterGroupOrder }),
+      limit: 100,
+      status: 'auto_selected',
+    });
+    if (result.error !== undefined || result.data === undefined) {
+      throw new Error('IMAGE_SELECTION_GROUPS_UNAVAILABLE');
+    }
+    groups.push(...result.data.items);
+    afterGroupOrder = result.data.nextAfterGroupOrder ?? undefined;
+  } while (afterGroupOrder !== undefined);
+  return groups;
 }
 
 export async function loadAllImageSelectionGroups(

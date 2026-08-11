@@ -36,6 +36,7 @@ from .adapters import (
     AnchoredSequenceRangeRecognizer,
     BestEffortVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
+    GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
@@ -71,8 +72,10 @@ from .manifest import (
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
+    GRID_FIRST_RANGE_ADAPTER_VERSION,
     INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
+    OWNER_ANCHORED_SELECTOR_VERSIONS,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -180,6 +183,14 @@ class ImageSelectionJobHandler:
             raise JobHandlerError(
                 "IMAGE_SELECTION_SELECTOR_MISMATCH",
                 "The durable run references another selector fingerprint.",
+            )
+        if (
+            selector_manifest.algorithm_version in OWNER_ANCHORED_SELECTOR_VERSIONS
+            and run.first_sequence_number is None
+        ):
+            raise JobHandlerError(
+                "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED",
+                "The current selector requires the first layout sequence number.",
             )
         source_root = self._managed_source_root(run.source_selection_id)
         manifest_path = source_root / BROWSER_SELECTION_MANIFEST
@@ -359,7 +370,12 @@ class ImageSelectionJobHandler:
             ocr = PaddleSequenceNumberRecognizer(model_root)
             recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
             fallback_recognizer: SequenceRangeRecognizer
-            if (
+            if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
+                fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            elif (
                 manifest.range_adapter_version == INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION
                 and manifest.progressive_visible_label_fallback_policy is not None
             ):
@@ -492,9 +508,7 @@ class _DurableSelectionSink(SelectionAuditSink):
                     job_id=self._run.job_id,
                     run_id=self._run.id,
                     lease_token=self._context.lease_token,
-                    groups=tuple(
-                        self._pending_groups[key] for key in sorted(self._pending_groups)
-                    ),
+                    groups=tuple(self._pending_groups[key] for key in sorted(self._pending_groups)),
                     group_sources={
                         key: tuple(self._pending_group_sources.pop(key, ()))
                         for key in sorted(self._pending_groups)
@@ -899,8 +913,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 record = ImageSelectionCandidateModel(
                     id=uuid5(
                         run_id,
-                        "image-selection-candidate:"
-                        f"{source.order_index}:{source.checksum_sha256}",
+                        f"image-selection-candidate:{source.order_index}:{source.checksum_sha256}",
                     ),
                     run_id=run_id,
                     group_id=group_id,
@@ -968,11 +981,22 @@ def _upsert_candidate(
             created_at=persisted_at,
         )
         session.add(record)
-    elif record.group_id != group_id or record.checksum_sha256 != candidate.source.checksum_sha256:
+    elif record.checksum_sha256 != candidate.source.checksum_sha256:
         raise JobHandlerError(
             "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
             "A candidate order already belongs to another selector result.",
         )
+    elif record.group_id != group_id:
+        if not record.quality_metrics.get("manualGalleryOnly", False):
+            raise JobHandlerError(
+                "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                "A candidate order already belongs to another selector result.",
+            )
+        # A lightweight gallery observation is provisional. A later, fully
+        # verified candidate result is authoritative and may safely promote
+        # that exact source into its final selector group. Different bytes are
+        # still rejected above.
+        record.group_id = group_id
     record.width = candidate.width
     record.height = candidate.height
     record.quality_metrics = metrics

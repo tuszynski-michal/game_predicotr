@@ -313,6 +313,28 @@ Poniższe reguły zastępują sprzeczne założenia v9 dotyczące pierwszego
   miniatury. JPEG pozostaje pojedynczym plikiem w stagingu; baza nie przechowuje
   jego kopii. Kliknięcie miniatury otwiera pełny podgląd, a `Zatwierdź` wybiera
   istniejący plik bez ręcznego szukania go w katalogu źródłowym.
+- Lista miniaturek ma własny, widoczny obszar przewijania, aby wszystkie
+  zachowane zdjęcia grupy pozostały dostępne także na niższym ekranie. Wybrany
+  JPEG można otworzyć na całym ekranie i przełączyć między dopasowaniem a jednym
+  poziomem powiększenia do kontroli numerów oraz layoutów.
+- Po wczytaniu galerii modal wskazuje domyślnego kandydata, ale nie zapisuje go
+  bez świadomej akcji użytkownika. Dla grup do 20 zdjęć wskazuje środkowy JPEG,
+  a dla większych grup dziesiąty JPEG w deterministycznej kolejności galerii.
+- `Enter`, strzałka w prawo i przycisk `Zatwierdź` zapisują aktualnie wskazany
+  JPEG idempotentnie i przechodzą do następnej nierozwiązanej grupy. Strzałka w
+  lewo jedynie wraca. Podczas ładowania domyślnego kandydata nie wolno omyłkowo
+  zapisać decyzji `bez zdjęcia`.
+- Nagłówek ręcznej galerii raportuje osobno liczbę wybranych zdjęć, pominiętych
+  grup i grup pozostałych do decyzji. Ponowne otwarcie modala zaczyna od
+  pierwszej nierozwiązanej grupy; wcześniejsze wybory i pominięcia pozostają
+  dostępne do korekty.
+- Każdy run z automatycznie wybranymi grupami udostępnia osobną akcję
+  `Weryfikuj wybory algorytmu`. Korzysta ona z tej samej przewijanej galerii,
+  pełnego podglądu i zoomu, pokazuje wszystkie zachowane zdjęcia grupy oraz
+  jednoznacznie oznacza reprezentanta wskazanego przez algorytm.
+- Weryfikacja automatycznych wyborów jest na tym etapie trybem tylko do odczytu.
+  Kliknięcie innej miniatury służy porównaniu, ale nie zmienia decyzji runu,
+  pliku wynikowego ani katalogu eksportu. Strzałki przechodzą między grupami.
 - Historyczny run utworzony przed tą korektą może mieć zachowane wyłącznie
   top-12. Modal pokazuje wtedy licznik `zachowane / wszystkie` i jasną informację
   o ograniczeniu; opcjonalny upload pojedynczego JPEG-a pozostaje drogą
@@ -331,6 +353,51 @@ Poniższe reguły zastępują sprzeczne założenia v9 dotyczące pierwszego
 - Status `skipped_existing_range` oznacza duplikat rozpoznanego zakresu, a nie
   brak zdjęcia. UI pokazuje osobno: duplikaty, grupy bez dowodu zakresu, konflikty
   zakresu oraz pliki niedekodowalne.
+
+### Korekta recall v10.3 — 2026-08-10
+
+- Automatyczna nazwa nadal wymaga, aby ten sam wynikowy JPEG rozpoznał dokładnie
+  zakres grupy z confidence co najmniej `0.90`. Konsensusu innego zdjęcia nie
+  wolno bezwarunkowo przenosić na reprezentanta.
+- Jeżeli własny odczyt JPEG-a jest dokładnie zgodny z konsensusem, niepełna
+  geometria, niepełny kadr, ekspozycja albo różnica liczby wykrytych plansz są
+  miękkim problemem jakości. Selektor wybiera najlepszy taki JPEG zamiast
+  kierować całą grupę do ręcznego review.
+- Inny zakres, brak wiarygodnego odczytu, konflikt zakresów, rozmycie, okluzja
+  oraz techniczny błąd skanu lub weryfikacji pozostają twardą blokadą
+  automatycznego eksportu.
+- Wynik wybrany przez miękką bramkę zachowuje kod powodu
+  `RANGE_COHERENT_BEST_AVAILABLE`, aby jakość można było audytować i później
+  poprawiać bez podważania poprawności nazwy.
+- Historyczne runy v10.2 nie zmieniają decyzji. Nowe zachowanie ma osobną wersję
+  i fingerprint; wymaga przeładowania procesu workera przed utworzeniem runu.
+
+### Hybrydowa selekcja v10.4 — 2026-08-11
+
+- Każdy nowy run v10.4 wymaga dodatniego `first_sequence_number`. Pole pozostaje
+  opcjonalne w historycznym modelu danych, aby starsze runy zachowały swoje
+  zachowanie, ale panel, API, skrypt live i tryb standalone nie mogą utworzyć
+  nowego przebiegu v10.4 bez tej kotwicy.
+- Kotwica ustala zakres pierwszej grupy. Dalsze grupy nadal wymagają lokalnego
+  dowodu OCR albo jednoznacznej, ograniczonej luki; nie wolno przesuwać wszystkich
+  kolejnych nazw wyłącznie na podstawie kursora.
+- Deskryptor grupowania obejmuje centralny obszar siatki layoutów. Klasyfikacja
+  zmiany ekranu porównuje kandydatów z ostatnim stabilnym obrazem starej grupy;
+  bufor nowych klatek nie musi być wzajemnie podobny, ponieważ zmiana perspektywy
+  nie może dołączać pierwszego zdjęcia następnego ekranu do poprzedniej grupy.
+- Domyślny OCR dopasowuje siatkę `3×3` etykiet i wykonuje najwyżej jeden batch
+  dziewięciu cropów na analizowany JPEG. Maksymalnie dwa najlepsze JPEG-i grupy
+  dostarczają dowodu zakresu, więc zwykła grupa wykonuje najwyżej 18 cropów OCR.
+  Historyczne poziomy `18/36/72` nie należą do ścieżki v10.4.
+- Jedna błędna albo brakująca cyfra może zostać skorygowana wyłącznie wtedy, gdy
+  pozostałe etykiety tworzą jednoznaczną, rosnącą siatkę w porządku wierszowym.
+  Remis hipotez albo konflikt dwóch zdjęć kończy się `manual_required`.
+- Wszystkie zdjęcia zamkniętej grupy przechodzą tani scoring. Nie ma early exit;
+  reprezentantem zostaje najlepszy czytelny JPEG z całej grupy. Pełna geometria
+  nie jest warunkiem wyboru, ale blur, okluzja, brak widocznego layoutu, konflikt
+  zakresu i błąd techniczny pozostają twardymi blokadami automatycznego zapisu.
+- v10.4 ma osobny niezmienny fingerprint. Historyczne v9–v10.3 pozostają
+  rozwiązywalne po swoich fingerprintach i nie zmieniają wyników po wdrożeniu.
 
 ### Zachowane wymagania wydajnościowe v10.1
 
@@ -357,8 +424,8 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   numeru,
 - rozpoznany zakres nie może być zastępowany przewidywanym kolejnym zakresem.
   Skok, np. `19–27 -> 400–408`, jest poprawny i musi pozostać rozpoznany,
-- `first_sequence_number` może kotwiczyć pierwszy ekran, ale nie narzuca
-  ciągłości dalszych grup,
+- w v10.1–v10.3 `first_sequence_number` może kotwiczyć pierwszy ekran; w v10.4
+  jest obowiązkowy, lecz w żadnej wersji nie narzuca ciągłości dalszych grup,
 - pierwsza bramka zakłada skrócenie czasu o 60–70% bez pogorszenia jakości.
   Dalszy cel 70–85% jest dopuszczalny dopiero po porównaniu reprezentantów,
 - pomiar na tych samych pierwszych 200 zdjęciach poprzedza manualny run 5000 i
@@ -368,3 +435,39 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   jest niedopuszczalne, jeżeli zmienia rezultat detektora; równoważne sumy
   integralne maski binarnej mogą zastąpić wielokrotne skanowanie tych samych
   prostokątnych okien.
+
+### Ręczne odrzucenie zduplikowanego zakresu — 2026-08-11
+
+- Konflikt `IMAGE_SELECTION_RANGE_CONFLICT` nie może pozostawiać grupy bez
+  dostępnej decyzji. Modal udostępnia jawną akcję `Odrzuć jako duplikat`.
+- Backend akceptuje odrzucenie tylko wtedy, gdy inna rozwiązana grupa tego
+  samego runu ma dokładnie ten sam `range_start` i `range_end`.
+- Odrzucona grupa otrzymuje terminalny status `skipped_existing_range`, znika z
+  kolejki ręcznej i nie zapisuje ani nie nadpisuje JPEG-a wynikowego.
+- Decyzja jest idempotentna i audytowana jako `duplicate_range`. Nie wolno
+  automatycznie odrzucać grupy po samym konflikcie, ponieważ wpisany zakres może
+  wymagać korekty użytkownika.
+- Po odpowiedzi `IMAGE_SELECTION_RANGE_CONFLICT` modal pokazuje akcję
+  `Odrzuć duplikat i dalej` bezpośrednio przy błędzie. Główny przycisk oraz
+  ponowne `Enter` lub `→` wykonują tę samą jawną decyzję. Pierwsza próba nie
+  odrzuca grupy automatycznie; zmiana zakresu anuluje propozycję odrzucenia.
+
+### Korekta jakościowa v10.5 — 2026-08-11
+
+- v10.4 nie spełniła odbioru na rzeczywistych 42 403 zdjęciach: 3 388 z 3 840
+  grup, czyli 88,23%, wymagało ręcznej decyzji, a dominującą przyczyną był brak
+  hipotezy grid OCR mimo czytelnych etykiet.
+- Nowe runy używają szerokiego deskryptora wyglądu v10.3. Zachowany zostaje
+  bufor v10.4, który nie pozwala pierwszym klatkom kolejnego ekranu pozostać w
+  poprzedniej grupie.
+- Zakres rozpoznaje adapter niezależnych etykiet brzegowych v10.3. Kandydaci są
+  sprawdzani progresywnie `1 -> 2 -> 4`, a cropy jednego JPEG-a `18 -> 36 -> 72`.
+- Jeden dokładny, lokalnie spójny odczyt kończy wyszukiwanie. Odczyt fuzzy jest
+  używany wyłącznie po zgodności dwóch niezależnych JPEG-ów.
+- Pełna klasyczna geometria nie jest wykonywana w Selekcji Zdjęć. Wszystkie
+  obrazy grupy nadal otrzymują tani scoring, a reprezentant musi sam potwierdzić
+  zakres grupy przed automatycznym zapisem.
+- Twarde blokady pozostają bez zmian: konflikt lub inny zakres, blur, okluzja,
+  brak dekodowalnego JPEG-a i błąd techniczny.
+- Bramka v10.5 wymaga minimum 95% grup ze znanym zakresem, maksimum 35% grup
+  manualnych i projekcji pełnego przebiegu 42 403 zdjęć do pięciu godzin.

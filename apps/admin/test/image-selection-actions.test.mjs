@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   continueWithAutomaticallySelectedImages,
+  loadAutomaticallySelectedImageSelectionGroups,
   loadImageSelectionGroupsAfter,
   loadManualImageSelectionGroups,
   orderImageSelectionFiles,
@@ -10,6 +11,49 @@ import {
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from '../src/features/image-selection/image-selection-actions.ts';
+
+test('loads every automatically selected group through the server-side status filter', async () => {
+  const requests = [];
+  const api = {
+    listImageSelectionGroups: async (_runId, options) => {
+      requests.push(options);
+      return options.afterGroupOrder === undefined
+        ? {
+            data: {
+              items: [{ groupOrder: 2, id: 'auto-1', status: 'auto_selected' }],
+              nextAfterGroupOrder: 2,
+            },
+          }
+        : {
+            data: {
+              items: [{ groupOrder: 7, id: 'auto-2', status: 'auto_selected' }],
+              nextAfterGroupOrder: null,
+            },
+          };
+    },
+  };
+
+  const result = await loadAutomaticallySelectedImageSelectionGroups(
+    api,
+    'run-1',
+  );
+
+  assert.deepEqual(
+    requests.map(({ afterGroupOrder, limit, status }) => ({
+      afterGroupOrder,
+      limit,
+      status,
+    })),
+    [
+      { afterGroupOrder: undefined, limit: 100, status: 'auto_selected' },
+      { afterGroupOrder: 2, limit: 100, status: 'auto_selected' },
+    ],
+  );
+  assert.deepEqual(
+    result.map((group) => group.id),
+    ['auto-1', 'auto-2'],
+  );
+});
 
 test('loads only image-selection groups after the progressive export cursor', async () => {
   const cursors = [];
@@ -418,7 +462,9 @@ test('uploads at most four JPEGs concurrently', async () => {
     createImageSelection: async () => ({ data: createdRun() }),
   };
 
-  const result = await uploadPhotoSelectionFolder(api, 'game-1', files);
+  const result = await uploadPhotoSelectionFolder(api, 'game-1', files, {
+    firstSequenceNumber: 1,
+  });
 
   assert.equal(result.ok, true);
   assert.equal(maxActive, 4);
@@ -458,12 +504,15 @@ test('resumes only a failed file without selecting the folder again', async () =
     createImageSelection: async () => ({ data: createdRun() }),
   };
 
-  const failed = await uploadPhotoSelectionFolder(api, 'game-1', files);
+  const failed = await uploadPhotoSelectionFolder(api, 'game-1', files, {
+    firstSequenceNumber: 1,
+  });
   assert.equal(failed.ok, false);
   assert.notEqual(failed.resume, null);
 
   allowSecondFile = true;
   const resumed = await uploadPhotoSelectionFolder(api, 'game-1', [], {
+    firstSequenceNumber: 1,
     resume: failed.resume,
   });
 
@@ -501,12 +550,15 @@ test('retries run creation without uploading the finalized folder again', async 
     },
   };
 
-  const failed = await uploadPhotoSelectionFolder(api, 'game-1', files);
+  const failed = await uploadPhotoSelectionFolder(api, 'game-1', files, {
+    firstSequenceNumber: 1,
+  });
 
   assert.equal(failed.ok, false);
   assert.notEqual(failed.resume, null);
 
   const resumed = await uploadPhotoSelectionFolder(api, 'game-1', [], {
+    firstSequenceNumber: 1,
     resume: failed.resume,
   });
 
@@ -514,4 +566,22 @@ test('retries run creation without uploading the finalized folder again', async 
   assert.equal(uploadCalls, 1);
   assert.equal(finalizeCalls, 2);
   assert.equal(createRunCalls, 2);
+});
+
+test('requires the first layout number before creating browser staging', async () => {
+  let createCalls = 0;
+  const result = await uploadPhotoSelectionFolder(
+    {
+      createBrowserImageSelection: async () => {
+        createCalls += 1;
+        return { data: uploadState([]) };
+      },
+    },
+    'game-1',
+    [imageFile('photo-1.jpg')],
+  );
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /numer pierwszego layoutu/i);
+  assert.equal(createCalls, 0);
 });

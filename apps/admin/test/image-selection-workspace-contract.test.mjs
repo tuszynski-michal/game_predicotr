@@ -67,7 +67,10 @@ test('polls an active run with bounded duration and abortable requests', () => {
 });
 
 test('reruns the current selector from immutable uploaded staging', () => {
-  assert.match(workspaceSource, /api\.rerunImageSelection\(run\.id\)/);
+  assert.match(
+    workspaceSource,
+    /api\.rerunImageSelection\(run\.id, \{\s*firstSequenceNumber:/,
+  );
   assert.match(
     workspaceSource,
     /Wznowiono selekcję od ostatniego trwałego checkpointu/,
@@ -79,6 +82,11 @@ test('reruns the current selector from immutable uploaded staging', () => {
     /window\.localStorage\.setItem\(storageKey\(gameId\), result\.data\.run\.id\)/,
   );
   assert.match(workspaceSource, /run\.selectorFingerprint\.slice\(0, 12\)/);
+  assert.match(
+    workspaceSource,
+    /formatSelectorVersion\(run\.selectorVersion\)/,
+  );
+  assert.match(workspaceSource, /fast-image-selector-/);
 });
 
 test('isolates image selection state by active game and keeps four tiles responsive', () => {
@@ -120,6 +128,14 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   assert.match(workspaceSource, /manualGroups\.length > 0/);
   assert.match(manualModalSource, /manualSelectionCandidateGallery/);
   assert.match(manualModalSource, /candidateFileUrl/);
+  assert.match(
+    manualModalSource,
+    /\/api\/v1\/admin\/image-selections\/\$\{encodeURIComponent\(runId\)\}/,
+  );
+  assert.doesNotMatch(
+    manualModalSource,
+    /\$\{apiBaseUrl\.replace\([^\n]+\}\/admin\/image-selections/,
+  );
   assert.match(workspaceSource, /listImageSelections/);
   assert.match(workspaceSource, /imageSelectionHistory/);
   assert.match(workspaceSource, /Pominięte grupy-duplikaty/);
@@ -127,7 +143,24 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   assert.match(workspaceSource, /setRun\(result\.data\)/);
   assert.match(
     manualModalSource,
-    /event\.key === 'ArrowRight'[^}]*navigate\(1\)/s,
+    /event\.key === 'ArrowRight'[^}]*approveCurrent\(\)/s,
+  );
+  assert.match(manualModalSource, /defaultManualCandidateIndex/);
+  assert.match(manualModalSource, /nextUnresolvedManualIndex/);
+  assert.match(manualModalSource, /Wybrane: \{decisionCounts\.selected\}/);
+  assert.match(manualModalSource, /discardDuplicateImageSelectionGroup/);
+  assert.match(manualModalSource, /Odrzuć jako duplikat/);
+  assert.match(manualModalSource, /IMAGE_SELECTION_RANGE_CONFLICT/);
+  assert.match(manualModalSource, /Odrzuć duplikat i dalej/);
+  assert.match(manualModalSource, /duplicateRangeConflict\.idempotencyKey/);
+  assert.match(manualModalSource, /skipped_existing_range/);
+  assert.match(
+    workspaceSource,
+    /groups\.filter\(\(group\) => group\.id !== updated\.id\)/,
+  );
+  assert.match(
+    manualModalSource,
+    /Poczekaj, aż galeria wybierze domyślne zdjęcie/,
   );
 });
 
@@ -135,7 +168,7 @@ test('manual fallback exposes compact accessible controls and visible focus', ()
   assert.match(manualModalSource, /aria-modal="true"/);
   assert.match(manualModalSource, /role="dialog"/);
   assert.match(manualModalSource, /Poprzedni wyjątek/);
-  assert.match(manualModalSource, /Następny wyjątek/);
+  assert.match(manualModalSource, /Zatwierdź i przejdź do następnego wyjątku/);
   assert.match(manualModalSource, /Początek zakresu/);
   assert.match(manualModalSource, /Koniec zakresu/);
   assert.match(styleSource, /\.manualSelectionDialog:focus-visible/);
@@ -143,6 +176,39 @@ test('manual fallback exposes compact accessible controls and visible focus', ()
     styleSource,
     /max-height: calc\(100vh - 32px\)[^}]*overflow: hidden/s,
   );
+});
+
+test('manual gallery scrolls and opens a fullscreen preview with one zoom level', () => {
+  assert.match(manualModalSource, /manualSelectionCandidateGallerySummary/);
+  assert.match(manualModalSource, /przewiń listę, aby zobaczyć wszystkie/);
+  assert.match(manualModalSource, /tabIndex=\{0\}/);
+  assert.match(manualModalSource, /manualSelectionFullscreenOverlay/);
+  assert.match(manualModalSource, /Otwórz pełny podgląd zdjęcia/);
+  assert.match(manualModalSource, /previewZoomed \? 'Dopasuj' : 'Powiększ'/);
+  assert.match(manualModalSource, /Zamknij pełny podgląd/);
+  assert.match(
+    styleSource,
+    /\.manualSelectionCandidateGallery\s*\{[^}]*overflow-y: auto[^}]*scrollbar-gutter: stable/s,
+  );
+  assert.match(styleSource, /\.manualSelectionFullscreenPreviewZoomed/);
+});
+
+test('automatically selected groups can be inspected without mutating the run', () => {
+  assert.match(
+    workspaceSource,
+    /loadAutomaticallySelectedImageSelectionGroups/,
+  );
+  assert.match(workspaceSource, /Weryfikuj wybory algorytmu/);
+  assert.match(workspaceSource, /mode="automatic-verification"/);
+  assert.match(manualModalSource, /mode === 'automatic-verification'/);
+  assert.match(manualModalSource, /Wybór algorytmu/);
+  assert.match(manualModalSource, /Ten tryb niczego nie zmienia w jobie/);
+  assert.match(
+    manualModalSource,
+    /if \(verificationMode\) navigate\(1\);\s*else void approveCurrent\(\);/,
+  );
+  assert.match(styleSource, /\.manualSelectionCandidateAlgorithm/);
+  assert.match(styleSource, /\.manualSelectionAlgorithmBadge/);
 });
 
 test('job monitor exposes bounded image-selection counters and separate timings', () => {

@@ -24,6 +24,7 @@ from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLa
 from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 from game_predictor_worker.images.selection.adapters import (
     AnchoredSequenceRangeRecognizer,
+    GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     build_default_adapters,
@@ -151,6 +152,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
         type=Path,
         help="Optional local Paddle recognition model used for bounded range anchors.",
     )
+    parser.add_argument(
+        "--first-sequence-number",
+        type=int,
+        help="First layout number visible in the standalone selection input.",
+    )
     options = parser.parse_args(arguments)
     if not 5 <= options.lease_seconds <= 3600:
         parser.error("--lease-seconds must be between 5 and 3600.")
@@ -172,16 +178,23 @@ def main(arguments: Sequence[str] | None = None) -> int:
         parser.error(
             "--image-selection-manifest and --image-selection-output must be used together."
         )
+    if options.first_sequence_number is not None and options.first_sequence_number < 1:
+        parser.error("--first-sequence-number must be positive.")
     native_thread_budget = 1 if options.lane == IMAGE_SELECTION_LANE else thread_budget
     _configure_native_thread_budget(native_thread_budget)
     configure_opencv_thread_budget()
     if options.image_selection_manifest is not None:
         if options.poll:
             parser.error("--poll cannot be combined with standalone image selection.")
+        if options.first_sequence_number is None:
+            parser.error(
+                "--first-sequence-number is required for standalone v10.4 image selection."
+            )
         return _run_standalone_image_selection(
             options.image_selection_manifest,
             options.image_selection_output,
             ocr_model_root=options.image_selection_ocr_model_root,
+            first_sequence_number=options.first_sequence_number,
         )
 
     settings = ApiSettings.from_environment()
@@ -328,6 +341,7 @@ def _run_standalone_image_selection(
     output_root: Path,
     *,
     ocr_model_root: Path | None,
+    first_sequence_number: int | None,
 ) -> int:
     manifest = manifest_path.resolve(strict=True)
     sources, input_manifest_sha256 = load_browser_selection_manifest(manifest)
@@ -338,7 +352,11 @@ def _run_standalone_image_selection(
             "IMAGE_SELECTION_OUTPUT_IN_SOURCE",
             "Image selector output must be outside the read-only source staging.",
         )
-    range_recognizer: NoRangeRecognizer | AnchoredSequenceRangeRecognizer
+    range_recognizer: (
+        NoRangeRecognizer
+        | AnchoredSequenceRangeRecognizer
+        | GridFirstVisibleSequenceLabelRangeRecognizer
+    )
     fallback_range_recognizer: IndependentEndpointVisibleSequenceLabelRangeRecognizer | None = None
     if ocr_model_root is None:
         range_recognizer = NoRangeRecognizer()
@@ -348,13 +366,16 @@ def _run_standalone_image_selection(
         )
     else:
         ocr = PaddleSequenceNumberRecognizer(ocr_model_root.resolve(strict=True))
-        range_recognizer = AnchoredSequenceRangeRecognizer(ocr)
-        fallback_policy = DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy
-        assert fallback_policy is not None
-        fallback_range_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
-            ocr,
-            fallback_policy,
-        )
+        if DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.4":
+            range_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(ocr)
+        else:
+            range_recognizer = AnchoredSequenceRangeRecognizer(ocr)
+            fallback_policy = DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy
+            assert fallback_policy is not None
+            fallback_range_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+                ocr,
+                fallback_policy,
+            )
         selector_manifest = DEFAULT_SELECTOR_MANIFEST
     analyzer, verifier = build_default_adapters(
         source_root,
@@ -372,6 +393,7 @@ def _run_standalone_image_selection(
         analyzer=analyzer,
         verifier=verifier,
         audit_sink=sink,
+        first_sequence_number=first_sequence_number,
     )
     report_path = sink.write_result(
         result,

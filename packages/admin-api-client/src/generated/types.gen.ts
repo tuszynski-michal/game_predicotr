@@ -1443,7 +1443,7 @@ export type ImageSelectionCreate = {
   /**
    * Firstsequencenumber
    */
-  firstSequenceNumber?: number | null;
+  firstSequenceNumber: number;
   /**
    * Gameid
    */
@@ -1464,6 +1464,24 @@ export type ImageSelectionCreateResponse = {
    */
   created: boolean;
   run: ImageSelectionRunResponse;
+};
+
+/**
+ * ImageSelectionDuplicateRangeCommand
+ */
+export type ImageSelectionDuplicateRangeCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
 };
 
 /**
@@ -1758,7 +1776,8 @@ export type ImageSelectionManualFileResponse = {
 /**
  * ImageSelectionManualResolution
  */
-export type ImageSelectionManualResolution = 'selected_image' | 'missing_image';
+export type ImageSelectionManualResolution =
+  'selected_image' | 'missing_image' | 'duplicate_range';
 
 /**
  * ImageSelectionMissingImageCommand
@@ -1870,6 +1889,16 @@ export type ImageSelectionRecentWindowResponse = {
 };
 
 /**
+ * ImageSelectionRerunCommand
+ */
+export type ImageSelectionRerunCommand = {
+  /**
+   * Firstsequencenumber
+   */
+  firstSequenceNumber?: number | null;
+};
+
+/**
  * ImageSelectionRunPageResponse
  */
 export type ImageSelectionRunPageResponse = {
@@ -1928,6 +1957,10 @@ export type ImageSelectionRunResponse = {
    * Selectorfingerprint
    */
   selectorFingerprint: string;
+  /**
+   * Selectorversion
+   */
+  selectorVersion: string;
   sequenceDirection: ImageSelectionSequenceDirection;
   /**
    * Sourceselectionid
@@ -9270,6 +9303,54 @@ export type ContinueImageSelectionWithoutImageResponses = {
 export type ContinueImageSelectionWithoutImageResponse =
   ContinueImageSelectionWithoutImageResponses[keyof ContinueImageSelectionWithoutImageResponses];
 
+export type DiscardDuplicateImageSelectionGroupData = {
+  body: ImageSelectionDuplicateRangeCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/discard-duplicate';
+};
+
+export type DiscardDuplicateImageSelectionGroupErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DiscardDuplicateImageSelectionGroupError =
+  DiscardDuplicateImageSelectionGroupErrors[keyof DiscardDuplicateImageSelectionGroupErrors];
+
+export type DiscardDuplicateImageSelectionGroupResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualApprovalResponse;
+};
+
+export type DiscardDuplicateImageSelectionGroupResponse =
+  DiscardDuplicateImageSelectionGroupResponses[keyof DiscardDuplicateImageSelectionGroupResponses];
+
 export type UploadManualImageSelectionFileData = {
   /**
    * Payload
@@ -9539,7 +9620,10 @@ export type GetImageSelectionOutputFileResponses = {
 };
 
 export type RerunImageSelectionData = {
-  body?: never;
+  /**
+   * Payload
+   */
+  body?: ImageSelectionRerunCommand | null;
   path: {
     /**
      * Run Id

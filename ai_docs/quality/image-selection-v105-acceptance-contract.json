@@ -1,0 +1,36 @@
+{
+  "baseline": {
+    "groupCount": 3840,
+    "inputCount": 42403,
+    "manualCount": 3388,
+    "manualPercent": 88.229167,
+    "rangeKnownCount": 452,
+    "runId": "edf8625d-776c-4a73-8db9-29115fe05c14",
+    "selectorFingerprint": "8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e",
+    "selectorVersion": "fast-image-selector-v10.4"
+  },
+  "gates": {
+    "maximumFullRunSeconds": 18000,
+    "maximumManualPercent": 35.0,
+    "minimumKnownRangePercent": 95.0,
+    "ownerReviewedWrongRangeCount": 0,
+    "ownerReviewedWrongRepresentativeCount": 0
+  },
+  "phases": [
+    {
+      "name": "deterministic-regression",
+      "targetGroupCount": 200
+    },
+    {
+      "name": "partial-real-corpus",
+      "targetImageCount": 5000
+    },
+    {
+      "name": "full-owner-acceptance",
+      "targetImageCount": 42403
+    }
+  ],
+  "schemaVersion": 1,
+  "selectorFingerprint": "6ba81ff5a277c92a0cbf01b88aea7f8c896eee76aebb8323b2ed9cb4b3e28a32",
+  "selectorVersion": "fast-image-selector-v10.5"
+}

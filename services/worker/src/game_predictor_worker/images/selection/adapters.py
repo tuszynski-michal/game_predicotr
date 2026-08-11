@@ -7,8 +7,9 @@ from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass
+from itertools import combinations
 from pathlib import Path, PurePosixPath
-from statistics import StatisticsError
+from statistics import StatisticsError, median
 from typing import cast
 
 import cv2
@@ -48,6 +49,7 @@ from .manifest import (
     APPEARANCE_GROUPING_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     DEFAULT_SELECTOR_MANIFEST,
+    HYBRID_BOUNDED_SELECTOR_VERSIONS,
     LEGACY_THUMBNAIL_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
@@ -1254,6 +1256,242 @@ class IndependentEndpointVisibleSequenceLabelRangeRecognizer(
         )
 
 
+def _bounded_edit_distance(first: str, second: str, *, maximum: int = 1) -> int:
+    """Return a small Levenshtein distance without allocating an OCR-sized matrix."""
+
+    if first == second:
+        return 0
+    if abs(len(first) - len(second)) > maximum:
+        return maximum + 1
+    previous = list(range(len(second) + 1))
+    for row_index, left in enumerate(first, start=1):
+        current = [row_index]
+        row_minimum = row_index
+        for column_index, right in enumerate(second, start=1):
+            value = min(
+                current[-1] + 1,
+                previous[column_index] + 1,
+                previous[column_index - 1] + (left != right),
+            )
+            current.append(value)
+            row_minimum = min(row_minimum, value)
+        if row_minimum > maximum:
+            return maximum + 1
+        previous = current
+    return previous[-1]
+
+
+@dataclass(frozen=True, slots=True)
+class _AxisPeak:
+    center: float
+    count: int
+
+
+def _axis_peaks(values: Sequence[float], tolerance: float) -> tuple[_AxisPeak, ...]:
+    groups: list[list[float]] = []
+    for value in sorted(values):
+        if not groups or abs(value - median(groups[-1])) > tolerance:
+            groups.append([value])
+        else:
+            groups[-1].append(value)
+    return tuple(_AxisPeak(center=float(median(group)), count=len(group)) for group in groups)
+
+
+def _best_three_axis_peaks(
+    values: Sequence[float],
+    *,
+    tolerance: float,
+    minimum_gap: float,
+    maximum_gap: float,
+) -> tuple[float, float, float] | None:
+    peaks = _axis_peaks(values, tolerance)
+    ranked: list[tuple[tuple[int, float, float], tuple[float, float, float]]] = []
+    for first, second, third in combinations(peaks, 3):
+        first_gap = second.center - first.center
+        second_gap = third.center - second.center
+        if not (
+            minimum_gap <= first_gap <= maximum_gap and minimum_gap <= second_gap <= maximum_gap
+        ):
+            continue
+        spacing_error = abs(first_gap - second_gap) / max(first_gap, second_gap)
+        if spacing_error > 0.45:
+            continue
+        centers = (first.center, second.center, third.center)
+        ranked.append(
+            (
+                (
+                    first.count + second.count + third.count,
+                    -spacing_error,
+                    third.center - first.center,
+                ),
+                centers,
+            )
+        )
+    if not ranked:
+        return None
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return ranked[0][1]
+
+
+class GridFirstVisibleSequenceLabelRangeRecognizer(VisibleSequenceLabelRangeRecognizer):
+    """Fit one 3x3 label lattice before running exactly one OCR batch."""
+
+    version = "visible-sequence-label-grid-v1"
+    _minimum_ocr_confidence = 0.50
+    _roi_y_start = 0.34
+    _roi_y_end = 0.58
+    _roi_x_start = 0.14
+    _roi_x_end = 0.86
+    _minimum_component_height = 0.004
+    _maximum_component_height = 0.018
+    _minimum_component_width = 0.006
+    _maximum_component_width = 0.15
+    _minimum_component_area = 0.000018
+    _minimum_fill_ratio = 0.20
+    _maximum_width_to_height_ratio = 10.0
+    _candidate_limit = 48
+    _horizontal_padding_ratio = 0.70
+    _vertical_padding_ratio = 0.40
+
+    @classmethod
+    def _label_candidates(
+        cls,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[_VisibleLabel, ...]:
+        candidates = cls._ranked_label_candidates(rgb_image)
+        if len(candidates) < 6:
+            return ()
+        height, width = rgb_image.shape[:2]
+        columns = _best_three_axis_peaks(
+            [candidate.center[0] for candidate in candidates],
+            tolerance=width * 0.035,
+            minimum_gap=width * 0.12,
+            maximum_gap=width * 0.38,
+        )
+        rows = _best_three_axis_peaks(
+            [candidate.center[1] for candidate in candidates],
+            tolerance=height * 0.012,
+            minimum_gap=height * 0.028,
+            maximum_gap=height * 0.12,
+        )
+        if columns is None or rows is None:
+            return ()
+
+        selected: dict[tuple[int, int], _VisibleLabel] = {}
+        selected_ids: set[int] = set()
+        for row_index, row_center in enumerate(rows):
+            for column_index, column_center in enumerate(columns):
+                available = [
+                    (index, candidate)
+                    for index, candidate in enumerate(candidates)
+                    if index not in selected_ids
+                    and abs(candidate.center[0] - column_center) <= width * 0.09
+                    and abs(candidate.center[1] - row_center) <= height * 0.025
+                ]
+                if not available:
+                    continue
+                index, candidate = min(
+                    available,
+                    key=lambda item: (
+                        abs(item[1].center[0] - column_center) / width
+                        + abs(item[1].center[1] - row_center) / height,
+                        item[0],
+                    ),
+                )
+                selected[(row_index, column_index)] = candidate
+                selected_ids.add(index)
+
+        if (
+            len(selected) < 6
+            or len({row for row, _ in selected}) < 3
+            or len({column for _, column in selected}) < 3
+        ):
+            return ()
+
+        crop_height = max(4, int(round(median(item.crop.shape[0] for item in selected.values()))))
+        crop_width = max(8, int(round(median(item.crop.shape[1] for item in selected.values()))))
+        result: list[_VisibleLabel] = []
+        for row_index, row_center in enumerate(rows):
+            for column_index, column_center in enumerate(columns):
+                existing = selected.get((row_index, column_index))
+                if existing is not None:
+                    result.append(existing)
+                    continue
+                left = max(0, min(width - crop_width, int(round(column_center - crop_width / 2))))
+                top = max(0, min(height - crop_height, int(round(row_center - crop_height / 2))))
+                crop = rgb_image[top : top + crop_height, left : left + crop_width]
+                result.append(
+                    _VisibleLabel(
+                        crop=crop,
+                        center=(column_center, row_center),
+                    )
+                )
+        return tuple(result)
+
+    @classmethod
+    def _resolve_range(
+        cls,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        del labels, image_shape
+        if len(recognitions) != 9:
+            return None, ("RANGE_LABEL_GRID_INCOMPLETE",)
+        starts = {
+            number - position
+            for position, recognition in enumerate(recognitions)
+            if recognition.confidence >= cls._minimum_ocr_confidence
+            and (number := recognition.normalized_number) is not None
+            and number - position >= 1
+        }
+        hypotheses: list[tuple[tuple[int, int, float], int, tuple[int, ...]]] = []
+        for start in starts:
+            exact_positions: list[int] = []
+            supported_positions: list[int] = []
+            confidence_sum = 0.0
+            for position, recognition in enumerate(recognitions):
+                if recognition.confidence < cls._minimum_ocr_confidence:
+                    continue
+                expected = str(start + position)
+                distance = _bounded_edit_distance(recognition.raw_text, expected)
+                if distance > 1:
+                    continue
+                supported_positions.append(position)
+                confidence_sum += recognition.confidence
+                if distance == 0 and recognition.confidence >= 0.72:
+                    exact_positions.append(position)
+            supported = tuple(supported_positions)
+            exact = tuple(exact_positions)
+            rows = {position // 3 for position in supported}
+            columns = {position % 3 for position in supported}
+            strong = (
+                len(exact) >= 5
+                and len({position // 3 for position in exact}) >= 2
+                and len({position % 3 for position in exact}) >= 2
+            )
+            fuzzy = len(supported) >= 6 and len(exact) >= 1 and len(rows) == 3 and len(columns) >= 2
+            if strong or fuzzy:
+                hypotheses.append(
+                    ((len(exact), len(supported), round(confidence_sum, 6)), start, supported)
+                )
+        if not hypotheses:
+            return None, ("RANGE_LABEL_GRID_NO_HYPOTHESIS",)
+        hypotheses.sort(key=lambda item: (item[0], -item[1]), reverse=True)
+        best_score, start, best_supported = hypotheses[0]
+        if len(hypotheses) > 1:
+            second_score = hypotheses[1][0]
+            if best_score[:2] == second_score[:2] and best_score[2] - second_score[2] < 0.15:
+                return None, ("RANGE_LABEL_GRID_AMBIGUOUS",)
+        exact_count = best_score[0]
+        strong = exact_count >= 5
+        confidence = 0.96 if strong else 0.82
+        reason = "RANGE_OCR_EXACT" if strong else "RANGE_OCR_FUZZY_CANDIDATE"
+        if not best_supported:
+            return None, ("RANGE_LABEL_GRID_NO_HYPOTHESIS",)
+        return SequenceRange(start=start, end=start + 8, confidence=confidence), (reason,)
+
+
 class NoRangeRecognizer:
     version = "no-range-recognizer-v1"
 
@@ -1264,6 +1502,125 @@ class NoRangeRecognizer:
     ) -> tuple[SequenceRange | None, tuple[str, ...]]:
         del rgb_image, boards
         return None, ("RANGE_RECOGNIZER_UNAVAILABLE",)
+
+
+class BoundedGridCandidateVerifier:
+    """Verify range evidence without making the legacy red-frame detector a gate."""
+
+    def __init__(
+        self,
+        source_root: Path,
+        range_recognizer: SequenceRangeRecognizer,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        self._source_root = source_root.resolve(strict=True)
+        self._range_recognizer = range_recognizer
+        self._telemetry = telemetry
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del expected_board_count
+        if self._telemetry is not None:
+            self._telemetry.increment("rangeEvidenceVerifications")
+            self._telemetry.increment("rangeRecognizerAttempts")
+            self._telemetry.increment("gridOcrAttempts")
+        try:
+            path = _safe_source_path(
+                self._source_root,
+                observation.source.stored_relative_path,
+            )
+            rgb = _load_verified_rgb(path, observation.source.checksum_sha256, self._telemetry)
+            timing = (
+                self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
+            )
+            with timing:
+                recognized_range, reasons = self._range_recognizer.recognize(rgb, ())
+        except (SelectionContractError, SequenceOcrError, ValueError) as error:
+            reason = (
+                error.code
+                if isinstance(error, SelectionContractError | SequenceOcrError)
+                else "RANGE_LABEL_OCR_FAILED"
+            )
+            recognized_range = None
+            reasons = (reason,)
+        if self._telemetry is not None:
+            self._telemetry.increment(
+                "gridOcrSuccesses" if recognized_range is not None else "gridOcrFailures"
+            )
+            self._telemetry.increment(
+                "rangeRecognizerSuccesses"
+                if recognized_range is not None
+                else "rangeRecognizerFailures"
+            )
+            for reason in reasons:
+                self._telemetry.increment(f"rangeReason.{reason}")
+        return CandidateVerification(
+            representative=RepresentativeAssessment(
+                board_count=(None if recognized_range is None else recognized_range.board_count),
+                geometry_complete=recognized_range is not None,
+                full_frame_visible=observation.quality.board_visibility >= 0.25,
+            ),
+            range_evidence=RangeEvidence(
+                recognized_range=recognized_range,
+                reason_codes=reasons,
+            ),
+        )
+
+    def assess_representative(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        return CandidateVerification(
+            representative=RepresentativeAssessment(
+                board_count=expected_board_count or observation.board_count,
+                geometry_complete=True,
+                full_frame_visible=observation.quality.board_visibility >= 0.25,
+            ),
+            range_evidence=RangeEvidence(
+                recognized_range=None,
+                reason_codes=("RANGE_EVIDENCE_NOT_REQUESTED",),
+            ),
+        )
+
+    def verify_many(
+        self,
+        observations: Sequence[CheapImageObservation],
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> tuple[CandidateVerification, ...]:
+        if include_range_evidence:
+            return tuple(
+                self.verify(observation, expected_board_count=expected_board_count)
+                for observation in observations
+            )
+        return tuple(
+            self.assess_representative(
+                observation,
+                expected_board_count=expected_board_count,
+            )
+            for observation in observations
+        )
+
+    def record_adaptive_range_stop(
+        self,
+        reason: str,
+        *,
+        evidence_count: int,
+        candidate_count: int,
+    ) -> None:
+        if self._telemetry is None:
+            return
+        self._telemetry.increment(f"rangeStop.{reason}")
+        self._telemetry.increment("rangeEvidenceCandidates", evidence_count)
+        self._telemetry.increment("rangeGroupCandidates", candidate_count)
 
 
 class FullCandidateVerifier:
@@ -1704,6 +2061,15 @@ def build_default_adapters(
         )
         if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
             return analyzer, AppearanceOnlyCandidateVerifier()
+        if manifest.algorithm_version in HYBRID_BOUNDED_SELECTOR_VERSIONS:
+            return (
+                analyzer,
+                BoundedGridCandidateVerifier(
+                    source_root,
+                    fallback_range_recognizer or range_recognizer or NoRangeRecognizer(),
+                    telemetry=telemetry,
+                ),
+            )
         detector = ClassicalPageBoardDetector()
         return (
             analyzer,
@@ -1738,14 +2104,16 @@ def build_default_adapters(
 
 
 __all__ = [
-    "AdaptiveVisibleSequenceLabelRangeRecognizer",
     "AccuracyFirstVisibleSequenceLabelRangeRecognizer",
+    "AdaptiveVisibleSequenceLabelRangeRecognizer",
     "AnchoredSequenceRangeRecognizer",
     "AppearanceOnlyCandidateVerifier",
     "BestEffortVisibleSequenceLabelRangeRecognizer",
+    "BoundedGridCandidateVerifier",
     "ComposedCheapImageAnalyzer",
     "DeterministicParallelCandidateVerifier",
     "FullCandidateVerifier",
+    "GridFirstVisibleSequenceLabelRangeRecognizer",
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",
     "OpenCvAppearanceFingerprintAnalyzer",

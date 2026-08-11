@@ -486,6 +486,7 @@ PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
 GET  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-files/{candidateId}
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/continue-without-image
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/discard-duplicate
 POST /api/v1/admin/image-selections/{runId}/handoff
 ```
 
@@ -501,6 +502,14 @@ dla bieżącego zestawu, więc identyfikacja źródeł nie ładuje całej kolejk
 pamięci. V9 nie proponuje zakresu ani luki; operacja zbiorcza zapisuje
 `missing_image` bez zakresu. Historyczne endpointy v2–v8 pozostają zgodne
 wstecznie.
+
+`POST .../discard-duplicate` przyjmuje UUID idempotencji oraz kompletny zakres.
+Serwis, pod blokadą joba, potwierdza istnienie innej rozwiązanej grupy z
+identycznym zakresem. Następnie zapisuje append-only decyzję `duplicate_range`
+i projektuje grupę do istniejącego statusu `skipped_existing_range`. Operacja
+nie wskazuje kandydata i nie dotyka pliku wynikowego należącego do pierwszej
+grupy. Brak właściciela zakresu zwraca stabilny konflikt
+`IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND`.
 
 ## Stany
 
@@ -706,10 +715,70 @@ każdej lekkiej obserwacji. Rekord wskazuje istniejący plik stagingu i nie zawi
 BLOB-a. Przy odtwarzaniu domenowego stanu selektora rekordy te są filtrowane,
 więc galeria nie zmienia shortlisty, wznowienia ani wyniku algorytmu.
 
+Kandydat domenowy ma jednego właściciela w obrębie runu, zgodnie z unikalnym
+`run_id + order_index`. Jeżeli późniejsza grupa dostarcza reprezentanta, który
+rozstrzyga wcześniejszą grupę `manual_required`, kandydat przechodzi do tej
+wcześniejszej grupy, a późniejszy wpis `skipped_existing_range` nie utrzymuje
+drugiej kopii `top_candidates`. Tymczasowy wpis `manualGalleryOnly` może zostać
+promowany do finalnej grupy tylko dla identycznego `order_index` i checksumu.
+Inny checksum albo dwa pełne wyniki domenowe nadal oznaczają błąd trwałości.
+
 Runy historyczne mogą zawierać wyłącznie top-12, ponieważ wcześniejszy worker nie
 utrwalał pełnego członkostwa grupy. API zwraca `sourceCount`, a UI pokazuje
 `items.length / sourceCount`; ręczny upload JPEG-a pozostaje kompatybilnym
 fallbackiem.
+
+## Architektura korekty v10.3
+
+V10.3 zachowuje `representative-range coherence gate` v10.2, ale rozdziela
+twarde błędy nazwy od miękkich błędów jakości obrazu. Zakres grupy nadal wynika
+z adaptacyjnego konsensusu. Reprezentant może zostać wybrany automatycznie tylko
+wtedy, gdy jego własny OCR zwraca dokładnie ten sam `start/end` z confidence
+`>= 0.90`.
+
+Standardowa ścieżka nadal preferuje kandydatów z kompletną geometrią. Jeżeli ich
+brakuje, selektor przechodzi po deterministycznym rankingu pozostałych top-12 i
+może wybrać najlepszy JPEG z miękką niezgodnością geometrii, kadru, ekspozycji
+lub liczby plansz. Wybrany rekord otrzymuje
+`RANGE_COHERENT_BEST_AVAILABLE`. Twarde blokady obejmują inny albo nieznany
+zakres, `RANGE_CONFLICT`, okluzję, blur oraz techniczny błąd skanu lub pełnej
+weryfikacji.
+
+V10.3 nie zmienia tabel ani API. Nowa wersja algorytmu jest częścią manifestu i
+tworzy nowy fingerprint. Resolver zachowuje manifest v10.2, dlatego rozpoczęty
+run zawsze kończy się na zachowaniu, z którym został utworzony.
+
+## Architektura hybrydowa v10.4
+
+Manifest `fast-image-selector-v10.4` zachowuje strumieniowy skan całego folderu,
+pełny lekki scoring grupy i bounded top-12, ale zmienia trzy kosztowne miejsca:
+
+1. deskryptor grupowania jest liczony dla ROI siatki layoutów, a dwuklatkowy
+   bufor granicy potwierdza zmianę względem stabilnej klatki starej grupy;
+2. `GridFirstVisibleSequenceLabelRangeRecognizer` dopasowuje dziewięć pozycji
+   etykiet i wysyła je jako jeden batch OCR dla JPEG-a;
+3. `BoundedGridCandidateVerifier` uruchamia OCR dla najwyżej dwóch najlepszych
+   kandydatów, natomiast pozostałe zdjęcia otrzymują wyłącznie tanią ocenę
+   reprezentanta.
+
+Konsensus zakresu rozróżnia dokładne odczyty i fuzzy odczyty z maksymalnie jedną
+edycją znaku, ale korekta jest dozwolona tylko przez jednoznaczną arytmetyczną
+siatkę `3×3`. Konflikt nie jest rozstrzygany cursorem. Jawna kotwica
+`first_sequence_number` ustala pierwszy ekran, a kolejne zakresy mogą użyć
+wyłącznie lokalnego dowodu lub dokładnie domkniętej, ograniczonej luki.
+
+Wybór JPEG-a jest niezależnym krokiem po analizie całej grupy. Ranking nie ma
+early exit i może wybrać obraz bez kompletnej geometrii, jeżeli jest to najlepszy
+czytelny widok. Twarde powody — blur, okluzja, brak widocznej planszy, konflikt
+zakresu oraz błąd skanu lub OCR — kierują grupę do review zamiast tworzyć
+ryzykowny plik `seq_<start>-<end>.jpg`.
+
+Nowy run v10.4 wymaga dodatniej kotwicy w Adminie, API, skrypcie live i CLI.
+Kolumna bazy pozostaje nullable dla odtwarzalności historycznych runów. Worker
+ponownie sprawdza kontrakt po pobraniu joba, więc stary klient nie może ominąć
+bramki API. Manifest v10.4 ma fingerprint
+`8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e`;
+resolver nadal zawiera wszystkie poprzednie fingerprinty.
 
 Katalog wynikowy pozostaje uchwytem przeglądarki przypisanym do bieżącej sesji.
 Ledger `runId + groupOrder + checksum` umożliwia późniejsze dopisanie ręcznie
@@ -722,6 +791,30 @@ uzupełnienie wcześniejszej luki omija monotonny polling: callback zatwierdzeni
 zapisuje dokładnie zmienioną grupę bezpośrednio do wybranego folderu. Jeżeli run
 miał już manifest wynikowy, backend unieważnia go, wznawia ten sam zakończony job
 jako rewizję i publikuje nowy checksumowany manifest bez zmiany historii decyzji.
+
+## Architektura odzyskiwania jakości v10.5
+
+Manifest `fast-image-selector-v10.5` wraca do szerokiego
+`opencv-appearance-descriptor-v2`, lecz pozostaje w bounded state machine v10.4.
+Zmiana ekranu nadal wymaga dwóch klatek odbiegających od stabilnej większości
+poprzedniej grupy, dzięki czemu pierwszy JPEG nowego ekranu rozpoczyna nową
+grupę, ale pojedynczy refleks nie tworzy false splitu.
+
+`BoundedGridCandidateVerifier` działa w v10.5 jako lekki port weryfikacji zakresu
+i otrzymuje `IndependentEndpointVisibleSequenceLabelRangeRecognizer`. Nie
+uruchamia `ClassicalPageBoardDetector`. Engine sprawdza kandydatów jakościowych
+na poziomach `1, 2, 4`; recognizer wewnątrz JPEG-a rozszerza cropy
+`18, 36, 72`. Dokładny dowód kończy pracę po jednym kandydacie, natomiast fuzzy
+staje się zakresem grupy dopiero po dwóch zgodnych odczytach.
+
+Ranking jakości obejmuje wszystkie zdjęcia grupy. Jeżeli jego zwycięzca nie był
+źródłem dowodu, przechodzi jedną lekką kontrolę spójności zakresu. Brak zgodności
+powoduje wybór najlepszego czytelnego kandydata, który potwierdza zakres, albo
+`manual_required`; zakresu nie wolno przenosić na niesprawdzony JPEG.
+
+Resolver fingerprintów przechowuje v10.4 i starsze manifesty. Odpowiedź runu
+zawiera `selectorVersion` obliczane przez backend z fingerprintu. Nie wymaga to
+migracji bazy ani mapowania wersji w frontendzie.
 
 ## Odrzucone warianty
 

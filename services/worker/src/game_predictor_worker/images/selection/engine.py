@@ -21,6 +21,7 @@ from .contracts import (
     ImageSelectionSource,
     NullSelectionAuditSink,
     RangeEvidence,
+    RepresentativeAssessment,
     SelectionAuditSink,
     SelectionContractError,
     SelectionGroupResult,
@@ -38,11 +39,14 @@ from .manifest import (
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_AVAILABLE_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
-    COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
+    COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS,
+    CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
     EXACT_MULTI_GAP_SELECTOR_VERSIONS,
     FIRST_USABLE_POLICY,
     FIRST_USABLE_SELECTOR_VERSIONS,
+    HYBRID_BOUNDED_SELECTOR_VERSION,
+    HYBRID_BOUNDED_SELECTOR_VERSIONS,
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     AppearanceDescriptorConfig,
@@ -51,7 +55,11 @@ from .manifest import (
 )
 
 BEST_AVAILABLE_REASON = "QUALITY_BEST_AVAILABLE"
+CONSENSUS_BACKED_REPRESENTATIVE_REASON = "RANGE_COHERENT_BEST_AVAILABLE"
 INFERRED_RANGE_REASON = "RANGE_INFERRED_FROM_BOUNDED_GAP"
+EXACT_GAP_RANGE_REASON = "RANGE_EXACT_GAP_INFERRED"
+OWNER_ANCHOR_RANGE_REASON = "RANGE_OWNER_ANCHOR"
+FUZZY_CONSENSUS_RANGE_REASON = "RANGE_OCR_FUZZY_CONSENSUS"
 MAX_INFERRED_RANGE_SIZE = 9
 DEFAULT_PARALLEL_SCAN_WORKERS = 4
 DEFAULT_PARALLEL_SCAN_PREFETCH = 8
@@ -456,6 +464,7 @@ class FastImageSelector:
             manifest.algorithm_version in APPEARANCE_GROUPING_SELECTOR_VERSIONS
         )
         self._range_free = manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS
+        self._hybrid_bounded = manifest.algorithm_version in HYBRID_BOUNDED_SELECTOR_VERSIONS
         self._prefer_first_usable = (
             manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS or self._range_free
         )
@@ -603,6 +612,40 @@ class FastImageSelector:
                 )
                 ingest(current, observation)
             elif pending:
+                if self._hybrid_bounded:
+                    if self._is_changed_from_group_majority(current, observation):
+                        pending.append(observation)
+                        if len(pending) >= self.manifest.boundary_confirmation_count:
+                            finalize(current)
+                            current = _OpenGroup(
+                                group_order=len(groups),
+                                top_k=self.manifest.top_k,
+                                prefer_first_usable=self._prefer_first_usable,
+                                appearance_only=self._appearance_grouping,
+                                representative_policy=self._representative_policy,
+                            )
+                            for item in pending:
+                                ingest(current, item)
+                            pending.clear()
+                    else:
+                        for item in pending:
+                            ingest(current, item)
+                        pending.clear()
+                        if self._is_boundary_candidate(current, observation):
+                            pending.append(observation)
+                        else:
+                            ingest(current, observation)
+                    if processed_count % self.manifest.scan_batch_size == 0:
+                        self._save_state(
+                            sink,
+                            processed_count=processed_count,
+                            groups=groups,
+                            current=current,
+                            pending=pending,
+                            scan_failure_count=scan_failure_count,
+                            verification_count=verification_count,
+                        )
+                    continue
                 pending_anchor = (
                     pending[0]
                     if self.manifest.algorithm_version == LEGACY_SELECTOR_VERSION
@@ -1002,15 +1045,23 @@ class FastImageSelector:
                     break
             remaining_observations = tuple(observations_to_verify[next_index:])
             if remaining_observations:
-                representative_results = self._verify_candidate_batch(
-                    verifier,
-                    remaining_observations,
-                    expected_board_count=consensus,
-                    include_range_evidence=False,
+                representative_results = (
+                    tuple(
+                        self._cheap_representative_verification(
+                            observation,
+                            expected_board_count=consensus,
+                        )
+                        for observation in remaining_observations
+                    )
+                    if self._hybrid_bounded
+                    else self._verify_candidate_batch(
+                        verifier,
+                        remaining_observations,
+                        expected_board_count=consensus,
+                        include_range_evidence=False,
+                    )
                 )
-                verified.extend(
-                    zip(remaining_observations, representative_results, strict=True)
-                )
+                verified.extend(zip(remaining_observations, representative_results, strict=True))
         if adaptive_policy is not None:
             if range_stop_reason is None:
                 range_stop_reason = (
@@ -1023,7 +1074,11 @@ class FastImageSelector:
                 candidate_count=len(observations_to_verify),
             )
         accuracy_first = self.manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS
-        recognized_range = self._verified_group_range(verified) if accuracy_first else None
+        range_resolution_reason: str | None = None
+        if self._hybrid_bounded:
+            recognized_range, range_resolution_reason = self._hybrid_group_range(verified)
+        else:
+            recognized_range = self._verified_group_range(verified) if accuracy_first else None
         first_anchor_conflict = False
         verified_board_count = self._verified_board_count(verified)
         if (
@@ -1055,17 +1110,23 @@ class FastImageSelector:
             )
             if recognized_range is None:
                 recognized_range = anchored_range
+                range_resolution_reason = OWNER_ANCHOR_RANGE_REASON
             else:
                 first_anchor_conflict = (
                     recognized_range.start,
                     recognized_range.end,
                 ) != (anchored_range.start, anchored_range.end)
+                if (
+                    not first_anchor_conflict
+                    and self.manifest.algorithm_version == HYBRID_BOUNDED_SELECTOR_VERSION
+                ):
+                    range_resolution_reason = OWNER_ANCHOR_RANGE_REASON
         range_keys = {
             (verification.recognized_range.start, verification.recognized_range.end)
             for _, verification in verified
             if verification.recognized_range is not None
             and verification.recognized_range.confidence
-            >= self.manifest.thresholds.minimum_range_confidence
+            >= (0.75 if self._hybrid_bounded else self.manifest.thresholds.minimum_range_confidence)
         }
         range_conflict = first_anchor_conflict or (
             len(range_keys) > 1 and (not accuracy_first or recognized_range is None)
@@ -1088,27 +1149,45 @@ class FastImageSelector:
         if recognized_range is None:
             recognized_range = self._group_range(candidates)
         extra_verification_count = 0
-        if self.manifest.algorithm_version == COHERENT_REPRESENTATIVE_SELECTOR_VERSION:
-            selected, candidates, extra_verification_count = (
-                self._select_coherent_representative(
-                    eligible=eligible,
-                    candidates=candidates,
-                    verified=verified,
-                    verifier=verifier,
-                    expected_range=recognized_range,
-                    board_count_consensus=consensus,
-                    range_conflict=range_conflict,
-                )
+        if self.manifest.algorithm_version in COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS:
+            selected, candidates, extra_verification_count = self._select_coherent_representative(
+                eligible=eligible,
+                candidates=candidates,
+                verified=verified,
+                verifier=verifier,
+                expected_range=recognized_range,
+                board_count_consensus=consensus,
+                range_conflict=range_conflict,
+                range_resolution_reason=range_resolution_reason,
             )
         else:
-            selected = None if not eligible else self._select_automatic(eligible[0])
+            selected = (
+                None
+                if not eligible or (self._hybrid_bounded and recognized_range is None)
+                else self._select_automatic(eligible[0])
+            )
             if selected is not None and recognized_range is not None:
-                selected = replace(selected, recognized_range=recognized_range)
+                selected = replace(
+                    selected,
+                    recognized_range=recognized_range,
+                    reason_codes=tuple(
+                        dict.fromkeys(
+                            (
+                                *selected.reason_codes,
+                                *(
+                                    ()
+                                    if range_resolution_reason is None
+                                    else (range_resolution_reason,)
+                                ),
+                            )
+                        )
+                    ),
+                )
         if (
             selected is None
             and recognized_range is not None
             and self.manifest.algorithm_version in BEST_AVAILABLE_SELECTOR_VERSIONS
-            and self.manifest.algorithm_version != COHERENT_REPRESENTATIVE_SELECTOR_VERSION
+            and self.manifest.algorithm_version not in COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS
         ):
             best_available = next(
                 (
@@ -1142,6 +1221,7 @@ class FastImageSelector:
         fingerprint_sha256 = hashlib.sha256(
             bytes.fromhex(group.reference.fingerprint_hex)
         ).hexdigest()
+        full_verification_count = range_evidence_count if self._hybrid_bounded else len(verified)
 
         if selected is not None and selected.recognized_range is not None:
             selected_range = selected.recognized_range
@@ -1160,7 +1240,7 @@ class FastImageSelector:
                         duplicate_of_group_order=completed_ranges[range_key],
                         reference_fingerprint_hex=group.reference.fingerprint_hex,
                     ),
-                    len(verified) + extra_verification_count,
+                    full_verification_count + extra_verification_count,
                 )
             unresolved_order = unresolved_ranges.get(range_key)
             if unresolved_order is None:
@@ -1196,11 +1276,16 @@ class FastImageSelector:
                         board_count_consensus=consensus,
                         status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
                         selected_candidate=None,
-                        top_candidates=candidates,
+                        # The current candidates have become the authoritative
+                        # representative evidence of ``unresolved_order`` above.
+                        # Candidate order is unique within a run, so retaining
+                        # them on this skipped source group would assign the same
+                        # persisted image to two selector groups.
+                        top_candidates=(),
                         duplicate_of_group_order=unresolved_order,
                         reference_fingerprint_hex=group.reference.fingerprint_hex,
                     ),
-                    len(verified) + extra_verification_count,
+                    full_verification_count + extra_verification_count,
                 )
             return (
                 SelectionGroupResult(
@@ -1214,7 +1299,7 @@ class FastImageSelector:
                     top_candidates=candidates,
                     reference_fingerprint_hex=group.reference.fingerprint_hex,
                 ),
-                len(verified) + extra_verification_count,
+                full_verification_count + extra_verification_count,
             )
 
         return (
@@ -1229,7 +1314,7 @@ class FastImageSelector:
                 top_candidates=candidates,
                 reference_fingerprint_hex=group.reference.fingerprint_hex,
             ),
-            len(verified) + extra_verification_count,
+            full_verification_count + extra_verification_count,
         )
 
     def _select_coherent_representative(
@@ -1242,6 +1327,7 @@ class FastImageSelector:
         expected_range: SequenceRange | None,
         board_count_consensus: int | None,
         range_conflict: bool,
+        range_resolution_reason: str | None = None,
     ) -> tuple[CandidateResult | None, tuple[CandidateResult, ...], int]:
         """Select the best candidate whose own OCR agrees with the group range.
 
@@ -1264,13 +1350,31 @@ class FastImageSelector:
         updated = list(candidates)
         extra_verification_count = 0
         threshold = self.manifest.thresholds.minimum_range_confidence
+        representative_range_threshold = 0.75 if self._hybrid_bounded else threshold
         expected_key = (expected_range.start, expected_range.end)
 
-        for candidate in eligible:
+        candidates_to_check = list(eligible)
+        if self.manifest.algorithm_version == CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION:
+            eligible_identities = {
+                (candidate.source.order_index, candidate.source.checksum_sha256)
+                for candidate in eligible
+            }
+            candidates_to_check.extend(
+                candidate
+                for candidate in candidates
+                if (
+                    candidate.source.order_index,
+                    candidate.source.checksum_sha256,
+                )
+                not in eligible_identities
+                and self._can_use_consensus_backed_representative(candidate)
+            )
+
+        for candidate in candidates_to_check:
             identity = (candidate.source.order_index, candidate.source.checksum_sha256)
             observation, verification = by_identity[identity]
             own_range = verification.recognized_range
-            if own_range is None or own_range.confidence < threshold:
+            if own_range is None or own_range.confidence < representative_range_threshold:
                 verification = self._verify_candidate_batch(
                     verifier,
                     (observation,),
@@ -1287,13 +1391,45 @@ class FastImageSelector:
                 range_conflict=range_conflict,
             )
             own_key = None if own_range is None else (own_range.start, own_range.end)
-            if (
-                checked.decision is CandidateDecision.ELIGIBLE
-                and own_range is not None
-                and own_range.confidence >= threshold
+            exact_range_match = (
+                own_range is not None
+                and own_range.confidence >= representative_range_threshold
                 and own_key == expected_key
-            ):
-                selected = self._select_automatic(checked)
+            )
+            accepted_by_standard_gate = checked.decision is CandidateDecision.ELIGIBLE
+            accepted_by_consensus_gate = (
+                self.manifest.algorithm_version == CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION
+                and self._can_use_consensus_backed_representative(checked)
+            )
+            if exact_range_match and (accepted_by_standard_gate or accepted_by_consensus_gate):
+                selected = replace(
+                    self._select_automatic(checked),
+                    recognized_range=expected_range,
+                    reason_codes=tuple(
+                        dict.fromkeys(
+                            (
+                                *checked.reason_codes,
+                                *(
+                                    ()
+                                    if range_resolution_reason is None
+                                    else (range_resolution_reason,)
+                                ),
+                            )
+                        )
+                    ),
+                )
+                if accepted_by_consensus_gate and not accepted_by_standard_gate:
+                    selected = replace(
+                        selected,
+                        reason_codes=tuple(
+                            dict.fromkeys(
+                                (
+                                    *selected.reason_codes,
+                                    CONSENSUS_BACKED_REPRESENTATIVE_REASON,
+                                )
+                            )
+                        ),
+                    )
                 updated = [
                     selected
                     if (item.source.order_index, item.source.checksum_sha256) == identity
@@ -1304,15 +1440,13 @@ class FastImageSelector:
 
             coherence_reason = (
                 "REPRESENTATIVE_RANGE_UNKNOWN"
-                if own_range is None or own_range.confidence < threshold
+                if own_range is None or own_range.confidence < representative_range_threshold
                 else "REPRESENTATIVE_RANGE_MISMATCH"
             )
             rejected = replace(
                 checked,
                 decision=CandidateDecision.REJECTED,
-                reason_codes=tuple(
-                    dict.fromkeys((*checked.reason_codes, coherence_reason))
-                ),
+                reason_codes=tuple(dict.fromkeys((*checked.reason_codes, coherence_reason))),
             )
             updated = [
                 rejected
@@ -1322,6 +1456,32 @@ class FastImageSelector:
             ]
 
         return None, tuple(updated), extra_verification_count
+
+    def _can_use_consensus_backed_representative(
+        self,
+        candidate: CandidateResult,
+    ) -> bool:
+        """Allow a softer image only when its own OCR proves the group range.
+
+        Range equality and confidence are enforced by the caller. This helper
+        only relaxes representative geometry/quality gates; unreadable,
+        conflicting, occluded, blurred, or technically invalid JPEGs remain
+        in manual review.
+        """
+
+        blocking_reasons = {
+            "IMAGE_OCCLUDED",
+            "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+            "QUALITY_BLUR",
+            "RANGE_CONFLICT",
+        }
+        return (
+            candidate.quality.sharpness >= self.manifest.thresholds.minimum_sharpness
+            and not any(
+                reason in blocking_reasons or reason.startswith("IMAGE_SELECTION_SCAN_")
+                for reason in candidate.reason_codes
+            )
+        )
 
     @staticmethod
     def _range_from_anchor(
@@ -1371,6 +1531,9 @@ class FastImageSelector:
         *,
         minimum_agreeing_frames: int,
     ) -> tuple[SequenceRange | None, bool]:
+        if self._hybrid_bounded:
+            recognized_range, _ = self._hybrid_group_range(verified)
+            return recognized_range, len(self._hybrid_range_keys(verified)) > 1
         evidence: dict[tuple[int, int], list[float]] = {}
         for _, verification in verified:
             recognized = verification.range_evidence.recognized_range
@@ -1390,6 +1553,83 @@ class FastImageSelector:
         if len(confidences) < minimum_agreeing_frames:
             return None, False
         return SequenceRange(start, end, max(confidences)), False
+
+    @staticmethod
+    def _hybrid_range_keys(
+        verified: list[tuple[CheapImageObservation, CandidateVerification]],
+    ) -> frozenset[tuple[int, int]]:
+        return frozenset(
+            (recognized.start, recognized.end)
+            for _, verification in verified
+            if (recognized := verification.recognized_range) is not None
+            and recognized.confidence >= 0.75
+        )
+
+    def _hybrid_group_range(
+        self,
+        verified: list[tuple[CheapImageObservation, CandidateVerification]],
+    ) -> tuple[SequenceRange | None, str | None]:
+        evidence: dict[tuple[int, int], list[CandidateVerification]] = {}
+        for _, verification in verified:
+            recognized = verification.recognized_range
+            if recognized is None or recognized.confidence < 0.75:
+                continue
+            evidence.setdefault((recognized.start, recognized.end), []).append(verification)
+        if not evidence:
+            return None, None
+
+        strong_keys = {
+            key
+            for key, values in evidence.items()
+            if any(
+                item.recognized_range is not None
+                and item.recognized_range.confidence
+                >= self.manifest.thresholds.minimum_range_confidence
+                for item in values
+            )
+        }
+        if len(strong_keys) == 1:
+            start, end = next(iter(strong_keys))
+            confidence = max(
+                item.recognized_range.confidence
+                for item in evidence[(start, end)]
+                if item.recognized_range is not None
+            )
+            return SequenceRange(start=start, end=end, confidence=confidence), "RANGE_OCR_EXACT"
+        if len(strong_keys) > 1:
+            return None, None
+
+        fuzzy = [
+            (key, values)
+            for key, values in evidence.items()
+            if len(values) >= 2
+            and all("RANGE_OCR_FUZZY_CANDIDATE" in value.reason_codes for value in values[:2])
+        ]
+        if len(fuzzy) != 1:
+            return None, None
+        (start, end), _ = fuzzy[0]
+        return (
+            SequenceRange(start=start, end=end, confidence=0.92),
+            FUZZY_CONSENSUS_RANGE_REASON,
+        )
+
+    @staticmethod
+    def _cheap_representative_verification(
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        return CandidateVerification(
+            representative=RepresentativeAssessment(
+                board_count=expected_board_count or observation.board_count,
+                geometry_complete=True,
+                full_frame_visible=observation.quality.board_visibility >= 0.25,
+            ),
+            range_evidence=RangeEvidence(
+                recognized_range=None,
+                reason_codes=("RANGE_EVIDENCE_NOT_REQUESTED",),
+            ),
+        )
 
     @staticmethod
     def _verify_candidate_batch(
@@ -1624,6 +1864,54 @@ class FastImageSelector:
         board_count_consensus: int | None,
         range_conflict: bool,
     ) -> CandidateResult:
+        if self._hybrid_bounded:
+            policy = self.manifest.representative_policy
+            quality = observation.quality
+            representative_reasons = [
+                reason
+                for reason in observation.reason_codes
+                if not reason.startswith(("BOARD_", "GEOMETRY_"))
+            ]
+            if quality.overall_score < policy.minimum_quality_score:
+                representative_reasons.append("QUALITY_SCORE_LOW")
+            if quality.sharpness < policy.minimum_sharpness:
+                representative_reasons.append("QUALITY_BLUR")
+            if quality.exposure < policy.minimum_exposure:
+                representative_reasons.append("QUALITY_EXPOSURE")
+            if quality.highlight_retention < policy.minimum_highlight_retention:
+                representative_reasons.append("QUALITY_HIGHLIGHT_CLIPPING")
+            if quality.board_visibility < policy.minimum_board_visibility:
+                representative_reasons.append("QUALITY_BOARD_VISIBILITY")
+            range_reasons = [
+                reason
+                for reason in verification.range_evidence.reason_codes
+                if reason != "RANGE_EVIDENCE_NOT_REQUESTED"
+            ]
+            if range_conflict:
+                range_reasons.append("RANGE_CONFLICT")
+            reasons = tuple(dict.fromkeys((*representative_reasons, *range_reasons)))
+            hard_failure = any(
+                reason.startswith("IMAGE_SELECTION_SCAN_")
+                or reason in {"IMAGE_OCCLUDED", "RANGE_CONFLICT"}
+                for reason in reasons
+            )
+            readable = _is_reasonably_readable_observation(
+                observation,
+                policy=policy,
+            )
+            return CandidateResult(
+                source=observation.source,
+                decision=(
+                    CandidateDecision.ELIGIBLE
+                    if readable and not hard_failure
+                    else CandidateDecision.REJECTED
+                ),
+                quality=quality,
+                recognized_range=verification.range_evidence.recognized_range,
+                reason_codes=reasons,
+                width=observation.width,
+                height=observation.height,
+            )
         recognized_range = verification.range_evidence.recognized_range
         representative = verification.representative
         trusted_full_verification = (
@@ -1878,6 +2166,7 @@ class FastImageSelector:
                             *selected_source.reason_codes,
                             BEST_AVAILABLE_REASON,
                             INFERRED_RANGE_REASON,
+                            *((EXACT_GAP_RANGE_REASON,) if self._hybrid_bounded else ()),
                         )
                     )
                 ),
@@ -1911,7 +2200,14 @@ class FastImageSelector:
     def _can_use_inferred_best_available(self, candidate: CandidateResult) -> bool:
         hard_failure = any(
             reason.startswith("IMAGE_SELECTION_SCAN_")
-            or reason in {"IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED", "RANGE_CONFLICT"}
+            or reason
+            in {
+                "IMAGE_OCCLUDED" if self._hybrid_bounded else "",
+                "QUALITY_BLUR" if self._hybrid_bounded else "",
+                "QUALITY_BOARD_VISIBILITY" if self._hybrid_bounded else "",
+                "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+                "RANGE_CONFLICT",
+            }
             for reason in candidate.reason_codes
         )
         if self.manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:

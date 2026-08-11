@@ -208,3 +208,51 @@ def test_progressive_export_advances_cursor_without_rescanning_old_groups(
     assert saved_orders == {0, 2}
     assert (tmp_path / "seq_1-9.jpg").is_file()
     assert (tmp_path / "seq_10-18.jpg").is_file()
+
+
+def test_progressive_export_reads_one_bounded_page_while_run_is_growing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _monitor_module()
+    calls: list[int] = []
+
+    class _Client:
+        def get(self, _path: str) -> object:
+            raise AssertionError("No selected file is expected for a manual group.")
+
+    def request_json(
+        _client: object,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+        **_: object,
+    ) -> dict[str, Any]:
+        calls.append(int(params["afterGroupOrder"]))
+        return {
+            "items": [
+                {
+                    "groupOrder": 99,
+                    "id": "group-99",
+                    "rangeStart": None,
+                    "rangeEnd": None,
+                    "status": "manual_required",
+                }
+            ],
+            "nextAfterGroupOrder": 99,
+        }
+
+    monkeypatch.setattr(monitor, "_request_json", request_json)
+
+    saved, cursor = monitor._save_ready_groups(
+        _Client(),
+        "run",
+        tmp_path,
+        set(),
+        after_group_order=-1,
+    )
+
+    assert saved == 0
+    assert cursor == 99
+    assert calls == [-1]

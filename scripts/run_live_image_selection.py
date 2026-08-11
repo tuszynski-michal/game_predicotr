@@ -136,26 +136,26 @@ def _groups_after(
     *,
     after_group_order: int,
 ) -> tuple[list[dict[str, Any]], int]:
-    after = after_group_order
-    result: list[dict[str, Any]] = []
-    while True:
-        page = _request_json(
-            client,
-            "GET",
-            f"/api/v1/admin/image-selections/{run_id}/groups",
-            params={"afterGroupOrder": after, "limit": 100},
+    # Read exactly one bounded page per polling cycle. During a fast run the
+    # worker can append groups quicker than an unbounded pagination loop can
+    # reach the moving end, which would starve progressive file export.
+    page = _request_json(
+        client,
+        "GET",
+        f"/api/v1/admin/image-selections/{run_id}/groups",
+        params={"afterGroupOrder": after_group_order, "limit": 100},
+    )
+    items = page.get("items")
+    if not isinstance(items, list):
+        raise RuntimeError("Image-selection group page is invalid.")
+    page_items = [item for item in items if isinstance(item, dict)]
+    export_cursor = after_group_order
+    if page_items:
+        export_cursor = max(
+            export_cursor,
+            *(int(item["groupOrder"]) for item in page_items),
         )
-        items = page.get("items")
-        if not isinstance(items, list):
-            raise RuntimeError("Image-selection group page is invalid.")
-        page_items = [item for item in items if isinstance(item, dict)]
-        result.extend(page_items)
-        if page_items:
-            after = max(after, *(int(item["groupOrder"]) for item in page_items))
-        next_after = page.get("nextAfterGroupOrder")
-        if next_after is None:
-            return result, after
-        after = int(next_after)
+    return page_items, export_cursor
 
 
 def _save_ready_groups(
@@ -228,6 +228,11 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--game-id")
+    parser.add_argument(
+        "--first-sequence-number",
+        type=int,
+        help="First layout number visible in the first source-image group.",
+    )
     parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--upload-workers", type=int, default=4, choices=range(1, 9))
@@ -250,10 +255,17 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
         headers=ADMIN_HEADERS,
         timeout=httpx.Timeout(60.0, connect=10.0),
     ) as client:
+        first_sequence_number = getattr(options, "first_sequence_number", None)
+        rerun_body = (
+            None
+            if first_sequence_number is None
+            else {"firstSequenceNumber": first_sequence_number}
+        )
         created = _request_json(
             client,
             "POST",
             f"/api/v1/admin/image-selections/{options.rerun_id}/rerun",
+            json_body=rerun_body,
         )
     run = created.get("run")
     if not isinstance(run, dict):
@@ -360,13 +372,15 @@ def _resume_existing(options: argparse.Namespace) -> int:
 def main() -> int:
     options = _parse_args()
     if options.output is None:
-        raise RuntimeError(
-            "--output or GAME_PREDICTOR_SELECTION_OUTPUT is required."
-        )
+        raise RuntimeError("--output or GAME_PREDICTOR_SELECTION_OUTPUT is required.")
     if options.resume_existing:
         return _resume_existing(options)
+    if options.first_sequence_number is not None and options.first_sequence_number < 1:
+        raise RuntimeError("--first-sequence-number must be positive.")
     if options.rerun_id is not None:
         return _start_existing_rerun(options)
+    if not options.resume_existing and options.first_sequence_number is None:
+        raise RuntimeError("--first-sequence-number is required for a new anchored selector run.")
     if options.source is None or options.game_id is None:
         raise RuntimeError("--source and --game-id are required for a new upload.")
     source_root = options.source.resolve(strict=True)
@@ -468,7 +482,7 @@ def main() -> int:
             "/api/v1/admin/image-selections",
             json_body={
                 "contractVersion": 1,
-                "firstSequenceNumber": None,
+                "firstSequenceNumber": options.first_sequence_number,
                 "gameId": options.game_id,
                 "sequenceDirection": "ascending",
                 "selectionToken": finalized["selectionToken"],

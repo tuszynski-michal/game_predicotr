@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
 
+from game_predictor_worker.images.selection.manifest import selector_manifest_for_fingerprint
 from pydantic import Field
 
 from game_predictor_api.domain.image_selections import (
@@ -31,6 +32,10 @@ class ImageSelectionCreate(ApiModel):
     selection_token: str = Field(min_length=32, max_length=200)
     contract_version: Literal[1] = 1
     sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
+    first_sequence_number: int = Field(ge=1)
+
+
+class ImageSelectionRerunCommand(ApiModel):
     first_sequence_number: int | None = Field(default=None, ge=1)
 
 
@@ -41,6 +46,7 @@ class ImageSelectionRunResponse(ApiModel):
     source_selection_id: UUID
     input_manifest_sha256: Sha256
     selector_fingerprint: Sha256
+    selector_version: str = Field(min_length=1, max_length=100)
     ordering_policy: str = Field(pattern=r"^natural_relative_path_v1$")
     contract_version: int = Field(ge=1, le=1)
     output_manifest_sha256: Sha256 | None
@@ -141,6 +147,12 @@ class ImageSelectionMissingImageCommand(ApiModel):
     range_end: int | None = Field(default=None, ge=1)
 
 
+class ImageSelectionDuplicateRangeCommand(ApiModel):
+    idempotency_key: UUID
+    range_start: int = Field(ge=1)
+    range_end: int = Field(ge=1)
+
+
 class ImageSelectionManualDecisionResponse(ApiModel):
     idempotency_key: UUID
     run_id: UUID
@@ -161,6 +173,7 @@ class ImageSelectionManualApprovalResponse(ApiModel):
 def to_image_selection_run_response(
     run: ImageSelectionRun,
 ) -> ImageSelectionRunResponse:
+    selector_manifest = selector_manifest_for_fingerprint(run.selector_fingerprint)
     return ImageSelectionRunResponse(
         id=run.id,
         game_id=run.game_id,
@@ -168,6 +181,9 @@ def to_image_selection_run_response(
         source_selection_id=run.source_selection_id,
         input_manifest_sha256=run.input_manifest_sha256,
         selector_fingerprint=run.selector_fingerprint,
+        selector_version=(
+            selector_manifest.algorithm_version if selector_manifest is not None else "unknown"
+        ),
         ordering_policy=run.ordering_policy,
         contract_version=run.contract_version,
         output_manifest_sha256=run.output_manifest_sha256,
@@ -273,6 +289,7 @@ __all__ = [
     "ImageSelectionHandoffResponse",
     "ImageSelectionManualApprovalCommand",
     "ImageSelectionManualApprovalResponse",
+    "ImageSelectionDuplicateRangeCommand",
     "ImageSelectionManualDecisionResponse",
     "ImageSelectionManualFileResponse",
     "ImageSelectionMissingImageCommand",

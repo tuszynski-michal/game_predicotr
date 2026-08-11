@@ -105,6 +105,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DiscardDuplicateImageSelectionGroupData,
+  DiscardDuplicateImageSelectionGroupErrors,
+  DiscardDuplicateImageSelectionGroupResponses,
   DownloadImageDiagnosticExportData,
   DownloadImageDiagnosticExportErrors,
   DownloadImageDiagnosticExportResponses,
@@ -2190,6 +2193,32 @@ export const continueImageSelectionWithoutImage = <
   });
 
 /**
+ * Discard one manual-review group whose range is already resolved
+ */
+export const discardDuplicateImageSelectionGroup = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DiscardDuplicateImageSelectionGroupData, ThrowOnError>,
+): RequestResult<
+  DiscardDuplicateImageSelectionGroupResponses,
+  DiscardDuplicateImageSelectionGroupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DiscardDuplicateImageSelectionGroupResponses,
+    DiscardDuplicateImageSelectionGroupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/discard-duplicate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Copy one browser-selected JPEG into managed manual-review storage
  */
 export const uploadManualImageSelectionFile = <
@@ -2333,6 +2362,10 @@ export const rerunImageSelection = <ThrowOnError extends boolean = false>(
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-selections/{run_id}/rerun',
     ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

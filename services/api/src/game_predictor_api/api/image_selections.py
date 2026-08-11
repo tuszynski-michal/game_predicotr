@@ -21,6 +21,7 @@ from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_selections import (
     ImageSelectionCreate,
     ImageSelectionCreateResponse,
+    ImageSelectionDuplicateRangeCommand,
     ImageSelectionGroupCandidatesResponse,
     ImageSelectionGroupPageResponse,
     ImageSelectionHandoffResponse,
@@ -30,6 +31,7 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionMissingImageCommand,
     ImageSelectionOutputFileResponse,
     ImageSelectionOutputResponse,
+    ImageSelectionRerunCommand,
     ImageSelectionRunPageResponse,
     ImageSelectionRunResponse,
     to_image_selection_candidate_response,
@@ -132,10 +134,12 @@ def create_image_selections_router(
     def rerun_image_selection(
         run_id: UUID,
         service: Annotated[ImageSelectionService, service_parameter],
+        payload: Annotated[ImageSelectionRerunCommand | None, Body()] = None,
     ) -> ImageSelectionCreateResponse:
         run, created = service.rerun(
             run_id=run_id,
             selector_fingerprint=IMAGE_SELECTION_SELECTOR_FINGERPRINT,
+            first_sequence_number=(None if payload is None else payload.first_sequence_number),
         )
         return ImageSelectionCreateResponse(
             run=to_image_selection_run_response(run),
@@ -312,6 +316,31 @@ def create_image_selections_router(
         return ImageSelectionManualApprovalResponse(
             group=to_image_selection_group_response(resolved.group),
             decision=to_manual_decision_response(resolved.decision),
+        )
+
+    @router.post(
+        "/{run_id}/groups/{group_id}/discard-duplicate",
+        response_model=ImageSelectionManualApprovalResponse,
+        operation_id="discardDuplicateImageSelectionGroup",
+        summary="Discard one manual-review group whose range is already resolved",
+        responses=ERROR_RESPONSES,
+    )
+    def discard_duplicate_image_selection_group(
+        run_id: UUID,
+        group_id: UUID,
+        payload: ImageSelectionDuplicateRangeCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualApprovalResponse:
+        discarded = service.discard_duplicate_range(
+            run_id=run_id,
+            group_id=group_id,
+            idempotency_key=payload.idempotency_key,
+            range_start=payload.range_start,
+            range_end=payload.range_end,
+        )
+        return ImageSelectionManualApprovalResponse(
+            group=to_image_selection_group_response(discarded.group),
+            decision=to_manual_decision_response(discarded.decision),
         )
 
     @router.get(

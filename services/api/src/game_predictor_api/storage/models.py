@@ -1023,12 +1023,13 @@ class ImageSelectionManualDecisionModel(Base):
             name="ck_image_selection_manual_decisions_payload_sha256",
         ),
         CheckConstraint(
-            "resolution IN ('selected_image', 'missing_image')",
+            "resolution IN ('selected_image', 'missing_image', 'duplicate_range')",
             name="ck_image_selection_manual_decisions_resolution",
         ),
         CheckConstraint(
             "(resolution = 'selected_image' AND candidate_id IS NOT NULL) OR "
-            "(resolution = 'missing_image' AND candidate_id IS NULL)",
+            "(resolution IN ('missing_image', 'duplicate_range') "
+            "AND candidate_id IS NULL)",
             name="ck_image_selection_manual_decisions_candidate_resolution",
         ),
         ForeignKeyConstraint(

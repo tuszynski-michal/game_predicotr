@@ -24,6 +24,7 @@ import {
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
   continueWithAutomaticallySelectedImages,
+  loadAutomaticallySelectedImageSelectionGroups,
   loadImageSelectionGroupsAfter,
   loadManualImageSelectionGroups,
   pickImageSelectionOutputDirectory,
@@ -89,6 +90,13 @@ export function ImageSelectionWorkspace({
   >([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
+  const [automaticGroups, setAutomaticGroups] = useState<
+    ImageSelectionGroupResponse[]
+  >([]);
+  const [automaticVerificationOpen, setAutomaticVerificationOpen] =
+    useState(false);
+  const [automaticVerificationLoading, setAutomaticVerificationLoading] =
+    useState(false);
   const [busy, setBusy] = useState(false);
   const [preparingFolder, setPreparingFolder] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -119,7 +127,14 @@ export function ImageSelectionWorkspace({
           return;
         }
         setRunHistory(result.data.items);
-        setRun((current) => current ?? result.data?.items[0] ?? null);
+        const initialRun = result.data.items[0] ?? null;
+        setRun((current) => current ?? initialRun);
+        if (
+          initialRun?.firstSequenceNumber !== null &&
+          initialRun?.firstSequenceNumber !== undefined
+        ) {
+          setFirstSequenceNumber(String(initialRun.firstSequenceNumber));
+        }
       } catch {
         if (!cancelled) {
           setRefreshWarning(
@@ -148,6 +163,9 @@ export function ImageSelectionWorkspace({
           result.data !== undefined
         ) {
           setRun(result.data);
+          if (result.data.firstSequenceNumber !== null) {
+            setFirstSequenceNumber(String(result.data.firstSequenceNumber));
+          }
         } else if (!cancelled && result.error !== undefined) {
           window.localStorage.removeItem(storageKey(gameId));
         }
@@ -305,6 +323,15 @@ export function ImageSelectionWorkspace({
 
   async function startUpload(files: readonly File[], activeResume = resume) {
     if (busy) return;
+    const parsedFirstSequenceNumber = Number(firstSequenceNumber);
+    if (
+      firstSequenceNumber.trim() === '' ||
+      !Number.isInteger(parsedFirstSequenceNumber) ||
+      parsedFirstSequenceNumber < 1
+    ) {
+      setError('Podaj numer pierwszego layoutu przed rozpoczęciem uploadu.');
+      return;
+    }
     setBusy(true);
     setError('');
     setNotice('');
@@ -312,8 +339,7 @@ export function ImageSelectionWorkspace({
       onProgress: setProgress,
       resume: activeResume,
       sequenceDirection,
-      firstSequenceNumber:
-        firstSequenceNumber.trim() === '' ? null : Number(firstSequenceNumber),
+      firstSequenceNumber: parsedFirstSequenceNumber,
     });
     if (!result.ok) {
       setError(result.error);
@@ -441,13 +467,24 @@ export function ImageSelectionWorkspace({
     if (run === null || busy || isPollableRunStatus(run.job.status)) {
       return;
     }
+    const parsedFirstSequenceNumber = Number(firstSequenceNumber);
+    if (
+      firstSequenceNumber.trim() === '' ||
+      !Number.isInteger(parsedFirstSequenceNumber) ||
+      parsedFirstSequenceNumber < 1
+    ) {
+      setError('Podaj numer pierwszego layoutu przed ponownym uruchomieniem.');
+      return;
+    }
     setBusy(true);
     setRerunning(true);
     setError('');
     setNotice('');
     const previousStatus = run.job.status;
     try {
-      const result = await api.rerunImageSelection(run.id);
+      const result = await api.rerunImageSelection(run.id, {
+        firstSequenceNumber: parsedFirstSequenceNumber,
+      });
       if (result.error !== undefined || result.data === undefined) {
         setError(
           apiErrorMessage(
@@ -464,6 +501,8 @@ export function ImageSelectionWorkspace({
       ]);
       setManualGroups([]);
       setManualOpen(false);
+      setAutomaticGroups([]);
+      setAutomaticVerificationOpen(false);
       pollingWindowRef.current = null;
       window.localStorage.setItem(storageKey(gameId), result.data.run.id);
       setNotice(
@@ -529,6 +568,28 @@ export function ImageSelectionWorkspace({
     }
   }
 
+  async function openAutomaticVerification() {
+    if (run === null || automaticVerificationLoading) return;
+    setAutomaticVerificationLoading(true);
+    setError('');
+    try {
+      const groups = await loadAutomaticallySelectedImageSelectionGroups(
+        api,
+        run.id,
+      );
+      setAutomaticGroups(groups);
+      if (groups.length === 0) {
+        setNotice('Ten run nie ma jeszcze automatycznie wybranych grup.');
+      } else {
+        setAutomaticVerificationOpen(true);
+      }
+    } catch {
+      setError('Nie udało się odczytać automatycznie wybranych grup.');
+    } finally {
+      setAutomaticVerificationLoading(false);
+    }
+  }
+
   function selectRun(runId: string) {
     const selected = runHistory.find((item) => item.id === runId);
     if (selected === undefined || selected.id === run?.id) return;
@@ -538,7 +599,14 @@ export function ImageSelectionWorkspace({
     setOutputFolderName('');
     setManualOpen(false);
     setManualGroups([]);
+    setAutomaticVerificationOpen(false);
+    setAutomaticGroups([]);
     setRun(selected);
+    setFirstSequenceNumber(
+      selected.firstSequenceNumber === null
+        ? ''
+        : String(selected.firstSequenceNumber),
+    );
     setError('');
     setNotice(
       'Wybrano zapisany proces. Wybierz folder zapisu, aby uzupełniać w nim ręcznie zatwierdzone braki.',
@@ -591,7 +659,9 @@ export function ImageSelectionWorkspace({
 
   function updateManualGroup(updated: ImageSelectionGroupResponse) {
     setManualGroups((groups) =>
-      groups.map((group) => (group.id === updated.id ? updated : group)),
+      updated.status === 'skipped_existing_range'
+        ? groups.filter((group) => group.id !== updated.id)
+        : groups.map((group) => (group.id === updated.id ? updated : group)),
     );
     if (activeRunId !== null) {
       const directory = outputDirectoryRef.current;
@@ -695,12 +765,13 @@ export function ImageSelectionWorkspace({
             </select>
           </label>
           <label>
-            Pierwszy numer (opcjonalnie)
+            Pierwszy numer layoutu
             <input
               disabled={busy}
               min={1}
               onChange={(event) => setFirstSequenceNumber(event.target.value)}
-              placeholder="Rozpoznaj automatycznie"
+              placeholder="np. 19810"
+              required
               type="number"
               value={firstSequenceNumber}
             />
@@ -718,7 +789,13 @@ export function ImageSelectionWorkspace({
           <button
             aria-busy={busy}
             className="primaryButton"
-            disabled={busy || outputFolderName === ''}
+            disabled={
+              busy ||
+              outputFolderName === '' ||
+              firstSequenceNumber.trim() === '' ||
+              !Number.isInteger(Number(firstSequenceNumber)) ||
+              Number(firstSequenceNumber) < 1
+            }
             onClick={() => folderInputRef.current?.click()}
             type="button"
           >
@@ -907,7 +984,10 @@ export function ImageSelectionWorkspace({
                 </div>
                 <div>
                   <dt>Selektor</dt>
-                  <dd>{run.selectorFingerprint.slice(0, 12)}…</dd>
+                  <dd>
+                    {formatSelectorVersion(run.selectorVersion)} ·{' '}
+                    {run.selectorFingerprint.slice(0, 12)}…
+                  </dd>
                 </div>
               </dl>
             </details>
@@ -949,6 +1029,22 @@ export function ImageSelectionWorkspace({
                     : `Ręczna selekcja (${unresolvedGroupCount} do uzupełnienia)`}
                 </button>
               ) : null}
+              <button
+                className="secondaryButton"
+                disabled={busy || automaticVerificationLoading}
+                onClick={() => void openAutomaticVerification()}
+                type="button"
+              >
+                {automaticVerificationLoading
+                  ? 'Odczytywanie…'
+                  : `Weryfikuj wybory algorytmu${
+                      (selectionProgress?.selected ?? 0) > 0
+                        ? ` (${(
+                            selectionProgress?.selected ?? 0
+                          ).toLocaleString('pl-PL')})`
+                        : ''
+                    }`}
+              </button>
               <button
                 aria-busy={busy}
                 className="primaryButton"
@@ -997,6 +1093,19 @@ export function ImageSelectionWorkspace({
           runId={run.id}
         />
       ) : null}
+      {automaticVerificationOpen &&
+      run !== null &&
+      automaticGroups.length > 0 ? (
+        <ManualImageSelectionModal
+          apiBaseUrl={apiBaseUrl}
+          client={api}
+          groups={automaticGroups}
+          mode="automatic-verification"
+          onClose={() => setAutomaticVerificationOpen(false)}
+          onGroupUpdated={() => undefined}
+          runId={run.id}
+        />
+      ) : null}
     </section>
   );
 }
@@ -1029,7 +1138,12 @@ function formatRunHistoryLabel(run: ImageSelectionRunResponse): string {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(run.createdAt));
-  return `${created} · ${jobStatusLabel(run.job.status)} · ${run.id.slice(0, 8)}`;
+  return `${created} · ${formatSelectorVersion(run.selectorVersion)} · ${jobStatusLabel(run.job.status)} · ${run.id.slice(0, 8)}`;
+}
+
+function formatSelectorVersion(value: string): string {
+  const match = /^fast-image-selector-(v[0-9]+(?:\.[0-9]+)*)$/.exec(value);
+  return match?.[1] ?? 'wersja nieznana';
 }
 
 function isPollableRunStatus(status: string): boolean {

@@ -2359,16 +2359,9 @@
             "type": "integer"
           },
           "firstSequenceNumber": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Firstsequencenumber"
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
           },
           "gameId": {
             "format": "uuid",
@@ -2388,7 +2381,8 @@
         },
         "required": [
           "gameId",
-          "selectionToken"
+          "selectionToken",
+          "firstSequenceNumber"
         ],
         "title": "ImageSelectionCreate",
         "type": "object"
@@ -2409,6 +2403,33 @@
           "created"
         ],
         "title": "ImageSelectionCreateResponse",
+        "type": "object"
+      },
+      "ImageSelectionDuplicateRangeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "rangeStart",
+          "rangeEnd"
+        ],
+        "title": "ImageSelectionDuplicateRangeCommand",
         "type": "object"
       },
       "ImageSelectionGroupCandidatesResponse": {
@@ -2967,7 +2988,8 @@
       "ImageSelectionManualResolution": {
         "enum": [
           "selected_image",
-          "missing_image"
+          "missing_image",
+          "duplicate_range"
         ],
         "title": "ImageSelectionManualResolution",
         "type": "string"
@@ -3161,6 +3183,25 @@
         "title": "ImageSelectionRecentWindowResponse",
         "type": "object"
       },
+      "ImageSelectionRerunCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          }
+        },
+        "title": "ImageSelectionRerunCommand",
+        "type": "object"
+      },
       "ImageSelectionRunPageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3267,6 +3308,12 @@
             "title": "Selectorfingerprint",
             "type": "string"
           },
+          "selectorVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Selectorversion",
+            "type": "string"
+          },
           "sequenceDirection": {
             "$ref": "#/components/schemas/ImageSelectionSequenceDirection"
           },
@@ -3288,6 +3335,7 @@
           "sourceSelectionId",
           "inputManifestSha256",
           "selectorFingerprint",
+          "selectorVersion",
           "orderingPolicy",
           "contractVersion",
           "outputManifestSha256",
@@ -16304,6 +16352,104 @@
         ]
       }
     },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/discard-duplicate": {
+      "post": {
+        "operationId": "discardDuplicateImageSelectionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionDuplicateRangeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Discard one manual-review group whose range is already resolved",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
     "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-file": {
       "put": {
         "operationId": "uploadManualImageSelectionFile",
@@ -16778,6 +16924,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ImageSelectionRerunCommand"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {

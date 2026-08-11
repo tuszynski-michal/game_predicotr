@@ -14,6 +14,10 @@ from uuid import UUID, uuid4
 
 from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
 from game_predictor_worker.images.selection.contracts import SelectionContractError
+from game_predictor_worker.images.selection.manifest import (
+    HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
+    QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
+)
 from game_predictor_worker.images.selection.output import verify_curated_image_manifest
 
 from game_predictor_api.domain.image_selections import (
@@ -29,6 +33,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionNotFoundError,
     ImageSelectionRun,
     ImageSelectionSequenceDirection,
+    create_duplicate_range_decision,
     create_image_selection_run,
     create_manual_decision,
     create_missing_image_decision,
@@ -425,8 +430,26 @@ class ImageSelectionService:
         *,
         run_id: UUID,
         selector_fingerprint: str,
+        first_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         source_run = self.get_run(run_id)
+        effective_first_sequence_number = (
+            source_run.first_sequence_number
+            if first_sequence_number is None
+            else first_sequence_number
+        )
+        if (
+            selector_fingerprint
+            in {
+                HYBRID_BOUNDED_SELECTOR_MANIFEST_V104.fingerprint,
+                QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.fingerprint,
+            }
+            and effective_first_sequence_number is None
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED",
+                "The current selector requires the first layout sequence number.",
+            )
         if self._browser_upload_root is None:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
@@ -461,7 +484,7 @@ class ImageSelectionService:
             input_manifest_sha256=source_run.input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
             sequence_direction=source_run.sequence_direction,
-            first_sequence_number=source_run.first_sequence_number,
+            first_sequence_number=effective_first_sequence_number,
         )
         if created or rerun.job.status not in {
             JobStatus.CANCELLED,
@@ -799,6 +822,94 @@ class ImageSelectionService:
         )
         return ImageSelectionManualApproval(saved_group, saved_decision)
 
+    def discard_duplicate_range(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        idempotency_key: UUID,
+        range_start: int,
+        range_end: int,
+    ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._repository.get_job_for_update(run.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_JOB_MISSING",
+                "The image-selection job no longer exists.",
+            )
+        run = self.get_run(run_id)
+        group = self._get_manual_group(run_id=run_id, group_id=group_id)
+        existing = self._repository.get_manual_decision(idempotency_key)
+        proposed_group, proposed = create_duplicate_range_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            range_start=range_start,
+            range_end=range_end,
+            revision=(
+                existing.revision
+                if existing is not None
+                else self._repository.next_manual_revision(
+                    run_id=run_id,
+                    group_id=group_id,
+                )
+            ),
+        )
+        if existing is not None:
+            if existing.payload_sha256 != proposed.payload_sha256:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            replay_group = replace(
+                group,
+                range_start=existing.range_start,
+                range_end=existing.range_end,
+                status=ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                selected_candidate_id=None,
+                updated_at=existing.created_at,
+            )
+            self._resume_completed_manual_review(
+                run_id=run_id,
+                locked_job=locked_job,
+            )
+            return ImageSelectionManualApproval(replay_group, existing)
+        duplicate_exists = any(
+            other.id != group.id
+            and other.status
+            in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.MISSING_IMAGE,
+            }
+            and other.range_start == range_start
+            and other.range_end == range_end
+            for other in self._all_groups(run_id)
+        )
+        if not duplicate_exists:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND",
+                "No other resolved group uses this sequence range.",
+            )
+        saved_group, saved_decision = self._repository.save_manual_decision(
+            group=proposed_group,
+            decision=proposed,
+        )
+        if self._manual_file_store is not None:
+            self._manual_file_store.write_decision_manifest(
+                run_id=run_id,
+                decisions=self._repository.list_manual_decisions(run_id=run_id),
+            )
+        self._reopen_published_run_after_manual_revision(
+            run=run,
+            locked_job=locked_job,
+        )
+        self._resume_completed_manual_review(
+            run_id=run_id,
+            locked_job=locked_job,
+        )
+        return ImageSelectionManualApproval(saved_group, saved_decision)
+
     def get_manual_file(
         self,
         *,
@@ -1106,6 +1217,7 @@ class ImageSelectionService:
             ImageSelectionGroupStatus.MANUAL_REQUIRED,
             ImageSelectionGroupStatus.MANUALLY_SELECTED,
             ImageSelectionGroupStatus.MISSING_IMAGE,
+            ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
         }:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_GROUP_NOT_MANUAL",

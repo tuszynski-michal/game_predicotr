@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-09
+last_updated: 2026-08-11
 ---
 
 # Current State
@@ -850,6 +850,122 @@ błędnej nazwy `seq_18406-18414.jpg`. Telemetria wskazała OCR jako dominujący
 koszt trudnego wycinka: 219,648 s z 254,422 s. Bramka pierwszych 200 zdjęć
 potwierdziła identyczne decyzje jednego i dwóch verifierów, ale poprawa czasu
 wyniosła tylko 4,10%, dlatego produkcja pozostaje przy jednym verifierze.
+
+TASK-0219 usuwa regresję ujawnioną przez pierwszy produkcyjny run v10.2. Job
+`14d281a2-7d9d-4331-b34a-3c96677092bb` zatrzymał się przy 864 / 32 079 z
+`IMAGE_SELECTION_PERSISTENCE_CONFLICT`. Zakres `280–288` występował w kilku
+grupach review; późniejszy wiarygodny kandydat rozstrzygał wcześniejszą grupę,
+ale pozostawał również w `top_candidates` późniejszego
+`skipped_existing_range`. Silnik utrzymuje teraz jednego właściciela kandydata,
+a store pozwala promować wyłącznie tymczasowy rekord galerii z identycznym
+checksumem. Regresja 83/83, Ruff i zawężony mypy przeszły. Ponowny duży run
+pozostaje osobnym krokiem operatorskim po wdrożeniu poprawionego kodu.
+
+Ukończony TASK-0220 wprowadza `fast-image-selector-v10.3` o fingerprintcie
+`b5210620e3127fa4addebcb158d4e717df7d89ed08c6d09f354756bf18cab7e4`.
+Korekta ogranicza nadmierny `manual_required`: JPEG z miękkim problemem
+geometrii, kadru, ekspozycji albo liczby wykrytych plansz może zostać wybrany,
+jeżeli jego własny OCR dokładnie potwierdza zakres grupy z confidence `>= 0.90`.
+Inny lub nieznany zakres, konflikt, blur, okluzja i błąd techniczny nadal są
+twardą blokadą. Bieżący run 32 079 zdjęć kończy się na zapisanym fingerprintcie
+v10.2. Dopiero po jego stanie terminalnym oraz zakończeniu monitora API i lane
+selekcji zostaną przeładowane, a run 42 403 zdjęć zostanie utworzony na v10.3.
+Historia i galerie ręczne runu 32 079 pozostają dostępne do późniejszej pracy.
+Regresja selektora, adapterów i joba przeszła 124/124; Ruff oraz skupiony mypy
+manifestu i silnika również przeszły. Duży run v10.2 nie został zmodyfikowany.
+Kolejność odbioru została rozszerzona: po terminalnym stanie tego runu usługi
+zostaną przeładowane na v10.3, a te same 32 079 zdjęć zostanie przeliczone z
+istniejącego stagingu do `C:\Users\user\Documents\1 - 19809 new`. Dopiero po
+zakończeniu tego rerunu rozpocznie się zbiór 42 403 zdjęć. Oba wcześniejsze runy
+i ich galerie ręczne pozostają zachowane.
+Przed uruchomieniem 42 403 zdjęć obowiązuje bramka właścicielska: udział grup
+`manual_required` jest liczony jako
+`manual / (selected + manual + skipped)`. Wynik powyżej `20%` wstrzymuje automat
+i wymaga jawnej decyzji właściciela, czy kontynuować, czy ponownie poprawić
+algorytm. Wynik równy lub niższy niż `20%` pozwala uruchomić kolejny zbiór.
+
+Manualny odbiór galerii TASK-0217 ujawnił brak prefiksu `/api/v1` w URL-u
+JPEG-a kandydata. Metadane grupy działały, lecz miniatury oraz wybrany duży
+podgląd pobierały nieistniejącą trasę `/admin/...` i otrzymywały HTTP 404.
+Frontend korzysta teraz z pełnej trasy OpenAPI
+`/api/v1/admin/image-selections/.../file`; staging, decyzje i aktywne joby nie
+zostały zmienione. Ten sam pion rozszerza manualny odbiór o przewijaną galerię
+wszystkich zachowanych miniaturek oraz pełnoekranowy podgląd z pojedynczym
+poziomem powiększenia; funkcje nie wpływają na algorytm ani kolejkę workera.
+Kolejna korekta TASK-0217 rozdziela liczniki `manually_selected` i
+`missing_image`, wybiera domyślnie środkowy JPEG dla galerii do 20 zdjęć albo
+dziesiąty dla większej oraz wymaga jawnego zatwierdzenia. `Enter`, strzałka w
+prawo i przycisk zatwierdzają wybór i przechodzą do następnej nierozwiązanej
+grupy; strzałka w lewo tylko wraca. Enter na miniaturze nie jest już ignorowany,
+a niedokończone ładowanie galerii nie może omyłkowo zapisać pominięcia.
+TASK-0217 udostępnia teraz również osobny, tylko do odczytu podgląd grup
+`auto_selected`. Użytkownik wybiera run, otwiera `Weryfikuj wybory algorytmu`,
+widzi oznaczony reprezentant selektora, wszystkie zachowane miniatury grupy,
+pełny ekran i zoom. Porównywanie miniaturek nie zmienia decyzji, aktywnego joba
+ani wyeksportowanych plików.
+
+Implementacja TASK-0221–0227 wprowadza domyślny
+`fast-image-selector-v10.4` o fingerprintcie
+`8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e`.
+Grupowanie używa ROI siatki i potwierdza zmianę względem stabilnej poprzedniej
+grupy, OCR dopasowuje siatkę `3×3` i wykonuje najwyżej dziewięć cropów na JPEG,
+a dowód zakresu jest bounded do dwóch najlepszych kandydatów. Wszystkie zdjęcia
+grupy nadal przechodzą tani scoring i najlepszy czytelny reprezentant jest
+wybierany bez early exit. Blur, okluzja, brak widocznej planszy, konflikt
+zakresu oraz błąd techniczny pozostają twardymi blokadami.
+
+Nowe runy v10.4 wymagają dodatniego `first_sequence_number` w Adminie, API,
+skrypcie live i CLI; worker powtarza tę kontrolę przed pracą. Historyczne runy
+z nullable kotwicą oraz manifesty v9–v10.3 pozostają odtwarzalne. Panel ręczny
+utrwala decyzje po ponownym otwarciu, pokazuje przewijaną pełną galerię, używa
+świadomego zatwierdzenia klawiaturą lub przyciskiem oraz ma pełnoekranowy zoom.
+Osobny tryb tylko do odczytu pozwala sprawdzać automatyczne wybory bez zmiany
+runu albo plików wynikowych.
+
+TASK-0229 dodaje jawne zakończenie grupy, która powiela już rozwiązany zakres.
+Modal pokazuje `Odrzuć jako duplikat`; backend wymaga innej grupy z dokładnie
+tym samym zakresem, audytuje `duplicate_range` i ustawia terminalny
+`skipped_existing_range`. Grupa znika z kolejki bez nadpisywania istniejącego
+pliku `seq_<start>-<end>`.
+
+Automatyczna weryfikacja implementacji obejmuje deterministyczne testy granic,
+fuzzy OCR, korekty `7300 -> 300`, limitów batcha, wyboru reprezentanta, kontraktu
+kotwicy, API i panelu: 130 testów workera, 4 monitora live, 28 API/OpenAPI oraz
+186 Admina przeszło wraz z lintem, typecheckiem i kontrolą wygenerowanego
+klienta. TASK-0228 pozostaje aktywny: zgodnie z decyzją właściciela nie
+uruchomiono jeszcze prób 200/4032/5000/42403 na rzeczywistych danych.
+
+TASK-0228 zakończył się negatywnym odbiorem v10.4 na pełnym runie 42 403
+JPEG-ów. Run `edf8625d-776c-4a73-8db9-29115fe05c14` utworzył 3 840 grup, z
+czego 3 388 (`88,23%`) wymagało ręcznej obsługi, a tylko 452 miały znany zakres.
+7 401 z 7 680 prób grid OCR zakończyło się bez hipotezy. Ścieżka grid-only jest
+odrzucona i nie może być ponownie promowana bez oddzielnego dowodu na danych.
+
+Implementacja TASK-0230 wprowadza domyślny `fast-image-selector-v10.5` o
+fingerprintcie
+`6ba81ff5a277c92a0cbf01b88aea7f8c896eee76aebb8323b2ed9cb4b3e28a32`.
+v10.5 łączy szeroki descriptor wyglądu ze stabilnym buforem granicy grupy,
+lekkim progresywnym OCR końców zakresu i obowiązkowym potwierdzeniem zakresu
+przez reprezentanta. Dokładny odczyt może zamknąć dowód po jednym kandydacie;
+odczyt fuzzy wymaga dwóch zgodnych kandydatów. Nie zmniejszono zakresu taniego
+scoringu zdjęć w grupie.
+
+Historia procesów otrzymuje `selectorVersion` rozwiązywane przez backend na
+podstawie zapisanego fingerprintu; Admin pokazuje wersję w dropdownie obok daty
+i statusu. Automatyczna weryfikacja v10.5 przeszła: Ruff, mypy, OpenAPI, oba
+typechecki, 137 testów workera, 19 API i 186 Admina. Kontrakt odbioru znajduje
+się w `ai_docs/quality/image-selection-v105-acceptance-contract.json`.
+Implementacja jest gotowa, ale v10.5 nie jest jeszcze zaakceptowane na danych:
+najpierw obowiązuje zestaw około 200 grup, potem około 5 000 zdjęć, a pełne
+42 403 zdjęcia dopiero po zaliczeniu obu bramek i ręcznej ocenie właściciela.
+
+TASK-0231 poprawia ręczne odzyskiwanie po `IMAGE_SELECTION_RANGE_CONFLICT`.
+Pierwsza próba zatwierdzenia nadal tylko wykrywa zajęty zakres. Modal pokazuje
+wtedy przy błędzie akcję `Odrzuć duplikat i dalej`, a główny przycisk oraz
+ponowne `Enter`/`→` wykonują tę samą świadomą, idempotentną decyzję. Backend
+potwierdza istnienie właściciela zakresu przed ustawieniem
+`skipped_existing_range`; zmiana zakresu anuluje stan konfliktu. Typecheck i
+186 testów Admina przeszły. Aktywny run v10.5 nie został przerwany.
 
 ## Do not start yet
 

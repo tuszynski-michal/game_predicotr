@@ -48,6 +48,7 @@ from .manifest import (
     FIRST_USABLE_SELECTOR_VERSIONS,
     HYBRID_BOUNDED_SELECTOR_VERSION,
     HYBRID_BOUNDED_SELECTOR_VERSIONS,
+    LAYOUT_ANCHORED_SELECTOR_VERSION,
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     AppearanceDescriptorConfig,
@@ -61,6 +62,7 @@ INFERRED_RANGE_REASON = "RANGE_INFERRED_FROM_BOUNDED_GAP"
 EXACT_GAP_RANGE_REASON = "RANGE_EXACT_GAP_INFERRED"
 OWNER_ANCHOR_RANGE_REASON = "RANGE_OWNER_ANCHOR"
 FUZZY_CONSENSUS_RANGE_REASON = "RANGE_OCR_FUZZY_CONSENSUS"
+REDUNDANT_TRANSITION_REASON = "RANGE_REDUNDANT_TRANSITION_FRAGMENT"
 MAX_INFERRED_RANGE_SIZE = 9
 DEFAULT_PARALLEL_SCAN_WORKERS = 4
 DEFAULT_PARALLEL_SCAN_PREFETCH = 8
@@ -1178,7 +1180,12 @@ class FastImageSelector:
         if recognized_range is None:
             recognized_range = self._group_range(candidates)
         extra_verification_count = 0
-        if self.manifest.algorithm_version in COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS:
+        if (
+            self.manifest.algorithm_version == LAYOUT_ANCHORED_SELECTOR_VERSION
+            and recognized_range is None
+        ):
+            selected = self._select_automatic(eligible[0]) if eligible else None
+        elif self.manifest.algorithm_version in COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS:
             selected, candidates, extra_verification_count = self._select_coherent_representative(
                 eligible=eligible,
                 candidates=candidates,
@@ -1963,7 +1970,7 @@ class FastImageSelector:
         center_start = first_index + (group.source_count - center_count) // 2
         center = observations_for(tuple(range(center_start, center_start + center_count)))
         readable_center = self._readable_sample(center)
-        if readable_center:
+        if readable_center and self.manifest.algorithm_version != LAYOUT_ANCHORED_SELECTOR_VERSION:
             return readable_center
 
         edge_count = min(policy.edge_candidate_count, group.source_count)
@@ -1976,8 +1983,13 @@ class FastImageSelector:
             )
         )
         readable_edges = self._readable_sample(observations_for(edge_indexes))
-        if readable_edges:
-            return readable_edges
+        if self.manifest.algorithm_version != LAYOUT_ANCHORED_SELECTOR_VERSION:
+            if readable_edges:
+                return readable_edges
+            return tuple(sorted(readable_global, key=_fallback_observation_rank))
+        sampled = tuple(dict.fromkeys((*readable_center, *readable_edges)))
+        if sampled:
+            return sampled
         return tuple(sorted(readable_global, key=_fallback_observation_rank))
 
     def _readable_sample(
@@ -2044,6 +2056,7 @@ class FastImageSelector:
                 for reason in observation.reason_codes
                 if not reason.startswith(("BOARD_", "GEOMETRY_"))
             ]
+            representative_reasons.extend(verification.representative.reason_codes)
             if quality.overall_score < policy.minimum_quality_score:
                 representative_reasons.append("QUALITY_SCORE_LOW")
             if quality.sharpness < policy.minimum_sharpness:
@@ -2065,6 +2078,7 @@ class FastImageSelector:
             hard_failure = any(
                 reason.startswith("IMAGE_SELECTION_SCAN_")
                 or reason == "IMAGE_OCCLUDED"
+                or reason == "QUALITY_LAYOUT_BLUR"
                 or (reason == "RANGE_CONFLICT" and not self._center_first)
                 for reason in reasons
             )
@@ -2217,6 +2231,8 @@ class FastImageSelector:
         groups: list[SelectionGroupResult],
     ) -> tuple[SelectionGroupResult, ...]:
         recovered = list(groups)
+        if self.manifest.algorithm_version == LAYOUT_ANCHORED_SELECTOR_VERSION:
+            self._recover_layout_fragment_blocks(recovered)
         resolved_indexes = [
             index
             for index, group in enumerate(recovered)
@@ -2239,6 +2255,129 @@ class FastImageSelector:
             ):
                 recovered[group_index] = replacement
         return tuple(recovered)
+
+    def _recover_layout_fragment_blocks(
+        self,
+        groups: list[SelectionGroupResult],
+    ) -> None:
+        """Collapse appearance fragments bounded by exact nine-layout ranges."""
+
+        resolved_indexes = [
+            index
+            for index, group in enumerate(groups)
+            if group.status
+            in {
+                SelectionGroupStatus.AUTO_SELECTED,
+                SelectionGroupStatus.MANUALLY_SELECTED,
+            }
+            and group.range is not None
+        ]
+        for previous_index, next_index in zip(
+            resolved_indexes,
+            resolved_indexes[1:],
+            strict=False,
+        ):
+            unresolved_indexes = tuple(
+                index
+                for index in range(previous_index + 1, next_index)
+                if groups[index].status is SelectionGroupStatus.RANGE_REQUIRED
+                and groups[index].range is None
+            )
+            if not unresolved_indexes:
+                continue
+            previous_range = groups[previous_index].range
+            next_range = groups[next_index].range
+            assert previous_range is not None and next_range is not None
+            missing_count = next_range.start - previous_range.end - 1
+            if missing_count == 0:
+                for index in unresolved_indexes:
+                    group = groups[index]
+                    groups[index] = replace(
+                        group,
+                        status=SelectionGroupStatus.SKIPPED_UNREADABLE,
+                        selected_candidate=None,
+                        top_candidates=tuple(
+                            replace(
+                                candidate,
+                                decision=CandidateDecision.REJECTED,
+                                reason_codes=tuple(
+                                    dict.fromkeys(
+                                        (*candidate.reason_codes, REDUNDANT_TRANSITION_REASON)
+                                    )
+                                ),
+                            )
+                            for candidate in group.top_candidates
+                        ),
+                    )
+                continue
+            if missing_count != MAX_INFERRED_RANGE_SIZE:
+                continue
+            inferred = SequenceRange(
+                start=previous_range.end + 1,
+                end=next_range.start - 1,
+                confidence=self.manifest.thresholds.minimum_range_confidence,
+            )
+            candidate_pool = tuple(
+                candidate
+                for index in unresolved_indexes
+                for candidate in groups[index].top_candidates
+                if self._can_use_inferred_best_available(candidate)
+            )
+            if not candidate_pool:
+                continue
+            best = min(candidate_pool, key=_best_available_candidate_rank)
+            selected = replace(
+                best,
+                decision=CandidateDecision.SELECTED_AUTOMATIC,
+                recognized_range=inferred,
+                reason_codes=tuple(
+                    dict.fromkeys(
+                        (
+                            *best.reason_codes,
+                            BEST_AVAILABLE_REASON,
+                            INFERRED_RANGE_REASON,
+                            EXACT_GAP_RANGE_REASON,
+                        )
+                    )
+                ),
+            )
+            selected_identity = (
+                selected.source.order_index,
+                selected.source.checksum_sha256,
+            )
+            unique_candidates: dict[tuple[int, str], CandidateResult] = {}
+            for candidate in candidate_pool:
+                identity = (candidate.source.order_index, candidate.source.checksum_sha256)
+                normalized = (
+                    selected
+                    if identity == selected_identity
+                    else replace(candidate, decision=CandidateDecision.ELIGIBLE)
+                    if candidate.decision is CandidateDecision.SELECTED_AUTOMATIC
+                    else candidate
+                )
+                unique_candidates.setdefault(identity, normalized)
+            ranked = self._rank_candidates(tuple(unique_candidates.values()), inferred)[
+                : self.manifest.top_k
+            ]
+            owner_index = unresolved_indexes[0]
+            owner = groups[owner_index]
+            groups[owner_index] = replace(
+                owner,
+                range=inferred,
+                board_count_consensus=MAX_INFERRED_RANGE_SIZE,
+                status=SelectionGroupStatus.AUTO_SELECTED,
+                selected_candidate=selected,
+                top_candidates=ranked,
+            )
+            for index in unresolved_indexes[1:]:
+                groups[index] = replace(
+                    groups[index],
+                    range=inferred,
+                    status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                    selected_candidate=None,
+                    top_candidates=(),
+                    duplicate_of_group_order=owner.group_order,
+                )
 
     def _recover_trailing_exact_gap(
         self,
@@ -2377,6 +2516,7 @@ class FastImageSelector:
             in {
                 "IMAGE_OCCLUDED" if self._hybrid_bounded else "",
                 "QUALITY_BLUR" if self._hybrid_bounded else "",
+                "QUALITY_LAYOUT_BLUR" if self._hybrid_bounded else "",
                 "QUALITY_BOARD_VISIBILITY" if self._hybrid_bounded else "",
                 "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
                 "RANGE_CONFLICT",

@@ -120,3 +120,10 @@ stagingu v10.5, dodatniej kotwicy `19810` oraz osobnego pustego katalogu
 wynikowego. Start potwierdził właściwy fingerprint v10.7, etap skanowania,
 świeży lease i brak błędów. Nie oznacza to jeszcze zaliczenia jakości ani
 ukończenia TASK-0186/TASK-0197.
+
+Run v10.7 został następnie kontrolowanie anulowany na checkpointcie
+10 176 / 42 403 po wyniku 34 automatyczne, 603 `range_required` i 11 duplikatów.
+TASK-0238 wprowadził v10.8 z pozycyjną kotwicą layoutów, poprawnym czterocyfrowym
+oknem mimo błędów poza nim, bounded `9/18` OCR i scalaniem fragmentów przejścia.
+Profil 400 zakończył się zerem elementów review, ale TASK-0197 pozostaje otwarty:
+nie wykonano jeszcze ręcznego odbioru około 5000 ani nowego pełnego runu.

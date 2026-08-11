@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.10`; następny commit otrzyma
-`v0.5.11`.
+partia implementacyjna jest wydaniem `v0.5.11`; następny commit otrzyma
+`v0.5.12`.
 
 ## Phase
 
@@ -1035,6 +1035,33 @@ wybrany JPEG i trafiły wyłącznie do `range_required`, a 1 była duplikatem;
 172,37 s czasu etapowego, więc skuteczność zakresów i tempo pozostają wczesnym
 ryzykiem. Wynik jest niezaakceptowany do zakończenia runu i kontroli
 właściciela; proces może zostać wcześniej anulowany.
+
+Run v10.7 został kontrolowanie anulowany na checkpointcie 10 176 / 42 403 bez
+usuwania stagingu ani outputu. Wynik końcowy to 648 grup: 34 automatyczne, 603
+`range_required` i 11 duplikatów. Dominujący koszt stanowił OCR, a v10.7 nie
+został zaakceptowany.
+
+TASK-0238 wprowadza domyślny `fast-image-selector-v10.8` o fingerprintcie
+`eb5006f3b6ed5e63b668074bf2e81d8b162d5794d542fd00457ee6a860682769`.
+Selektor odtwarza pozycje `3×3` z większości widocznych ramek, rozpoznaje zakres
+z jednego spójnego okna czterech etykiet mimo błędów OCR poza oknem, odrzuca
+większościowo silny blur oraz ogranicza ogólny fallback do `9/18` cropów.
+Fragmenty przejścia pomiędzy bezpośrednio kolejnymi zakresami nie trafiają do
+review; jedna dokładna luka dziewięciu layoutów scala wiele fragmentów do
+jednego wyniku.
+
+Rzeczywisty profil 20 zdjęć poprawił się z 50,72 s i trzech nieznanych grup do
+7,98 s i trzech poprawnych zakresów. Profil 1000 trwał 335,63 s i wykonał 5130
+cropów OCR zamiast 9486. Końcowy profil 400 trwał 151,68 s: 15 wyborów
+automatycznych, 11 duplikatów, 27 odrzuconych fragmentów i zero elementów review.
+Profil 5000 z ręczną kontrolą właściciela i pełny run 42 403 pozostają
+wstrzymane w TASK-0197.
+
+Pełne testy v10.8 przeszły: 658 workera, 327 API (23 świadomie pominięte) i 194
+Admina. Zmienione pliki przechodzą Ruff, rdzeń selektora przechodzi mypy, a
+OpenAPI, ESLint i TypeScript są aktualne. Repozytorium zachowuje wcześniejszy
+dług: pełny Ruff zgłasza 6 błędów E501 w migracji `0035`, a pełne mypy 10 błędów
+w trzech niezmienionych modułach workera; szczegóły są w TASK-0238.
 
 ## Do not start yet
 

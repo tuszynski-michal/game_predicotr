@@ -136,12 +136,25 @@ def _odd_at_least(value: float, minimum: int) -> int:
     return rounded if rounded % 2 == 1 else rounded + 1
 
 
-def _red_mask(rgb_image: NDArray[np.uint8]) -> NDArray[np.uint8]:
+def _red_mask(
+    rgb_image: NDArray[np.uint8],
+    *,
+    minimum_red_saturation: int = 80,
+    minimum_red_value: int = 50,
+) -> NDArray[np.uint8]:
     height, width = rgb_image.shape[:2]
     hsv = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
     mask = cv2.bitwise_or(
-        cv2.inRange(hsv, RED_LOW_1, RED_HIGH_1),
-        cv2.inRange(hsv, RED_LOW_2, RED_HIGH_2),
+        cv2.inRange(
+            hsv,
+            np.array((0, minimum_red_saturation, minimum_red_value), dtype=np.uint8),
+            RED_HIGH_1,
+        ),
+        cv2.inRange(
+            hsv,
+            np.array((165, minimum_red_saturation, minimum_red_value), dtype=np.uint8),
+            RED_HIGH_2,
+        ),
     )
     kernel = cv2.getStructuringElement(
         cv2.MORPH_RECT,
@@ -611,6 +624,19 @@ class ClassicalPageBoardDetector:
 
     version = DETECTOR_VERSION
 
+    def __init__(
+        self,
+        *,
+        minimum_red_saturation: int = 80,
+        minimum_red_value: int = 50,
+    ) -> None:
+        if not 0 <= minimum_red_saturation <= 255:
+            raise ValueError("minimum_red_saturation must be between 0 and 255")
+        if not 0 <= minimum_red_value <= 255:
+            raise ValueError("minimum_red_value must be between 0 and 255")
+        self._minimum_red_saturation = minimum_red_saturation
+        self._minimum_red_value = minimum_red_value
+
     def detect(
         self,
         rgb_image: NDArray[np.uint8],
@@ -630,7 +656,11 @@ class ClassicalPageBoardDetector:
                 "Expected board count must be between 1 and 9.",
             )
         image_height, image_width = rgb_image.shape[:2]
-        mask = _red_mask(rgb_image)
+        mask = _red_mask(
+            rgb_image,
+            minimum_red_saturation=self._minimum_red_saturation,
+            minimum_red_value=self._minimum_red_value,
+        )
         candidates = _initial_candidates(mask)
         if len(candidates) != expected_board_count:
             recovered = (

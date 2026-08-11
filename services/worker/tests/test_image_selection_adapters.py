@@ -27,6 +27,7 @@ from game_predictor_worker.images.selection.adapters import (
     FullCandidateVerifier,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     OpenCvAppearanceFingerprintAnalyzer,
     OpenCvAppearanceQualityAnalyzer,
@@ -63,6 +64,7 @@ from game_predictor_worker.images.selection.manifest import (
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
     ContiguousSequenceWindowPolicy,
     FullGeometryPolicy,
+    LayoutAnchorPolicy,
     ProgressiveVisibleLabelFallbackPolicy,
     SelectorManifest,
     selector_manifest_for_fingerprint,
@@ -97,7 +99,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.7"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.8"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -1323,6 +1325,12 @@ def test_independent_endpoint_fallback_recovers_checksum_bound_55_63_case() -> N
             del cls, rgb_image
             return tuple(labels)
 
+    class _LayoutAnchored(LayoutAnchoredVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _prioritized_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
     image_shape = regression["imageShape"]
     image = np.zeros((int(image_shape[0]), int(image_shape[1]), 3), dtype=np.uint8)
     historical = _HistoricalProgressive(
@@ -1338,10 +1346,16 @@ def test_independent_endpoint_fallback_recovers_checksum_bound_55_63_case() -> N
         ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18, 36)),
         ContiguousSequenceWindowPolicy(),
     )
+    layout_anchored = _LayoutAnchored(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18, 36)),
+        LayoutAnchorPolicy(),
+    )
 
     historical_range, historical_reasons = historical.recognize(image, ())
     recognized, reasons = independent.recognize(image, ())
     contiguous_range, contiguous_reasons = contiguous.recognize(image, ())
+    anchored_range, anchored_reasons = layout_anchored.recognize(image, ())
 
     assert historical_range is None
     assert historical_reasons == ("RANGE_LABEL_LATTICE_INCOMPLETE",)
@@ -1350,6 +1364,111 @@ def test_independent_endpoint_fallback_recovers_checksum_bound_55_63_case() -> N
     assert [recognized.start, recognized.end] == regression["expectedRange"]
     assert contiguous_reasons == ()
     assert contiguous_range == recognized
+    assert anchored_reasons == ()
+    assert anchored_range == recognized
+
+
+def test_layout_anchored_window_accepts_four_positions_despite_unrelated_misread() -> None:
+    recognizer = LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18, 36)),
+        LayoutAnchorPolicy(),
+    )
+    middle = tuple(
+        Recognition(str(7300 + position), 0.98) if 4 <= position <= 7 else Recognition("", 0.0)
+        for position in range(9)
+    )
+    unrelated_misread = (*middle[:8], Recognition("99999", 0.99))
+
+    assert recognizer._anchored_window_hypotheses(middle) == (SequenceRange(7300, 7308, 0.97),)
+    assert recognizer._anchored_window_hypotheses(unrelated_misread) == (
+        SequenceRange(7300, 7308, 0.97),
+    )
+
+
+def test_layout_anchored_window_rejects_two_competing_four_label_sequences() -> None:
+    recognizer = LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18)),
+        LayoutAnchorPolicy(),
+    )
+    competing = tuple(
+        Recognition(str(7300 + position), 0.98)
+        if position <= 3
+        else Recognition(str(8000 + position), 0.98)
+        if position >= 5
+        else Recognition("", 0.0)
+        for position in range(9)
+    )
+
+    hypotheses = recognizer._anchored_window_hypotheses(competing)
+
+    assert tuple(candidate.start for candidate in hypotheses) == (7300, 8000)
+
+
+def test_layout_anchor_requires_five_observed_frames_across_every_axis() -> None:
+    recognizer = LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18, 36)),
+        LayoutAnchorPolicy(),
+    )
+
+    def boards(observed: set[int]) -> tuple[BoardDetection, ...]:
+        return tuple(
+            BoardDetection(
+                position_index=position,
+                quad=(Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)),
+                bounding_box=(0, 0, 10, 10),
+                red_border_score=0.8 if position in observed else 0.0,
+                refined_from_grid=position not in observed,
+            )
+            for position in range(9)
+        )
+
+    assert recognizer._layout_anchor_is_safe(boards({0, 1, 2, 3, 6}))
+    assert not recognizer._layout_anchor_is_safe(boards({0, 1, 3, 4, 6}))
+    assert not recognizer._layout_anchor_is_safe(boards({0, 1, 2, 3}))
+    assert not recognizer._layout_anchor_is_safe(boards({0, 1, 2, 3, 4, 5}))
+
+
+def test_layout_blur_gate_rejects_only_when_a_majority_is_severely_blurred(
+    tmp_path: Path,
+) -> None:
+    verifier = BoundedGridCandidateVerifier(
+        tmp_path,
+        NoRangeRecognizer(),
+        layout_anchor_policy=LayoutAnchorPolicy(),
+    )
+    boards = tuple(
+        BoardDetection(
+            position_index=position,
+            quad=(Point(0, 0), Point(20, 0), Point(20, 20), Point(0, 20)),
+            bounding_box=((position % 3) * 30, (position // 3) * 30, 20, 20),
+            red_border_score=0.8,
+            refined_from_grid=False,
+        )
+        for position in range(9)
+    )
+    detection = DetectionResult(
+        status="detected",
+        image_width=90,
+        image_height=90,
+        candidate_count=9,
+        page_quad=None,
+        boards=boards,
+        confidence=1.0,
+        confidence_components={},
+        review_reasons=(),
+    )
+    blurred = np.full((90, 90, 3), 128, dtype=np.uint8)
+    sharp = blurred.copy()
+    for position in range(5):
+        x = (position % 3) * 30
+        y = (position // 3) * 30
+        sharp[y : y + 20, x : x + 20] = np.indices((20, 20)).sum(axis=0)[..., None] % 2 * 255
+
+    assert verifier._layout_quality_reasons(blurred, detection) == ("QUALITY_LAYOUT_BLUR",)
+    assert verifier._layout_quality_reasons(sharp, detection) == ()
 
 
 def test_independent_endpoint_fallback_does_not_infer_without_either_edge() -> None:
@@ -1637,7 +1756,7 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert counters["parallelVerificationWorkerSlots"] == 2
 
 
-def test_standalone_cli_uses_v10_6_and_fails_closed_without_ocr_model(
+def test_standalone_cli_uses_v10_8_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -1692,7 +1811,7 @@ def test_standalone_cli_uses_v10_6_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.7"
+    assert report["selectorVersion"] == "fast-image-selector-v10.8"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

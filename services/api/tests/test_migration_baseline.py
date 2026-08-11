@@ -45,6 +45,12 @@ VERIFIED_TRAINING_COHORTS_REVISION = "0034_verified_training_cohorts"
 SYMBOL_MODEL_TRAINING_REVISION = "0035_symbol_model_training_jobs"
 SYMBOL_MODEL_CANDIDATE_GATE_REVISION = "0036_symbol_model_candidate_gate"
 SYMBOL_MODEL_REGISTRY_REVISION = "0037_symbol_model_registry"
+CURATED_IMAGE_IMPORT_BATCHES_REVISION = "0038_curated_image_import_batches"
+GRID_CALIBRATION_PROFILES_REVISION = "0039_grid_calibration_profiles"
+IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION = (
+    "0040_image_selection_duplicate_range_decisions"
+)
+IMAGE_SELECTION_REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -96,8 +102,14 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     symbol_model_training = script.get_revision(SYMBOL_MODEL_TRAINING_REVISION)
     symbol_model_candidate_gate = script.get_revision(SYMBOL_MODEL_CANDIDATE_GATE_REVISION)
     symbol_model_registry = script.get_revision(SYMBOL_MODEL_REGISTRY_REVISION)
+    curated_image_import_batches = script.get_revision(CURATED_IMAGE_IMPORT_BATCHES_REVISION)
+    grid_calibration_profiles = script.get_revision(GRID_CALIBRATION_PROFILES_REVISION)
+    duplicate_range_decisions = script.get_revision(
+        IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
+    )
+    image_selection_review_queues = script.get_revision(IMAGE_SELECTION_REVIEW_QUEUES_REVISION)
 
-    assert script.get_heads() == [SYMBOL_MODEL_REGISTRY_REVISION]
+    assert script.get_heads() == [IMAGE_SELECTION_REVIEW_QUEUES_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -177,6 +189,17 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert symbol_model_candidate_gate.down_revision == SYMBOL_MODEL_TRAINING_REVISION
     assert symbol_model_registry is not None
     assert symbol_model_registry.down_revision == SYMBOL_MODEL_CANDIDATE_GATE_REVISION
+    assert curated_image_import_batches is not None
+    assert curated_image_import_batches.down_revision == SYMBOL_MODEL_REGISTRY_REVISION
+    assert grid_calibration_profiles is not None
+    assert grid_calibration_profiles.down_revision == CURATED_IMAGE_IMPORT_BATCHES_REVISION
+    assert duplicate_range_decisions is not None
+    assert duplicate_range_decisions.down_revision == GRID_CALIBRATION_PROFILES_REVISION
+    assert image_selection_review_queues is not None
+    assert (
+        image_selection_review_queues.down_revision
+        == IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
+    )
 
 
 def test_symbol_model_registry_migration_adds_append_only_activation_history() -> None:

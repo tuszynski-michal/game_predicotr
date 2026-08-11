@@ -29,6 +29,7 @@ from game_predictor_worker.images.selection.adapters import (  # noqa: E402
     AnchoredSequenceRangeRecognizer,
     DeterministicParallelCandidateVerifier,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
     configure_opencv_thread_budget,
 )
@@ -116,12 +117,46 @@ class _TimingSink:
     def group_finalized(self, group: SelectionGroupResult) -> None:
         # Recovery may publish a revised decision for an already finalized
         # group.  Keep the original wall-clock boundary for timing purposes.
-        if group.group_order in self._groups:
+        recognized = None if group.range is None else f"{group.range.start}-{group.range.end}"
+        selected_checksum = (
+            None
+            if group.selected_candidate is None
+            else group.selected_candidate.source.checksum_sha256
+        )
+        selected_path = (
+            None
+            if group.selected_candidate is None
+            else group.selected_candidate.source.relative_path
+        )
+        top_candidates: tuple[dict[str, object], ...] = tuple(
+            {
+                "checksumSha256": candidate.source.checksum_sha256,
+                "decision": candidate.decision.value,
+                "orderIndex": candidate.source.order_index + self._source_index_offset,
+                "recognizedRange": (
+                    None
+                    if candidate.recognized_range is None
+                    else f"{candidate.recognized_range.start}-{candidate.recognized_range.end}"
+                ),
+                "reasonCodes": list(candidate.reason_codes),
+                "sourceRelativePath": candidate.source.relative_path,
+            }
+            for candidate in group.top_candidates
+        )
+        existing = self._groups.get(group.group_order)
+        if existing is not None:
+            self._groups[group.group_order] = replace(
+                existing,
+                status=group.status.value,
+                recognized_range=recognized,
+                selected_checksum_sha256=selected_checksum,
+                selected_source_relative_path=selected_path,
+                top_candidates=top_candidates,
+            )
             return
         now = perf_counter()
         first_source_index = self._next_source_index
         last_source_index = first_source_index + group.source_count - 1
-        recognized = None if group.range is None else f"{group.range.start}-{group.range.end}"
         timing = _FinalizedGroupTiming(
             group_order=group.group_order,
             source_count=group.source_count,
@@ -131,33 +166,9 @@ class _TimingSink:
             elapsed_since_start_seconds=now - self._started_at,
             status=group.status.value,
             recognized_range=recognized,
-            selected_checksum_sha256=(
-                None
-                if group.selected_candidate is None
-                else group.selected_candidate.source.checksum_sha256
-            ),
-            selected_source_relative_path=(
-                None
-                if group.selected_candidate is None
-                else group.selected_candidate.source.relative_path
-            ),
-            top_candidates=tuple(
-                {
-                    "checksumSha256": candidate.source.checksum_sha256,
-                    "decision": candidate.decision.value,
-                    "orderIndex": candidate.source.order_index + self._source_index_offset,
-                    "recognizedRange": (
-                        None
-                        if candidate.recognized_range is None
-                        else (
-                            f"{candidate.recognized_range.start}-{candidate.recognized_range.end}"
-                        )
-                    ),
-                    "reasonCodes": list(candidate.reason_codes),
-                    "sourceRelativePath": candidate.source.relative_path,
-                }
-                for candidate in group.top_candidates
-            ),
+            selected_checksum_sha256=selected_checksum,
+            selected_source_relative_path=selected_path,
+            top_candidates=top_candidates,
         )
         self._groups[group.group_order] = timing
         self._next_source_index = last_source_index + 1
@@ -211,14 +222,24 @@ def _build_verification_adapters(
     if fallback_policy is None:
         raise RuntimeError("The active selector profile requires progressive fallback policy.")
     ocr = PaddleSequenceNumberRecognizer(model_root)
-    return build_default_adapters(
-        source_root,
-        range_recognizer=AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry),
-        fallback_range_recognizer=IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+    fallback = (
+        LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+            ocr,
+            fallback_policy,
+            manifest.layout_anchor_policy,
+            telemetry=telemetry,
+        )
+        if manifest.layout_anchor_policy is not None
+        else IndependentEndpointVisibleSequenceLabelRangeRecognizer(
             ocr,
             fallback_policy,
             telemetry=telemetry,
-        ),
+        )
+    )
+    return build_default_adapters(
+        source_root,
+        range_recognizer=AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry),
+        fallback_range_recognizer=fallback,
         manifest=manifest,
         telemetry=telemetry,
     )

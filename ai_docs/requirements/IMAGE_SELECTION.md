@@ -543,3 +543,28 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   rozstrzygają remisu.
 - OCR jednego JPEG-a działa progresywnie `9 -> 18 -> 36` cropów i kończy się po
   pierwszym jednoznacznym dowodzie. Nie rozszerza się już do 72 cropów w v10.7.
+
+### Pozycyjnie zakotwiczone rozpoznawanie v10.8 — 2026-08-11
+
+- Nowy run używa `fast-image-selector-v10.8`. Historyczne wyniki i fingerprinty
+  v10.7 oraz starszych wersji nie zmieniają zachowania.
+- Detektor może odtworzyć dziewięć pozycji siatki z co najmniej pięciu
+  widocznych czerwonych ramek obejmujących wszystkie trzy wiersze i kolumny.
+  Łagodniejsze progi czerwieni dotyczą wyłącznie weryfikacji selekcji zdjęć.
+- Cztery kolejne, pozycyjnie zakotwiczone etykiety o confidence co najmniej
+  `0.72` wystarczają do wyprowadzenia zakresu. Błędne albo puste odczyty poza
+  wybranym oknem nie blokują poprawnej hipotezy; dwa różne kompletne okna nadal
+  kończą się fail-closed.
+- Ogólny fallback bez bezpiecznej kotwicy zachowuje silny dowód co najmniej
+  siedmiu etykiet i kończy progresję po `9` lub `18` cropach. Nie wolno w nim
+  wyprowadzać zakresu z czterech niezakotwiczonych liczb.
+- Co najmniej pięć z dziewięciu layoutów musi przejść łagodną kontrolę ostrości.
+  Większościowo bardzo rozmazana siatka otrzymuje `QUALITY_LAYOUT_BLUR` i nie
+  tworzy automatycznego ani ręcznego wyboru obrazu.
+- Nierozpoznane podgrupy pomiędzy dwoma bezpośrednio kolejnymi, lokalnie
+  potwierdzonymi zakresami są fragmentami przejścia i kończą się bez outputu.
+  Jeżeli sąsiednie zakresy pozostawiają dokładnie jedną lukę dziewięciu pozycji,
+  rozproszone podgrupy mogą zostać scalone do jednego wyniku tej dokładnej luki.
+  Większy albo niepodzielny skok pozostaje nierozstrzygnięty.
+- Bramka akceptacji nadal wymaga ręcznej oceny około 5000 zdjęć, zera błędnych
+  zakresów i reprezentantów oraz dopiero potem pełnego przebiegu 42 403.

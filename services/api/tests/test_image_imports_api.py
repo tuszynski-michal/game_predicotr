@@ -671,6 +671,7 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
                 "gameId": str(game_id),
                 "selectionToken": selection_token,
                 "contractVersion": 1,
+                "firstSequenceNumber": 1,
             },
         )
 

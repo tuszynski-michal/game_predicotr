@@ -4257,6 +4257,31 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** jednorazowo zmienia kolejność etapów kontraktu v10.7, nie jego
   bramki jakościowe ani wymóg fail-closed.
 
+## D-177 — Cztery etykiety wymagają kotwicy layoutów, nie globalnej bezbłędności OCR
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** v10.8 akceptuje jeden spójny ciąg czterech etykiet przypisanych
+  do pozycji odtworzonej siatki `3×3`, nawet gdy OCR myli inne etykiety poza tym
+  oknem. Kotwica wymaga większości pięciu widocznych ramek i pokrycia wszystkich
+  osi. Fragmenty pomiędzy kolejnymi potwierdzonymi zakresami są odrzucane, a
+  wiele fragmentów jednej dokładnej luki może utworzyć tylko jeden wynik.
+- **Context:** v10.7 skierował 603 z 648 grup do ustalenia zakresu. Na realnym
+  zdjęciu OCR poprawnie widział `20003–20006`, lecz globalny konflikt z trzema
+  niepotrzebnymi, błędnymi odczytami unieważniał cały JPEG. Grupowanie wyglądu
+  tworzyło też dziesiątki małych podgrup jednego przejścia.
+- **Reason:** lokalne okno jest wystarczającym dowodem matematycznym po znanej
+  pozycji. Błędy poza oknem nie niosą informacji o jego początku. Dokładnie
+  ograniczone sąsiednie zakresy pozwalają usunąć duplikaty bez zgadywania skoku.
+- **Alternatives:** globalne wymaganie zgodności wszystkich dziewięciu etykiet
+  odrzucono jako kruche; cztery liczby bez pozycyjnej kotwicy pozostają
+  niebezpieczne; automatyczne wypełnianie dowolnego skoku jest zabronione.
+- **Consequences:** detektor selekcyjny ma własne progi, OCR kończy się na
+  `9/18`, większościowy silny blur blokuje wybór, a kontrakt 5000/pełny corpus
+  nadal wymaga ręcznej oceny z zerem błędnych zakresów.
+- **Supersedes:** koryguje niezakotwiczone mapowanie D-175 i zachowuje zasadę
+  lokalnego dowodu oraz poprawnych skoków z D-170.
+
 ## Szablon nowej decyzji
 
 ```text

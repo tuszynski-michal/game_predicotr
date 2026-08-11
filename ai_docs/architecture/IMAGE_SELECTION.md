@@ -873,6 +873,38 @@ Manifest v10.7 zmienia wyłącznie wersjonowany adapter zakresu i poziomy
 progresji OCR na `9, 18, 36`; zachowuje próbkowanie reprezentanta v10.6,
 grupowanie v10.5 i resolver wszystkich historycznych fingerprintów.
 
+## Architektura pozycyjnej kotwicy v10.8
+
+`BoundedGridCandidateVerifier` wykonuje tani detektor czerwonych ramek z
+selekcyjnymi progami saturacji i jasności zapisanymi w manifeście. Pełne dziewięć
+pozycji może zostać odtworzone z części ramek, lecz kotwica jest bezpieczna tylko
+przy co najmniej pięciu obserwowanych pozycjach obejmujących wszystkie osie.
+Detektor nie wykonuje cropów symboli ani komórek i nie zmienia głównego pipeline'u
+geometrii.
+
+`LayoutAnchoredVisibleSequenceLabelRangeRecognizer` wycina dziewięć etykiet na
+podstawie quadów layoutów i wykonuje jeden batch OCR. Hipoteza korzysta wyłącznie
+z czterech kolejnych pozycji. Inne wysokie, lecz błędne odczyty nie są globalnym
+wetem, ponieważ nie należą do kompletnego okna; więcej niż jedna kompletna
+hipoteza pozostaje niejednoznaczna. Gdy kotwica jest niedostępna, adapter może
+użyć wyłącznie historycznego, silnego RANSAC siedmiu etykiet na poziomach `9/18`.
+
+Kontrola jakości liczy ostrość wnętrza każdego odtworzonego layoutu. Mniej niż
+pięć ostrych pozycji z pełnej siatki daje twardy powód `QUALITY_LAYOUT_BLUR`.
+Lekko rozmazane, ale nadal użyteczne layouty pozostają dopuszczone.
+
+Po strumieniowym domknięciu grup engine wykonuje bounded korektę fragmentacji.
+`range_required` pomiędzy bezpośrednio kolejnymi potwierdzonymi zakresami staje
+się `skipped_unreadable` z powodem `RANGE_REDUNDANT_TRANSITION_FRAGMENT`. Jedna
+dokładna luka dziewięciu numerów może scalić wiele fragmentów: pierwszy przejmuje
+najlepszy czytelny JPEG i zakres, a pozostałe stają się
+`skipped_existing_range`. Korekta nie wypełnia większego skoku, nie używa
+przewidywanego kursora i nie publikuje więcej niż jednego JPEG-a na zakres.
+
+Manifest v10.8 ma osobny fingerprint, progresję OCR `9/18`, center-first pięciu
+zdjęć oraz fallback trzech z każdego brzegu. Resolver zachowuje wszystkie
+historyczne manifesty.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

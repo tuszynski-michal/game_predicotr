@@ -56,6 +56,7 @@ from .manifest import (
     AppearanceDescriptorConfig,
     ContiguousSequenceWindowPolicy,
     FullGeometryPolicy,
+    LayoutAnchorPolicy,
     ProgressiveVisibleLabelFallbackPolicy,
     QualityWeights,
     SelectorManifest,
@@ -1476,6 +1477,186 @@ class ContiguousWindowVisibleSequenceLabelRangeRecognizer(
         )
 
 
+class LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+    IndependentEndpointVisibleSequenceLabelRangeRecognizer
+):
+    """Prefer position-anchored label crops and fail closed on four-label evidence."""
+
+    version = "visible-sequence-label-range-v8"
+
+    def __init__(
+        self,
+        recognizer: SequenceNumberRecognizer,
+        progressive_policy: ProgressiveVisibleLabelFallbackPolicy,
+        layout_policy: LayoutAnchorPolicy,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        super().__init__(recognizer, progressive_policy, telemetry=telemetry)
+        self._layout_policy = layout_policy
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        anchored = self._recognize_anchored_layout(rgb_image, boards)
+        if anchored is not None:
+            return anchored
+
+        labels = self._prioritized_label_candidates(rgb_image)
+        if len(labels) < self._minimum_partial_inlier_count:
+            return None, ("RANGE_LABEL_LATTICE_MISSING",)
+        recognitions: list[Recognition] = []
+        last_reasons: tuple[str, ...] = ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+        previous_count = 0
+        for configured_level in self._candidate_levels:
+            candidate_count = min(configured_level, len(labels))
+            if candidate_count <= previous_count:
+                continue
+            batch_labels = labels[previous_count:candidate_count]
+            self._record_level_attempt(configured_level, len(batch_labels))
+            try:
+                recognitions.extend(
+                    self._recognize_many(tuple(label.crop for label in batch_labels))
+                )
+            except (SequenceOcrError, ValueError):
+                return None, ("RANGE_LABEL_OCR_FAILED",)
+            recognized, last_reasons = (
+                IndependentEndpointVisibleSequenceLabelRangeRecognizer._resolve_range(
+                    labels[:candidate_count],
+                    recognitions,
+                    rgb_image.shape[:2],
+                )
+            )
+            if recognized is not None:
+                self._record_level_resolution(configured_level, candidate_count)
+                if self._telemetry is not None:
+                    self._telemetry.increment("rangeRoute.sevenLabelRansac")
+                return recognized, ()
+            previous_count = candidate_count
+            if candidate_count == len(labels):
+                break
+        if self._telemetry is not None:
+            self._telemetry.increment("progressiveFallbackExhausted")
+        return None, last_reasons
+
+    def _recognize_anchored_layout(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]] | None:
+        if not self._layout_anchor_is_safe(boards):
+            return None
+        ordered = tuple(sorted(boards, key=lambda board: board.position_index))
+        try:
+            crops = tuple(
+                extract_sequence_number_crop(rgb_image, board.quad)[1] for board in ordered
+            )
+            recognitions = self._recognize_many(crops)
+        except (SequenceOcrError, ValueError):
+            return None
+        if self._telemetry is not None:
+            self._telemetry.increment("layoutAnchoredOcrAttempts")
+            self._telemetry.increment("layoutAnchoredOcrCrops", len(crops))
+        hypotheses = self._anchored_window_hypotheses(recognitions)
+        if len(hypotheses) != 1:
+            if self._telemetry is not None:
+                self._telemetry.increment(
+                    "layoutAnchoredOcrAmbiguous" if hypotheses else "layoutAnchoredOcrIncomplete"
+                )
+            return None
+        recognized = hypotheses[0]
+        if self._telemetry is not None:
+            self._telemetry.increment("layoutAnchoredOcrResolved")
+            self._telemetry.increment("rangeRoute.layoutAnchoredFour")
+        return recognized, ("RANGE_OCR_LAYOUT_ANCHORED_WINDOW",)
+
+    def _layout_anchor_is_safe(self, boards: tuple[BoardDetection, ...]) -> bool:
+        expected = self._layout_policy.expected_layout_count
+        if len(boards) != expected or {board.position_index for board in boards} != set(
+            range(expected)
+        ):
+            return False
+        observed = tuple(board for board in boards if board.red_border_score >= 0.20)
+        return (
+            len(observed) >= self._layout_policy.minimum_observed_layout_frames
+            and {board.position_index // 3 for board in observed} == {0, 1, 2}
+            and {board.position_index % 3 for board in observed} == {0, 1, 2}
+        )
+
+    def _anchored_window_hypotheses(
+        self,
+        recognitions: Sequence[Recognition],
+    ) -> tuple[SequenceRange, ...]:
+        if len(recognitions) != self._layout_policy.expected_layout_count:
+            return ()
+        evidence = {
+            position: (recognition.normalized_number, recognition.confidence)
+            for position, recognition in enumerate(recognitions)
+            if recognition.normalized_number is not None
+            and recognition.normalized_number >= 1
+            and recognition.confidence >= self._layout_policy.minimum_ocr_confidence
+        }
+        starts = {
+            number - position
+            for position, (number, _) in evidence.items()
+            if number is not None and number - position >= 1
+        }
+        valid: list[SequenceRange] = []
+        window_size = self._layout_policy.consecutive_label_count
+        for start in sorted(starts):
+            matching_positions = {
+                position for position, (number, _) in evidence.items() if number == start + position
+            }
+            if not any(
+                set(range(window_start, window_start + window_size)) <= matching_positions
+                for window_start in range(10 - window_size)
+            ):
+                continue
+            confidences = tuple(
+                confidence
+                for position, (number, confidence) in evidence.items()
+                if number == start + position
+            )
+            minimum = min(confidences)
+            mean = sum(confidences) / len(confidences)
+            confidence = round(min(0.97, 0.75 + 0.12 * minimum + 0.12 * mean), 6)
+            valid.append(SequenceRange(start=start, end=start + 8, confidence=confidence))
+        return tuple(valid)
+
+    @classmethod
+    def _prioritized_label_candidates(
+        cls,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[_VisibleLabel, ...]:
+        height, width = rgb_image.shape[:2]
+        ranked = cls._ranked_label_candidates(rgb_image)
+
+        def priority(item: tuple[int, _VisibleLabel]) -> tuple[object, ...]:
+            original_index, label = item
+            crop_height, crop_width = label.crop.shape[:2]
+            x_ratio = label.center[0] / width
+            y_ratio = label.center[1] / height
+            width_ratio = crop_width / width
+            aspect_ratio = crop_width / max(1, crop_height)
+            likely = (
+                0.22 <= x_ratio <= 0.82
+                and 0.32 <= y_ratio <= 0.53
+                and width_ratio >= 0.055
+                and aspect_ratio >= 2.4
+            )
+            return (
+                0 if likely else 1,
+                abs(y_ratio - 0.425),
+                -width_ratio,
+                -aspect_ratio,
+                original_index,
+            )
+
+        return tuple(label for _, label in sorted(enumerate(ranked), key=priority))
+
+
 def _bounded_edit_distance(first: str, second: str, *, maximum: int = 1) -> int:
     """Return a small Levenshtein distance without allocating an OCR-sized matrix."""
 
@@ -1732,10 +1913,23 @@ class BoundedGridCandidateVerifier:
         source_root: Path,
         range_recognizer: SequenceRangeRecognizer,
         *,
+        layout_anchor_policy: LayoutAnchorPolicy | None = None,
+        detector: PageBoardDetector | None = None,
         telemetry: StageTimingCollector | None = None,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._range_recognizer = range_recognizer
+        self._layout_anchor_policy = layout_anchor_policy
+        self._detector = detector or ClassicalPageBoardDetector(
+            minimum_red_saturation=(
+                layout_anchor_policy.minimum_red_saturation
+                if layout_anchor_policy is not None
+                else 80
+            ),
+            minimum_red_value=(
+                layout_anchor_policy.minimum_red_value if layout_anchor_policy is not None else 50
+            ),
+        )
         self._telemetry = telemetry
 
     def verify(
@@ -1749,17 +1943,41 @@ class BoundedGridCandidateVerifier:
             self._telemetry.increment("rangeEvidenceVerifications")
             self._telemetry.increment("rangeRecognizerAttempts")
             self._telemetry.increment("gridOcrAttempts")
+        boards: tuple[BoardDetection, ...] = ()
+        representative_reasons: tuple[str, ...] = ()
         try:
             path = _safe_source_path(
                 self._source_root,
                 observation.source.stored_relative_path,
             )
             rgb = _load_verified_rgb(path, observation.source.checksum_sha256, self._telemetry)
+            if self._layout_anchor_policy is not None:
+                if self._telemetry is not None:
+                    self._telemetry.increment("layoutAnchorAttempts")
+                with (
+                    self._telemetry.measure("geometry")
+                    if self._telemetry is not None
+                    else nullcontext()
+                ):
+                    detection = self._detector.detect(
+                        rgb,
+                        expected_board_count=self._layout_anchor_policy.expected_layout_count,
+                        allow_grid_recovery=True,
+                        allow_occluded_grid_recovery=True,
+                    )
+                boards = detection.boards
+                representative_reasons = self._layout_quality_reasons(rgb, detection)
+                if self._telemetry is not None:
+                    self._telemetry.increment(
+                        "layoutAnchorDetected" if boards else "layoutAnchorUnavailable"
+                    )
+                    if "QUALITY_LAYOUT_BLUR" in representative_reasons:
+                        self._telemetry.increment("layoutBlurRejected")
             timing = (
                 self._telemetry.measure("ocr") if self._telemetry is not None else nullcontext()
             )
             with timing:
-                recognized_range, reasons = self._range_recognizer.recognize(rgb, ())
+                recognized_range, reasons = self._range_recognizer.recognize(rgb, boards)
         except (SelectionContractError, SequenceOcrError, ValueError) as error:
             reason = (
                 error.code
@@ -1768,6 +1986,7 @@ class BoundedGridCandidateVerifier:
             )
             recognized_range = None
             reasons = (reason,)
+            representative_reasons = ()
         if self._telemetry is not None:
             self._telemetry.increment(
                 "gridOcrSuccesses" if recognized_range is not None else "gridOcrFailures"
@@ -1781,15 +2000,56 @@ class BoundedGridCandidateVerifier:
                 self._telemetry.increment(f"rangeReason.{reason}")
         return CandidateVerification(
             representative=RepresentativeAssessment(
-                board_count=(None if recognized_range is None else recognized_range.board_count),
-                geometry_complete=recognized_range is not None,
+                board_count=(
+                    len(boards)
+                    if self._layout_anchor_policy is not None and len(boards) == 9
+                    else (None if recognized_range is None else recognized_range.board_count)
+                ),
+                geometry_complete=(
+                    len(boards) == 9
+                    if self._layout_anchor_policy is not None
+                    else recognized_range is not None
+                ),
                 full_frame_visible=observation.quality.board_visibility >= 0.25,
+                reason_codes=representative_reasons,
             ),
             range_evidence=RangeEvidence(
                 recognized_range=recognized_range,
                 reason_codes=reasons,
             ),
         )
+
+    def _layout_quality_reasons(
+        self,
+        rgb_image: NDArray[np.uint8],
+        detection: DetectionResult,
+    ) -> tuple[str, ...]:
+        policy = self._layout_anchor_policy
+        if policy is None or len(detection.boards) != policy.expected_layout_count:
+            return ()
+        sharp_layouts = 0
+        measured_layouts = 0
+        for board in detection.boards:
+            x, y, width, height = board.bounding_box
+            inset_x = max(2, int(round(width * 0.08)))
+            inset_y = max(2, int(round(height * 0.08)))
+            left = max(0, x + inset_x)
+            top = max(0, y + inset_y)
+            right = min(rgb_image.shape[1], x + width - inset_x)
+            bottom = min(rgb_image.shape[0], y + height - inset_y)
+            if right <= left or bottom <= top:
+                continue
+            gray = cv2.cvtColor(rgb_image[top:bottom, left:right], cv2.COLOR_RGB2GRAY)
+            variance = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+            sharpness = variance / (variance + 420.0)
+            measured_layouts += 1
+            sharp_layouts += sharpness >= policy.minimum_layout_sharpness
+        if (
+            measured_layouts == policy.expected_layout_count
+            and sharp_layouts < policy.minimum_sharp_layout_count
+        ):
+            return ("QUALITY_LAYOUT_BLUR",)
+        return ()
 
     def assess_representative(
         self,
@@ -2287,6 +2547,7 @@ def build_default_adapters(
                 BoundedGridCandidateVerifier(
                     source_root,
                     fallback_range_recognizer or range_recognizer or NoRangeRecognizer(),
+                    layout_anchor_policy=manifest.layout_anchor_policy,
                     telemetry=telemetry,
                 ),
             )
@@ -2335,6 +2596,7 @@ __all__ = [
     "DeterministicParallelCandidateVerifier",
     "FullCandidateVerifier",
     "GridFirstVisibleSequenceLabelRangeRecognizer",
+    "LayoutAnchoredVisibleSequenceLabelRangeRecognizer",
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",
     "OpenCvAppearanceFingerprintAnalyzer",

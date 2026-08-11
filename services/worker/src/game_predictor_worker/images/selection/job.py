@@ -39,6 +39,7 @@ from .adapters import (
     DeterministicParallelCandidateVerifier,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
@@ -76,6 +77,7 @@ from .manifest import (
     DEFAULT_SELECTOR_MANIFEST,
     GRID_FIRST_RANGE_ADAPTER_VERSION,
     INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
+    LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     OWNER_ANCHORED_SELECTOR_VERSIONS,
     SelectorManifest,
@@ -382,6 +384,17 @@ class ImageSelectionJobHandler:
             if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
                 fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
                     ocr,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+            ):
+                fallback_recognizer = LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
                     telemetry=telemetry,
                 )
             elif (

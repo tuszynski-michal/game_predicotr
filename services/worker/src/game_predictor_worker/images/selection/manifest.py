@@ -22,8 +22,9 @@ HYBRID_BOUNDED_SELECTOR_VERSION = "fast-image-selector-v10.4"
 QUALITY_RECOVERY_SELECTOR_VERSION = "fast-image-selector-v10.5"
 CENTER_FIRST_SELECTOR_VERSION = "fast-image-selector-v10.6"
 FOUR_LABEL_SELECTOR_VERSION = "fast-image-selector-v10.7"
+LAYOUT_ANCHORED_SELECTOR_VERSION = "fast-image-selector-v10.8"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = FOUR_LABEL_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = LAYOUT_ANCHORED_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -39,6 +40,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -67,6 +69,7 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 
@@ -98,6 +101,10 @@ CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v7:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v8:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
 GRID_FIRST_RANGE_ADAPTER_VERSION = (
     "visible-sequence-label-grid-v1:sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
@@ -122,6 +129,7 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -137,6 +145,7 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -148,6 +157,7 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -160,6 +170,7 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -167,6 +178,7 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -183,6 +195,7 @@ HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -191,10 +204,11 @@ OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
         QUALITY_RECOVERY_SELECTOR_VERSION,
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
-    {CENTER_FIRST_SELECTOR_VERSION, FOUR_LABEL_SELECTOR_VERSION}
+    {CENTER_FIRST_SELECTOR_VERSION, FOUR_LABEL_SELECTOR_VERSION, LAYOUT_ANCHORED_SELECTOR_VERSION}
 )
 
 
@@ -304,6 +318,20 @@ class ContiguousSequenceWindowPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class LayoutAnchorPolicy:
+    """Fail-closed layout evidence used by the v10.8 range and blur gates."""
+
+    expected_layout_count: int = 9
+    minimum_observed_layout_frames: int = 5
+    minimum_sharp_layout_count: int = 5
+    minimum_layout_sharpness: float = 0.05
+    consecutive_label_count: int = 4
+    minimum_ocr_confidence: float = 0.72
+    minimum_red_saturation: int = 60
+    minimum_red_value: int = 30
+
+
+@dataclass(frozen=True, slots=True)
 class SelectorManifest:
     algorithm_version: str = SELECTOR_VERSION
     contract_version: int = 1
@@ -326,6 +354,7 @@ class SelectorManifest:
     progressive_visible_label_fallback_policy: ProgressiveVisibleLabelFallbackPolicy | None = None
     representative_sampling_policy: RepresentativeSamplingPolicy | None = None
     contiguous_sequence_window_policy: ContiguousSequenceWindowPolicy | None = None
+    layout_anchor_policy: LayoutAnchorPolicy | None = None
 
     def __post_init__(self) -> None:
         if self.algorithm_version not in SUPPORTED_SELECTOR_VERSIONS or self.contract_version != 1:
@@ -417,6 +446,19 @@ class SelectorManifest:
                 and 0.5 <= window_policy.minimum_ocr_confidence <= 1
             ):
                 raise ValueError("Contiguous sequence-window policy is outside supported bounds.")
+        if self.layout_anchor_policy is not None:
+            layout_policy = self.layout_anchor_policy
+            if not (
+                layout_policy.expected_layout_count == 9
+                and 4 <= layout_policy.minimum_observed_layout_frames <= 9
+                and 1 <= layout_policy.minimum_sharp_layout_count <= 9
+                and 0 <= layout_policy.minimum_layout_sharpness <= 1
+                and 4 <= layout_policy.consecutive_label_count <= 9
+                and 0.5 <= layout_policy.minimum_ocr_confidence <= 1
+                and 0 <= layout_policy.minimum_red_saturation <= 255
+                and 0 <= layout_policy.minimum_red_value <= 255
+            ):
+                raise ValueError("Layout anchor policy is outside supported bounds.")
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -532,6 +574,18 @@ class SelectorManifest:
             payload["contiguousSequenceWindowPolicy"] = {
                 "consecutiveLabelCount": window_policy.consecutive_label_count,
                 "minimumOcrConfidence": window_policy.minimum_ocr_confidence,
+            }
+        if self.layout_anchor_policy is not None:
+            layout_policy = self.layout_anchor_policy
+            payload["layoutAnchorPolicy"] = {
+                "consecutiveLabelCount": layout_policy.consecutive_label_count,
+                "expectedLayoutCount": layout_policy.expected_layout_count,
+                "minimumLayoutSharpness": layout_policy.minimum_layout_sharpness,
+                "minimumObservedLayoutFrames": layout_policy.minimum_observed_layout_frames,
+                "minimumOcrConfidence": layout_policy.minimum_ocr_confidence,
+                "minimumRedSaturation": layout_policy.minimum_red_saturation,
+                "minimumRedValue": layout_policy.minimum_red_value,
+                "minimumSharpLayoutCount": layout_policy.minimum_sharp_layout_count,
             }
         if self.thumbnail_adapter_version != LEGACY_THUMBNAIL_ADAPTER_VERSION:
             adapters = payload["adapters"]
@@ -813,8 +867,27 @@ FOUR_LABEL_SELECTOR_MANIFEST_V107 = SelectorManifest(
     representative_sampling_policy=RepresentativeSamplingPolicy(),
     contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
 )
-DEFAULT_SELECTOR_MANIFEST = FOUR_LABEL_SELECTOR_MANIFEST_V107
+LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108 = SelectorManifest(
+    algorithm_version=LAYOUT_ANCHORED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(9, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(),
+)
+DEFAULT_SELECTOR_MANIFEST = LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108
 SUPPORTED_SELECTOR_MANIFESTS = (
+    LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
     FOUR_LABEL_SELECTOR_MANIFEST_V107,
     CENTER_FIRST_SELECTOR_MANIFEST_V106,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
@@ -905,6 +978,10 @@ __all__ = [
     "FOUR_LABEL_SELECTOR_MANIFEST_V107",
     "FOUR_LABEL_SELECTOR_VERSION",
     "FullGeometryPolicy",
+    "LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION",
+    "LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108",
+    "LAYOUT_ANCHORED_SELECTOR_VERSION",
+    "LayoutAnchorPolicy",
     "INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION",
     "GRID_FIRST_RANGE_ADAPTER_VERSION",
     "HYBRID_BOUNDED_SELECTOR_MANIFEST_V104",

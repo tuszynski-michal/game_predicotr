@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.9`; następny commit otrzyma
-`v0.5.10`.
+partia implementacyjna jest wydaniem `v0.5.10`; następny commit otrzyma
+`v0.5.11`.
 
 ## Phase
 
@@ -1017,6 +1017,24 @@ progresywnie na `9`, `18` albo najwyżej `36` cropach. Remis, trzy etykiety lub
 zła geometria pozostają nierozwiązane. V10.7 zachowuje center-first v10.6 i
 historyczne fingerprinty. Przeszło 187 skupionych testów API/workera; nie
 uruchomiono nowego realnego runu.
+
+Po jawnej decyzji właściciela rozpoczęto pełny run v10.7 na wszystkich 42 403
+JPEG-ach bez wcześniejszych bramek 200/5000. Run
+`45c80055-5beb-43bc-bc35-8c84b3e2b19c` i job
+`39699f88-566f-4a09-b115-4bb9b2ea0349` używają niezmiennego stagingu
+anulowanego runu v10.5, więc nie wykonują ponownego uploadu 11,2 GB. Kotwica to
+`19810`, output to `C:\Users\user\Documents\19810 - 45152`, a raport i stan PID
+znajdują się odpowiednio w
+`artifacts/image-selection-v107-live-19810-45152.json` oraz
+`.runtime/live-image-selection-v107-19810-45152.pid.json`. Lokalna baza jest na
+migracji `0041`, API działa na `http://127.0.0.1:8003`, a wczesny snapshot przy
+`256 / 42 403` potwierdził etap `image_selection:scanning`, świeży heartbeat i
+zero błędów. Z 26 grup 3 miały automatyczny zakres, 22 miały automatycznie
+wybrany JPEG i trafiły wyłącznie do `range_required`, a 1 była duplikatem;
+`manual_required` i `skipped_unreadable` wynosiły zero. OCR zajmował 167,30 z
+172,37 s czasu etapowego, więc skuteczność zakresów i tempo pozostają wczesnym
+ryzykiem. Wynik jest niezaakceptowany do zakończenia runu i kontroli
+właściciela; proces może zostać wcześniej anulowany.
 
 ## Do not start yet
 

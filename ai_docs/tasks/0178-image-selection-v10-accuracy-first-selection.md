@@ -2,7 +2,7 @@
 title: TASK-0178 image selection v10 accuracy-first selection
 status: in_progress
 release: "0.4"
-last_updated: 2026-08-08
+last_updated: 2026-08-11
 ---
 
 # TASK-0178 — Image selection v10 accuracy-first selection
@@ -112,3 +112,11 @@ etapowego. Raport operatorski znajduje się w
 `artifacts/image-selection-v10-first-200-timing.json`, a powtarzalny profil w
 `scripts/profile_image_selection_slice.py`. Wynik jest materiałem do decyzji
 właściciela i nie zamyka TASK-0186.
+
+Właściciel 2026-08-11 jawnie polecił rozpocząć pełny przebieg 42 403 zdjęć na
+domyślnym v10.7 i dopuścił jego przerwanie po obserwacji wczesnych wyników.
+Run `45c80055-5beb-43bc-bc35-8c84b3e2b19c` używa istniejącego kompletnego
+stagingu v10.5, dodatniej kotwicy `19810` oraz osobnego pustego katalogu
+wynikowego. Start potwierdził właściwy fingerprint v10.7, etap skanowania,
+świeży lease i brak błędów. Nie oznacza to jeszcze zaliczenia jakości ani
+ukończenia TASK-0186/TASK-0197.

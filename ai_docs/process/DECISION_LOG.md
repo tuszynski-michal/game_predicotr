@@ -4235,6 +4235,28 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza lokalny dowód D-170 bez przywracania pełnej
   geometrii ani przewidywanego cursora.
 
+## D-176 — Pełny run v10.7 może rozpocząć się przed bramkami po jawnej decyzji właściciela
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** na jawną prośbę właściciela uruchamiamy v10.7 od razu na pełnym
+  zbiorze 42 403 JPEG-ów. Run może zostać anulowany po obserwacji tempa i
+  jakości pierwszych grup; jego start nie jest automatyczną akceptacją
+  algorytmu.
+- **Context:** kontrakt v10.7 rekomenduje kolejno małą próbkę, około 5000 zdjęć
+  i dopiero pełny corpus. Właściciel preferuje rozpoczęcie pełnego przebiegu i
+  ewentualne przerwanie go w trakcie.
+- **Reason:** kompletny immutable staging v10.5 jest dostępny do bezkosztowego
+  rerunu bez ponownego uploadu 11,2 GB, a progresywny raport pozwala wcześnie
+  ocenić tempo, review rate i błędy.
+- **Alternatives:** ponowny upload odrzucono jako zbędny; obowiązkowe zatrzymanie
+  na 200/5000 odrzucono wyłącznie na podstawie jawnej decyzji właściciela.
+- **Consequences:** operator monitoruje ten sam run i nie uruchamia drugiego.
+  Pełna decyzja `ready | optimize | reject` nadal wymaga wyniku i ręcznej oceny;
+  anulowanie zachowuje już utrwalone dane diagnostyczne.
+- **Supersedes:** jednorazowo zmienia kolejność etapów kontraktu v10.7, nie jego
+  bramki jakościowe ani wymóg fail-closed.
+
 ## Szablon nowej decyzji
 
 ```text

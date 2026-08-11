@@ -39,7 +39,7 @@ i akceptować krótszy dowód wyłącznie przy jawnych progach bezpieczeństwa.
 - [x] Dodać telemetrię częściowych kotwic i poziomów dowodu.
 - [x] Sprawdzić 39 środkowych zdjęć z wcześniej nierozpoznanych grup.
 - [x] Zaliczyć bramkę pierwszych 1440 źródeł.
-- [ ] Po zaliczeniu bramki rozpocząć pełny run 42 403 do nowego pustego katalogu.
+- [x] Po zaliczeniu bramki rozpocząć pełny run 42 403 do nowego pustego katalogu.
 
 ## Acceptance
 
@@ -80,3 +80,14 @@ Pełne testy: 665 workera oraz 327 API (23 świadomie pominięte). Ruff i mypy d
 zmienionych modułów przechodzą. Pełne repozytoryjne Ruff/mypy nadal pokazują
 wyłącznie wcześniejszy dług zapisany w TASK-0238: sześć E501 w migracji `0035`
 i dziesięć błędów mypy w trzech niezmienionych modułach.
+
+Po bramce rozpoczęto pełny run `2fa7f363-a9d4-406e-8b51-ed22da21f259` i job
+`9974c3e1-505c-43dd-be22-becc86a688b1` na wszystkich 42 403 źródłach. Używa
+nowego pustego katalogu `C:\Users\user\Documents\19810 - 45152 v10.9`; 50
+plików v10.8 pozostało bez zmian. Raport i PID monitora:
+`artifacts/image-selection-v109-live-19810-45152.json` oraz
+`.runtime/live-image-selection-v109-19810-45152.pid.json`. Przy checkpointcie
+1568 selektor miał 63 zapisane unikalne zakresy, 39 duplikatów, zero błędów i
+jeden tymczasowy `range_required` grupy 35. Jest to ten sam dokładnie
+zidentyfikowany fragment `19918–19926`, który etap końcowego domknięcia zmienia
+na duplikat po zakończeniu selekcji.

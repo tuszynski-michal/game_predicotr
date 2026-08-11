@@ -1111,6 +1111,24 @@ przechodzą; pełne repozytoryjne kontrole nadal pokazują tylko wcześniejszy d
 TASK-0238. Pełny run 42 403 jest odblokowany, ale musi użyć nowego pustego
 katalogu, aby zachować 50 plików anulowanego v10.8.
 
+Po commicie `04c2f44` (`v0.5.13`) uruchomiono jeden pełny run v10.9 na
+istniejącym immutable stagingu, bez ponownego uploadu. Run
+`2fa7f363-a9d4-406e-8b51-ed22da21f259` i job
+`9974c3e1-505c-43dd-be22-becc86a688b1` przetwarzają 42 403 źródła z kotwicą
+`19810`. Output to nowy katalog
+`C:\Users\user\Documents\19810 - 45152 v10.9`; stary katalog nadal zawiera 50
+plików v10.8. API działa na `http://127.0.0.1:8003`, jedyny worker ma launcher
+PID `7252` i worker PID `16748`, a monitor PID `1960`. Raport i PID state to
+`artifacts/image-selection-v109-live-19810-45152.json` oraz
+`.runtime/live-image-selection-v109-19810-45152.pid.json`.
+
+Checkpoint 1568 / 42 403 nastąpił po około 112 s: 63 zapisane unikalne zakresy,
+39 duplikatów, zero błędów i 152 weryfikacje. Jedyny chwilowy `range_required`
+ma `groupOrder=35` i odpowiada znanemu fragmentowi pomiędzy tym samym zakresem
+`19918–19926`; pełny profil potwierdził jego końcową klasyfikację jako duplikatu.
+Nie uruchamiać drugiego API, workera ani runu. Przed ingerencją sprawdzić raport,
+PID state i świeży heartbeat joba.
+
 ## Do not start yet
 
 - automatycznej publikacji pełnych 500 000 layoutów przed kontrolą pierwszych

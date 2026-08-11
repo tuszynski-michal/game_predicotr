@@ -89,6 +89,18 @@ test('reruns the current selector from immutable uploaded staging', () => {
   assert.match(workspaceSource, /fast-image-selector-/);
 });
 
+test('history hides cancelled, failed and incomplete terminal runs', () => {
+  assert.match(
+    workspaceSource,
+    /visibleImageSelectionRuns\(result\.data\.items\)/,
+  );
+  assert.match(workspaceSource, /isVisibleImageSelectionRun\(result\.data\)/);
+  assert.match(
+    workspaceSource,
+    /window\.localStorage\.removeItem\(storageKey\(gameId\)\)/,
+  );
+});
+
 test('isolates image selection state by active game and keeps four tiles responsive', () => {
   assert.match(catalogSource, /key=\{activeGame\.id\}/);
   assert.match(catalogSource, /gameId=\{activeGame\.id\}/);

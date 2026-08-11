@@ -35,6 +35,10 @@ importu ani Reviewera; przygotowuje dla nich mniejszy, bezpieczny zestaw.
   uruchomić najnowszą wersję selektora dla tych samych załadowanych zdjęć bez
   ponownego uploadu; akcja tworzy osobny wersjonowany run i nie modyfikuje
   wcześniejszego wyniku ani decyzji ręcznych.
+- Dropdown roboczy pokazuje runy aktywne oraz użyteczne: `created`, `processing`,
+  `completed` i pełne `waiting_for_review`. Runy `cancelled`, `failed` oraz
+  terminalne z niepełnym postępem pozostają w audycie jobów, ale nie wracają do
+  selektora zapisanej partii.
 - Moduł stanowi zakres wersji 0.4 i przygotowuje kontrolowane wejście do pracy
   na dużych danych wersji 0.5. Nie zmienia historycznej bramki trzech
   workspace'ów wersji 0.2.

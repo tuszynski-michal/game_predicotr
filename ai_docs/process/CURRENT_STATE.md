@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.4`; następny commit otrzyma
-`v0.5.5`.
+partia implementacyjna jest wydaniem `v0.5.5`; następny commit otrzyma
+`v0.5.6`.
 
 ## Phase
 
@@ -979,6 +979,12 @@ review, wykonuje pełne uzgodnienie historycznych decyzji i czeka na zapis JPEG-
 przed przejściem do następnej grupy. Run `252cb5cb…` można naprawić przez
 ponowne wskazanie `C:\Users\user\Documents\1 - 19809`; zgodne pliki zostaną
 pominięte, a brakujące odtworzone. Przeszło 188 testów Admina i typecheck.
+
+TASK-0233 ogranicza dropdown zapisanych procesów do runów aktywnych i
+użytecznych. Widoczne są `created`, `processing`, `completed` oraz pełne
+`waiting_for_review`; anulowane, nieudane i niepełne terminalne runy są ukryte.
+Reguła obejmuje również localStorage oraz run, który właśnie zakończył się
+anulowaniem. Przeszło 190 testów Admina i typecheck.
 
 ## Do not start yet
 

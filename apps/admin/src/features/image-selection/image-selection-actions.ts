@@ -2,6 +2,7 @@ import type {
   AdminApiClient,
   ImageSelectionCreateResponse,
   ImageSelectionGroupResponse,
+  ImageSelectionRunResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -67,6 +68,23 @@ export interface ImageSelectionOutputSaveResult {
   readonly cancelled: boolean;
   readonly error: string | null;
   readonly savedCount: number;
+}
+
+export function isVisibleImageSelectionRun(
+  run: ImageSelectionRunResponse,
+): boolean {
+  const status = run.job.status;
+  if (status === 'created' || status === 'processing') return true;
+  if (status === 'completed') return true;
+  if (status !== 'waiting_for_review') return false;
+  const total = run.job.progress.total;
+  return total !== null && total > 0 && run.job.progress.current >= total;
+}
+
+export function visibleImageSelectionRuns(
+  runs: readonly ImageSelectionRunResponse[],
+): ImageSelectionRunResponse[] {
+  return runs.filter(isVisibleImageSelectionRun);
 }
 
 type ImageSelectionUploadResult =

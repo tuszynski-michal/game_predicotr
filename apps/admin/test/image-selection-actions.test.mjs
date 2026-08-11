@@ -10,6 +10,7 @@ import {
   saveFinalizedImageSelectionGroups,
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
+  visibleImageSelectionRuns,
 } from '../src/features/image-selection/image-selection-actions.ts';
 import { restoreOutputDirectory } from '../src/features/image-selection/image-selection-output-directory.ts';
 
@@ -51,6 +52,26 @@ test('does not restore a remembered output directory after permission denial', a
   );
 
   assert.equal(restored, null);
+});
+
+test('shows only active and useful image-selection runs', () => {
+  const run = (id, status, current, total) => ({
+    id,
+    job: { progress: { current, total }, status },
+  });
+
+  assert.deepEqual(
+    visibleImageSelectionRuns([
+      run('created', 'created', 0, 100),
+      run('processing', 'processing', 20, 100),
+      run('full-review', 'waiting_for_review', 100, 100),
+      run('partial-review', 'waiting_for_review', 20, 100),
+      run('completed', 'completed', 100, 100),
+      run('cancelled', 'cancelled', 20, 100),
+      run('failed', 'failed', 20, 100),
+    ]).map(({ id }) => id),
+    ['created', 'processing', 'full-review', 'completed'],
+  );
 });
 
 test('loads every automatically selected group through the server-side status filter', async () => {

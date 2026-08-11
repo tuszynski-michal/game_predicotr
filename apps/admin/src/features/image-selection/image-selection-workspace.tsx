@@ -30,6 +30,8 @@ import {
   saveFinalizedImageSelectionGroups,
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
+  isVisibleImageSelectionRun,
+  visibleImageSelectionRuns,
 } from './image-selection-actions';
 import { ManualImageSelectionModal } from './manual-image-selection-modal';
 import {
@@ -86,6 +88,7 @@ export function ImageSelectionWorkspace({
     readonly deadline: number;
     readonly runId: string;
   } | null>(null);
+  const runHistoryRef = useRef<ImageSelectionRunResponse[]>([]);
   const [progress, setProgress] = useState(EMPTY_PROGRESS);
   const [resume, setResume] = useState<ResumableImageSelectionUpload | null>(
     null,
@@ -134,8 +137,10 @@ export function ImageSelectionWorkspace({
           );
           return;
         }
-        setRunHistory(result.data.items);
-        const initialRun = result.data.items[0] ?? null;
+        const visibleRuns = visibleImageSelectionRuns(result.data.items);
+        runHistoryRef.current = visibleRuns;
+        setRunHistory(visibleRuns);
+        const initialRun = visibleRuns[0] ?? null;
         setRun((current) => current ?? initialRun);
         if (
           initialRun?.firstSequenceNumber !== null &&
@@ -170,6 +175,10 @@ export function ImageSelectionWorkspace({
           result.error === undefined &&
           result.data !== undefined
         ) {
+          if (!isVisibleImageSelectionRun(result.data)) {
+            window.localStorage.removeItem(storageKey(gameId));
+            return;
+          }
           setRun(result.data);
           if (result.data.firstSequenceNumber !== null) {
             setFirstSequenceNumber(String(result.data.firstSequenceNumber));
@@ -228,7 +237,27 @@ export function ImageSelectionWorkspace({
         } else {
           consecutiveFailures = 0;
           setRefreshWarning('');
-          setRun(result.data);
+          const nextHistory = visibleImageSelectionRuns([
+            result.data,
+            ...runHistoryRef.current.filter(
+              (item) => item.id !== result.data.id,
+            ),
+          ]);
+          runHistoryRef.current = nextHistory;
+          setRunHistory(nextHistory);
+          if (isVisibleImageSelectionRun(result.data)) {
+            setRun(result.data);
+          } else {
+            const fallback = nextHistory[0] ?? null;
+            setRun((current) =>
+              current?.id === result.data.id ? fallback : current,
+            );
+            if (fallback === null) {
+              window.localStorage.removeItem(storageKey(gameId));
+            } else {
+              window.localStorage.setItem(storageKey(gameId), fallback.id);
+            }
+          }
           if (!isPollableRunStatus(result.data.job.status)) return;
         }
       } catch {
@@ -357,10 +386,14 @@ export function ImageSelectionWorkspace({
     }
     setResume(null);
     setRun(result.created.run);
-    setRunHistory((items) => [
+    const nextHistory = [
       result.created.run,
-      ...items.filter((item) => item.id !== result.created.run.id),
-    ]);
+      ...runHistoryRef.current.filter(
+        (item) => item.id !== result.created.run.id,
+      ),
+    ];
+    runHistoryRef.current = nextHistory;
+    setRunHistory(nextHistory);
     setProgress(EMPTY_PROGRESS);
     window.localStorage.setItem(storageKey(gameId), result.created.run.id);
     if (outputDirectoryRef.current !== null) {
@@ -517,10 +550,14 @@ export function ImageSelectionWorkspace({
         return;
       }
       setRun(result.data.run);
-      setRunHistory((items) => [
+      const nextHistory = [
         result.data.run,
-        ...items.filter((item) => item.id !== result.data?.run.id),
-      ]);
+        ...runHistoryRef.current.filter(
+          (item) => item.id !== result.data?.run.id,
+        ),
+      ];
+      runHistoryRef.current = nextHistory;
+      setRunHistory(nextHistory);
       setManualGroups([]);
       setManualOpen(false);
       setAutomaticGroups([]);

@@ -32,6 +32,7 @@ from game_predictor_worker.images.selection.adapters import (
     OpenCvAppearanceFingerprintAnalyzer,
     OpenCvAppearanceQualityAnalyzer,
     OpenCvImageQualityAnalyzer,
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     PillowThumbnailLoader,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
@@ -99,7 +100,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.8"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.9"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -1431,6 +1432,67 @@ def test_layout_anchor_requires_five_observed_frames_across_every_axis() -> None
     assert not recognizer._layout_anchor_is_safe(boards({0, 1, 2, 3, 4, 5}))
 
 
+def test_partial_layout_anchor_accepts_three_frames_across_two_axes() -> None:
+    recognizer = PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+    )
+
+    def boards(observed: set[int]) -> tuple[BoardDetection, ...]:
+        return tuple(
+            BoardDetection(
+                position_index=position,
+                quad=(Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)),
+                bounding_box=(0, 0, 10, 10),
+                red_border_score=0.8 if position in observed else 0.0,
+                refined_from_grid=position not in observed,
+            )
+            for position in range(9)
+        )
+
+    assert recognizer._layout_anchor_is_safe(boards({1, 4, 6}))
+    assert not recognizer._layout_anchor_is_safe(boards({0, 1, 2}))
+    assert not recognizer._layout_anchor_is_safe(boards({0, 3, 6}))
+
+
+def test_partial_layout_anchor_tiers_three_labels_and_two_label_confirmation() -> None:
+    recognizer = PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+    )
+    strong = {position: Recognition(str(7300 + position), 0.96) for position in (1, 4, 7)}
+    weak = {position: Recognition(str(7300 + position), 0.96) for position in (4, 7)}
+
+    assert recognizer._anchored_evidence_hypotheses(strong) == (
+        (SequenceRange(7300, 7308, 0.94), "three"),
+    )
+    weak_evidence = recognizer._anchored_evidence_hypotheses(weak)
+    assert weak_evidence == ((SequenceRange(7300, 7308, 0.82), "two"),)
+    recognized, reasons = recognizer._record_anchored_resolution(weak_evidence[0])
+    assert recognized == SequenceRange(7300, 7308, 0.82)
+    assert "RANGE_OCR_FUZZY_CANDIDATE" in reasons
+
+
+def test_partial_layout_anchor_resolves_preprocessing_variants_as_one_lattice() -> None:
+    recognizer = PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+    )
+    variants = {
+        1: (Recognition("29919", 0.95), Recognition("7301", 0.86)),
+        4: (Recognition("29922", 0.94), Recognition("7304", 0.88)),
+        7: (Recognition("7307", 0.87),),
+    }
+
+    assert recognizer._anchored_evidence_hypotheses(
+        variants,
+        observed_positions={1, 4, 7},
+    ) == ((SequenceRange(7300, 7308, 0.94), "three"),)
+
+
 def test_layout_blur_gate_rejects_only_when_a_majority_is_severely_blurred(
     tmp_path: Path,
 ) -> None:
@@ -1756,7 +1818,7 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert counters["parallelVerificationWorkerSlots"] == 2
 
 
-def test_standalone_cli_uses_v10_8_and_fails_closed_without_ocr_model(
+def test_standalone_cli_uses_v10_9_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -1811,7 +1873,7 @@ def test_standalone_cli_uses_v10_8_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.8"
+    assert report["selectorVersion"] == "fast-image-selector-v10.9"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

@@ -1,0 +1,53 @@
+{
+  "contract": "image-selection-v109-acceptance-v1",
+  "gates": {
+    "firstSliceImageCount": 1440,
+    "maximumFirstSliceSeconds": 300,
+    "maximumFirstSliceVerificationCount": 150,
+    "maximumFullRunSeconds": 10800,
+    "maximumRangeReviewPercent": 30.0,
+    "maximumRepresentativeReviewPercent": 10.0,
+    "maximumTotalReviewPercent": 35.0,
+    "minimumKnownRangePercent": 95.0,
+    "ownerReviewedWrongRangeCount": 0,
+    "ownerReviewedWrongRepresentativeCount": 0,
+    "unreadableGroupOutputCount": 0
+  },
+  "layoutAnchor": {
+    "expectedLayoutCount": 9,
+    "minimumObservedLayoutFrames": 3,
+    "minimumRedSaturation": 60,
+    "minimumRedValue": 30,
+    "minimumSharpLayoutCount": 5,
+    "minimumLayoutSharpness": 0.05,
+    "requiresTwoRowsAndColumns": true
+  },
+  "ocr": {
+    "candidateLevels": [
+      9,
+      18
+    ],
+    "fourLabelMinimumConfidence": 0.72,
+    "strongLabelCount": 3,
+    "strongLabelMinimumConfidence": 0.82,
+    "weakLabelCount": 2,
+    "weakLabelMinimumConfidence": 0.9,
+    "weakEvidenceDistinctJpegCount": 2
+  },
+  "sampling": {
+    "centerCandidateCount": 5,
+    "edgeCandidateCountPerSide": 3,
+    "fallbackOrder": [
+      "center",
+      "edges"
+    ]
+  },
+  "selectorFingerprint": "6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720",
+  "selectorVersion": "fast-image-selector-v10.9",
+  "stages": [
+    "deterministic-regression",
+    "owner-reviewed-39-midpoint-images",
+    "first-1440-images",
+    "full-corpus-only-after-first-slice-gate"
+  ]
+}

@@ -54,6 +54,7 @@ from game_predictor_worker.images.selection.manifest import (
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
     LEGACY_SELECTOR_MANIFEST_V2,
+    PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
     SelectorManifest,
@@ -73,6 +74,9 @@ V107_ACCEPTANCE_PATH = (
 )
 V108_ACCEPTANCE_PATH = (
     ROOT / "ai_docs" / "quality" / "image-selection-v108-acceptance-contract.json"
+)
+V109_ACCEPTANCE_PATH = (
+    ROOT / "ai_docs" / "quality" / "image-selection-v109-acceptance-contract.json"
 )
 FINGERPRINTS = {
     "a": "0" * 64,
@@ -473,16 +477,20 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_8_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_9_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.8"
+    assert DEFAULT_SELECTOR_MANIFEST is PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.9"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720"
+    )
+    assert (
+        LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108.fingerprint
         == "eb5006f3b6ed5e63b668074bf2e81d8b162d5794d542fd00457ee6a860682769"
     )
     assert (
@@ -532,6 +540,10 @@ def test_v10_8_manifest_is_the_default_and_older_versions_remain_resolvable() ->
     assert (
         ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
         == "286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40"
+    )
+    assert (
+        selector_manifest_for_fingerprint(LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108.fingerprint)
+        is LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108
     )
     assert (
         selector_manifest_for_fingerprint(FOUR_LABEL_SELECTOR_MANIFEST_V107.fingerprint)
@@ -643,11 +655,11 @@ def test_v10_7_acceptance_contract_remains_pinned_to_its_historical_manifest() -
     )
 
 
-def test_v10_8_acceptance_contract_matches_the_default_manifest() -> None:
+def test_v10_8_acceptance_contract_remains_pinned_to_its_historical_manifest() -> None:
     contract = json.loads(V108_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
 
-    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
-    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["selectorVersion"] == LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108.algorithm_version
+    assert contract["selectorFingerprint"] == LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108.fingerprint
     assert contract["ocr"] == {
         "candidateLevels": [9, 18],
         "consecutiveLabelCount": 4,
@@ -669,7 +681,32 @@ def test_v10_8_acceptance_contract_matches_the_default_manifest() -> None:
     }
 
 
-def test_v10_8_collapses_redundant_fragments_and_one_exact_missing_range() -> None:
+def test_v10_9_acceptance_contract_matches_the_default_manifest() -> None:
+    contract = json.loads(V109_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
+
+    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["layoutAnchor"]["minimumObservedLayoutFrames"] == 3
+    assert contract["layoutAnchor"]["requiresTwoRowsAndColumns"] is True
+    assert contract["ocr"]["strongLabelCount"] == 3
+    assert contract["ocr"]["weakLabelCount"] == 2
+    assert contract["ocr"]["weakEvidenceDistinctJpegCount"] == 2
+
+
+@pytest.mark.parametrize(
+    ("manifest", "redundant_status"),
+    (
+        (
+            LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
+            SelectionGroupStatus.SKIPPED_UNREADABLE,
+        ),
+        (DEFAULT_SELECTOR_MANIFEST, SelectionGroupStatus.SKIPPED_EXISTING_RANGE),
+    ),
+)
+def test_layout_anchored_selectors_collapse_redundant_fragments_and_one_exact_missing_range(
+    manifest: SelectorManifest,
+    redundant_status: SelectionGroupStatus,
+) -> None:
     sources = _sources("v108-fragment-recovery", 7)
 
     def candidate(index: int) -> CandidateResult:
@@ -709,14 +746,12 @@ def test_v10_8_collapses_redundant_fragments_and_one_exact_missing_range() -> No
         group(6, SelectionGroupStatus.AUTO_SELECTED, SequenceRange(37, 45, 0.99)),
     ]
 
-    recovered = FastImageSelector(
-        LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108
-    )._recover_bounded_best_available_groups(groups)
+    recovered = FastImageSelector(manifest)._recover_bounded_best_available_groups(groups)
 
     assert [group.status for group in recovered] == [
         SelectionGroupStatus.AUTO_SELECTED,
-        SelectionGroupStatus.SKIPPED_UNREADABLE,
-        SelectionGroupStatus.SKIPPED_UNREADABLE,
+        redundant_status,
+        redundant_status,
         SelectionGroupStatus.AUTO_SELECTED,
         SelectionGroupStatus.AUTO_SELECTED,
         SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
@@ -727,6 +762,9 @@ def test_v10_8_collapses_redundant_fragments_and_one_exact_missing_range() -> No
         for group in recovered[1:3]
         for candidate in group.top_candidates
     )
+    if redundant_status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE:
+        assert all(group.range == SequenceRange(10, 18, 0.99) for group in recovered[1:3])
+        assert all(group.duplicate_of_group_order == 0 for group in recovered[1:3])
     inferred = recovered[4]
     assert inferred.range == SequenceRange(28, 36, 0.9)
     assert inferred.selected_candidate is not None
@@ -976,6 +1014,24 @@ def test_v10_5_accepts_two_matching_fuzzy_reads_but_never_one() -> None:
     assert "RANGE_OCR_FUZZY_CONSENSUS" in result.groups[0].selected_candidate.reason_codes
 
 
+def test_two_label_evidence_requires_two_distinct_jpeg_checksums() -> None:
+    sources = _sources("same-jpeg-fuzzy-evidence", 2)
+    duplicate = replace(sources[1], checksum_sha256=sources[0].checksum_sha256)
+    analyzer = _AppearanceAnalyzer((_appearance_signature(0), _appearance_signature(0)))
+    observations = (analyzer.analyze(sources[0]), analyzer.analyze(duplicate))
+    verification = CandidateVerification(
+        representative=RepresentativeAssessment(9, True, True),
+        range_evidence=RangeEvidence(
+            SequenceRange(7300, 7308, 0.82),
+            ("RANGE_OCR_FUZZY_CANDIDATE",),
+        ),
+    )
+
+    assert FastImageSelector(DEFAULT_SELECTOR_MANIFEST)._hybrid_group_range(  # noqa: SLF001
+        [(observations[0], verification), (observations[1], verification)]
+    ) == (None, None)
+
+
 def test_v10_5_keeps_v10_4_boundary_buffer_with_the_broad_descriptor() -> None:
     signatures = (
         _appearance_signature(0),
@@ -1047,7 +1103,7 @@ def test_v10_6_falls_back_to_three_frames_from_each_edge() -> None:
     assert group.selected_candidate.source.order_index == 0
 
 
-def test_v10_8_checks_edges_after_readable_center_frames_have_no_range() -> None:
+def test_v10_9_checks_edges_after_readable_center_frames_have_no_range() -> None:
     signatures = tuple(_appearance_signature(0) for _ in range(15))
     verifier = _AdaptiveConsensusVerifier(tuple(None for _ in range(15)))
 

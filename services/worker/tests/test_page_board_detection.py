@@ -71,6 +71,16 @@ def _partial_grid_image(board_count: int) -> np.ndarray:
     return image
 
 
+def _fragment_grid_image(positions: set[int]) -> np.ndarray:
+    image = np.full((640, 680, 3), (20, 30, 180), dtype=np.uint8)
+    for position in sorted(positions):
+        row, column = divmod(position, 3)
+        left = 60 + column * 200
+        top = 60 + row * 100
+        cv2.rectangle(image, (left, top), (left + 140, top + 80), (235, 25, 20), 10)
+    return image
+
+
 @pytest.mark.parametrize(
     ("x", "y", "width", "height"),
     (
@@ -189,6 +199,32 @@ def test_explicit_occlusion_recovery_fits_missing_cell_from_visible_grid() -> No
     assert result.status == "detected"
     assert [board.position_index for board in result.boards] == list(range(9))
     assert result.boards[4].refined_from_grid is True
+
+
+def test_partial_grid_recovery_preserves_a_bounded_l_shape_hypothesis() -> None:
+    image = _fragment_grid_image({1, 4, 6, 7})
+    detector = ClassicalPageBoardDetector()
+
+    historical = detector.detect(
+        image,
+        allow_grid_recovery=True,
+        allow_occluded_grid_recovery=True,
+    )
+    recovered = detector.detect(
+        image,
+        allow_grid_recovery=True,
+        allow_occluded_grid_recovery=True,
+        allow_partial_grid_recovery=True,
+    )
+
+    assert historical.status == "needs_review"
+    assert recovered.status == "detected"
+    assert recovered.layout_hypotheses
+    assert len(recovered.layout_hypotheses) <= 24
+    assert [board.position_index for board in recovered.boards] == list(range(9))
+    assert {
+        board.position_index for board in recovered.boards if board.red_border_score >= 0.20
+    } == {1, 4, 6, 7}
 
 
 def test_corpus_runner_verifies_input_and_reuses_identical_overlay(

@@ -905,6 +905,42 @@ Manifest v10.8 ma osobny fingerprint, progresję OCR `9/18`, center-first pięci
 zdjęć oraz fallback trzech z każdego brzegu. Resolver zachowuje wszystkie
 historyczne manifesty.
 
+## Architektura częściowej kotwicy v10.9
+
+`ClassicalPageBoardDetector` zachowuje niezmienioną ścieżkę v10.8. Dopiero jawna
+flaga manifestu v10.9 uruchamia bounded dopasowanie afiniczne hipotez `3×3` z
+trzech lub więcej ramek. Każda hipoteza musi wyjaśniać wszystkie użyte kontury,
+obejmować dwie osie, mieścić się w obrazie i nie nakładać pól. Zbliżone hipotezy
+są przekazywane razem do OCR; wyraźnie gorsze po wsparciu czerwonej ramki i
+położeniu strony są odrzucane. Geometria sama nie wybiera zakresu.
+
+`PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer` deduplikuje cropy po
+quadzie i czyta najpierw pozycje z rzeczywistą ramką. Zachowuje konkurencyjne
+odczyty surowego i przetworzonego cropa, a następnie ocenia je jako hipotezy
+całej pozycyjnej siatki. Nie wybiera już zachłannie jednego wariantu dla każdej
+liczby, co usuwa systematyczną zamianę pierwszej cyfry bez ukrywania konfliktu.
+Brakujące pozycje są czytane dopiero wtedy, gdy obserwowane ramki nie dały
+silnego dowodu; słaby dowód dwóch etykiet może dzięki temu zostać podniesiony do
+silnego po dołączeniu pozycji odtworzonych.
+
+Poziomy dowodu są jawne w manifeście: cztery kolejne etykiety od `0.72`, trzy
+zgodne pozycje od `0.82` oraz dwie zgodne pozycje od `0.90`. Ostatni poziom
+zwraca `RANGE_OCR_FUZZY_CANDIDATE` z confidence `0.82`; engine podnosi go do
+zakresu grupy wyłącznie po zgodzie dwóch weryfikacji o różnych checksumach.
+Silne hipotezy korzystające z pozycji syntetycznych muszą zawierać co najmniej
+dwie rzeczywiście obserwowane etykiety. Remis zakresów ma pierwszeństwo przed
+fallbackiem i kończy się bez decyzji.
+
+Mały nierozstrzygnięty fragment ograniczony z obu stron tym samym dokładnym
+zakresem jest w v10.9 klasyfikowany jako `skipped_existing_range`. Nie tworzy
+pliku wynikowego i wskazuje poprzednią grupę jako właściciela duplikatu; v10.8
+zachowuje historyczną klasyfikację takiego fragmentu.
+
+Manifest v10.9 zmienia fingerprint pełnej selekcji, ale zachowuje adapter taniego
+skanu v10.8. Cache skanu jest więc współdzielony, natomiast cache weryfikacji
+pozostaje rozdzielony fingerprintem selektora. Nie ma zmiany schematu bazy,
+OpenAPI ani typów Admina.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

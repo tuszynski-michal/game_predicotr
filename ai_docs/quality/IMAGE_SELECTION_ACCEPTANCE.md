@@ -312,3 +312,24 @@ znanych zakresów, najwyżej 35% wszystkich kolejek review, najwyżej 10% kolejk
 wyboru reprezentanta, zera błędnych zakresów i reprezentantów w próbie
 właściciela oraz projekcji pełnego czasu do trzech godzin. Grupa oznaczona
 `skipped_unreadable` nie może utworzyć pliku wynikowego.
+
+### Bramka v10.9 — częściowa kotwica
+
+Kontrakt `image-selection-v109-acceptance-contract.json` zastępuje dla nowego
+manifestu pośredni profil 5000 kontrolą dokładnie pierwszych 1440 źródeł z tego
+samego immutable stagingu. Próba musi zakończyć się w najwyżej 300 sekundach,
+wykonać najwyżej 150 pełnych weryfikacji i dać oczekiwane 60 unikalnych zakresów
+oraz 40 duplikatów bez żadnego `range_required`, `manual_required` ani błędnie
+rozpoznanego zakresu.
+
+Przed próbą 1440 obowiązuje regresja 39 środkowych JPEG-ów z anulowanego v10.8:
+żaden błędny zakres nie może zostać zaakceptowany. Nierozstrzygnięty pojedynczy
+JPEG jest dozwolony, ponieważ produkcyjny engine sprawdza kolejne centralne, a
+następnie brzegowe zdjęcia grupy. Po zaliczeniu próby 1440 właściciel zezwala na
+bezpośredni pełny run 42 403. Katalog pełnego outputu musi być pusty i nie może
+być katalogiem zawierającym 50 plików z anulowanego v10.8.
+
+Finalny profil zaliczył bramkę w 110,883022 s i 148 weryfikacjach. Pierwszych 100
+domkniętych grup zawiera 60 unikalnych automatycznych wyborów oraz 40 duplikatów,
+bez `range_required`, `manual_required`, `skipped_unreadable` i bez nieznanego
+zakresu. Raport: `artifacts/image-selection-v109-first-1440-gate-final.json`.

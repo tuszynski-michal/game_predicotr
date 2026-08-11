@@ -137,3 +137,12 @@ progresywnie zapisywany do `C:\Users\user\Documents\19810 - 45152`; raport i
 stan PID to odpowiednio `artifacts/image-selection-v108-live-19810-45152.json`
 oraz `.runtime/live-image-selection-v108-19810-45152.pid.json`. Snapshot
 `160 / 42 403` miał 10 automatycznych grup, zero manualnych i zero błędów.
+
+Run v10.8 został następnie anulowany na checkpointcie 1440 / 42 403: 50 grup
+automatycznych, 39 `range_required` i 11 pominiętych. TASK-0239 wprowadził v10.9
+z częściową kotwicą 3×3 i pozycyjnym dopasowaniem wariantów OCR. Finalna bramka
+tych samych pierwszych 1440 źródeł trwała 110,883022 s i dała w pierwszych 100
+domkniętych grupach dokładnie 60 automatycznych unikalnych zakresów oraz 40
+duplikatów, bez review i nieznanego zakresu. Raport:
+`artifacts/image-selection-v109-first-1440-gate-final.json`. Pełny run 42 403
+jest odblokowany i ma użyć nowego pustego katalogu outputu.

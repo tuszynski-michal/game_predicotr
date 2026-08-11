@@ -1077,6 +1077,40 @@ ma PID `2608`. Raport i stan monitora znajdują się w
 zero pominiętych, zero błędów i 10 zapisanych JPEG-ów. Nie uruchamiać drugiego
 API, workera ani runu; najpierw sprawdzić raport oraz PID state.
 
+Właściciel następnie zatrzymał run v10.8. Został anulowany na checkpointcie
+1440 / 42 403 z wynikiem 100 grup: 50 automatycznych, 39 `range_required` i 11
+pominiętych. Przetwarzanie trwało 472,633 s, z czego OCR 395,427 s. Wszystkie 39
+środkowych JPEG-ów z `range_required` zostało obejrzanych: każdy miał czytelny
+zakres, więc żaden przypadek nie uzasadniał review. Artefakt audytu znajduje się
+w `artifacts/range-required-v108-review/manifest.csv`. Nie wznawiać v10.8.
+
+TASK-0239 wprowadza domyślny `fast-image-selector-v10.9` o fingerprintcie
+`6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720`.
+Częściowa kotwica działa od trzech ramek na dwóch osiach, OCR sprawdza najpierw
+ramki widoczne, a dowód ma trzy poziomy: cztery etykiety od `0.72`, trzy od
+`0.82` i dwie od `0.90` potwierdzone na drugim JPEG-u o innym checksumie.
+Historyczny fingerprint v10.8 pozostaje bez zmian, a fingerprint taniego skanu
+v10.9 jest identyczny z v10.8.
+
+Powtórna kontrola tych samych 39 środkowych JPEG-ów początkowo dała 35 poprawnych
+zakresów, cztery bez decyzji i zero błędnie zaakceptowanych zakresów. Dalsza
+analiza wykazała zachłanny wybór surowego albo przetworzonego wariantu OCR dla
+pojedynczego pola. v10.9 zachowuje oba warianty i rozstrzyga je jako hipotezy
+całej pozycyjnej siatki; konflikt nadal kończy się fail-closed. Fragment
+ograniczony z obu stron tym samym dokładnym zakresem jest bezpiecznie oznaczany
+jako `skipped_existing_range`, bez pliku wynikowego.
+
+Finalna bramka pierwszych 1440 źródeł została zaliczona. Profil
+`artifacts/image-selection-v109-first-1440-gate-final.json` trwał 110,883022 s,
+wykonał 148 pełnych weryfikacji i miał 1624 trafienia cache przy zerze chybień.
+Pierwszych 100 domkniętych grup dało dokładnie 60 automatycznych unikalnych
+zakresów i 40 duplikatów, bez review, nieznanego zakresu ani
+`skipped_unreadable`. Pełne testy przeszły: 665 workera i 327 API, przy 23
+świadomie pominiętych integracjach API. Ruff i mypy dla zmienionych plików
+przechodzą; pełne repozytoryjne kontrole nadal pokazują tylko wcześniejszy dług z
+TASK-0238. Pełny run 42 403 jest odblokowany, ale musi użyć nowego pustego
+katalogu, aby zachować 50 plików anulowanego v10.8.
+
 ## Do not start yet
 
 - automatycznej publikacji pełnych 500 000 layoutów przed kontrolą pierwszych

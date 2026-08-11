@@ -40,6 +40,7 @@ from .adapters import (
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
@@ -80,6 +81,7 @@ from .manifest import (
     LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
     ORDERED_SELECTOR_VERSIONS,
     OWNER_ANCHORED_SELECTOR_VERSIONS,
+    PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -384,6 +386,17 @@ class ImageSelectionJobHandler:
             if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
                 fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
                     ocr,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+            ):
+                fallback_recognizer = PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
                     telemetry=telemetry,
                 )
             elif (

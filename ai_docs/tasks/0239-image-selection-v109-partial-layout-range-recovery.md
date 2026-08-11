@@ -1,0 +1,82 @@
+---
+title: TASK-0239 image selection v10.9 partial layout range recovery
+status: in_progress
+release: "0.5"
+last_updated: 2026-08-11
+---
+
+# TASK-0239 — Image selection v10.9 partial layout range recovery
+
+## Goal
+
+Usunąć przyczynę fałszywego `range_required` na czytelnych zdjęciach: zachować
+częściową siatkę `3×3`, odczytywać najpierw etykiety faktycznie widocznych ramek
+i akceptować krótszy dowód wyłącznie przy jawnych progach bezpieczeństwa.
+
+## Relevant docs
+
+- `AGENTS.md`
+- `ai_docs/process/CURRENT_STATE.md`
+- `ai_docs/process/DECISION_LOG.md`
+- `ai_docs/requirements/IMAGE_SELECTION.md`
+- `ai_docs/architecture/IMAGE_SELECTION.md`
+- `ai_docs/quality/IMAGE_SELECTION_ACCEPTANCE.md`
+- `ai_docs/quality/image-selection-v109-acceptance-contract.json`
+- `ai_docs/delivery/VERSION_0_4_EXECUTION_PLAN.md`
+
+## Scope
+
+- [x] Zachować historyczny manifest i fingerprint v10.8.
+- [x] Dodać osobny manifest `fast-image-selector-v10.9`.
+- [x] Odtwarzać ograniczone hipotezy siatki z co najmniej trzech ramek
+      obejmujących dwa wiersze i dwie kolumny.
+- [x] Wykonać progresywny OCR: widoczne ramki przed pozycjami odtworzonymi.
+- [x] Akceptować cztery etykiety od `0.72`, trzy od `0.82`, a dwie od `0.90`
+      dopiero po zgodnym odczycie z drugiego JPEG-a o innym checksumie.
+- [x] Zachować fail-closed dla konfliktu geometrii lub zakresów oraz fallback
+      siedmiu etykiet na poziomach `9/18`.
+- [x] Zachować center-first, nie zmieniać progów grupowania ani publicznego API.
+- [x] Dodać telemetrię częściowych kotwic i poziomów dowodu.
+- [x] Sprawdzić 39 środkowych zdjęć z wcześniej nierozpoznanych grup.
+- [x] Zaliczyć bramkę pierwszych 1440 źródeł.
+- [ ] Po zaliczeniu bramki rozpocząć pełny run 42 403 do nowego pustego katalogu.
+
+## Acceptance
+
+- 39 zdjęć regresyjnych: zero zaakceptowanych błędnych zakresów.
+- Pierwsze 1440: 60 unikalnych zakresów, 40 duplikatów, zero review i zero
+  błędnych zakresów; najwyżej 150 pełnych weryfikacji i 300 sekund.
+- Pełny run jest dozwolony dopiero po zaliczeniu próby 1440.
+- Istniejących 50 plików v10.8 nie wolno usuwać ani nadpisywać.
+
+## Verification
+
+```powershell
+.venv\Scripts\python.exe -m pytest services/worker/tests -q --basetemp .runtime/pytest-v109-worker
+.venv\Scripts\python.exe -m pytest services/api/tests -q --basetemp .runtime/pytest-v109-api
+.venv\Scripts\python.exe -m ruff check services/worker/src/game_predictor_worker/images services/worker/tests
+$env:MYPYPATH='services/api/src;services/worker/src'
+.venv\Scripts\python.exe -m mypy services/worker/src/game_predictor_worker/images services/worker/src/game_predictor_worker/cli.py scripts/profile_image_selection_slice.py
+```
+
+## Outcome
+
+Implementacja v10.9 ma fingerprint
+`6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720` i ten
+sam fingerprint taniego skanu co v10.8, dzięki czemu nie wymaga ponownego
+dekodowania 42 403 źródeł. Kontrola środkowego JPEG-a każdej z 39 wcześniej
+nierozpoznanych grup dała 35 poprawnych zakresów i cztery bez decyzji; nie
+zaakceptowano żadnego błędnego zakresu. Cztery przypadki fail-closed mogą zostać
+rozstrzygnięte przez inne centralne zdjęcie grupy lub próbkę brzegową.
+
+Finalna bramka pierwszych 1440 źródeł przeszła w 110,883022 s: pierwszych 100
+domkniętych grup dało dokładnie 60 automatycznych unikalnych zakresów i 40
+`skipped_existing_range`, bez review, nieznanego zakresu ani outputu dla
+duplikatów. Wykonano 148 pełnych weryfikacji, a cache skanu miał 1624 trafienia i
+zero chybień. Raport:
+`artifacts/image-selection-v109-first-1440-gate-final.json`.
+
+Pełne testy: 665 workera oraz 327 API (23 świadomie pominięte). Ruff i mypy dla
+zmienionych modułów przechodzą. Pełne repozytoryjne Ruff/mypy nadal pokazują
+wyłącznie wcześniejszy dług zapisany w TASK-0238: sześć E501 w migracji `0035`
+i dziesięć błędów mypy w trzech niezmienionych modułach.

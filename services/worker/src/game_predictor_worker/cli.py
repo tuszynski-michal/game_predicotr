@@ -28,6 +28,7 @@ from game_predictor_worker.images.selection.adapters import (
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
     configure_opencv_thread_budget,
 )
@@ -378,11 +379,13 @@ def _run_standalone_image_selection(
             fallback_policy = DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy
             assert fallback_policy is not None
             if DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy is not None:
-                fallback_range_recognizer = LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
-                    ocr,
-                    fallback_policy,
-                    DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy,
+                anchor_policy = DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy
+                recognizer_type = (
+                    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer
+                    if anchor_policy.enable_partial_grid_recovery
+                    else LayoutAnchoredVisibleSequenceLabelRangeRecognizer
                 )
+                fallback_range_recognizer = recognizer_type(ocr, fallback_policy, anchor_policy)
             else:
                 fallback_range_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
                     ocr,

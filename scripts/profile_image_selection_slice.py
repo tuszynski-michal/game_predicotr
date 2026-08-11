@@ -1,9 +1,10 @@
 """Profile a read-only natural-order slice of a browser image selection.
 
-This operator tool intentionally skips persistence and output publication.  It
-measures only the selector work: cheap scans, grouping, candidate ranking and
-full verification.  The source staging is opened read-only and no production
-scan cache is used, so repeated runs do not hide cold-analysis cost.
+This operator tool intentionally skips domain persistence and output publication.
+It measures only the selector work: cheap scans, grouping, candidate ranking and
+full verification.  The source staging is opened read-only.  By default the scan
+is cold; an explicit artifact root enables the same reconstructable scan cache as
+the production worker.
 """
 
 from __future__ import annotations
@@ -30,8 +31,13 @@ from game_predictor_worker.images.selection.adapters import (  # noqa: E402
     DeterministicParallelCandidateVerifier,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
     configure_opencv_thread_budget,
+)
+from game_predictor_worker.images.selection.cache import (  # noqa: E402
+    CachedCheapImageAnalyzer,
+    FileImageScanObservationCache,
 )
 from game_predictor_worker.images.selection.contracts import (  # noqa: E402
     CandidateVerifier,
@@ -194,6 +200,12 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--scan-workers", type=int, default=4)
     parser.add_argument("--verification-workers", type=int, default=2)
     parser.add_argument("--max-seconds", type=float, default=1_800.0)
+    parser.add_argument("--first-sequence-number", type=int)
+    parser.add_argument(
+        "--scan-cache-artifact-root",
+        type=Path,
+        help="Enable the production-compatible read-through scan cache below this root.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--baseline",
@@ -223,7 +235,11 @@ def _build_verification_adapters(
         raise RuntimeError("The active selector profile requires progressive fallback policy.")
     ocr = PaddleSequenceNumberRecognizer(model_root)
     fallback = (
-        LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        (
+            PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer
+            if manifest.layout_anchor_policy.enable_partial_grid_recovery
+            else LayoutAnchoredVisibleSequenceLabelRangeRecognizer
+        )(
             ocr,
             fallback_policy,
             manifest.layout_anchor_policy,
@@ -339,6 +355,8 @@ def main() -> None:
         raise ValueError("--verification-workers must be one or two")
     if not 1 <= args.max_seconds <= 43_200:
         raise ValueError("--max-seconds must be between 1 and 43200")
+    if args.first_sequence_number is not None and args.first_sequence_number < 1:
+        raise ValueError("--first-sequence-number must be positive")
 
     source_root = args.source_root.resolve(strict=True)
     sources, manifest_sha256 = load_browser_selection_manifest(
@@ -367,6 +385,14 @@ def main() -> None:
         telemetry,
         manifest,
     )
+    cached_analyzer: CachedCheapImageAnalyzer | None = None
+    if args.scan_cache_artifact_root is not None:
+        cached_analyzer = CachedCheapImageAnalyzer(
+            analyzer,
+            FileImageScanObservationCache(args.scan_cache_artifact_root),
+            scan_adapter_fingerprint=manifest.scan_adapter_fingerprint,
+        )
+        analyzer = cached_analyzer
     verifier: CandidateVerifier = primary_verifier
     if args.verification_workers == 2:
         _, secondary_verifier = _build_verification_adapters(
@@ -392,6 +418,7 @@ def main() -> None:
             analyzer=_ProgressAnalyzer(analyzer, total=args.limit),
             verifier=verifier,
             audit_sink=sink,
+            first_sequence_number=args.first_sequence_number,
         )
         elapsed = perf_counter() - _STARTED_AT
     memory = memory_sampler.summary()
@@ -409,7 +436,13 @@ def main() -> None:
             "analyzedImageCount": args.limit,
             "firstOrderIndex": args.start_index,
             "lastOrderIndex": args.start_index + args.limit - 1,
-            "cachePolicy": "disabled-cold-analysis",
+            "cachePolicy": (
+                "disabled-cold-analysis"
+                if cached_analyzer is None
+                else "production-compatible-read-through"
+            ),
+            "scanCache": None if cached_analyzer is None else cached_analyzer.snapshot(),
+            "firstSequenceNumber": args.first_sequence_number,
             "publicationPolicy": "disabled-read-only-profile",
         },
         "selector": {

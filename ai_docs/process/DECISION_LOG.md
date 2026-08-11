@@ -4282,6 +4282,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** koryguje niezakotwiczone mapowanie D-175 i zachowuje zasadę
   lokalnego dowodu oraz poprawnych skoków z D-170.
 
+## D-178 — Krótszy dowód zakresu wymaga częściowej kotwicy i jawnego poziomu zaufania
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** v10.9 odtwarza lokalną siatkę z co najmniej trzech ramek na dwóch
+  wierszach i dwóch kolumnach. Cztery etykiety od `0.72` albo trzy od `0.82`
+  wystarczają na jednym JPEG-u. Dwie etykiety od `0.90` wymagają zgodnego zakresu
+  na drugim JPEG-u o innym checksumie.
+- **Context:** w anulowanym runie v10.8 wszystkie 39 skontrolowanych grup
+  `range_required` miało czytelny środkowy JPEG. Detektor widział zwykle 3–6
+  poprawnych ramek, ale zerował całą geometrię bez większości 5/9 i kierował OCR
+  do kosztownego, zaszumionego fallbacku.
+- **Reason:** numer etykiety wraz z pozycją wyznacza początek zakresu bez
+  rozpoznawania wszystkich dziewięciu liczb. Rozdzielenie dowodu silnego i
+  słabego zwiększa skuteczność bez akceptowania pojedynczego dwupunktowego błędu.
+- **Alternatives:** samo obniżenie czterech etykiet do dwóch bez kotwicy
+  odrzucono jako podatne na przesunięcie wiersza; wymóg kompletnej siatki 3×3
+  odrzucono jako główną przyczynę regresji; cursor poprzedniej grupy nadal nie
+  może rozstrzygać poprawnych skoków.
+- **Consequences:** v10.9 ma osobny fingerprint; tani cache skanu v10.8 pozostaje
+  zgodny. Warianty surowego i przetworzonego cropa są oceniane w kontekście
+  całej siatki, a konflikt geometrii lub OCR kończy się fail-closed. Fragment
+  ograniczony tym samym dokładnym zakresem jest oznaczany jako duplikat bez
+  outputu. Pełny run 42 403 może ruszyć dopiero po bramce pierwszych 1440 zdjęć.
+- **Supersedes:** rozszerza D-177 dla częściowo widocznej siatki i zachowuje
+  lokalny dowód oraz brak zgadywanej ciągłości z D-170.
+
 ## Szablon nowej decyzji
 
 ```text

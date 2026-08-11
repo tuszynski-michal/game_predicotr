@@ -568,3 +568,31 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   Większy albo niepodzielny skok pozostaje nierozstrzygnięty.
 - Bramka akceptacji nadal wymaga ręcznej oceny około 5000 zdjęć, zera błędnych
   zakresów i reprezentantów oraz dopiero potem pełnego przebiegu 42 403.
+
+### Częściowa kotwica layoutów v10.9 — 2026-08-11
+
+- Nowy run używa `fast-image-selector-v10.9`; v10.8 i wszystkie wcześniejsze
+  fingerprinty zachowują historyczne zachowanie.
+- Kotwica może powstać z co najmniej trzech widocznych czerwonych ramek, jeżeli
+  obejmują co najmniej dwa wiersze i dwie kolumny. Detektor zachowuje wyłącznie
+  ograniczone hipotezy zgodne z rozmiarem, kierunkiem, brakiem nakładania i
+  położeniem siatki. Konflikt hipotez kończy się fail-closed.
+- OCR najpierw czyta etykiety faktycznie wykrytych ramek. Cztery zgodne pozycje
+  przy confidence `>= 0.72` albo trzy zgodne pozycje przy `>= 0.82` stanowią
+  silny dowód jednego JPEG-a.
+- Dwie zgodne pozycje przy confidence `>= 0.90` są tylko słabym dowodem. Zakres
+  może zostać przyjęty dopiero po takim samym wyniku z drugiego, odrębnego JPEG-a
+  o innym checksumie. Dwa różne zakresy nigdy nie są rozstrzygane z cursora.
+- OCR może następnie sprawdzić brakujące pozycje odtworzonej siatki. Silny dowód
+  z odtworzonymi pozycjami musi nadal zawierać co najmniej dwie etykiety z ramek
+  rzeczywiście widocznych; zabezpiecza to przed zgodnym błędem syntetycznych
+  cropów.
+- Surowy i przetworzony wariant tego samego cropa są rozstrzygane w kontekście
+  całej siatki. Konflikt dwóch równie silnych zakresów pozostaje bez decyzji.
+- Nierozstrzygnięty fragment pomiędzy dwiema grupami tego samego dokładnego
+  zakresu jest duplikatem `skipped_existing_range` i nie tworzy outputu.
+- Bez bezpiecznej częściowej kotwicy pozostaje historyczny fallback siedmiu
+  etykiet `9/18`. Progi grupowania, kolejność `środek -> brzegi`, rozdzielone
+  kolejki review oraz reguła `skipped_unreadable` nie zmieniają się.
+- Przed pełnym runem obowiązuje próba pierwszych 1440 zdjęć. Dopiero wynik z
+  zerem błędnych zakresów i review pozwala uruchomić wszystkie 42 403 źródła.

@@ -23,8 +23,9 @@ QUALITY_RECOVERY_SELECTOR_VERSION = "fast-image-selector-v10.5"
 CENTER_FIRST_SELECTOR_VERSION = "fast-image-selector-v10.6"
 FOUR_LABEL_SELECTOR_VERSION = "fast-image-selector-v10.7"
 LAYOUT_ANCHORED_SELECTOR_VERSION = "fast-image-selector-v10.8"
+PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION = "fast-image-selector-v10.9"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = LAYOUT_ANCHORED_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -41,6 +42,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -70,6 +72,7 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 
@@ -105,6 +108,10 @@ LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v8:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v9:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
 GRID_FIRST_RANGE_ADAPTER_VERSION = (
     "visible-sequence-label-grid-v1:sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
@@ -130,6 +137,7 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -146,6 +154,7 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -158,6 +167,7 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -171,6 +181,7 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -179,6 +190,7 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -196,6 +208,7 @@ HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -205,10 +218,19 @@ OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CENTER_FIRST_SELECTOR_VERSION,
         FOUR_LABEL_SELECTOR_VERSION,
         LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     }
 )
 CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
-    {CENTER_FIRST_SELECTOR_VERSION, FOUR_LABEL_SELECTOR_VERSION, LAYOUT_ANCHORED_SELECTOR_VERSION}
+    {
+        CENTER_FIRST_SELECTOR_VERSION,
+        FOUR_LABEL_SELECTOR_VERSION,
+        LAYOUT_ANCHORED_SELECTOR_VERSION,
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+    }
+)
+LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
+    {LAYOUT_ANCHORED_SELECTOR_VERSION, PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION}
 )
 
 
@@ -329,6 +351,13 @@ class LayoutAnchorPolicy:
     minimum_ocr_confidence: float = 0.72
     minimum_red_saturation: int = 60
     minimum_red_value: int = 30
+    enable_partial_grid_recovery: bool = False
+    minimum_partial_observed_layout_frames: int = 3
+    strong_label_count: int = 3
+    minimum_strong_label_confidence: float = 0.82
+    weak_label_count: int = 2
+    minimum_weak_label_confidence: float = 0.90
+    minimum_raw_variant_confidence: float = 0.80
 
 
 @dataclass(frozen=True, slots=True)
@@ -457,6 +486,12 @@ class SelectorManifest:
                 and 0.5 <= layout_policy.minimum_ocr_confidence <= 1
                 and 0 <= layout_policy.minimum_red_saturation <= 255
                 and 0 <= layout_policy.minimum_red_value <= 255
+                and 3 <= layout_policy.minimum_partial_observed_layout_frames <= 9
+                and 3 <= layout_policy.strong_label_count <= 9
+                and 0.5 <= layout_policy.minimum_strong_label_confidence <= 1
+                and 2 <= layout_policy.weak_label_count < layout_policy.strong_label_count
+                and 0.5 <= layout_policy.minimum_weak_label_confidence <= 1
+                and 0.5 <= layout_policy.minimum_raw_variant_confidence <= 1
             ):
                 raise ValueError("Layout anchor policy is outside supported bounds.")
 
@@ -587,6 +622,26 @@ class SelectorManifest:
                 "minimumRedValue": layout_policy.minimum_red_value,
                 "minimumSharpLayoutCount": layout_policy.minimum_sharp_layout_count,
             }
+            if self.algorithm_version == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION:
+                anchor_payload = payload["layoutAnchorPolicy"]
+                assert isinstance(anchor_payload, dict)
+                anchor_payload.update(
+                    {
+                        "enablePartialGridRecovery": layout_policy.enable_partial_grid_recovery,
+                        "minimumPartialObservedLayoutFrames": (
+                            layout_policy.minimum_partial_observed_layout_frames
+                        ),
+                        "minimumStrongLabelConfidence": (
+                            layout_policy.minimum_strong_label_confidence
+                        ),
+                        "minimumWeakLabelConfidence": (layout_policy.minimum_weak_label_confidence),
+                        "minimumRawVariantConfidence": (
+                            layout_policy.minimum_raw_variant_confidence
+                        ),
+                        "strongLabelCount": layout_policy.strong_label_count,
+                        "weakLabelCount": layout_policy.weak_label_count,
+                    }
+                )
         if self.thumbnail_adapter_version != LEGACY_THUMBNAIL_ADAPTER_VERSION:
             adapters = payload["adapters"]
             assert isinstance(adapters, dict)
@@ -885,8 +940,27 @@ LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108 = SelectorManifest(
     representative_sampling_policy=RepresentativeSamplingPolicy(),
     layout_anchor_policy=LayoutAnchorPolicy(),
 )
-DEFAULT_SELECTOR_MANIFEST = LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108
+PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109 = SelectorManifest(
+    algorithm_version=PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(9, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+DEFAULT_SELECTOR_MANIFEST = PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109
 SUPPORTED_SELECTOR_MANIFESTS = (
+    PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
     LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
     FOUR_LABEL_SELECTOR_MANIFEST_V107,
     CENTER_FIRST_SELECTOR_MANIFEST_V106,
@@ -981,6 +1055,10 @@ __all__ = [
     "LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION",
     "LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108",
     "LAYOUT_ANCHORED_SELECTOR_VERSION",
+    "LAYOUT_ANCHORED_SELECTOR_VERSIONS",
+    "PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION",
+    "PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109",
+    "PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION",
     "LayoutAnchorPolicy",
     "INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION",
     "GRID_FIRST_RANGE_ADAPTER_VERSION",

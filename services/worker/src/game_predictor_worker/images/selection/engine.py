@@ -48,9 +48,10 @@ from .manifest import (
     FIRST_USABLE_SELECTOR_VERSIONS,
     HYBRID_BOUNDED_SELECTOR_VERSION,
     HYBRID_BOUNDED_SELECTOR_VERSIONS,
-    LAYOUT_ANCHORED_SELECTOR_VERSION,
+    LAYOUT_ANCHORED_SELECTOR_VERSIONS,
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
+    PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
     AppearanceDescriptorConfig,
     RangeFreeRepresentativePolicy,
     SelectorManifest,
@@ -1181,7 +1182,7 @@ class FastImageSelector:
             recognized_range = self._group_range(candidates)
         extra_verification_count = 0
         if (
-            self.manifest.algorithm_version == LAYOUT_ANCHORED_SELECTOR_VERSION
+            self.manifest.algorithm_version in LAYOUT_ANCHORED_SELECTOR_VERSIONS
             and recognized_range is None
         ):
             selected = self._select_automatic(eligible[0]) if eligible else None
@@ -1674,8 +1675,20 @@ class FastImageSelector:
         fuzzy = [
             (key, values)
             for key, values in evidence.items()
-            if len(values) >= 2
-            and all("RANGE_OCR_FUZZY_CANDIDATE" in value.reason_codes for value in values[:2])
+            if len(
+                {
+                    observation.source.checksum_sha256
+                    for observation, verification in verified
+                    if verification.recognized_range is not None
+                    and (
+                        verification.recognized_range.start,
+                        verification.recognized_range.end,
+                    )
+                    == key
+                    and "RANGE_OCR_FUZZY_CANDIDATE" in verification.reason_codes
+                }
+            )
+            >= 2
         ]
         if len(fuzzy) != 1:
             return None, None
@@ -1970,7 +1983,10 @@ class FastImageSelector:
         center_start = first_index + (group.source_count - center_count) // 2
         center = observations_for(tuple(range(center_start, center_start + center_count)))
         readable_center = self._readable_sample(center)
-        if readable_center and self.manifest.algorithm_version != LAYOUT_ANCHORED_SELECTOR_VERSION:
+        if (
+            readable_center
+            and self.manifest.algorithm_version not in LAYOUT_ANCHORED_SELECTOR_VERSIONS
+        ):
             return readable_center
 
         edge_count = min(policy.edge_candidate_count, group.source_count)
@@ -1983,7 +1999,7 @@ class FastImageSelector:
             )
         )
         readable_edges = self._readable_sample(observations_for(edge_indexes))
-        if self.manifest.algorithm_version != LAYOUT_ANCHORED_SELECTOR_VERSION:
+        if self.manifest.algorithm_version not in LAYOUT_ANCHORED_SELECTOR_VERSIONS:
             if readable_edges:
                 return readable_edges
             return tuple(sorted(readable_global, key=_fallback_observation_rank))
@@ -2231,7 +2247,7 @@ class FastImageSelector:
         groups: list[SelectionGroupResult],
     ) -> tuple[SelectionGroupResult, ...]:
         recovered = list(groups)
-        if self.manifest.algorithm_version == LAYOUT_ANCHORED_SELECTOR_VERSION:
+        if self.manifest.algorithm_version in LAYOUT_ANCHORED_SELECTOR_VERSIONS:
             self._recover_layout_fragment_blocks(recovered)
         resolved_indexes = [
             index
@@ -2294,8 +2310,25 @@ class FastImageSelector:
                     group = groups[index]
                     groups[index] = replace(
                         group,
-                        status=SelectionGroupStatus.SKIPPED_UNREADABLE,
+                        range=(
+                            previous_range
+                            if self.manifest.algorithm_version
+                            == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+                            else None
+                        ),
+                        status=(
+                            SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+                            if self.manifest.algorithm_version
+                            == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+                            else SelectionGroupStatus.SKIPPED_UNREADABLE
+                        ),
                         selected_candidate=None,
+                        duplicate_of_group_order=(
+                            groups[previous_index].group_order
+                            if self.manifest.algorithm_version
+                            == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+                            else None
+                        ),
                         top_candidates=tuple(
                             replace(
                                 candidate,

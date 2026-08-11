@@ -251,8 +251,7 @@ class MemoryImageSelectionRepository:
                     if candidate.id == decision.candidate_id
                     else (
                         ImageSelectionCandidateDecision.ELIGIBLE
-                        if candidate.decision
-                        is ImageSelectionCandidateDecision.SELECTED_MANUAL
+                        if candidate.decision is ImageSelectionCandidateDecision.SELECTED_MANUAL
                         else candidate.decision
                     )
                 )
@@ -433,7 +432,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.5"
+    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.6"
     assert history.json()["nextOffset"] is None
     assert preview.status_code == 200, preview.text
     assert preview.content == content

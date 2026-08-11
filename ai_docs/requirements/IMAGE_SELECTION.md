@@ -508,3 +508,21 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Potwierdzenie zakresu, odrzucenie i przywrócenie są idempotentne i zapisują
   append-only decyzję. Odrzucenie/przywrócenie nie wymaga dostępu do katalogu
   wynikowego; operacja tworząca wybrany JPEG nadal wymaga trwałego zapisu.
+
+### Reprezentant od środka grupy v10.6 — 2026-08-11
+
+- Wszystkie JPEG-i nadal przechodzą tani skan jakości i grupowania. Pełniejsze
+  sprawdzanie reprezentanta zaczyna się od pięciu kolejnych zdjęć położonych
+  centralnie w zakończonej grupie.
+- Z centralnej piątki wybierany jest najlepszy czytelny JPEG. Dopiero gdy żaden
+  nie przechodzi łagodnej bramki, selektor sprawdza trzy pierwsze i trzy
+  ostatnie zdjęcia grupy, z deterministycznym usunięciem duplikatów dla krótkiej
+  grupy.
+- Lekki blur jest akceptowalny. Manifest v10.6 obniża miękkie minima do
+  `sharpness >= 0.05`, `board_visibility >= 0.12` i `overall_score >= 0.16`;
+  błąd dekodowania lub brak widocznego ekranu nadal blokuje wybór.
+- Jeżeli próbki centralne i brzegowe są słabe, selektor może użyć najlepszego
+  czytelnego rekordu z globalnej top-12 taniego skanu. Jeżeli również on nie
+  istnieje, grupa kończy się `skipped_unreadable` bez OCR i outputu.
+- Czytelny automatyczny JPEG nie jest odrzucany tylko z powodu braku numerów.
+  Otrzymuje `range_required` i trafia wyłącznie do `Ustal grupę`.

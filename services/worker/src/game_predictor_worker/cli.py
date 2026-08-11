@@ -188,7 +188,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             parser.error("--poll cannot be combined with standalone image selection.")
         if options.first_sequence_number is None:
             parser.error(
-                "--first-sequence-number is required for standalone v10.4 image selection."
+                "--first-sequence-number is required for standalone anchored image selection."
             )
         return _run_standalone_image_selection(
             options.image_selection_manifest,

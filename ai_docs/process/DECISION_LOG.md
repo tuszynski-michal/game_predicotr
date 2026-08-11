@@ -4194,6 +4194,26 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** doprecyzowuje wspólną kolejkę manualną z D-129 oraz trwałość
   eksportu z D-171.
 
+## D-174 — Reprezentanta szukamy najpierw w środku grupy
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** v10.6 pełniej sprawdza najpierw pięć centralnych klatek grupy.
+  Dopiero gdy wszystkie są nieczytelne, sprawdza trzy pierwsze i trzy ostatnie;
+  czytelny globalny rekord top-12 pozostaje ostatnim bounded bezpiecznikiem.
+  Brak jakiejkolwiek czytelnej klatki daje `skipped_unreadable` bez OCR.
+- **Context:** v10.5 zużyła 3634 s z 3810 s selekcji na OCR, a mimo tego 92,62%
+  grup trafiło do wspólnego review. Ręczna kontrola pokazała, że środkowe klatki
+  często mają stabilny ekran i wystarczająco widoczne symbole.
+- **Reason:** centralne klatki ograniczają zdjęcia przejściowe przy zachowaniu
+  taniego skanu całej grupy. Łagodna bramka nie odrzuca lekkiego rozmycia.
+- **Alternatives:** pełna weryfikacja top-12 pozostaje zbyt kosztowna; pierwsza
+  klatka często pokazuje przejście; losowa próbka nie jest deterministyczna.
+- **Consequences:** checkpoint utrwala ostatni indeks źródła, a brak zakresu
+  przenosi wybrany JPEG do osobnej kolejki `range_required`.
+- **Supersedes:** zmienia kolejność kandydatów v10.5, zachowując D-170 w zakresie
+  grupowania i historycznej odtwarzalności.
+
 ## Szablon nowej decyzji
 
 ```text

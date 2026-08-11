@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.7`; następny commit otrzyma
-`v0.5.8`.
+partia implementacyjna jest wydaniem `v0.5.8`; następny commit otrzyma
+`v0.5.9`.
 
 ## Phase
 
@@ -1000,6 +1000,14 @@ poprzedniej kolejki. `skipped_unreadable` nie trafia do review ani outputu.
 Migracja `0041_image_selection_review_queues` rozszerza statusy i append-only
 audyt. Przeszło 97 skupionych testów API/workera, 36 klienta, 194 Admina, Ruff,
 oba typechecki, ESLint i OpenAPI.
+
+TASK-0236 wprowadza domyślny `fast-image-selector-v10.6` o fingerprintcie
+`bedb6d0fcba5e44faffcad849d5aa40d4ecc0e5277a7b0d5876dc000e33c3050`.
+Verifier zaczyna od pięciu klatek ze środka grupy, a po ich odrzuceniu sprawdza
+po trzy z obu brzegów. Czytelny JPEG bez zakresu zachowuje automatyczny wybór i
+trafia do `Ustal grupę`; grupa bez żadnego czytelnego zdjęcia kończy się bez OCR
+jako `skipped_unreadable`. Historyczne v10.5 pozostaje rozwiązywalne. Przeszło
+181 skupionych testów API/workera i Ruff; nie uruchomiono nowego realnego runu.
 
 ## Do not start yet
 

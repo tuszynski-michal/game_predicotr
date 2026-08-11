@@ -39,6 +39,7 @@ from .manifest import (
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_AVAILABLE_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
+    CENTER_FIRST_SELECTOR_VERSIONS,
     COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS,
     CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
@@ -179,9 +180,11 @@ class _OpenGroup:
     last_observation: CheapImageObservation | None = None
     appearance_centroid: list[float] = field(default_factory=list)
     appearance_observation_count: int = 0
+    last_source_order_index: int | None = None
 
     def add(self, observation: CheapImageObservation) -> None:
         self.source_count += 1
+        self.last_source_order_index = observation.source.order_index
         if not self.appearance_only or observation.appearance_signature:
             self.last_observation = observation
         if observation.appearance_signature:
@@ -261,6 +264,7 @@ class _OpenGroup:
             last_observation=self.last_observation,
             appearance_centroid=tuple(self.appearance_centroid),
             appearance_observation_count=self.appearance_observation_count,
+            last_source_order_index=self.last_source_order_index,
         )
 
     @classmethod
@@ -289,6 +293,11 @@ class _OpenGroup:
             board_counts=Counter(dict(state.board_counts)),
             appearance_centroid=list(state.appearance_centroid),
             appearance_observation_count=state.appearance_observation_count,
+            last_source_order_index=(
+                state.last_source_order_index
+                if state.last_source_order_index is not None
+                else max(observation.source.order_index for observation in state.top_observations)
+            ),
         )
         group.top_observations.sort(key=_observation_rank)
         group.reference = group.top_observations[0]
@@ -465,6 +474,7 @@ class FastImageSelector:
         )
         self._range_free = manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS
         self._hybrid_bounded = manifest.algorithm_version in HYBRID_BOUNDED_SELECTOR_VERSIONS
+        self._center_first = manifest.algorithm_version in CENTER_FIRST_SELECTOR_VERSIONS
         self._prefer_first_usable = (
             manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS or self._range_free
         )
@@ -565,6 +575,15 @@ class FastImageSelector:
             result, count = self._finalize_group(
                 group,
                 verifier=verifier,
+                observations_override=(
+                    self._center_first_observations(
+                        group,
+                        sources=ordered_sources,
+                        analyzer=analyzer,
+                    )
+                    if self._center_first
+                    else None
+                ),
                 existing_groups=groups,
                 completed_ranges=completed_ranges,
                 unresolved_ranges=unresolved_ranges,
@@ -579,7 +598,10 @@ class FastImageSelector:
                     sink.group_finalized(after)
             if result.status is SelectionGroupStatus.AUTO_SELECTED and result.range is not None:
                 completed_ranges[(result.range.start, result.range.end)] = result.group_order
-            elif result.status is SelectionGroupStatus.MANUAL_REQUIRED:
+            elif result.status in {
+                SelectionGroupStatus.MANUAL_REQUIRED,
+                SelectionGroupStatus.RANGE_REQUIRED,
+            }:
                 if result.range is not None:
                     unresolved_ranges[(result.range.start, result.range.end)] = result.group_order
                 if group.reference is not None:
@@ -979,6 +1001,7 @@ class FastImageSelector:
         group: _OpenGroup,
         *,
         verifier: CandidateVerifier,
+        observations_override: tuple[CheapImageObservation, ...] | None = None,
         existing_groups: list[SelectionGroupResult],
         completed_ranges: dict[tuple[int, int], int],
         unresolved_ranges: dict[tuple[int, int], int],
@@ -994,8 +1017,10 @@ class FastImageSelector:
             )
         if self._range_free:
             return self._finalize_appearance_group(group), 0
+        if self._center_first and not observations_override:
+            return self._finalize_unreadable_group(group), 0
         consensus = group.board_count_consensus
-        observations_to_verify = (
+        observations_to_verify = observations_override or (
             sorted(
                 group.top_observations,
                 key=lambda observation: observation.source.order_index,
@@ -1167,7 +1192,8 @@ class FastImageSelector:
         else:
             selected = (
                 None
-                if not eligible or (self._hybrid_bounded and recognized_range is None)
+                if not eligible
+                or (self._hybrid_bounded and not self._center_first and recognized_range is None)
                 else self._select_automatic(eligible[0])
             )
             if selected is not None and recognized_range is not None:
@@ -1300,6 +1326,41 @@ class FastImageSelector:
                     board_count_consensus=consensus,
                     status=SelectionGroupStatus.AUTO_SELECTED,
                     selected_candidate=selected,
+                    top_candidates=candidates,
+                    reference_fingerprint_hex=group.reference.fingerprint_hex,
+                ),
+                full_verification_count + extra_verification_count,
+            )
+
+        if self._center_first:
+            if selected is not None:
+                return (
+                    SelectionGroupResult(
+                        group_order=group.group_order,
+                        source_count=group.source_count,
+                        range=None,
+                        fingerprint_sha256=fingerprint_sha256,
+                        board_count_consensus=consensus,
+                        status=SelectionGroupStatus.RANGE_REQUIRED,
+                        selected_candidate=selected,
+                        top_candidates=candidates,
+                        reference_fingerprint_hex=group.reference.fingerprint_hex,
+                    ),
+                    full_verification_count + extra_verification_count,
+                )
+            return (
+                SelectionGroupResult(
+                    group_order=group.group_order,
+                    source_count=group.source_count,
+                    range=recognized_range,
+                    fingerprint_sha256=fingerprint_sha256,
+                    board_count_consensus=consensus,
+                    status=(
+                        SelectionGroupStatus.MANUAL_REQUIRED
+                        if recognized_range is not None
+                        else SelectionGroupStatus.SKIPPED_UNREADABLE
+                    ),
+                    selected_candidate=None,
                     top_candidates=candidates,
                     reference_fingerprint_hex=group.reference.fingerprint_hex,
                 ),
@@ -1860,6 +1921,113 @@ class FastImageSelector:
             reference_fingerprint_hex=group.reference.fingerprint_hex,
         )
 
+    def _center_first_observations(
+        self,
+        group: _OpenGroup,
+        *,
+        sources: tuple[ImageSelectionSource, ...],
+        analyzer: CheapImageAnalyzer,
+    ) -> tuple[CheapImageObservation, ...]:
+        policy = self.manifest.representative_sampling_policy
+        if policy is None or group.last_source_order_index is None:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_SAMPLING_POLICY_INVALID",
+                "Center-first selection requires a bounded sampling policy.",
+            )
+        readable_global = tuple(
+            observation
+            for observation in group.top_observations
+            if _is_reasonably_readable_observation(
+                observation,
+                policy=self.manifest.representative_policy,
+            )
+        )
+        if not readable_global:
+            return ()
+
+        last_index = group.last_source_order_index
+        first_index = last_index - group.source_count + 1
+        cached_observations = (
+            group.top_observations
+            if group.last_observation is None
+            else (*group.top_observations, group.last_observation)
+        )
+        cached = {
+            observation.source.order_index: observation for observation in cached_observations
+        }
+
+        def observations_for(indexes: tuple[int, ...]) -> tuple[CheapImageObservation, ...]:
+            return tuple(cached.get(index) or analyzer.analyze(sources[index]) for index in indexes)
+
+        center_count = min(policy.center_candidate_count, group.source_count)
+        center_start = first_index + (group.source_count - center_count) // 2
+        center = observations_for(tuple(range(center_start, center_start + center_count)))
+        readable_center = self._readable_sample(center)
+        if readable_center:
+            return readable_center
+
+        edge_count = min(policy.edge_candidate_count, group.source_count)
+        edge_indexes = tuple(
+            dict.fromkeys(
+                (
+                    *range(first_index, first_index + edge_count),
+                    *range(last_index - edge_count + 1, last_index + 1),
+                )
+            )
+        )
+        readable_edges = self._readable_sample(observations_for(edge_indexes))
+        if readable_edges:
+            return readable_edges
+        return tuple(sorted(readable_global, key=_fallback_observation_rank))
+
+    def _readable_sample(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+    ) -> tuple[CheapImageObservation, ...]:
+        return tuple(
+            sorted(
+                (
+                    observation
+                    for observation in observations
+                    if _is_reasonably_readable_observation(
+                        observation,
+                        policy=self.manifest.representative_policy,
+                    )
+                ),
+                key=_fallback_observation_rank,
+            )
+        )
+
+    def _finalize_unreadable_group(self, group: _OpenGroup) -> SelectionGroupResult:
+        assert group.reference is not None
+        candidates = tuple(
+            CandidateResult(
+                source=observation.source,
+                decision=CandidateDecision.REJECTED,
+                quality=observation.quality,
+                recognized_range=None,
+                reason_codes=tuple(
+                    dict.fromkeys((*observation.reason_codes, "QUALITY_UNREADABLE_GROUP"))
+                ),
+                width=observation.width,
+                height=observation.height,
+            )
+            for observation in group.top_observations
+        )
+        return SelectionGroupResult(
+            group_order=group.group_order,
+            source_count=group.source_count,
+            range=None,
+            fingerprint_sha256=hashlib.sha256(
+                bytes.fromhex(group.reference.fingerprint_hex)
+            ).hexdigest(),
+            board_count_consensus=group.board_count_consensus,
+            status=SelectionGroupStatus.SKIPPED_UNREADABLE,
+            selected_candidate=None,
+            top_candidates=candidates,
+            reference_fingerprint_hex=group.reference.fingerprint_hex,
+        )
+
     def _candidate_result(
         self,
         observation: CheapImageObservation,
@@ -1896,7 +2064,8 @@ class FastImageSelector:
             reasons = tuple(dict.fromkeys((*representative_reasons, *range_reasons)))
             hard_failure = any(
                 reason.startswith("IMAGE_SELECTION_SCAN_")
-                or reason in {"IMAGE_OCCLUDED", "RANGE_CONFLICT"}
+                or reason == "IMAGE_OCCLUDED"
+                or (reason == "RANGE_CONFLICT" and not self._center_first)
                 for reason in reasons
             )
             readable = _is_reasonably_readable_observation(

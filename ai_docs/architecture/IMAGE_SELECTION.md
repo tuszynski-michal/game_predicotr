@@ -837,6 +837,24 @@ się w żadnym modalu. Zapis do File System Access API jest wymagany tylko po
 decyzji tworzącej wybrany output (`manually_selected` albo `range_confirmed`),
 nie przy odrzucaniu lub przywracaniu samego stanu grupy.
 
+## Architektura próbkowania v10.6
+
+V10.6 zachowuje szeroki deskryptor wyglądu i dwuklatkowy bufor granicy v10.5.
+Stan otwartej grupy nadal przechowuje najwyżej top-12 obserwacji, rolling
+centroid i ostatni indeks źródła. Nie zapisuje pełnych obrazów ani wszystkich
+deskryptorów.
+
+Po zamknięciu grupy engine wylicza centralne okno pięciu indeksów. Brakujące
+obserwacje odtwarza przez checksumowany cache taniego skanu, więc produkcyjnie
+nie dekoduje ponownie JPEG-a. Jeżeli centralne okno nie ma czytelnej klatki,
+analogicznie pobiera trzy indeksy z początku i trzy z końca. Dopiero potem może
+użyć czytelnej top-12 z całej grupy.
+
+OCR uruchamia się wyłącznie dla czytelnego wycinka. Brak lokalnego dowodu
+zakresu nie unieważnia reprezentanta: grupa otrzymuje `range_required` wraz z
+`selected_automatic`. Brak jakiejkolwiek czytelnej obserwacji kończy grupę jako
+`skipped_unreadable` przed wywołaniem verifiera.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

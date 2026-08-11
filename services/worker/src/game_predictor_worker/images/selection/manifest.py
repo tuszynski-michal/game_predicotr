@@ -20,8 +20,9 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSION = "fast-image-selector-v10.2"
 CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION = "fast-image-selector-v10.3"
 HYBRID_BOUNDED_SELECTOR_VERSION = "fast-image-selector-v10.4"
 QUALITY_RECOVERY_SELECTOR_VERSION = "fast-image-selector-v10.5"
+CENTER_FIRST_SELECTOR_VERSION = "fast-image-selector-v10.6"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = QUALITY_RECOVERY_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = CENTER_FIRST_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -35,6 +36,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -61,6 +63,7 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
     }
 )
 
@@ -110,6 +113,7 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -123,6 +127,7 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -132,6 +137,7 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         COHERENT_REPRESENTATIVE_SELECTOR_VERSION,
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -142,6 +148,7 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
         QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -160,11 +167,20 @@ EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
     }
 )
 HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
-    {HYBRID_BOUNDED_SELECTOR_VERSION, QUALITY_RECOVERY_SELECTOR_VERSION}
+    {
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
+    }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
-    {HYBRID_BOUNDED_SELECTOR_VERSION, QUALITY_RECOVERY_SELECTOR_VERSION}
+    {
+        HYBRID_BOUNDED_SELECTOR_VERSION,
+        QUALITY_RECOVERY_SELECTOR_VERSION,
+        CENTER_FIRST_SELECTOR_VERSION,
+    }
 )
+CENTER_FIRST_SELECTOR_VERSIONS = frozenset({CENTER_FIRST_SELECTOR_VERSION})
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,6 +277,12 @@ class ProgressiveVisibleLabelFallbackPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class RepresentativeSamplingPolicy:
+    center_candidate_count: int = 5
+    edge_candidate_count: int = 3
+
+
+@dataclass(frozen=True, slots=True)
 class SelectorManifest:
     algorithm_version: str = SELECTOR_VERSION
     contract_version: int = 1
@@ -281,6 +303,7 @@ class SelectorManifest:
     full_geometry_policy: FullGeometryPolicy | None = None
     adaptive_range_consensus_policy: AdaptiveRangeConsensusPolicy | None = None
     progressive_visible_label_fallback_policy: ProgressiveVisibleLabelFallbackPolicy | None = None
+    representative_sampling_policy: RepresentativeSamplingPolicy | None = None
 
     def __post_init__(self) -> None:
         if self.algorithm_version not in SUPPORTED_SELECTOR_VERSIONS or self.contract_version != 1:
@@ -355,6 +378,16 @@ class SelectorManifest:
                 and levels[-1] == 72
             ):
                 raise ValueError("Progressive visible-label policy is outside supported bounds.")
+        if self.representative_sampling_policy is not None:
+            sampling_policy = self.representative_sampling_policy
+            if not (
+                1 <= sampling_policy.center_candidate_count <= self.top_k
+                and sampling_policy.edge_candidate_count >= 1
+                and sampling_policy.center_candidate_count
+                + 2 * sampling_policy.edge_candidate_count
+                <= self.top_k
+            ):
+                raise ValueError("Representative sampling policy is outside supported bounds.")
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -458,6 +491,12 @@ class SelectorManifest:
             fallback_policy = self.progressive_visible_label_fallback_policy
             payload["progressiveVisibleLabelFallbackPolicy"] = {
                 "candidateLevels": list(fallback_policy.candidate_levels),
+            }
+        if self.representative_sampling_policy is not None:
+            sampling_policy = self.representative_sampling_policy
+            payload["representativeSamplingPolicy"] = {
+                "centerCandidateCount": sampling_policy.center_candidate_count,
+                "edgeCandidateCount": sampling_policy.edge_candidate_count,
             }
         if self.thumbnail_adapter_version != LEGACY_THUMBNAIL_ADAPTER_VERSION:
             adapters = payload["adapters"]
@@ -700,8 +739,30 @@ QUALITY_RECOVERY_SELECTOR_MANIFEST_V105 = SelectorManifest(
     ),
     progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
 )
-DEFAULT_SELECTOR_MANIFEST = QUALITY_RECOVERY_SELECTOR_MANIFEST_V105
+CENTER_FIRST_SELECTOR_MANIFEST_V106 = SelectorManifest(
+    algorithm_version=CENTER_FIRST_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="visible-label-range-lightweight-v1",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=RangeFreeRepresentativePolicy(
+        minimum_quality_score=0.16,
+        minimum_sharpness=0.05,
+        minimum_exposure=0.10,
+        minimum_highlight_retention=0.30,
+        minimum_board_visibility=0.12,
+    ),
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+)
+DEFAULT_SELECTOR_MANIFEST = CENTER_FIRST_SELECTOR_MANIFEST_V106
 SUPPORTED_SELECTOR_MANIFESTS = (
+    CENTER_FIRST_SELECTOR_MANIFEST_V106,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103,
@@ -771,6 +832,9 @@ __all__ = [
     "COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102",
     "COHERENT_REPRESENTATIVE_SELECTOR_VERSION",
     "COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS",
+    "CENTER_FIRST_SELECTOR_MANIFEST_V106",
+    "CENTER_FIRST_SELECTOR_VERSION",
+    "CENTER_FIRST_SELECTOR_VERSIONS",
     "CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103",
     "CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION",
     "DIGIT_AWARE_SELECTOR_MANIFEST_V5",
@@ -791,6 +855,7 @@ __all__ = [
     "OWNER_ANCHORED_SELECTOR_VERSIONS",
     "QUALITY_RECOVERY_SELECTOR_MANIFEST_V105",
     "QUALITY_RECOVERY_SELECTOR_VERSION",
+    "RepresentativeSamplingPolicy",
     "LEGACY_RANGE_ADAPTER_VERSION",
     "LEGACY_THUMBNAIL_ADAPTER_VERSION",
     "LEGACY_SELECTOR_MANIFEST_V2",

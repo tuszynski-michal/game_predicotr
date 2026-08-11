@@ -42,6 +42,7 @@ from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
+    CENTER_FIRST_SELECTOR_MANIFEST_V106,
     COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102,
     CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103,
     CONTINUITY_SELECTOR_MANIFEST_V3,
@@ -61,6 +62,9 @@ ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_PATH = ROOT / "ai_docs" / "quality" / "fast-image-selector-v2-golden.json"
 V105_ACCEPTANCE_PATH = (
     ROOT / "ai_docs" / "quality" / "image-selection-v105-acceptance-contract.json"
+)
+V106_ACCEPTANCE_PATH = (
+    ROOT / "ai_docs" / "quality" / "image-selection-v106-acceptance-contract.json"
 )
 FINGERPRINTS = {
     "a": "0" * 64,
@@ -461,16 +465,20 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_5_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_6_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is QUALITY_RECOVERY_SELECTOR_MANIFEST_V105
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.5"
+    assert DEFAULT_SELECTOR_MANIFEST is CENTER_FIRST_SELECTOR_MANIFEST_V106
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.6"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "bedb6d0fcba5e44faffcad849d5aa40d4ecc0e5277a7b0d5876dc000e33c3050"
+    )
+    assert (
+        QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.fingerprint
         == "6ba81ff5a277c92a0cbf01b88aea7f8c896eee76aebb8323b2ed9cb4b3e28a32"
     )
     assert (
@@ -508,6 +516,10 @@ def test_v10_5_manifest_is_the_default_and_older_versions_remain_resolvable() ->
     assert (
         ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
         == "286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40"
+    )
+    assert (
+        selector_manifest_for_fingerprint(CENTER_FIRST_SELECTOR_MANIFEST_V106.fingerprint)
+        is CENTER_FIRST_SELECTOR_MANIFEST_V106
     )
     assert (
         selector_manifest_for_fingerprint(QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.fingerprint)
@@ -555,11 +567,11 @@ def test_v10_5_manifest_is_the_default_and_older_versions_remain_resolvable() ->
     )
 
 
-def test_v10_5_acceptance_contract_is_pinned_to_the_default_manifest() -> None:
+def test_v10_5_acceptance_contract_remains_pinned_to_its_historical_manifest() -> None:
     contract = json.loads(V105_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
 
-    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
-    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["selectorVersion"] == QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.algorithm_version
+    assert contract["selectorFingerprint"] == QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.fingerprint
     assert contract["gates"] == {
         "maximumFullRunSeconds": 18_000,
         "maximumManualPercent": 35.0,
@@ -575,6 +587,18 @@ def test_v10_5_acceptance_contract_is_pinned_to_the_default_manifest() -> None:
         selector_manifest_for_fingerprint(APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint)
         is APPEARANCE_ONLY_SELECTOR_MANIFEST_V9
     )
+
+
+def test_v10_6_acceptance_contract_is_pinned_to_the_default_manifest() -> None:
+    contract = json.loads(V106_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
+
+    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["sampling"] == {
+        "centerCandidateCount": 5,
+        "edgeCandidateCountPerSide": 3,
+        "fallbackOrder": ["center", "edges", "best-readable-cheap-scan"],
+    }
 
 
 def test_historical_v10_manifest_keeps_forced_cursor_behavior() -> None:
@@ -764,9 +788,7 @@ def test_v10_4_verifies_only_two_range_frames_and_selects_best_whole_group_image
 
 def test_v10_5_stops_after_one_exact_range_and_keeps_full_group_quality_ranking() -> None:
     signatures = tuple(_appearance_signature(0) for _ in range(12))
-    verifier = _AdaptiveConsensusVerifier(
-        tuple(SequenceRange(7300, 7308, 0.98) for _ in range(12))
-    )
+    verifier = _AdaptiveConsensusVerifier(tuple(SequenceRange(7300, 7308, 0.98) for _ in range(12)))
 
     result = FastImageSelector(QUALITY_RECOVERY_SELECTOR_MANIFEST_V105).select(
         _sources("v10-5-exact-first", len(signatures)),
@@ -847,6 +869,70 @@ def test_v10_5_keeps_v10_4_boundary_buffer_with_the_broad_descriptor() -> None:
         SequenceRange(100, 108, 0.98),
         SequenceRange(109, 117, 0.98),
     ]
+
+
+def test_v10_6_selects_a_readable_representative_from_five_center_frames() -> None:
+    signatures = tuple(_appearance_signature(0) for _ in range(15))
+    qualities = tuple(
+        _quality("reflection") if index == 7 else _quality("quality_fallback")
+        for index in range(15)
+    )
+    verifier = _AdaptiveConsensusVerifier(tuple(None for _ in range(15)))
+
+    result = FastImageSelector(CENTER_FIRST_SELECTOR_MANIFEST_V106).select(
+        _sources("v10-6-center-five", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, qualities),
+        verifier=verifier,
+    )
+
+    group = result.groups[0]
+    assert set(verifier.verify_calls).issubset({5, 6, 7, 8, 9})
+    assert group.status is SelectionGroupStatus.RANGE_REQUIRED
+    assert group.range is None
+    assert group.selected_candidate is not None
+    assert group.selected_candidate.source.order_index == 7
+
+
+def test_v10_6_falls_back_to_three_frames_from_each_edge() -> None:
+    signatures = tuple(_appearance_signature(0) for _ in range(15))
+    unreadable = replace(_quality("blur"), sharpness=0.01, overall_score=0.10)
+    qualities = tuple(
+        _quality("good") if index in {0, 1, 2, 12, 13, 14} else unreadable for index in range(15)
+    )
+    verifier = _AdaptiveConsensusVerifier(tuple(None for _ in range(15)))
+
+    result = FastImageSelector(CENTER_FIRST_SELECTOR_MANIFEST_V106).select(
+        _sources("v10-6-edge-six", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, qualities),
+        verifier=verifier,
+    )
+
+    group = result.groups[0]
+    assert set(verifier.verify_calls).issubset({0, 1, 2, 12, 13, 14})
+    assert group.status is SelectionGroupStatus.RANGE_REQUIRED
+    assert group.selected_candidate is not None
+    assert group.selected_candidate.source.order_index == 0
+
+
+def test_v10_6_skips_an_entirely_unreadable_group_without_ocr_or_review() -> None:
+    signatures = tuple(_appearance_signature(0) for _ in range(15))
+    unreadable = replace(_quality("blur"), sharpness=0.01, overall_score=0.10)
+    verifier = _AdaptiveConsensusVerifier(tuple(None for _ in range(15)))
+
+    result = FastImageSelector(CENTER_FIRST_SELECTOR_MANIFEST_V106).select(
+        _sources("v10-6-unreadable", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures, tuple(unreadable for _ in range(15))),
+        verifier=verifier,
+    )
+
+    group = result.groups[0]
+    assert verifier.verify_calls == []
+    assert result.verification_count == 0
+    assert group.status is SelectionGroupStatus.SKIPPED_UNREADABLE
+    assert group.selected_candidate is None
+    assert all(
+        "QUALITY_UNREADABLE_GROUP" in candidate.reason_codes for candidate in group.top_candidates
+    )
 
 
 def test_v10_4_pending_frames_only_need_to_confirm_change_from_old_group() -> None:

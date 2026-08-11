@@ -406,6 +406,7 @@ class SelectorOpenGroupState:
     last_observation: CheapImageObservation | None = None
     appearance_centroid: tuple[float, ...] = ()
     appearance_observation_count: int = 0
+    last_source_order_index: int | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -421,6 +422,7 @@ class SelectorOpenGroupState:
                 if self.last_observation is None
                 else self.last_observation.to_checkpoint_dict()
             ),
+            "lastSourceOrderIndex": self.last_source_order_index,
             "sourceCount": self.source_count,
             "topObservations": [
                 observation.to_checkpoint_dict() for observation in self.top_observations
@@ -463,6 +465,11 @@ class SelectorOpenGroupState:
                 ),
                 appearance_centroid=tuple(_float_value(item) for item in appearance_centroid_value),
                 appearance_observation_count=_int_value(value.get("appearanceObservationCount", 0)),
+                last_source_order_index=(
+                    None
+                    if value.get("lastSourceOrderIndex") is None
+                    else _int_value(value["lastSourceOrderIndex"])
+                ),
             )
         except (KeyError, TypeError, ValueError) as error:
             if isinstance(error, SelectionContractError):
@@ -481,6 +488,11 @@ class SelectorOpenGroupState:
                 < max(observation.source.order_index for observation in state.top_observations)
             )
             or any(board_count < 1 or count < 1 for board_count, count in state.board_counts)
+            or (
+                state.last_source_order_index is not None
+                and state.last_source_order_index
+                < max(observation.source.order_index for observation in state.top_observations)
+            )
             or sum(count for _, count in state.board_counts) > state.source_count
             or not 0 <= state.appearance_observation_count <= state.source_count
             or bool(state.appearance_centroid) != (state.appearance_observation_count > 0)

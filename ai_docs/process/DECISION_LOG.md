@@ -4152,6 +4152,25 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   uzgodnienie jest idempotentne i nigdy nie nadpisuje kolizji.
 - **Supersedes:** doprecyzowuje progresywny eksport D-165.
 
+## D-172 — Fizyczne usunięcie ogranicza się do anulowanego runu selekcji
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** właściciel może trwale usunąć wyłącznie anulowany job
+  `image_selection`, jeżeli run nie ma handoffu ani opublikowanego manifestu.
+  Zarządzane pliki są najpierw przenoszone do kwarantanny i usuwane dopiero po
+  commicie bazy. Współdzielony staging i zewnętrzny folder wynikowy pozostają.
+- **Context:** anulowane i słabe eksperymentalne runy zaśmiecały listę jobów, a
+  samo ukrycie dropdownu selekcji nie zwalniało zarządzanych danych.
+- **Reason:** wąski kontrakt daje kontrolę właścicielowi bez wprowadzania
+  ogólnego, ryzykownego mechanizmu kasowania historii wszystkich jobów.
+- **Alternatives:** ogólny cleanup jobów oraz usuwanie całego stagingu odrzucono,
+  ponieważ mogłyby naruszyć audyt, inny run albo dane już przekazane dalej.
+- **Consequences:** usunięcie jest nieodwracalne po commicie i wymaga dokładnego
+  celu wysokiego ryzyka; awaria transakcji przywraca katalogi z kwarantanny.
+- **Supersedes:** doprecyzowuje politykę braku automatycznego cleanupu z
+  TASK-0132 i wymagania retencji selekcji zdjęć.
+
 ## Szablon nowej decyzji
 
 ```text

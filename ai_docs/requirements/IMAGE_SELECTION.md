@@ -39,6 +39,12 @@ importu ani Reviewera; przygotowuje dla nich mniejszy, bezpieczny zestaw.
   `completed` i pełne `waiting_for_review`. Runy `cancelled`, `failed` oraz
   terminalne z niepełnym postępem pozostają w audycie jobów, ale nie wracają do
   selektora zapisanej partii.
+- Anulowany job `image_selection` może zostać trwale usunięty wyłącznie jawną,
+  mocno potwierdzoną akcją w workspace `Joby`. Operacja usuwa rekordy runu i
+  zarządzane pliki manualne, lecz nigdy nie dotyka zewnętrznego katalogu
+  wynikowego. Staging źródłowy jest usuwany tylko wtedy, gdy nie korzysta z
+  niego żaden inny run; handoff do importu i opublikowany manifest blokują
+  usunięcie.
 - Moduł stanowi zakres wersji 0.4 i przygotowuje kontrolowane wejście do pracy
   na dużych danych wersji 0.5. Nie zmienia historycznej bramki trzech
   workspace'ów wersji 0.2.

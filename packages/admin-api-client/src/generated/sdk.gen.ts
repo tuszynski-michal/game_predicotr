@@ -102,6 +102,9 @@ import type {
   CreateSymbolTrainingData,
   CreateSymbolTrainingErrors,
   CreateSymbolTrainingResponses,
+  DeleteCancelledImageSelectionJobData,
+  DeleteCancelledImageSelectionJobErrors,
+  DeleteCancelledImageSelectionJobResponses,
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
@@ -2414,6 +2417,28 @@ export const createJob = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Permanently delete one cancelled image-selection job
+ */
+export const deleteCancelledImageSelectionJob = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteCancelledImageSelectionJobData, ThrowOnError>,
+): RequestResult<
+  DeleteCancelledImageSelectionJobResponses,
+  DeleteCancelledImageSelectionJobErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteCancelledImageSelectionJobResponses,
+    DeleteCancelledImageSelectionJobErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/jobs/{job_id}',
+    ...options,
   });
 
 /**

@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.5`; następny commit otrzyma
-`v0.5.6`.
+partia implementacyjna jest wydaniem `v0.5.6`; następny commit otrzyma
+`v0.5.7`.
 
 ## Phase
 
@@ -985,6 +985,13 @@ użytecznych. Widoczne są `created`, `processing`, `completed` oraz pełne
 `waiting_for_review`; anulowane, nieudane i niepełne terminalne runy są ukryte.
 Reguła obejmuje również localStorage oraz run, który właśnie zakończył się
 anulowaniem. Przeszło 190 testów Admina i typecheck.
+
+TASK-0234 dodaje fizyczne usuwanie wyłącznie anulowanych jobów
+`image_selection` z workspace `Joby`. Mocne potwierdzenie wymaga prefiksu joba;
+backend blokuje dane przekazane dalej i opublikowane, zachowuje współdzielony
+staging oraz nigdy nie dotyka zewnętrznego folderu wynikowego. Zarządzane pliki
+są obejmowane kwarantanną skoordynowaną z transakcją bazy. Przeszło 35
+skupionych testów backendu, OpenAPI, 35 testów klienta i 192 testy Admina.
 
 ## Do not start yet
 

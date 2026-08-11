@@ -80,6 +80,10 @@ export function canCancelJob(job: JobResponse): boolean {
   );
 }
 
+export function canDeleteImageSelectionJob(job: JobResponse): boolean {
+  return job.jobType === 'image_selection' && job.status === 'cancelled';
+}
+
 export function canRetryJob(job: JobResponse): boolean {
   return job.status === 'failed' || job.status === 'waiting_for_review';
 }

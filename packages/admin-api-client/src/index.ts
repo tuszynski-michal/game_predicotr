@@ -38,6 +38,7 @@ import {
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
   deleteMobileRelease as deleteGeneratedMobileRelease,
+  deleteCancelledImageSelectionJob as deleteGeneratedCancelledImageSelectionJob,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
   getDatasetVersion as getGeneratedDatasetVersion,
@@ -246,6 +247,7 @@ export type {
   ImageSelectionGroupResponse,
   ImageSelectionGroupStatus,
   ImageSelectionJobPayload,
+  ImageSelectionJobDeletionResponse,
   ImageSelectionRunResponse,
   ImageSelectionRunPageResponse,
   ImageSelectionCandidateResponse,
@@ -742,6 +744,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       getGeneratedJob({ client, path: { job_id: jobId } }),
     cancelJob: (jobId: string) =>
       cancelGeneratedJob({
+        client,
+        headers: confirmedTargetHeaders(`job:${jobId}`),
+        path: { job_id: jobId },
+      }),
+    deleteCancelledImageSelectionJob: (jobId: string) =>
+      deleteGeneratedCancelledImageSelectionJob({
         client,
         headers: confirmedTargetHeaders(`job:${jobId}`),
         path: { job_id: jobId },

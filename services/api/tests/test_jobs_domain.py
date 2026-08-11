@@ -1,11 +1,14 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.jobs import (
+    ImageSelectionJobDeletionReference,
     JobRepository,
     JobService,
     LayoutImportRulesReference,
+    ManagedImageSelectionDeletionArtifactStore,
     PayoutDatasetReference,
     PayoutRulesReference,
 )
@@ -41,6 +44,9 @@ class MemoryJobRepository(JobRepository):
         self.rules: dict[UUID, LayoutImportRulesReference] = {}
         self.payout_datasets: dict[UUID, PayoutDatasetReference] = {}
         self.payout_rules: dict[UUID, PayoutRulesReference] = {}
+        self.image_selection_deletions: dict[
+            UUID, ImageSelectionJobDeletionReference
+        ] = {}
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -98,6 +104,24 @@ class MemoryJobRepository(JobRepository):
     def save_job(self, job: Job) -> Job:
         self.items[job.id] = job
         return job
+
+    def get_image_selection_deletion_reference(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletionReference | None:
+        return self.image_selection_deletions.get(job_id)
+
+    def delete_image_selection_run_and_job(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+    ) -> None:
+        reference = self.image_selection_deletions.get(job_id)
+        if reference is None or reference.run_id != run_id:
+            raise AssertionError("unexpected image-selection deletion")
+        del self.image_selection_deletions[job_id]
+        del self.items[job_id]
 
 
 def _job() -> Job:
@@ -379,6 +403,123 @@ def test_service_rejects_import_without_server_source_attestation() -> None:
         )
 
     assert captured.value.code == "IMPORT_SOURCE_NOT_ATTESTED"
+
+
+def test_service_physically_deletes_cancelled_image_selection_job(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    source_selection_id = uuid4()
+    run_id = uuid4()
+    job = repository.add_job(
+        create_job(
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1},
+        )
+    )
+    repository.image_selection_deletions[job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=run_id,
+            source_selection_id=source_selection_id,
+            source_reference_count=1,
+            has_curated_import_source=False,
+            has_published_output=False,
+        )
+    )
+    artifact_root = tmp_path / "artifacts"
+    import_root = tmp_path / "imports"
+    manual_directory = artifact_root / "data" / "working" / "is-manual" / run_id.hex[:12]
+    source_directory = import_root / "browser-selections" / str(source_selection_id)
+    manual_directory.mkdir(parents=True)
+    source_directory.mkdir(parents=True)
+    (manual_directory / "manual.jpg").write_bytes(b"manual")
+    (source_directory / "source.jpg").write_bytes(b"source")
+    service = JobService(
+        repository,
+        deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+            artifact_root=artifact_root,
+            import_root=import_root,
+        ),
+    )
+    service.cancel_job(job.id)
+
+    deletion = service.delete_cancelled_image_selection_job(job.id)
+
+    assert deletion.managed_run_files_deleted is True
+    assert deletion.source_staging_deleted is True
+    assert deletion.shared_source_staging_preserved is False
+    assert repository.get_job(job.id) is None
+    assert not manual_directory.exists()
+    assert not source_directory.exists()
+    service.finalize_pending_deletions()
+    assert not (
+        artifact_root / "data" / "trash" / "image-selection-deletions" / str(job.id)
+    ).exists()
+    assert not (
+        import_root / ".trash" / "image-selection-deletions" / str(job.id)
+    ).exists()
+
+
+def test_service_preserves_shared_source_and_blocks_handoff(tmp_path: Path) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    source_selection_id = uuid4()
+    run_id = uuid4()
+    job = repository.add_job(
+        create_job(
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1},
+        )
+    )
+    repository.image_selection_deletions[job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=run_id,
+            source_selection_id=source_selection_id,
+            source_reference_count=2,
+            has_curated_import_source=False,
+            has_published_output=False,
+        )
+    )
+    source_directory = tmp_path / "imports" / "browser-selections" / str(source_selection_id)
+    source_directory.mkdir(parents=True)
+    service = JobService(
+        repository,
+        deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+            artifact_root=tmp_path / "artifacts",
+            import_root=tmp_path / "imports",
+        ),
+    )
+    service.cancel_job(job.id)
+
+    deletion = service.delete_cancelled_image_selection_job(job.id)
+
+    assert deletion.source_staging_deleted is False
+    assert deletion.shared_source_staging_preserved is True
+    assert source_directory.exists()
+
+    blocked_job = repository.add_job(
+        create_job(
+                JobType.IMAGE_SELECTION,
+                game_id=game_id,
+                input_payload={"schema_version": 1, "marker": "handoff"},
+        )
+    )
+    repository.image_selection_deletions[blocked_job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=uuid4(),
+            source_selection_id=uuid4(),
+            source_reference_count=1,
+            has_curated_import_source=True,
+            has_published_output=False,
+        )
+    )
+    service.cancel_job(blocked_job.id)
+    with pytest.raises(JobConflictError) as blocked:
+        service.delete_cancelled_image_selection_job(blocked_job.id)
+    assert blocked.value.code == "IMAGE_SELECTION_JOB_HANDOFF_EXISTS"
 
 
 def test_payout_job_requires_complete_published_matching_sources() -> None:

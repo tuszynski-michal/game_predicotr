@@ -2660,6 +2660,42 @@
         "title": "ImageSelectionHandoffResponse",
         "type": "object"
       },
+      "ImageSelectionJobDeletionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "managedRunFilesDeleted": {
+            "title": "Managedrunfilesdeleted",
+            "type": "boolean"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "sharedSourceStagingPreserved": {
+            "title": "Sharedsourcestagingpreserved",
+            "type": "boolean"
+          },
+          "sourceStagingDeleted": {
+            "title": "Sourcestagingdeleted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jobId",
+          "runId",
+          "managedRunFilesDeleted",
+          "sourceStagingDeleted",
+          "sharedSourceStagingPreserved"
+        ],
+        "title": "ImageSelectionJobDeletionResponse",
+        "type": "object"
+      },
       "ImageSelectionJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -17274,6 +17310,99 @@
       }
     },
     "/api/v1/admin/jobs/{job_id}": {
+      "delete": {
+        "operationId": "deleteCancelledImageSelectionJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionJobDeletionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Permanently delete one cancelled image-selection job",
+        "tags": [
+          "jobs"
+        ]
+      },
       "get": {
         "operationId": "getJob",
         "parameters": [

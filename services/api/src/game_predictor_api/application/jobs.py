@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -56,6 +58,151 @@ class PayoutRulesReference:
     columns: int
 
 
+@dataclass(frozen=True, slots=True)
+class ImageSelectionJobDeletionReference:
+    run_id: UUID
+    source_selection_id: UUID
+    source_reference_count: int
+    has_curated_import_source: bool
+    has_published_output: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionJobDeletion:
+    job_id: UUID
+    run_id: UUID
+    managed_run_files_deleted: bool
+    source_staging_deleted: bool
+    shared_source_staging_preserved: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _QuarantinedDirectory:
+    original: Path
+    quarantined: Path
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionDeletionQuarantine:
+    directories: tuple[_QuarantinedDirectory, ...]
+
+
+class ImageSelectionDeletionArtifactStore(Protocol):
+    def quarantine(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_selection_id: UUID,
+        delete_source_staging: bool,
+    ) -> ImageSelectionDeletionQuarantine: ...
+
+    def finalize(self, quarantine: ImageSelectionDeletionQuarantine) -> None: ...
+
+    def restore(self, quarantine: ImageSelectionDeletionQuarantine) -> None: ...
+
+
+class ManagedImageSelectionDeletionArtifactStore:
+    """Quarantine run-owned files before their database transaction commits."""
+
+    def __init__(self, *, artifact_root: Path, import_root: Path) -> None:
+        self._artifact_root = artifact_root.resolve()
+        self._import_root = import_root.resolve()
+        self._manual_root = self._artifact_root / "data" / "working" / "is-manual"
+        self._manual_trash = (
+            self._artifact_root / "data" / "trash" / "image-selection-deletions"
+        )
+        self._source_root = self._import_root / "browser-selections"
+        self._source_trash = (
+            self._import_root / ".trash" / "image-selection-deletions"
+        )
+
+    def quarantine(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_selection_id: UUID,
+        delete_source_staging: bool,
+    ) -> ImageSelectionDeletionQuarantine:
+        requested = [
+            (
+                self._manual_root / run_id.hex[:12],
+                self._manual_trash / str(job_id) / "manual",
+                self._manual_root,
+                self._manual_trash,
+            )
+        ]
+        if delete_source_staging:
+            requested.append(
+                (
+                    self._source_root / str(source_selection_id),
+                    self._source_trash / str(job_id) / "source",
+                    self._source_root,
+                    self._source_trash,
+                )
+            )
+        moved: list[_QuarantinedDirectory] = []
+        try:
+            for original, quarantined, source_root, trash_root in requested:
+                original = original.resolve()
+                quarantined = quarantined.resolve()
+                if not original.is_relative_to(source_root.resolve()):
+                    raise JobConflictError(
+                        "IMAGE_SELECTION_JOB_ARTIFACT_PATH_INVALID",
+                        "The managed image-selection path is unsafe.",
+                    )
+                if not quarantined.is_relative_to(trash_root.resolve()):
+                    raise JobConflictError(
+                        "IMAGE_SELECTION_JOB_ARTIFACT_PATH_INVALID",
+                        "The image-selection quarantine path is unsafe.",
+                    )
+                if not original.exists():
+                    continue
+                if not original.is_dir() or quarantined.exists():
+                    raise JobConflictError(
+                        "IMAGE_SELECTION_JOB_ARTIFACT_DELETE_CONFLICT",
+                        "Managed image-selection files cannot be quarantined safely.",
+                    )
+                quarantined.parent.mkdir(parents=True, exist_ok=True)
+                original.replace(quarantined)
+                moved.append(
+                    _QuarantinedDirectory(
+                        original=original,
+                        quarantined=quarantined,
+                    )
+                )
+        except OSError as error:
+            self.restore(ImageSelectionDeletionQuarantine(tuple(moved)))
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_ARTIFACT_DELETE_FAILED",
+                "Managed image-selection files could not be quarantined.",
+            ) from error
+        except JobError:
+            self.restore(ImageSelectionDeletionQuarantine(tuple(moved)))
+            raise
+        return ImageSelectionDeletionQuarantine(tuple(moved))
+
+    def finalize(self, quarantine: ImageSelectionDeletionQuarantine) -> None:
+        for item in quarantine.directories:
+            if item.quarantined.exists():
+                shutil.rmtree(item.quarantined)
+            with suppress(OSError):
+                item.quarantined.parent.rmdir()
+
+    def restore(self, quarantine: ImageSelectionDeletionQuarantine) -> None:
+        for item in reversed(quarantine.directories):
+            if not item.quarantined.exists():
+                continue
+            item.original.parent.mkdir(parents=True, exist_ok=True)
+            if item.original.exists():
+                raise JobConflictError(
+                    "IMAGE_SELECTION_JOB_ARTIFACT_RESTORE_CONFLICT",
+                    "Managed image-selection files could not be restored safely.",
+                )
+            item.quarantined.replace(item.original)
+
+
 class JobRepository(Protocol):
     def game_exists(self, game_id: UUID) -> bool: ...
 
@@ -93,6 +240,18 @@ class JobRepository(Protocol):
 
     def save_job(self, job: Job) -> Job: ...
 
+    def get_image_selection_deletion_reference(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletionReference | None: ...
+
+    def delete_image_selection_run_and_job(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+    ) -> None: ...
+
 
 class SymbolModelSnapshotResolver(Protocol):
     def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot: ...
@@ -109,11 +268,17 @@ class JobService:
         import_source_inspector: LayoutImportSourceInspector | None = None,
         symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
         grid_profile_snapshot_resolver: GridProfileSnapshotResolver | None = None,
+        *,
+        deletion_artifact_store: ImageSelectionDeletionArtifactStore | None = None,
     ) -> None:
         self._repository = repository
         self._import_source_inspector = import_source_inspector
         self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
         self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
+        self._deletion_artifact_store = deletion_artifact_store
+        self._pending_deletion_quarantines: list[
+            ImageSelectionDeletionQuarantine
+        ] = []
 
     def create_job(
         self,
@@ -544,6 +709,87 @@ class JobService:
                 details={"jobId": str(job_id)},
             )
         return self._repository.save_job(requeue_job(job))
+
+    def delete_cancelled_image_selection_job(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletion:
+        job = self._repository.get_job_for_update(job_id)
+        if job is None:
+            raise JobNotFoundError(
+                "JOB_NOT_FOUND",
+                "Job does not exist.",
+                details={"jobId": str(job_id)},
+            )
+        if job.job_type is not JobType.IMAGE_SELECTION:
+            raise JobConflictError(
+                "JOB_DELETE_TYPE_UNSUPPORTED",
+                "Only image-selection jobs can be deleted.",
+            )
+        if job.status is not JobStatus.CANCELLED:
+            raise JobConflictError(
+                "JOB_DELETE_STATUS_INVALID",
+                "Only cancelled image-selection jobs can be deleted.",
+            )
+        reference = self._repository.get_image_selection_deletion_reference(job_id)
+        if reference is None:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_RUN_MISSING",
+                "The cancelled job has no durable image-selection run.",
+            )
+        if reference.has_curated_import_source:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_HANDOFF_EXISTS",
+                "A run already handed to layout import cannot be deleted.",
+            )
+        if reference.has_published_output:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_PUBLISHED_OUTPUT_EXISTS",
+                "A run with published output cannot be deleted.",
+            )
+        if self._deletion_artifact_store is None:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_DELETE_UNAVAILABLE",
+                "Managed image-selection deletion is not configured.",
+            )
+        delete_source_staging = reference.source_reference_count == 1
+        quarantine = self._deletion_artifact_store.quarantine(
+            job_id=job_id,
+            run_id=reference.run_id,
+            source_selection_id=reference.source_selection_id,
+            delete_source_staging=delete_source_staging,
+        )
+        try:
+            self._repository.delete_image_selection_run_and_job(
+                job_id=job_id,
+                run_id=reference.run_id,
+            )
+        except BaseException:
+            self._deletion_artifact_store.restore(quarantine)
+            raise
+        self._pending_deletion_quarantines.append(quarantine)
+        moved = {item.quarantined.name for item in quarantine.directories}
+        return ImageSelectionJobDeletion(
+            job_id=job_id,
+            run_id=reference.run_id,
+            managed_run_files_deleted="manual" in moved,
+            source_staging_deleted="source" in moved,
+            shared_source_staging_preserved=not delete_source_staging,
+        )
+
+    def finalize_pending_deletions(self) -> None:
+        pending = tuple(self._pending_deletion_quarantines)
+        self._pending_deletion_quarantines.clear()
+        for quarantine in pending:
+            if self._deletion_artifact_store is not None:
+                self._deletion_artifact_store.finalize(quarantine)
+
+    def restore_pending_deletions(self) -> None:
+        pending = tuple(reversed(self._pending_deletion_quarantines))
+        self._pending_deletion_quarantines.clear()
+        for quarantine in pending:
+            if self._deletion_artifact_store is not None:
+                self._deletion_artifact_store.restore(quarantine)
 
 
 def _baseline_grid_profile_snapshot() -> dict[str, object]:

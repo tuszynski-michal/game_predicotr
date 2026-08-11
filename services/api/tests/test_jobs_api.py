@@ -7,8 +7,10 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
+    ImageSelectionJobDeletionReference,
     JobService,
     LayoutImportRulesReference,
+    ManagedImageSelectionDeletionArtifactStore,
     PayoutDatasetReference,
     PayoutRulesReference,
 )
@@ -41,6 +43,10 @@ def _client(
     service = JobService(
         repository,
         LayoutImportSourceInspector(import_root, max_bytes=1024 * 1024),
+        deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+            artifact_root=tmp_path / "artifacts",
+            import_root=import_root,
+        ),
     )
     client = TestClient(
         create_app(
@@ -292,6 +298,48 @@ def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:
         assert cancelled.json()["status"] == "cancelled"
         assert cancelled.json()["cancelRequestedAt"] is not None
         assert cancelled.json()["finishedAt"] is not None
+
+
+def test_delete_cancelled_image_selection_job_contract(tmp_path: Path) -> None:
+    client, game_id, service, repository = _client(tmp_path)
+    source_selection_id = uuid4()
+    run_id = uuid4()
+    job = repository.add_job(
+        create_job(
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1},
+        )
+    )
+    repository.image_selection_deletions[job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=run_id,
+            source_selection_id=source_selection_id,
+            source_reference_count=1,
+            has_curated_import_source=False,
+            has_published_output=False,
+        )
+    )
+    manual_directory = (
+        tmp_path / "artifacts" / "data" / "working" / "is-manual" / run_id.hex[:12]
+    )
+    manual_directory.mkdir(parents=True)
+    service.cancel_job(job.id)
+
+    with client:
+        response = client.delete(f"/api/v1/admin/jobs/{job.id}")
+        service.finalize_pending_deletions()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jobId": str(job.id),
+        "runId": str(run_id),
+        "managedRunFilesDeleted": True,
+        "sourceStagingDeleted": False,
+        "sharedSourceStagingPreserved": False,
+    }
+    assert repository.get_job(job.id) is None
+    assert not manual_directory.exists()
 
 
 def test_typed_payload_and_duplicate_errors_are_stable(tmp_path: Path) -> None:

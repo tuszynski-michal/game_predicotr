@@ -2,6 +2,7 @@ import type {
   AdminApiClient,
   ImageDiagnosticExportCreationResponse,
   ImageDiagnosticExportResponse,
+  ImageSelectionJobDeletionResponse,
   ImageJobOperationsResponse,
   ImageStorageInventoryResponse,
   JobResponse,
@@ -14,6 +15,7 @@ import type { JobFilters } from './job-state.ts';
 export type JobsClient = Pick<
   AdminApiClient,
   | 'cancelJob'
+  | 'deleteCancelledImageSelectionJob'
   | 'createImageDiagnosticExport'
   | 'downloadImageDiagnosticExport'
   | 'getImageJobOperations'
@@ -100,6 +102,37 @@ export async function cancelJob(
       };
     }
     return { job: result.data, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export type DeleteImageSelectionJobResult =
+  | {
+      readonly deletion: ImageSelectionJobDeletionResponse;
+      readonly ok: true;
+    }
+  | { readonly error: string; readonly ok: false };
+
+export async function deleteCancelledImageSelectionJob(
+  api: JobsClient,
+  jobId: string,
+): Promise<DeleteImageSelectionJobResult> {
+  try {
+    const result = await api.deleteCancelledImageSelectionJob(jobId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się usunąć anulowanego zadania selekcji zdjęć.',
+        ),
+        ok: false,
+      };
+    }
+    return { deletion: result.data, ok: true };
   } catch {
     return {
       error: 'Połączenie z lokalnym Admin API zostało przerwane.',

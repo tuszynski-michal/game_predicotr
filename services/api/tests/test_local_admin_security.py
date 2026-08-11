@@ -151,12 +151,16 @@ def test_security_metadata_redacts_nested_credentials() -> None:
 def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     release_id = "22222222-2222-4222-8222-222222222222"
     game_id = "33333333-3333-4333-8333-333333333333"
+    job_id = "44444444-4444-4444-8444-444444444444"
 
     release_operation, release_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/mobile-releases/{release_id}"
     )
     game_operation, game_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/games/{game_id}/layout-data"
+    )
+    job_operation, job_target = match_high_impact_operation(
+        "DELETE", f"/api/v1/admin/jobs/{job_id}"
     )
 
     assert release_operation is not None
@@ -165,6 +169,9 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert game_operation is not None
     assert game_operation.action == "reset-game-layout-data"
     assert game_target == f"game-layout-data:{game_id}"
+    assert job_operation is not None
+    assert job_operation.action == "delete-image-selection-job"
+    assert job_target == f"job:{job_id}"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:

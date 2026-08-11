@@ -88,6 +88,10 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "POST",
         "/api/v1/admin/jobs/{job_id}/cancel",
     ): HighImpactOperation("cancel-job", "job:{job_id}"),
+    (
+        "DELETE",
+        "/api/v1/admin/jobs/{job_id}",
+    ): HighImpactOperation("delete-image-selection-job", "job:{job_id}"),
     ("POST", "/api/v1/admin/mobile-releases"): HighImpactOperation(
         "create-mobile-release", "mobile-release:new"
     ),

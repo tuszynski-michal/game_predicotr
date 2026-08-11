@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import Field
 
+from game_predictor_api.application.jobs import ImageSelectionJobDeletion
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -233,6 +234,27 @@ class JobProgressResponse(ApiModel):
 class JobErrorResponse(ApiModel):
     code: str
     message: str
+
+
+class ImageSelectionJobDeletionResponse(ApiModel):
+    job_id: UUID
+    run_id: UUID
+    managed_run_files_deleted: bool
+    source_staging_deleted: bool
+    shared_source_staging_preserved: bool
+
+    @classmethod
+    def from_domain(
+        cls,
+        deletion: ImageSelectionJobDeletion,
+    ) -> ImageSelectionJobDeletionResponse:
+        return cls(
+            job_id=deletion.job_id,
+            run_id=deletion.run_id,
+            managed_run_files_deleted=deletion.managed_run_files_deleted,
+            source_staging_deleted=deletion.source_staging_deleted,
+            shared_source_staging_preserved=deletion.shared_source_staging_preserved,
+        )
 
 
 class JobResponse(ApiModel):

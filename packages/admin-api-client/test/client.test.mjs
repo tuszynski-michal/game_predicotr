@@ -676,6 +676,7 @@ test('generated client sends typed job, filters, details, cancel and retry reque
   });
   await client.getJob(jobId);
   await client.cancelJob(jobId);
+  await client.deleteCancelledImageSelectionJob(jobId);
   await client.retryJob(jobId);
 
   assert.equal(created.data?.id, jobId);
@@ -701,6 +702,12 @@ test('generated client sends typed job, filters, details, cancel and retry reque
   );
   assert.equal(
     new URL(requests[4].url).pathname,
+    `/api/v1/admin/jobs/${jobId}`,
+  );
+  assert.equal(requests[4].method, 'DELETE');
+  assert.equal(requests[4].headers.get('X-Admin-Target'), `job:${jobId}`);
+  assert.equal(
+    new URL(requests[5].url).pathname,
     `/api/v1/admin/jobs/${jobId}/retry`,
   );
 });

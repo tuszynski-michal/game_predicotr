@@ -2759,6 +2759,44 @@ a:focus-visible {
   font-weight: 700;
 }
 
+.jobDeleteConfirmation {
+  display: grid;
+  width: min(520px, 100%);
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 139, 139, 0.32);
+  border-radius: 10px;
+  background: var(--danger-soft);
+}
+
+.jobDeleteConfirmation > strong,
+.jobDeleteConfirmation > p {
+  margin: 0;
+}
+
+.jobDeleteConfirmation > p,
+.jobDeleteConfirmation > label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.jobDeleteConfirmation > label {
+  display: grid;
+  grid-template-columns: auto auto minmax(120px, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.jobDeleteConfirmation input {
+  min-width: 0;
+}
+
+.jobDeleteConfirmation > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
 .jobCancellationNotice {
   margin: 0;
   padding: 11px 13px;

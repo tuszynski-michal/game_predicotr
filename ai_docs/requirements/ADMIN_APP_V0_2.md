@@ -56,6 +56,9 @@ równoważnego deterministycznego mechanizmu.
   zwracanych przez kontrakt API,
 - kliknięcie joba może rozwinąć istniejące szczegóły diagnostyczne, ale `0.2`
   nie dodaje zaawansowanego wyszukiwania, retencji ani cleanupu jobów,
+- rozszerzenie `0.5` dodaje jeden wąski wyjątek: anulowany job
+  `image_selection` ma akcję `Usuń`, wymagającą dokładnego przepisania prefiksu
+  identyfikatora. Inne typy i statusy nie udostępniają fizycznego usuwania,
 - operacja uruchamiająca job pokazuje jego identyfikator i może prowadzić do
   zakładki `Joby`; pełna lista i obserwacja postępu nie zaśmiecają ekranu
   źródłowego.

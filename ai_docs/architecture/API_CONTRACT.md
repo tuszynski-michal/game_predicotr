@@ -823,6 +823,25 @@ Powtórzenie identycznego typu, gry i payloadu zwraca
 `409 JOB_INPUT_ALREADY_EXISTS` z `existingJobId`. API nie wykonuje workflow
 w requestcie.
 
+### DELETE `/api/v1/admin/jobs/{jobId}`
+
+Trwale usuwa wyłącznie job `image_selection` w statusie `cancelled`. Operacja
+wymaga lokalnych nagłówków wysokiego ryzyka z dokładnym celem `job:{jobId}`.
+Przed zmianą bazy API blokuje rekord joba i sprawdza jego pojedynczy run.
+Zwraca `409`, jeżeli job ma inny typ lub status, run został przekazany do
+iteracyjnego importu, ma opublikowany manifest albo nie można bezpiecznie
+przenieść zarządzanych artefaktów do kwarantanny.
+
+Usuwane są decyzje manualne, kandydaci, grupy, run i job. Katalog manualny runu
+oraz niewspółdzielony browser staging są najpierw atomowo przenoszone do
+kwarantanny; rollback bazy przywraca je, a commit kończy fizyczne usunięcie.
+Staging używany przez więcej niż jeden run pozostaje. Folder wynikowy wybrany
+przez użytkownika w przeglądarce nie jest częścią zarządzanego storage i nigdy
+nie jest usuwany.
+
+Odpowiedź zawiera `jobId`, `runId`, `managedRunFilesDeleted`,
+`sourceStagingDeleted` oraz `sharedSourceStagingPreserved`.
+
 Dla `import` klient wskazuje wyłącznie względny POSIX `sourcePath` pod
 `GAME_PREDICTOR_IMPORT_ROOT`. Nie może przekazać ścieżki absolutnej, formatu,
 rozmiaru ani checksumy. API przed utworzeniem joba:

@@ -43,7 +43,10 @@ from game_predictor_api.application.image_storage import (
     ImageStorageService,
 )
 from game_predictor_api.application.iterative_image_imports import IterativeImageImportService
-from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.jobs import (
+    JobService,
+    ManagedImageSelectionDeletionArtifactStore,
+)
 from game_predictor_api.application.layout_import_reports import (
     LayoutImportReportService,
 )
@@ -290,22 +293,29 @@ def create_app(
 
     def default_job_service_dependency() -> Iterator[JobService]:
         with session_factory() as session:
+            service = JobService(
+                SqlAlchemyJobRepository(session),
+                LayoutImportSourceInspector(
+                    resolved_settings.import_root,
+                    max_bytes=resolved_settings.import_max_bytes,
+                ),
+                SqlAlchemySymbolModelSnapshotResolver(
+                    session,
+                    artifact_root=resolved_settings.artifact_root,
+                ),
+                SqlAlchemyGridProfileSnapshotResolver(session),
+                deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+                    artifact_root=resolved_settings.artifact_root,
+                    import_root=resolved_settings.import_root,
+                ),
+            )
             try:
-                yield JobService(
-                    SqlAlchemyJobRepository(session),
-                    LayoutImportSourceInspector(
-                        resolved_settings.import_root,
-                        max_bytes=resolved_settings.import_max_bytes,
-                    ),
-                    SqlAlchemySymbolModelSnapshotResolver(
-                        session,
-                        artifact_root=resolved_settings.artifact_root,
-                    ),
-                    SqlAlchemyGridProfileSnapshotResolver(session),
-                )
+                yield service
                 session.commit()
+                service.finalize_pending_deletions()
             except BaseException:
                 session.rollback()
+                service.restore_pending_deletions()
                 raise
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency

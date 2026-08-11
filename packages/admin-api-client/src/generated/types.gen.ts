@@ -1609,6 +1609,32 @@ export type ImageSelectionHandoffResponse = {
 };
 
 /**
+ * ImageSelectionJobDeletionResponse
+ */
+export type ImageSelectionJobDeletionResponse = {
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Managedrunfilesdeleted
+   */
+  managedRunFilesDeleted: boolean;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Sharedsourcestagingpreserved
+   */
+  sharedSourceStagingPreserved: boolean;
+  /**
+   * Sourcestagingdeleted
+   */
+  sourceStagingDeleted: boolean;
+};
+
+/**
  * ImageSelectionJobPayload
  */
 export type ImageSelectionJobPayload = {
@@ -9803,6 +9829,54 @@ export type CreateJobResponses = {
 };
 
 export type CreateJobResponse = CreateJobResponses[keyof CreateJobResponses];
+
+export type DeleteCancelledImageSelectionJobData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Job Id
+     */
+    job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/jobs/{job_id}';
+};
+
+export type DeleteCancelledImageSelectionJobErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Job or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Job lifecycle conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeleteCancelledImageSelectionJobError =
+  DeleteCancelledImageSelectionJobErrors[keyof DeleteCancelledImageSelectionJobErrors];
+
+export type DeleteCancelledImageSelectionJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionJobDeletionResponse;
+};
+
+export type DeleteCancelledImageSelectionJobResponse =
+  DeleteCancelledImageSelectionJobResponses[keyof DeleteCancelledImageSelectionJobResponses];
 
 export type GetJobData = {
   body?: never;

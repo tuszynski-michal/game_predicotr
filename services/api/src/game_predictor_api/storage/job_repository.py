@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.jobs import (
+    ImageSelectionJobDeletionReference,
     JobRepository,
     LayoutImportRulesReference,
     PayoutDatasetReference,
@@ -22,8 +23,13 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.storage.models import (
+    CuratedImageImportSourceModel,
     DatasetVersionModel,
     GameModel,
+    ImageSelectionCandidateModel,
+    ImageSelectionGroupModel,
+    ImageSelectionManualDecisionModel,
+    ImageSelectionRunModel,
     JobModel,
     MobileReleaseModel,
     RulesVersionModel,
@@ -137,6 +143,84 @@ class SqlAlchemyJobRepository(JobRepository):
                 release.ready_at = None
         self._flush_or_raise_conflict()
         return job_from_record(record)
+
+    def get_image_selection_deletion_reference(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletionReference | None:
+        run = self._session.scalar(
+            select(ImageSelectionRunModel).where(
+                ImageSelectionRunModel.job_id == job_id
+            )
+        )
+        if run is None:
+            return None
+        source_reference_count = self._session.scalar(
+            select(func.count(ImageSelectionRunModel.id)).where(
+                ImageSelectionRunModel.source_selection_id
+                == run.source_selection_id
+            )
+        )
+        curated_source_id = self._session.scalar(
+            select(CuratedImageImportSourceModel.id).where(
+                CuratedImageImportSourceModel.image_selection_run_id == run.id
+            )
+        )
+        return ImageSelectionJobDeletionReference(
+            run_id=run.id,
+            source_selection_id=run.source_selection_id,
+            source_reference_count=int(source_reference_count or 0),
+            has_curated_import_source=curated_source_id is not None,
+            has_published_output=(
+                run.output_manifest_sha256 is not None
+                or run.output_manifest_relative_path is not None
+            ),
+        )
+
+    def delete_image_selection_run_and_job(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+    ) -> None:
+        self._session.execute(
+            delete(ImageSelectionManualDecisionModel).where(
+                ImageSelectionManualDecisionModel.run_id == run_id
+            )
+        )
+        self._session.execute(
+            delete(ImageSelectionCandidateModel).where(
+                ImageSelectionCandidateModel.run_id == run_id
+            )
+        )
+        self._session.execute(
+            delete(ImageSelectionGroupModel).where(
+                ImageSelectionGroupModel.run_id == run_id
+            )
+        )
+        deleted_run = self._session.execute(
+            delete(ImageSelectionRunModel)
+            .where(
+                ImageSelectionRunModel.id == run_id,
+                ImageSelectionRunModel.job_id == job_id,
+            )
+            .returning(ImageSelectionRunModel.id)
+        ).scalar_one_or_none()
+        if deleted_run is None:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_RUN_CHANGED",
+                "The image-selection run changed before deletion.",
+            )
+        deleted_job = self._session.execute(
+            delete(JobModel).where(JobModel.id == job_id).returning(JobModel.id)
+        ).scalar_one_or_none()
+        if deleted_job is None:
+            raise JobConflictError(
+                "JOB_NOT_FOUND",
+                "Job no longer exists.",
+                details={"jobId": str(job_id)},
+            )
+        self._session.flush()
 
     def _flush_or_raise_conflict(self) -> None:
         try:

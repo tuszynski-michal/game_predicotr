@@ -127,3 +127,13 @@ TASK-0238 wprowadził v10.8 z pozycyjną kotwicą layoutów, poprawnym czterocyf
 oknem mimo błędów poza nim, bounded `9/18` OCR i scalaniem fragmentów przejścia.
 Profil 400 zakończył się zerem elementów review, ale TASK-0197 pozostaje otwarty:
 nie wykonano jeszcze ręcznego odbioru około 5000 ani nowego pełnego runu.
+
+Po restarcie komputera właściciel 2026-08-11 jawnie zastąpił profil 5000 pełnym
+runem v10.8 na 42 403 JPEG-ach. Run `d43aa481-7efe-467b-8dbc-998b609d4ae8`, job
+`861a42d0-e3e0-4425-b9ba-f45665bb33b2` i monitor PID `2608` używają istniejącego
+stagingu v10.5 bez ponownego uploadu. API działa na porcie 8003 jako PID `11492`,
+a jedyny worker selekcji jako PID `12068` (launcher `13608`). Wynik jest
+progresywnie zapisywany do `C:\Users\user\Documents\19810 - 45152`; raport i
+stan PID to odpowiednio `artifacts/image-selection-v108-live-19810-45152.json`
+oraz `.runtime/live-image-selection-v108-19810-45152.pid.json`. Snapshot
+`160 / 42 403` miał 10 automatycznych grup, zero manualnych i zero błędów.

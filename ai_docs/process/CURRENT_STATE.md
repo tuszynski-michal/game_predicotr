@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.11`; następny commit otrzyma
-`v0.5.12`.
+partia implementacyjna jest wydaniem `v0.5.12`; następny commit otrzyma
+`v0.5.13`.
 
 ## Phase
 
@@ -1062,6 +1062,20 @@ Admina. Zmienione pliki przechodzą Ruff, rdzeń selektora przechodzi mypy, a
 OpenAPI, ESLint i TypeScript są aktualne. Repozytorium zachowuje wcześniejszy
 dług: pełny Ruff zgłasza 6 błędów E501 w migracji `0035`, a pełne mypy 10 błędów
 w trzech niezmienionych modułach workera; szczegóły są w TASK-0238.
+
+Po restarcie komputera właściciel jawnie polecił ominąć pośredni profil 5000 i
+uruchomić pełny rerun v10.8 na istniejącym stagingu 42 403 JPEG-ów. Aktywny run
+`d43aa481-7efe-467b-8dbc-998b609d4ae8` i job
+`861a42d0-e3e0-4425-b9ba-f45665bb33b2` używają stagingu runu v10.5
+`b93de523-83f1-41bb-9f6d-4402936ebd6d`, kotwicy `19810` oraz outputu
+`C:\Users\user\Documents\19810 - 45152`. API v10.8 działa na porcie 8003 jako
+PID `11492`, dedykowany worker jako PID `12068` (launcher `13608`), a monitor
+ma PID `2608`. Raport i stan monitora znajdują się w
+`artifacts/image-selection-v108-live-19810-45152.json` oraz
+`.runtime/live-image-selection-v108-19810-45152.pid.json`. Snapshot przy
+`160 / 42 403` potwierdził 10 grup, 10 automatycznych wyborów, zero manualnych,
+zero pominiętych, zero błędów i 10 zapisanych JPEG-ów. Nie uruchamiać drugiego
+API, workera ani runu; najpierw sprawdzić raport oraz PID state.
 
 ## Do not start yet
 

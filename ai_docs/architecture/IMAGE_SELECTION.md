@@ -855,6 +855,24 @@ zakresu nie unieważnia reprezentanta: grupa otrzymuje `range_required` wraz z
 `selected_automatic`. Brak jakiejkolwiek czytelnej obserwacji kończy grupę jako
 `skipped_unreadable` przed wywołaniem verifiera.
 
+## Architektura czteroelementowego okna v10.7
+
+`ContiguousWindowVisibleSequenceLabelRangeRecognizer` rozszerza historyczny
+adapter niezależnych etykiet. Najpierw zachowuje silniejszy dowód siedmiu lub
+więcej pozycji v10.5. Gdy ten dowód jest niekompletny, buduje trzy stabilne piki
+osi X i Y ze wszystkich wykrytych komponentów etykiet, także tych, których OCR
+nie odczytał, i mapuje czytelne liczby na pozycje `0..8`.
+
+Hipoteza `start = number - position` jest akceptowana, jeżeli cztery kolejne
+pozycje mają cztery kolejne liczby, co najmniej dwa zgodne odstępy poziome i
+zgodny odstęp pionowy. Confidence wynika z minimum i średniej pewności czterech
+odczytów i przekracza próg exact dopiero przy lokalnie spójnym oknie. Równe
+hipotezy zwracają `RANGE_LABEL_CONTIGUOUS_WINDOW_AMBIGUOUS`.
+
+Manifest v10.7 zmienia wyłącznie wersjonowany adapter zakresu i poziomy
+progresji OCR na `9, 18, 36`; zachowuje próbkowanie reprezentanta v10.6,
+grupowanie v10.5 i resolver wszystkich historycznych fingerprintów.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

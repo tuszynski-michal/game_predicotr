@@ -526,3 +526,20 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   istnieje, grupa kończy się `skipped_unreadable` bez OCR i outputu.
 - Czytelny automatyczny JPEG nie jest odrzucany tylko z powodu braku numerów.
   Otrzymuje `range_required` i trafia wyłącznie do `Ustal grupę`.
+
+### Zakres z czterech kolejnych etykiet v10.7 — 2026-08-11
+
+- Dla ekranu z dziewięcioma layoutami pełny zakres może wynikać z dowolnych
+  czterech kolejnych numerów, jeżeli każdy ma pewność co najmniej `0.72` i
+  położenia tworzą cztery kolejne komórki siatki row-major.
+- Przykładowo liczby `1, 2, 3, 4` w pozycjach 0–3 oraz `5, 6, 7, 8` w pozycjach
+  4–7 jednoznacznie oznaczają zakres `1–9`. Reguła działa analogicznie dla
+  numerów wielocyfrowych i nie zależy od poprzedniej grupy.
+- Pozycje muszą zostać wyznaczone z lokalnych trzech wierszy i trzech kolumn
+  widocznych etykiet. Sam ciąg liczb bez pełnej lokalizacji w siatce nie jest
+  wystarczającym dowodem, ponieważ mógłby przesunąć początek o wielokrotność 3.
+- Remis dwóch zakresów, mniej niż cztery kolejne liczby, niezgodna geometria lub
+  niska pewność kończą się bez zakresu. Cursor ani oczekiwana ciągłość nie
+  rozstrzygają remisu.
+- OCR jednego JPEG-a działa progresywnie `9 -> 18 -> 36` cropów i kończy się po
+  pierwszym jednoznacznym dowodzie. Nie rozszerza się już do 72 cropów w v10.7.

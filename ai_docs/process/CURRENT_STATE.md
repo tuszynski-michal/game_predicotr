@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.8`; następny commit otrzyma
-`v0.5.9`.
+partia implementacyjna jest wydaniem `v0.5.9`; następny commit otrzyma
+`v0.5.10`.
 
 ## Phase
 
@@ -1008,6 +1008,15 @@ po trzy z obu brzegów. Czytelny JPEG bez zakresu zachowuje automatyczny wybór 
 trafia do `Ustal grupę`; grupa bez żadnego czytelnego zdjęcia kończy się bez OCR
 jako `skipped_unreadable`. Historyczne v10.5 pozostaje rozwiązywalne. Przeszło
 181 skupionych testów API/workera i Ruff; nie uruchomiono nowego realnego runu.
+
+TASK-0237 wprowadza domyślny `fast-image-selector-v10.7` o fingerprintcie
+`322d4f5319f036cd0e1dc01f2dc781e68cb0a17dbb05f25abba409f842a732d6`.
+Zakres dziewięciu layoutów może wynikać z dowolnych czterech kolejnych etykiet
+przypisanych do czterech kolejnych pozycji lokalnej siatki. OCR kończy się
+progresywnie na `9`, `18` albo najwyżej `36` cropach. Remis, trzy etykiety lub
+zła geometria pozostają nierozwiązane. V10.7 zachowuje center-first v10.6 i
+historyczne fingerprinty. Przeszło 187 skupionych testów API/workera; nie
+uruchomiono nowego realnego runu.
 
 ## Do not start yet
 

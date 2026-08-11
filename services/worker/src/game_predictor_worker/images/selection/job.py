@@ -35,6 +35,7 @@ from .adapters import (
     AdaptiveVisibleSequenceLabelRangeRecognizer,
     AnchoredSequenceRangeRecognizer,
     BestEffortVisibleSequenceLabelRangeRecognizer,
+    ContiguousWindowVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
@@ -71,6 +72,7 @@ from .manifest import (
     ACCURACY_FIRST_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
+    CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
     GRID_FIRST_RANGE_ADAPTER_VERSION,
     INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
@@ -380,6 +382,17 @@ class ImageSelectionJobHandler:
             if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
                 fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
                     ocr,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = ContiguousWindowVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.contiguous_sequence_window_policy,
                     telemetry=telemetry,
                 )
             elif (

@@ -50,6 +50,7 @@ from game_predictor_worker.images.selection.manifest import (
     DIGIT_AWARE_SELECTOR_MANIFEST_V5,
     EXACT_GAP_SELECTOR_MANIFEST_V6,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    FOUR_LABEL_SELECTOR_MANIFEST_V107,
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     LEGACY_SELECTOR_MANIFEST_V2,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
@@ -65,6 +66,9 @@ V105_ACCEPTANCE_PATH = (
 )
 V106_ACCEPTANCE_PATH = (
     ROOT / "ai_docs" / "quality" / "image-selection-v106-acceptance-contract.json"
+)
+V107_ACCEPTANCE_PATH = (
+    ROOT / "ai_docs" / "quality" / "image-selection-v107-acceptance-contract.json"
 )
 FINGERPRINTS = {
     "a": "0" * 64,
@@ -465,16 +469,20 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_6_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_7_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is CENTER_FIRST_SELECTOR_MANIFEST_V106
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.6"
+    assert DEFAULT_SELECTOR_MANIFEST is FOUR_LABEL_SELECTOR_MANIFEST_V107
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.7"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "322d4f5319f036cd0e1dc01f2dc781e68cb0a17dbb05f25abba409f842a732d6"
+    )
+    assert (
+        CENTER_FIRST_SELECTOR_MANIFEST_V106.fingerprint
         == "bedb6d0fcba5e44faffcad849d5aa40d4ecc0e5277a7b0d5876dc000e33c3050"
     )
     assert (
@@ -516,6 +524,10 @@ def test_v10_6_manifest_is_the_default_and_older_versions_remain_resolvable() ->
     assert (
         ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE.fingerprint
         == "286b652ea8f19e3afb73017b54f096c0eb5dff828f0020f0b7454e9e42b76f40"
+    )
+    assert (
+        selector_manifest_for_fingerprint(FOUR_LABEL_SELECTOR_MANIFEST_V107.fingerprint)
+        is FOUR_LABEL_SELECTOR_MANIFEST_V107
     )
     assert (
         selector_manifest_for_fingerprint(CENTER_FIRST_SELECTOR_MANIFEST_V106.fingerprint)
@@ -589,16 +601,35 @@ def test_v10_5_acceptance_contract_remains_pinned_to_its_historical_manifest() -
     )
 
 
-def test_v10_6_acceptance_contract_is_pinned_to_the_default_manifest() -> None:
+def test_v10_6_acceptance_contract_remains_pinned_to_its_historical_manifest() -> None:
     contract = json.loads(V106_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
 
-    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
-    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["selectorVersion"] == CENTER_FIRST_SELECTOR_MANIFEST_V106.algorithm_version
+    assert contract["selectorFingerprint"] == CENTER_FIRST_SELECTOR_MANIFEST_V106.fingerprint
     assert contract["sampling"] == {
         "centerCandidateCount": 5,
         "edgeCandidateCountPerSide": 3,
         "fallbackOrder": ["center", "edges", "best-readable-cheap-scan"],
     }
+
+
+def test_v10_7_acceptance_contract_matches_the_default_manifest() -> None:
+    contract = json.loads(V107_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
+
+    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
+    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert contract["ocr"] == {
+        "candidateLevels": [9, 18, 36],
+        "consecutiveLabelCount": 4,
+        "minimumOcrConfidence": 0.72,
+    }
+    assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy is not None
+    assert (
+        DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy.candidate_levels
+        == (9, 18, 36)
+    )
+    assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy is not None
+    assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy.consecutive_label_count == 4
 
 
 def test_historical_v10_manifest_keeps_forced_cursor_behavior() -> None:

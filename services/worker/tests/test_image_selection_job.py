@@ -20,6 +20,7 @@ from game_predictor_api.domain.jobs import (
     start_job,
 )
 from game_predictor_worker.images.selection.adapters import (
+    ContiguousWindowVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
 )
 from game_predictor_worker.images.selection.contracts import (
@@ -170,7 +171,7 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
     assert verifier is not None
 
 
-def test_v10_1_production_factory_builds_two_isolated_verifiers(
+def test_v10_7_production_factory_builds_isolated_four_label_verifiers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -178,6 +179,7 @@ def test_v10_1_production_factory_builds_two_isolated_verifiers(
     source_root.mkdir()
     predictors: list[object] = []
     built_verifiers: list[object] = []
+    fallback_recognizers: list[object] = []
 
     def build_predictor(*_args: object, **_kwargs: object) -> object:
         predictor = object()
@@ -197,9 +199,10 @@ def test_v10_1_production_factory_builds_two_isolated_verifiers(
                 range_evidence=RangeEvidence(None),
             )
 
-    def build_adapters(*_args: object, **_kwargs: object) -> tuple[object, _FactoryVerifier]:
+    def build_adapters(*_args: object, **kwargs: object) -> tuple[object, _FactoryVerifier]:
         verifier = _FactoryVerifier()
         built_verifiers.append(verifier)
+        fallback_recognizers.append(kwargs["fallback_range_recognizer"])
         return object(), verifier
 
     monkeypatch.setattr(
@@ -228,6 +231,10 @@ def test_v10_1_production_factory_builds_two_isolated_verifiers(
     assert len(predictors) == 2
     assert len({id(predictor) for predictor in predictors}) == 2
     assert len({id(item) for item in built_verifiers}) == 2
+    assert all(
+        isinstance(item, ContiguousWindowVisibleSequenceLabelRangeRecognizer)
+        for item in fallback_recognizers
+    )
     assert isinstance(verifier, DeterministicParallelCandidateVerifier)
     assert verifier.worker_count == 2
 

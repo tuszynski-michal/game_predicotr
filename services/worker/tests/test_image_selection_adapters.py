@@ -22,6 +22,7 @@ from game_predictor_worker.images.selection.adapters import (
     BestEffortVisibleSequenceLabelRangeRecognizer,
     BoundedGridCandidateVerifier,
     ComposedCheapImageAnalyzer,
+    ContiguousWindowVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
     FullCandidateVerifier,
     GridFirstVisibleSequenceLabelRangeRecognizer,
@@ -60,6 +61,7 @@ from game_predictor_worker.images.selection.manifest import (
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
     REDUCED_JPEG_THUMBNAIL_ADAPTER_VERSION,
+    ContiguousSequenceWindowPolicy,
     FullGeometryPolicy,
     ProgressiveVisibleLabelFallbackPolicy,
     SelectorManifest,
@@ -95,7 +97,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.6"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.7"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -1315,6 +1317,12 @@ def test_independent_endpoint_fallback_recovers_checksum_bound_55_63_case() -> N
             del cls, rgb_image
             return tuple(labels)
 
+    class _ContiguousWindow(ContiguousWindowVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
     image_shape = regression["imageShape"]
     image = np.zeros((int(image_shape[0]), int(image_shape[1]), 3), dtype=np.uint8)
     historical = _HistoricalProgressive(
@@ -1325,15 +1333,23 @@ def test_independent_endpoint_fallback_recovers_checksum_bound_55_63_case() -> N
         _ProgressiveLabelOcr(recognitions),
         ProgressiveVisibleLabelFallbackPolicy(),
     )
+    contiguous = _ContiguousWindow(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18, 36)),
+        ContiguousSequenceWindowPolicy(),
+    )
 
     historical_range, historical_reasons = historical.recognize(image, ())
     recognized, reasons = independent.recognize(image, ())
+    contiguous_range, contiguous_reasons = contiguous.recognize(image, ())
 
     assert historical_range is None
     assert historical_reasons == ("RANGE_LABEL_LATTICE_INCOMPLETE",)
     assert reasons == ()
     assert recognized is not None
     assert [recognized.start, recognized.end] == regression["expectedRange"]
+    assert contiguous_reasons == ()
+    assert contiguous_range == recognized
 
 
 def test_independent_endpoint_fallback_does_not_infer_without_either_edge() -> None:
@@ -1342,6 +1358,139 @@ def test_independent_endpoint_fallback_does_not_infer_without_either_edge() -> N
 
     assert not recognizer._candidate_position_coverage_is_valid(positions)
     assert not recognizer._inlier_position_coverage_is_valid(positions)
+
+
+def _scripted_contiguous_window_recognizer(
+    evidence: tuple[tuple[int, int, float], ...],
+    *,
+    telemetry: StageTimingCollector | None = None,
+    center_overrides: dict[int, tuple[float, float]] | None = None,
+) -> tuple[
+    ContiguousWindowVisibleSequenceLabelRangeRecognizer,
+    _ProgressiveLabelOcr,
+]:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    for index, (position, number, confidence) in enumerate(evidence):
+        crop = np.full((20, 80, 3), index + 1, dtype=np.uint8)
+        row, column = divmod(position, 3)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(
+                    (400.0 + column * 360.0, 300.0 + row * 100.0)
+                    if center_overrides is None or position not in center_overrides
+                    else center_overrides[position]
+                ),
+            )
+        )
+        recognitions[id(crop)] = Recognition(str(number), confidence)
+    used_positions = {position for position, _, _ in evidence}
+    for position in range(9):
+        if position in used_positions:
+            continue
+        crop = np.full((20, 80, 3), len(labels) + 1, dtype=np.uint8)
+        row, column = divmod(position, 3)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(400.0 + column * 360.0, 300.0 + row * 100.0),
+            )
+        )
+        recognitions[id(crop)] = Recognition("", 0.0)
+
+    class _ScriptedContiguousWindow(ContiguousWindowVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    ocr = _ProgressiveLabelOcr(recognitions)
+    return (
+        _ScriptedContiguousWindow(
+            ocr,
+            ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18, 36)),
+            ContiguousSequenceWindowPolicy(),
+            telemetry=telemetry,
+        ),
+        ocr,
+    )
+
+
+@pytest.mark.parametrize("window_start", (0, 4))
+def test_contiguous_window_recognizer_resolves_any_four_position_run(
+    window_start: int,
+) -> None:
+    evidence = tuple(
+        (position, 1 + position, 0.98) for position in range(window_start, window_start + 4)
+    )
+    telemetry = StageTimingCollector()
+    recognizer, ocr = _scripted_contiguous_window_recognizer(
+        evidence,
+        telemetry=telemetry,
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized == SequenceRange(1, 9, 0.97)
+    assert reasons == ("RANGE_OCR_CONTIGUOUS_WINDOW",)
+    assert ocr.batch_sizes == [9]
+    counters = telemetry.snapshot()["counters"]
+    assert isinstance(counters, dict)
+    assert counters["contiguousSequenceWindowResolved"] == 1
+    assert counters["progressiveFallbackResolvedAtLevel9"] == 1
+
+
+def test_contiguous_window_recognizer_projects_a_multi_digit_middle_run() -> None:
+    recognizer, _ = _scripted_contiguous_window_recognizer(
+        tuple((position, 7300 + position, 0.99) for position in range(4, 8))
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized == SequenceRange(7300, 7308, 0.97)
+    assert reasons == ("RANGE_OCR_CONTIGUOUS_WINDOW",)
+
+
+def test_contiguous_window_recognizer_rejects_three_labels_and_bad_geometry() -> None:
+    incomplete, _ = _scripted_contiguous_window_recognizer(
+        tuple((position, 100 + position, 0.99) for position in range(3))
+    )
+    invalid_geometry, _ = _scripted_contiguous_window_recognizer(
+        tuple((position, 100 + position, 0.99) for position in range(4)),
+        center_overrides={1: (1500.0, 300.0)},
+    )
+    incomplete_range, _ = incomplete.recognize(np.zeros((1080, 1920, 3), dtype=np.uint8), ())
+    invalid_range, _ = invalid_geometry.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert incomplete_range is None
+    assert invalid_range is None
+
+
+def test_contiguous_window_recognizer_fails_closed_on_equal_range_hypotheses() -> None:
+    recognizer, _ = _scripted_contiguous_window_recognizer(
+        tuple(
+            [(position, 1 + position, 0.98) for position in range(4)]
+            + [(position, 101 + position, 0.98) for position in range(4)]
+        ),
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized is None
+    assert reasons == ("RANGE_LABEL_CONTIGUOUS_WINDOW_AMBIGUOUS",)
 
 
 def test_grid_first_recognizer_corrects_one_missing_leading_digit_from_lattice() -> None:
@@ -1543,7 +1692,7 @@ def test_standalone_cli_uses_v10_6_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.6"
+    assert report["selectorVersion"] == "fast-image-selector-v10.7"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

@@ -300,3 +300,15 @@ Aktualny run `8d86fb77-531a-4999-a9c1-d02ed15d0af0` używa fingerprintu
 Kontrola przy 128/32 079 potwierdziła trzy zapisane JPEG-i (`1–9`, `10–18`,
 `19–27`) w katalogu właściciela. Decyzja jakościowa nadal wymaga obejrzenia
 wyników po zakończeniu całego przebiegu.
+
+### Bramka v10.7 — cztery kolejne etykiety
+
+Przed pełnym runem obowiązują kolejno: deterministyczna regresja, mała próbka
+obejrzana przez właściciela i około 5000 zdjęć. Pełne 42 403 źródła można
+uruchomić dopiero po zaliczeniu obu prób rzeczywistych.
+
+Kontrakt `image-selection-v107-acceptance-contract.json` wymaga co najmniej 95%
+znanych zakresów, najwyżej 35% wszystkich kolejek review, najwyżej 10% kolejki
+wyboru reprezentanta, zera błędnych zakresów i reprezentantów w próbie
+właściciela oraz projekcji pełnego czasu do trzech godzin. Grupa oznaczona
+`skipped_unreadable` nie może utworzyć pliku wynikowego.

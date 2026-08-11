@@ -4214,6 +4214,27 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zmienia kolejność kandydatów v10.5, zachowując D-170 w zakresie
   grupowania i historycznej odtwarzalności.
 
+## D-175 — Cztery kolejne pozycje są lokalnym dowodem zakresu dziewięciu
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** v10.7 może wyprowadzić pełny zakres `start..start+8` z czterech
+  kolejnych etykiet, jeżeli ich liczby i pozycje row-major są kolejne, każda ma
+  confidence co najmniej `0.72`, a lokalna geometria siatki jest spójna.
+- **Context:** v10.5 zakończyła 968 z 997 prób jako
+  `RANGE_LABEL_LATTICE_INCOMPLETE`, mimo że właściciel bez problemu widział
+  częściowe ciągi liczb. Próby do 72 cropów odpowiadały za większość czasu.
+- **Reason:** cztery kolejne wartości wystarczają matematycznie do ustalenia
+  początku po znanej pozycji, a użycie trzech osi lokalnej siatki chroni przed
+  przesunięciem wyniku o cały wiersz.
+- **Alternatives:** sam ciąg czterech liczb bez pozycji odrzucono jako
+  niejednoznaczny; OCR wszystkich dziewięciu pozostaje zbyt kosztowny i kruchy;
+  ciągłość z poprzednią grupą narusza poprawne skoki numerów.
+- **Consequences:** OCR ma poziomy `9/18/36`, pełny dowód siedmiu etykiet nadal
+  ma pierwszeństwo, a każdy remis kończy się fail-closed w `range_required`.
+- **Supersedes:** rozszerza lokalny dowód D-170 bez przywracania pełnej
+  geometrii ani przewidywanego cursora.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -11,6 +11,47 @@ import {
   saveImageSelectionOutputToFolder,
   uploadPhotoSelectionFolder,
 } from '../src/features/image-selection/image-selection-actions.ts';
+import { restoreOutputDirectory } from '../src/features/image-selection/image-selection-output-directory.ts';
+
+test('restores a remembered output directory only with read-write permission', async () => {
+  let permissionRequests = 0;
+  const directory = {
+    getFileHandle: async () => {
+      throw new Error('not used');
+    },
+    queryPermission: async () => 'prompt',
+    requestPermission: async () => {
+      permissionRequests += 1;
+      return 'granted';
+    },
+  };
+  const restored = await restoreOutputDirectory(
+    { load: async () => directory, save: async () => undefined },
+    'game-1',
+    'run-1',
+  );
+
+  assert.equal(restored, directory);
+  assert.equal(permissionRequests, 1);
+});
+
+test('does not restore a remembered output directory after permission denial', async () => {
+  const restored = await restoreOutputDirectory(
+    {
+      load: async () => ({
+        getFileHandle: async () => {
+          throw new Error('not used');
+        },
+        queryPermission: async () => 'denied',
+      }),
+      save: async () => undefined,
+    },
+    'game-1',
+    'run-1',
+  );
+
+  assert.equal(restored, null);
+});
 
 test('loads every automatically selected group through the server-side status filter', async () => {
   const requests = [];

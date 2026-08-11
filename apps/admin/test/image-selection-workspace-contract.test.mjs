@@ -158,6 +158,11 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
     workspaceSource,
     /groups\.filter\(\(group\) => group\.id !== updated\.id\)/,
   );
+  assert.match(workspaceSource, /ensureOutputDirectoryForReview\(run\.id\)/);
+  assert.match(workspaceSource, /restoreOutputDirectory/);
+  assert.match(workspaceSource, /Uzgadnianie zapisanych decyzji/);
+  assert.match(manualModalSource, /const outputError = await onGroupUpdated/);
+  assert.match(manualModalSource, /plik nie trafił do folderu/);
   assert.match(
     manualModalSource,
     /Poczekaj, aż galeria wybierze domyślne zdjęcie/,

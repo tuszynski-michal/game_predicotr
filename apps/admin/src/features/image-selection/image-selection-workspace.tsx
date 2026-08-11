@@ -20,7 +20,6 @@ import {
 import {
   type ImageSelectionClient,
   type ImageSelectionUploadProgress,
-  type OutputDirectoryHandle,
   type ResumableImageSelectionUpload,
   cancelPhotoSelectionUpload,
   continueWithAutomaticallySelectedImages,
@@ -33,6 +32,11 @@ import {
   uploadPhotoSelectionFolder,
 } from './image-selection-actions';
 import { ManualImageSelectionModal } from './manual-image-selection-modal';
+import {
+  IndexedDbOutputDirectoryStore,
+  type OutputDirectoryHandle,
+  restoreOutputDirectory,
+} from './image-selection-output-directory';
 
 interface ImageSelectionWorkspaceProps {
   readonly apiBaseUrl: string;
@@ -65,6 +69,10 @@ export function ImageSelectionWorkspace({
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
+  );
+  const outputDirectoryStore = useMemo(
+    () => new IndexedDbOutputDirectoryStore(),
+    [],
   );
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const outputDirectoryRef = useRef<OutputDirectoryHandle | null>(null);
@@ -355,6 +363,11 @@ export function ImageSelectionWorkspace({
     ]);
     setProgress(EMPTY_PROGRESS);
     window.localStorage.setItem(storageKey(gameId), result.created.run.id);
+    if (outputDirectoryRef.current !== null) {
+      await outputDirectoryStore
+        .save(gameId, result.created.run.id, outputDirectoryRef.current)
+        .catch(() => undefined);
+    }
     setNotice(
       result.created.created
         ? 'Folder zapisany. Proces selekcji jest gotowy do uruchomienia przez worker.'
@@ -418,6 +431,15 @@ export function ImageSelectionWorkspace({
           ? null
           : { afterGroupOrder: -1, runId: activeRunId };
       setOutputFolderName(directory.name ?? 'Wybrany folder');
+      if (activeRunId !== null) {
+        await outputDirectoryStore
+          .save(gameId, activeRunId, directory)
+          .catch(() => {
+            setRefreshWarning(
+              'Przeglądarka nie zapamiętała dostępu do folderu. W tej sesji zapis nadal działa.',
+            );
+          });
+      }
       setNotice('Folder wynikowy wybrany. Teraz wybierz folder ze zdjęciami.');
     } catch (error) {
       if (!(error instanceof DOMException) || error.name !== 'AbortError') {
@@ -554,6 +576,8 @@ export function ImageSelectionWorkspace({
     setManualLoading(true);
     setError('');
     try {
+      const directory = await ensureOutputDirectoryForReview(run.id);
+      if (directory === null) return;
       const groups = await loadManualImageSelectionGroups(api, run.id);
       setManualGroups(groups);
       if (groups.length === 0) {
@@ -565,6 +589,71 @@ export function ImageSelectionWorkspace({
       setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
     } finally {
       setManualLoading(false);
+    }
+  }
+
+  async function ensureOutputDirectoryForReview(
+    runId: string,
+  ): Promise<OutputDirectoryHandle | null> {
+    let directory = outputDirectoryRef.current;
+    if (directory === null) {
+      directory = await restoreOutputDirectory(
+        outputDirectoryStore,
+        gameId,
+        runId,
+      );
+    }
+    if (directory === null) {
+      try {
+        directory = await pickImageSelectionOutputDirectory();
+      } catch (pickerError) {
+        if (
+          !(pickerError instanceof DOMException) ||
+          pickerError.name !== 'AbortError'
+        ) {
+          setError(
+            'Nie udało się wybrać folderu wynikowego. Użyj aktualnej wersji Chrome lub Edge.',
+          );
+        }
+        return null;
+      }
+    }
+    outputDirectoryRef.current = directory;
+    savedGroupOrdersRef.current.clear();
+    progressiveCursorRef.current = { afterGroupOrder: -1, runId };
+    setOutputFolderName(directory.name ?? 'Wybrany folder');
+    await outputDirectoryStore.save(gameId, runId, directory).catch(() => {
+      setRefreshWarning(
+        'Przeglądarka nie zapamiętała dostępu do folderu. W tej sesji zapis nadal działa.',
+      );
+    });
+    setNotice('Uzgadnianie zapisanych decyzji z folderem wynikowym…');
+    progressiveSaveRunningRef.current = true;
+    try {
+      const page = await loadImageSelectionGroupsAfter(api, runId, -1);
+      const result = await saveFinalizedImageSelectionGroups(
+        api,
+        runId,
+        page.groups,
+        directory,
+        savedGroupOrdersRef.current,
+      );
+      if (result.error !== null) {
+        setError(result.error);
+        return null;
+      }
+      progressiveCursorRef.current = {
+        afterGroupOrder: page.lastGroupOrder,
+        runId,
+      };
+      setNotice(
+        result.savedCount === 0
+          ? 'Folder wynikowy jest uzgodniony. Możesz rozpocząć ręczną selekcję.'
+          : `Odtworzono ${result.savedCount.toLocaleString('pl-PL')} brakujących plików. Możesz rozpocząć ręczną selekcję.`,
+      );
+      return directory;
+    } finally {
+      progressiveSaveRunningRef.current = false;
     }
   }
 
@@ -657,32 +746,32 @@ export function ImageSelectionWorkspace({
     }
   }
 
-  function updateManualGroup(updated: ImageSelectionGroupResponse) {
+  async function updateManualGroup(
+    updated: ImageSelectionGroupResponse,
+  ): Promise<string | null> {
+    if (activeRunId === null) return 'Nie wybrano procesu selekcji.';
+    const directory = outputDirectoryRef.current;
+    if (directory === null) {
+      return 'Wybierz ponownie folder wynikowy przed zatwierdzeniem.';
+    }
+    const result = await saveFinalizedImageSelectionGroups(
+      api,
+      activeRunId,
+      [updated],
+      directory,
+      savedGroupOrdersRef.current,
+    );
+    if (result.error !== null) return result.error;
     setManualGroups((groups) =>
       updated.status === 'skipped_existing_range'
         ? groups.filter((group) => group.id !== updated.id)
         : groups.map((group) => (group.id === updated.id ? updated : group)),
     );
-    if (activeRunId !== null) {
-      const directory = outputDirectoryRef.current;
-      if (directory !== null) {
-        void saveFinalizedImageSelectionGroups(
-          api,
-          activeRunId,
-          [updated],
-          directory,
-          savedGroupOrdersRef.current,
-        ).then((result) => {
-          if (result.error !== null) setError(result.error);
-          if (result.savedCount > 0) {
-            setNotice(
-              'RÄ™cznie wybrane zdjÄ™cie dopisano do katalogu wynikowego.',
-            );
-          }
-        });
-      }
-      void refreshRunAfterManualApproval(activeRunId);
+    if (result.savedCount > 0) {
+      setNotice('Ręcznie wybrane zdjęcie dopisano do katalogu wynikowego.');
     }
+    void refreshRunAfterManualApproval(activeRunId);
+    return null;
   }
 
   async function refreshRunAfterManualApproval(runId: string) {
@@ -1102,7 +1191,7 @@ export function ImageSelectionWorkspace({
           groups={automaticGroups}
           mode="automatic-verification"
           onClose={() => setAutomaticVerificationOpen(false)}
-          onGroupUpdated={() => undefined}
+          onGroupUpdated={async () => null}
           runId={run.id}
         />
       ) : null}

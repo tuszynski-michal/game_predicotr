@@ -130,6 +130,12 @@ deduplikacja po numerach należą wyłącznie do późniejszego `Importu layout�
   folder docelowy i skopiować do niego wszystkie zweryfikowane zdjęcia.
   Kontrolowany, content-addressed katalog serwera pozostaje źródłem handoffu i
   nie zależy od dostępu przeglądarki do wybranego folderu.
+- Uchwyt folderu wynikowego jest zapamiętywany lokalnie per gra i run. Po
+  ponownym otwarciu przeglądarka żąda odnowienia uprawnienia, jeżeli jest to
+  konieczne, a przed ręcznym review uzgadnia wszystkie zakończone grupy.
+- Ręczna decyzja może przejść do następnej grupy dopiero po zapisaniu JPEG-a w
+  folderze wynikowym. Błąd dysku pozostawia widoczne ponowienie tej samej
+  idempotentnej decyzji.
 - Tymczasowe kopie uploadu nie są folderem źródłowym użytkownika. Po atomowym
   zapisaniu kompletnego wyniku mogą zostać usunięte; przy błędzie pozostają do
   retry, a przy anulowaniu są usuwane na jawne polecenie użytkownika.

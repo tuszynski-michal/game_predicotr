@@ -5,6 +5,12 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import type {
+  OutputDirectoryHandle,
+  OutputFileHandle,
+} from './image-selection-output-directory.ts';
+
+export type { OutputDirectoryHandle } from './image-selection-output-directory.ts';
 
 const MAX_UPLOAD_CONCURRENCY = 4;
 const MAX_FILE_ATTEMPTS = 3;
@@ -49,25 +55,6 @@ export interface ResumableImageSelectionUpload {
   readonly files: readonly File[];
   readonly gameId: string;
   readonly uploadId: string;
-}
-
-interface WritableOutputFile {
-  abort(): Promise<void>;
-  close(): Promise<void>;
-  write(data: Blob): Promise<void>;
-}
-
-interface OutputFileHandle {
-  createWritable(): Promise<WritableOutputFile>;
-  getFile(): Promise<File>;
-}
-
-export interface OutputDirectoryHandle {
-  readonly name?: string;
-  getFileHandle(
-    name: string,
-    options?: { readonly create?: boolean },
-  ): Promise<OutputFileHandle>;
 }
 
 type DirectoryPickerWindow = Window & {

@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia dokumentacyjna jest wydaniem `v0.5.2`; następny commit otrzyma
-`v0.5.3`.
+partia implementacyjna jest wydaniem `v0.5.4`; następny commit otrzyma
+`v0.5.5`.
 
 ## Phase
 
@@ -966,6 +966,19 @@ ponowne `Enter`/`→` wykonują tę samą świadomą, idempotentną decyzję. Ba
 potwierdza istnienie właściciela zakresu przed ustawieniem
 `skipped_existing_range`; zmiana zakresu anuluje stan konfliktu. Typecheck i
 186 testów Admina przeszły. Aktywny run v10.5 nie został przerwany.
+
+TASK-0230 zakończył się negatywnie. Run v10.5
+`b93de523-83f1-41bb-9f6d-4402936ebd6d` został anulowany po 4064 / 42 403
+przeskanowanych zdjęć. Utworzył 271 grup: 13 automatycznych, 251 manualnych i 7
+pominiętych, czyli 92,62% grup wymagało ręcznej pracy. 968 z 997 prób OCR
+zakończyło się `RANGE_LABEL_LATTICE_INCOMPLETE`, mimo czytelnych rzeczywistych
+zdjęć. V10.5 nie jest zaakceptowane.
+
+TASK-0232 utrwala katalog wynikowy w IndexedDB per run, wymaga dostępu przed
+review, wykonuje pełne uzgodnienie historycznych decyzji i czeka na zapis JPEG-a
+przed przejściem do następnej grupy. Run `252cb5cb…` można naprawić przez
+ponowne wskazanie `C:\Users\user\Documents\1 - 19809`; zgodne pliki zostaną
+pominięte, a brakujące odtworzone. Przeszło 188 testów Admina i typecheck.
 
 ## Do not start yet
 

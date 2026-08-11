@@ -27,7 +27,9 @@ interface ManualImageSelectionModalProps {
   readonly groups: readonly ImageSelectionGroupResponse[];
   readonly mode?: 'manual' | 'automatic-verification';
   readonly onClose: () => void;
-  readonly onGroupUpdated: (group: ImageSelectionGroupResponse) => void;
+  readonly onGroupUpdated: (
+    group: ImageSelectionGroupResponse,
+  ) => Promise<string | null>;
   readonly runId: string;
 }
 
@@ -391,7 +393,7 @@ export function ManualImageSelectionModal({
         );
         return;
       }
-      handleApproval(result.data);
+      await handleApproval(result.data);
     } catch {
       setError(
         'Połączenie zostało przerwane. Ponowienie użyje tego samego klucza decyzji.',
@@ -441,7 +443,7 @@ export function ManualImageSelectionModal({
         );
         return;
       }
-      handleApproval(result.data);
+      await handleApproval(result.data);
     } catch {
       setError('Połączenie z lokalnym Admin API zostało przerwane.');
     } finally {
@@ -450,7 +452,16 @@ export function ManualImageSelectionModal({
     }
   }
 
-  function handleApproval(result: ImageSelectionManualApprovalResponse) {
+  async function handleApproval(
+    result: ImageSelectionManualApprovalResponse,
+  ): Promise<void> {
+    const outputError = await onGroupUpdated(result.group);
+    if (outputError !== null) {
+      setError(
+        `Decyzja została zapisana w bazie, ale plik nie trafił do folderu: ${outputError} Użyj ponownie „Zatwierdź”, aby ponowić zapis.`,
+      );
+      return;
+    }
     setDuplicateRangeConflict(null);
     setError('');
     updateDraft(result.group.id, {
@@ -464,7 +475,6 @@ export function ManualImageSelectionModal({
     const remainingGroups = discarded
       ? groups.filter((group) => group.id !== result.group.id)
       : groups;
-    onGroupUpdated(result.group);
     if (remainingGroups.length === 0) {
       onClose();
       return;

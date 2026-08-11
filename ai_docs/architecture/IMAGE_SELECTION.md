@@ -780,15 +780,17 @@ bramki API. Manifest v10.4 ma fingerprint
 `8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e`;
 resolver nadal zawiera wszystkie poprzednie fingerprinty.
 
-Katalog wynikowy pozostaje uchwytem przeglądarki przypisanym do bieżącej sesji.
-Ledger `runId + groupOrder + checksum` umożliwia późniejsze dopisanie ręcznie
-wybranych plików. Po utracie uchwytu użytkownik wskazuje ponownie ten sam folder;
-zgodne checksumy są pomijane, a kolizja zatrzymuje operację.
+Katalog wynikowy jest uchwytem File System Access API zapisanym w IndexedDB per
+`gameId + runId`. Po ponownym otwarciu Admin sprawdza lub odnawia uprawnienie
+`readwrite`; gdy uchwyt jest niedostępny, użytkownik wskazuje katalog ponownie.
+Ledger `runId + groupOrder + checksum` umożliwia pełne uzgodnienie historycznego
+runu. Zgodne checksumy są pomijane, a kolizja zatrzymuje operację.
 
 Progresywny eksporter używa kursora `afterGroupOrder`; po wznowieniu wykonuje
 jedno pełne uzgodnienie, a następnie pobiera wyłącznie nowe grupy. Ręczne
 uzupełnienie wcześniejszej luki omija monotonny polling: callback zatwierdzenia
-zapisuje dokładnie zmienioną grupę bezpośrednio do wybranego folderu. Jeżeli run
+zapisuje dokładnie zmienioną grupę bezpośrednio do wybranego folderu i dopiero
+po powodzeniu pozwala modalowi przejść dalej. Jeżeli run
 miał już manifest wynikowy, backend unieważnia go, wznawia ten sam zakończony job
 jako rewizję i publikuje nowy checksumowany manifest bez zmiany historii decyzji.
 

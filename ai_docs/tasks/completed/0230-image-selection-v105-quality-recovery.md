@@ -1,6 +1,6 @@
 ---
 title: TASK-0230 image selection v10.5 quality recovery
-status: in_progress
+status: done
 release: "0.5"
 last_updated: 2026-08-11
 ---
@@ -62,6 +62,15 @@ daty i statusu. Kontrakt odbioru zapisano w
 `ai_docs/quality/image-selection-v105-acceptance-contract.json`.
 
 Automatyczna weryfikacja przeszła: Ruff, mypy, kontrola OpenAPI, typecheck panelu
-i klienta, 137 testów workera, 19 testów API oraz 186 testów Admina. Nie
-uruchomiono prób na rzeczywistych 200/5000/42403 JPEG-ach. Zadanie pozostaje
-`in_progress` do czasu zaliczenia tych bramek i ręcznej oceny właściciela.
+i klienta, 137 testów workera, 19 testów API oraz 186 testów Admina.
+
+Realny run `b93de523-83f1-41bb-9f6d-4402936ebd6d` został zatrzymany decyzją
+właściciela. Po pełnym uploadzie 42 403 JPEG-ów selekcja przetworzyła 4064
+źródła i utworzyła 271 grup: 13 automatycznych, 251 manualnych oraz 7
+pominiętych. Manual rate wyniósł 92,62%. Recognizer wykonał 997 prób, z których
+968 zakończyło się `RANGE_LABEL_LATTICE_INCOMPLETE`; OCR zużył 3634,077 s z
+3810,203 s selekcji. Ręczna kontrola potwierdziła czytelne numery na obrazach
+odrzuconych przez lattice.
+
+V10.5 nie spełnia bramki jakości ani czasu i nie zostaje zaakceptowany. Dalsza
+praca przechodzi do osobnych zadań trwałości eksportu oraz selektora v10.6.

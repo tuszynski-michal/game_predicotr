@@ -4133,6 +4133,25 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** D-168 w zakresie domyślnego OCR i descriptoru grupowania;
   zachowuje obowiązkową kotwicę oraz bezpieczny bufor granicy.
 
+## D-171 — Ręczna decyzja nie kończy się przed trwałym eksportem JPEG-a
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** Admin przechowuje uchwyt katalogu wynikowego w IndexedDB per
+  `gameId + runId`, uzgadnia zakończone grupy przed review i przechodzi dalej
+  dopiero po poprawnym zapisie ręcznie zatwierdzonego JPEG-a.
+- **Context:** decyzje runu `252cb5cb…` były zapisane w bazie, lecz po wybraniu
+  historycznego runu uchwyt katalogu istniał wyłącznie w pamięci. Modal pozwalał
+  zatwierdzać i przechodzić dalej bez jakiegokolwiek zapisu na dysk.
+- **Reason:** baza i folder wynikowy muszą być uzgadnialne po odświeżeniu,
+  przełączeniu runu i restarcie przeglądarki. Fire-and-forget ukrywał utratę
+  części wyniku przed użytkownikiem.
+- **Alternatives:** przechowywanie ścieżki Windows w backendzie odrzucono,
+  ponieważ przeglądarka nie może odzyskać dostępu na podstawie samego tekstu.
+- **Consequences:** przeglądarka może ponownie poprosić o zgodę; pełne
+  uzgodnienie jest idempotentne i nigdy nie nadpisuje kolizji.
+- **Supersedes:** doprecyzowuje progresywny eksport D-165.
+
 ## Szablon nowej decyzji
 
 ```text

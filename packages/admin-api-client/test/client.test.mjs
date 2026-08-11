@@ -1902,6 +1902,65 @@ test('manual image selection uses scoped binary upload and idempotent approval',
   });
 });
 
+test('image selection review queues use scoped idempotent decisions', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const groupId = '33333333-3333-4333-8333-333333333333';
+  const idempotencyKey = '55555555-5555-4555-8555-555555555555';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+
+  await client.confirmImageSelectionGroupRange(runId, groupId, {
+    idempotencyKey,
+    rangeEnd: 9,
+    rangeStart: 1,
+  });
+  await client.rejectImageSelectionReviewGroup(runId, groupId, {
+    idempotencyKey,
+  });
+  await client.restoreRejectedImageSelectionGroup(runId, groupId, {
+    idempotencyKey,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/confirm-range`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/reject`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/restore`,
+      ],
+    ],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.headers.get('X-Admin-Target')),
+    [
+      `image-selection:${runId}:${groupId}:confirm-range`,
+      `image-selection:${runId}:${groupId}:reject`,
+      `image-selection:${runId}:${groupId}:restore`,
+    ],
+  );
+  assert.deepEqual(await requests[0].clone().json(), {
+    idempotencyKey,
+    rangeEnd: 9,
+    rangeStart: 1,
+  });
+  assert.deepEqual(await requests[1].clone().json(), { idempotencyKey });
+  assert.deepEqual(await requests[2].clone().json(), { idempotencyKey });
+});
+
 test('image selection status request forwards its abort signal', async () => {
   const requests = [];
   const runId = '22222222-2222-4222-8222-222222222222';

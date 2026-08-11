@@ -851,8 +851,16 @@ class ImageSelectionGroupModel(Base):
         ),
         CheckConstraint(
             "status IN ('collecting', 'auto_selected', 'manual_required', "
-            "'manually_selected', 'missing_image', 'skipped_existing_range')",
+            "'manually_selected', 'missing_image', 'skipped_existing_range', "
+            "'range_required', 'range_confirmed', 'skipped_unreadable', "
+            "'rejected_by_user')",
             name="ck_image_selection_groups_status",
+        ),
+        CheckConstraint(
+            "(status = 'rejected_by_user' AND rejection_origin_status IN "
+            "('manual_required', 'range_required')) OR "
+            "(status <> 'rejected_by_user' AND rejection_origin_status IS NULL)",
+            name="ck_image_selection_groups_rejection_origin",
         ),
         UniqueConstraint(
             "run_id",
@@ -871,7 +879,8 @@ class ImageSelectionGroupModel(Base):
             "range_end",
             unique=True,
             postgresql_where=text(
-                "status IN ('auto_selected', 'manually_selected', 'missing_image') "
+                "status IN ('auto_selected', 'manually_selected', 'missing_image', "
+                "'range_confirmed') "
                 "AND range_start IS NOT NULL"
             ),
         ),
@@ -894,6 +903,10 @@ class ImageSelectionGroupModel(Base):
         String(40),
         nullable=False,
         default=ImageSelectionGroupStatus.COLLECTING,
+    )
+    rejection_origin_status: Mapped[ImageSelectionGroupStatus | None] = mapped_column(
+        String(40),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -1023,12 +1036,15 @@ class ImageSelectionManualDecisionModel(Base):
             name="ck_image_selection_manual_decisions_payload_sha256",
         ),
         CheckConstraint(
-            "resolution IN ('selected_image', 'missing_image', 'duplicate_range')",
+            "resolution IN ('selected_image', 'missing_image', 'duplicate_range', "
+            "'range_confirmed', 'rejected_group', 'restored_group')",
             name="ck_image_selection_manual_decisions_resolution",
         ),
         CheckConstraint(
-            "(resolution = 'selected_image' AND candidate_id IS NOT NULL) OR "
-            "(resolution IN ('missing_image', 'duplicate_range') "
+            "(resolution IN ('selected_image', 'range_confirmed') "
+            "AND candidate_id IS NOT NULL) OR "
+            "(resolution IN ('missing_image', 'duplicate_range', "
+            "'rejected_group', 'restored_group') "
             "AND candidate_id IS NULL)",
             name="ck_image_selection_manual_decisions_candidate_resolution",
         ),

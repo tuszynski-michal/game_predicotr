@@ -25,6 +25,7 @@ import {
   continueWithAutomaticallySelectedImages,
   loadAutomaticallySelectedImageSelectionGroups,
   loadImageSelectionGroupsAfter,
+  loadImageSelectionReviewQueues,
   loadManualImageSelectionGroups,
   pickImageSelectionOutputDirectory,
   saveFinalizedImageSelectionGroups,
@@ -101,6 +102,14 @@ export function ImageSelectionWorkspace({
   >([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualLoading, setManualLoading] = useState(false);
+  const [rangeGroups, setRangeGroups] = useState<ImageSelectionGroupResponse[]>(
+    [],
+  );
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [rejectedGroups, setRejectedGroups] = useState<
+    ImageSelectionGroupResponse[]
+  >([]);
+  const [rejectedOpen, setRejectedOpen] = useState(false);
   const [automaticGroups, setAutomaticGroups] = useState<
     ImageSelectionGroupResponse[]
   >([]);
@@ -285,8 +294,12 @@ export function ImageSelectionWorkspace({
     let cancelled = false;
     queueMicrotask(async () => {
       try {
-        const groups = await loadManualImageSelectionGroups(api, activeRunId);
-        if (!cancelled) setManualGroups(groups);
+        const queues = await loadImageSelectionReviewQueues(api, activeRunId);
+        if (!cancelled) {
+          setManualGroups(queues.representative);
+          setRangeGroups(queues.range);
+          setRejectedGroups(queues.rejected);
+        }
       } catch {
         if (!cancelled) {
           setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
@@ -560,6 +573,10 @@ export function ImageSelectionWorkspace({
       setRunHistory(nextHistory);
       setManualGroups([]);
       setManualOpen(false);
+      setRangeGroups([]);
+      setRangeOpen(false);
+      setRejectedGroups([]);
+      setRejectedOpen(false);
       setAutomaticGroups([]);
       setAutomaticVerificationOpen(false);
       pollingWindowRef.current = null;
@@ -624,6 +641,50 @@ export function ImageSelectionWorkspace({
       }
     } catch {
       setError('Nie udało się odczytać wyjątków ręcznej selekcji.');
+    } finally {
+      setManualLoading(false);
+    }
+  }
+
+  async function openRangeReview() {
+    if (run === null || manualLoading) return;
+    setManualLoading(true);
+    setError('');
+    try {
+      const directory = await ensureOutputDirectoryForReview(run.id);
+      if (directory === null) return;
+      const queues = await loadImageSelectionReviewQueues(api, run.id);
+      setManualGroups(queues.representative);
+      setRangeGroups(queues.range);
+      setRejectedGroups(queues.rejected);
+      if (queues.range.length === 0) {
+        setNotice('Ten run nie ma grup wymagających ustalenia zakresu.');
+      } else {
+        setRangeOpen(true);
+      }
+    } catch {
+      setError('Nie udało się odczytać grup bez rozpoznanego zakresu.');
+    } finally {
+      setManualLoading(false);
+    }
+  }
+
+  async function openRejectedGroups() {
+    if (run === null || manualLoading) return;
+    setManualLoading(true);
+    setError('');
+    try {
+      const queues = await loadImageSelectionReviewQueues(api, run.id);
+      setManualGroups(queues.representative);
+      setRangeGroups(queues.range);
+      setRejectedGroups(queues.rejected);
+      if (queues.rejected.length === 0) {
+        setNotice('Ten run nie ma grup odrzuconych przez użytkownika.');
+      } else {
+        setRejectedOpen(true);
+      }
+    } catch {
+      setError('Nie udało się odczytać odrzuconych grup.');
     } finally {
       setManualLoading(false);
     }
@@ -725,6 +786,10 @@ export function ImageSelectionWorkspace({
     setOutputFolderName('');
     setManualOpen(false);
     setManualGroups([]);
+    setRangeOpen(false);
+    setRangeGroups([]);
+    setRejectedOpen(false);
+    setRejectedGroups([]);
     setAutomaticVerificationOpen(false);
     setAutomaticGroups([]);
     setRun(selected);
@@ -746,7 +811,8 @@ export function ImageSelectionWorkspace({
     setError('');
     setNotice('');
     try {
-      const groups = await loadManualImageSelectionGroups(api, run.id);
+      const queues = await loadImageSelectionReviewQueues(api, run.id);
+      const groups = queues.representative;
       const result = await continueWithAutomaticallySelectedImages(
         api,
         run.id,
@@ -787,28 +853,67 @@ export function ImageSelectionWorkspace({
     updated: ImageSelectionGroupResponse,
   ): Promise<string | null> {
     if (activeRunId === null) return 'Nie wybrano procesu selekcji.';
-    const directory = outputDirectoryRef.current;
-    if (directory === null) {
-      return 'Wybierz ponownie folder wynikowy przed zatwierdzeniem.';
+    const requiresOutputSave =
+      updated.selectedCandidateId !== null &&
+      updated.rangeStart !== null &&
+      updated.rangeEnd !== null &&
+      (updated.status === 'manually_selected' ||
+        updated.status === 'range_confirmed');
+    let savedCount = 0;
+    if (requiresOutputSave) {
+      const directory = outputDirectoryRef.current;
+      if (directory === null) {
+        return 'Wybierz ponownie folder wynikowy przed zatwierdzeniem.';
+      }
+      const result = await saveFinalizedImageSelectionGroups(
+        api,
+        activeRunId,
+        [updated],
+        directory,
+        savedGroupOrdersRef.current,
+      );
+      if (result.error !== null) return result.error;
+      savedCount = result.savedCount;
     }
-    const result = await saveFinalizedImageSelectionGroups(
-      api,
-      activeRunId,
-      [updated],
-      directory,
-      savedGroupOrdersRef.current,
-    );
-    if (result.error !== null) return result.error;
-    setManualGroups((groups) =>
-      updated.status === 'skipped_existing_range'
-        ? groups.filter((group) => group.id !== updated.id)
-        : groups.map((group) => (group.id === updated.id ? updated : group)),
-    );
-    if (result.savedCount > 0) {
+    updateReviewQueues(updated);
+    if (savedCount > 0) {
       setNotice('Ręcznie wybrane zdjęcie dopisano do katalogu wynikowego.');
     }
     void refreshRunAfterManualApproval(activeRunId);
     return null;
+  }
+
+  function updateReviewQueues(updated: ImageSelectionGroupResponse) {
+    const replaceOrRemove = (
+      groups: ImageSelectionGroupResponse[],
+      statuses: readonly ImageSelectionGroupResponse['status'][],
+    ) => {
+      const existing = groups.some((group) => group.id === updated.id);
+      if (!statuses.includes(updated.status)) {
+        return groups.filter((group) => group.id !== updated.id);
+      }
+      if (existing) {
+        return groups.map((group) =>
+          group.id === updated.id ? updated : group,
+        );
+      }
+      return [...groups, updated].sort(
+        (left, right) => left.groupOrder - right.groupOrder,
+      );
+    };
+    setManualGroups((groups) =>
+      replaceOrRemove(groups, [
+        'manual_required',
+        'manually_selected',
+        'missing_image',
+      ]),
+    );
+    setRangeGroups((groups) =>
+      replaceOrRemove(groups, ['range_required', 'range_confirmed']),
+    );
+    setRejectedGroups((groups) =>
+      replaceOrRemove(groups, ['rejected_by_user']),
+    );
   }
 
   async function refreshRunAfterManualApproval(runId: string) {
@@ -844,6 +949,9 @@ export function ImageSelectionWorkspace({
   );
   const unresolvedGroupCount = manualGroups.filter(
     (group) => group.status === 'manual_required',
+  ).length;
+  const unresolvedRangeCount = rangeGroups.filter(
+    (group) => group.status === 'range_required',
   ).length;
 
   return (
@@ -1152,7 +1260,29 @@ export function ImageSelectionWorkspace({
                 >
                   {manualLoading
                     ? 'Odczytywanie…'
-                    : `Ręczna selekcja (${unresolvedGroupCount} do uzupełnienia)`}
+                    : `Wybierz zdjęcie (${unresolvedGroupCount})`}
+                </button>
+              ) : null}
+              {rangeGroups.length > 0 ? (
+                <button
+                  className="secondaryButton"
+                  disabled={busy || manualLoading}
+                  onClick={() => void openRangeReview()}
+                  type="button"
+                >
+                  {manualLoading
+                    ? 'Odczytywanie…'
+                    : `Ustal grupę (${unresolvedRangeCount})`}
+                </button>
+              ) : null}
+              {rejectedGroups.length > 0 ? (
+                <button
+                  className="secondaryButton"
+                  disabled={busy || manualLoading}
+                  onClick={() => void openRejectedGroups()}
+                  type="button"
+                >
+                  Odrzucone ({rejectedGroups.length})
                 </button>
               ) : null}
               <button
@@ -1229,6 +1359,28 @@ export function ImageSelectionWorkspace({
           mode="automatic-verification"
           onClose={() => setAutomaticVerificationOpen(false)}
           onGroupUpdated={async () => null}
+          runId={run.id}
+        />
+      ) : null}
+      {rangeOpen && run !== null && rangeGroups.length > 0 ? (
+        <ManualImageSelectionModal
+          apiBaseUrl={apiBaseUrl}
+          client={api}
+          groups={rangeGroups}
+          mode="range"
+          onClose={() => setRangeOpen(false)}
+          onGroupUpdated={updateManualGroup}
+          runId={run.id}
+        />
+      ) : null}
+      {rejectedOpen && run !== null && rejectedGroups.length > 0 ? (
+        <ManualImageSelectionModal
+          apiBaseUrl={apiBaseUrl}
+          client={api}
+          groups={rejectedGroups}
+          mode="rejected"
+          onClose={() => setRejectedOpen(false)}
+          onGroupUpdated={updateManualGroup}
           runId={run.id}
         />
       ) : null}

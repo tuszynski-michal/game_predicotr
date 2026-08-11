@@ -433,7 +433,8 @@ zostać przejęty tylko przez jeden run.
 | range_start / range_end | bigint nullable | oba `null` albo dodatnie i `start <= end` |
 | fingerprint_sha256 | varchar(64) nullable | małe litery hex |
 | board_count_consensus | smallint nullable | 1–9 |
-| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `missing_image`, `skipped_existing_range` |
+| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `missing_image`, `skipped_existing_range`, `range_required`, `range_confirmed`, `skipped_unreadable`, `rejected_by_user` |
+| rejection_origin_status | varchar nullable | dla `rejected_by_user`: `manual_required` albo `range_required` |
 | created_at / updated_at | timestamptz | |
 
 Częściowy indeks unikalny blokuje dwa wybrane outputy tego samego
@@ -469,8 +470,8 @@ cyrkularnym kluczem obcym. Żadna tabela nie przechowuje JPEG jako BLOB.
 | idempotency_key | UUID | PK przekazany przez klienta; retry tego samego payloadu nie tworzy rewizji |
 | run_id | UUID | FK run, `CASCADE` |
 | group_id | UUID | złożony FK gwarantuje grupę z tego samego runu |
-| candidate_id | UUID nullable | FK kandydata, `RESTRICT`; wymagany tylko dla `selected_image` |
-| resolution | varchar | `selected_image` albo `missing_image` |
+| candidate_id | UUID nullable | FK kandydata, `RESTRICT`; wymagany dla `selected_image` i `range_confirmed` |
+| resolution | varchar | `selected_image`, `missing_image`, `duplicate_range`, `range_confirmed`, `rejected_group` albo `restored_group` |
 | range_start / range_end | bigint nullable | oba `null` dla nierozpoznanego pominięcia albo dodatnie i `start <= end` |
 | revision | integer | dodatnia, rośnie osobno dla każdej grupy |
 | payload_sha256 | varchar(64) | SHA-256 kanonicznej decyzji |

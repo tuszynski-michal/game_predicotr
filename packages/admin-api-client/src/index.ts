@@ -4,6 +4,7 @@ import {
   activateSymbolModel as activateGeneratedSymbolModel,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
+  confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
   discardDuplicateImageSelectionGroup as discardGeneratedDuplicateImageSelectionGroup,
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
@@ -119,7 +120,9 @@ import {
   rollbackSymbolModel as rollbackGeneratedSymbolModel,
   rollbackGridProfile as rollbackGeneratedGridProfile,
   rerunImageSelection as rerunGeneratedImageSelection,
+  rejectImageSelectionReviewGroup as rejectGeneratedImageSelectionReviewGroup,
   resetGameLayoutData as resetGeneratedGameLayoutData,
+  restoreRejectedImageSelectionGroup as restoreGeneratedRejectedImageSelectionGroup,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
@@ -154,8 +157,10 @@ import type {
   ImageFolderImportCreate,
   ImageSelectionCreate,
   ImageSelectionDuplicateRangeCommand,
+  ImageSelectionGroupDecisionCommand,
   ImageSelectionManualApprovalCommand,
   ImageSelectionMissingImageCommand,
+  ImageSelectionRangeConfirmationCommand,
   ImageSelectionRerunCommand,
   ImageSelectionGroupStatus,
   ImageSequenceSourceOverrideCommand,
@@ -241,6 +246,7 @@ export type {
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
   ImageSelectionDuplicateRangeCommand,
+  ImageSelectionGroupDecisionCommand,
   ImageSelectionHandoffResponse,
   ImageSelectionGroupCandidatesResponse,
   ImageSelectionGroupPageResponse,
@@ -258,6 +264,7 @@ export type {
   ImageSelectionMissingImageCommand,
   ImageSelectionOutputFileResponse,
   ImageSelectionOutputResponse,
+  ImageSelectionRangeConfirmationCommand,
   ImageDiagnosticExportCreationResponse,
   ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
@@ -688,6 +695,45 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(
           `image-selection:${runId}:${groupId}:discard-duplicate`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    confirmImageSelectionGroupRange: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionRangeConfirmationCommand,
+    ) =>
+      confirmGeneratedImageSelectionGroupRange({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:confirm-range`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    rejectImageSelectionReviewGroup: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionGroupDecisionCommand,
+    ) =>
+      rejectGeneratedImageSelectionReviewGroup({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:reject`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    restoreRejectedImageSelectionGroup: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionGroupDecisionCommand,
+    ) =>
+      restoreGeneratedRejectedImageSelectionGroup({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:restore`,
         ),
         path: { group_id: groupId, run_id: runId },
       }),

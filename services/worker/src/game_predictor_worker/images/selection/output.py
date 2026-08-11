@@ -150,6 +150,8 @@ class CuratedImageOutputPublisher:
             if group.status in {
                 SelectionGroupStatus.MISSING_IMAGE,
                 SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                SelectionGroupStatus.SKIPPED_UNREADABLE,
+                SelectionGroupStatus.REJECTED_BY_USER,
             }:
                 continue
             candidate = group.selected_candidate
@@ -159,6 +161,7 @@ class CuratedImageOutputPublisher:
                 not in {
                     SelectionGroupStatus.AUTO_SELECTED,
                     SelectionGroupStatus.MANUALLY_SELECTED,
+                    SelectionGroupStatus.RANGE_CONFIRMED,
                 }
                 or candidate is None
             ):

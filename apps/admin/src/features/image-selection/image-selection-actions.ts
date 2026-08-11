@@ -42,6 +42,9 @@ export type ImageSelectionClient = Pick<
   | 'approveManualImageSelection'
   | 'continueImageSelectionWithoutImage'
   | 'discardDuplicateImageSelectionGroup'
+  | 'confirmImageSelectionGroupRange'
+  | 'rejectImageSelectionReviewGroup'
+  | 'restoreRejectedImageSelectionGroup'
 >;
 
 export interface ImageSelectionUploadProgress {
@@ -310,7 +313,8 @@ export async function saveFinalizedImageSelectionGroups(
         group.rangeStart !== null &&
         group.rangeEnd !== null &&
         (group.status === 'auto_selected' ||
-          group.status === 'manually_selected'),
+          group.status === 'manually_selected' ||
+          group.status === 'range_confirmed'),
     )
     .sort((left, right) => left.groupOrder - right.groupOrder);
   for (const group of ready) {
@@ -381,6 +385,34 @@ export async function loadManualImageSelectionGroups(
         group.status === 'missing_image',
     )
     .map((group) => suggestBoundedMissingRange(group, groups));
+}
+
+export interface ImageSelectionReviewQueues {
+  readonly range: ImageSelectionGroupResponse[];
+  readonly rejected: ImageSelectionGroupResponse[];
+  readonly representative: ImageSelectionGroupResponse[];
+}
+
+export async function loadImageSelectionReviewQueues(
+  api: ImageSelectionClient,
+  runId: string,
+): Promise<ImageSelectionReviewQueues> {
+  const groups = await loadAllImageSelectionGroups(api, runId);
+  return {
+    range: groups.filter(
+      (group) =>
+        group.status === 'range_required' || group.status === 'range_confirmed',
+    ),
+    rejected: groups.filter((group) => group.status === 'rejected_by_user'),
+    representative: groups
+      .filter(
+        (group) =>
+          group.status === 'manual_required' ||
+          group.status === 'manually_selected' ||
+          group.status === 'missing_image',
+      )
+      .map((group) => suggestBoundedMissingRange(group, groups)),
+  };
 }
 
 export async function loadAutomaticallySelectedImageSelectionGroups(
@@ -584,7 +616,8 @@ function suggestBoundedMissingRange(
       candidate.rangeEnd !== null &&
       (candidate.status === 'auto_selected' ||
         candidate.status === 'manually_selected' ||
-        candidate.status === 'missing_image'),
+        candidate.status === 'missing_image' ||
+        candidate.status === 'range_confirmed'),
   );
   const previous = resolved
     .filter((candidate) => candidate.groupOrder < group.groupOrder)

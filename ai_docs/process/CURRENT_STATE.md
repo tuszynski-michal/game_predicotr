@@ -7,8 +7,8 @@ last_updated: 2026-08-11
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.6`; następny commit otrzyma
-`v0.5.7`.
+partia implementacyjna jest wydaniem `v0.5.7`; następny commit otrzyma
+`v0.5.8`.
 
 ## Phase
 
@@ -992,6 +992,14 @@ backend blokuje dane przekazane dalej i opublikowane, zachowuje współdzielony
 staging oraz nigdy nie dotyka zewnętrznego folderu wynikowego. Zarządzane pliki
 są obejmowane kwarantanną skoordynowaną z transakcją bazy. Przeszło 35
 skupionych testów backendu, OpenAPI, 35 testów klienta i 192 testy Admina.
+
+TASK-0235 rozdziela niepewność obrazu od niepewności zakresu. Admin pokazuje
+osobne kolejki `Wybierz zdjęcie`, `Ustal grupę` i `Odrzucone`; potwierdzenie
+zakresu zachowuje automatyczny JPEG, a odrzucenie można przywrócić do dokładnej
+poprzedniej kolejki. `skipped_unreadable` nie trafia do review ani outputu.
+Migracja `0041_image_selection_review_queues` rozszerza statusy i append-only
+audyt. Przeszło 97 skupionych testów API/workera, 36 klienta, 194 Admina, Ruff,
+oba typechecki, ESLint i OpenAPI.
 
 ## Do not start yet
 

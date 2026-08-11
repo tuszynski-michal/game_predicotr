@@ -53,6 +53,10 @@ class ImageSelectionGroupStatus(StrEnum):
     MANUALLY_SELECTED = "manually_selected"
     MISSING_IMAGE = "missing_image"
     SKIPPED_EXISTING_RANGE = "skipped_existing_range"
+    RANGE_REQUIRED = "range_required"
+    RANGE_CONFIRMED = "range_confirmed"
+    SKIPPED_UNREADABLE = "skipped_unreadable"
+    REJECTED_BY_USER = "rejected_by_user"
 
 
 class ImageSelectionCandidateDecision(StrEnum):
@@ -66,6 +70,9 @@ class ImageSelectionManualResolution(StrEnum):
     SELECTED_IMAGE = "selected_image"
     MISSING_IMAGE = "missing_image"
     DUPLICATE_RANGE = "duplicate_range"
+    RANGE_CONFIRMED = "range_confirmed"
+    REJECTED_GROUP = "rejected_group"
+    RESTORED_GROUP = "restored_group"
 
 
 class ImageSelectionSequenceDirection(StrEnum):
@@ -104,6 +111,7 @@ class ImageSelectionGroup:
     selected_candidate_id: UUID | None
     created_at: datetime
     updated_at: datetime
+    rejection_origin_status: ImageSelectionGroupStatus | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -481,6 +489,180 @@ def create_duplicate_range_decision(
     )
 
 
+def create_range_confirmation_decision(
+    *,
+    idempotency_key: UUID,
+    group: ImageSelectionGroup,
+    candidate: ImageSelectionCandidate,
+    range_start: int,
+    range_end: int,
+    revision: int,
+    created_at: datetime | None = None,
+) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+    if idempotency_key.int == 0 or revision < 1:
+        _configuration_error("Manual decision identifiers and revision must be valid.")
+    if group.status not in {
+        ImageSelectionGroupStatus.RANGE_REQUIRED,
+        ImageSelectionGroupStatus.RANGE_CONFIRMED,
+    }:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_GROUP_NOT_RANGE_REQUIRED",
+            "Only a range-review group can accept a sequence range.",
+        )
+    if (
+        candidate.run_id != group.run_id
+        or candidate.group_id != group.id
+        or candidate.decision is not ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+    ):
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_CANDIDATE_MISMATCH",
+            "The automatic representative no longer belongs to this group.",
+        )
+    validate_image_selection_group(
+        group_order=group.group_order,
+        range_start=range_start,
+        range_end=range_end,
+        fingerprint_sha256=group.fingerprint_sha256,
+        board_count_consensus=group.board_count_consensus,
+    )
+    payload = {
+        "candidateId": str(candidate.id),
+        "groupId": str(group.id),
+        "rangeEnd": range_end,
+        "rangeStart": range_start,
+        "resolution": ImageSelectionManualResolution.RANGE_CONFIRMED.value,
+        "runId": str(group.run_id),
+    }
+    payload_sha256 = hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    now = created_at or datetime.now(UTC)
+    updated_group = replace(
+        group,
+        range_start=range_start,
+        range_end=range_end,
+        status=ImageSelectionGroupStatus.RANGE_CONFIRMED,
+        selected_candidate_id=candidate.id,
+        rejection_origin_status=None,
+        updated_at=now,
+    )
+    return updated_group, ImageSelectionManualDecision(
+        idempotency_key=idempotency_key,
+        run_id=group.run_id,
+        group_id=group.id,
+        candidate_id=candidate.id,
+        resolution=ImageSelectionManualResolution.RANGE_CONFIRMED,
+        range_start=range_start,
+        range_end=range_end,
+        revision=revision,
+        payload_sha256=payload_sha256,
+        created_at=now,
+    )
+
+
+def create_group_rejection_decision(
+    *,
+    idempotency_key: UUID,
+    group: ImageSelectionGroup,
+    revision: int,
+    created_at: datetime | None = None,
+) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+    if idempotency_key.int == 0 or revision < 1:
+        _configuration_error("Manual decision identifiers and revision must be valid.")
+    if group.status not in {
+        ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.RANGE_REQUIRED,
+        ImageSelectionGroupStatus.REJECTED_BY_USER,
+    }:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_GROUP_NOT_REJECTABLE",
+            "Only a representative- or range-review group can be rejected.",
+        )
+    origin = group.rejection_origin_status or group.status
+    if origin not in {
+        ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.RANGE_REQUIRED,
+    }:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_REJECTION_ORIGIN_INVALID",
+            "The rejected group has no restorable review state.",
+        )
+    payload = {
+        "groupId": str(group.id),
+        "resolution": ImageSelectionManualResolution.REJECTED_GROUP.value,
+        "runId": str(group.run_id),
+    }
+    payload_sha256 = hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    now = created_at or datetime.now(UTC)
+    updated_group = replace(
+        group,
+        status=ImageSelectionGroupStatus.REJECTED_BY_USER,
+        rejection_origin_status=origin,
+        updated_at=now,
+    )
+    return updated_group, ImageSelectionManualDecision(
+        idempotency_key=idempotency_key,
+        run_id=group.run_id,
+        group_id=group.id,
+        candidate_id=None,
+        resolution=ImageSelectionManualResolution.REJECTED_GROUP,
+        range_start=group.range_start,
+        range_end=group.range_end,
+        revision=revision,
+        payload_sha256=payload_sha256,
+        created_at=now,
+    )
+
+
+def create_group_restore_decision(
+    *,
+    idempotency_key: UUID,
+    group: ImageSelectionGroup,
+    revision: int,
+    created_at: datetime | None = None,
+) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]:
+    if idempotency_key.int == 0 or revision < 1:
+        _configuration_error("Manual decision identifiers and revision must be valid.")
+    origin = group.rejection_origin_status
+    if group.status is not ImageSelectionGroupStatus.REJECTED_BY_USER or origin not in {
+        ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.RANGE_REQUIRED,
+    }:
+        raise ImageSelectionConflictError(
+            "IMAGE_SELECTION_GROUP_NOT_RESTORABLE",
+            "Only a user-rejected review group can be restored.",
+        )
+    payload = {
+        "groupId": str(group.id),
+        "resolution": ImageSelectionManualResolution.RESTORED_GROUP.value,
+        "runId": str(group.run_id),
+    }
+    payload_sha256 = hashlib.sha256(
+        json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    now = created_at or datetime.now(UTC)
+    updated_group = replace(
+        group,
+        status=origin,
+        rejection_origin_status=None,
+        updated_at=now,
+    )
+    return updated_group, ImageSelectionManualDecision(
+        idempotency_key=idempotency_key,
+        run_id=group.run_id,
+        group_id=group.id,
+        candidate_id=None,
+        resolution=ImageSelectionManualResolution.RESTORED_GROUP,
+        range_start=group.range_start,
+        range_end=group.range_end,
+        revision=revision,
+        payload_sha256=payload_sha256,
+        created_at=now,
+    )
+
+
 def validate_sha256(value: str, *, field: str) -> str:
     normalized = value.strip()
     if _SHA256_PATTERN.fullmatch(normalized) is None:
@@ -526,9 +708,12 @@ __all__ = [
     "ImageSelectionNotFoundError",
     "ImageSelectionRun",
     "create_duplicate_range_decision",
+    "create_group_rejection_decision",
+    "create_group_restore_decision",
     "create_image_selection_run",
     "create_manual_decision",
     "create_missing_image_decision",
+    "create_range_confirmation_decision",
     "record_image_selection_output",
     "safe_relative_path",
     "validate_candidate",

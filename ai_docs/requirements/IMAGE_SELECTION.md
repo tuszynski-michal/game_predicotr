@@ -487,3 +487,24 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   brak dekodowalnego JPEG-a i błąd techniczny.
 - Bramka v10.5 wymaga minimum 95% grup ze znanym zakresem, maksimum 35% grup
   manualnych i projekcji pełnego przebiegu 42 403 zdjęć do pięciu godzin.
+
+### Rozdzielone kolejki review i odrzucenie — 2026-08-11
+
+- `manual_required` oznacza wyłącznie znany zakres bez bezpiecznego
+  reprezentanta. Taka grupa trafia do akcji `Wybierz zdjęcie`.
+- `range_required` oznacza wybrany automatycznie, wystarczająco czytelny JPEG,
+  dla którego nie rozpoznano zakresu. Taka grupa trafia do osobnej akcji
+  `Ustal grupę`; użytkownik wpisuje zakres, ale nie wybiera ponownie zdjęcia.
+- `skipped_unreadable` jest terminalnym wynikiem dla grupy złożonej wyłącznie z
+  bardzo rozmazanych, zasłoniętych lub niewidocznych obrazów. Nie trafia do
+  żadnej kolejki i nie tworzy pliku wynikowego.
+- Użytkownik może odrzucić element z obu kolejek. `rejected_by_user` nie tworzy
+  pliku, nie blokuje publikacji i zachowuje źródłowy stan
+  `manual_required | range_required`, aby akcja `Przywróć do kolejki`
+  odtwarzała dokładny poprzedni etap.
+- Potwierdzenie zakresu zachowuje automatycznie wybrany JPEG, przechodzi do
+  `range_confirmed` i podlega tej samej kontroli unikalności zakresu co wybór
+  automatyczny lub manualny.
+- Potwierdzenie zakresu, odrzucenie i przywrócenie są idempotentne i zapisują
+  append-only decyzję. Odrzucenie/przywrócenie nie wymaga dostępu do katalogu
+  wynikowego; operacja tworząca wybrany JPEG nadal wymaga trwałego zapisu.

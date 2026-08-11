@@ -22,6 +22,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
+    ImageSelectionManualResolution,
     ImageSelectionRun,
     ImageSelectionSequenceDirection,
     safe_relative_path,
@@ -243,15 +244,18 @@ class MemoryImageSelectionRepository:
         for index, candidate in enumerate(self.candidates):
             if candidate.run_id != group.run_id or candidate.group_id != group.id:
                 continue
-            expected = (
-                ImageSelectionCandidateDecision.SELECTED_MANUAL
-                if candidate.id == decision.candidate_id
-                else (
-                    ImageSelectionCandidateDecision.ELIGIBLE
-                    if candidate.decision is ImageSelectionCandidateDecision.SELECTED_MANUAL
-                    else candidate.decision
+            expected = candidate.decision
+            if decision.resolution is ImageSelectionManualResolution.SELECTED_IMAGE:
+                expected = (
+                    ImageSelectionCandidateDecision.SELECTED_MANUAL
+                    if candidate.id == decision.candidate_id
+                    else (
+                        ImageSelectionCandidateDecision.ELIGIBLE
+                        if candidate.decision
+                        is ImageSelectionCandidateDecision.SELECTED_MANUAL
+                        else candidate.decision
+                    )
                 )
-            )
             self.candidates[index] = ImageSelectionCandidate(
                 id=candidate.id,
                 run_id=candidate.run_id,
@@ -875,6 +879,123 @@ def test_manual_group_cannot_be_discarded_without_an_existing_range_owner() -> N
     assert rejected.json()["code"] == "IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND"
     assert repository.groups[0].status is ImageSelectionGroupStatus.MANUAL_REQUIRED
     assert repository.manual_decisions == []
+
+
+def test_range_queue_confirms_automatic_representative_without_reselecting_image() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="b" * 64,
+        selector_fingerprint="c" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(
+            run.job,
+            status=JobStatus.WAITING_FOR_REVIEW,
+            stage="image_selection:range_review",
+            review_count=1,
+        ),
+    )
+    group = _group(run.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    candidate = replace(
+        _manual_candidate(run.id, group.id, 0),
+        decision=ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+    )
+    group = replace(group, selected_candidate_id=candidate.id)
+    repository.groups.append(group)
+    repository.candidates.append(candidate)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    command = {
+        "idempotencyKey": str(uuid4()),
+        "rangeStart": 55,
+        "rangeEnd": 63,
+    }
+
+    with client:
+        confirmed = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/confirm-range",
+            json=command,
+        )
+        replay = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/confirm-range",
+            json=command,
+        )
+
+    assert confirmed.status_code == 200, confirmed.text
+    assert replay.json() == confirmed.json()
+    assert confirmed.json()["group"]["status"] == "range_confirmed"
+    assert confirmed.json()["group"]["selectedCandidateId"] == str(candidate.id)
+    assert confirmed.json()["decision"]["resolution"] == "range_confirmed"
+    assert repository.candidates[0].decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+    assert repository.get_run(run.id).job.status is JobStatus.CREATED
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        ImageSelectionGroupStatus.MANUAL_REQUIRED,
+        ImageSelectionGroupStatus.RANGE_REQUIRED,
+    ],
+)
+def test_review_group_rejection_is_audited_and_restorable(
+    origin: ImageSelectionGroupStatus,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _created = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="9" * 64,
+        selector_fingerprint="8" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW, review_count=1),
+    )
+    group = _group(run.id, 0, status=origin)
+    if origin is ImageSelectionGroupStatus.RANGE_REQUIRED:
+        candidate = replace(
+            _manual_candidate(run.id, group.id, 0),
+            decision=ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+        )
+        repository.candidates.append(candidate)
+        group = replace(group, selected_candidate_id=candidate.id)
+    repository.groups.append(group)
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+
+    with client:
+        rejected = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/reject",
+            json={"idempotencyKey": str(uuid4())},
+        )
+        restored = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/restore",
+            json={"idempotencyKey": str(uuid4())},
+        )
+
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["group"]["status"] == "rejected_by_user"
+    assert rejected.json()["group"]["rejectionOriginStatus"] == origin.value
+    assert rejected.json()["decision"]["resolution"] == "rejected_group"
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["group"]["status"] == origin.value
+    assert restored.json()["group"]["rejectionOriginStatus"] is None
+    assert restored.json()["decision"]["resolution"] == "restored_group"
 
 
 def test_domain_rejects_unsafe_paths_and_invalid_ranges() -> None:

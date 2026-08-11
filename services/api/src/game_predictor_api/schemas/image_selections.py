@@ -104,6 +104,7 @@ class ImageSelectionGroupResponse(ApiModel):
     board_count_consensus: int | None = Field(default=None, ge=1, le=9)
     status: ImageSelectionGroupStatus
     selected_candidate_id: UUID | None
+    rejection_origin_status: ImageSelectionGroupStatus | None
     created_at: datetime
     updated_at: datetime
 
@@ -151,6 +152,16 @@ class ImageSelectionDuplicateRangeCommand(ApiModel):
     idempotency_key: UUID
     range_start: int = Field(ge=1)
     range_end: int = Field(ge=1)
+
+
+class ImageSelectionRangeConfirmationCommand(ApiModel):
+    idempotency_key: UUID
+    range_start: int = Field(ge=1)
+    range_end: int = Field(ge=1)
+
+
+class ImageSelectionGroupDecisionCommand(ApiModel):
+    idempotency_key: UUID
 
 
 class ImageSelectionManualDecisionResponse(ApiModel):
@@ -208,6 +219,7 @@ def to_image_selection_group_response(
         board_count_consensus=group.board_count_consensus,
         status=group.status,
         selected_candidate_id=group.selected_candidate_id,
+        rejection_origin_status=group.rejection_origin_status,
         created_at=group.created_at,
         updated_at=group.updated_at,
     )
@@ -282,6 +294,7 @@ __all__ = [
     "ImageSelectionCreateResponse",
     "ImageSelectionCandidateResponse",
     "ImageSelectionGroupPageResponse",
+    "ImageSelectionGroupDecisionCommand",
     "ImageSelectionGroupCandidatesResponse",
     "ImageSelectionGroupResponse",
     "ImageSelectionRunResponse",
@@ -295,6 +308,7 @@ __all__ = [
     "ImageSelectionMissingImageCommand",
     "ImageSelectionOutputFileResponse",
     "ImageSelectionOutputResponse",
+    "ImageSelectionRangeConfirmationCommand",
     "to_image_selection_candidate_response",
     "to_image_selection_group_candidates_response",
     "to_image_selection_group_page_response",

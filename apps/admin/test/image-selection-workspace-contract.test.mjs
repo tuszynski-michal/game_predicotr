@@ -181,6 +181,18 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
   );
 });
 
+test('separates image choice from range choice and supports reversible rejection', () => {
+  assert.match(workspaceSource, /Wybierz zdjęcie/);
+  assert.match(workspaceSource, /Ustal grupę/);
+  assert.match(workspaceSource, /mode="range"/);
+  assert.match(workspaceSource, /mode="rejected"/);
+  assert.match(manualModalSource, /confirmImageSelectionGroupRange/);
+  assert.match(manualModalSource, /rejectImageSelectionReviewGroup/);
+  assert.match(manualModalSource, /restoreRejectedImageSelectionGroup/);
+  assert.match(manualModalSource, /Odrzuć grupę/);
+  assert.match(manualModalSource, /Przywróć do kolejki/);
+});
+
 test('manual fallback exposes compact accessible controls and visible focus', () => {
   assert.match(manualModalSource, /aria-modal="true"/);
   assert.match(manualModalSource, /role="dialog"/);

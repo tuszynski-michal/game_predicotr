@@ -5,6 +5,7 @@ import {
   continueWithAutomaticallySelectedImages,
   loadAutomaticallySelectedImageSelectionGroups,
   loadImageSelectionGroupsAfter,
+  loadImageSelectionReviewQueues,
   loadManualImageSelectionGroups,
   orderImageSelectionFiles,
   saveFinalizedImageSelectionGroups,
@@ -243,6 +244,46 @@ test('loads the bounded group cursor and keeps only manual queue items', async (
   assert.deepEqual(
     result.map((group) => group.id),
     ['pending', 'approved', 'missing'],
+  );
+});
+
+test('splits representative, range and rejected review queues', async () => {
+  const statuses = [
+    'manual_required',
+    'range_required',
+    'range_confirmed',
+    'rejected_by_user',
+    'skipped_unreadable',
+  ];
+  const queues = await loadImageSelectionReviewQueues(
+    {
+      listImageSelectionGroups: async () => ({
+        data: {
+          items: statuses.map((status, groupOrder) => ({
+            groupOrder,
+            id: status,
+            rangeEnd: null,
+            rangeStart: null,
+            status,
+          })),
+          nextAfterGroupOrder: null,
+        },
+      }),
+    },
+    'run-1',
+  );
+
+  assert.deepEqual(
+    queues.representative.map((group) => group.id),
+    ['manual_required'],
+  );
+  assert.deepEqual(
+    queues.range.map((group) => group.id),
+    ['range_required', 'range_confirmed'],
+  );
+  assert.deepEqual(
+    queues.rejected.map((group) => group.id),
+    ['rejected_by_user'],
   );
 });
 

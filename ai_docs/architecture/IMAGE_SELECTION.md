@@ -818,6 +818,25 @@ Resolver fingerprintów przechowuje v10.4 i starsze manifesty. Odpowiedź runu
 zawiera `selectorVersion` obliczane przez backend z fingerprintu. Nie wymaga to
 migracji bazy ani mapowania wersji w frontendzie.
 
+## Architektura rozdzielonych kolejek review
+
+Projekcja grupy rozdziela dwie niezależne niepewności. Brak bezpiecznego JPEG-a
+przy znanym zakresie ma stan `manual_required`; bezpieczny automatyczny JPEG bez
+zakresu ma stan `range_required`. Dzięki temu użytkownik nie wykonuje ponownie
+wyboru obrazu tylko dlatego, że OCR etykiet nie podał numerów.
+
+Potwierdzenie zakresu nie zmienia `selected_automatic` kandydata i ustawia
+`range_confirmed`. Odrzucenie z obu kolejek ustawia `rejected_by_user` oraz
+`rejection_origin_status`; przywrócenie kasuje pochodzenie i odtwarza dokładnie
+`manual_required` albo `range_required`. Decyzje `range_confirmed`,
+`rejected_group` i `restored_group` są niezmiennymi wpisami audytu.
+
+Admin pobiera grupy jednym stronicowanym przebiegiem i dzieli je lokalnie na
+trzy listy: reprezentant, zakres i odrzucone. `skipped_unreadable` nie pojawia
+się w żadnym modalu. Zapis do File System Access API jest wymagany tylko po
+decyzji tworzącej wybrany output (`manually_selected` albo `range_confirmed`),
+nie przy odrzucaniu lub przywracaniu samego stanu grupy.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

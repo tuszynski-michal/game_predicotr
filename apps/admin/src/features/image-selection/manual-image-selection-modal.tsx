@@ -25,7 +25,7 @@ interface ManualImageSelectionModalProps {
   readonly apiBaseUrl: string;
   readonly client: ImageSelectionClient;
   readonly groups: readonly ImageSelectionGroupResponse[];
-  readonly mode?: 'manual' | 'automatic-verification';
+  readonly mode?: 'manual' | 'range' | 'rejected' | 'automatic-verification';
   readonly onClose: () => void;
   readonly onGroupUpdated: (
     group: ImageSelectionGroupResponse,
@@ -65,12 +65,14 @@ export function ManualImageSelectionModal({
   runId,
 }: ManualImageSelectionModalProps) {
   const verificationMode = mode === 'automatic-verification';
+  const rangeMode = mode === 'range';
+  const rejectedMode = mode === 'rejected';
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const approvalInFlightRef = useRef(false);
   const objectUrlsRef = useRef(new Set<string>());
   const sourceRequestsRef = useRef(new Set<string>());
-  const [index, setIndex] = useState(() => firstPendingIndex(groups));
+  const [index, setIndex] = useState(() => firstPendingIndex(groups, mode));
   const [drafts, setDrafts] = useState<Record<string, ManualDraft>>(() =>
     buildInitialDrafts(apiBaseUrl, runId, groups),
   );
@@ -90,17 +92,17 @@ export function ManualImageSelectionModal({
     current === undefined ? undefined : sourceSummaries[current.id];
   const decisionCounts = useMemo(() => {
     const selected = groups.filter(
-      (group) => group.status === 'manually_selected',
+      (group) => !isPendingGroup(group, mode),
     ).length;
     const skipped = groups.filter(
       (group) => group.status === 'missing_image',
     ).length;
     return {
-      remaining: groups.length - selected - skipped,
+      remaining: groups.filter((group) => isPendingGroup(group, mode)).length,
       selected,
       skipped,
     };
-  }, [groups]);
+  }, [groups, mode]);
 
   useEffect(() => {
     const objectUrls = objectUrlsRef.current;
@@ -208,7 +210,14 @@ export function ManualImageSelectionModal({
   }
 
   function chooseCandidate(candidateId: string, fileName: string) {
-    if (current === undefined || uploading || approving) return;
+    if (
+      current === undefined ||
+      uploading ||
+      approving ||
+      rangeMode ||
+      rejectedMode
+    )
+      return;
     const previousUrl = drafts[current.id]?.previewUrl ?? '';
     if (previousUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previousUrl);
@@ -226,7 +235,14 @@ export function ManualImageSelectionModal({
     const input = event.currentTarget;
     const file = input.files?.[0];
     input.value = '';
-    if (verificationMode || current === undefined || file === undefined) return;
+    if (
+      verificationMode ||
+      rangeMode ||
+      rejectedMode ||
+      current === undefined ||
+      file === undefined
+    )
+      return;
     if (
       !/\.jpe?g$/i.test(file.name) ||
       !['image/jpeg', ''].includes(file.type)
@@ -282,6 +298,10 @@ export function ManualImageSelectionModal({
       currentDraft === undefined ||
       approvalInFlightRef.current
     ) {
+      return;
+    }
+    if (rejectedMode) {
+      await restoreCurrent();
       return;
     }
     const defaultCandidate =
@@ -355,8 +375,13 @@ export function ManualImageSelectionModal({
     setApproving(true);
     setError('');
     try {
-      const result =
-        draftForApproval.candidateId === null
+      const result = rangeMode
+        ? await client.confirmImageSelectionGroupRange(runId, current.id, {
+            idempotencyKey,
+            rangeEnd: rangeEnd as number,
+            rangeStart: rangeStart as number,
+          })
+        : draftForApproval.candidateId === null
           ? await client.continueImageSelectionWithoutImage(runId, current.id, {
               idempotencyKey,
               ...(rangeEnd === null ? {} : { rangeEnd }),
@@ -452,6 +477,66 @@ export function ManualImageSelectionModal({
     }
   }
 
+  async function rejectCurrent() {
+    if (
+      verificationMode ||
+      rejectedMode ||
+      current === undefined ||
+      !isPendingGroup(current, mode) ||
+      approvalInFlightRef.current
+    )
+      return;
+    approvalInFlightRef.current = true;
+    setApproving(true);
+    setError('');
+    try {
+      const result = await client.rejectImageSelectionReviewGroup(
+        runId,
+        current.id,
+        { idempotencyKey: window.crypto.randomUUID() },
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(result.error, 'Nie udało się odrzucić tej grupy.'),
+        );
+        return;
+      }
+      await handleApproval(result.data);
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      approvalInFlightRef.current = false;
+      setApproving(false);
+    }
+  }
+
+  async function restoreCurrent() {
+    if (!rejectedMode || current === undefined || approvalInFlightRef.current)
+      return;
+    approvalInFlightRef.current = true;
+    setApproving(true);
+    setError('');
+    try {
+      const result = await client.restoreRejectedImageSelectionGroup(
+        runId,
+        current.id,
+        { idempotencyKey: window.crypto.randomUUID() },
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(result.error, 'Nie udało się przywrócić tej grupy.'),
+        );
+        return;
+      }
+      await handleApproval(result.data);
+    } catch {
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      approvalInFlightRef.current = false;
+      setApproving(false);
+    }
+  }
+
   async function handleApproval(
     result: ImageSelectionManualApprovalResponse,
   ): Promise<void> {
@@ -471,16 +556,23 @@ export function ManualImageSelectionModal({
       rangeStart:
         result.group.rangeStart === null ? '' : String(result.group.rangeStart),
     });
-    const discarded = result.group.status === 'skipped_existing_range';
-    const remainingGroups = discarded
+    const removedFromQueue =
+      result.group.status === 'skipped_existing_range' ||
+      result.group.status === 'rejected_by_user' ||
+      rejectedMode;
+    const remainingGroups = removedFromQueue
       ? groups.filter((group) => group.id !== result.group.id)
       : groups;
     if (remainingGroups.length === 0) {
       onClose();
       return;
     }
-    if (discarded) {
-      const nextPendingId = findNextPendingGroupId(groups, result.group.id);
+    if (removedFromQueue) {
+      const nextPendingId = findNextPendingGroupId(
+        groups,
+        result.group.id,
+        mode,
+      );
       const nextIndex = remainingGroups.findIndex(
         (group) => group.id === nextPendingId,
       );
@@ -492,8 +584,7 @@ export function ManualImageSelectionModal({
         nextUnresolvedManualIndex(
           groups.map(
             (group) =>
-              group.id !== result.group.id &&
-              group.status === 'manual_required',
+              group.id !== result.group.id && isPendingGroup(group, mode),
           ),
           value,
         ),
@@ -572,6 +663,12 @@ export function ManualImageSelectionModal({
                 <>
                   Kontrola wyborów algorytmu · {index + 1} / {groups.length}
                 </>
+              ) : rangeMode ? (
+                <>Ustalanie grupy · pozostało: {decisionCounts.remaining}</>
+              ) : rejectedMode ? (
+                <>
+                  Odrzucone grupy · {index + 1} / {groups.length}
+                </>
               ) : (
                 <>
                   Wybrane: {decisionCounts.selected} · pominięte:{' '}
@@ -587,7 +684,11 @@ export function ManualImageSelectionModal({
             aria-label={
               verificationMode
                 ? 'Nawigacja między automatycznymi wyborami'
-                : 'Nawigacja między wyjątkami'
+                : rangeMode
+                  ? 'Nawigacja między grupami bez rozpoznanego zakresu'
+                  : rejectedMode
+                    ? 'Nawigacja między odrzuconymi grupami'
+                    : 'Nawigacja między wyjątkami'
             }
           >
             <button
@@ -643,19 +744,31 @@ export function ManualImageSelectionModal({
           >
             {verificationMode
               ? 'Następna grupa'
-              : approving
-                ? 'Zapisywanie…'
-                : duplicateRangeConflict?.groupId === current.id
-                  ? 'Odrzuć duplikat i dalej'
-                  : currentDraft.candidateId === null
-                    ? 'Pomiń'
-                    : 'Zatwierdź'}
+              : rejectedMode
+                ? approving
+                  ? 'Przywracanie…'
+                  : 'Przywróć do kolejki'
+                : rangeMode
+                  ? approving
+                    ? 'Zapisywanie…'
+                    : 'Zatwierdź zakres'
+                  : approving
+                    ? 'Zapisywanie…'
+                    : duplicateRangeConflict?.groupId === current.id
+                      ? 'Odrzuć duplikat i dalej'
+                      : currentDraft.candidateId === null
+                        ? 'Pomiń'
+                        : 'Zatwierdź'}
           </button>
           <button
             aria-label={
               verificationMode
                 ? 'Zamknij kontrolę wyborów algorytmu'
-                : 'Zamknij ręczną selekcję'
+                : rangeMode
+                  ? 'Zamknij ustalanie grup'
+                  : rejectedMode
+                    ? 'Zamknij listę odrzuconych grup'
+                    : 'Zamknij ręczną selekcję'
             }
             className="secondaryButton"
             disabled={approving || uploading}
@@ -755,13 +868,14 @@ export function ManualImageSelectionModal({
                   className={[
                     'manualSelectionCandidate',
                     selected ? 'manualSelectionCandidateSelected' : '',
-                    verificationMode && selectedByAlgorithm
+                    (verificationMode || rangeMode) && selectedByAlgorithm
                       ? 'manualSelectionCandidateAlgorithm'
                       : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
                   key={candidate.id}
+                  disabled={rangeMode || rejectedMode}
                   onClick={() =>
                     chooseCandidate(candidate.id, candidate.displayName)
                   }
@@ -770,7 +884,7 @@ export function ManualImageSelectionModal({
                     event.preventDefault();
                     event.stopPropagation();
                     chooseCandidate(candidate.id, candidate.displayName);
-                    if (!verificationMode) {
+                    if (!verificationMode && !rangeMode && !rejectedMode) {
                       void approveCurrent({
                         candidateId: candidate.id,
                         fileName: candidate.displayName,
@@ -788,7 +902,7 @@ export function ManualImageSelectionModal({
                   <span title={candidate.displayName}>
                     {candidate.displayName}
                   </span>
-                  {verificationMode && selectedByAlgorithm ? (
+                  {(verificationMode || rangeMode) && selectedByAlgorithm ? (
                     <strong className="manualSelectionAlgorithmBadge">
                       Wybór algorytmu
                     </strong>
@@ -811,6 +925,66 @@ export function ManualImageSelectionModal({
                 </p>
                 <p>← wraca · → lub Enter przechodzi do następnej grupy</p>
               </>
+            ) : rejectedMode ? (
+              <>
+                <strong>Grupa odrzucona przez użytkownika</strong>
+                <p>
+                  Przywrócenie przeniesie ją z powrotem dokładnie do kolejki
+                  wyboru zdjęcia albo ustalania grupy.
+                </p>
+                <p>← wraca · → lub Enter przywraca grupę</p>
+              </>
+            ) : rangeMode ? (
+              <>
+                <strong>Automatyczne zdjęcie pozostaje wybrane</strong>
+                <span className="manualSelectionFileName">
+                  {algorithmCandidate?.displayName ?? currentDraft.fileName}
+                </span>
+                <label>
+                  Początek zakresu
+                  <input
+                    inputMode="numeric"
+                    min={1}
+                    onChange={(event) =>
+                      updateRangeDraft(
+                        current.id,
+                        'rangeStart',
+                        event.target.value,
+                      )
+                    }
+                    type="number"
+                    value={currentDraft.rangeStart}
+                  />
+                </label>
+                <label>
+                  Koniec zakresu
+                  <input
+                    inputMode="numeric"
+                    min={1}
+                    onChange={(event) =>
+                      updateRangeDraft(
+                        current.id,
+                        'rangeEnd',
+                        event.target.value,
+                      )
+                    }
+                    type="number"
+                    value={currentDraft.rangeEnd}
+                  />
+                </label>
+                {current.status === 'range_required' ? (
+                  <button
+                    className="dangerButton"
+                    disabled={uploading || approving}
+                    onClick={() => void rejectCurrent()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    type="button"
+                  >
+                    Odrzuć grupę
+                  </button>
+                ) : null}
+                <p>← wraca · → lub Enter zatwierdza zakres i idzie dalej</p>
+              </>
             ) : (
               <>
                 <input
@@ -828,6 +1002,17 @@ export function ManualImageSelectionModal({
                 >
                   {uploading ? 'Kopiowanie…' : 'Dodaj opcjonalne zdjęcie'}
                 </button>
+                {current.status === 'manual_required' ? (
+                  <button
+                    className="dangerButton"
+                    disabled={uploading || approving}
+                    onClick={() => void rejectCurrent()}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    type="button"
+                  >
+                    Odrzuć grupę
+                  </button>
+                ) : null}
                 {current.status === 'manual_required' && hasDisplayedRange ? (
                   <button
                     className="secondaryButton"
@@ -1025,19 +1210,33 @@ function candidateFileUrl(
 
 function firstPendingIndex(
   groups: readonly ImageSelectionGroupResponse[],
+  mode: NonNullable<ManualImageSelectionModalProps['mode']>,
 ): number {
-  const index = groups.findIndex((group) => group.status === 'manual_required');
+  const index = groups.findIndex((group) => isPendingGroup(group, mode));
   return index < 0 ? 0 : index;
 }
 
 function findNextPendingGroupId(
   groups: readonly ImageSelectionGroupResponse[],
   currentGroupId: string,
+  mode: NonNullable<ManualImageSelectionModalProps['mode']>,
 ): string | null {
   const currentIndex = groups.findIndex((group) => group.id === currentGroupId);
   for (let offset = 1; offset < groups.length; offset += 1) {
     const candidate = groups[(currentIndex + offset) % groups.length];
-    if (candidate?.status === 'manual_required') return candidate.id;
+    if (candidate !== undefined && isPendingGroup(candidate, mode)) {
+      return candidate.id;
+    }
   }
   return null;
+}
+
+function isPendingGroup(
+  group: ImageSelectionGroupResponse,
+  mode: NonNullable<ManualImageSelectionModalProps['mode']>,
+): boolean {
+  if (mode === 'range') return group.status === 'range_required';
+  if (mode === 'rejected') return group.status === 'rejected_by_user';
+  if (mode === 'automatic-verification') return true;
+  return group.status === 'manual_required';
 }

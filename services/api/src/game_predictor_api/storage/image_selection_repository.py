@@ -221,6 +221,11 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             fingerprint_sha256=group.fingerprint_sha256,
             board_count_consensus=group.board_count_consensus,
             status=group.status.value,
+            rejection_origin_status=(
+                None
+                if group.rejection_origin_status is None
+                else group.rejection_origin_status.value
+            ),
             created_at=group.created_at,
             updated_at=group.updated_at,
         )
@@ -388,31 +393,37 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 "IMAGE_SELECTION_GROUP_NOT_FOUND",
                 "Image-selection group no longer exists.",
             )
-        self._session.execute(
-            update(ImageSelectionCandidateModel)
-            .where(
-                ImageSelectionCandidateModel.run_id == group.run_id,
-                ImageSelectionCandidateModel.group_id == group.id,
-                ImageSelectionCandidateModel.decision
-                == ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+        if decision.resolution is ImageSelectionManualResolution.SELECTED_IMAGE:
+            self._session.execute(
+                update(ImageSelectionCandidateModel)
+                .where(
+                    ImageSelectionCandidateModel.run_id == group.run_id,
+                    ImageSelectionCandidateModel.group_id == group.id,
+                    ImageSelectionCandidateModel.decision
+                    == ImageSelectionCandidateDecision.SELECTED_MANUAL.value,
+                )
+                .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
             )
-            .values(decision=ImageSelectionCandidateDecision.ELIGIBLE.value)
-        )
         selected = (
             None
             if decision.candidate_id is None
             else self._session.get(ImageSelectionCandidateModel, decision.candidate_id)
         )
-        if decision.resolution is ImageSelectionManualResolution.SELECTED_IMAGE:
+        if decision.resolution in {
+            ImageSelectionManualResolution.SELECTED_IMAGE,
+            ImageSelectionManualResolution.RANGE_CONFIRMED,
+        }:
             if selected is None or selected.run_id != group.run_id or selected.group_id != group.id:
                 raise ImageSelectionConflictError(
                     "IMAGE_SELECTION_CANDIDATE_MISMATCH",
                     "The selected JPEG no longer belongs to this group.",
                 )
-            selected.decision = ImageSelectionCandidateDecision.SELECTED_MANUAL
+            if decision.resolution is ImageSelectionManualResolution.SELECTED_IMAGE:
+                selected.decision = ImageSelectionCandidateDecision.SELECTED_MANUAL
         record.range_start = group.range_start
         record.range_end = group.range_end
         record.status = group.status
+        record.rejection_origin_status = group.rejection_origin_status
         record.updated_at = group.updated_at
         event = ImageSelectionManualDecisionModel(
             idempotency_key=decision.idempotency_key,
@@ -486,6 +497,11 @@ def _group_from_record(
         selected_candidate_id=selected_candidate_id,
         created_at=record.created_at,
         updated_at=record.updated_at,
+        rejection_origin_status=(
+            None
+            if record.rejection_origin_status is None
+            else ImageSelectionGroupStatus(record.rejection_origin_status)
+        ),
     )
 
 

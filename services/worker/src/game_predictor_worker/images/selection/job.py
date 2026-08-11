@@ -267,7 +267,14 @@ class ImageSelectionJobHandler:
             raise JobHandlerError(error.code, str(error)) from error
 
         try:
-            if any(group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in result.groups):
+            if any(
+                group.status
+                in {
+                    SelectionGroupStatus.MANUAL_REQUIRED,
+                    SelectionGroupStatus.RANGE_REQUIRED,
+                }
+                for group in result.groups
+            ):
                 sink.write_diagnostics(result)
                 sink.checkpoint_stage(
                     result.checkpoint,
@@ -558,7 +565,12 @@ class _DurableSelectionSink(SelectionAuditSink):
             "fileCount": result.input_count,
             "groupCount": len(result.groups),
             "manualCount": sum(
-                group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in result.groups
+                group.status
+                in {
+                    SelectionGroupStatus.MANUAL_REQUIRED,
+                    SelectionGroupStatus.RANGE_REQUIRED,
+                }
+                for group in result.groups
             ),
             "missingImageRanges": [
                 {"rangeEnd": group.range.end, "rangeStart": group.range.start}
@@ -573,6 +585,7 @@ class _DurableSelectionSink(SelectionAuditSink):
                 in {
                     SelectionGroupStatus.AUTO_SELECTED,
                     SelectionGroupStatus.MANUALLY_SELECTED,
+                    SelectionGroupStatus.RANGE_CONFIRMED,
                 }
                 for group in result.groups
             ),
@@ -623,10 +636,18 @@ class _DurableSelectionSink(SelectionAuditSink):
             in {
                 SelectionGroupStatus.AUTO_SELECTED,
                 SelectionGroupStatus.MANUALLY_SELECTED,
+                SelectionGroupStatus.RANGE_CONFIRMED,
             }
             for group in groups
         )
-        manual = sum(group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups)
+        manual = sum(
+            group.status
+            in {
+                SelectionGroupStatus.MANUAL_REQUIRED,
+                SelectionGroupStatus.RANGE_REQUIRED,
+            }
+            for group in groups
+        )
         missing = sum(group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups)
         checkpoint_now = self._context.now()
         window_advanced = state.checkpoint.processed_count > self._window_processed_count
@@ -656,7 +677,13 @@ class _DurableSelectionSink(SelectionAuditSink):
             "manual_count": manual,
             "missing_image_count": missing,
             "skipped_count": sum(
-                group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE for group in groups
+                group.status
+                in {
+                    SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                    SelectionGroupStatus.SKIPPED_UNREADABLE,
+                    SelectionGroupStatus.REJECTED_BY_USER,
+                }
+                for group in groups
             ),
             "error_count": state.scan_failure_count,
             "verification_count": state.verification_count,
@@ -825,9 +852,13 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         if ImageSelectionGroupStatus(record.status) in {
             ImageSelectionGroupStatus.MANUALLY_SELECTED,
             ImageSelectionGroupStatus.MISSING_IMAGE,
+            ImageSelectionGroupStatus.RANGE_CONFIRMED,
+            ImageSelectionGroupStatus.REJECTED_BY_USER,
         } and group.status not in {
             SelectionGroupStatus.MANUALLY_SELECTED,
             SelectionGroupStatus.MISSING_IMAGE,
+            SelectionGroupStatus.RANGE_CONFIRMED,
+            SelectionGroupStatus.REJECTED_BY_USER,
         }:
             return group_id
         record.range_start = None if group.range is None else group.range.start
@@ -835,6 +866,8 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         record.fingerprint_sha256 = group.fingerprint_sha256
         record.board_count_consensus = group.board_count_consensus
         record.status = ImageSelectionGroupStatus(group.status.value)
+        if group.status is not SelectionGroupStatus.REJECTED_BY_USER:
+            record.rejection_origin_status = None
         record.updated_at = persisted_at
         session.execute(
             update(ImageSelectionCandidateModel)

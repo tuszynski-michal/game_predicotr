@@ -514,11 +514,15 @@ class FastImageSelector:
                 in {
                     SelectionGroupStatus.AUTO_SELECTED,
                     SelectionGroupStatus.MANUALLY_SELECTED,
+                    SelectionGroupStatus.RANGE_CONFIRMED,
                 }
                 and group.range is not None
             ):
                 completed_ranges[(group.range.start, group.range.end)] = group.group_order
-            elif group.status is SelectionGroupStatus.MANUAL_REQUIRED:
+            elif group.status in {
+                SelectionGroupStatus.MANUAL_REQUIRED,
+                SelectionGroupStatus.RANGE_REQUIRED,
+            }:
                 if group.range is not None:
                     unresolved_ranges[(group.range.start, group.range.end)] = group.group_order
                 if group.reference_fingerprint_hex is not None:

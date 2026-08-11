@@ -1503,6 +1503,16 @@ export type ImageSelectionGroupCandidatesResponse = {
 };
 
 /**
+ * ImageSelectionGroupDecisionCommand
+ */
+export type ImageSelectionGroupDecisionCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
  * ImageSelectionGroupPageResponse
  */
 export type ImageSelectionGroupPageResponse = {
@@ -1548,6 +1558,7 @@ export type ImageSelectionGroupResponse = {
    * Rangestart
    */
   rangeStart?: number | null;
+  rejectionOriginStatus: ImageSelectionGroupStatus | null;
   /**
    * Runid
    */
@@ -1572,7 +1583,11 @@ export type ImageSelectionGroupStatus =
   | 'manual_required'
   | 'manually_selected'
   | 'missing_image'
-  | 'skipped_existing_range';
+  | 'skipped_existing_range'
+  | 'range_required'
+  | 'range_confirmed'
+  | 'skipped_unreadable'
+  | 'rejected_by_user';
 
 /**
  * ImageSelectionHandoffResponse
@@ -1803,7 +1818,12 @@ export type ImageSelectionManualFileResponse = {
  * ImageSelectionManualResolution
  */
 export type ImageSelectionManualResolution =
-  'selected_image' | 'missing_image' | 'duplicate_range';
+  | 'selected_image'
+  | 'missing_image'
+  | 'duplicate_range'
+  | 'range_confirmed'
+  | 'rejected_group'
+  | 'restored_group';
 
 /**
  * ImageSelectionMissingImageCommand
@@ -1883,6 +1903,24 @@ export type ImageSelectionOutputResponse = {
  * ImageSelectionPurpose
  */
 export type ImageSelectionPurpose = 'layout_import' | 'photo_selection';
+
+/**
+ * ImageSelectionRangeConfirmationCommand
+ */
+export type ImageSelectionRangeConfirmationCommand = {
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+};
 
 /**
  * ImageSelectionRecentWindowResponse
@@ -9281,6 +9319,54 @@ export type GetImageSelectionCandidateFileResponses = {
   200: unknown;
 };
 
+export type ConfirmImageSelectionGroupRangeData = {
+  body: ImageSelectionRangeConfirmationCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/confirm-range';
+};
+
+export type ConfirmImageSelectionGroupRangeErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ConfirmImageSelectionGroupRangeError =
+  ConfirmImageSelectionGroupRangeErrors[keyof ConfirmImageSelectionGroupRangeErrors];
+
+export type ConfirmImageSelectionGroupRangeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualApprovalResponse;
+};
+
+export type ConfirmImageSelectionGroupRangeResponse =
+  ConfirmImageSelectionGroupRangeResponses[keyof ConfirmImageSelectionGroupRangeResponses];
+
 export type ContinueImageSelectionWithoutImageData = {
   body: ImageSelectionMissingImageCommand;
   path: {
@@ -9478,6 +9564,102 @@ export type GetManualImageSelectionFileResponses = {
    */
   200: unknown;
 };
+
+export type RejectImageSelectionReviewGroupData = {
+  body: ImageSelectionGroupDecisionCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/reject';
+};
+
+export type RejectImageSelectionReviewGroupErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RejectImageSelectionReviewGroupError =
+  RejectImageSelectionReviewGroupErrors[keyof RejectImageSelectionReviewGroupErrors];
+
+export type RejectImageSelectionReviewGroupResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualApprovalResponse;
+};
+
+export type RejectImageSelectionReviewGroupResponse =
+  RejectImageSelectionReviewGroupResponses[keyof RejectImageSelectionReviewGroupResponses];
+
+export type RestoreRejectedImageSelectionGroupData = {
+  body: ImageSelectionGroupDecisionCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+    /**
+     * Group Id
+     */
+    group_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/restore';
+};
+
+export type RestoreRejectedImageSelectionGroupErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RestoreRejectedImageSelectionGroupError =
+  RestoreRejectedImageSelectionGroupErrors[keyof RestoreRejectedImageSelectionGroupErrors];
+
+export type RestoreRejectedImageSelectionGroupResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionManualApprovalResponse;
+};
+
+export type RestoreRejectedImageSelectionGroupResponse =
+  RestoreRejectedImageSelectionGroupResponses[keyof RestoreRejectedImageSelectionGroupResponses];
 
 export type GetImageSelectionSelectedGroupFileData = {
   body?: never;

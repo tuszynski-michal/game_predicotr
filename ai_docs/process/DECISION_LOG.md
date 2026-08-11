@@ -4171,6 +4171,29 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** doprecyzowuje politykę braku automatycznego cleanupu z
   TASK-0132 i wymagania retencji selekcji zdjęć.
 
+## D-173 — Niepewność reprezentanta i zakresu ma osobne kolejki
+
+- **Status:** accepted
+- **Date:** 2026-08-11
+- **Decision:** znany zakres bez bezpiecznego JPEG-a otrzymuje
+  `manual_required`, a bezpieczny automatyczny JPEG bez zakresu
+  `range_required`. Grupa całkowicie nieczytelna kończy się jako
+  `skipped_unreadable`. Użytkownik może odrzucić element obu kolejek i
+  przywrócić go do stanu zapisanego w `rejection_origin_status`.
+- **Context:** v10.5 kierowała do jednego modala zarówno problem wyboru obrazu,
+  jak i sam brak numerów. Użytkownik potrafił szybko ustalić zakres czytelnego
+  automatycznego zdjęcia, ale interfejs wymuszał ponowną decyzję o JPEG-ie.
+- **Reason:** rozdzielenie przyczyn ogranicza pracę manualną, nie osłabiając
+  unikalności zakresu ani trwałości wynikowego pliku.
+- **Alternatives:** jeden wspólny status i modal odrzucono jako nieprecyzyjny;
+  automatyczne zapisywanie całkowicie rozmazanych grup odrzucono jako
+  nieużyteczne dla późniejszego importu.
+- **Consequences:** statusy, migracja, API i audyt rozróżniają oba workflow.
+  Odrzucenie/przywrócenie nie dotyka folderu wynikowego; zatwierdzony obraz nadal
+  musi zostać zapisany przed przejściem dalej.
+- **Supersedes:** doprecyzowuje wspólną kolejkę manualną z D-129 oraz trwałość
+  eksportu z D-171.
+
 ## Szablon nowej decyzji
 
 ```text

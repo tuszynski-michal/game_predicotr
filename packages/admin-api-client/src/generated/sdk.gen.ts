@@ -45,6 +45,9 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  ConfirmImageSelectionGroupRangeData,
+  ConfirmImageSelectionGroupRangeErrors,
+  ConfirmImageSelectionGroupRangeResponses,
   ContinueImageSelectionWithoutImageData,
   ContinueImageSelectionWithoutImageErrors,
   ContinueImageSelectionWithoutImageResponses,
@@ -375,6 +378,9 @@ import type {
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
+  RejectImageSelectionReviewGroupData,
+  RejectImageSelectionReviewGroupErrors,
+  RejectImageSelectionReviewGroupResponses,
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
@@ -393,6 +399,9 @@ import type {
   ResolveSymbolBootstrapData,
   ResolveSymbolBootstrapErrors,
   ResolveSymbolBootstrapResponses,
+  RestoreRejectedImageSelectionGroupData,
+  RestoreRejectedImageSelectionGroupErrors,
+  RestoreRejectedImageSelectionGroupResponses,
   RetryImageJobFileData,
   RetryImageJobFileErrors,
   RetryImageJobFileResponses,
@@ -2170,6 +2179,32 @@ export const getImageSelectionCandidateFile = <
   });
 
 /**
+ * Confirm a range for one automatically represented group
+ */
+export const confirmImageSelectionGroupRange = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ConfirmImageSelectionGroupRangeData, ThrowOnError>,
+): RequestResult<
+  ConfirmImageSelectionGroupRangeResponses,
+  ConfirmImageSelectionGroupRangeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ConfirmImageSelectionGroupRangeResponses,
+    ConfirmImageSelectionGroupRangeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/confirm-range',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Resolve one review range without requiring a representative JPEG
  */
 export const continueImageSelectionWithoutImage = <
@@ -2267,6 +2302,58 @@ export const getManualImageSelectionFile = <
   >({
     url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-files/{candidate_id}',
     ...options,
+  });
+
+/**
+ * Reject one representative- or range-review group
+ */
+export const rejectImageSelectionReviewGroup = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RejectImageSelectionReviewGroupData, ThrowOnError>,
+): RequestResult<
+  RejectImageSelectionReviewGroupResponses,
+  RejectImageSelectionReviewGroupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RejectImageSelectionReviewGroupResponses,
+    RejectImageSelectionReviewGroupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/reject',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Restore one user-rejected group to its prior review queue
+ */
+export const restoreRejectedImageSelectionGroup = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RestoreRejectedImageSelectionGroupData, ThrowOnError>,
+): RequestResult<
+  RestoreRejectedImageSelectionGroupResponses,
+  RestoreRejectedImageSelectionGroupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RestoreRejectedImageSelectionGroupResponses,
+    RestoreRejectedImageSelectionGroupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/restore',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

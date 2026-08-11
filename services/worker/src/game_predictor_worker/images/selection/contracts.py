@@ -27,6 +27,10 @@ class SelectionGroupStatus(StrEnum):
     MANUALLY_SELECTED = "manually_selected"
     MISSING_IMAGE = "missing_image"
     SKIPPED_EXISTING_RANGE = "skipped_existing_range"
+    RANGE_REQUIRED = "range_required"
+    RANGE_CONFIRMED = "range_confirmed"
+    SKIPPED_UNREADABLE = "skipped_unreadable"
+    REJECTED_BY_USER = "rejected_by_user"
 
 
 class CandidateDecision(StrEnum):

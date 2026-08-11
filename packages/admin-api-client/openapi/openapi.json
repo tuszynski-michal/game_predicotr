@@ -2461,6 +2461,21 @@
         "title": "ImageSelectionGroupCandidatesResponse",
         "type": "object"
       },
+      "ImageSelectionGroupDecisionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey"
+        ],
+        "title": "ImageSelectionGroupDecisionCommand",
+        "type": "object"
+      },
       "ImageSelectionGroupPageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2557,6 +2572,16 @@
             ],
             "title": "Rangestart"
           },
+          "rejectionOriginStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageSelectionGroupStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "runId": {
             "format": "uuid",
             "title": "Runid",
@@ -2590,6 +2615,7 @@
           "fingerprintSha256",
           "status",
           "selectedCandidateId",
+          "rejectionOriginStatus",
           "createdAt",
           "updatedAt"
         ],
@@ -2603,7 +2629,11 @@
           "manual_required",
           "manually_selected",
           "missing_image",
-          "skipped_existing_range"
+          "skipped_existing_range",
+          "range_required",
+          "range_confirmed",
+          "skipped_unreadable",
+          "rejected_by_user"
         ],
         "title": "ImageSelectionGroupStatus",
         "type": "string"
@@ -3025,7 +3055,10 @@
         "enum": [
           "selected_image",
           "missing_image",
-          "duplicate_range"
+          "duplicate_range",
+          "range_confirmed",
+          "rejected_group",
+          "restored_group"
         ],
         "title": "ImageSelectionManualResolution",
         "type": "string"
@@ -3179,6 +3212,33 @@
         ],
         "title": "ImageSelectionPurpose",
         "type": "string"
+      },
+      "ImageSelectionRangeConfirmationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "rangeStart",
+          "rangeEnd"
+        ],
+        "title": "ImageSelectionRangeConfirmationCommand",
+        "type": "object"
       },
       "ImageSelectionRecentWindowResponse": {
         "additionalProperties": false,
@@ -16290,6 +16350,104 @@
         ]
       }
     },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/confirm-range": {
+      "post": {
+        "operationId": "confirmImageSelectionGroupRange",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionRangeConfirmationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Confirm a range for one automatically represented group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
     "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/continue-without-image": {
       "post": {
         "operationId": "continueImageSelectionWithoutImage",
@@ -16668,6 +16826,202 @@
           }
         },
         "summary": "Read one managed manual-review JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/reject": {
+      "post": {
+        "operationId": "rejectImageSelectionReviewGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionGroupDecisionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reject one representative- or range-review group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/restore": {
+      "post": {
+        "operationId": "restoreRejectedImageSelectionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionGroupDecisionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Restore one user-rejected group to its prior review queue",
         "tags": [
           "image-selections"
         ]

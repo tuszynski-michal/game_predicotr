@@ -23,6 +23,7 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionCreateResponse,
     ImageSelectionDuplicateRangeCommand,
     ImageSelectionGroupCandidatesResponse,
+    ImageSelectionGroupDecisionCommand,
     ImageSelectionGroupPageResponse,
     ImageSelectionHandoffResponse,
     ImageSelectionManualApprovalCommand,
@@ -31,6 +32,7 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionMissingImageCommand,
     ImageSelectionOutputFileResponse,
     ImageSelectionOutputResponse,
+    ImageSelectionRangeConfirmationCommand,
     ImageSelectionRerunCommand,
     ImageSelectionRunPageResponse,
     ImageSelectionRunResponse,
@@ -341,6 +343,77 @@ def create_image_selections_router(
         return ImageSelectionManualApprovalResponse(
             group=to_image_selection_group_response(discarded.group),
             decision=to_manual_decision_response(discarded.decision),
+        )
+
+    @router.post(
+        "/{run_id}/groups/{group_id}/confirm-range",
+        response_model=ImageSelectionManualApprovalResponse,
+        operation_id="confirmImageSelectionGroupRange",
+        summary="Confirm a range for one automatically represented group",
+        responses=ERROR_RESPONSES,
+    )
+    def confirm_image_selection_group_range(
+        run_id: UUID,
+        group_id: UUID,
+        payload: ImageSelectionRangeConfirmationCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualApprovalResponse:
+        confirmed = service.confirm_automatic_range(
+            run_id=run_id,
+            group_id=group_id,
+            idempotency_key=payload.idempotency_key,
+            range_start=payload.range_start,
+            range_end=payload.range_end,
+        )
+        return ImageSelectionManualApprovalResponse(
+            group=to_image_selection_group_response(confirmed.group),
+            decision=to_manual_decision_response(confirmed.decision),
+        )
+
+    @router.post(
+        "/{run_id}/groups/{group_id}/reject",
+        response_model=ImageSelectionManualApprovalResponse,
+        operation_id="rejectImageSelectionReviewGroup",
+        summary="Reject one representative- or range-review group",
+        responses=ERROR_RESPONSES,
+    )
+    def reject_image_selection_review_group(
+        run_id: UUID,
+        group_id: UUID,
+        payload: ImageSelectionGroupDecisionCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualApprovalResponse:
+        rejected = service.reject_review_group(
+            run_id=run_id,
+            group_id=group_id,
+            idempotency_key=payload.idempotency_key,
+        )
+        return ImageSelectionManualApprovalResponse(
+            group=to_image_selection_group_response(rejected.group),
+            decision=to_manual_decision_response(rejected.decision),
+        )
+
+    @router.post(
+        "/{run_id}/groups/{group_id}/restore",
+        response_model=ImageSelectionManualApprovalResponse,
+        operation_id="restoreRejectedImageSelectionGroup",
+        summary="Restore one user-rejected group to its prior review queue",
+        responses=ERROR_RESPONSES,
+    )
+    def restore_rejected_image_selection_group(
+        run_id: UUID,
+        group_id: UUID,
+        payload: ImageSelectionGroupDecisionCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionManualApprovalResponse:
+        restored = service.restore_rejected_group(
+            run_id=run_id,
+            group_id=group_id,
+            idempotency_key=payload.idempotency_key,
+        )
+        return ImageSelectionManualApprovalResponse(
+            group=to_image_selection_group_response(restored.group),
+            decision=to_manual_decision_response(restored.decision),
         )
 
     @router.get(

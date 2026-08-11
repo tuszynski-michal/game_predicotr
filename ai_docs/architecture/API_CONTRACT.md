@@ -626,6 +626,9 @@ PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
 GET  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-files/{candidateId}
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/discard-duplicate
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/confirm-range
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/reject
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/restore
 POST /api/v1/admin/image-selections/{runId}/handoff
 ```
 
@@ -634,6 +637,14 @@ POST /api/v1/admin/image-selections/{runId}/handoff
 `X-Image-File-Name`. Limit wynosi 50 MB. Odpowiedź zwraca utworzonego albo
 odnalezionego po checksumie kandydata. `GET .../manual-files/{candidateId}`
 zwraca poświadczony podgląd `image/jpeg` wyłącznie w obrębie runu i grupy.
+
+`POST .../confirm-range` przyjmuje `rangeStart`, `rangeEnd` i UUID
+`idempotencyKey`; działa tylko dla automatycznego reprezentanta w
+`range_required | range_confirmed`. `POST .../reject` przyjmuje UUID i działa
+wyłącznie dla `manual_required | range_required | rejected_by_user`.
+`POST .../restore` odtwarza zapisany stan źródłowy odrzuconej grupy. Wszystkie
+trzy operacje używają lokalnych nagłówków potwierdzenia, blokady runu oraz
+append-only audytu.
 
 `POST .../approve` przyjmuje:
 

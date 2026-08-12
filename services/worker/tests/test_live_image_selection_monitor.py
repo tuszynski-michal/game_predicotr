@@ -256,3 +256,44 @@ def test_progressive_export_reads_one_bounded_page_while_run_is_growing(
     assert saved == 0
     assert cursor == 99
     assert calls == [-1]
+
+
+def test_terminal_export_drains_every_remaining_page(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _monitor_module()
+    calls: list[int] = []
+
+    def save_page(
+        _client: object,
+        _run_id: str,
+        _output_root: Path,
+        saved_orders: set[int],
+        *,
+        after_group_order: int,
+    ) -> tuple[int, int]:
+        calls.append(after_group_order)
+        if after_group_order == 99:
+            saved_orders.add(150)
+            return 1, 199
+        if after_group_order == 199:
+            saved_orders.add(250)
+            return 1, 250
+        return 0, after_group_order
+
+    monkeypatch.setattr(monitor, "_save_ready_groups", save_page)
+    saved_orders = {5}
+
+    saved, cursor = monitor._drain_ready_groups(
+        object(),
+        "run",
+        tmp_path,
+        saved_orders,
+        after_group_order=99,
+    )
+
+    assert saved == 2
+    assert cursor == 250
+    assert calls == [99, 199, 250]
+    assert saved_orders == {5, 150, 250}

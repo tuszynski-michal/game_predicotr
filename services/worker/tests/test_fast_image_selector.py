@@ -770,6 +770,89 @@ def test_layout_anchored_selectors_collapse_redundant_fragments_and_one_exact_mi
     assert inferred.selected_candidate is not None
     assert "RANGE_EXACT_GAP_INFERRED" in inferred.selected_candidate.reason_codes
     assert recovered[5].duplicate_of_group_order == inferred.group_order
+    assert {candidate.source.order_index for candidate in recovered[4].top_candidates} == {4}
+    assert {candidate.source.order_index for candidate in recovered[5].top_candidates} == {5}
+    assert all(
+        candidate.decision is CandidateDecision.REJECTED
+        for candidate in recovered[5].top_candidates
+    )
+
+
+def test_v10_9_exact_gap_keeps_the_best_candidate_in_its_original_group() -> None:
+    sources = _sources("v109-exact-gap-owner", 4)
+
+    def candidate(index: int, quality: str) -> CandidateResult:
+        return CandidateResult(
+            source=sources[index],
+            decision=CandidateDecision.SELECTED_AUTOMATIC,
+            quality=_quality(quality),
+            recognized_range=None,
+            reason_codes=("RANGE_LABEL_LATTICE_INCOMPLETE",),
+        )
+
+    first_fragment = candidate(1, "quality_fallback")
+    second_fragment = candidate(2, "good")
+    groups = [
+        SelectionGroupResult(
+            group_order=0,
+            source_count=1,
+            range=SequenceRange(100, 108, 0.99),
+            fingerprint_sha256="0" * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.AUTO_SELECTED,
+            selected_candidate=None,
+            top_candidates=(),
+            reference_fingerprint_hex="0" * 64,
+        ),
+        SelectionGroupResult(
+            group_order=1,
+            source_count=1,
+            range=None,
+            fingerprint_sha256="1" * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.RANGE_REQUIRED,
+            selected_candidate=first_fragment,
+            top_candidates=(first_fragment,),
+            reference_fingerprint_hex="1" * 64,
+        ),
+        SelectionGroupResult(
+            group_order=2,
+            source_count=1,
+            range=None,
+            fingerprint_sha256="2" * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.RANGE_REQUIRED,
+            selected_candidate=second_fragment,
+            top_candidates=(second_fragment,),
+            reference_fingerprint_hex="2" * 64,
+        ),
+        SelectionGroupResult(
+            group_order=3,
+            source_count=1,
+            range=SequenceRange(118, 126, 0.99),
+            fingerprint_sha256="3" * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.AUTO_SELECTED,
+            selected_candidate=None,
+            top_candidates=(),
+            reference_fingerprint_hex="3" * 64,
+        ),
+    ]
+
+    recovered = FastImageSelector(
+        DEFAULT_SELECTOR_MANIFEST
+    )._recover_bounded_best_available_groups(groups)
+
+    assert recovered[1].status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    assert recovered[1].range == SequenceRange(109, 117, 0.9)
+    assert recovered[1].duplicate_of_group_order == 2
+    assert recovered[1].top_candidates[0].source.order_index == 1
+    assert recovered[1].top_candidates[0].decision is CandidateDecision.REJECTED
+    assert recovered[2].status is SelectionGroupStatus.AUTO_SELECTED
+    assert recovered[2].range == SequenceRange(109, 117, 0.9)
+    assert recovered[2].selected_candidate is not None
+    assert recovered[2].selected_candidate.source.order_index == 2
+    assert {candidate.source.order_index for candidate in recovered[2].top_candidates} == {2}
 
 
 def test_historical_v10_manifest_keeps_forced_cursor_behavior() -> None:

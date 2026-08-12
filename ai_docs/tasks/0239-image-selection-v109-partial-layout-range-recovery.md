@@ -2,7 +2,7 @@
 title: TASK-0239 image selection v10.9 partial layout range recovery
 status: in_progress
 release: "0.5"
-last_updated: 2026-08-11
+last_updated: 2026-08-12
 ---
 
 # TASK-0239 — Image selection v10.9 partial layout range recovery
@@ -91,3 +91,28 @@ plików v10.8 pozostało bez zmian. Raport i PID monitora:
 jeden tymczasowy `range_required` grupy 35. Jest to ten sam dokładnie
 zidentyfikowany fragment `19918–19926`, który etap końcowego domknięcia zmienia
 na duplikat po zakończeniu selekcji.
+
+Pełne runy ujawniły błąd trwałości końcowej korekty fragmentacji. Gdy dokładna
+luka dziewięciu layoutów obejmowała więcej niż jedną podgrupę `range_required`,
+engine wybierał poprawny najlepszy JPEG, ale przepinał kandydatów pozostałych
+podgrup do pierwszej grupy. Trwała unikalność `(run_id, order_index)` poprawnie
+blokowała taką zmianę jako `IMAGE_SELECTION_PERSISTENCE_CONFLICT`, przez co run
+kończył się przy ostatnim checkpointcie. Przypadek runu
+`823c5b99-9447-4f25-940f-b2aaba8db56f` dotyczył fragmentów 3263/3264 i
+bezpiecznie domkniętej luki `88507–88515` pomiędzy `88498–88506` oraz
+`88516–88524`.
+
+Korekta zachowuje najlepszy JPEG w jego źródłowej grupie, tej grupie przypisuje
+dokładną lukę, a pozostałe fragmenty zapisuje jako `skipped_existing_range` z
+tym samym zakresem i `duplicate_of_group_order`. Różny checksum albo zwykłe
+ponowne użycie `order_index` nadal kończy się fail-closed. Przeszło 105 testów
+skupionych, Ruff, mypy oraz pełne 666 testów workera.
+
+Kontrolowany retry tego samego runu od checkpointu 42 400 zakończył 42 422 / 42
+422 w drugim podejściu. Grupa 3264 została właścicielem `88507–88515`, a grupa
+3263 otrzymała `skipped_existing_range`; job przeszedł do
+`waiting_for_review` bez błędu. Terminalny monitor otrzymał dodatkową korektę:
+po zakończeniu runu opróżnia wszystkie strony grup zamiast wychodzić po
+pierwszych 100 rekordach. Uzgodnienie dopisało 21 brakujących JPEG-ów i
+potwierdziło 2 567 plików wynikowych. Skupiona regresja selektora, persistence i
+monitora przechodzi 111/111.

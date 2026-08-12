@@ -2351,14 +2351,17 @@ class FastImageSelector:
                 confidence=self.manifest.thresholds.minimum_range_confidence,
             )
             candidate_pool = tuple(
-                candidate
+                (index, candidate)
                 for index in unresolved_indexes
                 for candidate in groups[index].top_candidates
                 if self._can_use_inferred_best_available(candidate)
             )
             if not candidate_pool:
                 continue
-            best = min(candidate_pool, key=_best_available_candidate_rank)
+            owner_index, best = min(
+                candidate_pool,
+                key=lambda entry: _best_available_candidate_rank(entry[1]),
+            )
             selected = replace(
                 best,
                 decision=CandidateDecision.SELECTED_AUTOMATIC,
@@ -2378,8 +2381,9 @@ class FastImageSelector:
                 selected.source.order_index,
                 selected.source.checksum_sha256,
             )
+            owner = groups[owner_index]
             unique_candidates: dict[tuple[int, str], CandidateResult] = {}
-            for candidate in candidate_pool:
+            for candidate in owner.top_candidates:
                 identity = (candidate.source.order_index, candidate.source.checksum_sha256)
                 normalized = (
                     selected
@@ -2392,8 +2396,6 @@ class FastImageSelector:
             ranked = self._rank_candidates(tuple(unique_candidates.values()), inferred)[
                 : self.manifest.top_k
             ]
-            owner_index = unresolved_indexes[0]
-            owner = groups[owner_index]
             groups[owner_index] = replace(
                 owner,
                 range=inferred,
@@ -2402,13 +2404,27 @@ class FastImageSelector:
                 selected_candidate=selected,
                 top_candidates=ranked,
             )
-            for index in unresolved_indexes[1:]:
+            for index in unresolved_indexes:
+                if index == owner_index:
+                    continue
+                duplicate_candidates = tuple(
+                    replace(
+                        candidate,
+                        decision=CandidateDecision.REJECTED,
+                        reason_codes=tuple(
+                            dict.fromkeys(
+                                (*candidate.reason_codes, REDUNDANT_TRANSITION_REASON)
+                            )
+                        ),
+                    )
+                    for candidate in groups[index].top_candidates
+                )
                 groups[index] = replace(
                     groups[index],
                     range=inferred,
                     status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
                     selected_candidate=None,
-                    top_candidates=(),
+                    top_candidates=duplicate_candidates,
                     duplicate_of_group_order=owner.group_order,
                 )
 

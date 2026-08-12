@@ -1,14 +1,14 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-11
+last_updated: 2026-08-12
 ---
 
 # Current State
 
 Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.12`; następny commit otrzyma
-`v0.5.13`.
+partia implementacyjna jest wydaniem `v0.5.15`; następny commit otrzyma
+`v0.5.16`.
 
 ## Phase
 
@@ -1128,6 +1128,34 @@ ma `groupOrder=35` i odpowiada znanemu fragmentowi pomiędzy tym samym zakresem
 `19918–19926`; pełny profil potwierdził jego końcową klasyfikację jako duplikatu.
 Nie uruchamiać drugiego API, workera ani runu. Przed ingerencją sprawdzić raport,
 PID state i świeży heartbeat joba.
+
+TASK-0240 usuwa regresję powiązania folderu wynikowego w Adminie. Folder
+wybrany przed nowym uploadem jest teraz stanem oczekującym i nie jest
+przypisywany do aktualnie wyświetlanego historycznego runu. Dopiero pomyślne
+utworzenie runu wiąże katalog z jego `runId`; progresywny oraz ręczny zapis
+dodatkowo odrzucają uchwyt należący do innego runu. Regresję potwierdził
+wcześniej plik starego runu `252cb5cb…` zapisany do katalogu przygotowanego dla
+zakresu od `45163`. Po poprawce Admin przechodzi 195 testów, typecheck i ESLint.
+
+Pełne runy v10.9 ujawniły końcowy `IMAGE_SELECTION_PERSISTENCE_CONFLICT` dla
+dokładnej luki dziewięciu layoutów rozłożonej na kilka fragmentów
+`range_required`. Przyczyną nie był duplikat numeru zakresu, lecz próba
+technicznego przepięcia rekordu kandydata pomiędzy grupami podczas korekty
+fragmentacji. Poprawka zachowuje najlepszy JPEG w jego źródłowej grupie, a inne
+fragmenty oznacza jako `skipped_existing_range` z tym samym zakresem i jawnym
+właścicielem. Prawdziwe konflikty indeksu albo checksumy nadal blokują zapis.
+Przeszło 105 testów skupionych, Ruff, mypy i 666 testów workera. Run
+`823c5b99-9447-4f25-940f-b2aaba8db56f` został kontrolowanie wznowiony z
+checkpointu 42 400 i zakończył 42 422 / 42 422 jako `waiting_for_review` bez
+błędu. Grupa 3264 jest właścicielem `88507–88515`, a grupa 3263 ma
+`skipped_existing_range`. Terminalne uzgodnienie monitora przechodzi teraz przez
+wszystkie strony grup; dopisało 21 brakujących JPEG-ów i potwierdziło 2 567
+plików wynikowych. Skupiona regresja po tej korekcie przechodzi 111/111.
+
+Kontrolery dalszej kolejki zostały przeładowane po poprawce odpowiedzi listy
+jobów w PowerShell `StrictMode`: endpoint może zwrócić obiekt z `items` albo
+bezpośrednią tablicę. Etap `93853 -117828` rozpoczął świeże przygotowanie źródła,
+a sześć dalszych kontrolerów czeka sekwencyjnie; nie działa drugi job selekcji.
 
 ## Do not start yet
 

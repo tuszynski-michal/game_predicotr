@@ -37,6 +37,38 @@ test('uses a browser-native directory picker directly from the owner action', ()
   assert.doesNotMatch(workspaceSource, /FileReader|arrayBuffer\(/);
 });
 
+test('does not export a historical run into a folder reserved for a new upload', () => {
+  const chooseOutputFolderSource = workspaceSource.slice(
+    workspaceSource.indexOf('async function chooseOutputFolder()'),
+    workspaceSource.indexOf('async function cancelUpload()'),
+  );
+  const startUploadSource = workspaceSource.slice(
+    workspaceSource.indexOf('async function startUpload('),
+    workspaceSource.indexOf('async function chooseFolder('),
+  );
+
+  assert.match(
+    chooseOutputFolderSource,
+    /pendingOutputDirectoryRef\.current = directory/,
+  );
+  assert.doesNotMatch(
+    chooseOutputFolderSource,
+    /outputDirectoryBindingRef\.current|outputDirectoryStore\.save/,
+  );
+  assert.match(
+    startUploadSource,
+    /if \(!result\.ok\)[\s\S]*outputDirectoryBindingRef\.current = \{[\s\S]*runId: result\.created\.run\.id/,
+  );
+  assert.match(
+    workspaceSource,
+    /outputDirectoryBindingRef\.current\?\.runId !== activeRunId/,
+  );
+  assert.match(
+    workspaceSource,
+    /if \(outputBinding\?\.runId !== activeRunId\)/,
+  );
+});
+
 test('shows bounded upload recovery with file and byte progress', () => {
   assert.match(workspaceSource, /progress\.uploadedFiles/);
   assert.match(workspaceSource, /progress\.uploadedBytes/);

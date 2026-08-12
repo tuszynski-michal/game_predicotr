@@ -143,6 +143,10 @@ deduplikacja po numerach należą wyłącznie do późniejszego `Importu layout�
 - Uchwyt folderu wynikowego jest zapamiętywany lokalnie per gra i run. Po
   ponownym otwarciu przeglądarka żąda odnowienia uprawnienia, jeżeli jest to
   konieczne, a przed ręcznym review uzgadnia wszystkie zakończone grupy.
+- Folder wskazany przed uploadem nowej partii pozostaje nieprzypisanym folderem
+  oczekującym. Nie może uruchomić eksportu aktualnie wyświetlanego historycznego
+  runu ani zostać zapisany pod jego identyfikatorem. Powiązanie z `runId`
+  następuje dopiero po pomyślnym utworzeniu albo idempotentnym odzyskaniu runu.
 - Ręczna decyzja może przejść do następnej grupy dopiero po zapisaniu JPEG-a w
   folderze wynikowym. Błąd dysku pozostawia widoczne ponowienie tej samej
   idempotentnej decyzji.
@@ -565,6 +569,10 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   potwierdzonymi zakresami są fragmentami przejścia i kończą się bez outputu.
   Jeżeli sąsiednie zakresy pozostawiają dokładnie jedną lukę dziewięciu pozycji,
   rozproszone podgrupy mogą zostać scalone do jednego wyniku tej dokładnej luki.
+  Właścicielem wyniku zostaje podgrupa zawierająca najlepszy JPEG; pozostałe
+  podgrupy otrzymują ten sam zakres, `skipped_existing_range` oraz odnośnik do
+  właściciela. Zdjęcie zachowuje pierwotną podgrupę i nie może zostać przepięte
+  wyłącznie w celu technicznego scalenia.
   Większy albo niepodzielny skok pozostaje nierozstrzygnięty.
 - Bramka akceptacji nadal wymaga ręcznej oceny około 5000 zdjęć, zera błędnych
   zakresów i reprezentantów oraz dopiero potem pełnego przebiegu 42 403.

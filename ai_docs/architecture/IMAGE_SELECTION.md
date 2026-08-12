@@ -786,6 +786,14 @@ Katalog wynikowy jest uchwytem File System Access API zapisanym w IndexedDB per
 Ledger `runId + groupOrder + checksum` umożliwia pełne uzgodnienie historycznego
 runu. Zgodne checksumy są pomijane, a kolizja zatrzymuje operację.
 
+Uchwyt wybrany w pierwszym kroku tworzenia nowej partii jest przechowywany
+oddzielnie jako `pending` i nie ma jeszcze `runId`. Dopiero poprawna odpowiedź
+create-run atomowo zmienia go w aktywne powiązanie `runId + directory` oraz
+zapisuje w IndexedDB. Progresywny i ręczny eksport sprawdzają zgodność `runId`
+powiązania przed każdym zapisem, dlatego zmiana aktywnego runu ani nieudany lub
+anulowany upload nie mogą skierować historycznych decyzji do folderu nowej
+partii.
+
 Progresywny eksporter używa kursora `afterGroupOrder`; po wznowieniu wykonuje
 jedno pełne uzgodnienie, a następnie pobiera wyłącznie nowe grupy. Ręczne
 uzupełnienie wcześniejszej luki omija monotonny polling: callback zatwierdzenia
@@ -896,10 +904,13 @@ Lekko rozmazane, ale nadal użyteczne layouty pozostają dopuszczone.
 Po strumieniowym domknięciu grup engine wykonuje bounded korektę fragmentacji.
 `range_required` pomiędzy bezpośrednio kolejnymi potwierdzonymi zakresami staje
 się `skipped_unreadable` z powodem `RANGE_REDUNDANT_TRANSITION_FRAGMENT`. Jedna
-dokładna luka dziewięciu numerów może scalić wiele fragmentów: pierwszy przejmuje
-najlepszy czytelny JPEG i zakres, a pozostałe stają się
-`skipped_existing_range`. Korekta nie wypełnia większego skoku, nie używa
-przewidywanego kursora i nie publikuje więcej niż jednego JPEG-a na zakres.
+dokładna luka dziewięciu numerów może scalić wiele fragmentów: grupa, do której
+źródłowo należy najlepszy czytelny JPEG, zachowuje kandydata i przejmuje zakres,
+a pozostałe stają się `skipped_existing_range`. Korekta nie wypełnia większego
+skoku, nie używa przewidywanego kursora i nie publikuje więcej niż jednego
+JPEG-a na zakres. Kandydat nie może być technicznie przepinany pomiędzy grupami.
+Każdy pominięty fragment zachowuje własne rekordy kandydatów jako odrzucone i
+wskazuje `duplicate_of_group_order` właściciela dokładnego zakresu.
 
 Manifest v10.8 ma osobny fingerprint, progresję OCR `9/18`, center-first pięciu
 zdjęć oraz fallback trzech z każdego brzegu. Resolver zachowuje wszystkie

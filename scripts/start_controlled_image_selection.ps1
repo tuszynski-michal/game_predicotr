@@ -15,6 +15,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$PidState,
 
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, 2147483647)]
+    [int]$FirstSequenceNumber,
+
     [string]$ApiBaseUrl = 'http://127.0.0.1:8000',
 
     [ValidateRange(1, 8)]
@@ -23,8 +27,10 @@ param(
     [ValidateRange(1, 100000)]
     [int]$ExpectedJpegCount = 1,
 
-    [ValidateRange(1, 60)]
-    [int]$TimeoutSeconds = 30
+    [ValidateRange(1, 600)]
+    [int]$TimeoutSeconds = 30,
+
+    [string]$ResumeUploadId
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,10 +55,12 @@ if (@(Get-ChildItem -LiteralPath $outputPath -Force).Count -ne 0) {
     throw "Image-selection output directory is not empty: $outputPath"
 }
 
-$jpegCount = @(
+$jpegFiles = @(
     Get-ChildItem -LiteralPath $sourcePath -Recurse -File |
         Where-Object { $_.Extension -in '.jpg', '.jpeg', '.JPG', '.JPEG' }
-).Count
+)
+$jpegCount = $jpegFiles.Count
+$jpegBytes = ($jpegFiles | Measure-Object -Property Length -Sum).Sum
 if ($jpegCount -ne $ExpectedJpegCount) {
     throw "Expected $ExpectedJpegCount JPEG files, found $jpegCount in $sourcePath."
 }
@@ -62,17 +70,22 @@ Repair-WindowsProcessPath
 
 $runtimeDirectory = Join-Path $projectRoot '.runtime'
 $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssfffZ')
-$stdoutPath = Join-Path $runtimeDirectory "image-selection-v103-$stamp.out.log"
-$stderrPath = Join-Path $runtimeDirectory "image-selection-v103-$stamp.error.log"
+$stdoutPath = Join-Path $runtimeDirectory "image-selection-live-$stamp.out.log"
+$stderrPath = Join-Path $runtimeDirectory "image-selection-live-$stamp.error.log"
 $arguments = @(
     ('"{0}"' -f $runnerPath),
     '--source', ('"{0}"' -f $sourcePath),
     '--output', ('"{0}"' -f $outputPath),
     '--game-id', $GameId,
+    '--first-sequence-number', [string]$FirstSequenceNumber,
     '--api-base-url', $ApiBaseUrl,
     '--report', ('"{0}"' -f $reportPath),
-    '--upload-workers', [string]$UploadWorkers
+    '--upload-workers', [string]$UploadWorkers,
+    '--expected-total-bytes', [string]$jpegBytes
 )
+if (-not [string]::IsNullOrWhiteSpace($ResumeUploadId)) {
+    $arguments += @('--resume-upload-id', $ResumeUploadId)
+}
 
 $process = Start-Process `
     -FilePath $pythonPath `
@@ -88,11 +101,14 @@ $state = [ordered]@{
     startedAt = (Get-Date).ToUniversalTime().ToString('o')
     source = $sourcePath
     sourceCount = $jpegCount
+    sourceBytes = $jpegBytes
+    firstSequenceNumber = $FirstSequenceNumber
     output = $outputPath
     report = $reportPath
     stdout = $stdoutPath
     stderr = $stderrPath
     api = $ApiBaseUrl
+    resumeUploadId = $ResumeUploadId
 }
 $temporaryStatePath = "$pidStatePath.tmp"
 [IO.File]::WriteAllText(

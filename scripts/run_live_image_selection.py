@@ -209,6 +209,32 @@ def _save_ready_groups(
     return saved_now, export_cursor
 
 
+def _drain_ready_groups(
+    client: httpx.Client,
+    run_id: str,
+    output_root: Path,
+    saved_orders: set[int],
+    *,
+    after_group_order: int,
+) -> tuple[int, int]:
+    """Reconcile every remaining page after the run becomes terminal."""
+
+    saved_total = 0
+    export_cursor = after_group_order
+    while True:
+        saved_now, next_cursor = _save_ready_groups(
+            client,
+            run_id,
+            output_root,
+            saved_orders,
+            after_group_order=export_cursor,
+        )
+        saved_total += saved_now
+        if next_cursor == export_cursor:
+            return saved_total, export_cursor
+        export_cursor = next_cursor
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group()
@@ -229,6 +255,10 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--game-id")
     parser.add_argument(
+        "--resume-upload-id",
+        help="Resume one incomplete browser upload after validating its immutable contract.",
+    )
+    parser.add_argument(
         "--first-sequence-number",
         type=int,
         help="First layout number visible in the first source-image group.",
@@ -236,6 +266,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--upload-workers", type=int, default=4, choices=range(1, 9))
+    parser.add_argument(
+        "--expected-total-bytes",
+        type=int,
+        help="Precomputed source JPEG byte count from the controlled launcher.",
+    )
     parser.add_argument("--poll-seconds", type=float, default=3.0)
     parser.add_argument(
         "--resume-existing",
@@ -354,6 +389,19 @@ def _resume_existing(options: argparse.Namespace) -> int:
                 )
                 last_log = time.monotonic()
             if job["status"] in TERMINAL_STATUSES:
+                saved_terminal, export_cursor = _drain_ready_groups(
+                    client,
+                    run_id,
+                    output_root,
+                    saved_orders,
+                    after_group_order=export_cursor,
+                )
+                report.update(
+                    {
+                        "savedOutputFiles": len(saved_orders),
+                        "exportCursor": export_cursor,
+                    }
+                )
                 report.update(
                     {
                         "status": "finished" if job["status"] == "completed" else job["status"],
@@ -364,6 +412,12 @@ def _resume_existing(options: argparse.Namespace) -> int:
                         "errorMessage": job.get("errorMessage"),
                     }
                 )
+                if saved_terminal:
+                    print(
+                        f"terminal reconciliation saved={saved_terminal} "
+                        f"total={len(saved_orders)}",
+                        flush=True,
+                    )
                 _write_report(options.report, report)
                 return 0 if job["status"] in {"completed", "waiting_for_review"} else 1
             time.sleep(options.poll_seconds)
@@ -399,7 +453,11 @@ def main() -> int:
     )
     if not files:
         raise RuntimeError("Source directory contains no JPEG files.")
-    total_bytes = sum(path.stat().st_size for path in files)
+    total_bytes = options.expected_total_bytes
+    if total_bytes is None:
+        total_bytes = sum(path.stat().st_size for path in files)
+    if total_bytes < 1:
+        raise RuntimeError("--expected-total-bytes must be positive.")
     report: dict[str, object] = {
         "schemaVersion": 2,
         "status": "starting",
@@ -423,28 +481,71 @@ def main() -> int:
     ) as client:
         upload_started = time.monotonic()
         report.update({"status": "uploading", "uploadStartedAt": _utc_now()})
-        created = _request_json(
-            client,
-            "POST",
-            "/api/v1/admin/image-imports/browser-selections",
-            json_body={
-                "displayName": source_root.name,
+        if options.resume_upload_id is None:
+            created = _request_json(
+                client,
+                "POST",
+                "/api/v1/admin/image-imports/browser-selections",
+                json_body={
+                    "displayName": source_root.name,
+                    "expectedFileCount": len(files),
+                    "expectedTotalBytes": total_bytes,
+                    "purpose": "photo_selection",
+                    "gameId": options.game_id,
+                },
+            )
+            upload_id = str(created["uploadId"])
+            uploaded_indexes: set[int] = set()
+            uploaded_files = 0
+            uploaded_bytes = 0
+        else:
+            upload_id = options.resume_upload_id
+            upload = _request_json(
+                client,
+                "GET",
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}",
+            )
+            expected_contract = {
                 "expectedFileCount": len(files),
                 "expectedTotalBytes": total_bytes,
-                "purpose": "photo_selection",
                 "gameId": options.game_id,
-            },
-        )
-        upload_id = str(created["uploadId"])
+                "purpose": "photo_selection",
+            }
+            mismatches = [
+                key
+                for key, expected in expected_contract.items()
+                if upload.get(key) != expected
+            ]
+            if mismatches:
+                raise RuntimeError(
+                    "Resume upload contract mismatch: " + ", ".join(mismatches)
+                )
+            raw_indexes = upload.get("uploadedFileIndexes")
+            if not isinstance(raw_indexes, list) or not all(
+                isinstance(index, int) and 0 <= index < len(files)
+                for index in raw_indexes
+            ):
+                raise RuntimeError("Resume upload contains invalid file indexes.")
+            uploaded_indexes = set(raw_indexes)
+            uploaded_files = len(uploaded_indexes)
+            uploaded_bytes = int(upload.get("uploadedBytes", 0))
+            report.update(
+                {
+                    "resumedUpload": True,
+                    "resumedUploadedFiles": uploaded_files,
+                    "resumedUploadedBytes": uploaded_bytes,
+                }
+            )
         report["uploadId"] = upload_id
+        report["uploadedFiles"] = uploaded_files
+        report["uploadedBytes"] = uploaded_bytes
         _write_report(options.report, report)
         last_log = time.monotonic()
-        uploaded_files = 0
-        uploaded_bytes = 0
         with ThreadPoolExecutor(max_workers=options.upload_workers) as executor:
             futures = {
                 executor.submit(_upload_one, client, upload_id, index, source_root, path): index
                 for index, path in enumerate(files)
+                if index not in uploaded_indexes
             }
             for future in as_completed(futures):
                 uploaded = future.result()
@@ -548,6 +649,19 @@ def main() -> int:
                 )
                 last_log = time.monotonic()
             if job["status"] in TERMINAL_STATUSES:
+                saved_terminal, export_cursor = _drain_ready_groups(
+                    client,
+                    run_id,
+                    output_root,
+                    saved_orders,
+                    after_group_order=export_cursor,
+                )
+                report.update(
+                    {
+                        "savedOutputFiles": len(saved_orders),
+                        "exportCursor": export_cursor,
+                    }
+                )
                 report.update(
                     {
                         "status": "finished" if job["status"] == "completed" else job["status"],
@@ -558,6 +672,12 @@ def main() -> int:
                         "errorMessage": job.get("errorMessage"),
                     }
                 )
+                if saved_terminal:
+                    print(
+                        f"terminal reconciliation saved={saved_terminal} "
+                        f"total={len(saved_orders)}",
+                        flush=True,
+                    )
                 _write_report(options.report, report)
                 return 0 if job["status"] in {"completed", "waiting_for_review"} else 1
             time.sleep(options.poll_seconds)

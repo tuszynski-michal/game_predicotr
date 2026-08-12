@@ -62,6 +62,11 @@ const RUN_POLL_MAX_DURATION_MS = 45 * 60 * 1_000;
 const RUN_POLL_ERROR_THRESHOLD = 3;
 const MAX_IMAGE_SELECTION_FILES = 100_000;
 
+interface ActiveOutputDirectoryBinding {
+  readonly runId: string;
+  readonly directory: OutputDirectoryHandle;
+}
+
 export function ImageSelectionWorkspace({
   apiBaseUrl,
   client,
@@ -78,7 +83,9 @@ export function ImageSelectionWorkspace({
     [],
   );
   const folderInputRef = useRef<HTMLInputElement | null>(null);
-  const outputDirectoryRef = useRef<OutputDirectoryHandle | null>(null);
+  const pendingOutputDirectoryRef = useRef<OutputDirectoryHandle | null>(null);
+  const outputDirectoryBindingRef =
+    useRef<ActiveOutputDirectoryBinding | null>(null);
   const savedGroupOrdersRef = useRef(new Set<number>());
   const progressiveSaveRunningRef = useRef(false);
   const progressiveCursorRef = useRef<{
@@ -125,6 +132,7 @@ export function ImageSelectionWorkspace({
   const [notice, setNotice] = useState('');
   const [refreshWarning, setRefreshWarning] = useState('');
   const [outputFolderName, setOutputFolderName] = useState('');
+  const [pendingOutputFolderName, setPendingOutputFolderName] = useState('');
   const [sequenceDirection, setSequenceDirection] = useState<
     'ascending' | 'descending'
   >('ascending');
@@ -314,7 +322,7 @@ export function ImageSelectionWorkspace({
   useEffect(() => {
     if (
       activeRunId === null ||
-      outputDirectoryRef.current === null ||
+      outputDirectoryBindingRef.current?.runId !== activeRunId ||
       progressiveSaveRunningRef.current
     ) {
       return;
@@ -323,6 +331,8 @@ export function ImageSelectionWorkspace({
     progressiveSaveRunningRef.current = true;
     queueMicrotask(async () => {
       try {
+        const outputBinding = outputDirectoryBindingRef.current;
+        if (outputBinding?.runId !== activeRunId) return;
         const cursor =
           progressiveCursorRef.current?.runId === activeRunId
             ? progressiveCursorRef.current.afterGroupOrder
@@ -332,12 +342,12 @@ export function ImageSelectionWorkspace({
           activeRunId,
           cursor,
         );
-        if (cancelled || outputDirectoryRef.current === null) return;
+        if (cancelled) return;
         const result = await saveFinalizedImageSelectionGroups(
           api,
           activeRunId,
           page.groups,
-          outputDirectoryRef.current,
+          outputBinding.directory,
           savedGroupOrdersRef.current,
         );
         if (!cancelled && result.error !== null) setError(result.error);
@@ -373,6 +383,11 @@ export function ImageSelectionWorkspace({
 
   async function startUpload(files: readonly File[], activeResume = resume) {
     if (busy) return;
+    const pendingOutputDirectory = pendingOutputDirectoryRef.current;
+    if (pendingOutputDirectory === null) {
+      setError('Wybierz folder zapisu przed rozpoczęciem uploadu.');
+      return;
+    }
     const parsedFirstSequenceNumber = Number(firstSequenceNumber);
     if (
       firstSequenceNumber.trim() === '' ||
@@ -409,11 +424,21 @@ export function ImageSelectionWorkspace({
     setRunHistory(nextHistory);
     setProgress(EMPTY_PROGRESS);
     window.localStorage.setItem(storageKey(gameId), result.created.run.id);
-    if (outputDirectoryRef.current !== null) {
-      await outputDirectoryStore
-        .save(gameId, result.created.run.id, outputDirectoryRef.current)
-        .catch(() => undefined);
-    }
+    outputDirectoryBindingRef.current = {
+      directory: pendingOutputDirectory,
+      runId: result.created.run.id,
+    };
+    pendingOutputDirectoryRef.current = null;
+    savedGroupOrdersRef.current.clear();
+    progressiveCursorRef.current = {
+      afterGroupOrder: -1,
+      runId: result.created.run.id,
+    };
+    setOutputFolderName(pendingOutputDirectory.name ?? 'Wybrany folder');
+    setPendingOutputFolderName('');
+    await outputDirectoryStore
+      .save(gameId, result.created.run.id, pendingOutputDirectory)
+      .catch(() => undefined);
     setNotice(
       result.created.created
         ? 'Folder zapisany. Proces selekcji jest gotowy do uruchomienia przez worker.'
@@ -470,22 +495,8 @@ export function ImageSelectionWorkspace({
     setError('');
     try {
       const directory = await pickImageSelectionOutputDirectory();
-      outputDirectoryRef.current = directory;
-      savedGroupOrdersRef.current.clear();
-      progressiveCursorRef.current =
-        activeRunId === null
-          ? null
-          : { afterGroupOrder: -1, runId: activeRunId };
-      setOutputFolderName(directory.name ?? 'Wybrany folder');
-      if (activeRunId !== null) {
-        await outputDirectoryStore
-          .save(gameId, activeRunId, directory)
-          .catch(() => {
-            setRefreshWarning(
-              'Przeglądarka nie zapamiętała dostępu do folderu. W tej sesji zapis nadal działa.',
-            );
-          });
-      }
+      pendingOutputDirectoryRef.current = directory;
+      setPendingOutputFolderName(directory.name ?? 'Wybrany folder');
       setNotice('Folder wynikowy wybrany. Teraz wybierz folder ze zdjęciami.');
     } catch (error) {
       if (!(error instanceof DOMException) || error.name !== 'AbortError') {
@@ -693,7 +704,9 @@ export function ImageSelectionWorkspace({
   async function ensureOutputDirectoryForReview(
     runId: string,
   ): Promise<OutputDirectoryHandle | null> {
-    let directory = outputDirectoryRef.current;
+    const currentBinding = outputDirectoryBindingRef.current;
+    let directory =
+      currentBinding?.runId === runId ? currentBinding.directory : null;
     if (directory === null) {
       directory = await restoreOutputDirectory(
         outputDirectoryStore,
@@ -716,7 +729,7 @@ export function ImageSelectionWorkspace({
         return null;
       }
     }
-    outputDirectoryRef.current = directory;
+    outputDirectoryBindingRef.current = { directory, runId };
     savedGroupOrdersRef.current.clear();
     progressiveCursorRef.current = { afterGroupOrder: -1, runId };
     setOutputFolderName(directory.name ?? 'Wybrany folder');
@@ -780,7 +793,7 @@ export function ImageSelectionWorkspace({
   function selectRun(runId: string) {
     const selected = runHistory.find((item) => item.id === runId);
     if (selected === undefined || selected.id === run?.id) return;
-    outputDirectoryRef.current = null;
+    outputDirectoryBindingRef.current = null;
     savedGroupOrdersRef.current.clear();
     progressiveCursorRef.current = null;
     setOutputFolderName('');
@@ -861,15 +874,15 @@ export function ImageSelectionWorkspace({
         updated.status === 'range_confirmed');
     let savedCount = 0;
     if (requiresOutputSave) {
-      const directory = outputDirectoryRef.current;
-      if (directory === null) {
+      const outputBinding = outputDirectoryBindingRef.current;
+      if (outputBinding?.runId !== activeRunId) {
         return 'Wybierz ponownie folder wynikowy przed zatwierdzeniem.';
       }
       const result = await saveFinalizedImageSelectionGroups(
         api,
         activeRunId,
         [updated],
-        directory,
+        outputBinding.directory,
         savedGroupOrdersRef.current,
       );
       if (result.error !== null) return result.error;
@@ -1016,16 +1029,16 @@ export function ImageSelectionWorkspace({
             onClick={() => void chooseOutputFolder()}
             type="button"
           >
-            {outputFolderName === ''
+            {pendingOutputFolderName === ''
               ? '1. Wybierz folder zapisu'
-              : `Folder zapisu: ${outputFolderName}`}
+              : `Folder zapisu: ${pendingOutputFolderName}`}
           </button>
           <button
             aria-busy={busy}
             className="primaryButton"
             disabled={
               busy ||
-              outputFolderName === '' ||
+              pendingOutputFolderName === '' ||
               firstSequenceNumber.trim() === '' ||
               !Number.isInteger(Number(firstSequenceNumber)) ||
               Number(firstSequenceNumber) < 1

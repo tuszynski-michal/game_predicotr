@@ -1,10 +1,28 @@
 ---
 title: Version 0.5 execution plan
-status: accepted
-last_updated: 2026-08-09
+status: completed
+last_updated: 2026-08-12
 ---
 
 # Plan zakresu wersji 0.5
+
+## Zamknięcie wydania
+
+Wersja 0.5 została zamknięta decyzją właściciela 2026-08-12. Ostatnim commitem
+implementacyjnym jest `v0.5.15`, a `v0.5.16` utrwala zamknięcie dokumentacyjne.
+Właściciel zaakceptował selektor `fast-image-selector-v10.9` jako wystarczająco
+dobrą podstawę dalszej pracy, z zachowaniem ręcznego review i fail-closed dla
+niejednoznacznych zakresów.
+
+Zamknięcie jest zmianą zakresu wydania, a nie deklaracją wykonania wszystkich
+pierwotnych bramek poniżej. TASK-0198–0207, stabilizacja selekcji v10.9 oraz
+trwały eksport są dostarczone. TASK-0208, TASK-0150, TASK-0076, TASK-0080–0089,
+pełna publikacja około 500 000 layoutów, kolejne gry i końcowy hardening nie
+zostały ukończone w 0.5. Pozostają jawnie odroczone i wymagają ponownego
+zaplanowania przed realizacją; `massImportAllowed` pozostaje zamknięte.
+
+Trwające lokalne runy selekcji są pracą operatorską na dostarczonym algorytmie.
+Mogą kończyć się po zamknięciu wydania i nie zmieniają zakresu ani kodu 0.5.
 
 ## Cel
 

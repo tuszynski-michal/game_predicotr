@@ -74,6 +74,7 @@ implementacyjnym.
 - [Version 0.3 execution plan](delivery/VERSION_0_3_EXECUTION_PLAN.md)
 - [Version 0.4 execution plan](delivery/VERSION_0_4_EXECUTION_PLAN.md)
 - [Version 0.5 execution plan](delivery/VERSION_0_5_EXECUTION_PLAN.md)
+- [Version 0.6 execution plan](delivery/VERSION_0_6_EXECUTION_PLAN.md)
 
 ### Proces i jakość
 

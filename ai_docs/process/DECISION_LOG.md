@@ -4309,6 +4309,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza D-177 dla częściowo widocznej siatki i zachowuje
   lokalny dowód oraz brak zgadywanej ciągłości z D-170.
 
+## D-179 — Wersja 0.5 kończy się na zaakceptowanym selektorze v10.9
+
+- **Status:** accepted
+- **Date:** 2026-08-12
+- **Decision:** właściciel zamyka tor 0.5 na `v0.5.16` i akceptuje
+  `fast-image-selector-v10.9` jako wystarczająco dobrą podstawę dalszej pracy.
+  Następny tor zaczyna się od `v0.6.0` oraz ulepszeń workspace’ów `Gry` i
+  `Import layoutów`.
+- **Context:** v10.9 przeszedł bramkę 1440 zdjęć, pełny run po korekcie
+  trwałości zakończył 42 422 / 42 422, a eksport uzgodnił 2 567 automatycznych
+  plików. Nadal istnieją przypadki ręcznego review oraz niewykonane pierwotne
+  bramki pełnego importu, skali i hardeningu 0.5.
+- **Reason:** obecna jakość selekcji i bezpieczny manualny fallback wystarczają,
+  aby przenieść uwagę produktu na dalszy przepływ importu bez kolejnych iteracji
+  selektora w tym wydaniu.
+- **Alternatives:** dalsze blokowanie 0.5 do ukończenia wszystkich pierwotnych
+  bramek odrzucono decyzją właściciela; oznaczanie niewykonanych bramek jako
+  zaliczonych również odrzucono.
+- **Consequences:** TASK-0208, TASK-0150, TASK-0076, TASK-0080–0089, pełna
+  publikacja około 500 000 layoutów, kolejne gry i końcowy hardening pozostają
+  jawnie odroczone. `massImportAllowed` pozostaje zamknięte. Trwające runy
+  selekcji są operacjami na dostarczonym kodzie i mogą zakończyć się po
+  zamknięciu wydania.
+- **Supersedes:** zmienia zakres zamknięcia planu 0.5, nie znosi bramek
+  bezpieczeństwa ani trwałości danych.
+
 ## Szablon nowej decyzji
 
 ```text

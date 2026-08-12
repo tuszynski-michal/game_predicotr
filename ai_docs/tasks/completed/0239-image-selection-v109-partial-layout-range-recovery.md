@@ -1,6 +1,6 @@
 ---
 title: TASK-0239 image selection v10.9 partial layout range recovery
-status: in_progress
+status: done
 release: "0.5"
 last_updated: 2026-08-12
 ---
@@ -116,3 +116,8 @@ po zakończeniu runu opróżnia wszystkie strony grup zamiast wychodzić po
 pierwszych 100 rekordach. Uzgodnienie dopisało 21 brakujących JPEG-ów i
 potwierdziło 2 567 plików wynikowych. Skupiona regresja selektora, persistence i
 monitora przechodzi 111/111.
+
+Właściciel zaakceptował 2026-08-12 v10.9 jako wystarczająco dobrze działający
+algorytm wyboru zdjęć i zamknął tor wersji 0.5. Trwające lokalne runy pozostają
+pracą operatorską na dostarczonym selektorze; ich ręczne review ani dokończenie
+nie blokują zamknięcia zadania implementacyjnego.

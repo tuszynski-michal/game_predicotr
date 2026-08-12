@@ -1,7 +1,7 @@
 ---
 title: Requirements traceability
 status: active
-last_updated: 2026-08-02
+last_updated: 2026-08-12
 ---
 
 # Mapa śledzenia wymagań
@@ -65,8 +65,9 @@ last_updated: 2026-08-02
 | Czysty baseline PostgreSQL 0.2 | `delivery/VERSION_0_2_EXECUTION_PLAN.md` | TASK-0120 |
 | Nawigacja i mały workflow Admina 0.2 | `requirements/ADMIN_APP_V0_2.md` | TASK-0121–0134 |
 | Folderowy import i katalog symboli 0.2 | `requirements/ADMIN_APP_V0_2.md`, `requirements/IMAGE_INGESTION.md` | TASK-0123–0126 |
-| Pełne dane i nowe gry 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, nowe zadania 0.5 |
-| Hardening, backup i recovery 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
+| Pełne dane i nowe gry odroczone po 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `requirements/IMAGE_INGESTION.md` | TASK-0076, przyszłe zadania |
+| Hardening, backup i recovery odroczone po 0.5 | `delivery/VERSION_0_5_EXECUTION_PLAN.md`, `delivery/MILESTONE_08_EXECUTION_PLAN.md` | TASK-0080–0089 |
+| Ulepszenia `Gry` i `Import layoutów` 0.6 | `delivery/VERSION_0_6_EXECUTION_PLAN.md`, `requirements/ADMIN_APP_V0_2.md` | nowe zadania 0.6 |
 
 ## Plany wykonawcze
 
@@ -85,7 +86,8 @@ last_updated: 2026-08-02
 - wersja 0.2: `delivery/VERSION_0_2_EXECUTION_PLAN.md`,
 - wersja 0.3: `delivery/VERSION_0_3_EXECUTION_PLAN.md`,
 - wersja 0.4: `delivery/VERSION_0_4_EXECUTION_PLAN.md`,
-- wersja 0.5: `delivery/VERSION_0_5_EXECUTION_PLAN.md`.
+- wersja 0.5: `delivery/VERSION_0_5_EXECUTION_PLAN.md`,
+- wersja 0.6: `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 
 Plany wykonawcze mapują wymagania na kolejność podetapów, zadania i bramki, ale
 nie zastępują dokumentów źródła prawdy wskazanych w tabeli.

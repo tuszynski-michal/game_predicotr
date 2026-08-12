@@ -1,14 +1,14 @@
 ---
 title: Delivery roadmap
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-12
 ---
 
 # Roadmap
 
 Każdy milestone kończy się działającym pionem funkcjonalnym. Mobile działa offline od pierwszego pionu. Nie rozpoczynamy masowego rozpoznawania zdjęć przed ustabilizowaniem modelu danych, ręcznego importu i procesu publikacji.
 
-## Podział wydań 0.1, 0.2, 0.3, 0.4 i 0.5
+## Podział wydań 0.1–0.6
 
 - **Wersja 0.1** zamyka kompletny demonstracyjny przepływ mobilny dla jednej
   gry i dokładnie 500 000 layoutów. Ponad 100 layoutów zatwierdzonych przez
@@ -29,9 +29,14 @@ Każdy milestone kończy się działającym pionem funkcjonalnym. Mobile działa
   10k/30k mierzy sam selektor, a nie pełny import layoutów. Zakres opisuje
   [VERSION_0_4_EXECUTION_PLAN.md](VERSION_0_4_EXECUTION_PLAN.md).
 - **Wersja 0.5** rozpoczyna pracę na większych rzeczywistych datasetach:
-  realizuje M6.6, pełny import TASK-0076, kolejne gry, wielogrowe wydanie,
-  końcowe testy dużych zbiorów oraz hardening TASK-0080–0089. Zakres opisuje
+  dostarczyła iteracyjny fundament importu oraz stabilny selektor v10.9.
+  Właściciel zamknął ją 2026-08-12 z ręcznym fallbackiem i jawnymi odroczeniami
+  pełnego importu, pomiarów oraz hardeningu. Wynik opisuje
   [VERSION_0_5_EXECUTION_PLAN.md](VERSION_0_5_EXECUTION_PLAN.md).
+- **Wersja 0.6** rozpoczyna się od uporządkowania i ulepszenia workspace’ów
+  `Gry` oraz `Import layoutów`. Szczegółowy zakres powstaje przed kodowaniem;
+  odroczone bramki 0.5 nie są automatycznie uznane za wykonane. Zakres opisuje
+  [VERSION_0_6_EXECUTION_PLAN.md](VERSION_0_6_EXECUTION_PLAN.md).
 - Ukończone zabezpieczenie lokalnego Admina i zdalnego Reviewera pozostaje
   częścią 0.1. Reset danych 0.2 nie cofa tych zabezpieczeń ani nie usuwa
   artefaktów wydania 0.1.
@@ -290,8 +295,9 @@ Automatyczny proces nie może przeliczyć ani zmienić `accepted`, `corrected` l
 `rejected`. Milestone przechodzi dopiero po dwóch iteracjach potwierdzających
 identyczne checksumy wszystkich decyzji człowieka przed i po operacjach modelu.
 
-M6.6 należy do toru przygotowania danych 0.5. Rozpoczyna się po zaakceptowaniu
-selektora 0.4 i musi zakończyć się przed pełnym automatycznym importem M7.
+M6.6 rozpoczęto w torze przygotowania danych 0.5. Niewykonany odbiór końcowy
+pozostaje odroczony po zamknięciu 0.5 i nadal musi zakończyć się przed pełnym
+automatycznym importem M7.
 
 ## M7 — Large-scale resumable image import
 
@@ -304,9 +310,9 @@ Plan preselektora poprzedzającego pełny pipeline:
 ### Status wydania
 
 M7.1–M7.4 są ukończone w zakresie fundamentów i kontrolowanego review.
-TASK-0076 pozostaje zablokowany bramką `massImportAllowed = false` i został
-zaplanowany dla wersji 0.5; nie blokuje wersji 0.1, małego workflow 0.2,
-dostosowania mobilnego 0.3 ani samodzielnego selektora 0.4.
+TASK-0076 pozostaje zablokowany bramką `massImportAllowed = false`. Nie został
+ukończony przed właścicielskim zamknięciem 0.5 i wymaga ponownego jawnego
+zaplanowania; nie blokuje wcześniejszych wydań ani pierwszego pionu 0.6.
 
 M7 jest realizowany przez:
 
@@ -322,7 +328,7 @@ M7 jest realizowany przez:
 - w wersji 0.4: czwarty workspace `Selekcja zdjęć` i TASK-0151–0157,
 - szybkie grupowanie 10 000–30 000 kolejnych ujęć i wybór jednego JPEG-a na
   unikalny zakres bez modyfikacji folderu źródłowego,
-- w wersji 0.5: pełny wersjonowany pipeline,
+- po ponownym jawnym zaplanowaniu: pełny wersjonowany pipeline,
 - batch processing,
 - wznowienia i anulowanie,
 - statystyki,
@@ -338,8 +344,8 @@ Plan wykonania:
 ### Status wydania
 
 M8.1 oraz M8.7 są ukończone i zachowane w 0.1. M8.2–M8.6, czyli TASK-0080–0089,
-zostały świadomie przeniesione do wersji 0.5. Odbiór TASK-0119 na Pixelu jest
-bramką 0.1, ale nie zastępuje pełnej bramki G8 planowanej dla 0.5.
+nie zostały ukończone przed właścicielskim zamknięciem 0.5 i wymagają ponownego
+jawnego zaplanowania. Odbiór TASK-0119 na Pixelu nie zastępuje pełnej bramki G8.
 
 M8 jest realizowany przez:
 

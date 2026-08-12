@@ -6,13 +6,27 @@ last_updated: 2026-08-12
 
 # Current State
 
-Kolejne commity aktywnego toru `0.5` zwiększają numer patch o jeden. Bieżąca
-partia implementacyjna jest wydaniem `v0.5.15`; następny commit otrzyma
-`v0.5.16`.
+Tor `0.5` został zamknięty. Ostatni commit implementacyjny to `v0.5.15`, a
+commit dokumentacyjny zamknięcia otrzymuje `v0.5.16`. Następny tor rozpoczyna
+się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
+`Import layoutów`.
 
 ## Phase
 
-`Version 0.5 iterative import implemented through TASK-0207; TASK-0208 scaling acceptance pending; owner acceptance 0.2/0.3/0.4 deferred`
+`Version 0.5 closed by owner; Version 0.6 planning starts with Games and Layout Import workspaces`
+
+## Zamknięcie wersji 0.5
+
+Właściciel zamknął wersję 0.5 dnia 2026-08-12 i zaakceptował selektor
+`fast-image-selector-v10.9` jako wystarczająco dobrą podstawę dalszej pracy.
+Akceptacja zachowuje manualny fallback, fail-closed dla niejednoznacznych
+zakresów i trwające runy operatorskie. Nie oznacza zaliczenia niewykonanych
+bramek pełnego importu, skali ani hardeningu.
+
+TASK-0208, TASK-0150, TASK-0076, TASK-0080–0089, pełna publikacja około 500 000
+layoutów, kolejne gry i końcowy hardening pozostają jawnie odroczone.
+`massImportAllowed` nie został otwarty. Plan wejściowy następnego toru znajduje
+się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 
 ## Aktywne tory wydań
 
@@ -660,11 +674,11 @@ ostatniej bramki, a typed client pobiera historię i szczegóły iteracji.
 
 ## Next recommended task
 
-TASK-0208 jest następną bramką v0.5. Kod i skrypt pomiarowy są gotowe; należy
-wykonać partie 10, 100 i 1000 zdjęć, ocenić czas, throughput, peak RSS oraz
-udział etapów, a dopiero po akceptacji trendu uruchomić 5000. Następnie
-TASK-0150 przeprowadzi dwie iteracje import → review → ulepszenie → nowy import.
-Żaden z tych kroków nie zmienia już zatwierdzonych plansz.
+Utworzyć pierwsze zadanie wersji 0.6 dotyczące wspólnego przeglądu i ulepszenia
+workspace’ów `Gry` oraz `Import layoutów`. Przed kodowaniem należy zapisać
+rzeczywisty przebieg właściciela, problemy, docelowe zachowanie i kryteria
+odbioru. Odroczone TASK-0208 i TASK-0150 nie są automatycznym pierwszym zakresem
+0.6 i wymagają osobnej decyzji priorytetowej.
 
 TASK-0194 wykonał powtórny profil pierwszych 200 zdjęć. Wariant dwóch
 verifierów trwał 366,322600 s, a jednego 310,859984 s wobec baseline
@@ -1163,5 +1177,5 @@ a sześć dalszych kontrolerów czeka sekwencyjnie; nie działa drugi job selekc
   partii i jawnym otwarciem `massImportAllowed`,
 - dodawania i testowania kolejnych gier,
 - wielogrowego wydania mobilnego,
-- pełnej macierzy urządzeń i hardeningu przypisanego do 0.5,
+- pełnej macierzy urządzeń i odroczonego hardeningu bez nowego jawnego planu,
 - Celery/Redis, mikroserwisów, chmury, Google Play lub publicznego Admin API.

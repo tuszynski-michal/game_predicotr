@@ -1,6 +1,26 @@
 {
   "components": {
     "schemas": {
+      "ActiveSymbolModelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "checksumSha256"
+        ],
+        "title": "ActiveSymbolModelResponse",
+        "type": "object"
+      },
       "AndroidBuildJobCreate": {
         "additionalProperties": false,
         "properties": {
@@ -96,6 +116,41 @@
           "expectedTotalBytes"
         ],
         "title": "BrowserImageSelectionCreate",
+        "type": "object"
+      },
+      "BrowserImageSelectionFileUploadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedFileCount": {
+            "title": "Expectedfilecount",
+            "type": "integer"
+          },
+          "expectedTotalBytes": {
+            "title": "Expectedtotalbytes",
+            "type": "integer"
+          },
+          "uploadId": {
+            "format": "uuid",
+            "title": "Uploadid",
+            "type": "string"
+          },
+          "uploadedBytes": {
+            "title": "Uploadedbytes",
+            "type": "integer"
+          },
+          "uploadedFileCount": {
+            "title": "Uploadedfilecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uploadId",
+          "expectedFileCount",
+          "uploadedFileCount",
+          "expectedTotalBytes",
+          "uploadedBytes"
+        ],
+        "title": "BrowserImageSelectionFileUploadResponse",
         "type": "object"
       },
       "BrowserImageSelectionUploadResponse": {
@@ -327,6 +382,341 @@
           "alreadyCompleted"
         ],
         "title": "CleanupResultResponse",
+        "type": "object"
+      },
+      "CreateGridCalibrationCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort": {
+            "$ref": "#/components/schemas/GeometryCohortResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/GridCalibrationProfileResponse"
+          }
+        },
+        "required": [
+          "cohort",
+          "profile",
+          "created"
+        ],
+        "title": "CreateGridCalibrationCandidateResponse",
+        "type": "object"
+      },
+      "CreateSymbolTrainingCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/SymbolTrainingConfigurationCommand"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cohortId",
+          "idempotencyKey"
+        ],
+        "title": "CreateSymbolTrainingCommand",
+        "type": "object"
+      },
+      "CreateSymbolTrainingResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "iteration": {
+            "$ref": "#/components/schemas/SymbolModelIterationResponse"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          }
+        },
+        "required": [
+          "iteration",
+          "job",
+          "created"
+        ],
+        "title": "CreateSymbolTrainingResponse",
+        "type": "object"
+      },
+      "CuratedImageImportBatchCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "imageCount": {
+            "default": 10,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Imagecount",
+            "type": "integer"
+          }
+        },
+        "title": "CuratedImageImportBatchCreate",
+        "type": "object"
+      },
+      "CuratedImageImportBatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batchNumber": {
+            "title": "Batchnumber",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "endIndex": {
+            "title": "Endindex",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "imageCount": {
+            "title": "Imagecount",
+            "type": "integer"
+          },
+          "job": {
+            "$ref": "#/components/schemas/JobResponse"
+          },
+          "startIndex": {
+            "title": "Startindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "batchNumber",
+          "startIndex",
+          "endIndex",
+          "imageCount",
+          "job",
+          "createdAt"
+        ],
+        "title": "CuratedImageImportBatchResponse",
+        "type": "object"
+      },
+      "CuratedImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "curatedImageImportBatchId": {
+            "format": "uuid",
+            "title": "Curatedimageimportbatchid",
+            "type": "string"
+          },
+          "curatedImageImportSourceId": {
+            "format": "uuid",
+            "title": "Curatedimageimportsourceid",
+            "type": "string"
+          },
+          "curatedManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Curatedmanifestchecksumsha256",
+            "type": "string"
+          },
+          "curatedManifestEntryCount": {
+            "minimum": 1.0,
+            "title": "Curatedmanifestentrycount",
+            "type": "integer"
+          },
+          "curatedManifestEntryStart": {
+            "minimum": 0.0,
+            "title": "Curatedmanifestentrystart",
+            "type": "integer"
+          },
+          "curatedManifestRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Curatedmanifestrelativepath",
+            "type": "string"
+          },
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageSelectionRunId": {
+            "format": "uuid",
+            "title": "Imageselectionrunid",
+            "type": "string"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 3,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceSelectionId",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "imageSelectionRunId",
+          "curatedImageImportSourceId",
+          "curatedImageImportBatchId",
+          "curatedManifestRelativePath",
+          "curatedManifestChecksumSha256",
+          "curatedManifestEntryStart",
+          "curatedManifestEntryCount",
+          "symbolModel",
+          "gridProfile"
+        ],
+        "title": "CuratedImageImportJobPayload",
+        "type": "object"
+      },
+      "CuratedImageImportSourceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "imageSelectionRunId": {
+            "format": "uuid",
+            "title": "Imageselectionrunid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "imageSelectionRunId"
+        ],
+        "title": "CuratedImageImportSourceCreate",
+        "type": "object"
+      },
+      "CuratedImageImportSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "batches": {
+            "items": {
+              "$ref": "#/components/schemas/CuratedImageImportBatchResponse"
+            },
+            "title": "Batches",
+            "type": "array"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "failedEntries": {
+            "title": "Failedentries",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "imageSelectionRunId": {
+            "format": "uuid",
+            "title": "Imageselectionrunid",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "nextEntryIndex": {
+            "title": "Nextentryindex",
+            "type": "integer"
+          },
+          "processedEntries": {
+            "title": "Processedentries",
+            "type": "integer"
+          },
+          "remainingEntries": {
+            "title": "Remainingentries",
+            "type": "integer"
+          },
+          "reservedEntries": {
+            "title": "Reservedentries",
+            "type": "integer"
+          },
+          "totalEntries": {
+            "title": "Totalentries",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "imageSelectionRunId",
+          "manifestChecksumSha256",
+          "totalEntries",
+          "reservedEntries",
+          "processedEntries",
+          "failedEntries",
+          "remainingEntries",
+          "nextEntryIndex",
+          "batches",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "CuratedImageImportSourceResponse",
         "type": "object"
       },
       "DatasetLayoutPageResponse": {
@@ -880,6 +1270,389 @@
         "title": "GameUpdate",
         "type": "object"
       },
+      "GeometryCohortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortNumber": {
+            "title": "Cohortnumber",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifestChecksumSha256": {
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "sampleCount": {
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "trainingCount": {
+            "title": "Trainingcount",
+            "type": "integer"
+          },
+          "validationCount": {
+            "title": "Validationcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "cohortNumber",
+          "manifestChecksumSha256",
+          "sampleCount",
+          "sourceImageCount",
+          "trainingCount",
+          "validationCount",
+          "createdAt"
+        ],
+        "title": "GeometryCohortResponse",
+        "type": "object"
+      },
+      "GridCalibrationProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gateMetrics": {
+            "additionalProperties": true,
+            "title": "Gatemetrics",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "profileChecksumSha256": {
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileNumber": {
+            "title": "Profilenumber",
+            "type": "integer"
+          },
+          "rejectionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rejectionreasons",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "cohortId",
+          "profileNumber",
+          "status",
+          "profileChecksumSha256",
+          "gateMetrics",
+          "rejectionReasons",
+          "createdAt"
+        ],
+        "title": "GridCalibrationProfileResponse",
+        "type": "object"
+      },
+      "GridProfileActivationAction": {
+        "enum": [
+          "activate",
+          "rollback"
+        ],
+        "title": "GridProfileActivationAction",
+        "type": "string"
+      },
+      "GridProfileActivationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedCurrentProfileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcurrentprofileid"
+          },
+          "expectedProfileChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedprofilechecksumsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expectedProfileChecksumSha256",
+          "idempotencyKey",
+          "actor"
+        ],
+        "title": "GridProfileActivationCommand",
+        "type": "object"
+      },
+      "GridProfileActivationCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/GridProfileActivationResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "activation",
+          "created"
+        ],
+        "title": "GridProfileActivationCommandResponse",
+        "type": "object"
+      },
+      "GridProfileActivationPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "canActivate": {
+            "title": "Canactivate",
+            "type": "boolean"
+          },
+          "currentProfileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentprofileid"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "profileChecksumSha256": {
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileId": {
+            "format": "uuid",
+            "title": "Profileid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "profileId",
+          "profileChecksumSha256",
+          "currentProfileId",
+          "action",
+          "canActivate"
+        ],
+        "title": "GridProfileActivationPreviewResponse",
+        "type": "object"
+      },
+      "GridProfileActivationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "activationNumber": {
+            "title": "Activationnumber",
+            "type": "integer"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "previousProfileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousprofileid"
+          },
+          "profileId": {
+            "format": "uuid",
+            "title": "Profileid",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "profileId",
+          "previousProfileId",
+          "action",
+          "activationNumber",
+          "actor",
+          "reason",
+          "idempotencyKey",
+          "createdAt"
+        ],
+        "title": "GridProfileActivationResponse",
+        "type": "object"
+      },
+      "GridProfileJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "activationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activationid"
+          },
+          "inferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inferencefingerprint",
+            "type": "string"
+          },
+          "profileChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilechecksumsha256",
+            "type": "string"
+          },
+          "profileId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profileid"
+          },
+          "profilePayload": {
+            "additionalProperties": true,
+            "title": "Profilepayload",
+            "type": "object"
+          },
+          "profileVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Profileversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profileVersion",
+          "profileChecksumSha256",
+          "profilePayload",
+          "inferenceFingerprint"
+        ],
+        "title": "GridProfileJobSnapshotPayload",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1200,8 +1973,7 @@
             "type": "string"
           },
           "schemaVersion": {
-            "const": 1,
-            "default": 1,
+            "const": 2,
             "title": "Schemaversion",
             "type": "integer"
           },
@@ -1231,6 +2003,11 @@
             ],
             "title": "Sourcedisplayname"
           },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
           "sourceSelectionId": {
             "anyOf": [
               {
@@ -1242,11 +2019,17 @@
               }
             ],
             "title": "Sourceselectionid"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
           }
         },
         "required": [
+          "schemaVersion",
           "importKind",
-          "pipelineFingerprint"
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "symbolModel"
         ],
         "title": "ImageImportJobPayload",
         "type": "object"
@@ -1575,6 +2358,11 @@
             "title": "Contractversion",
             "type": "integer"
           },
+          "firstSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Firstsequencenumber",
+            "type": "integer"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -1585,11 +2373,16 @@
             "minLength": 32,
             "title": "Selectiontoken",
             "type": "string"
+          },
+          "sequenceDirection": {
+            "$ref": "#/components/schemas/ImageSelectionSequenceDirection",
+            "default": "ascending"
           }
         },
         "required": [
           "gameId",
-          "selectionToken"
+          "selectionToken",
+          "firstSequenceNumber"
         ],
         "title": "ImageSelectionCreate",
         "type": "object"
@@ -1610,6 +2403,77 @@
           "created"
         ],
         "title": "ImageSelectionCreateResponse",
+        "type": "object"
+      },
+      "ImageSelectionDuplicateRangeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "rangeStart",
+          "rangeEnd"
+        ],
+        "title": "ImageSelectionDuplicateRangeCommand",
+        "type": "object"
+      },
+      "ImageSelectionGroupCandidatesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "groupId": {
+            "format": "uuid",
+            "title": "Groupid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionCandidateResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "sourceCount": {
+            "minimum": 1.0,
+            "title": "Sourcecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "groupId",
+          "sourceCount",
+          "items"
+        ],
+        "title": "ImageSelectionGroupCandidatesResponse",
+        "type": "object"
+      },
+      "ImageSelectionGroupDecisionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey"
+        ],
+        "title": "ImageSelectionGroupDecisionCommand",
         "type": "object"
       },
       "ImageSelectionGroupPageResponse": {
@@ -1708,6 +2572,16 @@
             ],
             "title": "Rangestart"
           },
+          "rejectionOriginStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageSelectionGroupStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "runId": {
             "format": "uuid",
             "title": "Runid",
@@ -1741,6 +2615,7 @@
           "fingerprintSha256",
           "status",
           "selectedCandidateId",
+          "rejectionOriginStatus",
           "createdAt",
           "updatedAt"
         ],
@@ -1753,7 +2628,12 @@
           "auto_selected",
           "manual_required",
           "manually_selected",
-          "skipped_existing_range"
+          "missing_image",
+          "skipped_existing_range",
+          "range_required",
+          "range_confirmed",
+          "skipped_unreadable",
+          "rejected_by_user"
         ],
         "title": "ImageSelectionGroupStatus",
         "type": "string"
@@ -1788,7 +2668,7 @@
             "type": "string"
           },
           "supportedFileCount": {
-            "minimum": 1.0,
+            "minimum": 0.0,
             "title": "Supportedfilecount",
             "type": "integer"
           },
@@ -1810,6 +2690,42 @@
         "title": "ImageSelectionHandoffResponse",
         "type": "object"
       },
+      "ImageSelectionJobDeletionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "managedRunFilesDeleted": {
+            "title": "Managedrunfilesdeleted",
+            "type": "boolean"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          },
+          "sharedSourceStagingPreserved": {
+            "title": "Sharedsourcestagingpreserved",
+            "type": "boolean"
+          },
+          "sourceStagingDeleted": {
+            "title": "Sourcestagingdeleted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "jobId",
+          "runId",
+          "managedRunFilesDeleted",
+          "sourceStagingDeleted",
+          "sharedSourceStagingPreserved"
+        ],
+        "title": "ImageSelectionJobDeletionResponse",
+        "type": "object"
+      },
       "ImageSelectionJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -1817,6 +2733,18 @@
             "const": 1,
             "title": "Contractversion",
             "type": "integer"
+          },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
           },
           "inputManifestSha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -1832,6 +2760,15 @@
           "selectorFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Selectorfingerprint",
+            "type": "string"
+          },
+          "sequenceDirection": {
+            "default": "ascending",
+            "enum": [
+              "ascending",
+              "descending"
+            ],
+            "title": "Sequencedirection",
             "type": "string"
           },
           "sourceSelectionId": {
@@ -1886,6 +2823,16 @@
             ],
             "title": "Processingdurationseconds"
           },
+          "recentWindow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageSelectionRecentWindowResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "selected": {
             "title": "Selected",
             "type": "integer"
@@ -1893,6 +2840,34 @@
           "skipped": {
             "title": "Skipped",
             "type": "integer"
+          },
+          "stageSeconds": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stageseconds"
+          },
+          "telemetryCounters": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telemetrycounters"
           },
           "uploadDurationSeconds": {
             "anyOf": [
@@ -1987,9 +2962,16 @@
         "additionalProperties": false,
         "properties": {
           "candidateId": {
-            "format": "uuid",
-            "title": "Candidateid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidateid"
           },
           "createdAt": {
             "format": "date-time",
@@ -2007,14 +2989,31 @@
             "type": "string"
           },
           "rangeEnd": {
-            "minimum": 1.0,
-            "title": "Rangeend",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
           },
           "rangeStart": {
-            "minimum": 1.0,
-            "title": "Rangestart",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangestart"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/ImageSelectionManualResolution"
           },
           "revision": {
             "minimum": 1.0,
@@ -2032,8 +3031,7 @@
           "runId",
           "groupId",
           "candidateId",
-          "rangeStart",
-          "rangeEnd",
+          "resolution",
           "revision",
           "createdAt"
         ],
@@ -2053,6 +3051,160 @@
         "title": "ImageSelectionManualFileResponse",
         "type": "object"
       },
+      "ImageSelectionManualResolution": {
+        "enum": [
+          "selected_image",
+          "missing_image",
+          "duplicate_range",
+          "range_confirmed",
+          "rejected_group",
+          "restored_group"
+        ],
+        "title": "ImageSelectionManualResolution",
+        "type": "string"
+      },
+      "ImageSelectionMissingImageCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "rangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
+          },
+          "rangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangestart"
+          }
+        },
+        "required": [
+          "idempotencyKey"
+        ],
+        "title": "ImageSelectionMissingImageCommand",
+        "type": "object"
+      },
+      "ImageSelectionOutputFileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Checksumsha256",
+            "type": "string"
+          },
+          "fileName": {
+            "pattern": "^(?:seq_[1-9][0-9]*-[1-9][0-9]*|selection_[0-9]+)\\.jpg$",
+            "title": "Filename",
+            "type": "string"
+          },
+          "groupOrder": {
+            "minimum": 0.0,
+            "title": "Grouporder",
+            "type": "integer"
+          },
+          "rangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
+          },
+          "rangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangestart"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "selectionMethod": {
+            "enum": [
+              "automatic",
+              "manual"
+            ],
+            "title": "Selectionmethod",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 1.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fileName",
+          "groupOrder",
+          "checksumSha256",
+          "sizeBytes",
+          "reasonCodes",
+          "selectionMethod"
+        ],
+        "title": "ImageSelectionOutputFileResponse",
+        "type": "object"
+      },
+      "ImageSelectionOutputResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionOutputFileResponse"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "manifestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestsha256",
+            "type": "string"
+          },
+          "runId": {
+            "format": "uuid",
+            "title": "Runid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "manifestSha256",
+          "files"
+        ],
+        "title": "ImageSelectionOutputResponse",
+        "type": "object"
+      },
       "ImageSelectionPurpose": {
         "enum": [
           "layout_import",
@@ -2060,6 +3212,120 @@
         ],
         "title": "ImageSelectionPurpose",
         "type": "string"
+      },
+      "ImageSelectionRangeConfirmationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "rangeStart",
+          "rangeEnd"
+        ],
+        "title": "ImageSelectionRangeConfirmationCommand",
+        "type": "object"
+      },
+      "ImageSelectionRecentWindowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "elapsedSeconds": {
+            "title": "Elapsedseconds",
+            "type": "number"
+          },
+          "fromProcessed": {
+            "title": "Fromprocessed",
+            "type": "integer"
+          },
+          "groupsFinalized": {
+            "title": "Groupsfinalized",
+            "type": "integer"
+          },
+          "manual": {
+            "title": "Manual",
+            "type": "integer"
+          },
+          "toProcessed": {
+            "title": "Toprocessed",
+            "type": "integer"
+          },
+          "verifications": {
+            "title": "Verifications",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fromProcessed",
+          "toProcessed",
+          "elapsedSeconds",
+          "groupsFinalized",
+          "verifications",
+          "manual"
+        ],
+        "title": "ImageSelectionRecentWindowResponse",
+        "type": "object"
+      },
+      "ImageSelectionRerunCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
+          }
+        },
+        "title": "ImageSelectionRerunCommand",
+        "type": "object"
+      },
+      "ImageSelectionRunPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImageSelectionRunResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextOffset": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextoffset"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ImageSelectionRunPageResponse",
+        "type": "object"
       },
       "ImageSelectionRunResponse": {
         "additionalProperties": false,
@@ -2074,6 +3340,18 @@
             "format": "date-time",
             "title": "Createdat",
             "type": "string"
+          },
+          "firstSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firstsequencenumber"
           },
           "gameId": {
             "format": "uuid",
@@ -2126,6 +3404,15 @@
             "title": "Selectorfingerprint",
             "type": "string"
           },
+          "selectorVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Selectorversion",
+            "type": "string"
+          },
+          "sequenceDirection": {
+            "$ref": "#/components/schemas/ImageSelectionSequenceDirection"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
@@ -2144,15 +3431,25 @@
           "sourceSelectionId",
           "inputManifestSha256",
           "selectorFingerprint",
+          "selectorVersion",
           "orderingPolicy",
           "contractVersion",
           "outputManifestSha256",
           "outputManifestRelativePath",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "sequenceDirection"
         ],
         "title": "ImageSelectionRunResponse",
         "type": "object"
+      },
+      "ImageSelectionSequenceDirection": {
+        "enum": [
+          "ascending",
+          "descending"
+        ],
+        "title": "ImageSelectionSequenceDirection",
+        "type": "string"
       },
       "ImageSequenceSourceCandidateResponse": {
         "additionalProperties": false,
@@ -2683,7 +3980,13 @@
                 "$ref": "#/components/schemas/ImportJobPayload"
               },
               {
+                "$ref": "#/components/schemas/LegacyImageImportJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/ImageImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/CuratedImageImportJobPayload"
               },
               {
                 "$ref": "#/components/schemas/ImageSelectionJobPayload"
@@ -2702,6 +4005,9 @@
               },
               {
                 "$ref": "#/components/schemas/AndroidBuildJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/SymbolTrainingJobPayload"
               }
             ],
             "title": "Inputpayload"
@@ -2796,7 +4102,8 @@
           "validate",
           "payout",
           "snapshot",
-          "android_build"
+          "android_build",
+          "symbol_training"
         ],
         "title": "JobType",
         "type": "string"
@@ -3361,6 +4668,83 @@
         "title": "LayoutImportValidateJobPayload",
         "type": "object"
       },
+      "LegacyImageImportJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcedirectory"
+          },
+          "sourceDisplayName": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcedisplayname"
+          },
+          "sourceSelectionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceselectionid"
+          }
+        },
+        "required": [
+          "importKind",
+          "pipelineFingerprint"
+        ],
+        "title": "LegacyImageImportJobPayload",
+        "type": "object"
+      },
       "MobileReleaseApkResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3660,6 +5044,151 @@
           "seed"
         ],
         "title": "MockDatasetCreate",
+        "type": "object"
+      },
+      "ModelQualityAdvisoryThresholdResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "layoutCount": {
+            "minimum": 1.0,
+            "title": "Layoutcount",
+            "type": "integer"
+          },
+          "reached": {
+            "title": "Reached",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "layoutCount",
+          "reached"
+        ],
+        "title": "ModelQualityAdvisoryThresholdResponse",
+        "type": "object"
+      },
+      "ModelQualityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeHeavyJob": {
+            "title": "Activeheavyjob",
+            "type": "boolean"
+          },
+          "activeModel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveSymbolModelResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "advisoryThresholds": {
+            "items": {
+              "$ref": "#/components/schemas/ModelQualityAdvisoryThresholdResponse"
+            },
+            "title": "Advisorythresholds",
+            "type": "array"
+          },
+          "canFreeze": {
+            "title": "Canfreeze",
+            "type": "boolean"
+          },
+          "cellSampleCount": {
+            "minimum": 0.0,
+            "title": "Cellsamplecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "incompleteItemCount": {
+            "minimum": 0.0,
+            "title": "Incompleteitemcount",
+            "type": "integer"
+          },
+          "latestCohort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifiedTrainingCohortResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "newVerifiedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Newverifiedlayoutcount",
+            "type": "integer"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "protectedItemCount": {
+            "minimum": 0.0,
+            "title": "Protecteditemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "resolvedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Resolvedlayoutcount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "symbolCoverage": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolTrainingCoverageResponse"
+            },
+            "title": "Symbolcoverage",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "activeModel",
+          "latestCohort",
+          "manifestChecksumSha256",
+          "resolvedLayoutCount",
+          "newVerifiedLayoutCount",
+          "cellSampleCount",
+          "sourceImageCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "incompleteItemCount",
+          "protectedItemCount",
+          "symbolCoverage",
+          "advisoryThresholds",
+          "warnings",
+          "activeHeavyJob",
+          "canFreeze"
+        ],
+        "title": "ModelQualityResponse",
         "type": "object"
       },
       "OperationalImageReviewAlternativeResponse": {
@@ -6744,6 +8273,531 @@
         "title": "SymbolImageSelectionCommand",
         "type": "object"
       },
+      "SymbolModelActivationAction": {
+        "enum": [
+          "activate",
+          "rollback"
+        ],
+        "title": "SymbolModelActivationAction",
+        "type": "string"
+      },
+      "SymbolModelActivationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedCurrentModelIterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcurrentmodeliterationid"
+          },
+          "expectedManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedmanifestchecksumsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expectedManifestChecksumSha256",
+          "idempotencyKey",
+          "actor"
+        ],
+        "title": "SymbolModelActivationCommand",
+        "type": "object"
+      },
+      "SymbolModelActivationCommandResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activation": {
+            "$ref": "#/components/schemas/SymbolModelActivationResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "activation",
+          "created"
+        ],
+        "title": "SymbolModelActivationCommandResponse",
+        "type": "object"
+      },
+      "SymbolModelActivationPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "canActivate": {
+            "title": "Canactivate",
+            "type": "boolean"
+          },
+          "candidateManifestChecksumSha256": {
+            "title": "Candidatemanifestchecksumsha256",
+            "type": "string"
+          },
+          "currentModelIterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentmodeliterationid"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "modelIterationId": {
+            "format": "uuid",
+            "title": "Modeliterationid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "modelIterationId",
+          "candidateManifestChecksumSha256",
+          "currentModelIterationId",
+          "action",
+          "canActivate"
+        ],
+        "title": "SymbolModelActivationPreviewResponse",
+        "type": "object"
+      },
+      "SymbolModelActivationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "activationNumber": {
+            "title": "Activationnumber",
+            "type": "integer"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "modelIterationId": {
+            "format": "uuid",
+            "title": "Modeliterationid",
+            "type": "string"
+          },
+          "previousModelIterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previousmodeliterationid"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "modelIterationId",
+          "previousModelIterationId",
+          "action",
+          "activationNumber",
+          "actor",
+          "reason",
+          "idempotencyKey",
+          "createdAt"
+        ],
+        "title": "SymbolModelActivationResponse",
+        "type": "object"
+      },
+      "SymbolModelIterationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatemanifestchecksumsha256"
+          },
+          "candidateManifestRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatemanifestrelativepath"
+          },
+          "checkpointChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpointchecksumsha256"
+          },
+          "checkpointRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpointrelativepath"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "configurationFingerprint": {
+            "title": "Configurationfingerprint",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "datasetManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datasetmanifestchecksumsha256"
+          },
+          "datasetManifestRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Datasetmanifestrelativepath"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gateConfiguration": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateconfiguration"
+          },
+          "gateConfigurationFingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gateconfigurationfingerprint"
+          },
+          "gateMetrics": {
+            "additionalProperties": true,
+            "title": "Gatemetrics",
+            "type": "object"
+          },
+          "gateReportChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatereportchecksumsha256"
+          },
+          "gateReportRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatereportrelativepath"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "iterationNumber": {
+            "title": "Iterationnumber",
+            "type": "integer"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "lastCompletedEpoch": {
+            "title": "Lastcompletedepoch",
+            "type": "integer"
+          },
+          "partialMetrics": {
+            "additionalProperties": true,
+            "title": "Partialmetrics",
+            "type": "object"
+          },
+          "rejectionReasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rejectionreasons",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "cohortId",
+          "jobId",
+          "iterationNumber",
+          "status",
+          "configurationFingerprint",
+          "configuration",
+          "datasetManifestChecksumSha256",
+          "datasetManifestRelativePath",
+          "checkpointChecksumSha256",
+          "checkpointRelativePath",
+          "gateConfigurationFingerprint",
+          "gateConfiguration",
+          "candidateManifestChecksumSha256",
+          "candidateManifestRelativePath",
+          "gateReportChecksumSha256",
+          "gateReportRelativePath",
+          "gateMetrics",
+          "rejectionReasons",
+          "lastCompletedEpoch",
+          "partialMetrics",
+          "errorCode",
+          "errorMessage",
+          "createdAt",
+          "updatedAt"
+        ],
+        "title": "SymbolModelIterationResponse",
+        "type": "object"
+      },
+      "SymbolModelJobSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "classCodes": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Classcodes",
+            "type": "array"
+          },
+          "inferenceFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inferencefingerprint",
+            "type": "string"
+          },
+          "inputSize": {
+            "minimum": 16.0,
+            "title": "Inputsize",
+            "type": "integer"
+          },
+          "iterationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iterationid"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "modelVersion": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "onnxChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Onnxchecksumsha256",
+            "type": "string"
+          },
+          "onnxRelativePath": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Onnxrelativepath",
+            "type": "string"
+          },
+          "storageRoot": {
+            "enum": [
+              "repository",
+              "artifact"
+            ],
+            "title": "Storageroot",
+            "type": "string"
+          },
+          "temperature": {
+            "exclusiveMinimum": 0.0,
+            "title": "Temperature",
+            "type": "number"
+          }
+        },
+        "required": [
+          "modelVersion",
+          "manifestChecksumSha256",
+          "onnxChecksumSha256",
+          "onnxRelativePath",
+          "storageRoot",
+          "classCodes",
+          "inputSize",
+          "temperature",
+          "inferenceFingerprint"
+        ],
+        "title": "SymbolModelJobSnapshotPayload",
+        "type": "object"
+      },
       "SymbolResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6837,6 +8891,119 @@
         ],
         "title": "SymbolStatus",
         "type": "string"
+      },
+      "SymbolTrainingConfigurationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "batchSize": {
+            "default": 32,
+            "maximum": 1024.0,
+            "minimum": 1.0,
+            "title": "Batchsize",
+            "type": "integer"
+          },
+          "epochs": {
+            "default": 40,
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Epochs",
+            "type": "integer"
+          },
+          "inputSize": {
+            "default": 64,
+            "maximum": 512.0,
+            "minimum": 16.0,
+            "title": "Inputsize",
+            "type": "integer"
+          },
+          "learningRate": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Learningrate",
+            "type": "number"
+          },
+          "seed": {
+            "default": 61061,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "weightDecay": {
+            "default": 0.0001,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Weightdecay",
+            "type": "number"
+          }
+        },
+        "title": "SymbolTrainingConfigurationCommand",
+        "type": "object"
+      },
+      "SymbolTrainingCoverageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sampleCount": {
+            "minimum": 0.0,
+            "title": "Samplecount",
+            "type": "integer"
+          },
+          "symbolCode": {
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolCode",
+          "sampleCount"
+        ],
+        "title": "SymbolTrainingCoverageResponse",
+        "type": "object"
+      },
+      "SymbolTrainingJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "cohortChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Cohortchecksumsha256",
+            "type": "string"
+          },
+          "cohortId": {
+            "format": "uuid",
+            "title": "Cohortid",
+            "type": "string"
+          },
+          "configuration": {
+            "additionalProperties": true,
+            "title": "Configuration",
+            "type": "object"
+          },
+          "configurationFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Configurationfingerprint",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cohortId",
+          "cohortChecksumSha256",
+          "configuration",
+          "configurationFingerprint",
+          "idempotencyKey"
+        ],
+        "title": "SymbolTrainingJobPayload",
+        "type": "object"
       },
       "SymbolUpdate": {
         "additionalProperties": false,
@@ -7140,6 +9307,304 @@
           "created"
         ],
         "title": "VerifiedCohortFreezeResponse",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortFreezeCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "createdBy": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Createdby",
+            "type": "string"
+          },
+          "expectedManifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedmanifestchecksumsha256",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotencyKey",
+          "createdBy",
+          "expectedManifestChecksumSha256"
+        ],
+        "title": "VerifiedTrainingCohortFreezeCommand",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortFreezeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cohort": {
+            "$ref": "#/components/schemas/VerifiedTrainingCohortResponse"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cohort",
+          "created"
+        ],
+        "title": "VerifiedTrainingCohortFreezeResponse",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellSampleCount": {
+            "minimum": 0.0,
+            "title": "Cellsamplecount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "incompleteItemCount": {
+            "minimum": 0.0,
+            "title": "Incompleteitemcount",
+            "type": "integer"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestSchemaVersion": {
+            "minimum": 1.0,
+            "title": "Manifestschemaversion",
+            "type": "integer"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "protectedItemCount": {
+            "minimum": 0.0,
+            "title": "Protecteditemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "resolvedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Resolvedlayoutcount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "manifestSchemaVersion",
+          "manifestChecksumSha256",
+          "resolvedLayoutCount",
+          "cellSampleCount",
+          "sourceImageCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "incompleteItemCount",
+          "protectedItemCount",
+          "warnings"
+        ],
+        "title": "VerifiedTrainingCohortPreviewResponse",
+        "type": "object"
+      },
+      "VerifiedTrainingCohortResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactRelativePath": {
+            "title": "Artifactrelativepath",
+            "type": "string"
+          },
+          "cellSampleCount": {
+            "minimum": 15.0,
+            "title": "Cellsamplecount",
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "createdBy": {
+            "title": "Createdby",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "incompleteItemCount": {
+            "minimum": 0.0,
+            "title": "Incompleteitemcount",
+            "type": "integer"
+          },
+          "iterationNumber": {
+            "minimum": 1.0,
+            "title": "Iterationnumber",
+            "type": "integer"
+          },
+          "manifestChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifestchecksumsha256",
+            "type": "string"
+          },
+          "manifestSchemaVersion": {
+            "minimum": 1.0,
+            "title": "Manifestschemaversion",
+            "type": "integer"
+          },
+          "pendingItemCount": {
+            "minimum": 0.0,
+            "title": "Pendingitemcount",
+            "type": "integer"
+          },
+          "rejectedItemCount": {
+            "minimum": 0.0,
+            "title": "Rejecteditemcount",
+            "type": "integer"
+          },
+          "resolvedLayoutCount": {
+            "minimum": 1.0,
+            "title": "Resolvedlayoutcount",
+            "type": "integer"
+          },
+          "sourceImageCount": {
+            "minimum": 1.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "iterationNumber",
+          "manifestSchemaVersion",
+          "manifestChecksumSha256",
+          "resolvedLayoutCount",
+          "cellSampleCount",
+          "sourceImageCount",
+          "pendingItemCount",
+          "rejectedItemCount",
+          "incompleteItemCount",
+          "artifactRelativePath",
+          "createdBy",
+          "createdAt"
+        ],
+        "title": "VerifiedTrainingCohortResponse",
+        "type": "object"
+      },
+      "WorkerLaneName": {
+        "enum": [
+          "general",
+          "image_selection"
+        ],
+        "title": "WorkerLaneName",
+        "type": "string"
+      },
+      "WorkerLaneState": {
+        "enum": [
+          "running",
+          "degraded",
+          "stopped"
+        ],
+        "title": "WorkerLaneState",
+        "type": "string"
+      },
+      "WorkerLaneStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "heartbeatAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeatat"
+          },
+          "lane": {
+            "$ref": "#/components/schemas/WorkerLaneName"
+          },
+          "startedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startedat"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WorkerLaneState"
+          },
+          "threadBudget": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threadbudget"
+          },
+          "workerVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workerversion"
+          }
+        },
+        "required": [
+          "lane",
+          "state",
+          "workerVersion",
+          "threadBudget",
+          "startedAt",
+          "heartbeatAt"
+        ],
+        "title": "WorkerLaneStatusResponse",
         "type": "object"
       }
     },
@@ -8045,6 +10510,518 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles": {
+      "get": {
+        "operationId": "listGridCalibrationProfiles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridCalibrationProfileResponse"
+                  },
+                  "title": "Response Listgridcalibrationprofiles",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Profiles",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      },
+      "post": {
+        "operationId": "createGridCalibrationCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateGridCalibrationCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Candidate",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations": {
+      "get": {
+        "operationId": "listGridProfileActivations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridProfileActivationResponse"
+                  },
+                  "title": "Response Listgridprofileactivations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Activations",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activate": {
+      "post": {
+        "operationId": "activateGridProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridProfileActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridProfileActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Activate",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activation-preview": {
+      "get": {
+        "operationId": "previewGridProfileActivation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/GridProfileActivationAction",
+              "default": "activate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridProfileActivationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Activation",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/rollback": {
+      "post": {
+        "operationId": "rollbackGridProfile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridProfileActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridProfileActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rollback",
+        "tags": [
+          "grid-calibration-profiles"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/layout-data": {
       "delete": {
         "operationId": "resetGameLayoutData",
@@ -8210,6 +11187,69 @@
         "summary": "Preview reset of all layout workflow data for one game",
         "tags": [
           "cleanup"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/model-quality": {
+      "get": {
+        "operationId": "getModelQuality",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelQualityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read model and verified-data readiness for one game",
+        "tags": [
+          "verified-training-cohorts"
         ]
       }
     },
@@ -8618,6 +11658,618 @@
         "summary": "Resolve a symbol cluster-count conflict",
         "tags": [
           "symbol-bootstrap"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations": {
+      "get": {
+        "operationId": "listSymbolModelIterations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SymbolModelIterationResponse"
+                  },
+                  "title": "Response Listsymbolmodeliterations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Iterations",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      },
+      "post": {
+        "operationId": "createSymbolTraining",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSymbolTrainingCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSymbolTrainingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create Training",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations": {
+      "get": {
+        "operationId": "listSymbolModelActivations",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SymbolModelActivationResponse"
+                  },
+                  "title": "Response Listsymbolmodelactivations",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Activations",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}": {
+      "get": {
+        "operationId": "getSymbolModelIteration",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelIterationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Get Iteration",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activate": {
+      "post": {
+        "operationId": "activateSymbolModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolModelActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Activate",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activation-preview": {
+      "get": {
+        "operationId": "previewSymbolModelActivation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SymbolModelActivationAction",
+              "default": "activate"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Activation",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/rollback": {
+      "post": {
+        "operationId": "rollbackSymbolModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "iteration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Iteration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolModelActivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rollback",
+        "tags": [
+          "symbol-model-iterations"
         ]
       }
     },
@@ -9390,6 +13042,174 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/verified-training-cohorts": {
+      "post": {
+        "operationId": "freezeVerifiedTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifiedTrainingCohortFreezeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedTrainingCohortFreezeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Freeze an immutable cumulative human-verified training cohort",
+        "tags": [
+          "verified-training-cohorts"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/verified-training-cohorts/preview": {
+      "get": {
+        "operationId": "previewVerifiedTrainingCohort",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifiedTrainingCohortPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Training cohort conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview the cumulative human-verified training cohort",
+        "tags": [
+          "verified-training-cohorts"
+        ]
+      }
+    },
     "/api/v1/admin/image-imports": {
       "post": {
         "operationId": "createImageFolderImport",
@@ -9728,7 +13548,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BrowserImageSelectionUploadResponse"
+                  "$ref": "#/components/schemas/BrowserImageSelectionFileUploadResponse"
                 }
               }
             },
@@ -9859,6 +13679,299 @@
           }
         ],
         "summary": "Finalize a browser-native image folder selection",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/curated-sources": {
+      "get": {
+        "operationId": "listCuratedImageImportSources",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                  },
+                  "title": "Response Listcuratedimageimportsources",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "List incremental curated sources for one game",
+        "tags": [
+          "image-imports"
+        ]
+      },
+      "post": {
+        "operationId": "registerCuratedImageImportSource",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CuratedImageImportSourceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Register verified image-selection output for incremental import",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/curated-sources/{source_id}": {
+      "get": {
+        "operationId": "getCuratedImageImportSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "summary": "Get durable progress for one incremental curated source",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/curated-sources/{source_id}/batches": {
+      "post": {
+        "operationId": "createNextCuratedImageImportBatch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CuratedImageImportBatchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratedImageImportSourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Atomically reserve and import the next N curated images",
         "tags": [
           "image-imports"
         ]
@@ -11653,6 +15766,90 @@
       }
     },
     "/api/v1/admin/image-selections": {
+      "get": {
+        "operationId": "listImageSelections",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionRunPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List durable image-selection runs for one game",
+        "tags": [
+          "image-selections"
+        ]
+      },
       "post": {
         "operationId": "createImageSelection",
         "parameters": [],
@@ -11992,6 +16189,461 @@
         ]
       }
     },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates": {
+      "get": {
+        "operationId": "listImageSelectionGroupCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionGroupCandidatesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List bounded source candidates identifying one review group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates/{candidate_id}/file": {
+      "get": {
+        "operationId": "getImageSelectionCandidateFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read one staged or manually uploaded candidate JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/confirm-range": {
+      "post": {
+        "operationId": "confirmImageSelectionGroupRange",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionRangeConfirmationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Confirm a range for one automatically represented group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/continue-without-image": {
+      "post": {
+        "operationId": "continueImageSelectionWithoutImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionMissingImageCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Resolve one review range without requiring a representative JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/discard-duplicate": {
+      "post": {
+        "operationId": "discardDuplicateImageSelectionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionDuplicateRangeCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Discard one manual-review group whose range is already resolved",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
     "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/manual-file": {
       "put": {
         "operationId": "uploadManualImageSelectionFile",
@@ -12179,6 +16831,268 @@
         ]
       }
     },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/reject": {
+      "post": {
+        "operationId": "rejectImageSelectionReviewGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionGroupDecisionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reject one representative- or range-review group",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/restore": {
+      "post": {
+        "operationId": "restoreRejectedImageSelectionGroup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionGroupDecisionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionManualApprovalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Restore one user-rejected group to its prior review queue",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/groups/{group_id}/selected-file": {
+      "get": {
+        "operationId": "getImageSelectionSelectedGroupFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read one selected JPEG as soon as its group is finalized",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
     "/api/v1/admin/image-selections/{run_id}/handoff": {
       "post": {
         "operationId": "handoffImageSelection",
@@ -12252,6 +17166,229 @@
           }
         ],
         "summary": "Verify and hand curated images to the explicit layout import step",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/output": {
+      "get": {
+        "operationId": "getImageSelectionOutput",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionOutputResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List the verified curated JPEG files available for export",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/output/{file_name}": {
+      "get": {
+        "operationId": "getImageSelectionOutputFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "file_name",
+            "required": true,
+            "schema": {
+              "title": "File Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Download one checksum-verified curated JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/rerun": {
+      "post": {
+        "operationId": "rerunImageSelection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ImageSelectionRerunCommand"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Run the current selector against an existing managed staging",
         "tags": [
           "image-selections"
         ]
@@ -12527,6 +17664,99 @@
       }
     },
     "/api/v1/admin/jobs/{job_id}": {
+      "delete": {
+        "operationId": "deleteCancelledImageSelectionJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionJobDeletionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Job lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Permanently delete one cancelled image-selection job",
+        "tags": [
+          "jobs"
+        ]
+      },
       "get": {
         "operationId": "getJob",
         "parameters": [
@@ -16390,6 +21620,31 @@
         "summary": "Configure a draft rules-version symbol",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/worker-lanes": {
+      "get": {
+        "operationId": "listWorkerLanes",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkerLaneStatusResponse"
+                  },
+                  "title": "Response Listworkerlanes",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List health and resource budgets for local worker lanes",
+        "tags": [
+          "worker-lanes"
         ]
       }
     },

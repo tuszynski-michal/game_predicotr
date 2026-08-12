@@ -1,7 +1,7 @@
 ---
 title: TASK-0142 — Admin 0.2 owner acceptance regressions
 status: in_progress
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # TASK-0142 — Admin 0.2 owner acceptance regressions
@@ -43,6 +43,8 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
 - zastąpić zawodny dialog Windows uruchamiany przez backend standardowym
   selektorem folderu przeglądarki i kontrolowanym uploadem JPEG-ów,
 - uprościć wejście sekcji `Symbole` i nadać polu liczby symboli spójny styl,
+- dodać przy zapisanej ścieżce symbolu dostępny modal podglądu rzeczywistej
+  grafiki referencyjnej bez zmiany jej wyboru,
 - uporządkować hierarchię tekstu kafelka gry i przenieść destrukcyjne czyszczenie
   na koniec konfiguracji aktywnej gry,
 - naprawić checkpoint importu obrazów i zachować czytelny kod błędu dla
@@ -58,6 +60,11 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
   ale uwzględnić rzeczywisty czas uruchomienia Next.js oraz odpowiedzi sieci,
 - ograniczyć edytor siatki Reviewera do pojedynczego layoutu z marginesem,
   zachowując zapis narożników względem pełnego obrazu źródłowego,
+- naprawić mapowanie wskaźnika przy skalowaniu i letterboxingu canvas, aby każdy
+  widoczny narożnik można było przesunąć niezależnie od proporcji layoutu,
+- po zapisie geometrii użyć dokładnej projekcji zwróconej przez backend oraz
+  wersjonowanych checksumą URL-i, aby UI nie pokazywał poprzedniej siatki i
+  cropów z immutable cache,
 - pokazać dla image importu datę, godzinę i czas zakończonego automatycznego
   workflow również wtedy, gdy cały job ma status `Wymaga review`,
 - uniezależnić kontrolę aktualności wygenerowanego klienta OpenAPI od różnic
@@ -101,6 +108,9 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
       dopiero po zgodnej finalizacji, a anulowane/wygasłe stagingi są sprzątane.
 - [x] Sekcja `Symbole` nie powtarza nagłówka automatycznego katalogu, używa
       etykiety `Liczba symboli` i ma czytelny responsywny input liczbowy.
+- [x] Edycja symbolu z zapisaną grafiką pokazuje akcję `Podgląd`; modal używa
+      istniejącego checksum-bound assetu oraz obsługuje loading, błąd, retry,
+      `Escape` i jawne zamknięcie bez mutacji symbolu.
 - [x] Kafelek gry pokazuje mały stabilny kod bezpośrednio pod nazwą, a cel
       layoutów niżej z czytelnym odstępem od dolnej krawędzi.
 - [x] `Wyczyść dane layoutów gry` znajduje się pod wszystkimi zwykłymi sekcjami
@@ -129,6 +139,10 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
       obrazu, więc można odzyskać wcześniej przycięty fragment symbolu.
 - [x] Ręczna korekta naprawia bieżący layout i nie zmienia niejawnie globalnego
       modelu ani profilu geometrii.
+- [x] Narożniki siatki reagują na kliknięcie i przeciągnięcie również wtedy,
+      gdy canvas jest przeskalowany i zawiera pasy `object-fit: contain`.
+- [x] Zapis nowej rewizji natychmiast podmienia bieżący item odpowiedzią API, a
+      plansza i 15 cropów używają URL-i wersjonowanych właściwą checksumą.
 - [x] `Wymaga review` pokazuje datę i godzinę zakończenia importu z pipeline'em
       oraz czas automatycznego przetwarzania bez doliczania ręcznego review.
 - [x] Rzeczywisty job dochodzi do `waiting_for_review`, po czym `Symbole` nie
@@ -151,6 +165,11 @@ będą dopisywane do tego zadania i naprawiane pionami funkcjonalnymi.
 - Poprzednie próby wymuszania `SW_SHOWNORMAL`, właściciela `TopMost` i globalnej
   blokady nie usuwały przyczyny. Finalny flow korzysta z gestu użytkownika w
   przeglądarce; backend obsługuje wyłącznie ograniczony upload i finalizację.
+- Canvas może mieć inne proporcje prostokąta DOM niż bitmapa. Mapowanie używa
+  rzeczywistego prostokąta treści po `contain`, a uchwyt zachowuje 44-pikselowy
+  próg trafienia na ekranie.
+- Endpoint assetu ma świadomie `immutable` cache. Klient nie wyłącza cache
+  globalnie, tylko wiąże URL z checksumą konkretnej rewizji.
 
 ## Expected files
 
@@ -319,6 +338,16 @@ pozostaje aktywne wyłącznie na trzy końcowe scenariusze odbioru właściciela
 - Produkcyjny Reviewer został przebudowany i sprawdzony na sesji szkicu
   `777 v0.2`: pokazał układ #8, wszystkie 4050 plansz oraz osiem aktywnych
   symboli z sugestiami i skrótami.
+- Naprawiono mapowanie pointera canvas z uwzględnieniem `object-fit: contain`,
+  powiększono fizyczny obszar trafienia narożnika i zapisano końcową pozycję
+  również w zdarzeniu `pointerup`.
+- Po korekcie Reviewer przyjmuje bezpośrednio item zwrócony przez zapis rewizji;
+  adresy source, board i cell zawierają checksumę treści, więc immutable cache
+  nie może pokazać assetu poprzedniej geometrii.
+- Edytor istniejącego symbolu pokazuje akcję `Podgląd` obok zapisanej ścieżki.
+  Osobny read-only modal pobiera obecny checksum-bound asset, zachowuje pełną
+  ścieżkę, dostępne zamykanie i jawne stany loading/error/retry; wybór innej
+  grafiki nadal należy wyłącznie do dotychczasowego modala kandydatów.
 
 ### Verification results
 
@@ -378,6 +407,20 @@ pozostaje aktywne wyłącznie na trzy końcowe scenariusze odbioru właściciela
 - `npm.cmd test --workspace @game-predictor/reviewer` — passed, 21/21.
 - `npm.cmd run lint --workspace @game-predictor/reviewer` — passed.
 - `npm.cmd run build --workspace @game-predictor/reviewer` — passed.
+- testy Reviewera po naprawie interakcji i odświeżania geometrii — passed,
+  22/22.
+- typecheck i lint Reviewera po naprawie interakcji i odświeżania geometrii —
+  passed.
+- produkcyjny build Reviewera po naprawie interakcji i odświeżania geometrii —
+  passed.
+- `pytest services/api/tests/test_operational_image_reviews.py` z repozytoryjnym
+  `--basetemp` — passed, 9/9; pierwszy run został zablokowany wyłącznie przez
+  uprawnienia globalnego katalogu tymczasowego Windows.
+- testy Admina po dodaniu podglądu grafiki symbolu — passed, 162/162.
+- typecheck i lint Admina po dodaniu podglądu grafiki symbolu — passed.
+- produkcyjny build Admina po dodaniu podglądu grafiki symbolu — passed.
+- `pytest services/api/tests/test_symbol_bootstrap.py` z repozytoryjnym
+  `--basetemp` — passed, 10/10; obejmuje istniejący checksum-bound asset.
 - `pytest services/api/tests/test_symbol_bootstrap.py` — passed, 10/10 z
   repozytoryjnym `--basetemp`.
 - skupiony Ruff modeli i testu bootstrapu symboli — passed.

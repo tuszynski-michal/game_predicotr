@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import Field
 
+from game_predictor_api.application.jobs import ImageSelectionJobDeletion
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -28,7 +29,7 @@ class ImportJobPayload(ApiModel):
     contract_version: Literal[1]
 
 
-class ImageImportJobPayload(ApiModel):
+class LegacyImageImportJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     import_kind: Literal["image_directory"]
     source_selection_id: UUID | None = None
@@ -38,12 +39,67 @@ class ImageImportJobPayload(ApiModel):
     image_selection_run_id: UUID | None = None
 
 
+class SymbolModelJobSnapshotPayload(ApiModel):
+    iteration_id: UUID | None = None
+    model_version: str = Field(min_length=1, max_length=255)
+    manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    onnx_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    onnx_relative_path: str = Field(min_length=1, max_length=2048)
+    storage_root: Literal["repository", "artifact"]
+    class_codes: tuple[str, ...] = Field(min_length=1)
+    input_size: int = Field(ge=16)
+    temperature: float = Field(gt=0)
+    inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ImageImportJobPayload(ApiModel):
+    schema_version: Literal[2]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID | None = None
+    source_directory: str | None = Field(default=None, min_length=1, max_length=2048)
+    source_display_name: str | None = Field(default=None, min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID | None = None
+    symbol_model: SymbolModelJobSnapshotPayload
+
+
+class GridProfileJobSnapshotPayload(ApiModel):
+    profile_id: UUID | None = None
+    profile_version: str = Field(min_length=1, max_length=255)
+    profile_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    activation_id: UUID | None = None
+    profile_payload: dict[str, object]
+    inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CuratedImageImportJobPayload(ApiModel):
+    schema_version: Literal[3]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID
+    curated_image_import_source_id: UUID
+    curated_image_import_batch_id: UUID
+    curated_manifest_relative_path: str = Field(min_length=1, max_length=2048)
+    curated_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    curated_manifest_entry_start: int = Field(ge=0)
+    curated_manifest_entry_count: int = Field(ge=1)
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+
+
 class ImageSelectionJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     source_selection_id: UUID
     input_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     selector_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     contract_version: Literal[1]
+    sequence_direction: Literal["ascending", "descending"] = "ascending"
+    first_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class ValidateJobPayload(ApiModel):
@@ -73,6 +129,15 @@ class SnapshotJobPayload(ApiModel):
 class AndroidBuildJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     mobile_release_id: UUID
+
+
+class SymbolTrainingJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    cohort_id: UUID
+    cohort_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration: dict[str, object]
+    configuration_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    idempotency_key: UUID
 
 
 class ImportJobCreate(ApiModel):
@@ -116,14 +181,26 @@ JobCreateRequest = Annotated[
 
 JobPayloadResponse = (
     ImportJobPayload
+    | LegacyImageImportJobPayload
     | ImageImportJobPayload
+    | CuratedImageImportJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
     | AndroidBuildJobPayload
+    | SymbolTrainingJobPayload
 )
+
+
+class ImageSelectionRecentWindowResponse(ApiModel):
+    from_processed: int
+    to_processed: int
+    elapsed_seconds: float
+    groups_finalized: int
+    verifications: int
+    manual: int
 
 
 class ImageSelectionJobProgressResponse(ApiModel):
@@ -136,6 +213,9 @@ class ImageSelectionJobProgressResponse(ApiModel):
     upload_duration_seconds: float | None = None
     processing_duration_seconds: float | None = None
     diagnostic_checksum_sha256: str | None = None
+    recent_window: ImageSelectionRecentWindowResponse | None = None
+    stage_seconds: dict[str, float] | None = None
+    telemetry_counters: dict[str, int] | None = None
 
 
 class JobProgressResponse(ApiModel):
@@ -154,6 +234,27 @@ class JobProgressResponse(ApiModel):
 class JobErrorResponse(ApiModel):
     code: str
     message: str
+
+
+class ImageSelectionJobDeletionResponse(ApiModel):
+    job_id: UUID
+    run_id: UUID
+    managed_run_files_deleted: bool
+    source_staging_deleted: bool
+    shared_source_staging_preserved: bool
+
+    @classmethod
+    def from_domain(
+        cls,
+        deletion: ImageSelectionJobDeletion,
+    ) -> ImageSelectionJobDeletionResponse:
+        return cls(
+            job_id=deletion.job_id,
+            run_id=deletion.run_id,
+            managed_run_files_deleted=deletion.managed_run_files_deleted,
+            source_staging_deleted=deletion.source_staging_deleted,
+            shared_source_staging_preserved=deletion.shared_source_staging_preserved,
+        )
 
 
 class JobResponse(ApiModel):
@@ -217,11 +318,7 @@ def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | N
     if payload.get("workflow") != "image_selection":
         return None
     diagnostic = payload.get("diagnostic")
-    checksum = (
-        diagnostic.get("checksumSha256")
-        if isinstance(diagnostic, dict)
-        else None
-    )
+    checksum = diagnostic.get("checksumSha256") if isinstance(diagnostic, dict) else None
     processing_seconds_value = payload.get("processing_duration_seconds")
     try:
         return ImageSelectionJobProgressResponse(
@@ -241,9 +338,10 @@ def _image_selection_progress(job: Job) -> ImageSelectionJobProgressResponse | N
                 if processing_seconds_value is None
                 else _progress_float(processing_seconds_value)
             ),
-            diagnostic_checksum_sha256=(
-                checksum if isinstance(checksum, str) else None
-            ),
+            diagnostic_checksum_sha256=(checksum if isinstance(checksum, str) else None),
+            recent_window=_image_selection_recent_window(payload.get("recent_window")),
+            stage_seconds=_image_selection_stage_seconds(payload.get("stage_timing")),
+            telemetry_counters=_image_selection_counters(payload.get("stage_timing")),
         )
     except (TypeError, ValueError):
         return None
@@ -261,9 +359,59 @@ def _progress_float(value: object) -> float:
     return float(value)
 
 
+def _image_selection_recent_window(
+    value: object,
+) -> ImageSelectionRecentWindowResponse | None:
+    if not isinstance(value, dict):
+        return None
+    try:
+        return ImageSelectionRecentWindowResponse(
+            from_processed=_progress_integer(value["fromProcessed"]),
+            to_processed=_progress_integer(value["toProcessed"]),
+            elapsed_seconds=_progress_float(value["elapsedSeconds"]),
+            groups_finalized=_progress_integer(value["groupsFinalized"]),
+            verifications=_progress_integer(value["verifications"]),
+            manual=_progress_integer(value["manual"]),
+        )
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _image_selection_stage_seconds(value: object) -> dict[str, float] | None:
+    if not isinstance(value, dict) or not isinstance(value.get("stages"), dict):
+        return None
+    stages: dict[str, float] = {}
+    for name, stage in value["stages"].items():
+        if not isinstance(name, str) or not isinstance(stage, dict):
+            continue
+        try:
+            stages[name] = _progress_float(stage["totalSeconds"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return stages or None
+
+
+def _image_selection_counters(value: object) -> dict[str, int] | None:
+    if not isinstance(value, dict) or not isinstance(value.get("counters"), dict):
+        return None
+    counters: dict[str, int] = {}
+    for name, count in value["counters"].items():
+        if not isinstance(name, str):
+            continue
+        try:
+            counters[name] = _progress_integer(count)
+        except (TypeError, ValueError):
+            continue
+    return counters or None
+
+
 def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.IMPORT:
         if job.input_payload.get("import_kind") == "image_directory":
+            if job.input_payload.get("schema_version") == 1:
+                return LegacyImageImportJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 3:
+                return CuratedImageImportJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:
@@ -276,4 +424,6 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return PayoutJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.SNAPSHOT:
         return SnapshotJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SYMBOL_TRAINING:
+        return SymbolTrainingJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)

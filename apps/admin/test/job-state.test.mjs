@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   canCancelJob,
+  canDeleteImageSelectionJob,
   canRetryJob,
   formatElapsedSeconds,
   formatImageThroughput,
@@ -88,6 +89,19 @@ test('derives active polling, cancel and retry actions from lifecycle', () => {
   assert.equal(canRetryJob(job({ status: 'failed' })), true);
   assert.equal(canRetryJob(job({ status: 'waiting_for_review' })), true);
   assert.equal(canRetryJob(job({ status: 'cancelled' })), false);
+  assert.equal(
+    canDeleteImageSelectionJob(
+      job({ jobType: 'image_selection', status: 'cancelled' }),
+    ),
+    true,
+  );
+  assert.equal(
+    canDeleteImageSelectionJob(
+      job({ jobType: 'image_selection', status: 'processing' }),
+    ),
+    false,
+  );
+  assert.equal(canDeleteImageSelectionJob(job({ status: 'cancelled' })), false);
 });
 
 test('formats determinate and unknown progress without hiding counts', () => {

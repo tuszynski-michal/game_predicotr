@@ -1,0 +1,170 @@
+{
+  "annotationFingerprint": "426af2b36961a824e706c58f3af0da5867a18bf3e8beff8b0a7d303961d9cf32",
+  "benchmarkContract": "image-selection-scale-benchmark-v1",
+  "cleanup": {
+    "partialManifestPublished": false,
+    "workRootPolicy": "always-remove-on-exit"
+  },
+  "fixture": {
+    "elapsedSeconds": 1.222624,
+    "inputLogicalBytes": 9006700,
+    "stagingMode": "hardlink",
+    "uniquePhysicalFileIds": 12
+  },
+  "inputCount": 240,
+  "memory": {
+    "baselineRssBytes": 118915072,
+    "peakRssBytes": 140283904,
+    "peakRssDeltaBytes": 21368832,
+    "peakTracedPythonBytes": 15315547
+  },
+  "metrics": {
+    "boundedVerification": {
+      "maxAllowed": 144,
+      "passed": true,
+      "sparseRangeVerificationCount": 144,
+      "topK": 12
+    },
+    "comparisonWithFullPipeline": {
+      "estimatedCuratedInputCount": 12,
+      "estimatedInputReductionFactor": 20.0,
+      "fullPipelineInputCount": 240
+    },
+    "coverage": 1.0,
+    "groupingPrecision": 1.0,
+    "groupingRecall": 1.0,
+    "manualRate": 0.0,
+    "outputStorage": {
+      "estimatedLogicalBytes": 450468,
+      "representativeCount": 12
+    },
+    "quality": {
+      "automaticCount": 12,
+      "automaticSelectionPrecision": 1.0,
+      "falseMergeCount": 0,
+      "falseSplitCount": 0,
+      "manualCount": 0,
+      "rangeErrorCount": 0,
+      "selectedOrderIndexSample": [
+        0,
+        20,
+        40,
+        60,
+        80,
+        100,
+        120,
+        140,
+        160,
+        180,
+        200,
+        220
+      ],
+      "statusErrorCount": 0,
+      "unsafeAutomaticCount": 0
+    },
+    "runtime": {
+      "maxProcessingSeconds": 120.0,
+      "passed": true,
+      "processingSeconds": 30.252698,
+      "throughputFilesPerSecond": 7.9332
+    },
+    "storageBudget": {
+      "peakRssBudgetBytes": 805306368,
+      "peakRssPassed": true
+    },
+    "technicalGatePassed": true
+  },
+  "profile": "smoke",
+  "rangeVerificationMode": "deterministic-annotation-with-production-cheap-scan",
+  "schemaVersion": 1,
+  "selectionCodeFingerprint": "40e663474de61beb15f71132c2ee53145a0e621ab5803a09c54385a8f13ce250",
+  "selectorFingerprint": "464d7af527f3532d4115c14666f4160831a9b0074343408584d1e2376614004c",
+  "selectorVersion": "fast-image-selector-v10",
+  "sourceIntegrity": {
+    "afterInventorySha256": "7a6284ac335520206e692b02b7e49b9787f1d82a879bab48c142150dbe7b2489",
+    "beforeInventorySha256": "7a6284ac335520206e692b02b7e49b9787f1d82a879bab48c142150dbe7b2489",
+    "sourceUnchanged": true
+  },
+  "stageTiming": {
+    "contract": "image-selection-stage-timing-v1",
+    "counters": {
+      "checksumReads": 240,
+      "decoderCalls": 240
+    },
+    "percentileMethod": "log2-upper-bound",
+    "schemaVersion": 1,
+    "stages": {
+      "appearance": {
+        "count": 240,
+        "maxMs": 293.2115,
+        "meanMs": 69.589425,
+        "p50Ms": 134.217728,
+        "p95Ms": 134.217728,
+        "totalSeconds": 16.701462
+      },
+      "checksum": {
+        "count": 240,
+        "maxMs": 3.7806,
+        "meanMs": 2.363312,
+        "p50Ms": 4.194304,
+        "p95Ms": 4.194304,
+        "totalSeconds": 0.567195
+      },
+      "decode": {
+        "count": 240,
+        "maxMs": 20.8297,
+        "meanMs": 15.749985,
+        "p50Ms": 16.777216,
+        "p95Ms": 33.554432,
+        "totalSeconds": 3.779997
+      },
+      "geometry": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "ocr": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "output": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "persistence": {
+        "count": 0,
+        "maxMs": 0.0,
+        "meanMs": 0.0,
+        "p50Ms": 0.0,
+        "p95Ms": 0.0,
+        "totalSeconds": 0.0
+      },
+      "quality": {
+        "count": 240,
+        "maxMs": 42.2606,
+        "meanMs": 31.239763,
+        "p50Ms": 33.554432,
+        "p95Ms": 67.108864,
+        "totalSeconds": 7.497543
+      }
+    },
+    "timingsAreInclusive": true,
+    "usedThreadCount": 1
+  },
+  "threading": {
+    "configuredScanWorkers": 1,
+    "logicalCpuCount": 8,
+    "usedThreadCount": 1
+  }
+}

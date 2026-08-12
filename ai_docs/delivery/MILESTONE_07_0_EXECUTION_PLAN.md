@@ -2,7 +2,7 @@
 title: Milestone 07.0 fast representative image selection execution plan
 status: accepted
 release: "0.4"
-last_updated: 2026-08-02
+last_updated: 2026-08-05
 ---
 
 # M7.0 — Selekcja reprezentatywnych zdjęć
@@ -32,7 +32,24 @@ uruchomiony kosztowny `Import layoutów`.
 | 4 | TASK-0154 | niezmienny output, nazwy, manifest i handoff do importu |
 | 5 | TASK-0155 | kolejka manualna i wybór pojedynczego zdjęcia |
 | 6 | TASK-0156 | joby, checkpointy, retry, anulowanie i diagnostyka |
-| 7 | TASK-0157 | benchmark 10k/30k, golden jakości i odbiór właściciela |
+| 7 | TASK-0165 | pomiar etapów i realny baseline 500–1000 zdjęć |
+| 8 | TASK-0166 | reduced JPEG decode i bounded budżet CPU |
+| 9 | TASK-0167 | grupowanie po wyglądzie bez geometrii oraz OCR |
+| 10 | TASK-0168 | pierwszy użyteczny reprezentant i best-available fallback |
+| 11 | TASK-0169 | range-free output i przeniesienie numeracji do importu |
+| 12 | TASK-0170 | wersjonowany cache lekkich obserwacji i bezpieczne resume |
+| 13 | TASK-0171 | regresja realnego korpusu i aktywacja v9 |
+| 14 | TASK-0157 | końcowy odbiór właściciela i zamknięcie bramki 0.4 |
+| 15 | TASK-0209 | zabezpieczenie odrzuconego baseline'u i diagnostyka false merge |
+| 16 | TASK-0210 | przyrostowy eksporter bez pełnego skanowania grup |
+| 17 | TASK-0211 | trwałe zarządzanie drzewem procesów Windows |
+| 18 | TASK-0212 | telemetria trudnych partii i kosztów etapów |
+| 19 | TASK-0213 | cache pełnej weryfikacji dla retry/rerun |
+| 20 | TASK-0214 | zgodność zakresu z reprezentantem i regresja mieszanej grupy |
+| 21 | TASK-0215 | bramka verifierów i opcjonalnego batchowania OCR |
+| 22 | TASK-0216 | historia runów oraz bezpieczny preview kandydatów |
+| 23 | TASK-0217 | pełna galeria grupy, miniatury i pełny podgląd |
+| 24 | TASK-0218 | uzupełnianie katalogu, mała regresja i odbiór właściciela |
 
 ## Piony wykonawcze
 
@@ -54,21 +71,63 @@ użytkownika pozostają nietknięte.
 
 ### M7.0.4 — Operacje i skala
 
-TASK-0156–0157 domykają niezawodność, statystyki i mierzalną bramkę wydajności.
+TASK-0156 dostarcza niezawodność, a otwarty TASK-0157 pozostaje nadrzędną bramką
+odbioru. Rzeczywiste obserwacje wykazały, że historyczny v8 nadal wykonuje zbyt
+dużo pracy w selekcji, dlatego przed zamknięciem bramki obowiązuje korekta
+TASK-0165–0171.
+
+### M7.0.5 — Szybka selekcja bez rozpoznawania danych
+
+TASK-0165–0166 najpierw mierzą istniejący koszt i usuwają pełne dekodowanie oraz
+nadsubskrypcję CPU bez zmiany grupowania. TASK-0167–0168 wprowadzają v9:
+appearance-only grouping oraz wybór pierwszego czytelnego obrazu bez OCR,
+geometrii i pełnej weryfikacji. TASK-0169 zmienia output na range-free i oddaje
+numery, dokładne plansze, cropy oraz deduplikację właściwemu `Importowi
+layoutów`. TASK-0170 przyspiesza zgodne retry/rerun cache'em, a TASK-0171
+uruchamia jeden pełny realny profil dopiero po zaliczeniu krótkich bramek.
+
+Każde zadanie jest osobną iteracją. Nie wolno łączyć implementacji kilku kroków
+w jednym niezmierzonym pełnym rerunie ani stroić algorytmu podczas działającego
+joba właściciela.
 
 ## Bramka M7.0
 
 - workspace pokazuje aktywną grę, upload, postęp, wynik i kolejkę manualną,
-- skok zakresów nie jest traktowany jako luka,
-- późniejszy duplikat zakończonego zakresu nie tworzy drugiego outputu,
-- zasłonięte, przycięte i nierozpoznane zdjęcia nie są automatycznie wybierane,
-- output ma jedno zdjęcie na zakres, bez modyfikacji folderu wejściowego,
+- aktywny selektor v10.2 rozpoznaje zakres wyłącznie do poprawnego nazwania
+  reprezentanta; nie rozpoznaje symboli ani nie tworzy cropów komórek,
+- każda kolejna wizualna grupa z dekodowalnym JPEG-em ma reprezentanta,
+- częściowo zasłonięte, przycięte i słabe zdjęcia pozostają kandydatami
+  best-available; blokowany jest tylko niedekodowalny plik albo twardy błąd
+  integralności,
+- output ma jedno zdjęcie na wykrytą grupę, bez modyfikacji folderu wejściowego,
+- output v10.2 używa `seq_<start>-<end>.jpg`, a finalny reprezentant musi
+  potwierdzić zakres widoczny w nazwie,
 - manualny modal działa myszą i klawiaturą zgodnie z wymaganiami,
 - handoff uruchamia istniejący import dopiero po jawnej akcji,
 - restart workera wznawia run bez powtarzania zakończonych grup,
-- test 10 000 mieści się w 15 minutach, a 30 000 w 45 minutach na komputerze
-  właściciela albo zadanie wraca do optymalizacji,
+- OCR i geometria w Selekcji Zdjęć są bounded do dowodu zakresu i rankingu
+  reprezentanta; pełne cięcie plansz, komórek i klasyfikacja symboli pozostają w
+  `Imporcie layoutów`,
+- krótkie realne profile nie wykazują regresji jakości, a pełny run 40 000 zdjęć
+  raportuje rzeczywisty czas, throughput i peak RSS bez sztywnego limitu,
+- właściciel akceptuje zmierzony czas 40 000 zdjęć albo kieruje zadanie do
+  kolejnej optymalizacji,
+- golden ma zero false merge różnych kolejnych ekranów i 100% recall ekranów,
 - benchmark nie pozostawia osieroconego procesu i ma własny twardy timeout.
+
+### Bramka ręcznego odzyskiwania v10.2
+
+- historia pozwala wybrać wcześniejszy run tej samej gry bez ponownego uploadu,
+- nowe runy zachowują całe członkostwo grupy jako lekkie rekordy wskazujące
+  staging; runy historyczne jawnie pokazują ograniczenie do zachowanej shortlisty,
+- modal pokazuje miniatury, jeden pełny podgląd i wybór istniejącego zdjęcia;
+  upload z dysku pozostaje opcjonalny,
+- ręcznie uzupełniona grupa dopisuje brakujący `seq_<start>-<end>.jpg` do folderu
+  wybranego dla tego runu, bez ponownego kopiowania zgodnej zawartości i bez
+  nadpisania kolizji,
+- liczba grup pominiętych, nierozpoznanych, konfliktowych i niedekodowalnych jest
+  prezentowana oddzielnie; większy udział manual review jest akceptowalny tylko
+  wtedy, gdy nie powstają automatyczne pliki z błędną nazwą.
 
 ## Zakres świadomie odłożony
 

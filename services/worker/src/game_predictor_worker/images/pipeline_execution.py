@@ -404,6 +404,16 @@ def validate_stage_payload(
         model_version = payload.get("modelVersion")
         if not isinstance(model_version, str) or not model_version.strip():
             _invalid("symbol_inference.modelVersion must be non-empty.")
+        _sha256(
+            payload.get("modelManifestChecksumSha256"),
+            "symbol_inference.modelManifestChecksumSha256",
+        )
+        model_iteration_id = payload.get("modelIterationId")
+        if model_iteration_id is not None:
+            try:
+                UUID(str(model_iteration_id))
+            except ValueError:
+                _invalid("symbol_inference.modelIterationId must be a UUID or null.")
     else:
         _invalid(f"Payload validation is not defined for stage {stage!r}.")
     canonical_json_bytes(payload)

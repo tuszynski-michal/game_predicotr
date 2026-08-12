@@ -1,0 +1,49 @@
+{
+  "contract": "image-selection-cancelled-run-diagnostic-v1",
+  "runId": "8d86fb77-531a-4999-a9c1-d02ed15d0af0",
+  "jobId": "6b7289da-2312-4b08-8c42-5a6a42aeb3c9",
+  "status": "cancelled",
+  "progress": {
+    "current": 29888,
+    "total": 32079,
+    "groups": 2121,
+    "savedOutputFiles": 1813,
+    "elapsedSeconds": 30590.702
+  },
+  "ownerDecision": "rejected",
+  "reasons": [
+    "tail processing time was not acceptable",
+    "an automatically exported JPEG had a sequence range inconsistent with its visible layouts"
+  ],
+  "falseMergeRegression": {
+    "groupOrder": 2109,
+    "persistedRangeStart": 18406,
+    "persistedRangeEnd": 18414,
+    "sourceCount": 24,
+    "selectedCandidate": {
+      "id": "24bef286-d531-59bd-a06d-c4ecaf6fd8d7",
+      "displayName": "1_040025.jpg",
+      "orderIndex": 29681,
+      "checksumSha256": "04940b5953878fd49b2a83dee72a6aef4176895b30f5a685bea89af70ee484fb",
+      "visibleRangeStart": 18415,
+      "visibleRangeEnd": 18423
+    },
+    "rangeEvidenceCandidates": [
+      {
+        "displayName": "1_040014.jpg",
+        "orderIndex": 29670,
+        "checksumSha256": "3cf28636fe478cb25b80640f33c05aca0da5e39eb002435e93fe25bad4826aa8",
+        "visibleRangeStart": 18406,
+        "visibleRangeEnd": 18414
+      },
+      {
+        "displayName": "1_040016.jpg",
+        "orderIndex": 29672,
+        "checksumSha256": "09318f54fb7467533effcb890822c93a5aa742b24aa0de25c412e88e9836ae2d",
+        "visibleRangeStart": 18406,
+        "visibleRangeEnd": 18414
+      }
+    ],
+    "rootCause": "appearance grouping merged two adjacent screens; range consensus came from the older screen while independent representative ranking selected the newer screen"
+  }
+}

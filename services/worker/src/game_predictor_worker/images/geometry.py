@@ -7,6 +7,7 @@ import json
 import statistics
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from itertools import combinations, permutations
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, Protocol, cast
 
@@ -78,9 +79,10 @@ class DetectionResult:
     confidence: float
     confidence_components: Mapping[str, float]
     review_reasons: tuple[str, ...]
+    layout_hypotheses: tuple[tuple[BoardDetection, ...], ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "boards": [board.to_dict() for board in self.boards],
             "candidateCount": self.candidate_count,
             "confidence": self.confidence,
@@ -95,6 +97,9 @@ class DetectionResult:
             "reviewReasons": list(self.review_reasons),
             "status": self.status,
         }
+        if self.layout_hypotheses:
+            payload["layoutHypothesisCount"] = len(self.layout_hypotheses)
+        return payload
 
 
 class PageBoardDetector(Protocol):
@@ -109,6 +114,7 @@ class PageBoardDetector(Protocol):
         expected_board_count: int = EXPECTED_BOARD_COUNT,
         allow_grid_recovery: bool = False,
         allow_occluded_grid_recovery: bool = False,
+        allow_partial_grid_recovery: bool = False,
     ) -> DetectionResult:
         """Detect a supported page variant without mutating the input."""
 
@@ -136,12 +142,25 @@ def _odd_at_least(value: float, minimum: int) -> int:
     return rounded if rounded % 2 == 1 else rounded + 1
 
 
-def _red_mask(rgb_image: NDArray[np.uint8]) -> NDArray[np.uint8]:
+def _red_mask(
+    rgb_image: NDArray[np.uint8],
+    *,
+    minimum_red_saturation: int = 80,
+    minimum_red_value: int = 50,
+) -> NDArray[np.uint8]:
     height, width = rgb_image.shape[:2]
     hsv = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2HSV)
     mask = cv2.bitwise_or(
-        cv2.inRange(hsv, RED_LOW_1, RED_HIGH_1),
-        cv2.inRange(hsv, RED_LOW_2, RED_HIGH_2),
+        cv2.inRange(
+            hsv,
+            np.array((0, minimum_red_saturation, minimum_red_value), dtype=np.uint8),
+            RED_HIGH_1,
+        ),
+        cv2.inRange(
+            hsv,
+            np.array((165, minimum_red_saturation, minimum_red_value), dtype=np.uint8),
+            RED_HIGH_2,
+        ),
     )
     kernel = cv2.getStructuringElement(
         cv2.MORPH_RECT,
@@ -194,6 +213,64 @@ def _initial_candidates(mask: NDArray[np.uint8]) -> list[_Candidate]:
     return candidates
 
 
+def _positive_integral(mask: NDArray[np.uint8]) -> NDArray[np.int32]:
+    """Return a summed-area table for exact non-zero pixel counts."""
+
+    binary = np.asarray(mask > 0, dtype=np.uint8)
+    return np.asarray(cv2.integral(binary, sdepth=cv2.CV_32S), dtype=np.int32)
+
+
+def _rectangle_positive_count(
+    integral: NDArray[np.int32],
+    *,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> int:
+    right = x + width
+    bottom = y + height
+    return int(integral[bottom, right] - integral[y, right] - integral[bottom, x] + integral[y, x])
+
+
+def _refinement_window_densities(
+    integral: NDArray[np.int32],
+    *,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> tuple[float, float]:
+    """Compute the existing rectangular border/interior densities in O(1)."""
+
+    border_y = max(2, height // 10)
+    border_x = max(2, width // 16)
+    interior_width = width - border_x * 2
+    interior_height = height - border_y * 2
+    if interior_width <= 0 or interior_height <= 0:
+        raise ValueError("Refinement window must contain a non-empty interior.")
+    total_count = _rectangle_positive_count(
+        integral,
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+    )
+    interior_count = _rectangle_positive_count(
+        integral,
+        x=x + border_x,
+        y=y + border_y,
+        width=interior_width,
+        height=interior_height,
+    )
+    interior_pixels = interior_width * interior_height
+    border_pixels = width * height - interior_pixels
+    return (
+        (total_count - interior_count) / border_pixels,
+        interior_count / interior_pixels,
+    )
+
+
 def _row_major(candidates: Sequence[_Candidate]) -> list[list[_Candidate]]:
     by_y = sorted(candidates, key=lambda candidate: (candidate.center_y, candidate.center_x))
     return [
@@ -211,6 +288,7 @@ def _search_refined_candidate(
     target_height: int,
     search_fraction_x: float = 0.15,
     search_fraction_y: float = 0.15,
+    positive_integral: NDArray[np.int32] | None = None,
 ) -> _Candidate:
     image_height, image_width = mask.shape
     minimum_x = max(
@@ -229,31 +307,26 @@ def _search_refined_candidate(
         image_height - target_height,
         int(center_y - target_height / 2 + target_height * search_fraction_y),
     )
+    if positive_integral is None:
+        positive_integral = _positive_integral(mask)
     best: tuple[float, _Candidate] | None = None
     for y in range(minimum_y, maximum_y + 1, 2):
         for x in range(minimum_x, maximum_x + 1, 2):
-            candidate = _Candidate(
+            border_density, interior_density = _refinement_window_densities(
+                positive_integral,
                 x=x,
                 y=y,
                 width=target_width,
                 height=target_height,
-                red_border_score=0.0,
-                refined_from_grid=True,
             )
-            roi = mask[y : y + target_height, x : x + target_width]
-            border_y = max(2, target_height // 10)
-            border_x = max(2, target_width // 16)
-            border = np.zeros(roi.shape, dtype=np.bool_)
-            border[:border_y, :] = True
-            border[-border_y:, :] = True
-            border[:, :border_x] = True
-            border[:, -border_x:] = True
-            border_density = float(np.mean(roi[border] > 0))
-            interior_density = float(np.mean(roi[~border] > 0))
             score = border_density - 0.15 * interior_density
-            scored = replace(
-                candidate,
+            scored = _Candidate(
+                x=x,
+                y=y,
+                width=target_width,
+                height=target_height,
                 red_border_score=round(border_density, 6),
+                refined_from_grid=True,
             )
             if best is None or score > best[0]:
                 best = (score, scored)
@@ -282,6 +355,171 @@ def _cluster_axis(values: Sequence[float], cluster_count: int) -> tuple[float, .
         start = cut + 1
     groups.append(ordered[start:])
     return tuple(statistics.median(group) for group in groups)
+
+
+def _recover_partial_grid_hypotheses(
+    mask: NDArray[np.uint8],
+    candidates: Sequence[_Candidate],
+    *,
+    expected_board_count: int,
+    maximum_hypotheses: int = 24,
+) -> tuple[tuple[_Candidate, ...], ...]:
+    """Fit bounded 3 x 3 lattice hypotheses from an observed L-shaped fragment.
+
+    A partial view can make the absolute row or column offset ambiguous.  The
+    geometry layer therefore preserves a small deterministic hypothesis set;
+    the range recognizer must resolve it with label evidence or fail closed.
+    """
+
+    image_height, image_width = mask.shape
+    if expected_board_count != EXPECTED_BOARD_COUNT or len(candidates) < 3:
+        return ()
+    median_width = float(statistics.median(candidate.width for candidate in candidates))
+    median_height = float(statistics.median(candidate.height for candidate in candidates))
+    usable = tuple(
+        sorted(
+            (
+                candidate
+                for candidate in candidates
+                if candidate.red_border_score >= 0.18
+                and 0.55 <= candidate.width / median_width <= 1.55
+                and 0.55 <= candidate.height / median_height <= 1.55
+                and candidate.center_x < image_width * 0.95
+                and candidate.center_y < image_height * 0.85
+            ),
+            key=lambda candidate: (candidate.center_y, candidate.center_x),
+        )
+    )
+    if len(usable) < 3 or len(usable) > EXPECTED_BOARD_COUNT:
+        return ()
+
+    logical = np.asarray(
+        [(position % 3, position // 3, 1.0) for position in range(EXPECTED_BOARD_COUNT)],
+        dtype=np.float64,
+    )
+    fitted: dict[
+        tuple[int, ...],
+        tuple[tuple[float, float, float], tuple[_Candidate, ...]],
+    ] = {}
+    for candidate_indexes in combinations(range(len(usable)), 3):
+        observed_centers = np.asarray(
+            [(usable[index].center_x, usable[index].center_y) for index in candidate_indexes],
+            dtype=np.float64,
+        )
+        for positions in permutations(range(EXPECTED_BOARD_COUNT), 3):
+            logical_sample = logical[list(positions)]
+            if abs(float(np.linalg.det(logical_sample))) < 0.5:
+                continue
+            try:
+                transform = np.linalg.solve(logical_sample, observed_centers)
+            except np.linalg.LinAlgError:
+                continue
+            predicted = logical @ transform
+            column_step = predicted[1] - predicted[0]
+            row_step = predicted[3] - predicted[0]
+            if not (
+                image_width * 0.10 <= column_step[0] <= image_width * 0.36
+                and abs(column_step[1]) <= image_height * 0.06
+                and image_height * 0.025 <= row_step[1] <= image_height * 0.20
+                and abs(row_step[0]) <= image_width * 0.13
+            ):
+                continue
+
+            assigned_positions: list[int] = []
+            residuals: list[float] = []
+            for candidate in usable:
+                distances = ((predicted[:, 0] - candidate.center_x) / column_step[0]) ** 2 + (
+                    (predicted[:, 1] - candidate.center_y) / row_step[1]
+                ) ** 2
+                position = int(np.argmin(distances))
+                residual = float(np.sqrt(distances[position]))
+                if residual > 0.30 or position in assigned_positions:
+                    break
+                assigned_positions.append(position)
+                residuals.append(residual)
+            else:
+                if (
+                    len({position // 3 for position in assigned_positions}) < 2
+                    or len({position % 3 for position in assigned_positions}) < 2
+                ):
+                    continue
+                feature_rows = logical[assigned_positions]
+                widths = np.asarray([candidate.width for candidate in usable], dtype=np.float64)
+                heights = np.asarray([candidate.height for candidate in usable], dtype=np.float64)
+                width_fit = np.linalg.lstsq(feature_rows, widths, rcond=None)[0]
+                height_fit = np.linalg.lstsq(feature_rows, heights, rcond=None)[0]
+                predicted_widths = np.clip(
+                    logical @ width_fit,
+                    median_width * 0.70,
+                    median_width * 1.40,
+                )
+                predicted_heights = np.clip(
+                    logical @ height_fit,
+                    median_height * 0.70,
+                    median_height * 1.40,
+                )
+                by_position = dict(zip(assigned_positions, usable, strict=True))
+                recovered: list[_Candidate] = []
+                support_scores: list[float] = []
+                for position, (center_x, center_y) in enumerate(predicted):
+                    if position in by_position:
+                        recovered.append(by_position[position])
+                        continue
+                    target_width = int(round(predicted_widths[position]))
+                    target_height = int(round(predicted_heights[position]))
+                    x = int(round(center_x - target_width / 2))
+                    y = int(round(center_y - target_height / 2))
+                    if (
+                        x < 0
+                        or y < 0
+                        or x + target_width > image_width
+                        or y + target_height > image_height
+                    ):
+                        break
+                    synthesized = _Candidate(
+                        x=x,
+                        y=y,
+                        width=target_width,
+                        height=target_height,
+                        red_border_score=0.0,
+                        refined_from_grid=True,
+                    )
+                    support_scores.append(_border_score(mask, synthesized))
+                    recovered.append(synthesized)
+                else:
+                    if any(
+                        _overlap(recovered[first], recovered[second])
+                        for first in range(len(recovered))
+                        for second in range(first + 1, len(recovered))
+                    ):
+                        continue
+                    key = tuple(assigned_positions)
+                    score = (
+                        round(sum(sorted(support_scores, reverse=True)[:2]), 6),
+                        -round(
+                            abs(float(np.mean(predicted[:, 0])) / image_width - 0.5),
+                            6,
+                        ),
+                        -round(float(statistics.mean(residuals)), 6),
+                    )
+                    current = fitted.get(key)
+                    if current is None or score > current[0]:
+                        fitted[key] = (score, tuple(recovered))
+
+    ranked = sorted(
+        fitted.items(),
+        key=lambda item: (item[1][0], tuple(-value for value in item[0])),
+        reverse=True,
+    )
+    if not ranked:
+        return ()
+    best_support = ranked[0][1][0][0]
+    competitive = [
+        item
+        for item in ranked
+        if best_support - item[1][0][0] <= 0.08 and ranked[0][1][0][1] - item[1][0][1] <= 0.08
+    ]
+    return tuple(value[1] for _, value in competitive[:maximum_hypotheses])
 
 
 def _recover_expected_grid(
@@ -339,6 +577,12 @@ def _recover_expected_grid(
         )
         for candidate in usable
     ]
+    assigned_rows = {row for row, _, _ in assignments}
+    assigned_columns = {column for _, column, _ in assignments}
+    if assigned_rows != set(range(required_rows)) or assigned_columns != set(
+        range(required_columns)
+    ):
+        return None
     column_y_offsets = tuple(
         statistics.median(
             candidate.center_y - row_centers[row]
@@ -356,6 +600,7 @@ def _recover_expected_grid(
         for row in range(required_rows)
     )
     recovered: list[_Candidate] = []
+    positive_integral = None if allow_occluded_cells else _positive_integral(mask)
     for position in range(expected_board_count):
         row = position // 3
         column = position % 3
@@ -407,6 +652,7 @@ def _recover_expected_grid(
             target_height=target_height,
             search_fraction_x=0.15,
             search_fraction_y=0.15,
+            positive_integral=positive_integral,
         )
         if candidate.red_border_score < 0.20 and not allow_occluded_cells:
             return None
@@ -456,16 +702,20 @@ def _refine_outliers(
         for row in rows
     ]
     refined_rows: list[list[_Candidate]] = []
+    positive_integral: NDArray[np.int32] | None = None
     for row_index, row in enumerate(rows):
         refined_row: list[_Candidate] = []
         for column_index, candidate in enumerate(row):
             if candidate.width > median_width * 1.45 or candidate.height > median_height * 1.45:
+                if positive_integral is None:
+                    positive_integral = _positive_integral(mask)
                 candidate = _search_refined_candidate(
                     mask,
                     center_x=column_centers[column_index],
                     center_y=row_centers[row_index],
                     target_width=column_widths[column_index],
                     target_height=row_heights[row_index],
+                    positive_integral=positive_integral,
                 )
             refined_row.append(candidate)
         refined_rows.append(refined_row)
@@ -545,6 +795,19 @@ class ClassicalPageBoardDetector:
 
     version = DETECTOR_VERSION
 
+    def __init__(
+        self,
+        *,
+        minimum_red_saturation: int = 80,
+        minimum_red_value: int = 50,
+    ) -> None:
+        if not 0 <= minimum_red_saturation <= 255:
+            raise ValueError("minimum_red_saturation must be between 0 and 255")
+        if not 0 <= minimum_red_value <= 255:
+            raise ValueError("minimum_red_value must be between 0 and 255")
+        self._minimum_red_saturation = minimum_red_saturation
+        self._minimum_red_value = minimum_red_value
+
     def detect(
         self,
         rgb_image: NDArray[np.uint8],
@@ -552,6 +815,7 @@ class ClassicalPageBoardDetector:
         expected_board_count: int = EXPECTED_BOARD_COUNT,
         allow_grid_recovery: bool = False,
         allow_occluded_grid_recovery: bool = False,
+        allow_partial_grid_recovery: bool = False,
     ) -> DetectionResult:
         if rgb_image.ndim != 3 or rgb_image.shape[2] != 3 or rgb_image.dtype != np.uint8:
             raise GeometryDetectionError(
@@ -564,7 +828,11 @@ class ClassicalPageBoardDetector:
                 "Expected board count must be between 1 and 9.",
             )
         image_height, image_width = rgb_image.shape[:2]
-        mask = _red_mask(rgb_image)
+        mask = _red_mask(
+            rgb_image,
+            minimum_red_saturation=self._minimum_red_saturation,
+            minimum_red_value=self._minimum_red_value,
+        )
         candidates = _initial_candidates(mask)
         if len(candidates) != expected_board_count:
             recovered = (
@@ -584,6 +852,24 @@ class ClassicalPageBoardDetector:
                     image_width=image_width,
                     image_height=image_height,
                     candidate_count=len(candidates),
+                )
+            partial_hypotheses = (
+                _recover_partial_grid_hypotheses(
+                    mask,
+                    candidates,
+                    expected_board_count=expected_board_count,
+                )
+                if allow_partial_grid_recovery
+                else ()
+            )
+            if partial_hypotheses:
+                return self._detected_recovered(
+                    mask,
+                    partial_hypotheses[0],
+                    image_width=image_width,
+                    image_height=image_height,
+                    candidate_count=len(candidates),
+                    layout_hypotheses=partial_hypotheses,
                 )
             confidence = round(
                 min(len(candidates), expected_board_count) / expected_board_count,
@@ -755,26 +1041,30 @@ class ClassicalPageBoardDetector:
         image_width: int,
         image_height: int,
         candidate_count: int,
+        layout_hypotheses: Sequence[Sequence[_Candidate]] = (),
     ) -> DetectionResult:
-        boards = tuple(
-            BoardDetection(
-                position_index=index,
-                quad=(
-                    _candidate_quad(mask, candidate)
-                    if candidate.red_border_score >= 0.20
-                    else _candidate_bounding_quad(candidate)
-                ),
-                bounding_box=(
-                    candidate.x,
-                    candidate.y,
-                    candidate.width,
-                    candidate.height,
-                ),
-                red_border_score=candidate.red_border_score,
-                refined_from_grid=True,
+        def detected_boards(items: Sequence[_Candidate]) -> tuple[BoardDetection, ...]:
+            return tuple(
+                BoardDetection(
+                    position_index=index,
+                    quad=(
+                        _candidate_quad(mask, candidate)
+                        if candidate.red_border_score >= 0.20
+                        else _candidate_bounding_quad(candidate)
+                    ),
+                    bounding_box=(
+                        candidate.x,
+                        candidate.y,
+                        candidate.width,
+                        candidate.height,
+                    ),
+                    red_border_score=candidate.red_border_score,
+                    refined_from_grid=True,
+                )
+                for index, candidate in enumerate(items)
             )
-            for index, candidate in enumerate(candidates)
-        )
+
+        boards = detected_boards(candidates)
         border_evidence = statistics.mean(candidate.red_border_score for candidate in candidates)
         expected_evidence = min(1.0, candidate_count / len(candidates))
         components = {
@@ -792,6 +1082,9 @@ class ClassicalPageBoardDetector:
             confidence=round(statistics.mean(components.values()), 6),
             confidence_components=components,
             review_reasons=(),
+            layout_hypotheses=tuple(
+                detected_boards(hypothesis) for hypothesis in layout_hypotheses
+            ),
         )
 
 

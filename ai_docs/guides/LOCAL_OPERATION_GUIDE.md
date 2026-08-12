@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-07-31
+last_updated: 2026-08-05
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -34,17 +34,22 @@ npm run db:up
 npm run db:migrate
 ```
 
-4. Uruchom osobne okna PowerShell:
+4. Uruchom oba workery w kontrolowanym tle:
+
+```powershell
+npm run workers:start
+```
+
+5. Uruchom osobne okna PowerShell:
 
 | Okno | Komenda | Kiedy jest potrzebne |
 |---|---|---|
 | 1 | `npm run api:dev` | zawsze dla Admina i Reviewera |
 | 2 | `npm run admin:dev` | podczas pracy w panelu Admin |
-| 3 | `npm run worker:poll` | gdy mają być wykonywane jobs |
-| 4 | `npm run reviewer:dev` | podczas zatwierdzania plansz |
+| 3 | `npm run reviewer:dev` | podczas zatwierdzania plansz |
 
-5. Otwórz Admin pod `http://127.0.0.1:3000/`.
-6. Reviewer otwieraj wyłącznie przez link i kod utworzone w sekcji
+6. Otwórz Admin pod `http://127.0.0.1:3000/`.
+7. Reviewer otwieraj wyłącznie przez link i kod utworzone w sekcji
    `Zatwierdzanie`.
 
 ## Jednorazowe przygotowanie Windows
@@ -130,6 +135,12 @@ W pierwszym oknie PowerShell uruchom API:
 npm run api:dev
 ```
 
+Tryb `api:dev` obserwuje wyłącznie `services/api/src` i automatycznie przeładowuje
+API po zmianie kodu Pythona. Dzięki temu uruchomiony Admin nie korzysta ze
+starszego kontraktu endpointów. Po aktualizacji repozytorium ze starszej wersji
+tego skryptu zatrzymaj istniejące API raz skrótem `Ctrl+C` i uruchom je ponownie;
+od kolejnych zmian ręczny restart nie jest potrzebny.
+
 Możesz potwierdzić jego gotowość w drugim oknie:
 
 ```powershell
@@ -145,19 +156,149 @@ npm run admin:dev
 Otwórz `http://127.0.0.1:3000/`. Dokumentacja API jest dostępna lokalnie pod
 `http://127.0.0.1:8000/docs`.
 
-Jobs w stanie `created` wymagają workera. Uruchom go w osobnym oknie:
+Ogólne joby w stanie `created`, w tym właściwy `Import layoutów`, wymagają
+general workera. `Selekcja zdjęć` ma odrębny lane i drugi proces. Preferowana
+komenda uruchamia oba procesy w kontrolowanym tle i natychmiast zwraca terminal:
+
+```powershell
+npm run workers:start
+```
+
+Ponowne wywołanie nie tworzy duplikatów. Status konsoli zawiera PID, czas
+startu, budżet wątków oraz osobne ścieżki logów każdego lane:
+
+```powershell
+npm run workers:status
+```
+
+Oba procesy korzystają z tego samego API, PostgreSQL i panelu Admin, ale nie
+blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
+równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
+niż wtedy, gdy jest jedynym obciążeniem komputera.
+
+Domyślny budżet wynosi 2 wątki dla general i 4 dla Selekcji. Można go zmienić
+przy starcie, nadal w zakresie 1–64:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 4
+```
+
+Nie przekazuj tych parametrów przez `npm run workers:start -- ...`: npm na
+Windows może usunąć nazwy argumentów i PowerShell zwiąże wartość `2` z
+parametrem `Lane`. Zwykłe `npm run workers:start` zawsze stosuje domyślne
+budżety `2/4`.
+
+Workspace `Joby` pokazuje oba procesy niezależnie jako `Działa`, `Brak świeżego
+sygnału` albo `Zatrzymany`, również gdy nie ma żadnego joba w kolejce. Status
+nie zastępuje postępu konkretnego joba.
+
+Kontrolowane zatrzymanie obu procesów:
+
+```powershell
+npm run workers:stop
+```
+
+Po restarcie komputera procesy nie uruchamiają się automatycznie. Wystarczy
+ponownie wykonać `npm run workers:start`; supervisor rozpozna nieaktywny stan z
+poprzedniej sesji. Aby zarządzać tylko jednym lane, dopisz argument:
+
+```powershell
+npm run workers:start -- -Lane general
+npm run workers:stop -- -Lane general
+npm run workers:start -- -Lane image-selection
+npm run workers:stop -- -Lane image-selection
+```
+
+Ręczne komendy foreground pozostają dostępne diagnostycznie w osobnych
+terminalach:
 
 ```powershell
 npm run worker:poll
+npm run worker:image-selection:poll
 ```
+
+Nie łącz ręcznego procesu i supervisora dla tego samego lane. Supervisor może
+bezpiecznie zatrzymać wyłącznie proces, który sam uruchomił i zapisał w
+`.runtime\worker-lanes.json`.
 
 Do jednorazowego pobrania najwyżej jednego joba służy:
 
 ```powershell
 npm run worker:once
+npm run worker:image-selection:once
 ```
 
-Nie uruchamiaj równolegle kilku workerów ani kilku buildów Android.
+Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawny
+układ równoległy to najwyżej jeden general worker i jeden image-selection
+worker.
+
+### Uruchomienie dużego runu Selekcji Zdjęć na selektorze v10.4
+
+Nowe runy używają `fast-image-selector-v10.4`. Po aktualizacji kodu zatrzymaj
+procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
+zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
+
+```powershell
+cd C:\Users\user\Documents\game_predicotr
+npm run workers:stop
+npm run db:up
+npm run db:migrate
+npm run workers:start
+npm run workers:status
+```
+
+Komenda `workers:stop` może zgłosić, że nic nie działa — na świeżym starcie jest
+to poprawne. Sprawdź aktywny manifest:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST as m; print(m.algorithm_version); print(m.fingerprint)"
+```
+
+Oczekiwany wynik:
+
+```text
+fast-image-selector-v10.4
+8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e
+```
+
+Pozostaw pierwszy terminal dla API:
+
+```powershell
+npm run api:dev
+```
+
+W drugim PowerShell uruchom Admin:
+
+```powershell
+cd C:\Users\user\Documents\game_predicotr
+npm run admin:dev
+```
+
+Następnie otwórz `http://127.0.0.1:3000/`, wybierz grę i workspace
+`Selekcja zdjęć`. Wskaż folder zawierający naturalnie uporządkowane JPEG-i,
+poczekaj na zakończenie uploadu, wpisz dodatni numer pierwszego layoutu i
+uruchom selekcję. V10.4 nie rozpocznie nowego runu bez tej kotwicy.
+Nie uruchamiaj w tym samym czasie Importu layoutów, jeżeli ten przebieg ma być
+miarodajnym pomiarem v10.4. Postęp i stan procesu obserwuj w workspace `Joby` albo
+przez:
+
+```powershell
+npm run workers:status
+```
+
+Nie zatrzymuj API ani image-selection workera do czasu osiągnięcia przez job
+stanu terminalnego. Po zakończeniu pozostaw run i staging bez zmian — metryki,
+liczbę grup oraz diagnostykę wykorzystamy do zamknięcia TASK-0171. Jeżeli
+musisz przerwać próbę, użyj anulowania konkretnego joba w panelu; nie usuwaj
+folderu uploadu ani bazy.
+
+Rozpoczęty run zachowuje fingerprint selektora, z którym został utworzony.
+Dlatego runu v10.2 nie przełącza się w locie na v10.3: należy pozwolić mu dojść
+do stanu terminalnego, zakończyć jego monitor eksportu, a następnie przeładować
+API i lane `image-selection` przed utworzeniem kolejnego runu. Historia oraz
+galeria ręcznej selekcji wcześniejszego runu pozostają w bazie i są dostępne po
+wybraniu tego runu w Adminie, o ile operator nie wyczyści danych gry lub
+stagingu.
 
 ### Jak używać panelu Admin
 
@@ -375,6 +516,21 @@ samodzielnego trzeba zbudować nowe APK i wykonać `adb install -r`. Zmiany
 panelu Admin, API albo Reviewera nie wymagają instalowania APK — wystarczy
 restart odpowiedniego procesu lub odświeżenie przeglądarki.
 
+## Pełny reset lokalnej bazy Admina
+
+Reset jest nieodwracalną operacją roboczą. Najpierw zatrzymaj API i workera oraz
+wykonaj dump danych, które mogą być jeszcze potrzebne. Następnie uruchom:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/reset_local_admin_database.ps1 -ConfirmReset
+```
+
+Skrypt akceptuje wyłącznie bazę `game_predictor` na lokalnym loopbacku. Usuwa
+cały schemat `public`, tworzy pusty schemat i wykonuje migracje Alembic od zera.
+Nie używa historycznych downgrade'ów, dlatego reset nie zależy od zawartości
+starych rekordów. Nie usuwa zdjęć źródłowych, APK, snapshotów SQLite, klucza
+podpisu ani innych plików z repozytorium.
+
 ## Zatrzymywanie usług
 
 - API, Admin, worker i Reviewer: `Ctrl+C` w ich oknach PowerShell.
@@ -404,7 +560,8 @@ decyzji i kopii danych.
 - Reviewer nie pokazuje importu — potrzebna jest aktywna gra oraz job
   `image_directory` dla tej gry.
 - Reviewer odrzuca kod po restarcie API — utwórz nową sesję w Adminie.
-- job pozostaje `created` — uruchom `npm run worker:poll`.
+- ogólny job pozostaje `created` — uruchom `npm run worker:poll`;
+  job `image_selection` wymaga `npm run worker:image-selection:poll`.
 - build Android trwa długo — nie uruchamiaj drugiego builda. Poczekaj na
   zakończenie kontrolowanego procesu Gradle albo sprawdź jego ostatni błąd.
 
@@ -433,13 +590,22 @@ Przycisk uruchamia brakujący produkcyjny Reviewer, czeka na gotowość, otwiera
 Quick Tunnel i tworzy sesję. Nie wykonuje builda w żądaniu. Jeżeli zobaczysz
 komunikat o trybie developerskim, zatrzymaj okno z `reviewer:dev` i kliknij
 ponownie. Zimny start ma twardy limit 60 sekund; nie wymaga restartu komputera.
-Po zmianie kodu API wystarczy zrestartować tylko `npm run api:dev`. Awaryjny
-odpowiednik CLI:
+Proces uruchomiony przez `npm run api:dev` automatycznie przeładowuje zmiany API.
+Awaryjny odpowiednik CLI:
 
 ```powershell
 npm run reviewer:remote:start
 npm run reviewer:remote:status
 ```
+
+Kontroler sprawdza teraz połączenie TCP do
+`api.trycloudflare.com:443` przed uruchomieniem tunelu. Jeżeli API działa w
+procesie z zablokowanym internetem, panel zwraca od razu komunikat o niedostępnym
+endpointcie zamiast czekać 30 sekund na nieistniejący URL. W takim przypadku
+uruchom ponownie `npm run api:dev` w zwykłym PowerShellu Windows z dostępem do
+wychodzącego HTTPS; restart komputera nie jest potrzebny. Firewall może
+blokować Admin i API od strony sieci przychodzącej, ale proces API musi móc
+nawiązać wychodzące połączenie HTTPS dla jawnie uruchamianego Quick Tunnel.
 
 `start` uruchamia proces w tle i pokazuje losowy adres
 `https://...trycloudflare.com`. Nowa sesja automatycznie użyje aktywnego

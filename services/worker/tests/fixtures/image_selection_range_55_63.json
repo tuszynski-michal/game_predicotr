@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "caseId": "image-selection-range-55-63-missing-terminal-label",
+  "sourceChecksumSha256": "2ea1a6bf2708d384537ddcf2ce11cad80c6d5c8fa7c45da959242447af9b4037",
+  "sourceRelativePath": "1/1_010522.jpg",
+  "storedFileName": "00000179.jpg",
+  "orderIndex": 178,
+  "imageShape": [1920, 1080],
+  "expectedRange": [55, 63],
+  "evidence": [
+    {"number": 55, "confidence": 0.999631, "center": [317.0, 531.2]},
+    {"number": 56, "confidence": 0.997378, "center": [530.0, 553.2]},
+    {"number": 57, "confidence": 0.996815, "center": [743.3, 589.4]},
+    {"number": 58, "confidence": 0.996688, "center": [297.9, 669.8]},
+    {"number": 59, "confidence": 0.996687, "center": [512.8, 692.9]},
+    {"number": 60, "confidence": 0.997039, "center": [732.5, 726.5]},
+    {"number": 62, "confidence": 0.994619, "center": [496.6, 833.8]}
+  ]
+}

@@ -56,6 +56,17 @@ test('does not restore a dependent section without a game', () => {
   });
 });
 
+test('restores the model quality section only inside a selected game', () => {
+  assert.deepEqual(
+    parseAdminNavigation('?game=game-123&section=model-quality'),
+    {
+      workspace: 'games',
+      gameId: 'game-123',
+      section: 'model-quality',
+    },
+  );
+});
+
 test('rejects removed Dataset and Manual Review section URLs', () => {
   for (const section of ['datasets', 'manual-review']) {
     assert.deepEqual(

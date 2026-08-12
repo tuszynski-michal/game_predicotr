@@ -35,6 +35,7 @@ import {
   operationalReviewDraftSymbols,
   operationalReviewJobLabel,
   operationalReviewKeyboardAction,
+  operationalReviewNativeContextViewport,
   operationalReviewSequence,
   operationalReviewStatusLabel,
   updateOperationalReviewCounts,
@@ -295,6 +296,25 @@ export function OperationalReviewWorkspace({
     });
   }
 
+  function handleGeometrySaved(updated: OperationalImageReviewItemResponse) {
+    setPageNotice(
+      `Zapisano siatkę jako rewizję ${updated.geometryRevision}. Plansza i cropy zostały odświeżone.`,
+    );
+    setPage((current) => {
+      if (current === null) return current;
+      const previousStatus = current.items[0]?.status;
+      return {
+        ...current,
+        counts: updateOperationalReviewCounts(
+          current.counts,
+          previousStatus,
+          updated.status,
+        ),
+        items: [updated],
+      };
+    });
+  }
+
   async function handleFreezeCohort() {
     if (selectedGameId === '' || selectedJobId === '' || freezingCohort) {
       return;
@@ -469,6 +489,7 @@ export function OperationalReviewWorkspace({
                     beforeCursor: page?.previousCursor ?? undefined,
                   })
                 }
+                onGeometrySaved={handleGeometrySaved}
                 onReload={() => {
                   const sequenceNumber = operationalReviewSequence(item);
                   void refreshPage(
@@ -650,6 +671,7 @@ function OperationalReviewBoard({
   onJumpSubmit,
   onNext,
   onPrevious,
+  onGeometrySaved,
   onReload,
   onResolved,
   symbols,
@@ -667,6 +689,7 @@ function OperationalReviewBoard({
   readonly onJumpSubmit: () => void;
   readonly onNext: () => void;
   readonly onPrevious: () => void;
+  readonly onGeometrySaved: (item: OperationalImageReviewItemResponse) => void;
   readonly onReload: () => void;
   readonly onResolved: (
     resolution: OperationalImageReviewResolutionResponse,
@@ -890,7 +913,7 @@ function OperationalReviewBoard({
               apiBaseUrl={apiBaseUrl}
               importJobId={importJobId}
               item={item}
-              onSaved={onReload}
+              onSaved={onGeometrySaved}
             />
             <button
               aria-label="Poprzednia plansza"
@@ -1072,7 +1095,7 @@ function OperationalReviewBoard({
                       .filter(Boolean)
                       .join(' ')}
                     disabled={isSaving}
-                    key={cell.observationId}
+                    key={cell.cropSampleId}
                     onClick={() => setSelectedCellIndex(index)}
                     type="button"
                   >
@@ -1083,7 +1106,10 @@ function OperationalReviewBoard({
                         context,
                         item.id,
                         'cell',
-                        cell.cellIndex,
+                        {
+                          cellIndex: cell.cellIndex,
+                          version: cell.cropChecksumSha256,
+                        },
                       )}
                     />
                     <div>
@@ -1119,14 +1145,16 @@ function OperationalReviewBoard({
           </div>
 
           <section className="operationalReviewBoardReference">
-            <OperationalReviewImage
-              alt={`Wycięta plansza układu ${displaySequence ?? 'bez numeru'}`}
+            <OperationalReviewNativeContext
+              alt={`Oryginalna plansza i numer układu ${displaySequence ?? 'bez numeru'}`}
+              item={item}
               key={item.id}
               src={operationalReviewAssetUrl(
                 apiBaseUrl,
                 context,
                 item.id,
-                'board',
+                'source',
+                { version: item.sourceChecksumSha256 },
               )}
             />
           </section>
@@ -1164,6 +1192,76 @@ function OperationalReviewImage({
   // Local checksum-bound review assets cannot use Next's remote image optimizer.
   // eslint-disable-next-line @next/next/no-img-element
   return <img alt={alt} onError={() => setFailed(true)} src={src} />;
+}
+
+function OperationalReviewNativeContext({
+  alt,
+  item,
+  src,
+}: {
+  readonly alt: string;
+  readonly item: OperationalImageReviewItemResponse;
+  readonly src: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  const [naturalSize, setNaturalSize] = useState<{
+    readonly height: number;
+    readonly width: number;
+  } | null>(null);
+  if (failed) {
+    return (
+      <div
+        className="operationalReviewImageMissing"
+        role="img"
+        aria-label={alt}
+      >
+        <span aria-hidden="true">!</span>
+        <p>Brak oryginalnego obrazu. Metadane planszy pozostają dostępne.</p>
+      </div>
+    );
+  }
+  const viewport =
+    naturalSize === null
+      ? null
+      : operationalReviewNativeContextViewport(
+          item,
+          naturalSize.width,
+          naturalSize.height,
+        );
+  return (
+    <div
+      className="operationalReviewNativeContext"
+      style={
+        viewport === null
+          ? undefined
+          : { aspectRatio: `${viewport.width} / ${viewport.height}` }
+      }
+    >
+      {/* Checksum-bound local assets intentionally bypass Next image optimization. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        alt={alt}
+        onError={() => setFailed(true)}
+        onLoad={(event) =>
+          setNaturalSize({
+            height: event.currentTarget.naturalHeight,
+            width: event.currentTarget.naturalWidth,
+          })
+        }
+        src={src}
+        style={
+          viewport === null || naturalSize === null
+            ? undefined
+            : {
+                maxWidth: 'none',
+                transform: `translate(-${(viewport.x / naturalSize.width) * 100}%, -${(viewport.y / naturalSize.height) * 100}%)`,
+                transformOrigin: 'top left',
+                width: `${(naturalSize.width / viewport.width) * 100}%`,
+              }
+        }
+      />
+    </div>
+  );
 }
 
 function OperationalReviewEmpty({

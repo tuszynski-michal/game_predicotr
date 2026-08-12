@@ -4,14 +4,42 @@ import test from 'node:test';
 import {
   cancelJob,
   createImageDiagnosticExport,
+  deleteCancelledImageSelectionJob,
   downloadImageDiagnosticExport,
   loadImageDiagnosticExports,
   loadImageJobOperations,
   loadImageStorageInventory,
   loadJobs,
+  loadWorkerLanes,
   retryImageJobFile,
   retryJob,
 } from '../src/features/jobs/job-actions.ts';
+
+test('loads both worker lanes independently from job filters', async () => {
+  const lanes = [
+    {
+      heartbeatAt: '2026-08-05T12:00:00Z',
+      lane: 'general',
+      startedAt: '2026-08-05T11:00:00Z',
+      state: 'running',
+      threadBudget: 2,
+      workerVersion: 'worker-v10-general',
+    },
+    {
+      heartbeatAt: null,
+      lane: 'image_selection',
+      startedAt: null,
+      state: 'stopped',
+      threadBudget: null,
+      workerVersion: null,
+    },
+  ];
+  const result = await loadWorkerLanes({
+    listWorkerLanes: async () => ({ data: lanes }),
+  });
+
+  assert.deepEqual(result, { lanes, ok: true });
+});
 
 const job = {
   attemptCount: 1,
@@ -91,6 +119,27 @@ test('cancels and retries the same durable record', async () => {
     job.id,
   );
   assert.deepEqual(retryResult, { job: retried, ok: true });
+});
+
+test('deletes the exact cancelled image-selection job', async () => {
+  const deletion = {
+    jobId: job.id,
+    managedRunFilesDeleted: true,
+    runId: 'run-1',
+    sharedSourceStagingPreserved: false,
+    sourceStagingDeleted: true,
+  };
+  const result = await deleteCancelledImageSelectionJob(
+    {
+      deleteCancelledImageSelectionJob: async (jobId) => {
+        assert.equal(jobId, job.id);
+        return { data: deletion };
+      },
+    },
+    job.id,
+  );
+
+  assert.deepEqual(result, { deletion, ok: true });
 });
 
 test('preserves stable API errors and hides transport exceptions', async () => {

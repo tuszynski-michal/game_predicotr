@@ -1,11 +1,14 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
 from game_predictor_api.application.jobs import (
+    ImageSelectionJobDeletionReference,
     JobRepository,
     JobService,
     LayoutImportRulesReference,
+    ManagedImageSelectionDeletionArtifactStore,
     PayoutDatasetReference,
     PayoutRulesReference,
 )
@@ -14,6 +17,7 @@ from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
     JobError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
     acknowledge_job_cancellation,
@@ -25,6 +29,7 @@ from game_predictor_api.domain.jobs import (
     recover_expired_job,
     renew_job_lease,
     request_job_cancellation,
+    requeue_job,
     start_job,
     update_job_progress,
     wait_for_review,
@@ -39,6 +44,9 @@ class MemoryJobRepository(JobRepository):
         self.rules: dict[UUID, LayoutImportRulesReference] = {}
         self.payout_datasets: dict[UUID, PayoutDatasetReference] = {}
         self.payout_rules: dict[UUID, PayoutRulesReference] = {}
+        self.image_selection_deletions: dict[
+            UUID, ImageSelectionJobDeletionReference
+        ] = {}
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -96,6 +104,24 @@ class MemoryJobRepository(JobRepository):
     def save_job(self, job: Job) -> Job:
         self.items[job.id] = job
         return job
+
+    def get_image_selection_deletion_reference(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletionReference | None:
+        return self.image_selection_deletions.get(job_id)
+
+    def delete_image_selection_run_and_job(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+    ) -> None:
+        reference = self.image_selection_deletions.get(job_id)
+        if reference is None or reference.run_id != run_id:
+            raise AssertionError("unexpected image-selection deletion")
+        del self.image_selection_deletions[job_id]
+        del self.items[job_id]
 
 
 def _job() -> Job:
@@ -207,6 +233,37 @@ def test_processing_progress_review_resume_and_completion_lifecycle() -> None:
     assert error.value.code == "INVALID_JOB_STATUS_TRANSITION"
 
 
+def test_job_type_requires_its_assigned_execution_lane() -> None:
+    selection = create_job(
+        JobType.IMAGE_SELECTION,
+        game_id=uuid4(),
+        input_payload={"schema_version": 1},
+    )
+    now = datetime(2026, 8, 5, 12, tzinfo=UTC)
+
+    with pytest.raises(JobError) as wrong_lane:
+        start_job(
+            selection,
+            worker_version="worker-v10-general",
+            worker_id="general-worker",
+            lease_token=uuid4(),
+            lease_expires_at=now + timedelta(seconds=60),
+            started_at=now,
+        )
+    assert wrong_lane.value.code == "INVALID_JOB_EXECUTION_SLOT"
+
+    claimed = start_job(
+        selection,
+        worker_version="worker-v10-image-selection",
+        worker_id="selection-worker",
+        lease_token=uuid4(),
+        lease_expires_at=now + timedelta(seconds=60),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        started_at=now,
+    )
+    assert claimed.execution_slot == int(JobExecutionSlot.IMAGE_SELECTION)
+
+
 def test_invalid_transition_and_progress_regression_are_rejected() -> None:
     original = _job()
     with pytest.raises(JobConflictError) as error:
@@ -257,6 +314,37 @@ def test_cancellation_is_immediate_before_start_and_deferred_during_processing()
         finished_at=now + timedelta(seconds=1),
     )
     assert acknowledged.status is JobStatus.CANCELLED
+
+
+def test_cancelled_job_can_be_requeued_from_its_durable_progress() -> None:
+    cancelled_at = datetime(2026, 7, 27, 12, 1, 30, tzinfo=UTC)
+    progressed, token = _leased_job()
+    progressed = update_job_progress(
+        progressed,
+        lease_token=token,
+        stage="image_selection:scanning",
+        current=2_016,
+        total=32_079,
+        success_count=2_015,
+        failure_count=0,
+        review_count=1,
+        updated_at=cancelled_at - timedelta(seconds=1),
+    )
+    requested = request_job_cancellation(progressed, requested_at=cancelled_at)
+    cancelled = acknowledge_job_cancellation(
+        requested,
+        lease_token=token,
+        finished_at=cancelled_at + timedelta(seconds=1),
+    )
+
+    requeued = requeue_job(cancelled, updated_at=cancelled_at + timedelta(seconds=2))
+
+    assert requeued.status is JobStatus.CREATED
+    assert requeued.progress_current == 2_016
+    assert requeued.progress_total == 32_079
+    assert requeued.finished_at is None
+    assert requeued.cancel_requested_at is None
+    assert requeued.lease_token is None
 
 
 def test_completed_and_failed_jobs_are_terminal_for_cancel() -> None:
@@ -315,6 +403,123 @@ def test_service_rejects_import_without_server_source_attestation() -> None:
         )
 
     assert captured.value.code == "IMPORT_SOURCE_NOT_ATTESTED"
+
+
+def test_service_physically_deletes_cancelled_image_selection_job(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    source_selection_id = uuid4()
+    run_id = uuid4()
+    job = repository.add_job(
+        create_job(
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1},
+        )
+    )
+    repository.image_selection_deletions[job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=run_id,
+            source_selection_id=source_selection_id,
+            source_reference_count=1,
+            has_curated_import_source=False,
+            has_published_output=False,
+        )
+    )
+    artifact_root = tmp_path / "artifacts"
+    import_root = tmp_path / "imports"
+    manual_directory = artifact_root / "data" / "working" / "is-manual" / run_id.hex[:12]
+    source_directory = import_root / "browser-selections" / str(source_selection_id)
+    manual_directory.mkdir(parents=True)
+    source_directory.mkdir(parents=True)
+    (manual_directory / "manual.jpg").write_bytes(b"manual")
+    (source_directory / "source.jpg").write_bytes(b"source")
+    service = JobService(
+        repository,
+        deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+            artifact_root=artifact_root,
+            import_root=import_root,
+        ),
+    )
+    service.cancel_job(job.id)
+
+    deletion = service.delete_cancelled_image_selection_job(job.id)
+
+    assert deletion.managed_run_files_deleted is True
+    assert deletion.source_staging_deleted is True
+    assert deletion.shared_source_staging_preserved is False
+    assert repository.get_job(job.id) is None
+    assert not manual_directory.exists()
+    assert not source_directory.exists()
+    service.finalize_pending_deletions()
+    assert not (
+        artifact_root / "data" / "trash" / "image-selection-deletions" / str(job.id)
+    ).exists()
+    assert not (
+        import_root / ".trash" / "image-selection-deletions" / str(job.id)
+    ).exists()
+
+
+def test_service_preserves_shared_source_and_blocks_handoff(tmp_path: Path) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    source_selection_id = uuid4()
+    run_id = uuid4()
+    job = repository.add_job(
+        create_job(
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1},
+        )
+    )
+    repository.image_selection_deletions[job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=run_id,
+            source_selection_id=source_selection_id,
+            source_reference_count=2,
+            has_curated_import_source=False,
+            has_published_output=False,
+        )
+    )
+    source_directory = tmp_path / "imports" / "browser-selections" / str(source_selection_id)
+    source_directory.mkdir(parents=True)
+    service = JobService(
+        repository,
+        deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+            artifact_root=tmp_path / "artifacts",
+            import_root=tmp_path / "imports",
+        ),
+    )
+    service.cancel_job(job.id)
+
+    deletion = service.delete_cancelled_image_selection_job(job.id)
+
+    assert deletion.source_staging_deleted is False
+    assert deletion.shared_source_staging_preserved is True
+    assert source_directory.exists()
+
+    blocked_job = repository.add_job(
+        create_job(
+                JobType.IMAGE_SELECTION,
+                game_id=game_id,
+                input_payload={"schema_version": 1, "marker": "handoff"},
+        )
+    )
+    repository.image_selection_deletions[blocked_job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=uuid4(),
+            source_selection_id=uuid4(),
+            source_reference_count=1,
+            has_curated_import_source=True,
+            has_published_output=False,
+        )
+    )
+    service.cancel_job(blocked_job.id)
+    with pytest.raises(JobConflictError) as blocked:
+        service.delete_cancelled_image_selection_job(blocked_job.id)
+    assert blocked.value.code == "IMAGE_SELECTION_JOB_HANDOFF_EXISTS"
 
 
 def test_payout_job_requires_complete_published_matching_sources() -> None:

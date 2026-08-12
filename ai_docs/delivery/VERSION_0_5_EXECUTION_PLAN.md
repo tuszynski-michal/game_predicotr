@@ -1,10 +1,28 @@
 ---
 title: Version 0.5 execution plan
-status: accepted
-last_updated: 2026-08-02
+status: completed
+last_updated: 2026-08-12
 ---
 
 # Plan zakresu wersji 0.5
+
+## Zamknięcie wydania
+
+Wersja 0.5 została zamknięta decyzją właściciela 2026-08-12. Ostatnim commitem
+implementacyjnym jest `v0.5.15`, a `v0.5.16` utrwala zamknięcie dokumentacyjne.
+Właściciel zaakceptował selektor `fast-image-selector-v10.9` jako wystarczająco
+dobrą podstawę dalszej pracy, z zachowaniem ręcznego review i fail-closed dla
+niejednoznacznych zakresów.
+
+Zamknięcie jest zmianą zakresu wydania, a nie deklaracją wykonania wszystkich
+pierwotnych bramek poniżej. TASK-0198–0207, stabilizacja selekcji v10.9 oraz
+trwały eksport są dostarczone. TASK-0208, TASK-0150, TASK-0076, TASK-0080–0089,
+pełna publikacja około 500 000 layoutów, kolejne gry i końcowy hardening nie
+zostały ukończone w 0.5. Pozostają jawnie odroczone i wymagają ponownego
+zaplanowania przed realizacją; `massImportAllowed` pozostaje zamknięte.
+
+Trwające lokalne runy selekcji są pracą operatorską na dostarczonym algorytmie.
+Mogą kończyć się po zamknięciu wydania i nie zmieniają zakresu ani kodu 0.5.
 
 ## Cel
 
@@ -60,3 +78,33 @@ wielogrowe wydanie oraz hardening.
 Istniejące TASK-0143–0150, TASK-0076 oraz TASK-0080–0089 zachowują swoje numery
 i kryteria. Nowe zadania dotyczące dodatkowych gier lub problemów ujawnionych
 przez duże dane będą dopisywane do tego planu przed implementacją.
+
+### Iteracyjny import wybranego corpus
+
+- TASK-0198 — kontrakt i dokumentacja v0.5,
+- TASK-0199 — trwałe źródło manifestu oraz partie,
+- TASK-0200 — API następne N,
+- TASK-0201 — wykonanie wycinka manifestu przez worker,
+- TASK-0202 — sterowanie partiami w Import Layoutów,
+- TASK-0203 — natywny kontekst i numer layoutu w Reviewerze,
+- TASK-0204 — skumulowana kohorta geometrii,
+- TASK-0205 — kandydat i bramka kalibracji siatki,
+- TASK-0206 — rejestr, aktywacja, rollback i przypięcie profilu,
+- TASK-0207 — niezależne ulepszanie symboli i siatki w Adminie,
+- TASK-0208 — obserwowalność i pomiar skalowania,
+- TASK-0150 — końcowy odbiór dwóch iteracji.
+
+W v0.5 nowe wersje modelu i geometrii obowiązują wyłącznie importy utworzone po
+aktywacji. TASK-0149, czyli ponowna inferencja wcześniejszych pending, zostaje
+odroczony i nie blokuje tego przepływu.
+
+## Stan wykonania 2026-08-09
+
+- TASK-0198–0207 są ukończone i zweryfikowane testami domeny, migracji, workera,
+  Admina, Reviewera oraz wygenerowanego klienta OpenAPI,
+- TASK-0208 ma ukończoną implementację metryk, historii partii i bounded skryptu
+  operatorskiego; pozostaje aktywny do wykonania pomiarów 10/100/1000 i
+  warunkowego pomiaru 5000 przez właściciela,
+- po przyjęciu pomiarów następnym krokiem jest TASK-0150, czyli odbiór dwóch
+  iteracji z jawną aktywacją nowego profilu tylko dla przyszłej partii,
+- `massImportAllowed` pozostaje zamknięte.

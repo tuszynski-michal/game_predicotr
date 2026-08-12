@@ -15,6 +15,7 @@ from uuid import UUID, uuid5
 from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
     ImageSelectionGroupStatus,
+    ImageSelectionSequenceDirection,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobStatus
 from game_predictor_api.storage.models import (
@@ -29,7 +30,27 @@ from sqlalchemy.orm import Session, sessionmaker
 from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
 
-from .adapters import AnchoredSequenceRangeRecognizer, build_default_adapters
+from .adapters import (
+    AccuracyFirstVisibleSequenceLabelRangeRecognizer,
+    AdaptiveVisibleSequenceLabelRangeRecognizer,
+    AnchoredSequenceRangeRecognizer,
+    BestEffortVisibleSequenceLabelRangeRecognizer,
+    ContiguousWindowVisibleSequenceLabelRangeRecognizer,
+    DeterministicParallelCandidateVerifier,
+    GridFirstVisibleSequenceLabelRangeRecognizer,
+    IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    ProgressiveVisibleSequenceLabelRangeRecognizer,
+    VisibleSequenceLabelRangeRecognizer,
+    build_default_adapters,
+)
+from .cache import (
+    CachedCandidateVerifier,
+    CachedCheapImageAnalyzer,
+    FileImageScanObservationCache,
+    FileImageVerificationCache,
+)
 from .contracts import (
     CandidateDecision,
     CandidateResult,
@@ -49,12 +70,28 @@ from .contracts import (
 )
 from .engine import FastImageSelector
 from .io import load_browser_selection_manifest
-from .manifest import DEFAULT_SELECTOR_MANIFEST, SelectorManifest
+from .manifest import (
+    ACCURACY_FIRST_SELECTOR_VERSIONS,
+    APPEARANCE_ONLY_SELECTOR_VERSIONS,
+    BEST_EFFORT_SELECTOR_VERSIONS,
+    CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION,
+    DEFAULT_SELECTOR_MANIFEST,
+    GRID_FIRST_RANGE_ADAPTER_VERSION,
+    INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
+    LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    ORDERED_SELECTOR_VERSIONS,
+    OWNER_ANCHORED_SELECTOR_VERSIONS,
+    PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    SelectorManifest,
+    selector_manifest_for_fingerprint,
+)
 from .output import (
     CuratedImageOutputPublisher,
     PublishedImageSelection,
     verify_curated_image_manifest,
 )
+from .ports import SequenceRangeRecognizer
+from .telemetry import StageTimingCollector
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
 BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
@@ -73,6 +110,8 @@ class ImageSelectionJobRun:
     selector_fingerprint: str
     output_manifest_sha256: str | None
     output_manifest_relative_path: str | None
+    sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
+    first_sequence_number: int | None = None
 
 
 class ImageSelectionJobStore(Protocol):
@@ -87,6 +126,7 @@ class ImageSelectionJobStore(Protocol):
         run_id: UUID,
         lease_token: UUID,
         groups: Sequence[SelectionGroupResult],
+        group_sources: Mapping[int, Sequence[CheapImageObservation]],
         persisted_at: datetime,
     ) -> None: ...
 
@@ -119,23 +159,44 @@ class ImageSelectionJobHandler:
         repository_root: Path,
         adapter_factory: AdapterFactory | None = None,
         selector_manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
+        scan_workers: int = 1,
+        scan_prefetch: int | None = None,
+        verification_workers: int = 1,
     ) -> None:
+        if not 1 <= verification_workers <= 2:
+            raise ValueError("verification_workers must be one or two.")
         self._store = store
-        self._browser_upload_root = (
-            browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
-        )
+        self._browser_upload_root = browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
         self._selector_manifest = selector_manifest
-        self._adapter_factory = adapter_factory or self._default_adapter_factory
+        self._scan_workers = scan_workers
+        self._scan_prefetch = scan_prefetch
+        self._verification_workers = verification_workers
+        self._adapter_factory = adapter_factory
         self._publisher = CuratedImageOutputPublisher(self._artifact_root)
+        self._scan_cache = FileImageScanObservationCache(self._artifact_root)
+        self._verification_cache = FileImageVerificationCache(self._artifact_root)
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         run = self._store.get_run_for_job(job.id)
+        selector_manifest: SelectorManifest | None
         if run.selector_fingerprint != self._selector_manifest.fingerprint:
+            selector_manifest = selector_manifest_for_fingerprint(run.selector_fingerprint)
+        else:
+            selector_manifest = self._selector_manifest
+        if selector_manifest is None:
             raise JobHandlerError(
                 "IMAGE_SELECTION_SELECTOR_MISMATCH",
                 "The durable run references another selector fingerprint.",
+            )
+        if (
+            selector_manifest.algorithm_version in OWNER_ANCHORED_SELECTOR_VERSIONS
+            and run.first_sequence_number is None
+        ):
+            raise JobHandlerError(
+                "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED",
+                "The current selector requires the first layout sequence number.",
             )
         source_root = self._managed_source_root(run.source_selection_id)
         manifest_path = source_root / BROWSER_SELECTION_MANIFEST
@@ -156,12 +217,30 @@ class ImageSelectionJobHandler:
             return
 
         try:
+            telemetry = StageTimingCollector()
             persisted_groups = self._store.load_groups(run.id)
             resume_state = _resume_state(job.checkpoint_payload)
             existing_groups = _committed_groups(persisted_groups, resume_state)
-            analyzer, verifier = self._adapter_factory(
-                source_root,
-                self._selector_manifest,
+            if self._adapter_factory is None:
+                analyzer, verifier = self._default_adapter_factory(
+                    source_root,
+                    selector_manifest,
+                    telemetry,
+                )
+            else:
+                analyzer, verifier = self._adapter_factory(
+                    source_root,
+                    selector_manifest,
+                )
+            cached_analyzer = CachedCheapImageAnalyzer(
+                analyzer,
+                self._scan_cache,
+                scan_adapter_fingerprint=selector_manifest.scan_adapter_fingerprint,
+            )
+            cached_verifier = CachedCandidateVerifier(
+                verifier,
+                self._verification_cache,
+                selector_fingerprint=selector_manifest.fingerprint,
             )
             sink = _DurableSelectionSink(
                 context,
@@ -172,21 +251,34 @@ class ImageSelectionJobHandler:
                 prior_checkpoint=job.checkpoint_payload,
                 artifact_root=self._artifact_root,
                 existing_groups=existing_groups,
+                telemetry=telemetry,
+                scan_cache_metrics=cached_analyzer.snapshot,
+                verification_cache_metrics=cached_verifier.snapshot,
             )
-            result = FastImageSelector(self._selector_manifest).select(
+            result = FastImageSelector(
+                selector_manifest,
+                scan_workers=self._scan_workers,
+                scan_prefetch=self._scan_prefetch,
+            ).select(
                 sources,
-                analyzer=analyzer,
-                verifier=verifier,
+                analyzer=cached_analyzer,
+                verifier=cached_verifier,
                 audit_sink=sink,
                 resume_state=resume_state,
                 existing_groups=existing_groups,
+                sequence_direction=run.sequence_direction.value,
+                first_sequence_number=run.first_sequence_number,
             )
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
 
         try:
             if any(
-                group.status is SelectionGroupStatus.MANUAL_REQUIRED
+                group.status
+                in {
+                    SelectionGroupStatus.MANUAL_REQUIRED,
+                    SelectionGroupStatus.RANGE_REQUIRED,
+                }
                 for group in result.groups
             ):
                 sink.write_diagnostics(result)
@@ -197,28 +289,32 @@ class ImageSelectionJobHandler:
                 context.wait_for_review()
 
             sink.write_diagnostics(result)
-            published = self._publisher.publish(
-                run_id=run.id,
-                source_root=source_root,
-                input_manifest_sha256=run.input_manifest_sha256,
-                result=result,
-                source_resolver=lambda candidate: self._resolve_selected_source(
-                    source_root,
-                    candidate,
-                ),
-                progress_callback=lambda completed, total: sink.publication_checkpoint(
-                    result.checkpoint,
-                    completed=completed,
-                    total=total,
-                ),
-            )
-            self._store.record_output(
-                job_id=job.id,
-                run_id=run.id,
-                lease_token=context.lease_token,
-                published=published,
-                persisted_at=context.now(),
-            )
+            with telemetry.measure("output"):
+                published = self._publisher.publish(
+                    run_id=run.id,
+                    source_root=source_root,
+                    input_manifest_sha256=run.input_manifest_sha256,
+                    result=result,
+                    source_resolver=lambda candidate: self._resolve_selected_source(
+                        source_root,
+                        candidate,
+                    ),
+                    progress_callback=lambda completed, total: sink.publication_checkpoint(
+                        result.checkpoint,
+                        completed=completed,
+                        total=total,
+                    ),
+                )
+            telemetry.increment("outputFiles", len(published.manifest.entries))
+            with telemetry.measure("persistence"):
+                self._store.record_output(
+                    job_id=job.id,
+                    run_id=run.id,
+                    lease_token=context.lease_token,
+                    published=published,
+                    persisted_at=context.now(),
+                )
+            telemetry.increment("persistenceWrites")
             sink.checkpoint_stage(
                 result.checkpoint,
                 stage="image_selection:ready_for_import",
@@ -228,9 +324,7 @@ class ImageSelectionJobHandler:
 
     def _managed_source_root(self, selection_id: UUID) -> Path:
         try:
-            candidate = (self._browser_upload_root / str(selection_id)).resolve(
-                strict=True
-            )
+            candidate = (self._browser_upload_root / str(selection_id)).resolve(strict=True)
         except OSError as error:
             raise JobHandlerError(
                 "IMAGE_SELECTION_SOURCE_MISSING",
@@ -273,20 +367,110 @@ class ImageSelectionJobHandler:
         self,
         source_root: Path,
         manifest: SelectorManifest,
+        telemetry: StageTimingCollector,
     ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
-        model_root = (
-            self._repository_root
-            / "artifacts"
-            / "m5-models"
-            / "sequence-number-ocr-v1"
-        )
-        recognizer = AnchoredSequenceRangeRecognizer(
-            PaddleSequenceNumberRecognizer(model_root)
-        )
-        return build_default_adapters(
-            source_root,
-            range_recognizer=recognizer,
-            manifest=manifest,
+        if manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS:
+            return build_default_adapters(
+                source_root,
+                manifest=manifest,
+                telemetry=telemetry,
+            )
+
+        def build_isolated_adapters() -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+            model_root = (
+                self._repository_root / "artifacts" / "m5-models" / "sequence-number-ocr-v1"
+            )
+            ocr = PaddleSequenceNumberRecognizer(model_root)
+            recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
+            fallback_recognizer: SequenceRangeRecognizer
+            if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
+                fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+            ):
+                fallback_recognizer = PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+            ):
+                fallback_recognizer = LayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = ContiguousWindowVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.contiguous_sequence_window_policy,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+            ):
+                fallback_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    telemetry=telemetry,
+                )
+            elif manifest.progressive_visible_label_fallback_policy is not None:
+                fallback_recognizer = ProgressiveVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    telemetry=telemetry,
+                )
+            elif manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS:
+                fallback_recognizer = AccuracyFirstVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            elif manifest.algorithm_version in BEST_EFFORT_SELECTOR_VERSIONS:
+                fallback_recognizer = BestEffortVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            elif manifest.algorithm_version in ORDERED_SELECTOR_VERSIONS:
+                fallback_recognizer = AdaptiveVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            else:
+                fallback_recognizer = VisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    telemetry=telemetry,
+                )
+            return build_default_adapters(
+                source_root,
+                range_recognizer=recognizer,
+                fallback_range_recognizer=fallback_recognizer,
+                manifest=manifest,
+                telemetry=telemetry,
+            )
+
+        analyzer, primary_verifier = build_isolated_adapters()
+        if self._verification_workers == 1 or manifest.adaptive_range_consensus_policy is None:
+            return analyzer, primary_verifier
+        _, secondary_verifier = build_isolated_adapters()
+        return analyzer, DeterministicParallelCandidateVerifier(
+            (primary_verifier, secondary_verifier),
+            telemetry=telemetry,
         )
 
 
@@ -302,6 +486,9 @@ class _DurableSelectionSink(SelectionAuditSink):
         prior_checkpoint: Mapping[str, object] | None,
         artifact_root: Path,
         existing_groups: Sequence[SelectionGroupResult],
+        telemetry: StageTimingCollector,
+        scan_cache_metrics: Callable[[], dict[str, object]],
+        verification_cache_metrics: Callable[[], dict[str, object]],
     ) -> None:
         self._context = context
         self._store = store
@@ -310,6 +497,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         self._upload_duration_seconds = upload_duration_seconds
         self._artifact_root = artifact_root.resolve()
         self._pending_groups: dict[int, SelectionGroupResult] = {}
+        self._pending_group_sources: dict[int, list[CheapImageObservation]] = {}
         self._latest_groups: dict[int, SelectionGroupResult] = {
             group.group_order: group for group in existing_groups
         }
@@ -318,6 +506,18 @@ class _DurableSelectionSink(SelectionAuditSink):
         self._error_samples = _prior_error_samples(prior_checkpoint)
         self._processing_started_at = context.now()
         self._prior_processing_seconds = _prior_processing_duration(prior_checkpoint)
+        self._telemetry = telemetry
+        self._scan_cache_metrics = scan_cache_metrics
+        self._verification_cache_metrics = verification_cache_metrics
+        self._window_started_at = self._processing_started_at
+        self._window_processed_count = _prior_processed_count(prior_checkpoint)
+        self._window_group_count = _checkpoint_int(prior_checkpoint, "group_count")
+        self._window_verification_count = _checkpoint_int(
+            prior_checkpoint,
+            "verification_count",
+        )
+        self._window_manual_count = _checkpoint_int(prior_checkpoint, "manual_count")
+        self._last_recent_window = _prior_recent_window(prior_checkpoint)
 
     def candidate_scanned(
         self,
@@ -325,7 +525,7 @@ class _DurableSelectionSink(SelectionAuditSink):
         *,
         group_order: int,
     ) -> None:
-        del group_order
+        self._pending_group_sources.setdefault(group_order, []).append(observation)
         reasons = tuple(
             reason
             for reason in observation.reason_codes
@@ -349,15 +549,19 @@ class _DurableSelectionSink(SelectionAuditSink):
     def selector_state_saved(self, state: SelectorResumeState) -> None:
         self._last_state = state
         if self._pending_groups:
-            self._store.persist_groups(
-                job_id=self._run.job_id,
-                run_id=self._run.id,
-                lease_token=self._context.lease_token,
-                groups=tuple(
-                    self._pending_groups[key] for key in sorted(self._pending_groups)
-                ),
-                persisted_at=self._context.now(),
-            )
+            with self._telemetry.measure("persistence"):
+                self._store.persist_groups(
+                    job_id=self._run.job_id,
+                    run_id=self._run.id,
+                    lease_token=self._context.lease_token,
+                    groups=tuple(self._pending_groups[key] for key in sorted(self._pending_groups)),
+                    group_sources={
+                        key: tuple(self._pending_group_sources.pop(key, ()))
+                        for key in sorted(self._pending_groups)
+                    },
+                    persisted_at=self._context.now(),
+                )
+            self._telemetry.increment("persistenceWrites")
             self._pending_groups.clear()
         self._checkpoint(state, stage="image_selection:scanning")
 
@@ -400,9 +604,18 @@ class _DurableSelectionSink(SelectionAuditSink):
             "fileCount": result.input_count,
             "groupCount": len(result.groups),
             "manualCount": sum(
-                group.status is SelectionGroupStatus.MANUAL_REQUIRED
+                group.status
+                in {
+                    SelectionGroupStatus.MANUAL_REQUIRED,
+                    SelectionGroupStatus.RANGE_REQUIRED,
+                }
                 for group in result.groups
             ),
+            "missingImageRanges": [
+                {"rangeEnd": group.range.end, "rangeStart": group.range.start}
+                for group in result.groups
+                if group.status is SelectionGroupStatus.MISSING_IMAGE and group.range is not None
+            ],
             "runId": str(self._run.id),
             "scanFailureCount": result.scan_failure_count,
             "schemaVersion": 1,
@@ -411,11 +624,15 @@ class _DurableSelectionSink(SelectionAuditSink):
                 in {
                     SelectionGroupStatus.AUTO_SELECTED,
                     SelectionGroupStatus.MANUALLY_SELECTED,
+                    SelectionGroupStatus.RANGE_CONFIRMED,
                 }
                 for group in result.groups
             ),
             "selectorFingerprint": result.selector_fingerprint,
             "verificationCount": result.verification_count,
+            "scanCache": self._scan_cache_metrics(),
+            "verificationCache": self._verification_cache_metrics(),
+            "stageTiming": self._telemetry.snapshot(),
         }
         content = json.dumps(
             payload,
@@ -424,12 +641,7 @@ class _DurableSelectionSink(SelectionAuditSink):
             sort_keys=True,
         ).encode("utf-8")
         checksum = hashlib.sha256(content).hexdigest()
-        root = (
-            self._artifact_root
-            / "data"
-            / "exports"
-            / "is-job-diagnostics"
-        )
+        root = self._artifact_root / "data" / "exports" / "is-job-diagnostics"
         root.mkdir(parents=True, exist_ok=True)
         target = root / f"{checksum}.json"
         if not target.exists():
@@ -463,12 +675,36 @@ class _DurableSelectionSink(SelectionAuditSink):
             in {
                 SelectionGroupStatus.AUTO_SELECTED,
                 SelectionGroupStatus.MANUALLY_SELECTED,
+                SelectionGroupStatus.RANGE_CONFIRMED,
             }
             for group in groups
         )
         manual = sum(
-            group.status is SelectionGroupStatus.MANUAL_REQUIRED for group in groups
+            group.status
+            in {
+                SelectionGroupStatus.MANUAL_REQUIRED,
+                SelectionGroupStatus.RANGE_REQUIRED,
+            }
+            for group in groups
         )
+        missing = sum(group.status is SelectionGroupStatus.MISSING_IMAGE for group in groups)
+        checkpoint_now = self._context.now()
+        window_advanced = state.checkpoint.processed_count > self._window_processed_count
+        if window_advanced:
+            self._last_recent_window = {
+                "fromProcessed": self._window_processed_count,
+                "toProcessed": state.checkpoint.processed_count,
+                "elapsedSeconds": round(
+                    max(0.0, (checkpoint_now - self._window_started_at).total_seconds()),
+                    6,
+                ),
+                "groupsFinalized": max(0, len(groups) - self._window_group_count),
+                "verifications": max(
+                    0,
+                    state.verification_count - self._window_verification_count,
+                ),
+                "manual": max(0, manual - self._window_manual_count),
+            }
         payload: dict[str, object] = {
             "schema_version": CHECKPOINT_SCHEMA_VERSION,
             "workflow": "image_selection",
@@ -478,15 +714,26 @@ class _DurableSelectionSink(SelectionAuditSink):
             "group_count": len(groups),
             "selected_count": selected,
             "manual_count": manual,
+            "missing_image_count": missing,
             "skipped_count": sum(
-                group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+                group.status
+                in {
+                    SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                    SelectionGroupStatus.SKIPPED_UNREADABLE,
+                    SelectionGroupStatus.REJECTED_BY_USER,
+                }
                 for group in groups
             ),
             "error_count": state.scan_failure_count,
             "verification_count": state.verification_count,
             "error_samples": self._error_samples,
             "upload_duration_seconds": self._upload_duration_seconds,
+            "scan_cache": self._scan_cache_metrics(),
+            "verification_cache": self._verification_cache_metrics(),
+            "stage_timing": self._telemetry.snapshot(),
         }
+        if self._last_recent_window is not None:
+            payload["recent_window"] = dict(self._last_recent_window)
         if self._diagnostic is not None:
             payload["diagnostic"] = self._diagnostic
         if publication is not None:
@@ -496,15 +743,23 @@ class _DurableSelectionSink(SelectionAuditSink):
             (self._context.now() - self._processing_started_at).total_seconds(),
         )
         payload["processing_duration_seconds"] = processing_seconds
-        self._context.checkpoint(
-            checkpoint_payload=payload,
-            stage=stage,
-            current=state.checkpoint.processed_count,
-            total=self._total,
-            success_count=selected,
-            failure_count=state.scan_failure_count,
-            review_count=max(self._context.job.review_count, manual),
-        )
+        with self._telemetry.measure("persistence"):
+            self._context.checkpoint(
+                checkpoint_payload=payload,
+                stage=stage,
+                current=state.checkpoint.processed_count,
+                total=self._total,
+                success_count=selected,
+                failure_count=state.scan_failure_count,
+                review_count=max(self._context.job.review_count, manual),
+            )
+        self._telemetry.increment("persistenceWrites")
+        if window_advanced:
+            self._window_started_at = checkpoint_now
+            self._window_processed_count = state.checkpoint.processed_count
+            self._window_group_count = len(groups)
+            self._window_verification_count = state.verification_count
+            self._window_manual_count = manual
 
 
 class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
@@ -546,8 +801,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             if candidate.group_id is not None:
                 by_group.setdefault(candidate.group_id, []).append(candidate)
         return tuple(
-            _selection_group_from_records(group, by_group.get(group.id, []))
-            for group in groups
+            _selection_group_from_records(group, by_group.get(group.id, [])) for group in groups
         )
 
     def persist_groups(
@@ -557,12 +811,21 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         run_id: UUID,
         lease_token: UUID,
         groups: Sequence[SelectionGroupResult],
+        group_sources: Mapping[int, Sequence[CheapImageObservation]],
         persisted_at: datetime,
     ) -> None:
         with self._session_factory() as session, session.begin():
             _assert_fence(session, job_id, lease_token, persisted_at)
             for group in sorted(groups, key=lambda value: value.group_order):
-                self._persist_group(session, run_id, group, persisted_at)
+                group_id = self._persist_group(session, run_id, group, persisted_at)
+                self._persist_gallery_sources(
+                    session,
+                    run_id=run_id,
+                    group_id=group_id,
+                    group=group,
+                    observations=group_sources.get(group.group_order, ()),
+                    persisted_at=persisted_at,
+                )
 
     def record_output(
         self,
@@ -587,8 +850,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 )
             if record.output_manifest_sha256 is not None and (
                 record.output_manifest_sha256 != published.manifest_sha256
-                or record.output_manifest_relative_path
-                != published.manifest_relative_path
+                or record.output_manifest_relative_path != published.manifest_relative_path
             ):
                 raise JobHandlerError(
                     "IMAGE_SELECTION_MANIFEST_MISMATCH",
@@ -604,7 +866,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         run_id: UUID,
         group: SelectionGroupResult,
         persisted_at: datetime,
-    ) -> None:
+    ) -> UUID:
         record = session.scalar(
             select(ImageSelectionGroupModel)
             .where(
@@ -626,17 +888,25 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             session.flush()
         elif record.id != group_id:
             group_id = record.id
-        if (
-            ImageSelectionGroupStatus(record.status)
-            is ImageSelectionGroupStatus.MANUALLY_SELECTED
-            and group.status is not SelectionGroupStatus.MANUALLY_SELECTED
-        ):
-            return
+        if ImageSelectionGroupStatus(record.status) in {
+            ImageSelectionGroupStatus.MANUALLY_SELECTED,
+            ImageSelectionGroupStatus.MISSING_IMAGE,
+            ImageSelectionGroupStatus.RANGE_CONFIRMED,
+            ImageSelectionGroupStatus.REJECTED_BY_USER,
+        } and group.status not in {
+            SelectionGroupStatus.MANUALLY_SELECTED,
+            SelectionGroupStatus.MISSING_IMAGE,
+            SelectionGroupStatus.RANGE_CONFIRMED,
+            SelectionGroupStatus.REJECTED_BY_USER,
+        }:
+            return group_id
         record.range_start = None if group.range is None else group.range.start
         record.range_end = None if group.range is None else group.range.end
         record.fingerprint_sha256 = group.fingerprint_sha256
         record.board_count_consensus = group.board_count_consensus
         record.status = ImageSelectionGroupStatus(group.status.value)
+        if group.status is not SelectionGroupStatus.REJECTED_BY_USER:
+            record.rejection_origin_status = None
         record.updated_at = persisted_at
         session.execute(
             update(ImageSelectionCandidateModel)
@@ -674,6 +944,70 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 decision=decision,
                 persisted_at=persisted_at,
             )
+        return group_id
+
+    @staticmethod
+    def _persist_gallery_sources(
+        session: Session,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        group: SelectionGroupResult,
+        observations: Sequence[CheapImageObservation],
+        persisted_at: datetime,
+    ) -> None:
+        if not observations:
+            return
+        indexes = tuple(observation.source.order_index for observation in observations)
+        existing = {
+            record.order_index: record
+            for record in session.scalars(
+                select(ImageSelectionCandidateModel).where(
+                    ImageSelectionCandidateModel.run_id == run_id,
+                    ImageSelectionCandidateModel.order_index.in_(indexes),
+                )
+            )
+        }
+        for observation in observations:
+            source = observation.source
+            record = existing.get(source.order_index)
+            if record is not None and not record.quality_metrics.get("manualGalleryOnly", False):
+                continue
+            metrics: dict[str, object] = {
+                **observation.quality.to_dict(),
+                "displayName": PurePosixPath(source.relative_path).name,
+                "groupSourceCount": group.source_count,
+                "manualGalleryOnly": True,
+                "sourceOriginalRelativePath": source.relative_path,
+                "sourceSizeBytes": source.size_bytes,
+            }
+            if record is None:
+                record = ImageSelectionCandidateModel(
+                    id=uuid5(
+                        run_id,
+                        f"image-selection-candidate:{source.order_index}:{source.checksum_sha256}",
+                    ),
+                    run_id=run_id,
+                    group_id=group_id,
+                    order_index=source.order_index,
+                    source_relative_path=source.stored_relative_path,
+                    checksum_sha256=source.checksum_sha256,
+                    created_at=persisted_at,
+                )
+                session.add(record)
+            elif record.group_id != group_id or record.checksum_sha256 != source.checksum_sha256:
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                    "A gallery source already belongs to another selector group.",
+                )
+            record.width = observation.width
+            record.height = observation.height
+            record.quality_metrics = metrics
+            record.range_confidence = None
+            record.reason_codes = list(
+                dict.fromkeys((*observation.reason_codes, "MANUAL_GALLERY_SOURCE"))
+            )
+            record.decision = ImageSelectionCandidateDecision.ELIGIBLE
 
 
 def _upsert_candidate(
@@ -719,11 +1053,22 @@ def _upsert_candidate(
             created_at=persisted_at,
         )
         session.add(record)
-    elif record.group_id != group_id or record.checksum_sha256 != candidate.source.checksum_sha256:
+    elif record.checksum_sha256 != candidate.source.checksum_sha256:
         raise JobHandlerError(
             "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
             "A candidate order already belongs to another selector result.",
         )
+    elif record.group_id != group_id:
+        if not record.quality_metrics.get("manualGalleryOnly", False):
+            raise JobHandlerError(
+                "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                "A candidate order already belongs to another selector result.",
+            )
+        # A lightweight gallery observation is provisional. A later, fully
+        # verified candidate result is authoritative and may safely promote
+        # that exact source into its final selector group. Different bytes are
+        # still rejected above.
+        record.group_id = group_id
     record.width = candidate.width
     record.height = candidate.height
     record.quality_metrics = metrics
@@ -738,11 +1083,18 @@ def _selection_group_from_records(
     group: ImageSelectionGroupModel,
     candidates: Sequence[ImageSelectionCandidateModel],
 ) -> SelectionGroupResult:
-    values = tuple(_candidate_from_record(candidate, group=group) for candidate in candidates)
+    domain_candidates = tuple(
+        candidate
+        for candidate in candidates
+        if not candidate.quality_metrics.get("manualGalleryOnly", False)
+    )
+    values = tuple(
+        _candidate_from_record(candidate, group=group) for candidate in domain_candidates
+    )
     selected = next(
         (
             candidate
-            for candidate, record in zip(values, candidates, strict=True)
+            for candidate, record in zip(values, domain_candidates, strict=True)
             if ImageSelectionCandidateDecision(record.decision)
             in {
                 ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
@@ -751,7 +1103,7 @@ def _selection_group_from_records(
         ),
         None,
     )
-    metrics = candidates[0].quality_metrics if candidates else {}
+    metrics = domain_candidates[0].quality_metrics if domain_candidates else {}
     source_count = _positive_int(metrics.get("groupSourceCount"), default=max(1, len(values)))
     reference = metrics.get("referenceFingerprintHex")
     recognized_range = (
@@ -810,16 +1162,12 @@ def _candidate_from_record(
     return CandidateResult(
         source=ImageSelectionSource(
             order_index=record.order_index,
-            relative_path=(
-                original if isinstance(original, str) else record.source_relative_path
-            ),
+            relative_path=(original if isinstance(original, str) else record.source_relative_path),
             stored_relative_path=record.source_relative_path,
             checksum_sha256=record.checksum_sha256,
             size_bytes=size,
         ),
-        decision=CandidateDecision(
-            ImageSelectionCandidateDecision(record.decision).value
-        ),
+        decision=CandidateDecision(ImageSelectionCandidateDecision(record.decision).value),
         quality=quality,
         recognized_range=recognized_range,
         reason_codes=tuple(str(item) for item in record.reason_codes),
@@ -841,9 +1189,7 @@ def _assert_fence(
     lease_token: UUID,
     persisted_at: datetime,
 ) -> None:
-    record = session.scalar(
-        select(JobModel).where(JobModel.id == job_id).with_for_update()
-    )
+    record = session.scalar(select(JobModel).where(JobModel.id == job_id).with_for_update())
     if (
         record is None
         or record.status != JobStatus.PROCESSING
@@ -866,6 +1212,8 @@ def _job_run(record: ImageSelectionRunModel) -> ImageSelectionJobRun:
         selector_fingerprint=record.selector_fingerprint,
         output_manifest_sha256=record.output_manifest_sha256,
         output_manifest_relative_path=record.output_manifest_relative_path,
+        sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
+        first_sequence_number=record.first_sequence_number or None,
     )
 
 
@@ -893,11 +1241,7 @@ def _committed_groups(
     persisted_groups: Sequence[SelectionGroupResult],
     resume_state: SelectorResumeState | None,
 ) -> tuple[SelectionGroupResult, ...]:
-    committed_count = (
-        0
-        if resume_state is None
-        else resume_state.checkpoint.finalized_group_count
-    )
+    committed_count = 0 if resume_state is None else resume_state.checkpoint.finalized_group_count
     if len(persisted_groups) < committed_count:
         raise SelectionContractError(
             "IMAGE_SELECTION_CHECKPOINT_INVALID",
@@ -949,6 +1293,45 @@ def _prior_processing_duration(
     if isinstance(value, bool) or not isinstance(value, int | float):
         return 0.0
     return max(0.0, float(value))
+
+
+def _checkpoint_int(checkpoint: Mapping[str, object] | None, key: str) -> int:
+    if checkpoint is None:
+        return 0
+    value = checkpoint.get(key, 0)
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return 0
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return 0
+
+
+def _prior_processed_count(checkpoint: Mapping[str, object] | None) -> int:
+    if checkpoint is None:
+        return 0
+    selector_state = checkpoint.get("selector_state")
+    if not isinstance(selector_state, Mapping):
+        return 0
+    selector_checkpoint = selector_state.get("checkpoint")
+    if not isinstance(selector_checkpoint, Mapping):
+        return 0
+    value = selector_checkpoint.get("processedCount", 0)
+    if isinstance(value, bool) or not isinstance(value, int | float | str):
+        return 0
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return 0
+
+
+def _prior_recent_window(
+    checkpoint: Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    if checkpoint is None:
+        return None
+    value = checkpoint.get("recent_window")
+    return dict(value) if isinstance(value, Mapping) else None
 
 
 def _safe_child(root: Path, relative_path: str) -> Path:

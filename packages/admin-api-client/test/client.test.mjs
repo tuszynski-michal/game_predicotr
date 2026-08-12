@@ -3,6 +3,130 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('generated client reads model quality and freezes the confirmed manifest', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const checksum = 'a'.repeat(64);
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const path = new URL(request.url).pathname;
+      if (path.endsWith('/model-quality')) {
+        return Response.json({
+          activeHeavyJob: false,
+          activeModel: null,
+          advisoryThresholds: [],
+          canFreeze: true,
+          cellSampleCount: 15,
+          gameId,
+          incompleteItemCount: 0,
+          latestCohort: null,
+          manifestChecksumSha256: checksum,
+          newVerifiedLayoutCount: 1,
+          pendingItemCount: 0,
+          protectedItemCount: 1,
+          rejectedItemCount: 0,
+          resolvedLayoutCount: 1,
+          sourceImageCount: 1,
+          symbolCoverage: [],
+          warnings: [],
+        });
+      }
+      return Response.json({
+        cohort: {
+          artifactRelativePath: 'training/game/cohort.json',
+          cellSampleCount: 15,
+          createdAt: '2026-08-08T12:00:00Z',
+          createdBy: 'local-owner',
+          gameId,
+          id: '22222222-2222-4222-8222-222222222222',
+          incompleteItemCount: 0,
+          iterationNumber: 1,
+          manifestChecksumSha256: checksum,
+          manifestSchemaVersion: 1,
+          pendingItemCount: 0,
+          rejectedItemCount: 0,
+          resolvedLayoutCount: 1,
+          sourceImageCount: 1,
+        },
+        created: true,
+      });
+    },
+  });
+
+  await client.getModelQuality(gameId);
+  await client.freezeVerifiedTrainingCohort(gameId, {
+    createdBy: 'local-owner',
+    expectedManifestChecksumSha256: checksum,
+    idempotencyKey: '33333333-3333-4333-8333-333333333333',
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/games/${gameId}/model-quality`],
+      ['POST', `/api/v1/admin/games/${gameId}/verified-training-cohorts`],
+    ],
+  );
+  assert.equal(
+    requests[1].headers.get('X-Admin-Target'),
+    `verified-training-cohort:${gameId}`,
+  );
+});
+
+test('generated client creates a scoped durable symbol training job', async () => {
+  let captured;
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({ created: true, iteration: {}, job: {} });
+    },
+  });
+
+  await client.createSymbolTraining(gameId, {
+    cohortId: '22222222-2222-4222-8222-222222222222',
+    idempotencyKey: '33333333-3333-4333-8333-333333333333',
+  });
+
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/games/${gameId}/symbol-model-iterations`,
+  );
+  assert.equal(
+    captured.headers.get('X-Admin-Target'),
+    `symbol-model-iteration:${gameId}`,
+  );
+});
+
+test('generated client lists and reads checksum-bound candidate gate reports', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const iterationId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json([]);
+    },
+  });
+
+  await client.listSymbolModelIterations(gameId, { limit: 20 });
+  await client.getSymbolModelIteration(gameId, iterationId);
+
+  assert.deepEqual(
+    requests.map((request) => new URL(request.url).pathname),
+    [
+      `/api/v1/admin/games/${gameId}/symbol-model-iterations`,
+      `/api/v1/admin/games/${gameId}/symbol-model-iterations/${iterationId}`,
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
+});
+
 test('generated client calls the typed health operation', async () => {
   const requests = [];
   const mockFetch = async (request) => {
@@ -29,6 +153,43 @@ test('generated client calls the typed health operation', async () => {
   assert.equal(result.error, undefined);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, 'http://127.0.0.1:8000/api/v1/health');
+});
+
+test('generated client reads both local worker lanes', async () => {
+  const requests = [];
+  const lanes = [
+    {
+      heartbeatAt: '2026-08-05T12:00:00Z',
+      lane: 'general',
+      startedAt: '2026-08-05T11:00:00Z',
+      state: 'running',
+      threadBudget: 2,
+      workerVersion: 'worker-v10-general',
+    },
+    {
+      heartbeatAt: null,
+      lane: 'image_selection',
+      startedAt: null,
+      state: 'stopped',
+      threadBudget: null,
+      workerVersion: null,
+    },
+  ];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(lanes);
+    },
+  });
+
+  const result = await client.listWorkerLanes();
+
+  assert.deepEqual(result.data, lanes);
+  assert.equal(
+    requests[0].url,
+    'http://127.0.0.1:8000/api/v1/admin/worker-lanes',
+  );
 });
 
 test('generated client selects a folder and creates its image import', async () => {
@@ -209,6 +370,69 @@ test('generated client requests an explicit image-selection handoff', async () =
   assert.deepEqual(
     requests.map((request) => [request.method, new URL(request.url).pathname]),
     [['POST', `/api/v1/admin/image-selections/${runId}/handoff`]],
+  );
+});
+
+test('generated client reruns image selection from managed staging', async () => {
+  const requests = [];
+  const runId = '00000000-0000-4000-8000-000000000154';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        created: true,
+        run: {
+          id: '00000000-0000-4000-8000-000000000155',
+        },
+      });
+    },
+  });
+
+  await client.rerunImageSelection(runId);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [['POST', `/api/v1/admin/image-selections/${runId}/rerun`]],
+  );
+});
+
+test('generated client lists and downloads verified image-selection output', async () => {
+  const requests = [];
+  const runId = '00000000-0000-4000-8000-000000000154';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new URL(request.url).pathname.endsWith('/output')
+        ? Response.json({
+            files: [
+              {
+                checksumSha256: 'a'.repeat(64),
+                fileName: 'seq_1-9.jpg',
+                rangeEnd: 9,
+                rangeStart: 1,
+                sizeBytes: 4,
+              },
+            ],
+            manifestSha256: 'b'.repeat(64),
+            runId,
+          })
+        : new Response(new Blob(['jpeg']), {
+            headers: { 'Content-Type': 'image/jpeg' },
+          });
+    },
+  });
+
+  await client.getImageSelectionOutput(runId);
+  await client.getImageSelectionOutputFile(runId, 'seq_1-9.jpg');
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', `/api/v1/admin/image-selections/${runId}/output`],
+      ['GET', `/api/v1/admin/image-selections/${runId}/output/seq_1-9.jpg`],
+    ],
   );
 });
 
@@ -452,6 +676,7 @@ test('generated client sends typed job, filters, details, cancel and retry reque
   });
   await client.getJob(jobId);
   await client.cancelJob(jobId);
+  await client.deleteCancelledImageSelectionJob(jobId);
   await client.retryJob(jobId);
 
   assert.equal(created.data?.id, jobId);
@@ -477,6 +702,12 @@ test('generated client sends typed job, filters, details, cancel and retry reque
   );
   assert.equal(
     new URL(requests[4].url).pathname,
+    `/api/v1/admin/jobs/${jobId}`,
+  );
+  assert.equal(requests[4].method, 'DELETE');
+  assert.equal(requests[4].headers.get('X-Admin-Target'), `job:${jobId}`);
+  assert.equal(
+    new URL(requests[5].url).pathname,
     `/api/v1/admin/jobs/${jobId}/retry`,
   );
 });
@@ -1628,6 +1859,7 @@ test('manual image selection uses scoped binary upload and idempotent approval',
     'screen.jpg',
     new Blob(['jpeg'], { type: 'image/jpeg' }),
   );
+  await client.listImageSelectionGroupCandidates(runId, groupId, { limit: 20 });
   await client.approveManualImageSelection(runId, groupId, {
     candidateId,
     idempotencyKey,
@@ -1643,6 +1875,10 @@ test('manual image selection uses scoped binary upload and idempotent approval',
         `/api/v1/admin/image-selections/${runId}/groups/${groupId}/manual-file`,
       ],
       [
+        'GET',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/candidates`,
+      ],
+      [
         'POST',
         `/api/v1/admin/image-selections/${runId}/groups/${groupId}/approve`,
       ],
@@ -1653,14 +1889,97 @@ test('manual image selection uses scoped binary upload and idempotent approval',
     requests[0].headers.get('X-Admin-Target'),
     `image-selection:${runId}:${groupId}:manual-file`,
   );
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '20');
   assert.equal(
-    requests[1].headers.get('X-Admin-Target'),
+    requests[2].headers.get('X-Admin-Target'),
     `image-selection:${runId}:${groupId}:approve`,
   );
-  assert.deepEqual(await requests[1].clone().json(), {
+  assert.deepEqual(await requests[2].clone().json(), {
     candidateId,
     idempotencyKey,
     rangeEnd: 9,
     rangeStart: 1,
   });
+});
+
+test('image selection review queues use scoped idempotent decisions', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const groupId = '33333333-3333-4333-8333-333333333333';
+  const idempotencyKey = '55555555-5555-4555-8555-555555555555';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+
+  await client.confirmImageSelectionGroupRange(runId, groupId, {
+    idempotencyKey,
+    rangeEnd: 9,
+    rangeStart: 1,
+  });
+  await client.rejectImageSelectionReviewGroup(runId, groupId, {
+    idempotencyKey,
+  });
+  await client.restoreRejectedImageSelectionGroup(runId, groupId, {
+    idempotencyKey,
+  });
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/confirm-range`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/reject`,
+      ],
+      [
+        'POST',
+        `/api/v1/admin/image-selections/${runId}/groups/${groupId}/restore`,
+      ],
+    ],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.headers.get('X-Admin-Target')),
+    [
+      `image-selection:${runId}:${groupId}:confirm-range`,
+      `image-selection:${runId}:${groupId}:reject`,
+      `image-selection:${runId}:${groupId}:restore`,
+    ],
+  );
+  assert.deepEqual(await requests[0].clone().json(), {
+    idempotencyKey,
+    rangeEnd: 9,
+    rangeStart: 1,
+  });
+  assert.deepEqual(await requests[1].clone().json(), { idempotencyKey });
+  assert.deepEqual(await requests[2].clone().json(), { idempotencyKey });
+});
+
+test('image selection status request forwards its abort signal', async () => {
+  const requests = [];
+  const runId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({}, { status: 200 });
+    },
+  });
+  const controller = new AbortController();
+
+  await client.getImageSelection(runId, { signal: controller.signal });
+  controller.abort();
+
+  assert.equal(requests.length, 1);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/image-selections/${runId}`,
+  );
+  assert.equal(requests[0].signal.aborted, true);
 });

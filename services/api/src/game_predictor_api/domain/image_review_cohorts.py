@@ -74,7 +74,7 @@ def build_verified_cohort_source(
             "IMAGE_REVIEW_COHORT_COUNTS_INVALID",
             "The operational review counts do not match the locked cohort state.",
         )
-    boards = tuple(_verified_board(item) for item in verified_items)
+    boards = tuple(build_verified_board_manifest(item) for item in verified_items)
     if not boards:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_COHORT_EMPTY",
@@ -153,7 +153,7 @@ def build_verified_cohort_payload(
     return payload, payload_bytes, hashlib.sha256(payload_bytes).hexdigest()
 
 
-def _verified_board(item: ImageReviewItem) -> Mapping[str, object]:
+def build_verified_board_manifest(item: ImageReviewItem) -> Mapping[str, object]:
     if (
         item.status not in {"accepted", "corrected"}
         or item.resolved_value is None
@@ -232,6 +232,9 @@ def _verified_board(item: ImageReviewItem) -> Mapping[str, object]:
         )
     return {
         "reviewItemId": str(item.id),
+        "gameId": str(item.game_id),
+        "importJobId": str(item.import_job_id),
+        "sourceImageId": str(item.source_image_id),
         "recognizedBoardId": str(item.recognized_board_id),
         "sourceOrderIndex": item.source_order_index,
         "positionIndex": item.position_index,
@@ -268,6 +271,7 @@ def _safe_relative_path(value: str) -> str:
 __all__ = [
     "ImageVerifiedCohortExport",
     "VerifiedCohortSource",
+    "build_verified_board_manifest",
     "build_verified_cohort_payload",
     "build_verified_cohort_source",
     "validate_cohort_actor",

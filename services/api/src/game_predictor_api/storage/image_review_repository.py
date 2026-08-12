@@ -39,7 +39,10 @@ from game_predictor_api.domain.image_reviews import (
     crop_sample_id,
     validate_image_review_resolution,
 )
-from game_predictor_api.domain.jobs import JobType
+from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.domain.verified_training_cohorts import (
+    require_pending_model_prediction_target,
+)
 from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
@@ -108,17 +111,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             .join(JobModel, JobModel.id == ImageLayoutStagingRowModel.import_job_id)
             .where(JobModel.game_id == game_id)
         ).subquery()
-        accepted_count = int(
-            self._session.scalar(select(func.count()).select_from(accepted)) or 0
-        )
+        accepted_count = int(self._session.scalar(select(func.count()).select_from(accepted)) or 0)
         in_range = (
             select(accepted.c.sequence_number)
             .where(accepted.c.sequence_number.between(1, expected))
             .distinct()
         ).subquery()
-        unique_count = int(
-            self._session.scalar(select(func.count()).select_from(in_range)) or 0
-        )
+        unique_count = int(self._session.scalar(select(func.count()).select_from(in_range)) or 0)
         out_of_range_count = int(
             self._session.scalar(
                 select(func.count(func.distinct(accepted.c.sequence_number))).where(
@@ -436,6 +435,20 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             ).all()
         )
 
+    def has_active_heavy_job(self, *, game_id: UUID) -> bool:
+        return bool(
+            self._session.scalar(
+                select(
+                    select(JobModel.id)
+                    .where(
+                        JobModel.game_id == game_id,
+                        JobModel.status.in_((JobStatus.CREATED, JobStatus.PROCESSING)),
+                    )
+                    .exists()
+                )
+            )
+        )
+
     def lock_verified_snapshot(
         self,
         *,
@@ -462,6 +475,65 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             .all()
         )
         return self._items_from_rows(rows), self._counts(game_id, import_job_id)
+
+    def lock_cumulative_verified_snapshot(
+        self,
+        *,
+        game_id: UUID,
+    ) -> Sequence[ImageReviewItem]:
+        game = self._session.scalar(
+            select(GameModel).where(GameModel.id == game_id).with_for_update()
+        )
+        if game is None:
+            raise ImageReviewNotFoundError(
+                "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND",
+                "The selected training cohort game does not exist.",
+            )
+        rows = list(
+            self._session.execute(
+                _base_game_query(game_id)
+                .order_by(
+                    JobModel.id,
+                    ImageImportJobFileModel.order_index,
+                    RecognizedBoardModel.position_index,
+                    ImageReviewItemModel.id,
+                )
+                .with_for_update()
+            )
+            .tuples()
+            .all()
+        )
+        return self._items_from_rows(rows)
+
+    def lock_model_prediction_target(
+        self,
+        *,
+        review_item_id: UUID,
+        expected_resolution_revision: int,
+        expected_geometry_revision: int,
+    ) -> None:
+        row = self._session.execute(
+            select(ImageReviewItemModel, RecognizedBoardModel)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .where(ImageReviewItemModel.id == review_item_id)
+            .with_for_update()
+        ).one_or_none()
+        if row is None:
+            raise ImageReviewNotFoundError(
+                "MODEL_PREDICTION_TARGET_NOT_FOUND",
+                "The automatic prediction target does not exist.",
+            )
+        item, board = row
+        require_pending_model_prediction_target(
+            status=item.status,
+            resolution_revision=item.resolution_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            geometry_revision=board.geometry_revision,
+            expected_geometry_revision=expected_geometry_revision,
+        )
 
     def save_resolution(
         self,
@@ -753,6 +825,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "The corrected geometry projection is incomplete.",
             )
         revision = board.geometry_revision + 1
+        revised_geometry = dict(artifacts.geometry)
+        sequence_label_quad = board.board_geometry.get("sequenceLabelQuad")
+        if sequence_label_quad is not None:
+            revised_geometry["sequenceLabelQuad"] = sequence_label_quad
         record = ImageBoardGeometryRevisionModel(
             review_item_id=review_item_id,
             recognized_board_id=board.id,
@@ -760,7 +836,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             idempotency_key=idempotency_key,
             command_sha256=command.command_sha256,
             corners=[{"x": point.x, "y": point.y} for point in command.corners],
-            geometry=dict(artifacts.geometry),
+            geometry=revised_geometry,
             board_relative_path=artifacts.board_relative_path,
             board_checksum_sha256=artifacts.board_checksum_sha256,
             cropper_version=artifacts.cropper_version,
@@ -784,7 +860,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         item_record.resolved_at = None
         item_record.resolution_revision += 1
         board.geometry_revision = revision
-        board.board_geometry = dict(artifacts.geometry)
+        board.board_geometry = revised_geometry
         board.board_relative_path = artifacts.board_relative_path
         board.board_checksum_sha256 = artifacts.board_checksum_sha256
         board.status = "pending_review"
@@ -993,6 +1069,32 @@ def _base_query(
     elif view is ImageReviewView.COMPLETED:
         query = query.where(ImageReviewItemModel.status.in_(("accepted", "corrected")))
     return query
+
+
+def _base_game_query(game_id: UUID) -> Any:
+    return (
+        select(
+            ImageReviewItemModel,
+            RecognizedBoardModel,
+            SourceImageModel,
+            ImageImportJobFileModel,
+            JobModel,
+        )
+        .join(
+            RecognizedBoardModel,
+            RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+        )
+        .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+        .join(
+            ImageImportJobFileModel,
+            and_(
+                ImageImportJobFileModel.job_id == SourceImageModel.import_job_id,
+                ImageImportJobFileModel.file_execution_key == SourceImageModel.file_execution_key,
+            ),
+        )
+        .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+        .where(JobModel.game_id == game_id)
+    )
 
 
 def _sequence_expression(view: ImageReviewView) -> ColumnElement[int]:
@@ -1214,6 +1316,7 @@ def _item_from_records(
         id=item.id,
         game_id=cast(UUID, job.game_id),
         import_job_id=source.import_job_id,
+        source_image_id=source.id,
         recognized_board_id=board.id,
         status=item.status,
         source_order_index=association.order_index,

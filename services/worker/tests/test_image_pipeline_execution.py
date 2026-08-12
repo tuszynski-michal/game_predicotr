@@ -245,6 +245,8 @@ def _adapters() -> list[FakeAdapter]:
                         "positionIndex": 0,
                     }
                 ],
+                "modelIterationId": None,
+                "modelManifestChecksumSha256": "e" * 64,
                 "modelVersion": "bootstrap-symbol-cnn-onnx-v1",
             },
         ),

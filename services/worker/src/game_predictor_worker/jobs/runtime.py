@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from threading import Event, Thread
 from time import sleep
 from typing import Protocol
 from uuid import UUID
@@ -13,12 +14,15 @@ from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
     JobError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
 )
 
 DEFAULT_LEASE_DURATION = timedelta(seconds=60)
 DEFAULT_POLL_INTERVAL_SECONDS = 2.0
+MAX_LEASE_KEEPALIVE_INTERVAL_SECONDS = 15.0
+GENERAL_JOB_TYPES = frozenset(JobType) - {JobType.IMAGE_SELECTION}
 
 
 class JobExecutionResult(StrEnum):
@@ -51,6 +55,8 @@ class WorkerJobStore(Protocol):
         worker_version: str,
         lease_duration: timedelta,
         claimed_at: datetime,
+        allowed_job_types: frozenset[JobType] = GENERAL_JOB_TYPES,
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
     ) -> Job | None: ...
 
     def heartbeat(
@@ -113,6 +119,64 @@ class _ExecutionStopped(RuntimeError):
     def __init__(self, status: JobStatus) -> None:
         super().__init__(status.value)
         self.status = status
+
+
+class _LeaseKeepalive:
+    """Renew one claimed job independently from handler checkpoint cadence."""
+
+    def __init__(
+        self,
+        store: WorkerJobStore,
+        job: Job,
+        *,
+        lease_duration: timedelta,
+        clock: Callable[[], datetime],
+    ) -> None:
+        if job.lease_token is None:
+            raise ValueError("A claimed job must have a lease token.")
+        lease_seconds = lease_duration.total_seconds()
+        if lease_seconds <= 0:
+            raise ValueError("lease_duration must be positive.")
+        self._store = store
+        self._job_id = job.id
+        self._lease_token = job.lease_token
+        self._lease_duration = lease_duration
+        self._clock = clock
+        self._interval_seconds = min(
+            MAX_LEASE_KEEPALIVE_INTERVAL_SECONDS,
+            max(0.05, lease_seconds / 3.0),
+        )
+        self._stop = Event()
+        self._error: BaseException | None = None
+        self._thread = Thread(
+            target=self._run,
+            name=f"job-lease-keepalive-{job.id}",
+            daemon=True,
+        )
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def stop(self) -> BaseException | None:
+        self._stop.set()
+        self._thread.join(timeout=min(16.0, self._interval_seconds + 1.0))
+        if self._thread.is_alive():
+            return RuntimeError("The job lease keepalive did not stop in time.")
+        return self._error
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._interval_seconds):
+            try:
+                self._store.heartbeat(
+                    self._job_id,
+                    lease_token=self._lease_token,
+                    lease_duration=self._lease_duration,
+                    heartbeat_at=self._clock(),
+                )
+            except BaseException as error:
+                self._error = error
+                self._stop.set()
+                return
 
 
 class JobExecutionContext:
@@ -199,6 +263,7 @@ class LocalJobWorker:
         *,
         worker_id: str,
         worker_version: str,
+        execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
         lease_duration: timedelta = DEFAULT_LEASE_DURATION,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -206,6 +271,7 @@ class LocalJobWorker:
         self._handlers = dict(handlers)
         self._worker_id = worker_id
         self._worker_version = worker_version
+        self._execution_slot = execution_slot
         self._lease_duration = lease_duration
         self._clock = clock or (lambda: datetime.now(UTC))
 
@@ -215,6 +281,8 @@ class LocalJobWorker:
             worker_version=self._worker_version,
             lease_duration=self._lease_duration,
             claimed_at=self._clock(),
+            allowed_job_types=frozenset(self._handlers),
+            execution_slot=self._execution_slot,
         )
         if claimed is None:
             return JobExecutionResult.NO_JOB
@@ -238,8 +306,20 @@ class LocalJobWorker:
             lease_duration=self._lease_duration,
             clock=self._clock,
         )
+        keepalive = _LeaseKeepalive(
+            self._store,
+            claimed,
+            lease_duration=self._lease_duration,
+            clock=self._clock,
+        )
+        keepalive.start()
         try:
-            handler(context, claimed)
+            try:
+                handler(context, claimed)
+            finally:
+                keepalive_error = keepalive.stop()
+            if keepalive_error is not None:
+                raise keepalive_error
             completed = self._store.complete(
                 claimed.id,
                 lease_token=claimed.lease_token,

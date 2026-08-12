@@ -338,7 +338,7 @@ rosnących numerów brakujących sekwencji.
 | worker_version | varchar nullable | ustawiany po przejęciu przez worker |
 | checkpoint_payload | JSONB nullable | wersjonowany stan wznowienia workflow |
 | attempt_count | integer | liczba skutecznych przejęć tego samego rekordu |
-| execution_slot | smallint nullable | `1` wyłącznie dla aktywnego `processing` |
+| execution_slot | smallint nullable | `1` dla general albo `2` dla image selection, wyłącznie przy `processing` |
 | lease_owner | varchar nullable | diagnostyczny identyfikator lokalnego workera |
 | lease_token | UUID nullable | wewnętrzny fencing token, nie jest częścią Admin API |
 | lease_expires_at | timestamptz nullable | granica ważności bieżącego lease |
@@ -369,13 +369,33 @@ Wejście wymaga zakończonego surowego importu i opublikowanych reguł tej samej
 gry. Oba UUID są częścią zwykłego `input_key`, dlatego ponowienie tej samej pary
 nie tworzy duplikatu, a inna wersja reguł daje osobny wynik.
 
-Tylko rekord `processing` ma komplet pól lease i `execution_slot = 1`.
-Unikalność slotu gwarantuje najwyżej jedno lokalne wykonanie jednocześnie.
+Tylko rekord `processing` ma komplet pól lease. General używa
+`execution_slot = 1`, a `image_selection` używa `execution_slot = 2`.
+Unikalność slotu gwarantuje najwyżej jedno lokalne wykonanie w każdym lane.
 Worker zapisuje postęp i `checkpoint_payload` w tej samej transakcji, a każdy
 checkpoint ma `schema_version = 1`. Wygaśnięcie lease usuwa pola wykonawcze i
 przywraca ten sam rekord do `created`, zachowując checkpoint i liczniki.
 `attempt_count` rośnie przy kolejnym przejęciu. Token lease jest wyłącznie
 wewnętrzną ochroną zapisu i nie może być zwracany panelowi.
+
+### worker_lane_runtime
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| lane | varchar PK | `general` albo `image_selection` |
+| instance_token | UUID | fencing statusu procesu po restarcie/rejestracji |
+| worker_id | varchar | diagnostyczny identyfikator, nie trafia do API |
+| worker_version | varchar | wersja implementacji lane |
+| process_id | integer | dodatni PID, nie trafia do API |
+| thread_budget | smallint | współbieżność 1–64 przekazana procesowi |
+| started_at | timestamptz | start aktualnie zarejestrowanej instancji |
+| heartbeat_at | timestamptz | sygnał procesu także przy pustej kolejce |
+| stopped_at | timestamptz nullable | jawne kontrolowane zakończenie |
+| updated_at | timestamptz | ostatnia zmiana rekordu |
+
+Tabela jest projekcją operacyjną, nie kolejką i nie zastępuje lease joba. Upsert
+nowej instancji zmienia `instance_token`; heartbeat i stop starego tokenu nie
+mogą zmienić bieżącego rekordu.
 
 ### image_selection_runs, image_selection_groups i image_selection_candidates
 
@@ -413,7 +433,8 @@ zostać przejęty tylko przez jeden run.
 | range_start / range_end | bigint nullable | oba `null` albo dodatnie i `start <= end` |
 | fingerprint_sha256 | varchar(64) nullable | małe litery hex |
 | board_count_consensus | smallint nullable | 1–9 |
-| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `skipped_existing_range` |
+| status | varchar | `collecting`, `auto_selected`, `manual_required`, `manually_selected`, `missing_image`, `skipped_existing_range`, `range_required`, `range_confirmed`, `skipped_unreadable`, `rejected_by_user` |
+| rejection_origin_status | varchar nullable | dla `rejected_by_user`: `manual_required` albo `range_required` |
 | created_at / updated_at | timestamptz | |
 
 Częściowy indeks unikalny blokuje dwa wybrane outputy tego samego
@@ -449,17 +470,19 @@ cyrkularnym kluczem obcym. Żadna tabela nie przechowuje JPEG jako BLOB.
 | idempotency_key | UUID | PK przekazany przez klienta; retry tego samego payloadu nie tworzy rewizji |
 | run_id | UUID | FK run, `CASCADE` |
 | group_id | UUID | złożony FK gwarantuje grupę z tego samego runu |
-| candidate_id | UUID | FK kandydata, `RESTRICT` |
-| range_start / range_end | bigint | dodatnie i `start <= end` |
+| candidate_id | UUID nullable | FK kandydata, `RESTRICT`; wymagany dla `selected_image` i `range_confirmed` |
+| resolution | varchar | `selected_image`, `missing_image`, `duplicate_range`, `range_confirmed`, `rejected_group` albo `restored_group` |
+| range_start / range_end | bigint nullable | oba `null` dla nierozpoznanego pominięcia albo dodatnie i `start <= end` |
 | revision | integer | dodatnia, rośnie osobno dla każdej grupy |
 | payload_sha256 | varchar(64) | SHA-256 kanonicznej decyzji |
 | created_at | timestamptz | czas append-only zdarzenia |
 
-Migracja `0027_image_selection_manual_decisions` dodaje append-only audyt
-ręcznych zatwierdzeń. Unikalne `(run_id, group_id, revision)` zachowuje historię
-korekt, a bieżący stan grupy i decyzja `selected_manual` kandydata pozostają
-projekcją ostatniej rewizji. Plik JPEG jest przechowywany w kontrolowanym
-storage; tabela zawiera wyłącznie identyfikatory, zakres i checksumę payloadu.
+Migracje `0027`, `0029` i `0030` rozwijają append-only audyt ręcznych
+zatwierdzeń o jawny brak zdjęcia oraz opcjonalny zakres nierozpoznanego zestawu.
+Unikalne `(run_id, group_id, revision)` zachowuje historię korekt, a bieżący
+stan grupy i decyzja `selected_manual` kandydata pozostają projekcją ostatniej
+rewizji. Plik JPEG jest przechowywany w kontrolowanym storage; tabela zawiera
+wyłącznie identyfikatory, zakres i checksumę payloadu.
 
 ### image_file_executions
 
@@ -1006,20 +1029,51 @@ game_id UUID NOT NULL REFERENCES games(id)
 iteration_number INTEGER NOT NULL
 manifest_schema_version INTEGER NOT NULL
 manifest_checksum_sha256 TEXT NOT NULL
+idempotency_key UUID NOT NULL
+command_sha256 TEXT NOT NULL
 resolved_layout_count INTEGER NOT NULL
 cell_sample_count INTEGER NOT NULL
 source_image_count INTEGER NOT NULL
+pending_item_count INTEGER NOT NULL
+rejected_item_count INTEGER NOT NULL
+incomplete_item_count INTEGER NOT NULL
 artifact_relative_path TEXT NOT NULL
 created_by TEXT NOT NULL
 created_at TIMESTAMPTZ NOT NULL
 UNIQUE (game_id, iteration_number)
 UNIQUE (game_id, manifest_checksum_sha256)
+UNIQUE (game_id, idempotency_key)
 ```
 
-Pozycje kohorty wiążą dokładną rewizję review i geometrii, `cropSampleId`,
-checksumę cropu, kod symbolu człowieka, zdjęcie źródłowe i import. Kohorta jest
-append-only. `accepted` i `corrected` mogą wejść do treningu; `rejected` oraz
-`pending` nie mogą.
+### verified_training_cohort_items
+
+```text
+id UUID PRIMARY KEY
+cohort_id UUID NOT NULL REFERENCES verified_training_cohorts(id)
+item_order INTEGER NOT NULL
+review_item_id UUID NOT NULL REFERENCES image_review_items(id)
+recognized_board_id UUID NOT NULL REFERENCES recognized_boards(id)
+source_image_id UUID NOT NULL REFERENCES source_images(id)
+import_job_id UUID NOT NULL REFERENCES jobs(id)
+sequence_number BIGINT NOT NULL
+decision_status TEXT NOT NULL
+resolution_revision INTEGER NOT NULL
+geometry_revision INTEGER NOT NULL
+source_checksum_sha256 TEXT NOT NULL
+board_checksum_sha256 TEXT NOT NULL
+pipeline_fingerprint TEXT NOT NULL
+item_checksum_sha256 TEXT NOT NULL
+board_manifest JSONB NOT NULL
+UNIQUE (cohort_id, item_order)
+UNIQUE (cohort_id, review_item_id)
+```
+
+`board_manifest` jest małym, niezmiennym manifestem pozycji. Wiąże dokładną
+rewizję review i geometrii, 15 `cropSampleId`, checksumy i ścieżki cropów, kod
+symbolu człowieka, zdjęcie źródłowe, import oraz pipeline. Nie zawiera binariów.
+Kohorta jest append-only. `accepted` i `corrected` mogą wejść do treningu;
+`rejected`, `pending` i niekompletne decyzje pozostają policzone w manifeście
+stanu, ale nie tworzą pozycji treningowych.
 
 ### symbol_model_iterations
 
@@ -1030,18 +1084,42 @@ cohort_id UUID NOT NULL REFERENCES verified_training_cohorts(id)
 iteration_number INTEGER NOT NULL
 status TEXT NOT NULL
 configuration_fingerprint TEXT NOT NULL
+configuration_payload JSONB NOT NULL
 dataset_manifest_checksum_sha256 TEXT nullable
+dataset_manifest_relative_path TEXT nullable
 checkpoint_checksum_sha256 TEXT nullable
-onnx_checksum_sha256 TEXT nullable
-quality_report_checksum_sha256 TEXT nullable
-artifact_relative_path TEXT nullable
+checkpoint_relative_path TEXT nullable
+gate_configuration_fingerprint TEXT nullable
+gate_configuration_payload JSONB nullable
+candidate_manifest_checksum_sha256 TEXT nullable
+candidate_manifest_relative_path TEXT nullable
+gate_report_checksum_sha256 TEXT nullable
+gate_report_relative_path TEXT nullable
+gate_metrics JSONB NOT NULL DEFAULT '{}'
+rejection_reasons TEXT[] NOT NULL DEFAULT '{}'
+job_id UUID NOT NULL REFERENCES jobs(id)
+last_completed_epoch INTEGER NOT NULL DEFAULT 0
+partial_metrics JSONB NOT NULL DEFAULT '{}'
+error_code TEXT nullable
+error_message TEXT nullable
 created_at TIMESTAMPTZ NOT NULL
 updated_at TIMESTAMPTZ NOT NULL
 UNIQUE (game_id, iteration_number)
+UNIQUE (job_id)
+UNIQUE (game_id, cohort_id, configuration_fingerprint)
 ```
 
 Status należy do automatu opisanego w architekturze M6.6. Artefakty są
 niezmienne i content-addressed; tabela przechowuje ścieżki oraz metadata.
+TASK-0146 implementuje stany `created`, `dataset_build`, `training`, `trained`,
+`failed` i `cancelled`. Pola ONNX, kalibracji i raportu bramki dochodzą w
+TASK-0147 zamiast udawać gotowego kandydata już po samym treningu.
+
+TASK-0147 dodaje stany `evaluating`, `candidate_ready` i `rejected` oraz
+checksumy manifestu i raportu bramki. `gate_metrics` zawiera metryki kandydata,
+opcjonalnej aktywnej bazy, parity, kalibrację i smoke CPU; `rejection_reasons`
+jest jawną, stabilną listą przyczyn odrzucenia. Żadne z tych pól nie jest
+aktywnym wskaźnikiem modelu.
 
 ### game_symbol_model_activations
 
@@ -1051,13 +1129,21 @@ game_id UUID NOT NULL REFERENCES games(id)
 model_iteration_id UUID NOT NULL REFERENCES symbol_model_iterations(id)
 previous_model_iteration_id UUID nullable
 action TEXT NOT NULL
+activation_number INTEGER NOT NULL
 actor TEXT NOT NULL
 reason TEXT nullable
+idempotency_key UUID NOT NULL
+command_sha256 TEXT NOT NULL
 created_at TIMESTAMPTZ NOT NULL
+UNIQUE (game_id, activation_number)
+UNIQUE (game_id, idempotency_key)
 ```
 
 Bieżący aktywny model jest projekcją ostatniego skutecznego zdarzenia. Aktywacja
 i rollback są append-only i nie zmieniają historycznych iteracji.
+`activation_number` jest nadawany monotonicznie pod blokadą rekordu gry, dlatego
+porządek projekcji nie zależy od czasu rozpoczęcia transakcji ani losowego UUID.
+`command_sha256` wiąże treść komendy z kluczem idempotencji.
 
 ### symbol_prediction_revisions
 

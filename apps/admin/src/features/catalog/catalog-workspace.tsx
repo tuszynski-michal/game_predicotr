@@ -21,6 +21,7 @@ import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
 import { JobMonitor } from '@/features/jobs/job-monitor';
+import { ModelQualityWorkspace } from '@/features/model-quality/model-quality-workspace';
 import { ReleasePanel } from '@/features/releases/release-panel';
 import { ReviewerAccessLauncher } from '@/features/reviewer-access/reviewer-access-launcher';
 import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
@@ -86,6 +87,11 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'reviews',
     title: 'Zatwierdzanie plansz',
     description: 'Dostęp do osobnej aplikacji Reviewer.',
+  },
+  {
+    id: 'model-quality',
+    title: 'Jakość rozpoznawania',
+    description: 'Gotowość danych i zamrażanie kohort do kolejnych iteracji.',
   },
 ];
 
@@ -334,6 +340,13 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             onOpenImports={() => openSection('imports')}
+                          />
+                        ) : null}
+                        {section.id === 'model-quality' ? (
+                          <ModelQualityWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            key={activeGame.id}
                           />
                         ) : null}
                       </div>

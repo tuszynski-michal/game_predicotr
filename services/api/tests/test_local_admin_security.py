@@ -151,12 +151,16 @@ def test_security_metadata_redacts_nested_credentials() -> None:
 def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     release_id = "22222222-2222-4222-8222-222222222222"
     game_id = "33333333-3333-4333-8333-333333333333"
+    job_id = "44444444-4444-4444-8444-444444444444"
 
     release_operation, release_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/mobile-releases/{release_id}"
     )
     game_operation, game_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/games/{game_id}/layout-data"
+    )
+    job_operation, job_target = match_high_impact_operation(
+        "DELETE", f"/api/v1/admin/jobs/{job_id}"
     )
 
     assert release_operation is not None
@@ -165,6 +169,9 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert game_operation is not None
     assert game_operation.action == "reset-game-layout-data"
     assert game_target == f"game-layout-data:{game_id}"
+    assert job_operation is not None
+    assert job_operation.action == "delete-image-selection-job"
+    assert job_target == f"job:{job_id}"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:
@@ -183,3 +190,28 @@ def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) 
     assert parameters["X-Admin-Confirmation"]["schema"]["const"] == "confirmed"
     assert parameters["X-Admin-Target"]["required"] is True
     assert "403" in operation["responses"]
+
+
+def test_manual_image_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
+    app = create_app(_settings(tmp_path), reviewer_ingress_service_dependency=_FakeIngress)
+
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        response = client.options(
+            (
+                "/api/v1/admin/image-selections/"
+                "11111111-1111-4111-8111-111111111111/groups/"
+                "22222222-2222-4222-8222-222222222222/manual-file"
+            ),
+            headers={
+                "Origin": "http://127.0.0.1:3000",
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": (
+                    "content-type,x-admin-intent,x-admin-confirmation,"
+                    "x-admin-target,x-image-file-name"
+                ),
+            },
+        )
+
+    assert response.status_code == 200
+    allowed_headers = response.headers["access-control-allow-headers"].casefold()
+    assert "x-image-file-name" in allowed_headers

@@ -3,10 +3,25 @@ param(
     [ValidateSet('smoke', '10000', '30000')]
     [string]$Profile = 'smoke',
 
-    [ValidateRange(1, 3600)]
+    [ValidateRange(1, 21600)]
     [int]$TimeoutSeconds = 120,
 
-    [string]$Output = ''
+    [string]$Output = '',
+
+    [string]$RealSourceRoot = '',
+
+    [ValidateSet(500, 1000, 3000, 40000)]
+    [int]$RealLimit = 500,
+
+    [ValidateRange(1, 8)]
+    [int]$ScanWorkers = 4,
+
+    [ValidateSet('v8', 'v9')]
+    [string]$Selector = 'v9',
+
+    [string]$RealGolden = '',
+
+    [string]$OcrModelRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,16 +40,37 @@ if (-not (Test-Path -LiteralPath $python)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($Output)) {
-    $Output = Join-Path $repositoryRoot "ai_docs\quality\image-selection-$Profile-report.json"
+    $reportName = if ([string]::IsNullOrWhiteSpace($RealSourceRoot)) {
+        "image-selection-$Profile-report.json"
+    }
+    else {
+        "image-selection-real-$Selector-$RealLimit-w$ScanWorkers-report.json"
+    }
+    $Output = Join-Path $repositoryRoot "ai_docs\quality\$reportName"
 }
 
-$arguments = @(
+$argumentParts = @(
     "`"$script`"",
     '--profile', $Profile,
     '--max-seconds', $TimeoutSeconds,
     '--output', "`"$Output`"",
     '--work-root', "`"$workRoot`""
-) -join ' '
+)
+if (-not [string]::IsNullOrWhiteSpace($RealSourceRoot)) {
+    $argumentParts += @(
+        '--real-source-root', "`"$RealSourceRoot`"",
+        '--real-limit', $RealLimit,
+        '--scan-workers', $ScanWorkers,
+        '--selector', $Selector
+    )
+    if (-not [string]::IsNullOrWhiteSpace($RealGolden)) {
+        $argumentParts += @('--real-golden', "`"$RealGolden`"")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($OcrModelRoot)) {
+        $argumentParts += @('--ocr-model-root', "`"$OcrModelRoot`"")
+    }
+}
+$arguments = $argumentParts -join ' '
 
 try {
     $startInfo = [Diagnostics.ProcessStartInfo]::new()

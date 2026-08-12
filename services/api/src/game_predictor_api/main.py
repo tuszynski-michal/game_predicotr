@@ -3,7 +3,7 @@
 import json
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
@@ -14,6 +14,7 @@ from game_predictor_worker.images.manual_geometry_recrop import (
     ManualGeometryRecropper,
 )
 
+from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
@@ -21,6 +22,7 @@ from game_predictor_api.application.cleanup import (
     ManagedCleanupArtifactStore,
 )
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
     BrowserImageSelectionService,
@@ -40,7 +42,11 @@ from game_predictor_api.application.image_storage import (
     ImageArtifactStore,
     ImageStorageService,
 )
-from game_predictor_api.application.jobs import JobService
+from game_predictor_api.application.iterative_image_imports import IterativeImageImportService
+from game_predictor_api.application.jobs import (
+    JobService,
+    ManagedImageSelectionDeletionArtifactStore,
+)
 from game_predictor_api.application.layout_import_reports import (
     LayoutImportReportService,
 )
@@ -61,6 +67,13 @@ from game_predictor_api.application.reviewer_ingress import (
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.application.rules import RulesService
 from game_predictor_api.application.symbol_bootstrap import SymbolBootstrapService
+from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
+from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
+from game_predictor_api.application.verified_training_cohorts import (
+    VerifiedTrainingCohortArtifactStore,
+    VerifiedTrainingCohortService,
+)
+from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
@@ -86,6 +99,11 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionConflictError,
     ImageSelectionError,
     ImageSelectionNotFoundError,
+)
+from game_predictor_api.domain.iterative_image_imports import (
+    IterativeImageImportConflictError,
+    IterativeImageImportError,
+    IterativeImageImportNotFoundError,
 )
 from game_predictor_api.domain.jobs import (
     JobConflictError,
@@ -126,6 +144,12 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.grid_calibration_repository import (
+    SqlAlchemyGridCalibrationRepository,
+)
+from game_predictor_api.storage.grid_profile_snapshot_resolver import (
+    SqlAlchemyGridProfileSnapshotResolver,
+)
 from game_predictor_api.storage.image_job_repository import (
     SqlAlchemyImageJobOperationsRepository,
 )
@@ -137,6 +161,9 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
+)
+from game_predictor_api.storage.iterative_image_import_repository import (
+    SqlAlchemyIterativeImageImportRepository,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.layout_import_report_repository import (
@@ -155,6 +182,21 @@ from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepositor
 from game_predictor_api.storage.symbol_bootstrap_repository import (
     SqlAlchemySymbolBootstrapRepository,
 )
+from game_predictor_api.storage.symbol_model_iteration_repository import (
+    SqlAlchemySymbolModelIterationRepository,
+)
+from game_predictor_api.storage.symbol_model_registry_repository import (
+    SqlAlchemySymbolModelRegistryRepository,
+)
+from game_predictor_api.storage.symbol_model_snapshot_resolver import (
+    SqlAlchemySymbolModelSnapshotResolver,
+)
+from game_predictor_api.storage.verified_training_cohort_repository import (
+    SqlAlchemyVerifiedTrainingCohortRepository,
+)
+from game_predictor_api.storage.worker_lane_repository import (
+    SqlAlchemyWorkerLaneRepository,
+)
 
 
 def create_app(
@@ -169,6 +211,7 @@ def create_app(
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
+    iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -178,6 +221,11 @@ def create_app(
     reviewer_access_service_dependency: Callable[..., object] | None = None,
     reviewer_ingress_service_dependency: Callable[..., object] | None = None,
     symbol_bootstrap_service_dependency: Callable[..., object] | None = None,
+    worker_lane_status_service_dependency: Callable[..., object] | None = None,
+    verified_training_cohort_service_dependency: Callable[..., object] | None = None,
+    symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
+    symbol_model_registry_service_dependency: Callable[..., object] | None = None,
+    grid_calibration_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     database_engine = create_database_engine(resolved_settings)
@@ -218,8 +266,7 @@ def create_app(
                 raise
 
     resolved_symbol_bootstrap_dependency = (
-        symbol_bootstrap_service_dependency
-        or default_symbol_bootstrap_service_dependency
+        symbol_bootstrap_service_dependency or default_symbol_bootstrap_service_dependency
     )
 
     def default_rules_service_dependency() -> Iterator[RulesService]:
@@ -246,20 +293,39 @@ def create_app(
 
     def default_job_service_dependency() -> Iterator[JobService]:
         with session_factory() as session:
+            service = JobService(
+                SqlAlchemyJobRepository(session),
+                LayoutImportSourceInspector(
+                    resolved_settings.import_root,
+                    max_bytes=resolved_settings.import_max_bytes,
+                ),
+                SqlAlchemySymbolModelSnapshotResolver(
+                    session,
+                    artifact_root=resolved_settings.artifact_root,
+                ),
+                SqlAlchemyGridProfileSnapshotResolver(session),
+                deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+                    artifact_root=resolved_settings.artifact_root,
+                    import_root=resolved_settings.import_root,
+                ),
+            )
             try:
-                yield JobService(
-                    SqlAlchemyJobRepository(session),
-                    LayoutImportSourceInspector(
-                        resolved_settings.import_root,
-                        max_bytes=resolved_settings.import_max_bytes,
-                    ),
-                )
+                yield service
                 session.commit()
+                service.finalize_pending_deletions()
             except BaseException:
                 session.rollback()
+                service.restore_pending_deletions()
                 raise
 
     resolved_job_dependency = job_service_dependency or default_job_service_dependency
+
+    def default_worker_lane_status_service_dependency() -> Iterator[WorkerLaneStatusService]:
+        yield WorkerLaneStatusService(SqlAlchemyWorkerLaneRepository(session_factory))
+
+    resolved_worker_lane_status_dependency = (
+        worker_lane_status_service_dependency or default_worker_lane_status_service_dependency
+    )
 
     def default_image_selection_service_dependency() -> Iterator[ImageSelectionService]:
         with session_factory() as session:
@@ -267,6 +333,7 @@ def create_app(
                 yield ImageSelectionService(
                     SqlAlchemyImageSelectionRepository(session),
                     artifact_root=resolved_settings.artifact_root,
+                    browser_upload_root=resolved_settings.import_root,
                 )
                 session.commit()
             except BaseException:
@@ -289,9 +356,43 @@ def create_app(
         max_bytes=resolved_settings.import_max_bytes,
         photo_selection_max_bytes=resolved_settings.image_selection_max_bytes,
     )
-    resolved_browser_image_selection_dependency = (
-        browser_image_selection_service_dependency
-        or (lambda: default_browser_image_selection_service)
+    resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
+        lambda: default_browser_image_selection_service
+    )
+
+    def default_iterative_image_import_service_dependency() -> Iterator[
+        IterativeImageImportService
+    ]:
+        with session_factory() as session:
+            try:
+                image_selection_service = ImageSelectionService(
+                    SqlAlchemyImageSelectionRepository(session),
+                    artifact_root=resolved_settings.artifact_root,
+                    browser_upload_root=resolved_settings.import_root,
+                )
+                job_service = JobService(
+                    SqlAlchemyJobRepository(session),
+                    None,
+                    SqlAlchemySymbolModelSnapshotResolver(
+                        session,
+                        artifact_root=resolved_settings.artifact_root,
+                    ),
+                    SqlAlchemyGridProfileSnapshotResolver(session),
+                )
+                yield IterativeImageImportService(
+                    SqlAlchemyIterativeImageImportRepository(session),
+                    image_selection_service,
+                    job_service,
+                    artifact_root=resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_iterative_image_import_dependency = (
+        iterative_image_import_service_dependency
+        or default_iterative_image_import_service_dependency
     )
 
     def default_image_job_service_dependency() -> Iterator[ImageJobOperationsService]:
@@ -355,6 +456,68 @@ def create_app(
 
     resolved_image_review_cohort_dependency = (
         image_review_cohort_service_dependency or default_image_review_cohort_service_dependency
+    )
+
+    def default_verified_training_cohort_service_dependency() -> Iterator[
+        VerifiedTrainingCohortService
+    ]:
+        with session_factory() as session:
+            try:
+                yield VerifiedTrainingCohortService(
+                    SqlAlchemyOperationalImageReviewRepository(session),
+                    SqlAlchemyVerifiedTrainingCohortRepository(session),
+                    VerifiedTrainingCohortArtifactStore(resolved_settings.artifact_root),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_verified_training_cohort_dependency = (
+        verified_training_cohort_service_dependency
+        or default_verified_training_cohort_service_dependency
+    )
+
+    def default_symbol_model_iteration_service_dependency() -> Iterator[
+        SymbolModelIterationService
+    ]:
+        with session_factory() as session:
+            try:
+                yield SymbolModelIterationService(SqlAlchemySymbolModelIterationRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_model_iteration_dependency = (
+        symbol_model_iteration_service_dependency
+        or default_symbol_model_iteration_service_dependency
+    )
+
+    def default_symbol_model_registry_service_dependency() -> Iterator[SymbolModelRegistryService]:
+        with session_factory() as session:
+            try:
+                yield SymbolModelRegistryService(SqlAlchemySymbolModelRegistryRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_symbol_model_registry_dependency = (
+        symbol_model_registry_service_dependency or default_symbol_model_registry_service_dependency
+    )
+
+    def default_grid_calibration_service_dependency() -> Iterator[GridCalibrationService]:
+        with session_factory() as session:
+            try:
+                yield GridCalibrationService(SqlAlchemyGridCalibrationRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_grid_calibration_dependency = (
+        grid_calibration_service_dependency or default_grid_calibration_service_dependency
     )
 
     def default_layout_import_report_service_dependency() -> Iterator[LayoutImportReportService]:
@@ -447,6 +610,7 @@ def create_app(
             "Authorization",
             "Content-Type",
             IMAGE_RELATIVE_PATH_HEADER,
+            MANUAL_FILE_NAME_HEADER,
             ADMIN_INTENT_HEADER,
             ADMIN_CONFIRMATION_HEADER,
             ADMIN_TARGET_HEADER,
@@ -470,6 +634,7 @@ def create_app(
             resolved_image_job_dependency,
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
+            resolved_iterative_image_import_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_review_cohort_dependency,
@@ -479,6 +644,11 @@ def create_app(
             resolved_reviewer_access_dependency,
             resolved_reviewer_ingress_dependency,
             resolved_symbol_bootstrap_dependency,
+            resolved_worker_lane_status_dependency,
+            resolved_verified_training_cohort_dependency,
+            resolved_symbol_model_iteration_dependency,
+            resolved_symbol_model_registry_dependency,
+            resolved_grid_calibration_dependency,
         )
     )
 
@@ -548,6 +718,25 @@ def create_app(
         if isinstance(error, ImageSelectionNotFoundError):
             status_code = 404
         elif isinstance(error, ImageSelectionConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": error.code,
+                "message": error.message,
+                "details": error.details,
+            },
+        )
+
+    @application.exception_handler(IterativeImageImportError)
+    async def handle_iterative_image_import_error(
+        _request: Request,
+        error: IterativeImageImportError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, IterativeImageImportNotFoundError):
+            status_code = 404
+        elif isinstance(error, IterativeImageImportConflictError):
             status_code = 409
         return JSONResponse(
             status_code=status_code,
@@ -710,11 +899,11 @@ def create_app(
     generated_openapi = application.openapi
 
     def local_admin_openapi() -> dict[str, Any]:
-        schema = cast(dict[str, Any], generated_openapi())
+        schema = generated_openapi()
         augment_admin_security_openapi(schema)
         return schema
 
-    application.openapi = local_admin_openapi
+    application.openapi = local_admin_openapi  # type: ignore[method-assign]
 
     return application
 

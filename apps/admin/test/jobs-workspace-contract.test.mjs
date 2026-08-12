@@ -34,3 +34,24 @@ test('preserves polling, retry, cancellation and image diagnostics', () => {
   assert.match(monitorSource, /cancelJob\(api, job\.id\)/);
   assert.match(monitorSource, /<ImageJobOperationsPanel/);
 });
+
+test('requires an exact typed prefix before deleting a cancelled selection job', () => {
+  assert.match(monitorSource, /canDeleteImageSelectionJob\(job\)/);
+  assert.match(
+    monitorSource,
+    /deleteCancelledImageSelectionJob\(api, job\.id\)/,
+  );
+  assert.match(monitorSource, /job\.id\.slice\(0, 8\)/);
+  assert.match(
+    monitorSource,
+    /folder wybranych/,
+  );
+});
+
+test('shows independent worker health even when the job list is empty', () => {
+  assert.match(monitorSource, /loadWorkerLanes\(api\)/);
+  assert.match(monitorSource, /Status lokalnych workerów/);
+  assert.match(monitorSource, /General/);
+  assert.match(monitorSource, /Selekcja zdjęć/);
+  assert.match(monitorSource, /Brak świeżego sygnału/);
+});

@@ -1,0 +1,30 @@
+{
+  "contract": "image-selection-v107-acceptance-v1",
+  "gates": {
+    "maximumFullRunSeconds": 10800,
+    "maximumRangeReviewPercent": 30.0,
+    "maximumRepresentativeReviewPercent": 10.0,
+    "maximumTotalReviewPercent": 35.0,
+    "minimumKnownRangePercent": 95.0,
+    "ownerReviewedWrongRangeCount": 0,
+    "ownerReviewedWrongRepresentativeCount": 0,
+    "unreadableGroupOutputCount": 0
+  },
+  "ocr": {
+    "candidateLevels": [
+      9,
+      18,
+      36
+    ],
+    "consecutiveLabelCount": 4,
+    "minimumOcrConfidence": 0.72
+  },
+  "selectorFingerprint": "322d4f5319f036cd0e1dc01f2dc781e68cb0a17dbb05f25abba409f842a732d6",
+  "selectorVersion": "fast-image-selector-v10.7",
+  "stages": [
+    "deterministic-regression",
+    "owner-reviewed-small-sample",
+    "owner-reviewed-approximately-5000-images",
+    "full-corpus-only-after-both-gates"
+  ]
+}

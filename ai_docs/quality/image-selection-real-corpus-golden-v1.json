@@ -1,0 +1,110 @@
+{
+  "annotatedInputCount": 500,
+  "annotationMethod": "manual-visual-sequence-label-review",
+  "contract": "image-selection-real-corpus-golden-v1",
+  "inputManifestSha256": "15f38e6e0f1f7084ec6a6f51bd010747348f806844a04081ab52f203d98fef8e",
+  "schemaVersion": 1,
+  "screens": [
+    {
+      "label": "layouts-1-9",
+      "maximumStartOrderIndex": 0,
+      "minimumStartOrderIndex": 0
+    },
+    {
+      "label": "layouts-10-18",
+      "maximumStartOrderIndex": 60,
+      "minimumStartOrderIndex": 41
+    },
+    {
+      "label": "layouts-19-27",
+      "maximumStartOrderIndex": 100,
+      "minimumStartOrderIndex": 81
+    },
+    {
+      "label": "layouts-28-36",
+      "maximumStartOrderIndex": 120,
+      "minimumStartOrderIndex": 101
+    },
+    {
+      "label": "layouts-37-45",
+      "maximumStartOrderIndex": 140,
+      "minimumStartOrderIndex": 121
+    },
+    {
+      "label": "layouts-46-54",
+      "maximumStartOrderIndex": 150,
+      "minimumStartOrderIndex": 141
+    },
+    {
+      "label": "layouts-55-63",
+      "maximumStartOrderIndex": 160,
+      "minimumStartOrderIndex": 151
+    },
+    {
+      "label": "layouts-64-72",
+      "maximumStartOrderIndex": 190,
+      "minimumStartOrderIndex": 181
+    },
+    {
+      "label": "layouts-73-81",
+      "maximumStartOrderIndex": 200,
+      "minimumStartOrderIndex": 191
+    },
+    {
+      "label": "layouts-82-90",
+      "maximumStartOrderIndex": 220,
+      "minimumStartOrderIndex": 201
+    },
+    {
+      "label": "layouts-91-99",
+      "maximumStartOrderIndex": 240,
+      "minimumStartOrderIndex": 221
+    },
+    {
+      "label": "layouts-100-108",
+      "maximumStartOrderIndex": 300,
+      "minimumStartOrderIndex": 281
+    },
+    {
+      "label": "layouts-109-117",
+      "maximumStartOrderIndex": 320,
+      "minimumStartOrderIndex": 301
+    },
+    {
+      "label": "layouts-118-126",
+      "maximumStartOrderIndex": 340,
+      "minimumStartOrderIndex": 321
+    },
+    {
+      "label": "layouts-127-135",
+      "maximumStartOrderIndex": 350,
+      "minimumStartOrderIndex": 341
+    },
+    {
+      "label": "layouts-136-144",
+      "maximumStartOrderIndex": 360,
+      "minimumStartOrderIndex": 351
+    },
+    {
+      "label": "layouts-145-153",
+      "maximumStartOrderIndex": 380,
+      "minimumStartOrderIndex": 361
+    },
+    {
+      "label": "layouts-154-162",
+      "maximumStartOrderIndex": 420,
+      "minimumStartOrderIndex": 401
+    },
+    {
+      "label": "layouts-163-171",
+      "maximumStartOrderIndex": 480,
+      "minimumStartOrderIndex": 461
+    },
+    {
+      "label": "layouts-172-180",
+      "maximumStartOrderIndex": 499,
+      "minimumStartOrderIndex": 481
+    }
+  ],
+  "sourceSelectionId": "38342d14-0134-47a3-9426-7a2fa76c001c"
+}

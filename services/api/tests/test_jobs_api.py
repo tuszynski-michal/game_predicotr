@@ -7,8 +7,10 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from game_predictor_api.application.jobs import (
+    ImageSelectionJobDeletionReference,
     JobService,
     LayoutImportRulesReference,
+    ManagedImageSelectionDeletionArtifactStore,
     PayoutDatasetReference,
     PayoutRulesReference,
 )
@@ -17,6 +19,10 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.symbol_model_snapshots import (
+    SymbolModelJobSnapshot,
+    SymbolModelStorageRoot,
+)
 from game_predictor_api.main import create_app
 from game_predictor_api.schemas.jobs import JobResponse
 from test_jobs_domain import MemoryJobRepository
@@ -37,6 +43,10 @@ def _client(
     service = JobService(
         repository,
         LayoutImportSourceInspector(import_root, max_bytes=1024 * 1024),
+        deletion_artifact_store=ManagedImageSelectionDeletionArtifactStore(
+            artifact_root=tmp_path / "artifacts",
+            import_root=import_root,
+        ),
     )
     client = TestClient(
         create_app(
@@ -120,6 +130,21 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
             "upload_duration_seconds": 15.5,
             "processing_duration_seconds": 8.25,
             "diagnostic": {"checksumSha256": "c" * 64},
+            "recent_window": {
+                "fromProcessed": 64,
+                "toProcessed": 96,
+                "elapsedSeconds": 12.5,
+                "groupsFinalized": 3,
+                "verifications": 18,
+                "manual": 2,
+            },
+            "stage_timing": {
+                "counters": {"anchoredOcrAttempts": 8, "fallbackOcrAttempts": 3},
+                "stages": {
+                    "geometry": {"totalSeconds": 4.5},
+                    "ocr": {"totalSeconds": 7.25},
+                },
+            },
         },
     )
 
@@ -135,6 +160,19 @@ def test_image_selection_job_exposes_bounded_operational_progress() -> None:
         "uploadDurationSeconds": 15.5,
         "processingDurationSeconds": 8.25,
         "diagnosticChecksumSha256": "c" * 64,
+        "recentWindow": {
+            "fromProcessed": 64,
+            "toProcessed": 96,
+            "elapsedSeconds": 12.5,
+            "groupsFinalized": 3,
+            "verifications": 18,
+            "manual": 2,
+        },
+        "stageSeconds": {"geometry": 4.5, "ocr": 7.25},
+        "telemetryCounters": {
+            "anchoredOcrAttempts": 8,
+            "fallbackOcrAttempts": 3,
+        },
     }
 
 
@@ -158,6 +196,69 @@ def test_curated_image_import_job_preserves_selection_run_provenance(
 
     assert job.input_payload["source_selection_id"] == str(selection_id)
     assert job.input_payload["image_selection_run_id"] == str(selection_run_id)
+    assert job.input_payload["schema_version"] == 2
+    symbol_model = job.input_payload["symbol_model"]
+    assert isinstance(symbol_model, dict)
+    assert symbol_model["modelVersion"] == "bootstrap-symbol-cnn-onnx-v1"
+    assert len(str(symbol_model["inferenceFingerprint"])) == 64
+
+
+class _MutableSymbolModelResolver:
+    def __init__(self, snapshot: SymbolModelJobSnapshot) -> None:
+        self.snapshot = snapshot
+
+    def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+        del game_id
+        return self.snapshot
+
+
+def _test_symbol_snapshot(iteration_id: UUID, marker: str) -> SymbolModelJobSnapshot:
+    return SymbolModelJobSnapshot(
+        iteration_id=iteration_id,
+        model_version=f"candidate-{marker}",
+        manifest_checksum_sha256=marker * 64,
+        onnx_checksum_sha256=("a" if marker == "b" else "b") * 64,
+        onnx_relative_path=f"models/{marker}/model.onnx",
+        storage_root=SymbolModelStorageRoot.ARTIFACT,
+        class_codes=("lemon", "seven"),
+        input_size=64,
+        temperature=1.0,
+    )
+
+
+def test_model_activation_changes_only_jobs_created_after_the_change(tmp_path: Path) -> None:
+    game_id = uuid4()
+    repository = MemoryJobRepository(game_id)
+    source = tmp_path / "photos"
+    source.mkdir()
+    first_snapshot = _test_symbol_snapshot(uuid4(), "b")
+    second_snapshot = _test_symbol_snapshot(uuid4(), "c")
+    resolver = _MutableSymbolModelResolver(first_snapshot)
+    service = JobService(repository, None, resolver)
+
+    before = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="photos",
+        pipeline_fingerprint="d" * 64,
+    )
+    resolver.snapshot = second_snapshot
+    after = service.create_image_import_job(
+        game_id=game_id,
+        selection_id=uuid4(),
+        source_directory=source,
+        source_display_name="photos",
+        pipeline_fingerprint="d" * 64,
+    )
+
+    assert before.input_payload["symbol_model"] == first_snapshot.to_payload()
+    assert after.input_payload["symbol_model"] == second_snapshot.to_payload()
+    assert (
+        before.input_payload["pipeline_fingerprint"] != after.input_payload["pipeline_fingerprint"]
+    )
+    assert before.input_payload["source_pipeline_fingerprint"] == "d" * 64
+    assert after.input_payload["source_pipeline_fingerprint"] == "d" * 64
 
 
 def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:
@@ -197,6 +298,48 @@ def test_create_list_get_and_cancel_job_contract(tmp_path: Path) -> None:
         assert cancelled.json()["status"] == "cancelled"
         assert cancelled.json()["cancelRequestedAt"] is not None
         assert cancelled.json()["finishedAt"] is not None
+
+
+def test_delete_cancelled_image_selection_job_contract(tmp_path: Path) -> None:
+    client, game_id, service, repository = _client(tmp_path)
+    source_selection_id = uuid4()
+    run_id = uuid4()
+    job = repository.add_job(
+        create_job(
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1},
+        )
+    )
+    repository.image_selection_deletions[job.id] = (
+        ImageSelectionJobDeletionReference(
+            run_id=run_id,
+            source_selection_id=source_selection_id,
+            source_reference_count=1,
+            has_curated_import_source=False,
+            has_published_output=False,
+        )
+    )
+    manual_directory = (
+        tmp_path / "artifacts" / "data" / "working" / "is-manual" / run_id.hex[:12]
+    )
+    manual_directory.mkdir(parents=True)
+    service.cancel_job(job.id)
+
+    with client:
+        response = client.delete(f"/api/v1/admin/jobs/{job.id}")
+        service.finalize_pending_deletions()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "jobId": str(job.id),
+        "runId": str(run_id),
+        "managedRunFilesDeleted": True,
+        "sourceStagingDeleted": False,
+        "sharedSourceStagingPreserved": False,
+    }
+    assert repository.get_job(job.id) is None
+    assert not manual_directory.exists()
 
 
 def test_typed_payload_and_duplicate_errors_are_stable(tmp_path: Path) -> None:
@@ -306,7 +449,10 @@ def test_all_five_job_payloads_are_discriminated_by_job_type(
             limit=20,
         )
     )
-    assert {job.job_type for job in jobs} == set(JobType) - {JobType.IMAGE_SELECTION}
+    assert {job.job_type for job in jobs} == set(JobType) - {
+        JobType.IMAGE_SELECTION,
+        JobType.SYMBOL_TRAINING,
+    }
     assert all(job.status is JobStatus.CREATED for job in jobs)
 
 

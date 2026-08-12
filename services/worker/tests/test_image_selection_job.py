@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -12,17 +13,25 @@ import pytest
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
+    JobExecutionSlot,
     JobStatus,
     JobType,
     create_job,
     start_job,
 )
+from game_predictor_worker.images.selection.adapters import (
+    DeterministicParallelCandidateVerifier,
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+)
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
+    CandidateResult,
     CandidateVerification,
     CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
+    RangeEvidence,
+    RepresentativeAssessment,
     SelectionGroupResult,
     SelectionGroupStatus,
     SequenceRange,
@@ -31,12 +40,203 @@ from game_predictor_worker.images.selection.job import (
     ImageSelectionJobHandler,
     ImageSelectionJobRun,
     _assert_fence,
+    _upsert_candidate,
 )
-from game_predictor_worker.images.selection.manifest import SelectorManifest
+from game_predictor_worker.images.selection.manifest import (
+    APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+    DEFAULT_SELECTOR_MANIFEST,
+    LEGACY_SELECTOR_MANIFEST_V2,
+    SelectorManifest,
+)
 from game_predictor_worker.images.selection.output import PublishedImageSelection
+from game_predictor_worker.images.selection.telemetry import StageTimingCollector
+from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
 
 NOW = datetime(2026, 8, 3, 10, tzinfo=UTC)
+
+
+def _persistence_candidate(order_index: int = 7) -> CandidateResult:
+    source = ImageSelectionSource(
+        order_index=order_index,
+        relative_path=f"source/{order_index}.jpg",
+        stored_relative_path=f"{order_index:08d}.jpg",
+        checksum_sha256=hashlib.sha256(f"candidate:{order_index}".encode()).hexdigest(),
+        size_bytes=1024,
+    )
+    return CandidateResult(
+        source=source,
+        decision=CandidateDecision.ELIGIBLE,
+        quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+        recognized_range=SequenceRange(280, 288, 0.99),
+        reason_codes=(),
+        width=1080,
+        height=1920,
+    )
+
+
+def _persistence_group(candidate: CandidateResult) -> SelectionGroupResult:
+    return SelectionGroupResult(
+        group_order=3,
+        source_count=2,
+        range=candidate.recognized_range,
+        fingerprint_sha256="0" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.AUTO_SELECTED,
+        selected_candidate=candidate,
+        top_candidates=(candidate,),
+    )
+
+
+def test_full_candidate_promotes_same_gallery_source_to_authoritative_group() -> None:
+    candidate = _persistence_candidate()
+    group = _persistence_group(candidate)
+    final_group_id = uuid4()
+    record = SimpleNamespace(
+        group_id=uuid4(),
+        checksum_sha256=candidate.source.checksum_sha256,
+        quality_metrics={"manualGalleryOnly": True},
+    )
+    session = SimpleNamespace(scalar=lambda _query: record)
+
+    _upsert_candidate(
+        session,  # type: ignore[arg-type]
+        run_id=uuid4(),
+        group_id=final_group_id,
+        group=group,
+        candidate=candidate,
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        persisted_at=NOW,
+    )
+
+    assert record.group_id == final_group_id
+    assert record.quality_metrics.get("manualGalleryOnly") is None
+    assert record.decision.value == CandidateDecision.SELECTED_AUTOMATIC.value
+
+
+@pytest.mark.parametrize("gallery_only", (False, True))
+def test_full_candidate_keeps_real_persistence_conflicts(
+    gallery_only: bool,
+) -> None:
+    candidate = _persistence_candidate()
+    group = _persistence_group(candidate)
+    record = SimpleNamespace(
+        group_id=uuid4(),
+        checksum_sha256=(candidate.source.checksum_sha256 if not gallery_only else "f" * 64),
+        quality_metrics={"manualGalleryOnly": gallery_only},
+    )
+    session = SimpleNamespace(scalar=lambda _query: record)
+
+    with pytest.raises(JobHandlerError) as raised:
+        _upsert_candidate(
+            session,  # type: ignore[arg-type]
+            run_id=uuid4(),
+            group_id=uuid4(),
+            group=group,
+            candidate=candidate,
+            decision=CandidateDecision.SELECTED_AUTOMATIC,
+            persisted_at=NOW,
+        )
+
+    assert raised.value.code == "IMAGE_SELECTION_PERSISTENCE_CONFLICT"
+
+
+def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.job.PaddleSequenceNumberRecognizer",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Sequence OCR must not be constructed for v9.")
+        ),
+    )
+    handler = ImageSelectionJobHandler(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        browser_upload_root=tmp_path,
+        artifact_root=tmp_path,
+        repository_root=tmp_path,
+        selector_manifest=APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+    )
+
+    analyzer, verifier = handler._default_adapter_factory(  # noqa: SLF001
+        source_root,
+        APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
+        StageTimingCollector(),
+    )
+
+    assert analyzer is not None
+    assert verifier is not None
+
+
+def test_v10_9_production_factory_builds_isolated_partial_layout_verifiers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    predictors: list[object] = []
+    built_verifiers: list[object] = []
+    fallback_recognizers: list[object] = []
+
+    def build_predictor(*_args: object, **_kwargs: object) -> object:
+        predictor = object()
+        predictors.append(predictor)
+        return predictor
+
+    class _FactoryVerifier:
+        def verify(
+            self,
+            observation: CheapImageObservation,
+            *,
+            expected_board_count: int | None,
+        ) -> CandidateVerification:
+            del observation, expected_board_count
+            return CandidateVerification(
+                representative=RepresentativeAssessment(9, True, True),
+                range_evidence=RangeEvidence(None),
+            )
+
+    def build_adapters(*_args: object, **kwargs: object) -> tuple[object, _FactoryVerifier]:
+        verifier = _FactoryVerifier()
+        built_verifiers.append(verifier)
+        fallback_recognizers.append(kwargs["fallback_range_recognizer"])
+        return object(), verifier
+
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.job.PaddleSequenceNumberRecognizer",
+        build_predictor,
+    )
+    monkeypatch.setattr(
+        "game_predictor_worker.images.selection.job.build_default_adapters",
+        build_adapters,
+    )
+    handler = ImageSelectionJobHandler(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        browser_upload_root=tmp_path,
+        artifact_root=tmp_path,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        verification_workers=2,
+    )
+
+    _, verifier = handler._default_adapter_factory(  # noqa: SLF001
+        source_root,
+        DEFAULT_SELECTOR_MANIFEST,
+        StageTimingCollector(),
+    )
+
+    assert len(predictors) == 2
+    assert len({id(predictor) for predictor in predictors}) == 2
+    assert len({id(item) for item in built_verifiers}) == 2
+    assert all(
+        isinstance(item, PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer)
+        for item in fallback_recognizers
+    )
+    assert isinstance(verifier, DeterministicParallelCandidateVerifier)
+    assert verifier.worker_count == 2
 
 
 @dataclass
@@ -44,6 +244,7 @@ class _Store:
     run: ImageSelectionJobRun
     groups: tuple[SelectionGroupResult, ...] = ()
     published: PublishedImageSelection | None = None
+    gallery_sources: dict[int, tuple[CheapImageObservation, ...]] = field(default_factory=dict)
 
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun:
         assert job_id == self.run.job_id
@@ -60,6 +261,7 @@ class _Store:
         run_id: UUID,
         lease_token: UUID,
         groups: tuple[SelectionGroupResult, ...],
+        group_sources: Mapping[int, Sequence[CheapImageObservation]],
         persisted_at: datetime,
     ) -> None:
         del lease_token, persisted_at
@@ -67,6 +269,9 @@ class _Store:
         values = {group.group_order: group for group in self.groups}
         values.update({group.group_order: group for group in groups})
         self.groups = tuple(values[index] for index in sorted(values))
+        self.gallery_sources.update(
+            {group_order: tuple(sources) for group_order, sources in group_sources.items()}
+        )
 
     def record_output(
         self,
@@ -148,9 +353,7 @@ class _Analyzer:
             board_count=None if corrupted else 9,
             geometry_confidence=0.0 if corrupted else 0.95,
             quality=ImageQualityMetrics(*(score for _ in range(8))),
-            reason_codes=(
-                ("IMAGE_SELECTION_SCAN_DECODE_FAILED",) if corrupted else ()
-            ),
+            reason_codes=(("IMAGE_SELECTION_SCAN_DECODE_FAILED",) if corrupted else ()),
         )
 
 
@@ -163,11 +366,12 @@ class _Verifier:
     ) -> CandidateVerification:
         del observation
         return CandidateVerification(
-            recognized_range=SequenceRange(1, 9, 0.98),
-            board_count=expected_board_count,
-            geometry_complete=True,
-            full_frame_visible=True,
-            reason_codes=(),
+            representative=RepresentativeAssessment(
+                expected_board_count,
+                True,
+                True,
+            ),
+            range_evidence=RangeEvidence(SequenceRange(1, 9, 0.98)),
         )
 
 
@@ -180,11 +384,11 @@ class _ManualVerifier:
     ) -> CandidateVerification:
         del observation, expected_board_count
         return CandidateVerification(
-            recognized_range=None,
-            board_count=None,
-            geometry_complete=False,
-            full_frame_visible=False,
-            reason_codes=("RANGE_ANCHOR_UNREADABLE",),
+            representative=RepresentativeAssessment(None, False, False),
+            range_evidence=RangeEvidence(
+                None,
+                ("RANGE_ANCHOR_UNREADABLE",),
+            ),
         )
 
 
@@ -212,7 +416,7 @@ def _fixture(
     for index in range(file_count):
         stored_name = f"{index + 1:08d}.jpg"
         image_path = source_root / stored_name
-        Image.new("RGB", (64, 48), (20 + index, 40, 80)).save(
+        Image.new("RGB", (64, 48), (20 + index * 20, 40, 80)).save(
             image_path,
             format="JPEG",
         )
@@ -261,6 +465,7 @@ def _fixture(
         worker_id="worker-test",
         lease_token=uuid4(),
         lease_expires_at=NOW + timedelta(minutes=1),
+        execution_slot=JobExecutionSlot.IMAGE_SELECTION,
         started_at=NOW,
     )
     run = ImageSelectionJobRun(
@@ -273,6 +478,27 @@ def _fixture(
         output_manifest_relative_path=None,
     )
     return import_root, artifact_root, claimed, _Store(run)
+
+
+def test_v10_4_job_fails_closed_without_first_sequence_number(tmp_path: Path) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=1,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (_Analyzer(), _Verifier()),
+    )
+
+    with pytest.raises(JobHandlerError) as raised:
+        handler(_Context(job), job)  # type: ignore[arg-type]
+
+    assert raised.value.code == "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED"
 
 
 def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
@@ -301,6 +527,11 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     handler(context, job)  # type: ignore[arg-type]
 
     assert calls == [0, 1, 2]
+    assert sorted(
+        observation.source.order_index
+        for sources in store.gallery_sources.values()
+        for observation in sources
+    ) == [0, 1, 2]
     assert store.published is not None
     final = context.checkpoints[-1]
     payload = final["checkpoint_payload"]
@@ -308,6 +539,22 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert payload["error_count"] == 1
     assert payload["upload_duration_seconds"] == 12.5
     assert float(payload["processing_duration_seconds"]) > 0
+    recent_window = payload["recent_window"]
+    assert isinstance(recent_window, dict)
+    assert recent_window["toProcessed"] == 3
+    assert recent_window["fromProcessed"] in {0, 2}
+    assert recent_window["elapsedSeconds"] >= 0
+    assert recent_window["verifications"] >= 0
+    stage_timing = payload["stage_timing"]
+    assert isinstance(stage_timing, dict)
+    assert stage_timing["stages"]["output"]["count"] == 1
+    assert stage_timing["stages"]["persistence"]["count"] >= 1
+    assert stage_timing["counters"]["persistenceWrites"] >= 1
+    scan_cache = payload["scan_cache"]
+    assert isinstance(scan_cache, dict)
+    assert scan_cache["hitCount"] == 0
+    assert scan_cache["missCount"] == 3
+    assert scan_cache["writeCount"] == 3
     diagnostic = payload["diagnostic"]
     assert isinstance(diagnostic, dict)
     path = artifact_root / str(diagnostic["relativePath"])
@@ -316,6 +563,39 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert hashlib.sha256(diagnostic_content).hexdigest() == diagnostic["checksumSha256"]
     assert str(tmp_path).encode() not in diagnostic_content
     assert b"photo2.jpg" not in diagnostic_content
+
+
+def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=2,
+        manifest=LEGACY_SELECTOR_MANIFEST_V2,
+    )
+    calls: list[int] = []
+    selected_manifests: list[SelectorManifest] = []
+
+    def adapters(
+        _root: Path,
+        manifest: SelectorManifest,
+    ) -> tuple[_Analyzer, _Verifier]:
+        selected_manifests.append(manifest)
+        return _Analyzer(calls=calls), _Verifier()
+
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        adapter_factory=adapters,
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    assert selected_manifests == [LEGACY_SELECTOR_MANIFEST_V2]
+    assert calls == [0, 1]
+    assert store.published is not None
 
 
 def test_cancel_stops_at_the_next_bounded_checkpoint_and_keeps_sources(
@@ -396,9 +676,15 @@ def test_retry_reconciles_projection_written_just_before_checkpoint(
 
     resumed_handler(resumed_context, job)  # type: ignore[arg-type]
 
-    assert resumed_calls == [0]
+    assert resumed_calls == []
     assert len(store.groups) == 1
     assert store.published is not None
+    resumed_payload = resumed_context.checkpoints[-1]["checkpoint_payload"]
+    assert isinstance(resumed_payload, dict)
+    resumed_cache = resumed_payload["scan_cache"]
+    assert isinstance(resumed_cache, dict)
+    assert resumed_cache["hitCount"] == 1
+    assert resumed_cache["missCount"] == 0
 
 
 def test_manual_completion_resumes_without_progress_regression(

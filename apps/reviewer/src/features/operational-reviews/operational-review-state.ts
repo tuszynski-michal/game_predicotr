@@ -206,6 +206,52 @@ export interface OperationalReviewGeometryViewport {
   readonly y: number;
 }
 
+export interface OperationalReviewCanvasPointer {
+  readonly point: OperationalImageReviewGeometryPoint;
+  readonly scale: number;
+}
+
+export function operationalReviewPointInCanvas(
+  clientPoint: OperationalImageReviewGeometryPoint,
+  bounds: {
+    readonly height: number;
+    readonly left: number;
+    readonly top: number;
+    readonly width: number;
+  },
+  canvasWidth: number,
+  canvasHeight: number,
+): OperationalReviewCanvasPointer {
+  const safeCanvasWidth = Math.max(1, canvasWidth);
+  const safeCanvasHeight = Math.max(1, canvasHeight);
+  const safeBoundsWidth = Math.max(1, bounds.width);
+  const safeBoundsHeight = Math.max(1, bounds.height);
+  const scale = Math.max(
+    Number.EPSILON,
+    Math.min(
+      safeBoundsWidth / safeCanvasWidth,
+      safeBoundsHeight / safeCanvasHeight,
+    ),
+  );
+  const renderedWidth = safeCanvasWidth * scale;
+  const renderedHeight = safeCanvasHeight * scale;
+  const contentLeft = bounds.left + (safeBoundsWidth - renderedWidth) / 2;
+  const contentTop = bounds.top + (safeBoundsHeight - renderedHeight) / 2;
+  return {
+    point: {
+      x: Math.min(
+        safeCanvasWidth,
+        Math.max(0, (clientPoint.x - contentLeft) / scale),
+      ),
+      y: Math.min(
+        safeCanvasHeight,
+        Math.max(0, (clientPoint.y - contentTop) / scale),
+      ),
+    },
+    scale,
+  };
+}
+
 export function operationalReviewGeometryCorners(
   item: OperationalImageReviewItemResponse,
   imageWidth: number,
@@ -256,6 +302,62 @@ export function operationalReviewGeometryViewport(
   const y = Math.max(0, Math.floor(minY - paddingY));
   const right = Math.min(boundedWidth, Math.ceil(maxX + paddingX));
   const bottom = Math.min(boundedHeight, Math.ceil(maxY + paddingY));
+  return {
+    height: Math.max(1, bottom - y),
+    width: Math.max(1, right - x),
+    x,
+    y,
+  };
+}
+
+export function operationalReviewNativeContextViewport(
+  item: OperationalImageReviewItemResponse,
+  imageWidth: number,
+  imageHeight: number,
+): OperationalReviewGeometryViewport {
+  const boundedWidth = Math.max(1, Math.round(imageWidth));
+  const boundedHeight = Math.max(1, Math.round(imageHeight));
+  const board = operationalReviewGeometryCorners(
+    item,
+    boundedWidth,
+    boundedHeight,
+  );
+  const rawLabel = item.geometry.sequenceLabelQuad;
+  const parsedLabel = Array.isArray(rawLabel)
+    ? rawLabel.map(parseGeometryPoint)
+    : [];
+  const hasLabel =
+    parsedLabel.length === 4 && parsedLabel.every((point) => point !== null);
+  const label = hasLabel
+    ? (parsedLabel as OperationalImageReviewGeometryPoint[])
+    : [];
+  const points = [...board, ...label];
+  const xs = points.map((point) =>
+    Math.min(boundedWidth - 1, Math.max(0, point.x)),
+  );
+  const ys = points.map((point) =>
+    Math.min(boundedHeight - 1, Math.max(0, point.y)),
+  );
+  const boardXs = board.map((point) => point.x);
+  const boardYs = board.map((point) => point.y);
+  const boardWidth = Math.max(1, Math.max(...boardXs) - Math.min(...boardXs));
+  const boardHeight = Math.max(1, Math.max(...boardYs) - Math.min(...boardYs));
+  const horizontalPadding = Math.max(12, Math.round(boardWidth * 0.1));
+  const topPadding = Math.max(12, Math.round(boardHeight * 0.12));
+  const bottomPadding = Math.max(
+    12,
+    Math.round(boardHeight * (hasLabel ? 0.12 : 0.55)),
+  );
+  const x = Math.max(0, Math.floor(Math.min(...xs) - horizontalPadding));
+  const y = Math.max(0, Math.floor(Math.min(...ys) - topPadding));
+  const right = Math.min(
+    boundedWidth,
+    Math.ceil(Math.max(...xs) + horizontalPadding),
+  );
+  const bottom = Math.min(
+    boundedHeight,
+    Math.ceil(Math.max(...ys) + bottomPadding),
+  );
   return {
     height: Math.max(1, bottom - y),
     width: Math.max(1, right - x),
@@ -416,23 +518,30 @@ export function operationalReviewAssetUrl(
   context: { readonly gameId: string; readonly importJobId: string },
   reviewItemId: string,
   asset: OperationalReviewAssetKind,
-  cellIndex?: number,
+  options: {
+    readonly cellIndex?: number;
+    readonly version?: string;
+  } = {},
 ): string {
   const base = apiBaseUrl.endsWith('/') ? apiBaseUrl : `${apiBaseUrl}/`;
   const encodedItemId = encodeURIComponent(reviewItemId);
   const suffix =
-    asset === 'cell' ? `cells/${requireCellIndex(cellIndex)}` : asset;
+    asset === 'cell' ? `cells/${requireCellIndex(options.cellIndex)}` : asset;
   const assetPath = `api/v1/admin/image-review-items/${encodedItemId}/assets/${suffix}`;
   if (base.startsWith('/')) {
     const query = new URLSearchParams({
       gameId: context.gameId,
       importJobId: context.importJobId,
     });
+    if (options.version !== undefined) query.set('v', options.version);
     return `${base}${assetPath}?${query.toString()}`;
   }
   const url = new URL(assetPath, base);
   url.searchParams.set('gameId', context.gameId);
   url.searchParams.set('importJobId', context.importJobId);
+  if (options.version !== undefined) {
+    url.searchParams.set('v', options.version);
+  }
   return url.toString();
 }
 

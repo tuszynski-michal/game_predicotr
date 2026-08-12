@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from enum import StrEnum
+from enum import IntEnum, StrEnum
 from uuid import UUID, uuid4
 
 
@@ -17,6 +17,7 @@ class JobType(StrEnum):
     PAYOUT = "payout"
     SNAPSHOT = "snapshot"
     ANDROID_BUILD = "android_build"
+    SYMBOL_TRAINING = "symbol_training"
 
 
 class JobStatus(StrEnum):
@@ -26,6 +27,11 @@ class JobStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class JobExecutionSlot(IntEnum):
+    GENERAL = 1
+    IMAGE_SELECTION = 2
 
 
 class JobError(ValueError):
@@ -89,10 +95,15 @@ def create_job(
     created_at: datetime | None = None,
 ) -> Job:
     schema_version = input_payload.get("schema_version")
-    if schema_version != 1:
+    supports_pinned_image_model = (
+        schema_version in {2, 3}
+        and job_type is JobType.IMPORT
+        and input_payload.get("import_kind") == "image_directory"
+    )
+    if schema_version != 1 and not supports_pinned_image_model:
         raise JobError(
             "UNSUPPORTED_JOB_PAYLOAD_VERSION",
-            "Job inputPayload must use schemaVersion 1.",
+            "Job inputPayload must use a supported schema version.",
             details={"schemaVersion": schema_version},
         )
     now = created_at or datetime.now(UTC)
@@ -163,10 +174,26 @@ def start_job(
     worker_id: str,
     lease_token: UUID,
     lease_expires_at: datetime,
+    execution_slot: JobExecutionSlot = JobExecutionSlot.GENERAL,
     started_at: datetime | None = None,
 ) -> Job:
     if job.status is not JobStatus.CREATED:
         _raise_invalid_transition(job, JobStatus.PROCESSING)
+    expected_slot = (
+        JobExecutionSlot.IMAGE_SELECTION
+        if job.job_type is JobType.IMAGE_SELECTION
+        else JobExecutionSlot.GENERAL
+    )
+    if execution_slot is not expected_slot:
+        raise JobError(
+            "INVALID_JOB_EXECUTION_SLOT",
+            "The execution slot does not match the job type.",
+            details={
+                "jobType": job.job_type.value,
+                "executionSlot": int(execution_slot),
+                "expectedExecutionSlot": int(expected_slot),
+            },
+        )
     normalized_version = worker_version.strip()
     if not normalized_version:
         raise JobError(
@@ -190,7 +217,7 @@ def start_job(
         status=JobStatus.PROCESSING,
         worker_version=normalized_version,
         attempt_count=job.attempt_count + 1,
-        execution_slot=1,
+        execution_slot=int(execution_slot),
         lease_owner=normalized_worker_id,
         lease_token=lease_token,
         lease_expires_at=lease_expires_at,
@@ -349,13 +376,41 @@ def requeue_job(
     *,
     updated_at: datetime | None = None,
 ) -> Job:
-    if job.status not in {JobStatus.WAITING_FOR_REVIEW, JobStatus.FAILED}:
+    if job.status not in {
+        JobStatus.WAITING_FOR_REVIEW,
+        JobStatus.FAILED,
+        JobStatus.CANCELLED,
+    }:
         _raise_invalid_transition(job, JobStatus.CREATED)
     now = updated_at or datetime.now(UTC)
     return _without_lease(
         replace(
             job,
             status=JobStatus.CREATED,
+            updated_at=now,
+            finished_at=None,
+            cancel_requested_at=None,
+            error_code=None,
+            error_message=None,
+        )
+    )
+
+
+def reopen_completed_job_for_revision(
+    job: Job,
+    *,
+    updated_at: datetime | None = None,
+) -> Job:
+    """Requeue a completed image-selection job after an audited manual revision."""
+
+    if job.status is not JobStatus.COMPLETED or job.job_type is not JobType.IMAGE_SELECTION:
+        _raise_invalid_transition(job, JobStatus.CREATED)
+    now = updated_at or datetime.now(UTC)
+    return _without_lease(
+        replace(
+            job,
+            status=JobStatus.CREATED,
+            stage="image_selection:manual_revision",
             updated_at=now,
             finished_at=None,
             cancel_requested_at=None,

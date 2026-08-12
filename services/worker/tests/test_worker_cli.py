@@ -5,7 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from game_predictor_api.domain.jobs import JobType
+from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_worker import cli
 from game_predictor_worker.jobs.runtime import JobExecutionResult
 
@@ -24,6 +24,7 @@ class FakeWorker:
     def __init__(self, *args: object, **kwargs: object) -> None:
         self.run_forever_calls: list[float] = []
         self.handlers = args[1]
+        self.options = kwargs
         self.__class__.instances.append(self)
 
     def run_once(self) -> JobExecutionResult:
@@ -38,9 +39,27 @@ class FakeWorker:
         self.run_forever_calls.append(poll_interval_seconds)
 
 
+class FakeLaneHeartbeat:
+    instances: list[FakeLaneHeartbeat] = []
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        self.options = kwargs
+        self.entered = False
+        self.exited = False
+        self.__class__.instances.append(self)
+
+    def __enter__(self) -> FakeLaneHeartbeat:
+        self.entered = True
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self.exited = True
+
+
 @pytest.fixture(autouse=True)
 def reset_fake_worker() -> None:
     FakeWorker.instances.clear()
+    FakeLaneHeartbeat.instances.clear()
 
 
 def _replace_dependencies(
@@ -67,6 +86,7 @@ def _replace_dependencies(
         lambda _factory: object(),
     )
     monkeypatch.setattr(cli, "LocalJobWorker", FakeWorker)
+    monkeypatch.setattr(cli, "WorkerLaneHeartbeat", FakeLaneHeartbeat)
 
 
 def test_cli_runs_one_claim_attempt_and_disposes_engine(
@@ -83,6 +103,39 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert JobType.PAYOUT in FakeWorker.instances[0].handlers
     assert JobType.IMPORT in FakeWorker.instances[0].handlers
     assert JobType.VALIDATE in FakeWorker.instances[0].handlers
+    assert JobType.IMAGE_SELECTION not in FakeWorker.instances[0].handlers
+    assert FakeWorker.instances[0].options["execution_slot"] is JobExecutionSlot.GENERAL
+    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 2
+    assert FakeLaneHeartbeat.instances[0].entered
+    assert FakeLaneHeartbeat.instances[0].exited
+    assert engine.disposed is True
+
+
+def test_cli_runs_image_selection_in_its_dedicated_lane(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = FakeEngine()
+    _replace_dependencies(monkeypatch, engine)
+
+    assert (
+        cli.main(
+            [
+                "--lane",
+                "image-selection",
+                "--worker-id",
+                "selection-worker",
+            ]
+        )
+        == 0
+    )
+
+    worker = FakeWorker.instances[0]
+    assert set(worker.handlers) == {JobType.IMAGE_SELECTION}
+    assert worker.options["execution_slot"] is JobExecutionSlot.IMAGE_SELECTION
+    selection_handler = worker.handlers[JobType.IMAGE_SELECTION]
+    assert selection_handler._scan_workers == 3  # noqa: SLF001
+    assert selection_handler._verification_workers == 1  # noqa: SLF001
+    assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 4
     assert engine.disposed is True
 
 

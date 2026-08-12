@@ -6,14 +6,18 @@ import hashlib
 import json
 import os
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Literal, Protocol
 from uuid import UUID, uuid4
 
 from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
 from game_predictor_worker.images.selection.contracts import SelectionContractError
+from game_predictor_worker.images.selection.manifest import (
+    HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
+    QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
+)
 from game_predictor_worker.images.selection.output import verify_curated_image_manifest
 
 from game_predictor_api.domain.image_selections import (
@@ -26,16 +30,43 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
+    ImageSelectionManualResolution,
     ImageSelectionNotFoundError,
     ImageSelectionRun,
+    ImageSelectionSequenceDirection,
+    create_duplicate_range_decision,
+    create_group_rejection_decision,
+    create_group_restore_decision,
     create_image_selection_run,
     create_manual_decision,
+    create_missing_image_decision,
+    create_range_confirmation_decision,
     record_image_selection_output,
     safe_relative_path,
     validate_candidate,
 )
+from game_predictor_api.domain.jobs import (
+    Job,
+    JobStatus,
+    reopen_completed_job_for_revision,
+    requeue_job,
+)
 
 MAX_MANUAL_IMAGE_BYTES = 50 * 1024 * 1024
+BROWSER_SELECTION_DIRECTORY = "browser-selections"
+BROWSER_SELECTION_MANIFEST = "_browser_manifest.json"
+
+
+def _public_output_file_name(
+    output_relative_path: str,
+    range_start: int | None,
+    range_end: int | None,
+) -> str:
+    """Return the stable public name for current and historical manifests."""
+
+    if range_start is not None and range_end is not None:
+        return f"seq_{range_start}-{range_end}.jpg"
+    return PurePosixPath(safe_relative_path(output_relative_path)).name
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +74,25 @@ class ImageSelectionHandoffSource:
     run: ImageSelectionRun
     output_directory: Path
     supported_file_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionOutputFile:
+    file_name: str
+    group_order: int
+    range_start: int | None
+    range_end: int | None
+    checksum_sha256: str
+    size_bytes: int
+    reason_codes: tuple[str, ...]
+    selection_method: Literal["automatic", "manual"]
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionOutput:
+    run_id: UUID
+    manifest_sha256: str
+    files: tuple[ImageSelectionOutputFile, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,11 +218,12 @@ class ManualImageSelectionFileStore:
             "contract": "image-selection-manual-decisions-v1",
             "decisions": [
                 {
-                    "candidateId": str(item.candidate_id),
+                    "candidateId": (None if item.candidate_id is None else str(item.candidate_id)),
                     "createdAt": item.created_at.isoformat(),
                     "groupId": str(item.group_id),
                     "idempotencyKey": str(item.idempotency_key),
                     "payloadSha256": item.payload_sha256,
+                    "resolution": item.resolution.value,
                     "rangeEnd": item.range_end,
                     "rangeStart": item.range_start,
                     "revision": item.revision,
@@ -209,13 +260,25 @@ class ImageSelectionRepository(Protocol):
         game_id: UUID,
         input_manifest_sha256: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> ImageSelectionRun | None: ...
 
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]: ...
 
     def get_run(self, run_id: UUID) -> ImageSelectionRun | None: ...
 
+    def list_runs(
+        self,
+        *,
+        game_id: UUID,
+        offset: int,
+        limit: int,
+    ) -> Sequence[ImageSelectionRun]: ...
+
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun: ...
+
+    def invalidate_output(self, run_id: UUID) -> ImageSelectionRun: ...
 
     def list_groups(
         self,
@@ -239,6 +302,14 @@ class ImageSelectionRepository(Protocol):
         self, *, run_id: UUID, candidate_id: UUID
     ) -> ImageSelectionCandidate | None: ...
 
+    def list_candidates(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        limit: int,
+    ) -> Sequence[ImageSelectionCandidate]: ...
+
     def find_candidate_by_checksum(
         self, *, run_id: UUID, group_id: UUID, checksum_sha256: str
     ) -> ImageSelectionCandidate | None: ...
@@ -258,6 +329,10 @@ class ImageSelectionRepository(Protocol):
         decision: ImageSelectionManualDecision,
     ) -> tuple[ImageSelectionGroup, ImageSelectionManualDecision]: ...
 
+    def get_job_for_update(self, job_id: UUID) -> Job | None: ...
+
+    def save_job(self, job: Job) -> Job: ...
+
 
 class ImageSelectionService:
     def __init__(
@@ -265,10 +340,16 @@ class ImageSelectionService:
         repository: ImageSelectionRepository,
         *,
         artifact_root: Path | None = None,
+        browser_upload_root: Path | None = None,
         manual_file_store: ManualImageSelectionFileStore | None = None,
     ) -> None:
         self._repository = repository
         self._artifact_root = None if artifact_root is None else artifact_root.resolve()
+        self._browser_upload_root = (
+            None
+            if browser_upload_root is None
+            else browser_upload_root.resolve() / BROWSER_SELECTION_DIRECTORY
+        )
         self._manual_file_store = manual_file_store or (
             None if artifact_root is None else ManualImageSelectionFileStore(artifact_root)
         )
@@ -280,6 +361,10 @@ class ImageSelectionService:
         source_selection_id: UUID,
         input_manifest_sha256: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection = (
+            ImageSelectionSequenceDirection.ASCENDING
+        ),
+        first_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         if not self._repository.game_exists(game_id):
             raise ImageSelectionNotFoundError(
@@ -291,6 +376,8 @@ class ImageSelectionService:
             game_id=game_id,
             input_manifest_sha256=input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
         if existing is not None:
             return existing, False
@@ -299,6 +386,8 @@ class ImageSelectionService:
             source_selection_id=source_selection_id,
             input_manifest_sha256=input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
         return self._repository.add_run(run)
 
@@ -311,6 +400,111 @@ class ImageSelectionService:
                 details={"runId": str(run_id)},
             )
         return run
+
+    def list_runs(
+        self,
+        *,
+        game_id: UUID,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[tuple[ImageSelectionRun, ...], int | None]:
+        if offset < 0 or not 1 <= limit <= 100:
+            raise ImageSelectionError(
+                "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                "Run offset must be non-negative and limit must be between 1 and 100.",
+            )
+        if not self._repository.game_exists(game_id):
+            raise ImageSelectionNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        values = tuple(
+            self._repository.list_runs(
+                game_id=game_id,
+                offset=offset,
+                limit=limit + 1,
+            )
+        )
+        has_more = len(values) > limit
+        return values[:limit], (offset + limit if has_more else None)
+
+    def rerun(
+        self,
+        *,
+        run_id: UUID,
+        selector_fingerprint: str,
+        first_sequence_number: int | None = None,
+    ) -> tuple[ImageSelectionRun, bool]:
+        source_run = self.get_run(run_id)
+        effective_first_sequence_number = (
+            source_run.first_sequence_number
+            if first_sequence_number is None
+            else first_sequence_number
+        )
+        if (
+            selector_fingerprint
+            in {
+                HYBRID_BOUNDED_SELECTOR_MANIFEST_V104.fingerprint,
+                QUALITY_RECOVERY_SELECTOR_MANIFEST_V105.fingerprint,
+            }
+            and effective_first_sequence_number is None
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED",
+                "The current selector requires the first layout sequence number.",
+            )
+        if self._browser_upload_root is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
+                "The managed browser staging cannot be reused by this API process.",
+            )
+        source_root = (self._browser_upload_root / str(source_run.source_selection_id)).resolve()
+        manifest = source_root / BROWSER_SELECTION_MANIFEST
+        if (
+            not source_root.is_relative_to(self._browser_upload_root)
+            or not source_root.is_dir()
+            or not manifest.is_file()
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging is no longer available.",
+            )
+        try:
+            manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        except OSError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging cannot be read.",
+            ) from error
+        if manifest_sha256 != source_run.input_manifest_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_INPUT_MANIFEST_CHANGED",
+                "The previously uploaded image manifest has changed.",
+            )
+        rerun, created = self.create_run(
+            game_id=source_run.game_id,
+            source_selection_id=source_run.source_selection_id,
+            input_manifest_sha256=source_run.input_manifest_sha256,
+            selector_fingerprint=selector_fingerprint,
+            sequence_direction=source_run.sequence_direction,
+            first_sequence_number=effective_first_sequence_number,
+        )
+        if created or rerun.job.status not in {
+            JobStatus.CANCELLED,
+            JobStatus.FAILED,
+        }:
+            return rerun, created
+
+        locked_job = self._repository.get_job_for_update(rerun.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                "The existing image-selection job could not be locked for restart.",
+            )
+        if locked_job.status in {JobStatus.CANCELLED, JobStatus.FAILED}:
+            self._repository.save_job(requeue_job(locked_job))
+        return self.get_run(rerun.id), False
 
     def list_groups(
         self,
@@ -341,6 +535,33 @@ class ImageSelectionService:
             next_after_group_order=(items[-1].group_order if has_more and items else None),
         )
 
+    def list_group_candidates(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        limit: int = 20,
+    ) -> Sequence[ImageSelectionCandidate]:
+        if not 1 <= limit <= 500:
+            raise ImageSelectionError(
+                "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                "Candidate limit must be between 1 and 500.",
+            )
+        self.get_run(run_id)
+        if self._repository.get_group(run_id=run_id, group_id=group_id) is None:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_GROUP_NOT_FOUND",
+                "Image selection group does not exist.",
+                details={"groupId": str(group_id), "runId": str(run_id)},
+            )
+        return tuple(
+            self._repository.list_candidates(
+                run_id=run_id,
+                group_id=group_id,
+                limit=limit,
+            )
+        )
+
     def record_output(
         self,
         *,
@@ -363,12 +584,7 @@ class ImageSelectionService:
         display_name: str,
         content: bytes,
     ) -> ImageSelectionCandidate:
-        run = self.get_run(run_id)
-        if run.output_manifest_sha256 is not None:
-            raise ImageSelectionConflictError(
-                "IMAGE_SELECTION_ALREADY_PUBLISHED",
-                "A published run cannot accept another manual JPEG.",
-            )
+        self.get_run(run_id)
         group = self._get_manual_group(run_id=run_id, group_id=group_id)
         if self._manual_file_store is None:
             raise ImageSelectionConflictError(
@@ -429,6 +645,14 @@ class ImageSelectionService:
         range_start: int | None,
         range_end: int | None,
     ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._repository.get_job_for_update(run.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_JOB_MISSING",
+                "The image-selection job no longer exists.",
+            )
+        run = self.get_run(run_id)
         group = self._get_manual_group(run_id=run_id, group_id=group_id)
         candidate = self._repository.get_candidate(
             run_id=run_id,
@@ -474,13 +698,11 @@ class ImageSelectionService:
                 created_at=group.created_at,
                 updated_at=existing.created_at,
             )
-            return ImageSelectionManualApproval(replay_group, existing)
-        run = self.get_run(run_id)
-        if run.output_manifest_sha256 is not None:
-            raise ImageSelectionConflictError(
-                "IMAGE_SELECTION_ALREADY_PUBLISHED",
-                "A published selection is immutable; start a new run to change it.",
+            self._resume_completed_manual_review(
+                run_id=run_id,
+                locked_job=locked_job,
             )
+            return ImageSelectionManualApproval(replay_group, existing)
         for other in self._all_groups(run_id):
             if (
                 other.id != group.id
@@ -488,6 +710,8 @@ class ImageSelectionService:
                 in {
                     ImageSelectionGroupStatus.AUTO_SELECTED,
                     ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                    ImageSelectionGroupStatus.MISSING_IMAGE,
+                    ImageSelectionGroupStatus.RANGE_CONFIRMED,
                 }
                 and other.range_start == proposed_group.range_start
                 and other.range_end == proposed_group.range_end
@@ -505,6 +729,342 @@ class ImageSelectionService:
                 run_id=run_id,
                 decisions=self._repository.list_manual_decisions(run_id=run_id),
             )
+        self._reopen_published_run_after_manual_revision(
+            run=run,
+            locked_job=locked_job,
+        )
+        self._resume_completed_manual_review(
+            run_id=run_id,
+            locked_job=locked_job,
+        )
+        return ImageSelectionManualApproval(saved_group, saved_decision)
+
+    def continue_without_image(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        idempotency_key: UUID,
+        range_start: int | None,
+        range_end: int | None,
+    ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._repository.get_job_for_update(run.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_JOB_MISSING",
+                "The image-selection job no longer exists.",
+            )
+        run = self.get_run(run_id)
+        group = self._get_manual_group(run_id=run_id, group_id=group_id)
+        existing = self._repository.get_manual_decision(idempotency_key)
+        proposed_group, proposed = create_missing_image_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            range_start=range_start,
+            range_end=range_end,
+            revision=(
+                existing.revision
+                if existing is not None
+                else self._repository.next_manual_revision(
+                    run_id=run_id,
+                    group_id=group_id,
+                )
+            ),
+        )
+        if existing is not None:
+            if existing.payload_sha256 != proposed.payload_sha256:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            replay_group = replace(
+                group,
+                range_start=existing.range_start,
+                range_end=existing.range_end,
+                status=ImageSelectionGroupStatus.MISSING_IMAGE,
+                selected_candidate_id=None,
+                updated_at=existing.created_at,
+            )
+            self._resume_completed_manual_review(
+                run_id=run_id,
+                locked_job=locked_job,
+            )
+            return ImageSelectionManualApproval(replay_group, existing)
+        for other in self._all_groups(run_id):
+            if (
+                proposed_group.range_start is not None
+                and other.id != group.id
+                and other.status
+                in {
+                    ImageSelectionGroupStatus.AUTO_SELECTED,
+                    ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                    ImageSelectionGroupStatus.MISSING_IMAGE,
+                    ImageSelectionGroupStatus.RANGE_CONFIRMED,
+                }
+                and other.range_start == proposed_group.range_start
+                and other.range_end == proposed_group.range_end
+            ):
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_RANGE_CONFLICT",
+                    "Another resolved group already uses this sequence range.",
+                )
+        saved_group, saved_decision = self._repository.save_manual_decision(
+            group=proposed_group,
+            decision=proposed,
+        )
+        if self._manual_file_store is not None:
+            self._manual_file_store.write_decision_manifest(
+                run_id=run_id,
+                decisions=self._repository.list_manual_decisions(run_id=run_id),
+            )
+        self._reopen_published_run_after_manual_revision(
+            run=run,
+            locked_job=locked_job,
+        )
+        self._resume_completed_manual_review(
+            run_id=run_id,
+            locked_job=locked_job,
+        )
+        return ImageSelectionManualApproval(saved_group, saved_decision)
+
+    def discard_duplicate_range(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        idempotency_key: UUID,
+        range_start: int,
+        range_end: int,
+    ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._repository.get_job_for_update(run.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_JOB_MISSING",
+                "The image-selection job no longer exists.",
+            )
+        run = self.get_run(run_id)
+        group = self._get_manual_group(run_id=run_id, group_id=group_id)
+        existing = self._repository.get_manual_decision(idempotency_key)
+        proposed_group, proposed = create_duplicate_range_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            range_start=range_start,
+            range_end=range_end,
+            revision=(
+                existing.revision
+                if existing is not None
+                else self._repository.next_manual_revision(
+                    run_id=run_id,
+                    group_id=group_id,
+                )
+            ),
+        )
+        if existing is not None:
+            if existing.payload_sha256 != proposed.payload_sha256:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            replay_group = replace(
+                group,
+                range_start=existing.range_start,
+                range_end=existing.range_end,
+                status=ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                selected_candidate_id=None,
+                updated_at=existing.created_at,
+            )
+            self._resume_completed_manual_review(
+                run_id=run_id,
+                locked_job=locked_job,
+            )
+            return ImageSelectionManualApproval(replay_group, existing)
+        duplicate_exists = any(
+            other.id != group.id
+            and other.status
+            in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.MISSING_IMAGE,
+                ImageSelectionGroupStatus.RANGE_CONFIRMED,
+            }
+            and other.range_start == range_start
+            and other.range_end == range_end
+            for other in self._all_groups(run_id)
+        )
+        if not duplicate_exists:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND",
+                "No other resolved group uses this sequence range.",
+            )
+        saved_group, saved_decision = self._repository.save_manual_decision(
+            group=proposed_group,
+            decision=proposed,
+        )
+        if self._manual_file_store is not None:
+            self._manual_file_store.write_decision_manifest(
+                run_id=run_id,
+                decisions=self._repository.list_manual_decisions(run_id=run_id),
+            )
+        self._reopen_published_run_after_manual_revision(
+            run=run,
+            locked_job=locked_job,
+        )
+        self._resume_completed_manual_review(
+            run_id=run_id,
+            locked_job=locked_job,
+        )
+        return ImageSelectionManualApproval(saved_group, saved_decision)
+
+    def confirm_automatic_range(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        idempotency_key: UUID,
+        range_start: int,
+        range_end: int,
+    ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._lock_run_job(run)
+        group = self._get_group(run_id=run_id, group_id=group_id)
+        if group.status not in {
+            ImageSelectionGroupStatus.RANGE_REQUIRED,
+            ImageSelectionGroupStatus.RANGE_CONFIRMED,
+        }:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_GROUP_NOT_RANGE_REQUIRED",
+                "This group does not require a manual sequence range.",
+            )
+        if group.selected_candidate_id is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_CANDIDATE_MISMATCH",
+                "The range-review group has no automatic representative.",
+            )
+        candidate = self._repository.get_candidate(
+            run_id=run_id,
+            candidate_id=group.selected_candidate_id,
+        )
+        if candidate is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_CANDIDATE_MISMATCH",
+                "The automatic representative no longer exists.",
+            )
+        existing = self._repository.get_manual_decision(idempotency_key)
+        proposed_group, proposed = create_range_confirmation_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            candidate=candidate,
+            range_start=range_start,
+            range_end=range_end,
+            revision=(
+                existing.revision
+                if existing is not None
+                else self._repository.next_manual_revision(
+                    run_id=run_id,
+                    group_id=group_id,
+                )
+            ),
+        )
+        if existing is not None:
+            if existing.payload_sha256 != proposed.payload_sha256:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            return ImageSelectionManualApproval(
+                replace(proposed_group, updated_at=existing.created_at),
+                existing,
+            )
+        self._assert_range_available(run_id=run_id, group=proposed_group)
+        return self._save_review_decision(
+            run=run,
+            locked_job=locked_job,
+            group=proposed_group,
+            decision=proposed,
+        )
+
+    def reject_review_group(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        idempotency_key: UUID,
+    ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._lock_run_job(run)
+        group = self._get_group(run_id=run_id, group_id=group_id)
+        existing = self._repository.get_manual_decision(idempotency_key)
+        proposed_group, proposed = create_group_rejection_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            revision=(
+                existing.revision
+                if existing is not None
+                else self._repository.next_manual_revision(
+                    run_id=run_id,
+                    group_id=group_id,
+                )
+            ),
+        )
+        if existing is not None:
+            if existing.payload_sha256 != proposed.payload_sha256:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            self._resume_completed_manual_review(run_id=run_id, locked_job=locked_job)
+            return ImageSelectionManualApproval(
+                replace(proposed_group, updated_at=existing.created_at),
+                existing,
+            )
+        return self._save_review_decision(
+            run=run,
+            locked_job=locked_job,
+            group=proposed_group,
+            decision=proposed,
+        )
+
+    def restore_rejected_group(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        idempotency_key: UUID,
+    ) -> ImageSelectionManualApproval:
+        run = self.get_run(run_id)
+        locked_job = self._lock_run_job(run)
+        group = self._get_group(run_id=run_id, group_id=group_id)
+        existing = self._repository.get_manual_decision(idempotency_key)
+        if existing is not None:
+            if (
+                existing.run_id != run_id
+                or existing.group_id != group_id
+                or existing.resolution is not ImageSelectionManualResolution.RESTORED_GROUP
+            ):
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_IDEMPOTENCY_CONFLICT",
+                    "The idempotency key was already used for another decision.",
+                )
+            return ImageSelectionManualApproval(group, existing)
+        proposed_group, proposed = create_group_restore_decision(
+            idempotency_key=idempotency_key,
+            group=group,
+            revision=self._repository.next_manual_revision(
+                run_id=run_id,
+                group_id=group_id,
+            ),
+        )
+        saved_group, saved_decision = self._repository.save_manual_decision(
+            group=proposed_group,
+            decision=proposed,
+        )
+        self._write_manual_decision_manifest(run_id)
+        self._reopen_published_run_after_manual_revision(
+            run=run,
+            locked_job=locked_job,
+        )
         return ImageSelectionManualApproval(saved_group, saved_decision)
 
     def get_manual_file(
@@ -530,6 +1090,92 @@ class ImageSelectionService:
                 "Managed manual image storage is not configured.",
             )
         return self._manual_file_store.resolve(candidate)
+
+    def get_candidate_file(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        candidate_id: UUID,
+    ) -> tuple[Path, str]:
+        run = self.get_run(run_id)
+        candidate = self._repository.get_candidate(
+            run_id=run_id,
+            candidate_id=candidate_id,
+        )
+        if candidate is None or candidate.group_id != group_id:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                "The image-selection candidate JPEG does not exist.",
+            )
+        return self._resolve_candidate_path(run, candidate), str(
+            candidate.quality_metrics.get("displayName")
+            or Path(candidate.source_relative_path).name
+        )
+
+    def get_selected_group_file(
+        self,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+    ) -> tuple[Path, str]:
+        run = self.get_run(run_id)
+        group = self._repository.get_group(run_id=run_id, group_id=group_id)
+        if (
+            group is None
+            or group.selected_candidate_id is None
+            or group.range_start is None
+            or group.range_end is None
+            or group.status
+            not in {
+                ImageSelectionGroupStatus.AUTO_SELECTED,
+                ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.RANGE_CONFIRMED,
+            }
+        ):
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_GROUP_OUTPUT_NOT_READY",
+                "The group does not have a selected JPEG with a sequence range yet.",
+            )
+        candidate = self._repository.get_candidate(
+            run_id=run_id,
+            candidate_id=group.selected_candidate_id,
+        )
+        if candidate is None or candidate.group_id != group.id:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                "The selected group JPEG does not exist.",
+            )
+        path = self._resolve_candidate_path(run, candidate)
+        return path, f"seq_{group.range_start}-{group.range_end}.jpg"
+
+    def _resolve_candidate_path(
+        self,
+        run: ImageSelectionRun,
+        candidate: ImageSelectionCandidate,
+    ) -> Path:
+        if candidate.source_relative_path.startswith("data/working/is-manual/"):
+            if self._manual_file_store is None:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_STORAGE_UNAVAILABLE",
+                    "Managed manual image storage is not configured.",
+                )
+            return self._manual_file_store.resolve(candidate)
+        else:
+            if self._browser_upload_root is None:
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
+                    "The managed browser staging is unavailable.",
+                )
+            source_root = (self._browser_upload_root / str(run.source_selection_id)).resolve()
+            relative_parts = PurePosixPath(candidate.source_relative_path).parts
+            path = (source_root / Path(*relative_parts)).resolve()
+            if not path.is_relative_to(source_root) or not path.is_file():
+                raise ImageSelectionNotFoundError(
+                    "IMAGE_SELECTION_CANDIDATE_NOT_FOUND",
+                    "The selected group JPEG no longer exists in managed staging.",
+                )
+            return path
 
     def prepare_handoff(self, run_id: UUID) -> ImageSelectionHandoffSource:
         run = self.get_run(run_id)
@@ -568,6 +1214,7 @@ class ImageSelectionService:
             in {
                 ImageSelectionGroupStatus.COLLECTING,
                 ImageSelectionGroupStatus.MANUAL_REQUIRED,
+                ImageSelectionGroupStatus.RANGE_REQUIRED,
             }
             for group in groups
         ):
@@ -575,25 +1222,97 @@ class ImageSelectionService:
                 "IMAGE_SELECTION_NOT_READY",
                 "Every non-duplicate group must be resolved before handoff.",
             )
-        expected_ranges = {
-            (group.range_start, group.range_end)
+        expected_groups = {
+            group.group_order: (group.range_start, group.range_end)
             for group in groups
             if group.status
             in {
                 ImageSelectionGroupStatus.AUTO_SELECTED,
                 ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                ImageSelectionGroupStatus.RANGE_CONFIRMED,
             }
         }
-        manifest_ranges = {(entry.range_start, entry.range_end) for entry in manifest.entries}
-        if expected_ranges != manifest_ranges:
+        manifest_groups = {
+            entry.group_order: (entry.range_start, entry.range_end) for entry in manifest.entries
+        }
+        if expected_groups != manifest_groups:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_MANIFEST_MISMATCH",
-                "The curated output ranges differ from the durable group decisions.",
+                "The curated output groups differ from the durable group decisions.",
             )
         return ImageSelectionHandoffSource(
             run=run,
             output_directory=manifest_path.parent,
             supported_file_count=len(manifest.entries),
+        )
+
+    def get_output(self, run_id: UUID) -> ImageSelectionOutput:
+        source = self.prepare_handoff(run_id)
+        assert source.run.output_manifest_sha256 is not None
+        try:
+            manifest = verify_curated_image_manifest(
+                source.output_directory,
+                expected_manifest_sha256=source.run.output_manifest_sha256,
+                expected_run_id=source.run.id,
+            )
+        except (OSError, SelectionContractError) as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output manifest or one of its JPEG files changed.",
+            ) from error
+        return ImageSelectionOutput(
+            run_id=source.run.id,
+            manifest_sha256=manifest.checksum_sha256,
+            files=tuple(
+                ImageSelectionOutputFile(
+                    file_name=_public_output_file_name(
+                        entry.output_relative_path,
+                        entry.range_start,
+                        entry.range_end,
+                    ),
+                    group_order=entry.group_order,
+                    range_start=entry.range_start,
+                    range_end=entry.range_end,
+                    checksum_sha256=entry.output_checksum_sha256,
+                    size_bytes=entry.size_bytes,
+                    reason_codes=entry.reason_codes,
+                    selection_method=entry.selection_method,
+                )
+                for entry in manifest.entries
+            ),
+        )
+
+    def get_output_file(self, run_id: UUID, file_name: str) -> Path:
+        source = self.prepare_handoff(run_id)
+        assert source.run.output_manifest_sha256 is not None
+        assert source.run.output_manifest_relative_path is not None
+        try:
+            manifest = verify_curated_image_manifest(
+                source.output_directory,
+                expected_manifest_sha256=source.run.output_manifest_sha256,
+                expected_run_id=source.run.id,
+            )
+        except (OSError, SelectionContractError) as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_MANIFEST_MISMATCH",
+                "The curated output manifest or one of its JPEG files changed.",
+            ) from error
+        for entry in manifest.entries:
+            relative = PurePosixPath(entry.output_relative_path)
+            if (
+                _public_output_file_name(
+                    entry.output_relative_path,
+                    entry.range_start,
+                    entry.range_end,
+                )
+                == file_name
+            ):
+                return self._managed_path(
+                    str(PurePosixPath(source.run.output_manifest_relative_path).parent / relative)
+                )
+        raise ImageSelectionNotFoundError(
+            "IMAGE_SELECTION_OUTPUT_FILE_NOT_FOUND",
+            "The selected output JPEG does not exist.",
         )
 
     def _all_groups(self, run_id: UUID) -> tuple[ImageSelectionGroup, ...]:
@@ -614,6 +1333,39 @@ class ImageSelectionService:
             after_group_order = page[-1].group_order
         return tuple(values)
 
+    def _resume_completed_manual_review(
+        self,
+        *,
+        run_id: UUID,
+        locked_job: Job,
+    ) -> None:
+        if locked_job.status is not JobStatus.WAITING_FOR_REVIEW:
+            return
+        unresolved = {
+            ImageSelectionGroupStatus.COLLECTING,
+            ImageSelectionGroupStatus.MANUAL_REQUIRED,
+            ImageSelectionGroupStatus.RANGE_REQUIRED,
+        }
+        if any(group.status in unresolved for group in self._all_groups(run_id)):
+            return
+        self._repository.save_job(requeue_job(locked_job))
+
+    def _reopen_published_run_after_manual_revision(
+        self,
+        *,
+        run: ImageSelectionRun,
+        locked_job: Job,
+    ) -> None:
+        if run.output_manifest_sha256 is None:
+            return
+        if locked_job.status is not JobStatus.COMPLETED:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_REVISION_CONFLICT",
+                "A published selection can only be revised after its job completed.",
+            )
+        self._repository.invalidate_output(run.id)
+        self._repository.save_job(reopen_completed_job_for_revision(locked_job))
+
     def _get_manual_group(self, *, run_id: UUID, group_id: UUID) -> ImageSelectionGroup:
         self.get_run(run_id)
         group = self._repository.get_group(run_id=run_id, group_id=group_id)
@@ -625,12 +1377,87 @@ class ImageSelectionService:
         if group.status not in {
             ImageSelectionGroupStatus.MANUAL_REQUIRED,
             ImageSelectionGroupStatus.MANUALLY_SELECTED,
+            ImageSelectionGroupStatus.MISSING_IMAGE,
+            ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE,
         }:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_GROUP_NOT_MANUAL",
                 "This group does not require a manual representative.",
             )
         return group
+
+    def _get_group(self, *, run_id: UUID, group_id: UUID) -> ImageSelectionGroup:
+        self.get_run(run_id)
+        group = self._repository.get_group(run_id=run_id, group_id=group_id)
+        if group is None:
+            raise ImageSelectionNotFoundError(
+                "IMAGE_SELECTION_GROUP_NOT_FOUND",
+                "Image-selection group does not exist.",
+            )
+        return group
+
+    def _lock_run_job(self, run: ImageSelectionRun) -> Job:
+        locked_job = self._repository.get_job_for_update(run.job.id)
+        if locked_job is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_JOB_MISSING",
+                "The image-selection job no longer exists.",
+            )
+        return locked_job
+
+    def _assert_range_available(
+        self,
+        *,
+        run_id: UUID,
+        group: ImageSelectionGroup,
+    ) -> None:
+        for other in self._all_groups(run_id):
+            if (
+                other.id != group.id
+                and other.status
+                in {
+                    ImageSelectionGroupStatus.AUTO_SELECTED,
+                    ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                    ImageSelectionGroupStatus.MISSING_IMAGE,
+                    ImageSelectionGroupStatus.RANGE_CONFIRMED,
+                }
+                and other.range_start == group.range_start
+                and other.range_end == group.range_end
+            ):
+                raise ImageSelectionConflictError(
+                    "IMAGE_SELECTION_RANGE_CONFLICT",
+                    "Another selected group already uses this sequence range.",
+                )
+
+    def _write_manual_decision_manifest(self, run_id: UUID) -> None:
+        if self._manual_file_store is not None:
+            self._manual_file_store.write_decision_manifest(
+                run_id=run_id,
+                decisions=self._repository.list_manual_decisions(run_id=run_id),
+            )
+
+    def _save_review_decision(
+        self,
+        *,
+        run: ImageSelectionRun,
+        locked_job: Job,
+        group: ImageSelectionGroup,
+        decision: ImageSelectionManualDecision,
+    ) -> ImageSelectionManualApproval:
+        saved_group, saved_decision = self._repository.save_manual_decision(
+            group=group,
+            decision=decision,
+        )
+        self._write_manual_decision_manifest(run.id)
+        self._reopen_published_run_after_manual_revision(
+            run=run,
+            locked_job=locked_job,
+        )
+        self._resume_completed_manual_review(
+            run_id=run.id,
+            locked_job=locked_job,
+        )
+        return ImageSelectionManualApproval(saved_group, saved_decision)
 
     def _managed_path(self, relative_path: str) -> Path:
         assert self._artifact_root is not None

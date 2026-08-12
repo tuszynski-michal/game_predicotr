@@ -461,6 +461,35 @@ def test_verified_cohort_openapi_exposes_explicit_freeze_and_history() -> None:
     assert parameters["limit"]["schema"]["maximum"] == 100
 
 
+def test_verified_training_cohort_openapi_exposes_cumulative_preview_and_freeze() -> None:
+    schema = create_app(ApiSettings.from_environment({})).openapi()
+    root = "/api/v1/admin/games/{game_id}/verified-training-cohorts"
+
+    assert schema["paths"][f"{root}/preview"]["get"]["operationId"] == (
+        "previewVerifiedTrainingCohort"
+    )
+    assert schema["paths"][root]["post"]["operationId"] == ("freezeVerifiedTrainingCohort")
+    command = schema["components"]["schemas"]["VerifiedTrainingCohortFreezeCommand"]
+    assert set(command["required"]) == {
+        "idempotencyKey",
+        "createdBy",
+        "expectedManifestChecksumSha256",
+    }
+    assert (
+        schema["paths"]["/api/v1/admin/games/{game_id}/model-quality"]["get"]["operationId"]
+        == "getModelQuality"
+    )
+    preview = schema["components"]["schemas"]["VerifiedTrainingCohortPreviewResponse"]
+    assert {
+        "resolvedLayoutCount",
+        "cellSampleCount",
+        "sourceImageCount",
+        "pendingItemCount",
+        "rejectedItemCount",
+        "incompleteItemCount",
+    } <= set(preview["required"])
+
+
 def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> None:
     schema = create_app(ApiSettings.from_environment({})).openapi()
     status_path = schema["paths"]["/api/v1/admin/reviewer-ingress"]

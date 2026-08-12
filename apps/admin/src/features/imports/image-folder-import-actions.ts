@@ -15,6 +15,9 @@ export type ImageFolderImportClient = Pick<
   | 'cancelBrowserImageSelection'
   | 'getImageDatasetCompleteness'
   | 'getImageSequenceSourceSelection'
+  | 'registerCuratedImageImportSource'
+  | 'listCuratedImageImportSources'
+  | 'createNextCuratedImageImportBatch'
   | 'listJobs'
   | 'selectImageSequenceSource'
 >;

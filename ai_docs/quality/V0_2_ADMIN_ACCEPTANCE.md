@@ -1,7 +1,7 @@
 ---
 title: Version 0.2 Admin acceptance
 status: awaiting_owner_acceptance
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # Version 0.2 Admin acceptance
@@ -218,3 +218,21 @@ symboli, a produkcyjny Reviewer pokazał szkic `777 v0.2`, układ #8, kolejkę 4
 plansz i komplet symboli. Testy Admina przeszły 141/141, Reviewera 21/21, testy
 bootstrapu 10/10; typecheck/lint oraz produkcyjny build Reviewera również
 zakończyły się powodzeniem.
+
+Piętnasty pion TASK-0142 naprawił dwa problemy ręcznej geometrii ujawnione na
+rzeczywistych layoutach. Pozycja wskaźnika uwzględnia teraz skalowanie i puste
+pasy `object-fit: contain`, więc widoczny narożnik pozostaje trafialny niezależnie
+od proporcji obrazu. Po zapisie Reviewer przyjmuje item dokładnie z odpowiedzi
+komendy, a adresy planszy i cropów zawierają ich checksumy. Długi immutable
+cache nie może już pozostawić starego podglądu po zatwierdzeniu rewizji. Testy
+Reviewera przeszły 22/22 wraz z typecheckiem i lintem; ręczna regresja na
+layoutach wskazanych przez właściciela pozostaje do wykonania po wdrożeniu
+nowego builda Reviewera.
+
+Szesnasty pion TASK-0142 uzupełnił edycję symbolu o podgląd zapisanej grafiki.
+Akcja jest dostępna wyłącznie dla istniejącego obrazu i otwiera read-only modal
+z rzeczywistym checksum-bound assetem, pełną ścieżką, loadingiem, kontrolowanym
+błędem i retry. Podgląd nie zapisuje ani nie przełącza grafiki; dotychczasowy
+modal kandydatów zachowuje wyłączną odpowiedzialność za wybór. Testy Admina
+przeszły 162/162 wraz z typecheckiem, lintem i produkcyjnym buildem; testy
+endpointu symboli przeszły 10/10.

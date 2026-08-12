@@ -1,6 +1,8 @@
 'use client';
 
 import type {
+  CuratedImageImportJobPayload,
+  CuratedImageImportSourceResponse,
   ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
   ImageSelectionHandoffResponse,
@@ -18,6 +20,7 @@ import {
 } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 import {
   type ImageFolderImportClient,
@@ -34,7 +37,7 @@ interface ImageFolderImportPanelProps {
 }
 
 type ImageImportJob = JobResponse & {
-  readonly inputPayload: ImageImportJobPayload;
+  readonly inputPayload: ImageImportJobPayload | CuratedImageImportJobPayload;
 };
 
 type ImportAction =
@@ -42,13 +45,31 @@ type ImportAction =
   | 'start-import'
   | 'refresh-status'
   | 'inspect-sequence'
-  | 'choose-source';
+  | 'choose-source'
+  | 'register-curated'
+  | 'start-curated';
 
 function isImageImportJob(job: JobResponse): job is ImageImportJob {
   return (
     'importKind' in job.inputPayload &&
     job.inputPayload.importKind === 'image_directory'
   );
+}
+
+function curatedBatchTiming(job: JobResponse, imageCount: number) {
+  if (job.startedAt === null || job.finishedAt === null || imageCount < 1) {
+    return null;
+  }
+  const seconds = Math.max(
+    0,
+    (Date.parse(job.finishedAt) - Date.parse(job.startedAt)) / 1000,
+  );
+  if (!Number.isFinite(seconds)) return null;
+  return {
+    seconds,
+    secondsPerImage: seconds / imageCount,
+    imagesPerMinute: seconds === 0 ? 0 : (imageCount * 60) / seconds,
+  };
 }
 
 export function ImageFolderImportPanel({
@@ -62,22 +83,18 @@ export function ImageFolderImportPanel({
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
-  const initialSelection = handoffFolderSelection(initialHandoff);
   const [selection, setSelection] =
-    useState<ImageFolderSelectionResponse | null>(initialSelection);
-  const [selectionDisplayName, setSelectionDisplayName] = useState(
-    initialHandoff === null
-      ? ''
-      : `Wybrane zdjęcia · ${initialHandoff.runId.slice(0, 8)}`,
-  );
+    useState<ImageFolderSelectionResponse | null>(null);
+  const [selectionDisplayName, setSelectionDisplayName] = useState('');
+  const [curatedSources, setCuratedSources] = useState<
+    readonly CuratedImageImportSourceResponse[]
+  >([]);
+  const [curatedBatchSize, setCuratedBatchSize] = useState('10');
+  const registeredHandoffRef = useRef<string | null>(null);
   const [jobs, setJobs] = useState<readonly ImageImportJob[]>([]);
   const [activeAction, setActiveAction] = useState<ImportAction | null>(null);
   const [error, setError] = useState('');
-  const [feedback, setFeedback] = useState(
-    initialHandoff === null
-      ? ''
-      : 'Zweryfikowana paczka jest gotowa. Kliknij „Rozpocznij import”, aby jawnie uruchomić pipeline.',
-  );
+  const [feedback, setFeedback] = useState('');
   const [completeness, setCompleteness] =
     useState<ImageDatasetCompletenessResponse | null>(null);
   const [sequenceNumber, setSequenceNumber] = useState('');
@@ -91,13 +108,14 @@ export function ImageFolderImportPanel({
   const busy = activeAction !== null;
 
   const refreshJobs = useCallback(async () => {
-    const [jobsResult, completenessResult] = await Promise.all([
+    const [jobsResult, completenessResult, curatedResult] = await Promise.all([
       api.listJobs({
         gameId,
         jobType: 'import',
         limit: 20,
       }),
       api.getImageDatasetCompleteness(gameId),
+      api.listCuratedImageImportSources(gameId),
     ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
       setJobs(jobsResult.data.filter(isImageImportJob));
@@ -107,6 +125,9 @@ export function ImageFolderImportPanel({
       completenessResult.data !== undefined
     ) {
       setCompleteness(completenessResult.data);
+    }
+    if (curatedResult.error === undefined && curatedResult.data !== undefined) {
+      setCuratedSources(curatedResult.data);
     }
   }, [api, gameId]);
 
@@ -125,6 +146,50 @@ export function ImageFolderImportPanel({
       cancelled = true;
     };
   }, [refreshJobs]);
+
+  useEffect(() => {
+    if (
+      initialHandoff === null ||
+      initialHandoff.gameId !== gameId ||
+      registeredHandoffRef.current === initialHandoff.runId
+    ) {
+      return;
+    }
+    registeredHandoffRef.current = initialHandoff.runId;
+    setActiveAction('register-curated');
+    setError('');
+    void api
+      .registerCuratedImageImportSource({
+        gameId,
+        imageSelectionRunId: initialHandoff.runId,
+      })
+      .then((result) => {
+        if (result.error !== undefined || result.data === undefined) {
+          setError(
+            apiErrorMessage(
+              result.error,
+              'Nie udało się przygotować paczki do importu partiami.',
+            ),
+          );
+          registeredHandoffRef.current = null;
+          return;
+        }
+        const source = result.data;
+        setCuratedSources((current) => [
+          source,
+          ...current.filter((item) => item.id !== source.id),
+        ]);
+        setFeedback(
+          `Paczka ma ${source.totalEntries.toLocaleString('pl-PL')} zdjęć. Wybierz liczbę kolejnych zdjęć do przetworzenia.`,
+        );
+        onHandoffConsumed?.();
+      })
+      .catch(() => {
+        registeredHandoffRef.current = null;
+        setError('Nie udało się przygotować paczki do importu partiami.');
+      })
+      .finally(() => setActiveAction(null));
+  }, [api, gameId, initialHandoff, onHandoffConsumed]);
 
   async function chooseFolder(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget;
@@ -191,6 +256,53 @@ export function ImageFolderImportPanel({
       );
     } catch {
       setError('Nie udało się rozpocząć importu. Spróbuj ponownie.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function startCuratedBatch(source: CuratedImageImportSourceResponse) {
+    const requested = Number(curatedBatchSize);
+    if (!Number.isSafeInteger(requested) || requested < 1) {
+      setError('Podaj dodatnią liczbę zdjęć w partii.');
+      return;
+    }
+    if (busy || source.remainingEntries < 1) return;
+    setActiveAction('start-curated');
+    setError('');
+    setFeedback('');
+    try {
+      const result = await api.createNextCuratedImageImportBatch(source.id, {
+        imageCount: Math.min(requested, source.remainingEntries),
+      });
+      if (result.error !== undefined || result.data === undefined) {
+        setError(
+          apiErrorMessage(
+            result.error,
+            'Nie udało się uruchomić kolejnej partii zdjęć.',
+          ),
+        );
+        return;
+      }
+      const updated = result.data;
+      setCuratedSources((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      const batch = updated.batches.at(-1);
+      if (batch !== undefined && isImageImportJob(batch.job)) {
+        const imageJob = batch.job;
+        setJobs((current) => [
+          imageJob,
+          ...current.filter((item) => item.id !== imageJob.id),
+        ]);
+      }
+      setFeedback(
+        batch === undefined
+          ? 'Kolejna partia została uruchomiona.'
+          : `Uruchomiono partię ${batch.batchNumber}: zdjęcia ${batch.startIndex + 1}–${batch.endIndex}.`,
+      );
+    } catch {
+      setError('Nie udało się uruchomić kolejnej partii zdjęć.');
     } finally {
       setActiveAction(null);
     }
@@ -280,6 +392,126 @@ export function ImageFolderImportPanel({
         </p>
       ) : null}
       {feedback ? <p className="feedbackBanner">{feedback}</p> : null}
+
+      {activeAction === 'register-curated' ? (
+        <p className="feedbackBanner" aria-live="polite">
+          Przygotowywanie paczki z Selekcji Zdjęć…
+        </p>
+      ) : null}
+
+      {curatedSources.map((source) => {
+        const latestBatch = source.batches.at(-1);
+        const batchBlocked =
+          latestBatch !== undefined &&
+          !['waiting_for_review', 'completed'].includes(latestBatch.job.status);
+        return (
+          <section className="curatedImportCard" key={source.id}>
+            <header className="importCompletenessHeader">
+              <div>
+                <p className="eyebrow">Paczka z Selekcji Zdjęć</p>
+                <h3>
+                  {source.processedEntries.toLocaleString('pl-PL')} /{' '}
+                  {source.totalEntries.toLocaleString('pl-PL')} przetworzonych
+                </h3>
+                <p>
+                  Run {source.imageSelectionRunId.slice(0, 8)} · kolejność z
+                  manifestu
+                </p>
+              </div>
+              <strong className="importCompletionBadge">
+                {source.remainingEntries.toLocaleString('pl-PL')} pozostało
+              </strong>
+            </header>
+            <dl className="curatedImportMetrics">
+              <div className="importMetric">
+                <dt>Wszystkie zdjęcia</dt>
+                <dd>{source.totalEntries.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div className="importMetric">
+                <dt>Zarezerwowane</dt>
+                <dd>{source.reservedEntries.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div className="importMetric">
+                <dt>Zakończony pipeline</dt>
+                <dd>{source.processedEntries.toLocaleString('pl-PL')}</dd>
+              </div>
+              <div className="importMetric">
+                <dt>Błędy</dt>
+                <dd>{source.failedEntries.toLocaleString('pl-PL')}</dd>
+              </div>
+            </dl>
+            <div className="curatedImportControls">
+              <label>
+                <span>Liczba kolejnych zdjęć</span>
+                <input
+                  inputMode="numeric"
+                  max={Math.max(1, source.remainingEntries)}
+                  min={1}
+                  onChange={(event) =>
+                    setCuratedBatchSize(event.currentTarget.value)
+                  }
+                  type="number"
+                  value={curatedBatchSize}
+                />
+              </label>
+              <button
+                aria-busy={activeAction === 'start-curated'}
+                className="primaryButton"
+                disabled={busy || batchBlocked || source.remainingEntries < 1}
+                onClick={() => void startCuratedBatch(source)}
+                type="button"
+              >
+                {activeAction === 'start-curated'
+                  ? 'Uruchamianie…'
+                  : source.remainingEntries < 1
+                    ? 'Wszystkie zdjęcia wykorzystane'
+                    : 'Przetwórz kolejne zdjęcia'}
+              </button>
+            </div>
+            {latestBatch !== undefined ? (
+              <p className="curatedImportStatus">
+                Ostatnia partia #{latestBatch.batchNumber}: zdjęcia{' '}
+                {latestBatch.startIndex + 1}–{latestBatch.endIndex} ·{' '}
+                {latestBatch.job.status} · {latestBatch.job.progress.current}/
+                {latestBatch.job.progress.total ?? '—'}
+              </p>
+            ) : (
+              <p className="curatedImportStatus">
+                Nie uruchomiono jeszcze żadnej partii. Domyślna liczba to 10.
+              </p>
+            )}
+            {source.batches.length > 0 ? (
+              <ol className="curatedBatchHistory" aria-label="Pomiary partii">
+                {[...source.batches]
+                  .reverse()
+                  .slice(0, 10)
+                  .map((batch) => {
+                    const imageCount = batch.endIndex - batch.startIndex;
+                    const timing = curatedBatchTiming(batch.job, imageCount);
+                    return (
+                      <li key={batch.id}>
+                        <strong>#{batch.batchNumber}</strong>
+                        <span>{imageCount.toLocaleString('pl-PL')} zdjęć</span>
+                        <span>{batch.job.status}</span>
+                        <span>
+                          {timing === null
+                            ? 'Pomiar po zakończeniu'
+                            : `${timing.seconds.toFixed(1)} s · ${timing.secondsPerImage.toFixed(2)} s/zdj. · ${timing.imagesPerMinute.toFixed(1)} zdj./min`}
+                        </span>
+                      </li>
+                    );
+                  })}
+              </ol>
+            ) : null}
+            {batchBlocked ? (
+              <p className="curatedImportStatus">
+                Następna partia będzie dostępna po zakończeniu bieżącego joba.
+                Jeśli job zakończy się błędem, wznów go w zakładce Joby.
+              </p>
+            ) : null}
+          </section>
+        );
+      })}
 
       <div className="importActionToolbar">
         <div className="importActionButtons">
@@ -528,19 +760,4 @@ export function ImageFolderImportPanel({
       </section>
     </section>
   );
-}
-
-function handoffFolderSelection(
-  handoff: ImageSelectionHandoffResponse | null,
-): ImageFolderSelectionResponse | null {
-  if (handoff === null) return null;
-  return {
-    expiresAt: handoff.expiresAt,
-    inputManifestSha256: null,
-    path: null,
-    purpose: 'layout_import',
-    selectionToken: handoff.selectionToken,
-    status: 'selected',
-    supportedFileCount: handoff.supportedFileCount,
-  };
 }

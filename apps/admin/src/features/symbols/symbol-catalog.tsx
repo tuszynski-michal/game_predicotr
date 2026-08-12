@@ -34,6 +34,7 @@ import {
 } from '@/features/symbols/symbol-catalog-state';
 import { SymbolBootstrapPanel } from '@/features/symbols/symbol-bootstrap-panel';
 import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
+import { SymbolImagePreviewModal } from '@/features/symbols/symbol-image-preview-modal';
 
 type LoadState = 'loading' | 'ready' | 'error';
 type EditorState =
@@ -80,6 +81,8 @@ export function SymbolCatalog({
   );
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [imagePickerSymbol, setImagePickerSymbol] =
+    useState<SymbolResponse | null>(null);
+  const [imagePreviewSymbol, setImagePreviewSymbol] =
     useState<SymbolResponse | null>(null);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
@@ -197,6 +200,7 @@ export function SymbolCatalog({
     setFeedback(null);
     setArchiveCandidateId(null);
     setImagePickerSymbol(null);
+    setImagePreviewSymbol(null);
   }
 
   function openEditEditor(symbol: SymbolResponse) {
@@ -380,6 +384,11 @@ export function SymbolCatalog({
               mode={editor.mode}
               onCancel={closeEditor}
               onChange={setDraft}
+              onImagePreview={
+                editor.mode === 'edit' && editor.symbol.imagePath !== null
+                  ? () => setImagePreviewSymbol(editor.symbol)
+                  : undefined
+              }
               onSubmit={submitSymbol}
             />
           ) : null}
@@ -428,6 +437,16 @@ export function SymbolCatalog({
               symbol={imagePickerSymbol}
             />
           ) : null}
+          {imagePreviewSymbol ? (
+            <SymbolImagePreviewModal
+              imageUrl={api.symbolImageAssetUrl(
+                imagePreviewSymbol.gameId,
+                imagePreviewSymbol.id,
+              )}
+              onClose={() => setImagePreviewSymbol(null)}
+              symbol={imagePreviewSymbol}
+            />
+          ) : null}
         </>
       ) : null}
     </section>
@@ -441,6 +460,7 @@ interface SymbolEditorProps {
   readonly mode: 'create' | 'edit';
   readonly onCancel: () => void;
   readonly onChange: (draft: SymbolDraft) => void;
+  readonly onImagePreview?: () => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
@@ -451,6 +471,7 @@ function SymbolEditor({
   mode,
   onCancel,
   onChange,
+  onImagePreview,
   onSubmit,
 }: SymbolEditorProps) {
   return (
@@ -628,20 +649,32 @@ function SymbolEditor({
 
         <label className="imagePathField">
           <span>Ścieżka obrazu referencyjnego</span>
-          <input
-            autoComplete="off"
-            disabled={isSubmitting}
-            maxLength={500}
-            name="imagePath"
-            onChange={(event) =>
-              onChange({ ...draft, imagePath: event.currentTarget.value })
-            }
-            placeholder="symbols/blazing-hot/s12.png"
-            value={draft.imagePath}
-          />
+          <div className="imagePathControlRow">
+            <input
+              autoComplete="off"
+              disabled={isSubmitting}
+              maxLength={500}
+              name="imagePath"
+              onChange={(event) =>
+                onChange({ ...draft, imagePath: event.currentTarget.value })
+              }
+              placeholder="symbols/blazing-hot/s12.png"
+              value={draft.imagePath}
+            />
+            {onImagePreview ? (
+              <button
+                className="secondaryButton"
+                disabled={isSubmitting}
+                onClick={onImagePreview}
+                type="button"
+              >
+                Podgląd
+              </button>
+            ) : null}
+          </div>
           <small>
             Opcjonalna ścieżka względna POSIX. Panel zapisuje metadane, nie
-            zawartość pliku.
+            zawartość pliku. Podgląd pokazuje ostatnio zapisaną grafikę.
           </small>
         </label>
 

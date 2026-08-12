@@ -81,6 +81,7 @@ class MemoryImageBatchStore:
     def __init__(self) -> None:
         self.executions: dict[str, ImageFileExecution] = {}
         self.associations: dict[UUID, list[tuple[int, str, str]]] = {}
+        self.batch_stats_calls = 0
 
     def register(
         self,
@@ -180,6 +181,7 @@ class MemoryImageBatchStore:
         *,
         pipeline_fingerprint: str,
     ) -> ImageBatchStats:
+        self.batch_stats_calls += 1
         items = self._items(job_id, pipeline_fingerprint)
         executions = [item.execution for item in items]
         return ImageBatchStats(
@@ -270,6 +272,10 @@ class ReviewAwareExecutor:
     def __init__(self, *, review_resolved: bool = False) -> None:
         self.review_resolved = review_resolved
         self.calls: list[tuple[str, str]] = []
+        self.rehydrated: list[str] = []
+
+    def rehydrate(self, candidate: ImageBatchCandidate) -> None:
+        self.rehydrated.append(candidate.source_relative_path)
 
     def execute_stage(
         self,
@@ -407,15 +413,17 @@ def test_review_files_do_not_block_diagnostics_and_resume_to_completion() -> Non
         ImageBatchHandler(store, executor)(cast(object, context), job)
 
     assert context.waiting is True
-    assert executor.calls[:12] == [
+    assert executor.calls == [
         (path, stage)
         for path in ("session/page-001.jpg", "session/page-002.jpg")
-        for stage in PIPELINE_STAGES[:6]
+        for stage in PIPELINE_STAGES[:7]
     ]
-    assert executor.calls[12:] == [
-        ("session/page-001.jpg", "manual_review"),
-        ("session/page-002.jpg", "manual_review"),
-    ]
+    assert executor.rehydrated == []
+    assert store.batch_stats_calls == 2
+    assert context.checkpoints[-1]["current"] == 2
+    assert context.checkpoints[-1]["success_count"] == 0
+    assert context.checkpoints[-1]["failure_count"] == 0
+    assert context.checkpoints[-1]["review_count"] == 2
     assert store.batch_stats(
         job.id,
         pipeline_fingerprint=PIPELINE_FINGERPRINT,
@@ -435,6 +443,27 @@ def test_review_files_do_not_block_diagnostics_and_resume_to_completion() -> Non
         ("session/page-002.jpg", "manual_review"),
         ("session/page-002.jpg", "validation"),
     ]
+    assert executor.rehydrated == [
+        "session/page-001.jpg",
+        "session/page-002.jpg",
+    ]
+    assert resumed_context.checkpoints[-1]["current"] == 2
+    assert resumed_context.checkpoints[-1]["success_count"] == 2
+    assert resumed_context.checkpoints[-1]["failure_count"] == 0
+    assert resumed_context.checkpoints[-1]["review_count"] == 2
+
+
+def test_batch_stats_aggregation_count_is_constant_across_all_file_stages() -> None:
+    job = _leased_image_job()
+    store = MemoryImageBatchStore()
+    _register_two(store, job)
+    executor = ReviewAwareExecutor()
+
+    with pytest.raises(ExecutionStopped, match="waiting_for_review"):
+        ImageBatchHandler(store, executor)(cast(object, RecordingContext(job)), job)
+
+    assert len(executor.calls) == len(PIPELINE_STAGES[:7]) * 2
+    assert store.batch_stats_calls == 2
 
 
 def test_restart_resumes_after_persisted_file_checkpoint() -> None:

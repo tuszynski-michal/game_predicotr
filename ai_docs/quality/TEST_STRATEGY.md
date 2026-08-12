@@ -1,7 +1,7 @@
 ---
 title: Test strategy
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-05
 ---
 
 # Strategia testów
@@ -127,6 +127,10 @@ Od M2, na testowym PostgreSQL:
   liczników,
 - anulowanie przy bezpiecznym checkpointcie oraz zwolnienie slotu po błędzie,
 - konkurencyjny claim dwóch procesów na fizycznym PostgreSQL,
+- równoległy claim general i image-selection, blokada drugiego procesu w każdym
+  lane oraz niezależne przejęcie kolejnego joba po zwolnieniu właściwego slotu,
+- odzyskanie wygasłego lease, fencing starego tokenu i anulowanie jednego lane
+  bez zmiany aktywnego lease ani kolejki drugiego lane,
 - złożony klucz payoutu, FK do layoutu i nieujemny wynik,
 - bounded keyset batch layoutów oraz idempotentny upsert bez duplikatów,
 - wznowienie payout joba od ostatniego checkpointu bez pominięcia sekwencji,
@@ -576,6 +580,9 @@ brak uprawnienia `INTERNET`.
   dopuszczalne automatyczne reprezentanty,
 - przypadki obejmują kąty, blur, refleks, zasłonięcie, clipping, strony 1–9,
   końcową stronę krótszą, późniejsze duplikaty i skoki numeracji,
+- czytelna siatka numerów wybiera najlepszy dekodowalny obraz także wtedy, gdy
+  plansze są częściowo zasłonięte, rozmyte albo wymagają późniejszego ręcznego
+  uzupełnienia; uszkodzony JPEG i konflikt zakresu nadal blokują wybór,
 - fałszywe scalenie dwóch zakresów ma tolerancję zero; wątpliwość ma przejść do
   `manual_required`,
 - test portów udowadnia, że selektor nie wywołuje croppera 3×5 ani symbol ONNX,
@@ -590,8 +597,11 @@ brak uprawnienia `INTERNET`.
 - benchmark `image-selection-scale-benchmark-v1` używa produkcyjnego taniego
   skanu oraz niezależnego kontraktu adnotacji; profile smoke/10k/30k zapisują
   kanoniczne raporty, a wrapper PowerShell wymusza timeout i cleanup katalogu
-  roboczego. Sparse range verification jest liczona jako `grupy × top-k`, ale
-  nie jest pomiarem jakości ani czasu prywatnego modelu OCR.
+  roboczego. Sparse range verification pozostaje ograniczona przez
+  `grupy × top-k`; regresja v8 dodatkowo wymaga jednej weryfikacji dla grupy,
+  której pierwszy kandydat daje zakres, oraz przejścia do drugiego kandydata,
+  gdy pierwszy nie daje zakresu. Benchmark nie jest pomiarem jakości ani czasu
+  prywatnego modelu OCR.
 
 ## Test data
 

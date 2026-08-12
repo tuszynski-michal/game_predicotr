@@ -9,6 +9,12 @@ import type {
 } from './client';
 import { client } from './client.gen';
 import type {
+  ActivateGridProfileData,
+  ActivateGridProfileErrors,
+  ActivateGridProfileResponses,
+  ActivateSymbolModelData,
+  ActivateSymbolModelErrors,
+  ActivateSymbolModelResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -39,12 +45,21 @@ import type {
   CancelJobData,
   CancelJobErrors,
   CancelJobResponses,
+  ConfirmImageSelectionGroupRangeData,
+  ConfirmImageSelectionGroupRangeErrors,
+  ConfirmImageSelectionGroupRangeResponses,
+  ContinueImageSelectionWithoutImageData,
+  ContinueImageSelectionWithoutImageErrors,
+  ContinueImageSelectionWithoutImageResponses,
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
   CreateGameData,
   CreateGameErrors,
   CreateGameResponses,
+  CreateGridCalibrationCandidateData,
+  CreateGridCalibrationCandidateErrors,
+  CreateGridCalibrationCandidateResponses,
   CreateImageDiagnosticExportData,
   CreateImageDiagnosticExportErrors,
   CreateImageDiagnosticExportResponses,
@@ -60,6 +75,9 @@ import type {
   CreateMobileReleaseData,
   CreateMobileReleaseErrors,
   CreateMobileReleaseResponses,
+  CreateNextCuratedImageImportBatchData,
+  CreateNextCuratedImageImportBatchErrors,
+  CreateNextCuratedImageImportBatchResponses,
   CreateOperationalImageReviewGeometryRevisionData,
   CreateOperationalImageReviewGeometryRevisionErrors,
   CreateOperationalImageReviewGeometryRevisionResponses,
@@ -84,9 +102,18 @@ import type {
   CreateSymbolData,
   CreateSymbolErrors,
   CreateSymbolResponses,
+  CreateSymbolTrainingData,
+  CreateSymbolTrainingErrors,
+  CreateSymbolTrainingResponses,
+  DeleteCancelledImageSelectionJobData,
+  DeleteCancelledImageSelectionJobErrors,
+  DeleteCancelledImageSelectionJobResponses,
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DiscardDuplicateImageSelectionGroupData,
+  DiscardDuplicateImageSelectionGroupErrors,
+  DiscardDuplicateImageSelectionGroupResponses,
   DownloadImageDiagnosticExportData,
   DownloadImageDiagnosticExportErrors,
   DownloadImageDiagnosticExportResponses,
@@ -99,12 +126,18 @@ import type {
   FreezeVerifiedImageReviewCohortData,
   FreezeVerifiedImageReviewCohortErrors,
   FreezeVerifiedImageReviewCohortResponses,
+  FreezeVerifiedTrainingCohortData,
+  FreezeVerifiedTrainingCohortErrors,
+  FreezeVerifiedTrainingCohortResponses,
   GenerateMockDatasetData,
   GenerateMockDatasetErrors,
   GenerateMockDatasetResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
+  GetCuratedImageImportSourceData,
+  GetCuratedImageImportSourceErrors,
+  GetCuratedImageImportSourceResponses,
   GetDatasetValidationReportData,
   GetDatasetValidationReportErrors,
   GetDatasetValidationReportResponses,
@@ -122,9 +155,21 @@ import type {
   GetImageJobOperationsData,
   GetImageJobOperationsErrors,
   GetImageJobOperationsResponses,
+  GetImageSelectionCandidateFileData,
+  GetImageSelectionCandidateFileErrors,
+  GetImageSelectionCandidateFileResponses,
   GetImageSelectionData,
   GetImageSelectionErrors,
+  GetImageSelectionOutputData,
+  GetImageSelectionOutputErrors,
+  GetImageSelectionOutputFileData,
+  GetImageSelectionOutputFileErrors,
+  GetImageSelectionOutputFileResponses,
+  GetImageSelectionOutputResponses,
   GetImageSelectionResponses,
+  GetImageSelectionSelectedGroupFileData,
+  GetImageSelectionSelectedGroupFileErrors,
+  GetImageSelectionSelectedGroupFileResponses,
   GetImageSequenceSourceSelectionData,
   GetImageSequenceSourceSelectionErrors,
   GetImageSequenceSourceSelectionResponses,
@@ -146,6 +191,9 @@ import type {
   GetMobileReleaseData,
   GetMobileReleaseErrors,
   GetMobileReleaseResponses,
+  GetModelQualityData,
+  GetModelQualityErrors,
+  GetModelQualityResponses,
   GetOperationalImageReviewBoardAssetData,
   GetOperationalImageReviewBoardAssetErrors,
   GetOperationalImageReviewBoardAssetResponses,
@@ -198,6 +246,9 @@ import type {
   GetSymbolImageCandidateAssetData,
   GetSymbolImageCandidateAssetErrors,
   GetSymbolImageCandidateAssetResponses,
+  GetSymbolModelIterationData,
+  GetSymbolModelIterationErrors,
+  GetSymbolModelIterationResponses,
   GetSymbolResponses,
   HandoffImageSelectionData,
   HandoffImageSelectionErrors,
@@ -205,6 +256,9 @@ import type {
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
+  ListCuratedImageImportSourcesData,
+  ListCuratedImageImportSourcesErrors,
+  ListCuratedImageImportSourcesResponses,
   ListDatasetLayoutsData,
   ListDatasetLayoutsErrors,
   ListDatasetLayoutsResponses,
@@ -213,12 +267,24 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListGridCalibrationProfilesData,
+  ListGridCalibrationProfilesErrors,
+  ListGridCalibrationProfilesResponses,
+  ListGridProfileActivationsData,
+  ListGridProfileActivationsErrors,
+  ListGridProfileActivationsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
+  ListImageSelectionGroupCandidatesData,
+  ListImageSelectionGroupCandidatesErrors,
+  ListImageSelectionGroupCandidatesResponses,
   ListImageSelectionGroupsData,
   ListImageSelectionGroupsErrors,
   ListImageSelectionGroupsResponses,
+  ListImageSelectionsData,
+  ListImageSelectionsErrors,
+  ListImageSelectionsResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -268,21 +334,38 @@ import type {
   ListSymbolImageCandidatesData,
   ListSymbolImageCandidatesErrors,
   ListSymbolImageCandidatesResponses,
+  ListSymbolModelActivationsData,
+  ListSymbolModelActivationsErrors,
+  ListSymbolModelActivationsResponses,
+  ListSymbolModelIterationsData,
+  ListSymbolModelIterationsErrors,
+  ListSymbolModelIterationsResponses,
   ListSymbolsData,
   ListSymbolsErrors,
   ListSymbolsResponses,
   ListVerifiedImageReviewCohortsData,
   ListVerifiedImageReviewCohortsErrors,
   ListVerifiedImageReviewCohortsResponses,
+  ListWorkerLanesData,
+  ListWorkerLanesResponses,
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
+  PreviewGridProfileActivationData,
+  PreviewGridProfileActivationErrors,
+  PreviewGridProfileActivationResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
   PreviewOperationalImageReviewGeometryData,
   PreviewOperationalImageReviewGeometryErrors,
   PreviewOperationalImageReviewGeometryResponses,
+  PreviewSymbolModelActivationData,
+  PreviewSymbolModelActivationErrors,
+  PreviewSymbolModelActivationResponses,
+  PreviewVerifiedTrainingCohortData,
+  PreviewVerifiedTrainingCohortErrors,
+  PreviewVerifiedTrainingCohortResponses,
   PublishDatasetVersionData,
   PublishDatasetVersionErrors,
   PublishDatasetVersionResponses,
@@ -292,9 +375,18 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  RegisterCuratedImageImportSourceData,
+  RegisterCuratedImageImportSourceErrors,
+  RegisterCuratedImageImportSourceResponses,
+  RejectImageSelectionReviewGroupData,
+  RejectImageSelectionReviewGroupErrors,
+  RejectImageSelectionReviewGroupResponses,
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  RerunImageSelectionData,
+  RerunImageSelectionErrors,
+  RerunImageSelectionResponses,
   ResetGameLayoutDataData,
   ResetGameLayoutDataErrors,
   ResetGameLayoutDataResponses,
@@ -307,6 +399,9 @@ import type {
   ResolveSymbolBootstrapData,
   ResolveSymbolBootstrapErrors,
   ResolveSymbolBootstrapResponses,
+  RestoreRejectedImageSelectionGroupData,
+  RestoreRejectedImageSelectionGroupErrors,
+  RestoreRejectedImageSelectionGroupResponses,
   RetryImageJobFileData,
   RetryImageJobFileErrors,
   RetryImageJobFileResponses,
@@ -316,6 +411,12 @@ import type {
   RevokeReviewerSessionData,
   RevokeReviewerSessionErrors,
   RevokeReviewerSessionResponses,
+  RollbackGridProfileData,
+  RollbackGridProfileErrors,
+  RollbackGridProfileResponses,
+  RollbackSymbolModelData,
+  RollbackSymbolModelErrors,
+  RollbackSymbolModelResponses,
   SelectImageSequenceSourceData,
   SelectImageSequenceSourceErrors,
   SelectImageSequenceSourceResponses,
@@ -595,6 +696,139 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List Profiles
+ */
+export const listGridCalibrationProfiles = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridCalibrationProfilesData, ThrowOnError>,
+): RequestResult<
+  ListGridCalibrationProfilesResponses,
+  ListGridCalibrationProfilesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridCalibrationProfilesResponses,
+    ListGridCalibrationProfilesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
+    ...options,
+  });
+
+/**
+ * Create Candidate
+ */
+export const createGridCalibrationCandidate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateGridCalibrationCandidateData, ThrowOnError>,
+): RequestResult<
+  CreateGridCalibrationCandidateResponses,
+  CreateGridCalibrationCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateGridCalibrationCandidateResponses,
+    CreateGridCalibrationCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles',
+    ...options,
+  });
+
+/**
+ * List Activations
+ */
+export const listGridProfileActivations = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListGridProfileActivationsData, ThrowOnError>,
+): RequestResult<
+  ListGridProfileActivationsResponses,
+  ListGridProfileActivationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridProfileActivationsResponses,
+    ListGridProfileActivationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/registry/activations',
+    ...options,
+  });
+
+/**
+ * Activate
+ */
+export const activateGridProfile = <ThrowOnError extends boolean = false>(
+  options: Options<ActivateGridProfileData, ThrowOnError>,
+): RequestResult<
+  ActivateGridProfileResponses,
+  ActivateGridProfileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ActivateGridProfileResponses,
+    ActivateGridProfileErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Activation
+ */
+export const previewGridProfileActivation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGridProfileActivationData, ThrowOnError>,
+): RequestResult<
+  PreviewGridProfileActivationResponses,
+  PreviewGridProfileActivationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGridProfileActivationResponses,
+    PreviewGridProfileActivationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/activation-preview',
+    ...options,
+  });
+
+/**
+ * Rollback
+ */
+export const rollbackGridProfile = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackGridProfileData, ThrowOnError>,
+): RequestResult<
+  RollbackGridProfileResponses,
+  RollbackGridProfileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RollbackGridProfileResponses,
+    RollbackGridProfileErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-calibration-profiles/{profile_id}/rollback',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Reset all layout workflow data for one game
  */
 export const resetGameLayoutData = <ThrowOnError extends boolean = false>(
@@ -638,6 +872,22 @@ export const previewGameLayoutDataReset = <
     url: '/api/v1/admin/games/{game_id}/layout-data-reset-preview',
     ...options,
   });
+
+/**
+ * Read model and verified-data readiness for one game
+ */
+export const getModelQuality = <ThrowOnError extends boolean = false>(
+  options: Options<GetModelQualityData, ThrowOnError>,
+): RequestResult<
+  GetModelQualityResponses,
+  GetModelQualityErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetModelQualityResponses,
+    GetModelQualityErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/model-quality', ...options });
 
 /**
  * List game rules versions
@@ -736,6 +986,158 @@ export const resolveSymbolBootstrap = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbol-bootstrap/{bootstrap_id}/resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Iterations
+ */
+export const listSymbolModelIterations = <ThrowOnError extends boolean = false>(
+  options: Options<ListSymbolModelIterationsData, ThrowOnError>,
+): RequestResult<
+  ListSymbolModelIterationsResponses,
+  ListSymbolModelIterationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolModelIterationsResponses,
+    ListSymbolModelIterationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations',
+    ...options,
+  });
+
+/**
+ * Create Training
+ */
+export const createSymbolTraining = <ThrowOnError extends boolean = false>(
+  options: Options<CreateSymbolTrainingData, ThrowOnError>,
+): RequestResult<
+  CreateSymbolTrainingResponses,
+  CreateSymbolTrainingErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateSymbolTrainingResponses,
+    CreateSymbolTrainingErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Activations
+ */
+export const listSymbolModelActivations = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListSymbolModelActivationsData, ThrowOnError>,
+): RequestResult<
+  ListSymbolModelActivationsResponses,
+  ListSymbolModelActivationsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSymbolModelActivationsResponses,
+    ListSymbolModelActivationsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations',
+    ...options,
+  });
+
+/**
+ * Get Iteration
+ */
+export const getSymbolModelIteration = <ThrowOnError extends boolean = false>(
+  options: Options<GetSymbolModelIterationData, ThrowOnError>,
+): RequestResult<
+  GetSymbolModelIterationResponses,
+  GetSymbolModelIterationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSymbolModelIterationResponses,
+    GetSymbolModelIterationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}',
+    ...options,
+  });
+
+/**
+ * Activate
+ */
+export const activateSymbolModel = <ThrowOnError extends boolean = false>(
+  options: Options<ActivateSymbolModelData, ThrowOnError>,
+): RequestResult<
+  ActivateSymbolModelResponses,
+  ActivateSymbolModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ActivateSymbolModelResponses,
+    ActivateSymbolModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Activation
+ */
+export const previewSymbolModelActivation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewSymbolModelActivationData, ThrowOnError>,
+): RequestResult<
+  PreviewSymbolModelActivationResponses,
+  PreviewSymbolModelActivationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewSymbolModelActivationResponses,
+    PreviewSymbolModelActivationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/activation-preview',
+    ...options,
+  });
+
+/**
+ * Rollback
+ */
+export const rollbackSymbolModel = <ThrowOnError extends boolean = false>(
+  options: Options<RollbackSymbolModelData, ThrowOnError>,
+): RequestResult<
+  RollbackSymbolModelResponses,
+  RollbackSymbolModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RollbackSymbolModelResponses,
+    RollbackSymbolModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/{iteration_id}/rollback',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -909,6 +1311,53 @@ export const getSymbolImageAsset = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Freeze an immutable cumulative human-verified training cohort
+ */
+export const freezeVerifiedTrainingCohort = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<FreezeVerifiedTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  FreezeVerifiedTrainingCohortResponses,
+  FreezeVerifiedTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    FreezeVerifiedTrainingCohortResponses,
+    FreezeVerifiedTrainingCohortErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/verified-training-cohorts',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview the cumulative human-verified training cohort
+ */
+export const previewVerifiedTrainingCohort = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewVerifiedTrainingCohortData, ThrowOnError>,
+): RequestResult<
+  PreviewVerifiedTrainingCohortResponses,
+  PreviewVerifiedTrainingCohortErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewVerifiedTrainingCohortResponses,
+    PreviewVerifiedTrainingCohortErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/verified-training-cohorts/preview',
+    ...options,
+  });
+
+/**
  * Create an image import from an approved local folder selection
  */
 export const createImageFolderImport = <ThrowOnError extends boolean = false>(
@@ -1046,6 +1495,97 @@ export const finalizeBrowserImageSelection = <
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize',
     ...options,
+  });
+
+/**
+ * List incremental curated sources for one game
+ */
+export const listCuratedImageImportSources = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListCuratedImageImportSourcesData, ThrowOnError>,
+): RequestResult<
+  ListCuratedImageImportSourcesResponses,
+  ListCuratedImageImportSourcesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListCuratedImageImportSourcesResponses,
+    ListCuratedImageImportSourcesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-imports/curated-sources', ...options });
+
+/**
+ * Register verified image-selection output for incremental import
+ */
+export const registerCuratedImageImportSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RegisterCuratedImageImportSourceData, ThrowOnError>,
+): RequestResult<
+  RegisterCuratedImageImportSourceResponses,
+  RegisterCuratedImageImportSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RegisterCuratedImageImportSourceResponses,
+    RegisterCuratedImageImportSourceErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/curated-sources',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Get durable progress for one incremental curated source
+ */
+export const getCuratedImageImportSource = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetCuratedImageImportSourceData, ThrowOnError>,
+): RequestResult<
+  GetCuratedImageImportSourceResponses,
+  GetCuratedImageImportSourceErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetCuratedImageImportSourceResponses,
+    GetCuratedImageImportSourceErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-imports/curated-sources/{source_id}',
+    ...options,
+  });
+
+/**
+ * Atomically reserve and import the next N curated images
+ */
+export const createNextCuratedImageImportBatch = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateNextCuratedImageImportBatchData, ThrowOnError>,
+): RequestResult<
+  CreateNextCuratedImageImportBatchResponses,
+  CreateNextCuratedImageImportBatchErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateNextCuratedImageImportBatchResponses,
+    CreateNextCuratedImageImportBatchErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/curated-sources/{source_id}/batches',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -1499,6 +2039,22 @@ export const listOperationalImageReviewResolutionEvents = <
   });
 
 /**
+ * List durable image-selection runs for one game
+ */
+export const listImageSelections = <ThrowOnError extends boolean = false>(
+  options: Options<ListImageSelectionsData, ThrowOnError>,
+): RequestResult<
+  ListImageSelectionsResponses,
+  ListImageSelectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageSelectionsResponses,
+    ListImageSelectionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-selections', ...options });
+
+/**
  * Create or return an idempotent image-selection run
  */
 export const createImageSelection = <ThrowOnError extends boolean = false>(
@@ -1581,6 +2137,126 @@ export const approveManualImageSelection = <
   });
 
 /**
+ * List bounded source candidates identifying one review group
+ */
+export const listImageSelectionGroupCandidates = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListImageSelectionGroupCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListImageSelectionGroupCandidatesResponses,
+  ListImageSelectionGroupCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListImageSelectionGroupCandidatesResponses,
+    ListImageSelectionGroupCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates',
+    ...options,
+  });
+
+/**
+ * Read one staged or manually uploaded candidate JPEG
+ */
+export const getImageSelectionCandidateFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSelectionCandidateFileData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionCandidateFileResponses,
+  GetImageSelectionCandidateFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionCandidateFileResponses,
+    GetImageSelectionCandidateFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/candidates/{candidate_id}/file',
+    ...options,
+  });
+
+/**
+ * Confirm a range for one automatically represented group
+ */
+export const confirmImageSelectionGroupRange = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ConfirmImageSelectionGroupRangeData, ThrowOnError>,
+): RequestResult<
+  ConfirmImageSelectionGroupRangeResponses,
+  ConfirmImageSelectionGroupRangeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ConfirmImageSelectionGroupRangeResponses,
+    ConfirmImageSelectionGroupRangeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/confirm-range',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resolve one review range without requiring a representative JPEG
+ */
+export const continueImageSelectionWithoutImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ContinueImageSelectionWithoutImageData, ThrowOnError>,
+): RequestResult<
+  ContinueImageSelectionWithoutImageResponses,
+  ContinueImageSelectionWithoutImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ContinueImageSelectionWithoutImageResponses,
+    ContinueImageSelectionWithoutImageErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/continue-without-image',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Discard one manual-review group whose range is already resolved
+ */
+export const discardDuplicateImageSelectionGroup = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DiscardDuplicateImageSelectionGroupData, ThrowOnError>,
+): RequestResult<
+  DiscardDuplicateImageSelectionGroupResponses,
+  DiscardDuplicateImageSelectionGroupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DiscardDuplicateImageSelectionGroupResponses,
+    DiscardDuplicateImageSelectionGroupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/discard-duplicate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Copy one browser-selected JPEG into managed manual-review storage
  */
 export const uploadManualImageSelectionFile = <
@@ -1629,6 +2305,79 @@ export const getManualImageSelectionFile = <
   });
 
 /**
+ * Reject one representative- or range-review group
+ */
+export const rejectImageSelectionReviewGroup = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RejectImageSelectionReviewGroupData, ThrowOnError>,
+): RequestResult<
+  RejectImageSelectionReviewGroupResponses,
+  RejectImageSelectionReviewGroupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RejectImageSelectionReviewGroupResponses,
+    RejectImageSelectionReviewGroupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/reject',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Restore one user-rejected group to its prior review queue
+ */
+export const restoreRejectedImageSelectionGroup = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RestoreRejectedImageSelectionGroupData, ThrowOnError>,
+): RequestResult<
+  RestoreRejectedImageSelectionGroupResponses,
+  RestoreRejectedImageSelectionGroupErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RestoreRejectedImageSelectionGroupResponses,
+    RestoreRejectedImageSelectionGroupErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/restore',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read one selected JPEG as soon as its group is finalized
+ */
+export const getImageSelectionSelectedGroupFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSelectionSelectedGroupFileData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionSelectedGroupFileResponses,
+  GetImageSelectionSelectedGroupFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionSelectedGroupFileResponses,
+    GetImageSelectionSelectedGroupFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/groups/{group_id}/selected-file',
+    ...options,
+  });
+
+/**
  * Verify and hand curated images to the explicit layout import step
  */
 export const handoffImageSelection = <ThrowOnError extends boolean = false>(
@@ -1646,6 +2395,67 @@ export const handoffImageSelection = <ThrowOnError extends boolean = false>(
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-selections/{run_id}/handoff',
     ...options,
+  });
+
+/**
+ * List the verified curated JPEG files available for export
+ */
+export const getImageSelectionOutput = <ThrowOnError extends boolean = false>(
+  options: Options<GetImageSelectionOutputData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionOutputResponses,
+  GetImageSelectionOutputErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionOutputResponses,
+    GetImageSelectionOutputErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/image-selections/{run_id}/output', ...options });
+
+/**
+ * Download one checksum-verified curated JPEG
+ */
+export const getImageSelectionOutputFile = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageSelectionOutputFileData, ThrowOnError>,
+): RequestResult<
+  GetImageSelectionOutputFileResponses,
+  GetImageSelectionOutputFileErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageSelectionOutputFileResponses,
+    GetImageSelectionOutputFileErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/output/{file_name}',
+    ...options,
+  });
+
+/**
+ * Run the current selector against an existing managed staging
+ */
+export const rerunImageSelection = <ThrowOnError extends boolean = false>(
+  options: Options<RerunImageSelectionData, ThrowOnError>,
+): RequestResult<
+  RerunImageSelectionResponses,
+  RerunImageSelectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RerunImageSelectionResponses,
+    RerunImageSelectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/rerun',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**
@@ -1694,6 +2504,28 @@ export const createJob = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Permanently delete one cancelled image-selection job
+ */
+export const deleteCancelledImageSelectionJob = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteCancelledImageSelectionJobData, ThrowOnError>,
+): RequestResult<
+  DeleteCancelledImageSelectionJobResponses,
+  DeleteCancelledImageSelectionJobErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteCancelledImageSelectionJobResponses,
+    DeleteCancelledImageSelectionJobErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/jobs/{job_id}',
+    ...options,
   });
 
 /**
@@ -2667,6 +3499,18 @@ export const updateRulesVersionSymbol = <ThrowOnError extends boolean = false>(
       ...options.headers,
     },
   });
+
+/**
+ * List health and resource budgets for local worker lanes
+ */
+export const listWorkerLanes = <ThrowOnError extends boolean = false>(
+  options?: Options<ListWorkerLanesData, ThrowOnError>,
+): RequestResult<ListWorkerLanesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListWorkerLanesResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/worker-lanes', ...options });
 
 /**
  * Get API health

@@ -41,6 +41,7 @@ from game_predictor_api.domain.reviews import (
     ReviewResolutionAction,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.metadata import Base
 
 
@@ -55,6 +56,7 @@ def _enum_values(
         | type[ReviewResolutionAction]
         | type[SymbolStatus]
         | type[RulesVersionStatus]
+        | type[WorkerLaneName]
     ),
 ) -> list[str]:
     return [member.value for member in enum_type]
@@ -447,7 +449,9 @@ class JobModel(Base):
             name="ck_jobs_attempt_count_nonnegative",
         ),
         CheckConstraint(
-            "(status = 'processing' AND execution_slot = 1 "
+            "(status = 'processing' "
+            "AND ((job_type = 'image_selection' AND execution_slot = 2) "
+            "OR (job_type <> 'image_selection' AND execution_slot = 1)) "
             "AND lease_owner IS NOT NULL AND lease_token IS NOT NULL "
             "AND lease_expires_at IS NOT NULL AND heartbeat_at IS NOT NULL) "
             "OR (status <> 'processing' AND execution_slot IS NULL "
@@ -564,6 +568,53 @@ class JobModel(Base):
     )
 
 
+class WorkerLaneRuntimeModel(Base):
+    __tablename__ = "worker_lane_runtime"
+    __table_args__ = (
+        CheckConstraint(
+            "process_id > 0",
+            name="ck_worker_lane_runtime_process_id_positive",
+        ),
+        CheckConstraint(
+            "thread_budget BETWEEN 1 AND 64",
+            name="ck_worker_lane_runtime_thread_budget",
+        ),
+        CheckConstraint(
+            "heartbeat_at >= started_at",
+            name="ck_worker_lane_runtime_heartbeat_order",
+        ),
+        CheckConstraint(
+            "stopped_at IS NULL OR stopped_at >= started_at",
+            name="ck_worker_lane_runtime_stopped_order",
+        ),
+    )
+
+    lane: Mapped[WorkerLaneName] = mapped_column(
+        Enum(
+            WorkerLaneName,
+            name="worker_lane_name",
+            native_enum=False,
+            values_callable=_enum_values,
+            validate_strings=True,
+        ),
+        primary_key=True,
+    )
+    instance_token: Mapped[UUID] = mapped_column(nullable=False)
+    worker_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    worker_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    process_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    thread_budget: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    heartbeat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
 class ImageSelectionRunModel(Base):
     __tablename__ = "image_selection_runs"
     __table_args__ = (
@@ -584,6 +635,14 @@ class ImageSelectionRunModel(Base):
             name="ck_image_selection_runs_ordering_policy",
         ),
         CheckConstraint(
+            "sequence_direction IN ('ascending', 'descending')",
+            name="ck_image_selection_runs_sequence_direction",
+        ),
+        CheckConstraint(
+            "first_sequence_number >= 0",
+            name="ck_image_selection_runs_first_sequence_positive",
+        ),
+        CheckConstraint(
             "(output_manifest_sha256 IS NULL AND "
             "output_manifest_relative_path IS NULL) OR "
             "(output_manifest_sha256 ~ '^[0-9a-f]{64}$' AND "
@@ -600,19 +659,21 @@ class ImageSelectionRunModel(Base):
         ),
         UniqueConstraint("job_id", name="uq_image_selection_runs_job_id"),
         UniqueConstraint(
-            "source_selection_id",
-            name="uq_image_selection_runs_source_selection_id",
-        ),
-        UniqueConstraint(
             "game_id",
             "input_manifest_sha256",
             "selector_fingerprint",
+            "sequence_direction",
+            "first_sequence_number",
             name="uq_image_selection_runs_identity",
         ),
         Index(
             "ix_image_selection_runs_game_created",
             "game_id",
             "created_at",
+        ),
+        Index(
+            "ix_image_selection_runs_source_selection_id",
+            "source_selection_id",
         ),
     )
 
@@ -632,6 +693,16 @@ class ImageSelectionRunModel(Base):
         String(100),
         nullable=False,
         default=IMAGE_SELECTION_ORDERING_POLICY,
+    )
+    sequence_direction: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="ascending",
+    )
+    first_sequence_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
     )
     contract_version: Mapped[int] = mapped_column(
         SmallInteger,
@@ -659,6 +730,105 @@ class ImageSelectionRunModel(Base):
     )
 
 
+class CuratedImageImportSourceModel(Base):
+    __tablename__ = "curated_image_import_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_curated_image_import_sources_manifest_checksum",
+        ),
+        CheckConstraint(
+            "manifest_relative_path !~ '(^|/)\\.\\.(/|$)' AND "
+            "manifest_relative_path !~ '^[A-Za-z]:' AND "
+            "manifest_relative_path NOT LIKE '/%' AND "
+            "manifest_relative_path NOT LIKE '%\\\\%'",
+            name="ck_curated_image_import_sources_manifest_path",
+        ),
+        CheckConstraint(
+            "total_entries > 0 AND next_entry_index >= 0 AND next_entry_index <= total_entries",
+            name="ck_curated_image_import_sources_cursor",
+        ),
+        UniqueConstraint(
+            "image_selection_run_id",
+            name="uq_curated_image_import_sources_selection_run",
+        ),
+        Index(
+            "ix_curated_image_import_sources_game_created",
+            "game_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    image_selection_run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    manifest_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    total_entries: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    next_entry_index: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class CuratedImageImportBatchModel(Base):
+    __tablename__ = "curated_image_import_batches"
+    __table_args__ = (
+        CheckConstraint(
+            "batch_number > 0 AND start_index >= 0 AND end_index > start_index",
+            name="ck_curated_image_import_batches_range",
+        ),
+        UniqueConstraint(
+            "source_id",
+            "batch_number",
+            name="uq_curated_image_import_batches_number",
+        ),
+        UniqueConstraint(
+            "source_id",
+            "start_index",
+            name="uq_curated_image_import_batches_start",
+        ),
+        UniqueConstraint("job_id", name="uq_curated_image_import_batches_job"),
+        Index(
+            "ix_curated_image_import_batches_source_created",
+            "source_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    source_id: Mapped[UUID] = mapped_column(
+        ForeignKey("curated_image_import_sources.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    batch_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    end_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageSelectionGroupModel(Base):
     __tablename__ = "image_selection_groups"
     __table_args__ = (
@@ -681,8 +851,16 @@ class ImageSelectionGroupModel(Base):
         ),
         CheckConstraint(
             "status IN ('collecting', 'auto_selected', 'manual_required', "
-            "'manually_selected', 'skipped_existing_range')",
+            "'manually_selected', 'missing_image', 'skipped_existing_range', "
+            "'range_required', 'range_confirmed', 'skipped_unreadable', "
+            "'rejected_by_user')",
             name="ck_image_selection_groups_status",
+        ),
+        CheckConstraint(
+            "(status = 'rejected_by_user' AND rejection_origin_status IN "
+            "('manual_required', 'range_required')) OR "
+            "(status <> 'rejected_by_user' AND rejection_origin_status IS NULL)",
+            name="ck_image_selection_groups_rejection_origin",
         ),
         UniqueConstraint(
             "run_id",
@@ -701,7 +879,9 @@ class ImageSelectionGroupModel(Base):
             "range_end",
             unique=True,
             postgresql_where=text(
-                "status IN ('auto_selected', 'manually_selected') AND range_start IS NOT NULL"
+                "status IN ('auto_selected', 'manually_selected', 'missing_image', "
+                "'range_confirmed') "
+                "AND range_start IS NOT NULL"
             ),
         ),
     )
@@ -723,6 +903,10 @@ class ImageSelectionGroupModel(Base):
         String(40),
         nullable=False,
         default=ImageSelectionGroupStatus.COLLECTING,
+    )
+    rejection_origin_status: Mapped[ImageSelectionGroupStatus | None] = mapped_column(
+        String(40),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -839,7 +1023,8 @@ class ImageSelectionManualDecisionModel(Base):
     __tablename__ = "image_selection_manual_decisions"
     __table_args__ = (
         CheckConstraint(
-            "range_start >= 1 AND range_end >= range_start",
+            "(range_start IS NULL AND range_end IS NULL) OR "
+            "(range_start >= 1 AND range_end >= range_start)",
             name="ck_image_selection_manual_decisions_range",
         ),
         CheckConstraint(
@@ -849,6 +1034,19 @@ class ImageSelectionManualDecisionModel(Base):
         CheckConstraint(
             "payload_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_selection_manual_decisions_payload_sha256",
+        ),
+        CheckConstraint(
+            "resolution IN ('selected_image', 'missing_image', 'duplicate_range', "
+            "'range_confirmed', 'rejected_group', 'restored_group')",
+            name="ck_image_selection_manual_decisions_resolution",
+        ),
+        CheckConstraint(
+            "(resolution IN ('selected_image', 'range_confirmed') "
+            "AND candidate_id IS NOT NULL) OR "
+            "(resolution IN ('missing_image', 'duplicate_range', "
+            "'rejected_group', 'restored_group') "
+            "AND candidate_id IS NULL)",
+            name="ck_image_selection_manual_decisions_candidate_resolution",
         ),
         ForeignKeyConstraint(
             ["run_id", "group_id"],
@@ -876,12 +1074,13 @@ class ImageSelectionManualDecisionModel(Base):
         nullable=False,
     )
     group_id: Mapped[UUID] = mapped_column(nullable=False)
-    candidate_id: Mapped[UUID] = mapped_column(
+    candidate_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_selection_candidates.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
-    range_start: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    range_end: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resolution: Mapped[str] = mapped_column(String(32), nullable=False)
+    range_start: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    range_end: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     payload_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -1623,6 +1822,380 @@ class ImageVerifiedCohortExportModel(Base):
         DateTime(timezone=True),
         nullable=False,
         server_default=func.now(),
+    )
+
+
+class VerifiedTrainingCohortModel(Base):
+    __tablename__ = "verified_training_cohorts"
+    __table_args__ = (
+        CheckConstraint(
+            "iteration_number > 0 AND manifest_schema_version > 0",
+            name="ck_verified_training_cohorts_versions",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_verified_training_cohorts_sha256",
+        ),
+        CheckConstraint(
+            "resolved_layout_count > 0 "
+            "AND cell_sample_count = resolved_layout_count * 15 "
+            "AND source_image_count > 0 "
+            "AND pending_item_count >= 0 "
+            "AND rejected_item_count >= 0 "
+            "AND incomplete_item_count >= 0",
+            name="ck_verified_training_cohorts_counts",
+        ),
+        CheckConstraint(
+            r"length(btrim(artifact_relative_path)) > 0 "
+            r"AND artifact_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)'",
+            name="ck_verified_training_cohorts_relative_path",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "iteration_number",
+            name="uq_verified_training_cohorts_iteration",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "manifest_checksum_sha256",
+            name="uq_verified_training_cohorts_manifest",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_verified_training_cohorts_idempotency",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    resolved_layout_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    cell_sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_image_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    pending_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    rejected_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    incomplete_item_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    artifact_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class VerifiedTrainingCohortItemModel(Base):
+    __tablename__ = "verified_training_cohort_items"
+    __table_args__ = (
+        CheckConstraint(
+            "item_order >= 0 AND sequence_number > 0 "
+            "AND resolution_revision > 0 AND geometry_revision >= 0",
+            name="ck_verified_training_cohort_items_values",
+        ),
+        CheckConstraint(
+            "decision_status IN ('accepted', 'corrected')",
+            name="ck_verified_training_cohort_items_status",
+        ),
+        CheckConstraint(
+            "item_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND pipeline_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_verified_training_cohort_items_sha256",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(board_manifest) = 'object' "
+            "AND jsonb_array_length(board_manifest -> 'cells') = 15",
+            name="ck_verified_training_cohort_items_manifest",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "item_order",
+            name="uq_verified_training_cohort_items_order",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "review_item_id",
+            name="uq_verified_training_cohort_items_review",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    item_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    decision_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    pipeline_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    item_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+
+
+class SymbolModelIterationModel(Base):
+    __tablename__ = "symbol_model_iterations"
+    __table_args__ = (
+        CheckConstraint(
+            "iteration_number > 0 AND last_completed_epoch >= 0",
+            name="ck_symbol_model_iterations_numbers",
+        ),
+        CheckConstraint(
+            "status IN ('created','dataset_build','training','trained','evaluating',"
+            "'candidate_ready','rejected','failed','cancelled')",
+            name="ck_symbol_model_iterations_status",
+        ),
+        CheckConstraint(
+            "(gate_configuration_fingerprint IS NULL "
+            "OR gate_configuration_fingerprint ~ '^[0-9a-f]{64}$') "
+            "AND (candidate_manifest_checksum_sha256 IS NULL "
+            "OR candidate_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$') "
+            "AND (gate_report_checksum_sha256 IS NULL "
+            "OR gate_report_checksum_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_symbol_model_iterations_gate_sha256",
+        ),
+        UniqueConstraint("game_id", "iteration_number", name="uq_symbol_model_iterations_number"),
+        UniqueConstraint("job_id", name="uq_symbol_model_iterations_job"),
+        UniqueConstraint(
+            "game_id",
+            "cohort_id",
+            "configuration_fingerprint",
+            name="uq_symbol_model_iterations_input",
+        ),
+        Index("ix_symbol_model_iterations_game_status", "game_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
+    iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    configuration_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    configuration_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    dataset_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    dataset_manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    checkpoint_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    checkpoint_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    gate_configuration_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    gate_configuration_payload: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    candidate_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    candidate_manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    gate_report_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
+    gate_report_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    gate_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    rejection_reasons: Mapped[list[str]] = mapped_column(
+        ARRAY(String(100)), nullable=False, default=list
+    )
+    last_completed_epoch: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    partial_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GameSymbolModelActivationModel(Base):
+    __tablename__ = "game_symbol_model_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('activate','rollback')",
+            name="ck_game_symbol_model_activations_action",
+        ),
+        CheckConstraint(
+            "activation_number > 0 AND btrim(actor) <> '' AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_game_symbol_model_activations_values",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_game_symbol_model_activations_idempotency",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "activation_number",
+            name="uq_game_symbol_model_activations_number",
+        ),
+        Index(
+            "ix_game_symbol_model_activations_current",
+            "game_id",
+            "activation_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_iteration_id: Mapped[UUID] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_model_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    activation_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GridGeometryCohortModel(Base):
+    __tablename__ = "grid_geometry_cohorts"
+    __table_args__ = (
+        CheckConstraint(
+            "cohort_number > 0 AND sample_count > 0 AND source_image_count > 0 "
+            "AND training_count >= 0 AND validation_count >= 0 "
+            "AND training_count + validation_count = sample_count",
+            name="ck_grid_geometry_cohorts_counts",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_grid_geometry_cohorts_manifest_checksum",
+        ),
+        UniqueConstraint("game_id", "cohort_number", name="uq_grid_geometry_cohorts_number"),
+        UniqueConstraint(
+            "game_id",
+            "manifest_checksum_sha256",
+            name="uq_grid_geometry_cohorts_manifest",
+        ),
+        Index("ix_grid_geometry_cohorts_game_created", "game_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    cohort_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    manifest_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_image_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    training_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    validation_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GridCalibrationProfileModel(Base):
+    __tablename__ = "grid_calibration_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "profile_number > 0 AND status IN ('candidate_ready','rejected')",
+            name="ck_grid_calibration_profiles_values",
+        ),
+        CheckConstraint(
+            "profile_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_grid_calibration_profiles_checksum",
+        ),
+        UniqueConstraint("game_id", "profile_number", name="uq_grid_calibration_profiles_number"),
+        UniqueConstraint("cohort_id", name="uq_grid_calibration_profiles_cohort"),
+        Index("ix_grid_calibration_profiles_game_status", "game_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    cohort_id: Mapped[UUID] = mapped_column(
+        ForeignKey("grid_geometry_cohorts.id", ondelete="RESTRICT"), nullable=False
+    )
+    profile_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    profile_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    profile_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    gate_metrics: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    rejection_reasons: Mapped[list[str]] = mapped_column(
+        ARRAY(String(100)), nullable=False, default=list
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GameGridProfileActivationModel(Base):
+    __tablename__ = "game_grid_profile_activations"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('activate','rollback')",
+            name="ck_game_grid_profile_activations_action",
+        ),
+        CheckConstraint(
+            "activation_number > 0 AND btrim(actor) <> '' AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_game_grid_profile_activations_values",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_game_grid_profile_activations_idempotency",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "activation_number",
+            name="uq_game_grid_profile_activations_number",
+        ),
+        Index("ix_game_grid_profile_activations_current", "game_id", "activation_number"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    profile_id: Mapped[UUID] = mapped_column(
+        ForeignKey("grid_calibration_profiles.id", ondelete="RESTRICT"), nullable=False
+    )
+    previous_profile_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("grid_calibration_profiles.id", ondelete="RESTRICT")
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    activation_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 

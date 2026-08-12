@@ -1,7 +1,7 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 ---
 
 # Architektura systemu
@@ -545,11 +545,21 @@ liczniki joba. Awaria pomiędzy tymi operacjami pozostawia postęp pliku i
 powtarza najwyżej idempotentny checkpoint joba. Anulowanie jest zauważane przez
 wspólny runtime przy tym drugim zapisie, więc nie rozpoczyna następnego etapu.
 
-Handler najpierw kończy wszystkie pliki `processing`, następnie raz na przebieg
-rewaliduje oczekujące review i dopiero wtedy zwalnia slot przez
-`waiting_for_review`. Nierozwiązana plansza nie blokuje zatem diagnostyki
-pozostałych źródeł. Orkiestrator nie publikuje datasetu i nie jest jeszcze
-rejestrowany w CLI; rzeczywiste adaptery i seeding z discovery podłącza
+TASK-0158 usuwa pełną agregację `image_import_job_files` z każdego przejścia
+etapu. Handler pobiera dokładny snapshot liczników raz na wejściu, aktualizuje go
+przyrostowo wyłącznie na podstawie zapisanego przejścia statusu pliku i wykonuje
+ponowną pełną agregację na granicy końcowej. File checkpoint, fencing i zapis
+postępu joba nadal występują w tej samej bezpiecznej kolejności. Dzięki temu
+liczba pełnych skanów jednego uruchomienia jest stała zamiast proporcjonalna do
+liczby zdjęć razy liczbę etapów.
+
+Handler najpierw rewaliduje pliki, które już na wejściu oczekiwały na review, a
+następnie kończy pliki `processing`. Świeże przejście po `symbol_inference`
+wykonuje pierwszą kontrolę `manual_review` na projekcji pozostającej w bieżącym
+wykonaniu i nie uruchamia jej ponownej rehydratacji. Nierozwiązana plansza nie
+blokuje zatem diagnostyki pozostałych źródeł, a wznowienie istniejącej granicy
+review nadal odbudowuje job-local projekcję przed kontynuacją. Orkiestrator nie
+publikuje datasetu; rzeczywiste adaptery i seeding z discovery podłącza
 TASK-0070.
 
 TASK-0070 dodaje `ImageDirectoryBatchSeeder`, który uruchamia prawdziwy
@@ -601,9 +611,17 @@ Persistence/recovery i jakość ML pozostają osobnymi bramkami: ciągły stagin
 387 plansz nie osłabia `manual-review-only` ani nie zezwala na masową
 publikację.
 
-TASK-0077 domyka decyzję kolejki: jeden lokalny worker, globalny
-`execution_slot = 1` i PostgreSQL `jobs` z fenced lease pozostają docelową
-architekturą M7. Redis/Celery, mikroserwisy i zdalne workery nie są dodawane.
+TASK-0077 ustanowił PostgreSQL `jobs` z fenced lease bez Redis/Celery,
+mikroserwisów i zdalnych workerów. TASK-0172 rozszerza wykonanie lokalne na dwa
+filtrowane lane tego samego pakietu: general `execution_slot = 1` oraz
+image-selection `execution_slot = 2`. Każdy lane ma najwyżej jeden aktywny job;
+mogą działać równolegle, zachowując jedno API i bazę.
+TASK-0173 dodaje wyłącznie lokalną warstwę operatorską: jeden supervisor
+PowerShell uruchamia te dwa procesy w tle, atomowo zapisuje PID wraz z czasem
+startu i kieruje stdout/stderr do osobnych logów w `.runtime`. Status jest
+odczytem tego stanu i rzeczywistego procesu, a stop nie wysyła sygnału do PID,
+którego nazwa i czas startu nie odpowiadają zapisowi. Supervisor nie jest nową
+usługą, nie działa w ścieżce joba i nie zmienia lease ani execution slotów.
 Warunki ponownej oceny są częścią D-085 i raportu
 `m7-queue-architecture-decision-v1`; ich spełnienie otwiera nowe zadanie, ale
 nie uruchamia automatycznej migracji.
@@ -1040,6 +1058,14 @@ obrazu źródłowego. Backend nie otrzymuje współrzędnych lokalnego cropu i z
 wykonuje preview oraz materializację z oryginalnego assetu. Nie wolno używać
 istniejącego board cropu jako źródła korekty, ponieważ nie zawiera pikseli już
 odciętych przez wcześniejszą błędną geometrię.
+
+Warstwa wejścia canvas najpierw odtwarza rzeczywisty prostokąt treści po
+`object-fit: contain`, łącznie z letterboxingiem, a dopiero później mapuje punkt
+do lokalnego viewportu i źródła. Zapis geometrii nie wykonuje wtórnego lookupu
+po `sequence_number`: klient przyjmuje scope-bound item zwrócony przez komendę
+i podmienia nim bieżącą projekcję. Endpointy assetów zachowują długi immutable
+cache, dlatego Reviewer dodaje do URL `v=<checksum>`; zmiana geometrii zmienia
+checksumę, URL i wymusza pobranie nowych bajtów planszy oraz 15 cropów.
 
 Adapter `manual-review-geometry-v1` przyjmuje wyłącznie uporządkowany quad
 źródłowy, ponownie używa kontraktu logicznych slotów v2 (500 × 300, siatka

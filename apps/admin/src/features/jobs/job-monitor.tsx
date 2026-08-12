@@ -6,6 +6,7 @@ import type {
   ImageStorageInventoryResponse,
   JobResponse,
   JobStatus,
+  WorkerLaneStatusResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -14,17 +15,20 @@ import {
   type JobsClient,
   cancelJob,
   createImageDiagnosticExport,
+  deleteCancelledImageSelectionJob,
   downloadImageDiagnosticExport,
   loadImageDiagnosticExports,
   loadImageJobOperations,
   loadImageStorageInventory,
   loadJobs,
+  loadWorkerLanes,
   retryImageJobFile,
   retryJob,
 } from '@/features/jobs/job-actions';
 import {
   JOB_STATUS_OPTIONS,
   canCancelJob,
+  canDeleteImageSelectionJob,
   canRetryJob,
   formatJobTimestamp,
   formatElapsedSeconds,
@@ -62,6 +66,10 @@ export function JobMonitor({
     [apiBaseUrl, client],
   );
   const [jobs, setJobs] = useState<readonly JobResponse[]>([]);
+  const [workerLanes, setWorkerLanes] = useState<
+    readonly WorkerLaneStatusResponse[]
+  >([]);
+  const [workerLaneError, setWorkerLaneError] = useState('');
   const [statusFilter, setStatusFilter] = useState<JobStatus | ''>('');
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [error, setError] = useState('');
@@ -71,6 +79,10 @@ export function JobMonitor({
   const [cancelCandidateId, setCancelCandidateId] = useState<string | null>(
     null,
   );
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(
+    null,
+  );
+  const [deleteConfirmationValue, setDeleteConfirmationValue] = useState('');
   const requestInProgress = useRef(false);
   const requestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -85,12 +97,21 @@ export function JobMonitor({
       if (initial) setLoadState('loading');
       else setIsRefreshing(true);
       setError('');
-      const result = await loadJobs(api, {
-        ...(statusFilter === '' ? {} : { status: statusFilter }),
-      });
+      const [result, laneResult] = await Promise.all([
+        loadJobs(api, {
+          ...(statusFilter === '' ? {} : { status: statusFilter }),
+        }),
+        loadWorkerLanes(api),
+      ]);
       if (!mounted.current || currentRequest !== requestId.current) return;
       requestInProgress.current = false;
       setIsRefreshing(false);
+      if (laneResult.ok) {
+        setWorkerLanes(laneResult.lanes);
+        setWorkerLaneError('');
+      } else {
+        setWorkerLaneError(laneResult.error);
+      }
       if (!result.ok) {
         setError(result.error);
         if (initial || !hasLoadedSuccessfully.current) setLoadState('error');
@@ -114,12 +135,12 @@ export function JobMonitor({
   const hasActiveJob = jobs.some(isActiveJob);
 
   useEffect(() => {
-    if (!hasActiveJob || pollIntervalMs <= 0) return;
+    if (pollIntervalMs <= 0) return;
     const interval = window.setInterval(() => {
       void refresh(false);
     }, pollIntervalMs);
     return () => window.clearInterval(interval);
-  }, [hasActiveJob, pollIntervalMs, refresh]);
+  }, [pollIntervalMs, refresh]);
 
   async function confirmCancel(job: JobResponse) {
     if (mutationInProgress.current || !canCancelJob(job)) return;
@@ -164,6 +185,38 @@ export function JobMonitor({
     );
   }
 
+  async function onDelete(job: JobResponse) {
+    if (
+      mutationInProgress.current ||
+      !canDeleteImageSelectionJob(job) ||
+      deleteConfirmationValue !== job.id.slice(0, 8)
+    )
+      return;
+    mutationInProgress.current = true;
+    setMutatingJobId(job.id);
+    setError('');
+    setFeedback('');
+    const result = await deleteCancelledImageSelectionJob(api, job.id);
+    mutationInProgress.current = false;
+    if (!mounted.current) return;
+    setMutatingJobId(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setJobs((current) => current.filter((item) => item.id !== job.id));
+    setDeleteCandidateId(null);
+    setDeleteConfirmationValue('');
+    const stagingNote = result.deletion.sharedSourceStagingPreserved
+      ? ' Współdzielone pliki źródłowe pozostały na dysku.'
+      : result.deletion.sourceStagingDeleted
+        ? ' Usunięto także niewspółdzielone pliki źródłowe.'
+        : '';
+    setFeedback(
+      `Usunięto job ${job.id.slice(0, 8)} i run ${result.deletion.runId.slice(0, 8)}.${stagingNote}`,
+    );
+  }
+
   return (
     <section className="catalogSection" id="jobs">
       <header className="pageHeader jobsPageHeader">
@@ -185,6 +238,8 @@ export function JobMonitor({
         </button>
       </header>
 
+      <WorkerLaneSummary error={workerLaneError} lanes={workerLanes} />
+
       <div className="jobFilters" aria-label="Filtry zadań">
         <label>
           Status
@@ -205,7 +260,7 @@ export function JobMonitor({
         <p aria-live="polite">
           {hasActiveJob
             ? 'Automatyczne odświeżanie aktywne · co 2 sekundy'
-            : 'Automatyczne odświeżanie zatrzymane'}
+            : 'Monitoring workerów aktywny · co 2 sekundy'}
         </p>
       </div>
 
@@ -243,12 +298,24 @@ export function JobMonitor({
             <JobCard
               api={api}
               cancelConfirmation={cancelCandidateId === job.id}
+              deleteConfirmation={deleteCandidateId === job.id}
+              deleteConfirmationValue={deleteConfirmationValue}
               job={job}
               key={job.id}
               mutating={mutatingJobId === job.id}
               onCancel={() => setCancelCandidateId(job.id)}
               onCancelConfirmation={() => void confirmCancel(job)}
               onCancelConfirmationClose={() => setCancelCandidateId(null)}
+              onDelete={() => {
+                setDeleteCandidateId(job.id);
+                setDeleteConfirmationValue('');
+              }}
+              onDeleteConfirmation={() => void onDelete(job)}
+              onDeleteConfirmationChange={setDeleteConfirmationValue}
+              onDeleteConfirmationClose={() => {
+                setDeleteCandidateId(null);
+                setDeleteConfirmationValue('');
+              }}
               onRetry={() => void onRetry(job)}
             />
           ))}
@@ -258,23 +325,88 @@ export function JobMonitor({
   );
 }
 
+function WorkerLaneSummary({
+  error,
+  lanes,
+}: {
+  readonly error: string;
+  readonly lanes: readonly WorkerLaneStatusResponse[];
+}) {
+  if (lanes.length === 0 && error === '') {
+    return <p className="workerLaneMessage">Pobieram status workerów…</p>;
+  }
+  return (
+    <section aria-label="Status lokalnych workerów" className="workerLanePanel">
+      {lanes.map((lane) => (
+        <article
+          className={`workerLaneCard workerLaneCard-${lane.state}`}
+          key={lane.lane}
+        >
+          <span className="workerLaneState" aria-hidden="true" />
+          <div>
+            <strong>
+              {lane.lane === 'general' ? 'General' : 'Selekcja zdjęć'}
+            </strong>
+            <small>
+              {lane.state === 'running'
+                ? 'Działa'
+                : lane.state === 'degraded'
+                  ? 'Brak świeżego sygnału'
+                  : 'Zatrzymany'}
+            </small>
+          </div>
+          <div>
+            <small>
+              {lane.threadBudget === null
+                ? 'Budżet niedostępny'
+                : `${lane.threadBudget} wątki`}
+            </small>
+            <small>
+              {lane.heartbeatAt === null
+                ? 'Brak heartbeat'
+                : `Sygnał ${formatJobTimestamp(lane.heartbeatAt)}`}
+            </small>
+          </div>
+        </article>
+      ))}
+      {error ? (
+        <p className="workerLaneMessage workerLaneMessageError" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function JobCard({
   api,
   cancelConfirmation,
+  deleteConfirmation,
+  deleteConfirmationValue,
   job,
   mutating,
   onCancel,
   onCancelConfirmation,
   onCancelConfirmationClose,
+  onDelete,
+  onDeleteConfirmation,
+  onDeleteConfirmationChange,
+  onDeleteConfirmationClose,
   onRetry,
 }: {
   readonly api: JobsClient;
   readonly cancelConfirmation: boolean;
+  readonly deleteConfirmation: boolean;
+  readonly deleteConfirmationValue: string;
   readonly job: JobResponse;
   readonly mutating: boolean;
   readonly onCancel: () => void;
   readonly onCancelConfirmation: () => void;
   readonly onCancelConfirmationClose: () => void;
+  readonly onDelete: () => void;
+  readonly onDeleteConfirmation: () => void;
+  readonly onDeleteConfirmationChange: (value: string) => void;
+  readonly onDeleteConfirmationClose: () => void;
   readonly onRetry: () => void;
 }) {
   const progress = jobProgressPresentation(job);
@@ -343,7 +475,46 @@ function JobCard({
             Etap: <strong>{jobStageLabel(job.progress.stage)}</strong>
           </p>
           <div className="jobActions">
-            {cancelConfirmation ? (
+            {deleteConfirmation ? (
+              <div className="jobDeleteConfirmation">
+                <strong>Nieodwracalne usunięcie</strong>
+                <p>
+                  Usunięte zostaną rekordy joba i runu oraz zarządzane pliki.
+                  Zewnętrzny folder wybranych zdjęć pozostanie bez zmian.
+                </p>
+                <label>
+                  Wpisz <code>{job.id.slice(0, 8)}</code>
+                  <input
+                    autoComplete="off"
+                    onChange={(event) =>
+                      onDeleteConfirmationChange(event.target.value)
+                    }
+                    spellCheck={false}
+                    value={deleteConfirmationValue}
+                  />
+                </label>
+                <div>
+                  <button
+                    className="textButton"
+                    disabled={mutating}
+                    onClick={onDeleteConfirmationClose}
+                    type="button"
+                  >
+                    Wróć
+                  </button>
+                  <button
+                    className="dangerButton"
+                    disabled={
+                      mutating || deleteConfirmationValue !== job.id.slice(0, 8)
+                    }
+                    onClick={onDeleteConfirmation}
+                    type="button"
+                  >
+                    {mutating ? 'Usuwanie…' : 'Usuń trwale'}
+                  </button>
+                </div>
+              </div>
+            ) : cancelConfirmation ? (
               <>
                 <span>Czy na pewno?</span>
                 <button
@@ -383,6 +554,16 @@ function JobCard({
                     type="button"
                   >
                     Anuluj
+                  </button>
+                ) : null}
+                {canDeleteImageSelectionJob(job) ? (
+                  <button
+                    className="dangerButton"
+                    disabled={mutating}
+                    onClick={onDelete}
+                    type="button"
+                  >
+                    Usuń
                   </button>
                 ) : null}
               </>

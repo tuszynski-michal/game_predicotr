@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import StrEnum
+from math import isfinite
 from pathlib import PurePosixPath
 from typing import Protocol
 
@@ -24,7 +25,12 @@ class SelectionGroupStatus(StrEnum):
     AUTO_SELECTED = "auto_selected"
     MANUAL_REQUIRED = "manual_required"
     MANUALLY_SELECTED = "manually_selected"
+    MISSING_IMAGE = "missing_image"
     SKIPPED_EXISTING_RANGE = "skipped_existing_range"
+    RANGE_REQUIRED = "range_required"
+    RANGE_CONFIRMED = "range_confirmed"
+    SKIPPED_UNREADABLE = "skipped_unreadable"
+    REJECTED_BY_USER = "rejected_by_user"
 
 
 class CandidateDecision(StrEnum):
@@ -192,6 +198,7 @@ class CheapImageObservation:
     geometry_confidence: float
     quality: ImageQualityMetrics
     reason_codes: tuple[str, ...] = ()
+    appearance_signature: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         if self.width < 1 or self.height < 1:
@@ -214,9 +221,17 @@ class CheapImageObservation:
                 "IMAGE_SELECTION_GEOMETRY_CONFIDENCE_INVALID",
                 "Geometry confidence must be between zero and one.",
             )
+        if len(self.appearance_signature) > 512 or any(
+            not isfinite(value) or not 0 <= value <= 1 for value in self.appearance_signature
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_APPEARANCE_SIGNATURE_INVALID",
+                "Appearance signature must be a bounded normalized vector.",
+            )
 
     def to_checkpoint_dict(self) -> dict[str, object]:
         return {
+            "appearanceSignature": list(self.appearance_signature),
             "boardCount": self.board_count,
             "fingerprintHex": self.fingerprint_hex,
             "geometryConfidence": self.geometry_confidence,
@@ -240,18 +255,20 @@ class CheapImageObservation:
             if not isinstance(signature_value, list) or not isinstance(reasons_value, list):
                 raise TypeError
             board_count_value = value.get("boardCount")
+            appearance_value = value.get("appearanceSignature", [])
+            if not isinstance(appearance_value, list):
+                raise TypeError
             return cls(
                 source=ImageSelectionSource.from_dict(source_value),
                 width=_int_value(value["width"]),
                 height=_int_value(value["height"]),
                 fingerprint_hex=str(value["fingerprintHex"]),
                 geometry_signature=tuple(_float_value(item) for item in signature_value),
-                board_count=(
-                    None if board_count_value is None else _int_value(board_count_value)
-                ),
+                board_count=(None if board_count_value is None else _int_value(board_count_value)),
                 geometry_confidence=_float_value(value["geometryConfidence"]),
                 quality=ImageQualityMetrics.from_dict(quality_value),
                 reason_codes=tuple(str(item) for item in reasons_value),
+                appearance_signature=tuple(_float_value(item) for item in appearance_value),
             )
         except (KeyError, TypeError, ValueError) as error:
             if isinstance(error, SelectionContractError):
@@ -263,12 +280,49 @@ class CheapImageObservation:
 
 
 @dataclass(frozen=True, slots=True)
-class CandidateVerification:
-    recognized_range: SequenceRange | None
+class RepresentativeAssessment:
+    """Full-resolution evidence used only to judge the exported JPEG."""
+
     board_count: int | None
     geometry_complete: bool
     full_frame_visible: bool
     reason_codes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class RangeEvidence:
+    """OCR evidence used only to resolve the sequence range of a group."""
+
+    recognized_range: SequenceRange | None
+    reason_codes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateVerification:
+    representative: RepresentativeAssessment
+    range_evidence: RangeEvidence
+
+    @property
+    def recognized_range(self) -> SequenceRange | None:
+        return self.range_evidence.recognized_range
+
+    @property
+    def board_count(self) -> int | None:
+        return self.representative.board_count
+
+    @property
+    def geometry_complete(self) -> bool:
+        return self.representative.geometry_complete
+
+    @property
+    def full_frame_visible(self) -> bool:
+        return self.representative.full_frame_visible
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys((*self.representative.reason_codes, *self.range_evidence.reason_codes))
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,14 +403,26 @@ class SelectorOpenGroupState:
     source_count: int
     top_observations: tuple[CheapImageObservation, ...]
     board_counts: tuple[tuple[int, int], ...]
+    last_observation: CheapImageObservation | None = None
+    appearance_centroid: tuple[float, ...] = ()
+    appearance_observation_count: int = 0
+    last_source_order_index: int | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "appearanceCentroid": list(self.appearance_centroid),
+            "appearanceObservationCount": self.appearance_observation_count,
             "boardCounts": [
                 {"boardCount": board_count, "count": count}
                 for board_count, count in self.board_counts
             ],
             "groupOrder": self.group_order,
+            "lastObservation": (
+                None
+                if self.last_observation is None
+                else self.last_observation.to_checkpoint_dict()
+            ),
+            "lastSourceOrderIndex": self.last_source_order_index,
             "sourceCount": self.source_count,
             "topObservations": [
                 observation.to_checkpoint_dict() for observation in self.top_observations
@@ -368,9 +434,11 @@ class SelectorOpenGroupState:
         try:
             observations_value = value["topObservations"]
             board_counts_value = value["boardCounts"]
-            if not isinstance(observations_value, list) or not isinstance(
-                board_counts_value, list
-            ):
+            last_observation_value = value.get("lastObservation")
+            appearance_centroid_value = value.get("appearanceCentroid", [])
+            if not isinstance(observations_value, list) or not isinstance(board_counts_value, list):
+                raise TypeError
+            if not isinstance(appearance_centroid_value, list):
                 raise TypeError
             if any(not isinstance(item, dict) for item in observations_value):
                 raise TypeError
@@ -378,9 +446,7 @@ class SelectorOpenGroupState:
             for item in board_counts_value:
                 if not isinstance(item, dict):
                     raise TypeError
-                board_counts.append(
-                    (_int_value(item["boardCount"]), _int_value(item["count"]))
-                )
+                board_counts.append((_int_value(item["boardCount"]), _int_value(item["count"])))
             state = cls(
                 group_order=_int_value(value["groupOrder"]),
                 source_count=_int_value(value["sourceCount"]),
@@ -390,6 +456,20 @@ class SelectorOpenGroupState:
                     if isinstance(item, dict)
                 ),
                 board_counts=tuple(board_counts),
+                last_observation=(
+                    None
+                    if last_observation_value is None
+                    else CheapImageObservation.from_checkpoint_dict(last_observation_value)
+                    if isinstance(last_observation_value, dict)
+                    else _invalid_observation()
+                ),
+                appearance_centroid=tuple(_float_value(item) for item in appearance_centroid_value),
+                appearance_observation_count=_int_value(value.get("appearanceObservationCount", 0)),
+                last_source_order_index=(
+                    None
+                    if value.get("lastSourceOrderIndex") is None
+                    else _int_value(value["lastSourceOrderIndex"])
+                ),
             )
         except (KeyError, TypeError, ValueError) as error:
             if isinstance(error, SelectionContractError):
@@ -402,8 +482,24 @@ class SelectorOpenGroupState:
             state.group_order < 0
             or state.source_count < 1
             or not state.top_observations
+            or (
+                state.last_observation is not None
+                and state.last_observation.source.order_index
+                < max(observation.source.order_index for observation in state.top_observations)
+            )
             or any(board_count < 1 or count < 1 for board_count, count in state.board_counts)
+            or (
+                state.last_source_order_index is not None
+                and state.last_source_order_index
+                < max(observation.source.order_index for observation in state.top_observations)
+            )
             or sum(count for _, count in state.board_counts) > state.source_count
+            or not 0 <= state.appearance_observation_count <= state.source_count
+            or bool(state.appearance_centroid) != (state.appearance_observation_count > 0)
+            or len(state.appearance_centroid) > 512
+            or any(
+                not isfinite(value) or not 0 <= value <= 1 for value in state.appearance_centroid
+            )
         ):
             raise SelectionContractError(
                 "IMAGE_SELECTION_CHECKPOINT_INVALID",
@@ -423,12 +519,9 @@ class SelectorResumeState:
     def to_dict(self) -> dict[str, object]:
         return {
             "checkpoint": self.checkpoint.to_dict(),
-            "currentGroup": (
-                None if self.current_group is None else self.current_group.to_dict()
-            ),
+            "currentGroup": (None if self.current_group is None else self.current_group.to_dict()),
             "pendingObservations": [
-                observation.to_checkpoint_dict()
-                for observation in self.pending_observations
+                observation.to_checkpoint_dict() for observation in self.pending_observations
             ],
             "scanFailureCount": self.scan_failure_count,
             "verificationCount": self.verification_count,
@@ -440,9 +533,7 @@ class SelectorResumeState:
             checkpoint_value = value["checkpoint"]
             pending_value = value["pendingObservations"]
             current_value = value.get("currentGroup")
-            if not isinstance(checkpoint_value, dict) or not isinstance(
-                pending_value, list
-            ):
+            if not isinstance(checkpoint_value, dict) or not isinstance(pending_value, list):
                 raise TypeError
             if any(not isinstance(item, dict) for item in pending_value):
                 raise TypeError
@@ -451,9 +542,7 @@ class SelectorResumeState:
                 selector_fingerprint=str(checkpoint_value["selectorFingerprint"]),
                 next_order_index=_int_value(checkpoint_value["nextOrderIndex"]),
                 processed_count=_int_value(checkpoint_value["processedCount"]),
-                finalized_group_count=_int_value(
-                    checkpoint_value["finalizedGroupCount"]
-                ),
+                finalized_group_count=_int_value(checkpoint_value["finalizedGroupCount"]),
             )
             return cls(
                 checkpoint=checkpoint,
@@ -485,6 +574,13 @@ def _invalid_open_group() -> SelectorOpenGroupState:
     raise SelectionContractError(
         "IMAGE_SELECTION_CHECKPOINT_INVALID",
         "The selector checkpoint contains an invalid open group.",
+    )
+
+
+def _invalid_observation() -> CheapImageObservation:
+    raise SelectionContractError(
+        "IMAGE_SELECTION_CHECKPOINT_INVALID",
+        "The selector checkpoint contains an invalid last observation.",
     )
 
 
@@ -525,7 +621,7 @@ class ImageSelectionResult:
 
 class CheapImageAnalyzer(Protocol):
     def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
-        """Return bounded thumbnail metrics without OCR or cell crops."""
+        """Return bounded metrics without OCR; production adapters are thread-safe."""
 
 
 class CandidateVerifier(Protocol):

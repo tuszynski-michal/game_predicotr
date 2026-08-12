@@ -10,6 +10,7 @@ from game_predictor_api.application.jobs import JobService
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.jobs import (
+    ImageSelectionJobDeletionResponse,
     ImportJobCreate,
     JobCreateRequest,
     JobResponse,
@@ -121,6 +122,21 @@ def create_jobs_router(service_dependency: JobServiceDependency) -> APIRouter:
         service: Annotated[JobService, service_parameter],
     ) -> JobResponse:
         return JobResponse.from_domain(service.cancel_job(job_id))
+
+    @router.delete(
+        "/{job_id}",
+        response_model=ImageSelectionJobDeletionResponse,
+        operation_id="deleteCancelledImageSelectionJob",
+        summary="Permanently delete one cancelled image-selection job",
+        responses=ERROR_RESPONSES,
+    )
+    def delete_cancelled_image_selection_job(
+        job_id: UUID,
+        service: Annotated[JobService, service_parameter],
+    ) -> ImageSelectionJobDeletionResponse:
+        return ImageSelectionJobDeletionResponse.from_domain(
+            service.delete_cancelled_image_selection_job(job_id)
+        )
 
     @router.post(
         "/{job_id}/retry",

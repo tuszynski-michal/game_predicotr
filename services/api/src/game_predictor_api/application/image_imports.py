@@ -24,17 +24,21 @@ from game_predictor_worker.images.pipeline_contract import (
 
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
-from game_predictor_api.domain.image_selections import ImageSelectionRun
+from game_predictor_api.domain.image_selections import (
+    ImageSelectionRun,
+    ImageSelectionSequenceDirection,
+)
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobError
 
 SUPPORTED_IMAGE_SUFFIXES = frozenset({".jpg", ".jpeg"})
 SELECTION_TTL = timedelta(minutes=15)
 BROWSER_UPLOAD_TTL = timedelta(hours=24)
 MAX_PREFLIGHT_FILES = 1_000_000
-MAX_PHOTO_SELECTION_FILES = 30_000
+MAX_PHOTO_SELECTION_FILES = 100_000
 MIN_FREE_SPACE_RESERVE_BYTES = 512 * 1024 * 1024
 IMAGE_RELATIVE_PATH_HEADER = "X-Image-Relative-Path"
 UPLOAD_STATE_FILE_NAME = "_upload_state.json"
+UPLOAD_JOURNAL_FILE_NAME = "_upload_files.jsonl"
 UPLOAD_MANIFEST_FILE_NAME = "_browser_manifest.json"
 UPLOAD_METRICS_FILE_NAME = "_upload_metrics.json"
 
@@ -293,6 +297,8 @@ class ImageFolderSelectionService:
         game_id: UUID,
         selection_token: str,
         selector_fingerprint: str,
+        sequence_direction: ImageSelectionSequenceDirection,
+        first_sequence_number: int | None,
     ) -> tuple[ImageSelectionRun, bool]:
         now = self._clock()
         with self._lock:
@@ -323,6 +329,8 @@ class ImageFolderSelectionService:
             source_selection_id=selected.selection_id,
             input_manifest_sha256=selected.input_manifest_sha256,
             selector_fingerprint=selector_fingerprint,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
         )
         with self._lock:
             self._selections.pop(selection_token, None)
@@ -503,16 +511,24 @@ class BrowserImageSelectionService:
                     "IMAGE_BROWSER_FILE_INVALID",
                     "The uploaded file is not a readable JPEG image.",
                 ) from error
-            upload.uploaded_indexes.add(file_index)
-            upload.uploaded_bytes += len(content)
-            upload.uploaded_files[file_index] = BrowserUploadedFile(
+            uploaded_file = BrowserUploadedFile(
                 file_index=file_index,
                 relative_path=normalized_path.as_posix(),
                 stored_file_name=target.name,
                 size_bytes=len(content),
                 checksum_sha256=checksum_sha256,
             )
-            self._write_upload_state(upload)
+            try:
+                self._append_upload_record(upload.path, uploaded_file)
+            except OSError as error:
+                target.unlink(missing_ok=True)
+                raise JobError(
+                    "IMAGE_BROWSER_FILE_WRITE_FAILED",
+                    "The uploaded image metadata could not be persisted.",
+                ) from error
+            upload.uploaded_indexes.add(file_index)
+            upload.uploaded_bytes += len(content)
+            upload.uploaded_files[file_index] = uploaded_file
             return upload
 
     def finalize(self, upload_id: UUID) -> SelectedImageFolder:
@@ -588,7 +604,6 @@ class BrowserImageSelectionService:
                 managed=True,
             )
             self._uploads.pop(upload_id, None)
-            (upload.path / UPLOAD_STATE_FILE_NAME).unlink(missing_ok=True)
             return selected
 
     def get(self, upload_id: UUID) -> BrowserImageUpload:
@@ -619,7 +634,7 @@ class BrowserImageSelectionService:
 
     def _write_upload_state(self, upload: BrowserImageUpload) -> None:
         payload = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "uploadId": str(upload.upload_id),
             "displayName": upload.display_name,
             "purpose": upload.purpose.value,
@@ -627,19 +642,6 @@ class BrowserImageSelectionService:
             "expectedFileCount": upload.expected_file_count,
             "expectedTotalBytes": upload.expected_total_bytes,
             "createdAt": upload.created_at.isoformat(),
-            "files": [
-                {
-                    "fileIndex": value.file_index,
-                    "relativePath": value.relative_path,
-                    "storedFileName": value.stored_file_name,
-                    "sizeBytes": value.size_bytes,
-                    "checksumSha256": value.checksum_sha256,
-                }
-                for value in sorted(
-                    upload.uploaded_files.values(),
-                    key=lambda item: item.file_index,
-                )
-            ],
         }
         destination = upload.path / UPLOAD_STATE_FILE_NAME
         temporary = upload.path / f".{UPLOAD_STATE_FILE_NAME}.part"
@@ -649,36 +651,124 @@ class BrowserImageSelectionService:
         )
         temporary.replace(destination)
 
+    @staticmethod
+    def _upload_record_payload(value: BrowserUploadedFile) -> dict[str, object]:
+        return {
+            "fileIndex": value.file_index,
+            "relativePath": value.relative_path,
+            "storedFileName": value.stored_file_name,
+            "sizeBytes": value.size_bytes,
+            "checksumSha256": value.checksum_sha256,
+        }
+
+    @classmethod
+    def _append_upload_record(
+        cls,
+        upload_path: Path,
+        value: BrowserUploadedFile,
+    ) -> None:
+        encoded = (
+            json.dumps(
+                cls._upload_record_payload(value),
+                ensure_ascii=True,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n"
+        ).encode("ascii")
+        journal_path = upload_path / UPLOAD_JOURNAL_FILE_NAME
+        with journal_path.open("a+b") as journal:
+            journal.seek(0, os.SEEK_END)
+            previous_size = journal.tell()
+            try:
+                journal.write(encoded)
+                journal.flush()
+            except OSError:
+                journal.seek(previous_size)
+                journal.truncate()
+                raise
+
+    @staticmethod
+    def _read_upload_records(upload_path: Path) -> list[dict[str, object]]:
+        journal_path = upload_path / UPLOAD_JOURNAL_FILE_NAME
+        if not journal_path.is_file():
+            return []
+        encoded_lines = journal_path.read_bytes().splitlines()
+        records: list[dict[str, object]] = []
+        for position, encoded_line in enumerate(encoded_lines):
+            if not encoded_line:
+                continue
+            try:
+                record = json.loads(encoded_line)
+            except json.JSONDecodeError:
+                if position == len(encoded_lines) - 1:
+                    break
+                raise
+            if not isinstance(record, dict):
+                raise ValueError("Upload journal record must be an object.")
+            records.append(record)
+        return records
+
+    def _replace_upload_journal(self, upload: BrowserImageUpload) -> None:
+        destination = upload.path / UPLOAD_JOURNAL_FILE_NAME
+        temporary = upload.path / f".{UPLOAD_JOURNAL_FILE_NAME}.part"
+        with temporary.open("wb") as journal:
+            for value in sorted(
+                upload.uploaded_files.values(),
+                key=lambda item: item.file_index,
+            ):
+                encoded = (
+                    json.dumps(
+                        self._upload_record_payload(value),
+                        ensure_ascii=True,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                    + "\n"
+                ).encode("ascii")
+                journal.write(encoded)
+        temporary.replace(destination)
+        self._write_upload_state(upload)
+
     def _load_upload(self, upload_id: UUID) -> BrowserImageUpload | None:
         upload_path = (self._upload_root / str(upload_id)).resolve()
         if not upload_path.is_relative_to(self._upload_root) or not upload_path.is_dir():
             return None
         state_path = upload_path / UPLOAD_STATE_FILE_NAME
         try:
-            payload = json.loads(state_path.read_text(encoding="utf-8"))
-            if payload.get("schemaVersion") != 1 or payload.get("uploadId") != str(upload_id):
+            if state_path.is_file():
+                payload = json.loads(state_path.read_text(encoding="utf-8"))
+            else:
+                payload = self._rebuild_upload_state_from_finalized_manifest(
+                    upload_id,
+                    upload_path,
+                )
+            schema_version = payload.get("schemaVersion")
+            if schema_version not in {1, 2} or payload.get("uploadId") != str(upload_id):
                 return None
-            files = {
-                int(value["fileIndex"]): BrowserUploadedFile(
-                    file_index=int(value["fileIndex"]),
+            file_payloads = (
+                payload["files"] if schema_version == 1 else self._read_upload_records(upload_path)
+            )
+            files: dict[int, BrowserUploadedFile] = {}
+            for value in file_payloads:
+                uploaded_file = BrowserUploadedFile(
+                    file_index=int(str(value["fileIndex"])),
                     relative_path=str(value["relativePath"]),
                     stored_file_name=str(value["storedFileName"]),
-                    size_bytes=int(value["sizeBytes"]),
+                    size_bytes=int(str(value["sizeBytes"])),
                     checksum_sha256=str(value["checksumSha256"]),
                 )
-                for value in payload["files"]
-            }
+                existing = files.get(uploaded_file.file_index)
+                if existing is not None and existing != uploaded_file:
+                    return None
+                files[uploaded_file.file_index] = uploaded_file
             created_at = datetime.fromisoformat(str(payload["createdAt"]))
             upload = BrowserImageUpload(
                 upload_id=upload_id,
                 path=upload_path,
                 display_name=str(payload["displayName"]),
                 purpose=ImageSelectionPurpose(str(payload["purpose"])),
-                game_id=(
-                    None
-                    if payload.get("gameId") is None
-                    else UUID(str(payload["gameId"]))
-                ),
+                game_id=(None if payload.get("gameId") is None else UUID(str(payload["gameId"]))),
                 expected_file_count=int(payload["expectedFileCount"]),
                 expected_total_bytes=int(payload["expectedTotalBytes"]),
                 created_at=created_at,
@@ -686,12 +776,46 @@ class BrowserImageSelectionService:
                 uploaded_files=files,
                 uploaded_bytes=sum(value.size_bytes for value in files.values()),
             )
+            if schema_version == 1:
+                self._replace_upload_journal(upload)
         except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
             return None
         if upload.created_at + BROWSER_UPLOAD_TTL <= self._clock():
             shutil.rmtree(upload.path, ignore_errors=True)
             return None
         return upload
+
+    @staticmethod
+    def _rebuild_upload_state_from_finalized_manifest(
+        upload_id: UUID,
+        upload_path: Path,
+    ) -> dict[str, object]:
+        manifest = json.loads((upload_path / UPLOAD_MANIFEST_FILE_NAME).read_text(encoding="utf-8"))
+        metrics = json.loads((upload_path / UPLOAD_METRICS_FILE_NAME).read_text(encoding="utf-8"))
+        manifest_files = manifest["files"]
+        first_relative_path = str(manifest_files[0]["relativePath"])
+        display_name = PurePosixPath(first_relative_path).parts[0]
+        files = [
+            {
+                "checksumSha256": value["checksumSha256"],
+                "fileIndex": value["orderIndex"],
+                "relativePath": value["relativePath"],
+                "sizeBytes": value["sizeBytes"],
+                "storedFileName": value["storedFileName"],
+            }
+            for value in manifest_files
+        ]
+        return {
+            "schemaVersion": 1,
+            "uploadId": str(upload_id),
+            "displayName": display_name,
+            "purpose": manifest["purpose"],
+            "gameId": manifest["gameId"],
+            "expectedFileCount": len(files),
+            "expectedTotalBytes": sum(int(value["sizeBytes"]) for value in files),
+            "createdAt": metrics["startedAt"],
+            "files": files,
+        }
 
     def _remove_expired(self, now: datetime) -> None:
         expired_ids = [

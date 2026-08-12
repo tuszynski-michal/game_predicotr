@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
+from game_predictor_api.api.grid_calibration import create_grid_calibration_router
 from game_predictor_api.api.health import create_health_router
 from game_predictor_api.api.image_imports import create_image_imports_router
 from game_predictor_api.api.image_jobs import create_image_jobs_router
@@ -27,6 +28,11 @@ from game_predictor_api.api.reviewer_access import create_reviewer_access_router
 from game_predictor_api.api.reviews import create_reviews_router
 from game_predictor_api.api.rules import create_rules_router
 from game_predictor_api.api.symbol_bootstrap import create_symbol_bootstrap_router
+from game_predictor_api.api.symbol_model_iterations import create_symbol_model_iteration_router
+from game_predictor_api.api.verified_training_cohorts import (
+    create_verified_training_cohort_router,
+)
+from game_predictor_api.api.worker_lanes import create_worker_lanes_router
 from game_predictor_api.config import ApiSettings
 
 
@@ -41,6 +47,7 @@ def create_api_router(
     image_job_service_dependency: Callable[..., object],
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
+    iterative_image_import_service_dependency: Callable[..., object],
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
@@ -50,6 +57,11 @@ def create_api_router(
     reviewer_access_service_dependency: Callable[..., object],
     reviewer_ingress_service_dependency: Callable[..., object],
     symbol_bootstrap_service_dependency: Callable[..., object],
+    worker_lane_status_service_dependency: Callable[..., object],
+    verified_training_cohort_service_dependency: Callable[..., object],
+    symbol_model_iteration_service_dependency: Callable[..., object],
+    symbol_model_registry_service_dependency: Callable[..., object],
+    grid_calibration_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -72,6 +84,7 @@ def create_api_router(
     router.include_router(create_rules_router(rules_service_dependency))
     router.include_router(create_datasets_router(dataset_service_dependency))
     router.include_router(create_jobs_router(job_service_dependency))
+    router.include_router(create_worker_lanes_router(worker_lane_status_service_dependency))
     router.include_router(
         create_image_selections_router(
             image_selection_service_dependency,
@@ -83,6 +96,7 @@ def create_api_router(
             image_folder_selection_service_dependency,
             browser_image_selection_service_dependency,
             job_service_dependency,
+            iterative_image_import_service_dependency,
         )
     )
     router.include_router(
@@ -100,6 +114,16 @@ def create_api_router(
         )
     )
     router.include_router(create_image_review_cohort_router(image_review_cohort_service_dependency))
+    router.include_router(
+        create_verified_training_cohort_router(verified_training_cohort_service_dependency)
+    )
+    router.include_router(
+        create_symbol_model_iteration_router(
+            symbol_model_iteration_service_dependency,
+            symbol_model_registry_service_dependency,
+        )
+    )
+    router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))
     router.include_router(
         create_layout_import_reports_router(layout_import_report_service_dependency)
     )

@@ -88,6 +88,10 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "POST",
         "/api/v1/admin/jobs/{job_id}/cancel",
     ): HighImpactOperation("cancel-job", "job:{job_id}"),
+    (
+        "DELETE",
+        "/api/v1/admin/jobs/{job_id}",
+    ): HighImpactOperation("delete-image-selection-job", "job:{job_id}"),
     ("POST", "/api/v1/admin/mobile-releases"): HighImpactOperation(
         "create-mobile-release", "mobile-release:new"
     ),
@@ -111,6 +115,20 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ),
     ("POST", "/api/v1/admin/reviewer-sessions"): HighImpactOperation(
         "create-reviewer-session", "reviewer-session:new"
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/verified-training-cohorts",
+    ): HighImpactOperation(
+        "freeze-verified-training-cohort",
+        "verified-training-cohort:{game_id}",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/symbol-model-iterations",
+    ): HighImpactOperation(
+        "create-symbol-training",
+        "symbol-model-iteration:{game_id}",
     ),
     (
         "POST",
@@ -189,7 +207,7 @@ def redact_security_metadata(value: object, *, key: str = "") -> object:
     return str(value)
 
 
-class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):  # type: ignore[misc]
+class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
     """Protect unsafe local Admin requests before they reach domain services."""
 
     def __init__(self, app: Any, *, admin_origin: str, audit_log: AppendOnlyAdminAuditLog) -> None:

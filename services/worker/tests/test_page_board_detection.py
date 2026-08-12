@@ -11,6 +11,8 @@ from game_predictor_worker.images.geometry import (
     BoardDetection,
     ClassicalPageBoardDetector,
     GeometryDetectionError,
+    _positive_integral,
+    _refinement_window_densities,
     detect_normalized_corpus,
 )
 from PIL import Image
@@ -67,6 +69,55 @@ def _partial_grid_image(board_count: int) -> np.ndarray:
             10,
         )
     return image
+
+
+def _fragment_grid_image(positions: set[int]) -> np.ndarray:
+    image = np.full((640, 680, 3), (20, 30, 180), dtype=np.uint8)
+    for position in sorted(positions):
+        row, column = divmod(position, 3)
+        left = 60 + column * 200
+        top = 60 + row * 100
+        cv2.rectangle(image, (left, top), (left + 140, top + 80), (235, 25, 20), 10)
+    return image
+
+
+@pytest.mark.parametrize(
+    ("x", "y", "width", "height"),
+    (
+        (0, 0, 31, 27),
+        (7, 11, 42, 35),
+        (19, 23, 60, 44),
+    ),
+)
+def test_integral_refinement_density_matches_boolean_mask_scan(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> None:
+    random = np.random.default_rng(20260808)
+    mask = np.asarray(random.random((73, 91)) > 0.72, dtype=np.uint8) * 255
+    roi = mask[y : y + height, x : x + width]
+    border_y = max(2, height // 10)
+    border_x = max(2, width // 16)
+    border = np.zeros(roi.shape, dtype=np.bool_)
+    border[:border_y, :] = True
+    border[-border_y:, :] = True
+    border[:, :border_x] = True
+    border[:, -border_x:] = True
+
+    actual = _refinement_window_densities(
+        _positive_integral(mask),
+        x=x,
+        y=y,
+        width=width,
+        height=height,
+    )
+
+    assert actual == (
+        float(np.mean(roi[border] > 0)),
+        float(np.mean(roi[~border] > 0)),
+    )
 
 
 def test_synthetic_grid_returns_nine_boards_in_row_major_order() -> None:
@@ -148,6 +199,32 @@ def test_explicit_occlusion_recovery_fits_missing_cell_from_visible_grid() -> No
     assert result.status == "detected"
     assert [board.position_index for board in result.boards] == list(range(9))
     assert result.boards[4].refined_from_grid is True
+
+
+def test_partial_grid_recovery_preserves_a_bounded_l_shape_hypothesis() -> None:
+    image = _fragment_grid_image({1, 4, 6, 7})
+    detector = ClassicalPageBoardDetector()
+
+    historical = detector.detect(
+        image,
+        allow_grid_recovery=True,
+        allow_occluded_grid_recovery=True,
+    )
+    recovered = detector.detect(
+        image,
+        allow_grid_recovery=True,
+        allow_occluded_grid_recovery=True,
+        allow_partial_grid_recovery=True,
+    )
+
+    assert historical.status == "needs_review"
+    assert recovered.status == "detected"
+    assert recovered.layout_hypotheses
+    assert len(recovered.layout_hypotheses) <= 24
+    assert [board.position_index for board in recovered.boards] == list(range(9))
+    assert {
+        board.position_index for board in recovered.boards if board.red_border_score >= 0.20
+    } == {1, 4, 6, 7}
 
 
 def test_corpus_runner_verifies_input_and_reuses_identical_overlay(

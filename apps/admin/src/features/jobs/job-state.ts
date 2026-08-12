@@ -19,6 +19,7 @@ const JOB_TYPE_LABELS: Readonly<Record<JobType, string>> = {
   payout: 'Obliczanie payoutów',
   snapshot: 'Snapshot SQLite',
   android_build: 'Build APK',
+  symbol_training: 'Trening modelu symboli',
   image_selection: 'Selekcja zdjęć',
 };
 
@@ -77,6 +78,10 @@ export function canCancelJob(job: JobResponse): boolean {
       job.status === 'processing' ||
       job.status === 'waiting_for_review')
   );
+}
+
+export function canDeleteImageSelectionJob(job: JobResponse): boolean {
+  return job.jobType === 'image_selection' && job.status === 'cancelled';
 }
 
 export function canRetryJob(job: JobResponse): boolean {

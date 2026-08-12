@@ -1,6 +1,11 @@
 import { createClient as createGeneratedClient } from './generated/client';
 import {
+  activateGridProfile as activateGeneratedGridProfile,
+  activateSymbolModel as activateGeneratedSymbolModel,
   approveManualImageSelection as approveGeneratedManualImageSelection,
+  continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
+  confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
+  discardDuplicateImageSelectionGroup as discardGeneratedDuplicateImageSelectionGroup,
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
@@ -11,13 +16,16 @@ import {
   cancelBrowserImageSelection as cancelGeneratedBrowserImageSelection,
   cancelJob as cancelGeneratedJob,
   createBrowserImageSelection as createGeneratedBrowserImageSelection,
+  createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageFolderImport as createGeneratedImageFolderImport,
+  createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
   createJob as createGeneratedJob,
   createGame as createGeneratedGame,
   createImageDiagnosticExport as createGeneratedImageDiagnosticExport,
   createOperationalImageReviewGeometryRevision as createGeneratedOperationalImageReviewGeometryRevision,
   freezeVerifiedImageReviewCohort as freezeGeneratedVerifiedImageReviewCohort,
+  freezeVerifiedTrainingCohort as freezeGeneratedVerifiedTrainingCohort,
   finalizeBrowserImageSelection as finalizeGeneratedBrowserImageSelection,
   createMobileRelease as createGeneratedMobileRelease,
   createReviewFeedbackExport as createGeneratedReviewFeedbackExport,
@@ -29,7 +37,9 @@ import {
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createSymbol as createGeneratedSymbol,
+  createSymbolTraining as createGeneratedSymbolTraining,
   deleteMobileRelease as deleteGeneratedMobileRelease,
+  deleteCancelledImageSelectionJob as deleteGeneratedCancelledImageSelectionJob,
   generateMockDataset as generateGeneratedMockDataset,
   getDatasetValidationReport as getGeneratedDatasetValidationReport,
   getDatasetVersion as getGeneratedDatasetVersion,
@@ -37,7 +47,12 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getBrowserImageSelection as getGeneratedBrowserImageSelection,
+  getCuratedImageImportSource as getGeneratedCuratedImageImportSource,
   getImageSelection as getGeneratedImageSelection,
+  getImageSelectionCandidateFile as getGeneratedImageSelectionCandidateFile,
+  getImageSelectionOutput as getGeneratedImageSelectionOutput,
+  getImageSelectionOutputFile as getGeneratedImageSelectionOutputFile,
+  getImageSelectionSelectedGroupFile as getGeneratedImageSelectionSelectedGroupFile,
   getManualImageSelectionFile as getGeneratedManualImageSelectionFile,
   handoffImageSelection as handoffGeneratedImageSelection,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
@@ -55,14 +70,22 @@ import {
   getRulesPublicationReadiness as getGeneratedRulesPublicationReadiness,
   getRulesVersion as getGeneratedRulesVersion,
   getLatestSymbolBootstrap as getGeneratedLatestSymbolBootstrap,
+  getModelQuality as getGeneratedModelQuality,
   getReviewItem as getGeneratedReviewItem,
   getReviewFeedbackExport as getGeneratedReviewFeedbackExport,
   getReviewerIngressStatus as getGeneratedReviewerIngressStatus,
   getSymbol as getGeneratedSymbol,
+  getSymbolModelIteration as getGeneratedSymbolModelIteration,
   listGames as listGeneratedGames,
+  listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
+  listGridProfileActivations as listGeneratedGridProfileActivations,
+  listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
+  listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
+  listImageSelections as listGeneratedImageSelections,
   listJobs as listGeneratedJobs,
+  listWorkerLanes as listGeneratedWorkerLanes,
   listLayoutImportNormalizedRows as listGeneratedLayoutImportNormalizedRows,
   listMobileReleases as listGeneratedMobileReleases,
   listOperationalImageReviewItems as listGeneratedOperationalImageReviewItems,
@@ -80,7 +103,13 @@ import {
   listReviewResolutions as listGeneratedReviewResolutions,
   listSymbols as listGeneratedSymbols,
   listSymbolImageCandidates as listGeneratedSymbolImageCandidates,
+  listSymbolModelIterations as listGeneratedSymbolModelIterations,
+  listSymbolModelActivations as listGeneratedSymbolModelActivations,
   publishRulesVersion as publishGeneratedRulesVersion,
+  registerCuratedImageImportSource as registerGeneratedCuratedImageImportSource,
+  previewVerifiedTrainingCohort as previewGeneratedVerifiedTrainingCohort,
+  previewGridProfileActivation as previewGeneratedGridProfileActivation,
+  previewSymbolModelActivation as previewGeneratedSymbolModelActivation,
   previewGameLayoutDataReset as previewGeneratedGameLayoutDataReset,
   previewMobileReleaseDeletion as previewGeneratedMobileReleaseDeletion,
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
@@ -88,7 +117,12 @@ import {
   publishLayoutImportDataset as publishGeneratedLayoutImportDataset,
   rejectLayoutImportStaging as rejectGeneratedLayoutImportStaging,
   retryJob as retryGeneratedJob,
+  rollbackSymbolModel as rollbackGeneratedSymbolModel,
+  rollbackGridProfile as rollbackGeneratedGridProfile,
+  rerunImageSelection as rerunGeneratedImageSelection,
+  rejectImageSelectionReviewGroup as rejectGeneratedImageSelectionReviewGroup,
   resetGameLayoutData as resetGeneratedGameLayoutData,
+  restoreRejectedImageSelectionGroup as restoreGeneratedRejectedImageSelectionGroup,
   retryImageJobFile as retryGeneratedImageJobFile,
   revokeReviewerSession as revokeGeneratedReviewerSession,
   resolveReviewItem as resolveGeneratedReviewItem,
@@ -113,11 +147,21 @@ import {
 import type {
   BrowserImageSelectionCreate,
   CreateJobData,
+  GridProfileActivationAction,
+  GridProfileActivationCommand,
+  CreateSymbolTrainingCommand,
   CleanupCommandRequest,
+  CuratedImageImportBatchCreate,
+  CuratedImageImportSourceCreate,
   ImageJobFileRetryRequest,
   ImageFolderImportCreate,
   ImageSelectionCreate,
+  ImageSelectionDuplicateRangeCommand,
+  ImageSelectionGroupDecisionCommand,
   ImageSelectionManualApprovalCommand,
+  ImageSelectionMissingImageCommand,
+  ImageSelectionRangeConfirmationCommand,
+  ImageSelectionRerunCommand,
   ImageSelectionGroupStatus,
   ImageSequenceSourceOverrideCommand,
   JobStatus,
@@ -130,6 +174,7 @@ import type {
   OperationalImageReviewGeometryCommand,
   OperationalImageReviewGeometryPreviewCommand,
   VerifiedCohortFreezeCommand,
+  VerifiedTrainingCohortFreezeCommand,
   GameCreate,
   GameUpdate,
   PaylineCreate,
@@ -151,6 +196,9 @@ import type {
   SymbolBootstrapStartCommand,
   SymbolImageSelectionCommand,
   SymbolUpdate,
+  SymbolModelActivationAction,
+  SymbolModelActivationCommand,
+  WorkerLaneStatusResponse,
 } from './generated/types.gen';
 
 export type {
@@ -162,6 +210,10 @@ export type {
   CleanupCountResponse,
   CleanupPreviewResponse,
   CleanupResultResponse,
+  CuratedImageImportBatchResponse,
+  CuratedImageImportJobPayload,
+  CuratedImageImportSourceCreate,
+  CuratedImageImportSourceResponse,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -175,6 +227,15 @@ export type {
   GameResponse,
   GameStatus,
   GameUpdate,
+  CreateGridCalibrationCandidateResponse,
+  GeometryCohortResponse,
+  GridCalibrationProfileResponse,
+  GridProfileActivationAction,
+  GridProfileActivationCommand,
+  GridProfileActivationCommandResponse,
+  GridProfileActivationPreviewResponse,
+  GridProfileActivationResponse,
+  GridProfileJobSnapshotPayload,
   HealthResponse,
   ImportJobCreate,
   ImportJobPayload,
@@ -184,17 +245,26 @@ export type {
   ImageFolderSelectionResponse,
   ImageSelectionCreate,
   ImageSelectionCreateResponse,
+  ImageSelectionDuplicateRangeCommand,
+  ImageSelectionGroupDecisionCommand,
   ImageSelectionHandoffResponse,
+  ImageSelectionGroupCandidatesResponse,
   ImageSelectionGroupPageResponse,
   ImageSelectionGroupResponse,
   ImageSelectionGroupStatus,
   ImageSelectionJobPayload,
+  ImageSelectionJobDeletionResponse,
   ImageSelectionRunResponse,
+  ImageSelectionRunPageResponse,
   ImageSelectionCandidateResponse,
   ImageSelectionManualApprovalCommand,
   ImageSelectionManualApprovalResponse,
   ImageSelectionManualDecisionResponse,
   ImageSelectionManualFileResponse,
+  ImageSelectionMissingImageCommand,
+  ImageSelectionOutputFileResponse,
+  ImageSelectionOutputResponse,
+  ImageSelectionRangeConfirmationCommand,
   ImageDiagnosticExportCreationResponse,
   ImageDatasetCompletenessResponse,
   ImageDiagnosticExportResponse,
@@ -236,6 +306,8 @@ export type {
   MobileReleaseResponse,
   MobileReleaseSnapshotResponse,
   MobileReleaseStatus,
+  ModelQualityAdvisoryThresholdResponse,
+  ModelQualityResponse,
   OperationalImageReviewAlternativeResponse,
   OperationalImageReviewCellResponse,
   OperationalImageReviewCountsResponse,
@@ -254,6 +326,19 @@ export type {
   VerifiedCohortExportResponse,
   VerifiedCohortFreezeCommand,
   VerifiedCohortFreezeResponse,
+  VerifiedTrainingCohortFreezeCommand,
+  VerifiedTrainingCohortFreezeResponse,
+  VerifiedTrainingCohortPreviewResponse,
+  VerifiedTrainingCohortResponse,
+  CreateSymbolTrainingCommand,
+  CreateSymbolTrainingResponse,
+  SymbolModelIterationResponse,
+  SymbolModelActivationAction,
+  SymbolModelActivationCommand,
+  SymbolModelActivationCommandResponse,
+  SymbolModelActivationPreviewResponse,
+  SymbolModelActivationResponse,
+  SymbolTrainingCoverageResponse,
   PaylineCreate,
   PaylineResponse,
   PaylineUpdate,
@@ -305,6 +390,7 @@ export type {
   SymbolResponse,
   SymbolStatus,
   SymbolUpdate,
+  WorkerLaneStatusResponse,
   SnapshotJobCreate,
   SnapshotJobPayload,
   ValidateJobCreate,
@@ -449,10 +535,50 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createImageSelection: (body: ImageSelectionCreate) =>
       createGeneratedImageSelection({ body, client }),
-    getImageSelection: (runId: string) =>
+    getImageSelection: (
+      runId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
       getGeneratedImageSelection({
         client,
         path: { run_id: runId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    listImageSelections: (
+      gameId: string,
+      options: {
+        readonly offset?: number;
+        readonly limit?: number;
+      } = {},
+    ) =>
+      listGeneratedImageSelections({
+        client,
+        query: {
+          gameId,
+          ...(options.offset === undefined ? {} : { offset: options.offset }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    rerunImageSelection: (runId: string, body?: ImageSelectionRerunCommand) =>
+      rerunGeneratedImageSelection({
+        ...(body === undefined ? {} : { body }),
+        client,
+        path: { run_id: runId },
+      }),
+    getImageSelectionOutput: (runId: string) =>
+      getGeneratedImageSelectionOutput({
+        client,
+        path: { run_id: runId },
+      }),
+    getImageSelectionOutputFile: (runId: string, fileName: string) =>
+      getGeneratedImageSelectionOutputFile({
+        client,
+        path: { file_name: fileName, run_id: runId },
+      }),
+    getImageSelectionSelectedGroupFile: (runId: string, groupId: string) =>
+      getGeneratedImageSelectionSelectedGroupFile({
+        client,
+        path: { group_id: groupId, run_id: runId },
       }),
     handoffImageSelection: (runId: string) =>
       handoffGeneratedImageSelection({
@@ -476,6 +602,31 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { afterGroupOrder: options.afterGroupOrder }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    listImageSelectionGroupCandidates: (
+      runId: string,
+      groupId: string,
+      options: { readonly limit?: number } = {},
+    ) =>
+      listGeneratedImageSelectionGroupCandidates({
+        client,
+        path: { group_id: groupId, run_id: runId },
+        query: {
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getImageSelectionCandidateFile: (
+      runId: string,
+      groupId: string,
+      candidateId: string,
+    ) =>
+      getGeneratedImageSelectionCandidateFile({
+        client,
+        path: {
+          candidate_id: candidateId,
+          group_id: groupId,
+          run_id: runId,
         },
       }),
     uploadManualImageSelectionFile: (
@@ -521,11 +672,106 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         ),
         path: { group_id: groupId, run_id: runId },
       }),
+    continueImageSelectionWithoutImage: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionMissingImageCommand,
+    ) =>
+      continueGeneratedImageSelectionWithoutImage({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:missing-image`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    discardDuplicateImageSelectionGroup: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionDuplicateRangeCommand,
+    ) =>
+      discardGeneratedDuplicateImageSelectionGroup({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:discard-duplicate`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    confirmImageSelectionGroupRange: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionRangeConfirmationCommand,
+    ) =>
+      confirmGeneratedImageSelectionGroupRange({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:confirm-range`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    rejectImageSelectionReviewGroup: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionGroupDecisionCommand,
+    ) =>
+      rejectGeneratedImageSelectionReviewGroup({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:reject`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
+    restoreRejectedImageSelectionGroup: (
+      runId: string,
+      groupId: string,
+      body: ImageSelectionGroupDecisionCommand,
+    ) =>
+      restoreGeneratedRejectedImageSelectionGroup({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `image-selection:${runId}:${groupId}:restore`,
+        ),
+        path: { group_id: groupId, run_id: runId },
+      }),
     createImageFolderImport: (body: ImageFolderImportCreate) =>
       createGeneratedImageFolderImport({
         body,
         client,
         headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
+      }),
+    registerCuratedImageImportSource: (body: CuratedImageImportSourceCreate) =>
+      registerGeneratedCuratedImageImportSource({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `curated-image-import:${body.imageSelectionRunId}`,
+        ),
+      }),
+    listCuratedImageImportSources: (gameId: string) =>
+      listGeneratedCuratedImageImportSources({
+        client,
+        query: { gameId },
+      }),
+    getCuratedImageImportSource: (sourceId: string) =>
+      getGeneratedCuratedImageImportSource({
+        client,
+        path: { source_id: sourceId },
+      }),
+    createNextCuratedImageImportBatch: (
+      sourceId: string,
+      body: CuratedImageImportBatchCreate,
+    ) =>
+      createGeneratedNextCuratedImageImportBatch({
+        body,
+        client,
+        headers: confirmedTargetHeaders(
+          `curated-image-import:${sourceId}:next-batch`,
+        ),
+        path: { source_id: sourceId },
       }),
     listJobs: (filters: ListJobsOptions = {}) =>
       listGeneratedJobs({
@@ -539,10 +785,17 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(filters.limit === undefined ? {} : { limit: filters.limit }),
         },
       }),
+    listWorkerLanes: () => listGeneratedWorkerLanes({ client }),
     getJob: (jobId: string) =>
       getGeneratedJob({ client, path: { job_id: jobId } }),
     cancelJob: (jobId: string) =>
       cancelGeneratedJob({
+        client,
+        headers: confirmedTargetHeaders(`job:${jobId}`),
+        path: { job_id: jobId },
+      }),
+    deleteCancelledImageSelectionJob: (jobId: string) =>
+      deleteGeneratedCancelledImageSelectionJob({
         client,
         headers: confirmedTargetHeaders(`job:${jobId}`),
         path: { job_id: jobId },
@@ -700,6 +953,165 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         query: context,
+      }),
+    getModelQuality: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      getGeneratedModelQuality({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewVerifiedTrainingCohort: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedVerifiedTrainingCohort({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    freezeVerifiedTrainingCohort: (
+      gameId: string,
+      body: VerifiedTrainingCohortFreezeCommand,
+    ) =>
+      freezeGeneratedVerifiedTrainingCohort({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`verified-training-cohort:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    createSymbolTraining: (gameId: string, body: CreateSymbolTrainingCommand) =>
+      createGeneratedSymbolTraining({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-model-iteration:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    listSymbolModelIterations: (
+      gameId: string,
+      options: { readonly limit?: number; readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedSymbolModelIterations({
+        client,
+        path: { game_id: gameId },
+        query: { limit: options.limit ?? 50 },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    getSymbolModelIteration: (
+      gameId: string,
+      iterationId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      getGeneratedSymbolModelIteration({
+        client,
+        path: { game_id: gameId, iteration_id: iterationId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    listSymbolModelActivations: (
+      gameId: string,
+      options: { readonly limit?: number; readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedSymbolModelActivations({
+        client,
+        path: { game_id: gameId },
+        query: { limit: options.limit ?? 50 },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewSymbolModelActivation: (
+      gameId: string,
+      iterationId: string,
+      action: SymbolModelActivationAction,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedSymbolModelActivation({
+        client,
+        path: { game_id: gameId, iteration_id: iterationId },
+        query: { action },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    activateSymbolModel: (
+      gameId: string,
+      iterationId: string,
+      body: SymbolModelActivationCommand,
+    ) =>
+      activateGeneratedSymbolModel({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-model-activation:${gameId}`),
+        path: { game_id: gameId, iteration_id: iterationId },
+      }),
+    rollbackSymbolModel: (
+      gameId: string,
+      iterationId: string,
+      body: SymbolModelActivationCommand,
+    ) =>
+      rollbackGeneratedSymbolModel({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`symbol-model-rollback:${gameId}`),
+        path: { game_id: gameId, iteration_id: iterationId },
+      }),
+    createGridCalibrationCandidate: (gameId: string) =>
+      createGeneratedGridCalibrationCandidate({
+        client,
+        headers: confirmedTargetHeaders(`grid-calibration-candidate:${gameId}`),
+        path: { game_id: gameId },
+      }),
+    listGridCalibrationProfiles: (
+      gameId: string,
+      options: { readonly limit?: number; readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedGridCalibrationProfiles({
+        client,
+        path: { game_id: gameId },
+        query: { limit: options.limit ?? 50 },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    listGridProfileActivations: (
+      gameId: string,
+      options: { readonly limit?: number; readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedGridProfileActivations({
+        client,
+        path: { game_id: gameId },
+        query: { limit: options.limit ?? 50 },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewGridProfileActivation: (
+      gameId: string,
+      profileId: string,
+      action: GridProfileActivationAction,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedGridProfileActivation({
+        client,
+        path: { game_id: gameId, profile_id: profileId },
+        query: { action },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    activateGridProfile: (
+      gameId: string,
+      profileId: string,
+      body: GridProfileActivationCommand,
+    ) =>
+      activateGeneratedGridProfile({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`grid-profile-activation:${gameId}`),
+        path: { game_id: gameId, profile_id: profileId },
+      }),
+    rollbackGridProfile: (
+      gameId: string,
+      profileId: string,
+      body: GridProfileActivationCommand,
+    ) =>
+      rollbackGeneratedGridProfile({
+        body,
+        client,
+        headers: confirmedTargetHeaders(`grid-profile-rollback:${gameId}`),
+        path: { game_id: gameId, profile_id: profileId },
       }),
     getOperationalImageReviewItem: (
       reviewItemId: string,

@@ -302,6 +302,12 @@ SELECT
     JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
     WHERE j.game_id = :game_id) AS image_reviews,
   (SELECT count(*) FROM reviewer_access_sessions WHERE game_id = :game_id) AS reviewer_sessions,
+  (SELECT count(*) FROM curated_image_import_sources
+    WHERE game_id = :game_id) AS curated_import_sources,
+  (SELECT count(*) FROM grid_geometry_cohorts
+    WHERE game_id = :game_id) AS grid_geometry_cohorts,
+  (SELECT count(*) FROM grid_calibration_profiles
+    WHERE game_id = :game_id) AS grid_calibration_profiles,
   (SELECT count(DISTINCT mobile_release_id) FROM mobile_release_games
     WHERE game_id = :game_id) AS mobile_releases,
   (SELECT count(*) FROM review_batches WHERE game_id = :game_id) AS review_batches,
@@ -382,6 +388,12 @@ _GAME_RESET_STATEMENTS = (
     "DELETE FROM reviewer_access_sessions WHERE game_id = :game_id",
     "DELETE FROM image_sequence_source_override_events WHERE game_id = :game_id",
     "DELETE FROM image_verified_cohort_exports WHERE game_id = :game_id",
+    "DELETE FROM game_grid_profile_activations WHERE game_id = :game_id",
+    "DELETE FROM grid_calibration_profiles WHERE game_id = :game_id",
+    "DELETE FROM grid_geometry_cohorts WHERE game_id = :game_id",
+    """DELETE FROM curated_image_import_batches WHERE source_id IN
+       (SELECT id FROM curated_image_import_sources WHERE game_id = :game_id)""",
+    "DELETE FROM curated_image_import_sources WHERE game_id = :game_id",
     """DELETE FROM image_layout_staging_rows WHERE import_job_id IN
        (SELECT id FROM jobs WHERE game_id = :game_id)""",
     """DELETE FROM image_board_geometry_revisions WHERE recognized_board_id IN

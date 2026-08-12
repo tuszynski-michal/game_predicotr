@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -16,20 +17,44 @@ from PIL import Image, ImageDraw
 from game_predictor_worker.benchmarks.performance import PeakMemorySampler
 
 from .adapters import build_default_adapters
+from .cache import CachedCheapImageAnalyzer, FileImageScanObservationCache
 from .contracts import (
     CandidateVerification,
+    CandidateVerifier,
+    CheapImageAnalyzer,
     CheapImageObservation,
     ImageQualityMetrics,
+    ImageSelectionResult,
     ImageSelectionSource,
+    RangeEvidence,
+    RepresentativeAssessment,
     SelectionGroupStatus,
     SequenceRange,
 )
 from .engine import FastImageSelector
-from .manifest import DEFAULT_SELECTOR_MANIFEST
+from .manifest import (
+    ACCURACY_FIRST_SELECTOR_VERSIONS,
+    DEFAULT_SELECTOR_MANIFEST,
+    SelectorManifest,
+)
+from .telemetry import StageTimingCollector
 
 BENCHMARK_CONTRACT = "image-selection-scale-benchmark-v1"
+REAL_CORPUS_BENCHMARK_CONTRACT = "image-selection-real-corpus-benchmark-v2"
+REAL_CORPUS_GOLDEN_CONTRACT = "image-selection-real-corpus-golden-v1"
 ANNOTATION_CONTRACT = "image-selection-scale-annotations-v1"
 RSS_BUDGET_BYTES = 768 * 1024 * 1024
+
+
+def selection_code_fingerprint() -> str:
+    """Bind a timing report to the implementation that produced it."""
+
+    digest = hashlib.sha256()
+    module_root = Path(__file__).resolve().parent
+    for name in ("adapters.py", "benchmark.py", "engine.py", "manifest.py", "telemetry.py"):
+        digest.update(name.encode("utf-8"))
+        digest.update((module_root / name).read_bytes())
+    return digest.hexdigest()
 
 
 class ImageSelectionBenchmarkError(RuntimeError):
@@ -82,6 +107,21 @@ class GroupAnnotation:
     fingerprint_hex: str
 
 
+@dataclass(frozen=True, slots=True)
+class RealCorpusScreenAnnotation:
+    label: str
+    minimum_start_order_index: int
+    maximum_start_order_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class RealCorpusGolden:
+    fingerprint: str
+    input_manifest_sha256: str
+    annotated_input_count: int
+    screens: tuple[RealCorpusScreenAnnotation, ...]
+
+
 class BenchmarkDeadline:
     def __init__(self, seconds: float) -> None:
         if seconds <= 0:
@@ -94,6 +134,42 @@ class BenchmarkDeadline:
             raise BenchmarkDeadlineExceeded(
                 f"Image selection benchmark exceeded its deadline during {stage}."
             )
+
+
+class _DeadlineAnalyzer:
+    def __init__(
+        self,
+        delegate: CheapImageAnalyzer,
+        deadline: BenchmarkDeadline,
+    ) -> None:
+        self._delegate = delegate
+        self._deadline = deadline
+
+    def analyze(self, source: ImageSelectionSource) -> CheapImageObservation:
+        self._deadline.check("real-corpus cheap scan")
+        return self._delegate.analyze(source)
+
+
+class _DeadlineVerifier:
+    def __init__(
+        self,
+        delegate: CandidateVerifier,
+        deadline: BenchmarkDeadline,
+    ) -> None:
+        self._delegate = delegate
+        self._deadline = deadline
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        self._deadline.check("real-corpus boundary verification")
+        return self._delegate.verify(
+            observation,
+            expected_board_count=expected_board_count,
+        )
 
 
 def canonical_pretty_json(value: object) -> bytes:
@@ -157,6 +233,50 @@ def load_scale_annotations(path: Path) -> ScaleAnnotations:
     return result
 
 
+def load_real_corpus_golden(path: Path) -> RealCorpusGolden:
+    try:
+        content = path.read_bytes()
+        value = cast(dict[str, Any], json.loads(content))
+        if value["contract"] != REAL_CORPUS_GOLDEN_CONTRACT or int(value["schemaVersion"]) != 1:
+            raise ValueError
+        screens = tuple(
+            RealCorpusScreenAnnotation(
+                label=str(item["label"]),
+                minimum_start_order_index=int(item["minimumStartOrderIndex"]),
+                maximum_start_order_index=int(item["maximumStartOrderIndex"]),
+            )
+            for item in cast(list[dict[str, Any]], value["screens"])
+        )
+        result = RealCorpusGolden(
+            fingerprint=hashlib.sha256(content).hexdigest(),
+            input_manifest_sha256=str(value["inputManifestSha256"]),
+            annotated_input_count=int(value["annotatedInputCount"]),
+            screens=screens,
+        )
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise ImageSelectionBenchmarkError(
+            "The real-corpus image-selection golden contract is invalid."
+        ) from error
+    if (
+        result.annotated_input_count < 2
+        or len(result.screens) < 2
+        or result.screens[0].minimum_start_order_index != 0
+        or result.screens[0].maximum_start_order_index != 0
+    ):
+        raise ImageSelectionBenchmarkError("The real-corpus golden values are invalid.")
+    previous_maximum = -1
+    for screen in result.screens:
+        if (
+            not screen.label
+            or screen.minimum_start_order_index <= previous_maximum
+            or screen.minimum_start_order_index > screen.maximum_start_order_index
+            or screen.maximum_start_order_index >= result.annotated_input_count
+        ):
+            raise ImageSelectionBenchmarkError("Real-corpus screen windows must be ordered.")
+        previous_maximum = screen.maximum_start_order_index
+    return result
+
+
 def _is_manual(group_order: int, annotations: ScaleAnnotations) -> bool:
     return group_order % annotations.manual_divisor == annotations.manual_remainder
 
@@ -212,6 +332,47 @@ def build_group_annotations(
     return tuple(groups)
 
 
+def build_accuracy_first_group_annotations(
+    profile: BenchmarkProfile,
+    annotations: ScaleAnnotations,
+) -> tuple[GroupAnnotation, ...]:
+    """Build the strict, gap-free sequence contract used by selector v10.
+
+    The historical scale fixture intentionally injected jumps, duplicate ranges,
+    and manual-only groups. Those cases belong to the older OCR-led selector and
+    contradict the v10 input contract where ordered folders advance one page at
+    a time and even a weak group retains its best available representative.
+    """
+
+    groups: list[GroupAnnotation] = []
+    next_sequence = 1
+    for group_order in range(profile.group_count):
+        first_index = group_order * profile.group_size
+        source_count = min(profile.group_size, profile.input_count - first_index)
+        board_count = (
+            annotations.final_page_board_count
+            if group_order == profile.group_count - 1
+            else annotations.page_size
+        )
+        start = next_sequence
+        end = start + board_count - 1
+        groups.append(
+            GroupAnnotation(
+                group_order=group_order,
+                first_order_index=first_index,
+                source_count=source_count,
+                range_start=start,
+                range_end=end,
+                board_count=board_count,
+                manual_required=False,
+                duplicate_of_group_order=None,
+                fingerprint_hex=hashlib.sha256(f"range:{start}:{end}".encode("ascii")).hexdigest(),
+            )
+        )
+        next_sequence = end + 1
+    return tuple(groups)
+
+
 def _quality(label: str, *, force_manual: bool) -> ImageQualityMetrics:
     if force_manual:
         label = "occluded"
@@ -239,8 +400,12 @@ class InstrumentedScaleAnalyzer:
         annotations: ScaleAnnotations,
         groups: tuple[GroupAnnotation, ...],
         deadline: BenchmarkDeadline,
+        telemetry: StageTimingCollector,
     ) -> None:
-        self._production_analyzer, _ = build_default_adapters(source_root)
+        self._production_analyzer, _ = build_default_adapters(
+            source_root,
+            telemetry=telemetry,
+        )
         self._profile = profile
         self._annotations = annotations
         self._groups = groups
@@ -269,6 +434,7 @@ class InstrumentedScaleAnalyzer:
             geometry_confidence=0.95,
             quality=_quality(label, force_manual=group.manual_required),
             reason_codes=(),
+            appearance_signature=measured.appearance_signature,
         )
 
 
@@ -299,21 +465,42 @@ class InstrumentedRangeVerifier:
         label = self._analyzer.label_for(observation.source.order_index)
         safe = label in self._annotations.expected_automatic_labels and not group.manual_required
         return CandidateVerification(
-            recognized_range=SequenceRange(
-                start=group.range_start,
-                end=group.range_end,
-                confidence=0.98,
+            representative=RepresentativeAssessment(
+                board_count=expected_board_count,
+                geometry_complete=safe,
+                full_frame_visible=safe,
+                reason_codes=() if safe else (f"BENCHMARK_{label.upper()}",),
             ),
-            board_count=expected_board_count,
-            geometry_complete=safe,
-            full_frame_visible=safe,
-            reason_codes=() if safe else (f"BENCHMARK_{label.upper()}",),
+            range_evidence=RangeEvidence(
+                recognized_range=SequenceRange(
+                    start=group.range_start,
+                    end=group.range_end,
+                    confidence=0.98,
+                ),
+            ),
         )
 
 
 def _write_template(path: Path, seed: int) -> str:
-    image = Image.new("RGB", (960, 720), (16, 20, 30))
+    background = (
+        12 + (seed * 29) % 48,
+        16 + (seed * 43) % 48,
+        24 + (seed * 61) % 48,
+    )
+    image = Image.new("RGB", (960, 720), background)
     draw = ImageDraw.Draw(image)
+    # Keep every synthetic screen visually stable inside its group while making
+    # adjacent groups meaningfully different to the production appearance
+    # descriptor. The previous fixture hard-linked one image for the entire run,
+    # which made an appearance-based selector correctly see one giant group.
+    for band in range(6):
+        x0 = 96 + band * 128
+        color = (
+            35 + (seed * 17 + band * 31) % 190,
+            35 + (seed * 37 + band * 47) % 190,
+            35 + (seed * 59 + band * 19) % 190,
+        )
+        draw.rectangle((x0, 170, x0 + 88, 570), fill=color)
     for index in range(36):
         x = 24 + (index * 73 + seed * 11) % 880
         y = 24 + (index * 47 + seed * 7) % 640
@@ -335,9 +522,7 @@ def stage_fixture(
 ) -> tuple[Path, tuple[ImageSelectionSource, ...], dict[str, object]]:
     source_root = work_root / "source"
     source_root.mkdir(parents=True, exist_ok=False)
-    template = work_root / "template-0000.jpg"
-    checksum = _write_template(template, annotations.seed)
-    size_bytes = template.stat().st_size
+    templates: dict[int, tuple[Path, str, int]] = {}
     sources: list[ImageSelectionSource] = []
     link_mode = "hardlink"
     started_at = perf_counter()
@@ -346,12 +531,16 @@ def stage_fixture(
             deadline.check("fixture staging")
         file_name = f"{index + 1:08d}.jpg"
         target = source_root / file_name
-        shard_index = index // 900
-        shard = work_root / f"template-{shard_index:04d}.jpg"
-        if shard_index > 0 and index % 900 == 0:
-            shutil.copyfile(template, shard)
+        group_order = index // profile.group_size
+        template_entry = templates.get(group_order)
+        if template_entry is None:
+            template = work_root / f"template-{group_order:04d}.jpg"
+            checksum = _write_template(template, annotations.seed + group_order * 997)
+            template_entry = (template, checksum, template.stat().st_size)
+            templates[group_order] = template_entry
+        template, checksum, size_bytes = template_entry
         try:
-            os.link(shard, target)
+            os.link(template, target)
         except OSError:
             link_mode = "copy"
             shutil.copyfile(template, target)
@@ -365,15 +554,13 @@ def stage_fixture(
             )
         )
     elapsed = perf_counter() - started_at
-    unique_file_ids = {
-        (path.stat().st_dev, path.stat().st_ino) for path in source_root.iterdir()
-    }
+    unique_file_ids = {(path.stat().st_dev, path.stat().st_ino) for path in source_root.iterdir()}
     return (
         source_root,
         tuple(sources),
         {
             "elapsedSeconds": round(elapsed, 6),
-            "inputLogicalBytes": profile.input_count * size_bytes,
+            "inputLogicalBytes": sum(item.size_bytes for item in sources),
             "stagingMode": link_mode,
             "uniquePhysicalFileIds": len(unique_file_ids),
         },
@@ -396,6 +583,33 @@ def inventory_sha256(
         digest.update(
             f"{source.order_index}:{source.stored_relative_path}:{path.stat().st_size}:"
             f"{content_checksum}\n".encode("ascii")
+        )
+    return digest.hexdigest()
+
+
+def inventory_metadata_sha256(
+    source_root: Path,
+    sources: tuple[ImageSelectionSource, ...],
+    deadline: BenchmarkDeadline,
+    *,
+    stage: str,
+) -> str:
+    """Fingerprint file identity without adding another full JPEG read pass."""
+
+    root = source_root.resolve(strict=True)
+    digest = hashlib.sha256()
+    for index, source in enumerate(sources):
+        if index % 128 == 0:
+            deadline.check(stage)
+        path = (root / source.stored_relative_path).resolve(strict=True)
+        if not path.is_relative_to(root) or not path.is_file():
+            raise ImageSelectionBenchmarkError(
+                "A real-corpus source escapes its staging root or is not a file."
+            )
+        stat = path.stat()
+        digest.update(
+            f"{source.order_index}:{source.stored_relative_path}:{stat.st_size}:"
+            f"{stat.st_mtime_ns}\n".encode()
         )
     return digest.hexdigest()
 
@@ -446,9 +660,7 @@ def evaluate_result(
         expected = expected_groups[index]
         expected_range = (expected.range_start, expected.range_end)
         predicted_range = (
-            None
-            if predicted.range is None
-            else (predicted.range.start, predicted.range.end)
+            None if predicted.range is None else (predicted.range.start, predicted.range.end)
         )
         if predicted.source_count == expected.source_count:
             exact_groups += 1
@@ -479,12 +691,7 @@ def evaluate_result(
     grouping_precision = exact_groups / predicted_count if predicted_count else 0.0
     grouping_recall = exact_groups / expected_count if expected_count else 0.0
     recognized_count = sum(group.range is not None for group in predicted_groups)
-    unique_range_count = len(
-        {
-            (group.range_start, group.range_end)
-            for group in expected_groups
-        }
-    )
+    unique_range_count = len({(group.range_start, group.range_end) for group in expected_groups})
     output_logical_bytes = unique_range_count * source_file_size
     max_verifications = predicted_count * DEFAULT_SELECTOR_MANIFEST.top_k
     throughput = profile.input_count / processing_seconds if processing_seconds > 0 else 0.0
@@ -565,13 +772,19 @@ def run_scale_benchmark(
         deadline,
         stage="pre-run source inventory",
     )
-    groups = build_group_annotations(profile, annotations)
+    groups = (
+        build_accuracy_first_group_annotations(profile, annotations)
+        if DEFAULT_SELECTOR_MANIFEST.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS
+        else build_group_annotations(profile, annotations)
+    )
+    telemetry = StageTimingCollector()
     analyzer = InstrumentedScaleAnalyzer(
         source_root,
         profile,
         annotations,
         groups,
         deadline,
+        telemetry,
     )
     verifier = InstrumentedRangeVerifier(profile, annotations, groups, analyzer)
     started_at = perf_counter()
@@ -612,6 +825,13 @@ def run_scale_benchmark(
         "profile": profile.name,
         "rangeVerificationMode": "deterministic-annotation-with-production-cheap-scan",
         "schemaVersion": 1,
+        "selectionCodeFingerprint": selection_code_fingerprint(),
+        "stageTiming": telemetry.snapshot(),
+        "threading": {
+            "configuredScanWorkers": 1,
+            "logicalCpuCount": os.cpu_count(),
+            "usedThreadCount": telemetry.snapshot()["usedThreadCount"],
+        },
         "selectorFingerprint": DEFAULT_SELECTOR_MANIFEST.fingerprint,
         "selectorVersion": DEFAULT_SELECTOR_MANIFEST.algorithm_version,
         "sourceIntegrity": {
@@ -619,6 +839,269 @@ def run_scale_benchmark(
             "beforeInventorySha256": before_inventory,
             "sourceUnchanged": source_unchanged,
         },
+    }
+
+
+RealCorpusAdapterFactory = Callable[
+    [Path, StageTimingCollector],
+    tuple[CheapImageAnalyzer, CandidateVerifier],
+]
+
+
+def run_real_corpus_baseline(
+    *,
+    source_root: Path,
+    sources: tuple[ImageSelectionSource, ...],
+    input_manifest_sha256: str,
+    limit: int,
+    max_seconds: float,
+    scan_workers: int,
+    cache_artifact_root: Path,
+    golden: RealCorpusGolden,
+    manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
+    adapter_factory: RealCorpusAdapterFactory | None = None,
+) -> dict[str, object]:
+    """Profile a read-only natural-order slice of an existing browser staging."""
+
+    if limit not in {500, 1_000, 3_000, 40_000}:
+        raise ImageSelectionBenchmarkError(
+            "Real-corpus limit must be one of 500, 1000, 3000 or 40000."
+        )
+    if not 0 < max_seconds <= 21_600:
+        raise ImageSelectionBenchmarkError(
+            "Real-corpus timeout must be between 0 and 21600 seconds."
+        )
+    if len(sources) < limit:
+        raise ImageSelectionBenchmarkError(
+            f"Real-corpus staging contains {len(sources)} files; {limit} are required."
+        )
+    root = source_root.resolve(strict=True)
+    selected_sources = sources[:limit]
+    if tuple(source.order_index for source in selected_sources) != tuple(range(limit)):
+        raise ImageSelectionBenchmarkError(
+            "Real-corpus sources must preserve their natural zero-based manifest order."
+        )
+    if golden.input_manifest_sha256 != input_manifest_sha256:
+        raise ImageSelectionBenchmarkError(
+            "The real-corpus golden belongs to another immutable input manifest."
+        )
+    if golden.annotated_input_count > limit:
+        raise ImageSelectionBenchmarkError(
+            "The real-corpus profile is shorter than its independent golden."
+        )
+
+    deadline = BenchmarkDeadline(max_seconds)
+    before_inventory = inventory_metadata_sha256(
+        root,
+        selected_sources,
+        deadline,
+        stage="real-corpus pre-run source inventory",
+    )
+    telemetry = StageTimingCollector()
+    factory = adapter_factory or (
+        lambda adapter_root, collector: build_default_adapters(
+            adapter_root,
+            manifest=manifest,
+            telemetry=collector,
+        )
+    )
+    analyzer, verifier = factory(root, telemetry)
+    cache = FileImageScanObservationCache(cache_artifact_root)
+    cached_analyzer = CachedCheapImageAnalyzer(
+        analyzer,
+        cache,
+        scan_adapter_fingerprint=manifest.scan_adapter_fingerprint,
+    )
+    started_at = perf_counter()
+    with PeakMemorySampler() as sampler:
+        result = FastImageSelector(
+            manifest,
+            scan_workers=scan_workers,
+            scan_prefetch=max(scan_workers, min(scan_workers * 2, 64)),
+        ).select(
+            selected_sources,
+            analyzer=_DeadlineAnalyzer(cached_analyzer, deadline),
+            verifier=_DeadlineVerifier(verifier, deadline),
+        )
+    processing_seconds = perf_counter() - started_at
+    cold_cache_metrics = cached_analyzer.snapshot()
+    warm_analyzer = CachedCheapImageAnalyzer(
+        analyzer,
+        cache,
+        scan_adapter_fingerprint=manifest.scan_adapter_fingerprint,
+    )
+    warm_started_at = perf_counter()
+    warm_result = FastImageSelector(
+        manifest,
+        scan_workers=scan_workers,
+        scan_prefetch=max(scan_workers, min(scan_workers * 2, 64)),
+    ).select(
+        selected_sources,
+        analyzer=_DeadlineAnalyzer(warm_analyzer, deadline),
+        verifier=_DeadlineVerifier(verifier, deadline),
+    )
+    warm_processing_seconds = perf_counter() - warm_started_at
+    warm_cache_metrics = warm_analyzer.snapshot()
+    deadline.check("real-corpus post-run validation")
+    after_inventory = inventory_metadata_sha256(
+        root,
+        selected_sources,
+        deadline,
+        stage="real-corpus post-run source inventory",
+    )
+    timing = telemetry.snapshot()
+    stages = cast(dict[str, dict[str, object]], timing["stages"])
+    bottlenecks = sorted(
+        (
+            {
+                "stage": stage,
+                "totalSeconds": cast(float, details["totalSeconds"]),
+            }
+            for stage, details in stages.items()
+        ),
+        key=lambda value: (-cast(float, value["totalSeconds"]), str(value["stage"])),
+    )[:3]
+    source_unchanged = before_inventory == after_inventory
+    golden_metrics = _evaluate_real_corpus_golden(result, golden)
+    representative_metrics = _representative_coverage(result)
+    timing_counters = cast(dict[str, int], timing["counters"])
+    expensive_operations = {
+        "boardDetectorCalls": timing_counters.get("detectorCalls", 0),
+        "cellCropperCalls": 0,
+        "homographyCalls": 0,
+        "ocrCalls": timing_counters.get("ocrCalls", 0),
+        "ocrCrops": timing_counters.get("ocrCrops", 0),
+        "symbolInferenceCalls": 0,
+    }
+    expensive_operations_zero = all(value == 0 for value in expensive_operations.values())
+    warm_result_identical = warm_result.groups == result.groups
+    warm_cache_complete = (
+        warm_cache_metrics["hitCount"] == limit
+        and warm_cache_metrics["missCount"] == 0
+        and warm_result_identical
+    )
+    technical_gate_passed = (
+        source_unchanged
+        and cast(bool, golden_metrics["passed"])
+        and cast(bool, representative_metrics["passed"])
+        and expensive_operations_zero
+        and result.verification_count == 0
+        and warm_cache_complete
+    )
+    return {
+        "benchmarkContract": REAL_CORPUS_BENCHMARK_CONTRACT,
+        "cache": {
+            "cold": cold_cache_metrics,
+            "warm": warm_cache_metrics,
+            "warmProcessingSeconds": round(warm_processing_seconds, 6),
+            "warmResultIdentical": warm_result_identical,
+        },
+        "expensiveOperations": expensive_operations,
+        "golden": golden_metrics,
+        "goldenFingerprint": golden.fingerprint,
+        "inputCount": limit,
+        "inputManifestSha256": input_manifest_sha256,
+        "memory": sampler.summary().to_dict(),
+        "metrics": {
+            "bottlenecks": bottlenecks,
+            "processingSeconds": round(processing_seconds, 6),
+            "throughputFilesPerSecond": round(limit / max(processing_seconds, 1e-9), 4),
+            "verificationCount": result.verification_count,
+        },
+        "output": representative_metrics,
+        "schemaVersion": 1,
+        "selectionCodeFingerprint": selection_code_fingerprint(),
+        "selectorFingerprint": result.selector_fingerprint,
+        "selectorVersion": result.selector_version,
+        "sourceIntegrity": {
+            "afterInventorySha256": after_inventory,
+            "beforeInventorySha256": before_inventory,
+            "inventoryPolicy": "metadata-size-mtime-v1-plus-per-scan-manifest-checksum",
+            "sourceUnchanged": source_unchanged,
+        },
+        "stageTiming": timing,
+        "technicalGatePassed": technical_gate_passed,
+        "threading": {
+            "configuredScanWorkers": scan_workers,
+            "logicalCpuCount": os.cpu_count(),
+            "usedThreadCount": timing["usedThreadCount"],
+        },
+        "workload": {
+            "boundaryVerificationCount": result.verification_count,
+            "cheapScanCount": result.input_count,
+        },
+    }
+
+
+def _evaluate_real_corpus_golden(
+    result: ImageSelectionResult,
+    golden: RealCorpusGolden,
+) -> dict[str, object]:
+    predicted_starts: list[int] = []
+    next_start = 0
+    for group in result.groups:
+        if group.group_order > 0:
+            predicted_starts.append(next_start)
+        next_start += group.source_count
+    annotated_predictions = [
+        value for value in predicted_starts if value < golden.annotated_input_count
+    ]
+    unmatched = set(annotated_predictions)
+    matched: list[dict[str, object]] = []
+    missed: list[str] = []
+    for screen in golden.screens[1:]:
+        candidates = sorted(
+            value
+            for value in unmatched
+            if screen.minimum_start_order_index <= value <= screen.maximum_start_order_index
+        )
+        if not candidates:
+            missed.append(screen.label)
+            continue
+        selected = candidates[0]
+        unmatched.remove(selected)
+        matched.append(
+            {
+                "label": screen.label,
+                "predictedStartOrderIndex": selected,
+                "window": {
+                    "maximum": screen.maximum_start_order_index,
+                    "minimum": screen.minimum_start_order_index,
+                },
+            }
+        )
+    expected_screen_count = len(golden.screens)
+    recalled_screen_count = expected_screen_count - len(missed)
+    false_split_count = len(unmatched)
+    return {
+        "annotatedInputCount": golden.annotated_input_count,
+        "expectedScreenCount": expected_screen_count,
+        "falseMergeCount": len(missed),
+        "falseSplitCount": false_split_count,
+        "matchedBoundaries": matched,
+        "missedScreenLabels": missed,
+        "passed": not missed,
+        "predictedBoundaryStarts": annotated_predictions,
+        "recall": round(recalled_screen_count / expected_screen_count, 6),
+        "unmatchedBoundaryStarts": sorted(unmatched),
+    }
+
+
+def _representative_coverage(result: ImageSelectionResult) -> dict[str, object]:
+    selected = sum(group.selected_candidate is not None for group in result.groups)
+    decodable = sum(
+        any(
+            not any(reason.startswith("IMAGE_SELECTION_SCAN_") for reason in candidate.reason_codes)
+            for candidate in group.top_candidates
+        )
+        for group in result.groups
+    )
+    return {
+        "decodableGroupCount": decodable,
+        "inputToOutputReduction": round(result.input_count / max(selected, 1), 4),
+        "passed": selected == decodable,
+        "publishedRepresentativeCount": selected,
+        "totalGroupCount": len(result.groups),
     }
 
 
@@ -655,9 +1138,16 @@ __all__ = [
     "BenchmarkDeadlineExceeded",
     "BenchmarkProfile",
     "ImageSelectionBenchmarkError",
+    "REAL_CORPUS_BENCHMARK_CONTRACT",
+    "REAL_CORPUS_GOLDEN_CONTRACT",
+    "RealCorpusGolden",
+    "RealCorpusScreenAnnotation",
     "ScaleAnnotations",
     "canonical_pretty_json",
     "load_scale_annotations",
+    "load_real_corpus_golden",
     "run_scale_benchmark",
+    "run_real_corpus_baseline",
+    "selection_code_fingerprint",
     "validate_scale_report",
 ]

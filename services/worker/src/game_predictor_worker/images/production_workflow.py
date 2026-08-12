@@ -4,15 +4,22 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
+from uuid import UUID
 
 import cv2
 import numpy as np
 from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.symbol_model_snapshots import (
+    SymbolModelJobSnapshot,
+    SymbolModelStorageRoot,
+    bootstrap_symbol_model_snapshot,
+)
 from numpy.typing import NDArray
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.orm import Session, sessionmaker
@@ -27,6 +34,7 @@ from .pipeline_execution import (
     ImagePipelineExecutionError,
     ImagePipelineStageExecutor,
     ImageStageContext,
+    VersionedImageStageAdapter,
 )
 from .pipeline_store import SqlAlchemyImagePipelineStore
 from .rectification import BoardGeometry, PageGeometry, PerspectiveBoardCellCropperV2
@@ -38,26 +46,12 @@ from .sequence_ocr import (
 )
 from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginalStore
 from .symbol_model_release import build_symbol_predictions
-from .symbol_onnx import LocalSymbolOnnxAdapter
+from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
 NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
 DETECTION_ADAPTER_VERSION = "page-board-detector-v2"
 CROP_ADAPTER_VERSION = "board-cell-crops-v16-reviewed-v14-merge-v1"
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
-SYMBOL_MODEL_VERSION = "bootstrap-symbol-cnn-onnx-v1"
-SYMBOL_MODEL_SHA256 = "e03f66f2ab092b6049920fee6fb2839900a95eb94af42fbd5ef7e35c473b5fb8"
-SYMBOL_CLASS_CODES = (
-    "cherries",
-    "grapes",
-    "lemon",
-    "orange",
-    "plum",
-    "seven",
-    "star",
-    "watermelon",
-)
-SYMBOL_INPUT_SIZE = 64
-SYMBOL_TEMPERATURE = 1.0338382913
 
 
 class ProductionImageImportWorkflow:
@@ -110,6 +104,9 @@ class ProductionImageImportWorkflow:
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
             repository_root=self._repository_root,
+            symbol_model=_symbol_model_snapshot(job),
+            grid_profile=_grid_profile_snapshot(job),
+            image_selection_run_id=_image_selection_run_id(job),
         ).adapters()
         pipeline = ImageBatchHandler(
             self._batch_store,
@@ -196,15 +193,22 @@ class ProductionImageStageAdapterSuite:
         artifact_root: Path,
         *,
         repository_root: Path,
+        symbol_model: SymbolModelJobSnapshot | None = None,
+        grid_profile: Mapping[str, object] | None = None,
+        image_selection_run_id: str | None = None,
     ) -> None:
+        self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
         self._repository_root = repository_root
+        self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
+        self._grid_profile = dict(grid_profile or {})
+        self._image_selection_run_id = image_selection_run_id
         self._detector = ClassicalPageBoardDetector()
         self._cropper = PerspectiveBoardCellCropperV2()
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
 
-    def adapters(self) -> tuple[FunctionImageStageAdapter, ...]:
+    def adapters(self) -> tuple[VersionedImageStageAdapter, ...]:
         return (
             FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
             FunctionImageStageAdapter(
@@ -280,18 +284,27 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW",
                 "The page grid could not be recovered automatically.",
             )
-        return {
-            "boards": [
+        projected_boards: list[dict[str, object]] = []
+        for board in result.boards:
+            calibrated = _calibrated_quad(
+                board.quad,
+                profile=self._grid_profile,
+                image_selection_run_id=self._image_selection_run_id,
+                position_index=board.position_index,
+                image_width=int(rgb.shape[1]),
+                image_height=int(rgb.shape[0]),
+            )
+            projected_boards.append(
                 {
                     "confidence": max(0.0, min(1.0, board.red_border_score)),
                     "geometry": {
-                        "quad": [point.to_dict() for point in board.quad],
+                        "quad": [point.to_dict() for point in calibrated],
+                        "detectorQuad": [point.to_dict() for point in board.quad],
                     },
                     "positionIndex": board.position_index,
                 }
-                for board in result.boards
-            ]
-        }
+            )
+        return {"boards": [board for board in projected_boards]}
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
@@ -356,30 +369,39 @@ class ProductionImageStageAdapterSuite:
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         recognizer = self._ocr_recognizer()
         prepared: list[NDArray[np.uint8] | None] = []
+        crop_quads: list[list[dict[str, float]] | None] = []
         reason_sets: list[list[str]] = []
         for board in detections:
             reasons = ["SEQUENCE_OCR_MANUAL_REVIEW_REQUIRED"]
             try:
-                _raw, processed, _crop_quad = extract_sequence_number_crop(
+                _raw, processed_crop, detected_crop_quad = extract_sequence_number_crop(
                     rgb,
                     _quad(_mapping(board.get("geometry"), "geometry")),
                 )
-                prepared.append(processed)
+                prepared.append(processed_crop)
+                crop_quads.append(
+                    [
+                        {"x": round(float(point[0]), 6), "y": round(float(point[1]), 6)}
+                        for point in detected_crop_quad
+                    ]
+                )
             except SequenceOcrError as error:
                 reasons.append(error.code)
                 prepared.append(None)
+                crop_quads.append(None)
             reason_sets.append(reasons)
         recognized = iter(
             recognizer.recognize_many(tuple(item for item in prepared if item is not None))
         )
         boards: list[dict[str, object]] = []
-        for board, processed, reasons in zip(
+        for board, prepared_crop, sequence_quad_payload, reasons in zip(
             detections,
             prepared,
+            crop_quads,
             reason_sets,
             strict=True,
         ):
-            if processed is None:
+            if prepared_crop is None:
                 raw_text = ""
                 confidence = 0.0
             else:
@@ -387,15 +409,16 @@ class ProductionImageStageAdapterSuite:
                 raw_text = recognition.raw_text
                 confidence = recognition.confidence
             normalized_number = int(raw_text) if raw_text.isdigit() and int(raw_text) > 0 else None
-            boards.append(
-                {
-                    "confidence": confidence,
-                    "normalizedNumber": normalized_number,
-                    "positionIndex": _integer(board, "positionIndex"),
-                    "rawText": raw_text,
-                    "reviewReasons": reasons,
-                }
-            )
+            projected: dict[str, object] = {
+                "confidence": confidence,
+                "normalizedNumber": normalized_number,
+                "positionIndex": _integer(board, "positionIndex"),
+                "rawText": raw_text,
+                "reviewReasons": reasons,
+            }
+            if sequence_quad_payload is not None:
+                projected["sequenceLabelQuad"] = sequence_quad_payload
+            boards.append(projected)
         return {"boards": boards}
 
     def symbol_inference(self, context: ImageStageContext) -> Mapping[str, object]:
@@ -410,7 +433,10 @@ class ProductionImageStageAdapterSuite:
                 rgb = self._artifacts.load_rgb(_text(cell, "cropRelativePath"))
                 resized = cv2.resize(
                     rgb,
-                    (SYMBOL_INPUT_SIZE, SYMBOL_INPUT_SIZE),
+                    (
+                        self._symbol_model_snapshot.input_size,
+                        self._symbol_model_snapshot.input_size,
+                    ),
                     interpolation=cv2.INTER_AREA,
                 )
                 normalized = resized.astype(np.float32).transpose(2, 0, 1) / 255.0
@@ -421,11 +447,14 @@ class ProductionImageStageAdapterSuite:
                 "IMAGE_SYMBOL_INPUT_EMPTY",
                 "The image pipeline produced no cell crops for symbol inference.",
             )
-        inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
+        try:
+            inference = self._symbol_adapter().infer(np.stack(tensors).astype(np.float32))
+        except SymbolOnnxError as error:
+            raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
         predictions = build_symbol_predictions(
             inference.logits,
-            temperature=SYMBOL_TEMPERATURE,
-            class_codes=SYMBOL_CLASS_CODES,
+            temperature=self._symbol_model_snapshot.temperature,
+            class_codes=self._symbol_model_snapshot.class_codes,
             alternative_limit=3,
         )
         by_position: dict[int, list[dict[str, object]]] = {}
@@ -445,7 +474,13 @@ class ProductionImageStageAdapterSuite:
                 }
                 for position in sorted(by_position)
             ],
-            "modelVersion": SYMBOL_MODEL_VERSION,
+            "modelIterationId": (
+                None
+                if self._symbol_model_snapshot.iteration_id is None
+                else str(self._symbol_model_snapshot.iteration_id)
+            ),
+            "modelManifestChecksumSha256": (self._symbol_model_snapshot.manifest_checksum_sha256),
+            "modelVersion": self._symbol_model_snapshot.model_version,
         }
 
     def _ocr_recognizer(self) -> PaddleSequenceNumberRecognizer:
@@ -457,13 +492,31 @@ class ProductionImageStageAdapterSuite:
 
     def _symbol_adapter(self) -> LocalSymbolOnnxAdapter:
         if self._symbol_model is None:
-            self._symbol_model = LocalSymbolOnnxAdapter(
+            root = (
                 self._repository_root
-                / "artifacts/m6-symbol-classifier-onnx/bootstrap-symbol-cnn-v1.onnx",
-                expected_sha256=SYMBOL_MODEL_SHA256,
-                class_codes=SYMBOL_CLASS_CODES,
-                input_size=SYMBOL_INPUT_SIZE,
+                if self._symbol_model_snapshot.storage_root is SymbolModelStorageRoot.REPOSITORY
+                else self._artifact_root
             )
+            relative = PurePosixPath(self._symbol_model_snapshot.onnx_relative_path)
+            if relative.is_absolute() or ".." in relative.parts:
+                raise ImagePipelineExecutionError(
+                    "IMAGE_SYMBOL_MODEL_PATH_INVALID", "Pinned symbol model path is unsafe."
+                )
+            model_path = root.joinpath(*relative.parts).resolve()
+            if not model_path.is_relative_to(root):
+                raise ImagePipelineExecutionError(
+                    "IMAGE_SYMBOL_MODEL_PATH_INVALID",
+                    "Pinned symbol model path escapes its storage root.",
+                )
+            try:
+                self._symbol_model = LocalSymbolOnnxAdapter(
+                    model_path,
+                    expected_sha256=self._symbol_model_snapshot.onnx_checksum_sha256,
+                    class_codes=self._symbol_model_snapshot.class_codes,
+                    input_size=self._symbol_model_snapshot.input_size,
+                )
+            except SymbolOnnxError as error:
+                raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
         return self._symbol_model
 
 
@@ -563,6 +616,200 @@ def _pipeline_fingerprint(job: Job) -> str:
     return value
 
 
+def _symbol_model_snapshot(job: Job) -> SymbolModelJobSnapshot:
+    value = job.input_payload.get("symbol_model")
+    schema_version = job.input_payload.get("schema_version", 1)
+    if value is None and schema_version == 1:
+        return bootstrap_symbol_model_snapshot()
+    if not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_MISSING",
+            "The image import has no pinned symbol model snapshot.",
+        )
+    try:
+        iteration_value = value.get("iterationId")
+        iteration_id = None if iteration_value is None else UUID(str(iteration_value))
+        storage_root = SymbolModelStorageRoot(_text(value, "storageRoot"))
+        class_values = _sequence(value.get("classCodes"), "symbol_model.classCodes")
+        if not class_values or not all(isinstance(item, str) and item for item in class_values):
+            raise ValueError("Invalid class catalog.")
+        class_codes = tuple(cast(Sequence[str], class_values))
+        if len(set(class_codes)) != len(class_codes):
+            raise ValueError("Duplicate class code.")
+        input_size = _integer(value, "inputSize")
+        temperature_value = value.get("temperature")
+        if (
+            input_size < 16
+            or isinstance(temperature_value, bool)
+            or not isinstance(temperature_value, int | float)
+            or float(temperature_value) <= 0
+        ):
+            raise ValueError("Invalid model runtime values.")
+        snapshot = SymbolModelJobSnapshot(
+            iteration_id=iteration_id,
+            model_version=_text(value, "modelVersion"),
+            manifest_checksum_sha256=_sha_text(value, "manifestChecksumSha256"),
+            onnx_checksum_sha256=_sha_text(value, "onnxChecksumSha256"),
+            onnx_relative_path=_text(value, "onnxRelativePath"),
+            storage_root=storage_root,
+            class_codes=class_codes,
+            input_size=input_size,
+            temperature=float(temperature_value),
+        )
+    except (TypeError, ValueError, ImagePipelineExecutionError) as error:
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_INVALID",
+            "The pinned symbol model snapshot is invalid.",
+        ) from error
+    if value.get("inferenceFingerprint") != snapshot.inference_fingerprint:
+        raise JobHandlerError(
+            "IMAGE_SYMBOL_MODEL_SNAPSHOT_DRIFT",
+            "The pinned symbol model inference fingerprint changed.",
+        )
+    return snapshot
+
+
+def _grid_profile_snapshot(job: Job) -> Mapping[str, object]:
+    value = job.input_payload.get("grid_profile")
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise JobHandlerError(
+            "IMAGE_GRID_PROFILE_SNAPSHOT_INVALID",
+            "The pinned grid profile snapshot is invalid.",
+        )
+    fingerprint = value.get("inferenceFingerprint")
+    profile_payload = value.get("profilePayload")
+    if (
+        not isinstance(fingerprint, str)
+        or len(fingerprint) != 64
+        or not isinstance(profile_payload, Mapping)
+    ):
+        raise JobHandlerError(
+            "IMAGE_GRID_PROFILE_SNAPSHOT_INVALID",
+            "The pinned grid profile payload is incomplete.",
+        )
+    canonical_value = dict(value)
+    canonical_value.pop("inferenceFingerprint", None)
+    canonical = json.dumps(
+        canonical_value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+    ).encode("ascii")
+    if hashlib.sha256(canonical).hexdigest() != fingerprint:
+        raise JobHandlerError(
+            "IMAGE_GRID_PROFILE_SNAPSHOT_DRIFT",
+            "The pinned grid profile fingerprint changed.",
+        )
+    profile_id = value.get("profileId")
+    checksum = value.get("profileChecksumSha256")
+    if profile_id is not None:
+        profile_canonical = json.dumps(
+            profile_payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("ascii")
+        if (
+            not isinstance(checksum, str)
+            or hashlib.sha256(profile_canonical).hexdigest() != checksum
+        ):
+            raise JobHandlerError(
+                "IMAGE_GRID_PROFILE_SNAPSHOT_DRIFT",
+                "The pinned grid profile checksum changed.",
+            )
+    return cast(Mapping[str, object], profile_payload)
+
+
+def _image_selection_run_id(job: Job) -> str | None:
+    value = job.input_payload.get("image_selection_run_id")
+    return value if isinstance(value, str) and value else None
+
+
+def _calibrated_quad(
+    quad: Quad,
+    *,
+    profile: Mapping[str, object],
+    image_selection_run_id: str | None,
+    position_index: int,
+    image_width: int,
+    image_height: int,
+) -> Quad:
+    offsets = _grid_offsets(
+        profile,
+        image_selection_run_id=image_selection_run_id,
+        position_index=position_index,
+    )
+    if offsets is None:
+        return quad
+    adjusted = tuple(
+        Point(
+            max(0, min(image_width - 1, round(point.x + offsets[index][0] * image_width))),
+            max(0, min(image_height - 1, round(point.y + offsets[index][1] * image_height))),
+        )
+        for index, point in enumerate(quad)
+    )
+    calibrated = cast(Quad, adjusted)
+    if (
+        abs(
+            sum(
+                calibrated[index].x * calibrated[(index + 1) % 4].y
+                - calibrated[(index + 1) % 4].x * calibrated[index].y
+                for index in range(4)
+            )
+        )
+        <= 2
+    ):
+        return quad
+    return calibrated
+
+
+def _grid_offsets(
+    profile: Mapping[str, object],
+    *,
+    image_selection_run_id: str | None,
+    position_index: int,
+) -> tuple[tuple[float, float], ...] | None:
+    for key, require_run in (("scopes", True),):
+        values = profile.get(key)
+        if not isinstance(values, Sequence) or isinstance(values, str | bytes):
+            continue
+        for raw in values:
+            if not isinstance(raw, Mapping) or raw.get("positionIndex") != position_index:
+                continue
+            if require_run and raw.get("imageSelectionRunId") != image_selection_run_id:
+                continue
+            corners = raw.get("normalizedCornerOffsets")
+            if (
+                not isinstance(corners, Sequence)
+                or isinstance(corners, str | bytes)
+                or len(corners) != 4
+            ):
+                continue
+            parsed: list[tuple[float, float]] = []
+            for corner in corners:
+                if not isinstance(corner, Mapping):
+                    break
+                x = corner.get("x")
+                y = corner.get("y")
+                if (
+                    not isinstance(x, int | float)
+                    or isinstance(x, bool)
+                    or not isinstance(y, int | float)
+                    or isinstance(y, bool)
+                ):
+                    break
+                parsed.append((float(x), float(y)))
+            if len(parsed) == 4:
+                return tuple(parsed)
+    return None
+
+
+def _sha_text(value: Mapping[str, object], key: str) -> str:
+    item = _text(value, key)
+    if len(item) != 64 or any(character not in "0123456789abcdef" for character in item):
+        raise ValueError(f"{key} must be SHA-256.")
+    return item
+
+
 def _data_relative_path(value: str) -> str:
     prefix = "data/"
     if not value.startswith(prefix):
@@ -580,7 +827,7 @@ def _previous(context: ImageStageContext, stage: str) -> Mapping[str, object]:
             "IMAGE_PIPELINE_STAGE_DEPENDENCY_MISSING",
             f"The {stage} stage must complete first.",
         )
-    return cast(Mapping[str, object], value)
+    return _mapping(value, stage)
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:

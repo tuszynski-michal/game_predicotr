@@ -18,6 +18,16 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Alembic creates version_num as VARCHAR(32) by default. This revision ID is
+    # longer, so widen the bookkeeping column before Alembic records the new
+    # head at the end of this transaction.
+    op.alter_column(
+        "alembic_version",
+        "version_num",
+        existing_type=sa.String(length=32),
+        type_=sa.String(length=128),
+        existing_nullable=False,
+    )
     op.create_table(
         "image_selection_manual_decisions",
         sa.Column("idempotency_key", postgresql.UUID(as_uuid=True), nullable=False),

@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import shutil
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -22,6 +26,10 @@ from game_predictor_api.domain.jobs import (
     requeue_job,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.symbol_model_snapshots import (
+    SymbolModelJobSnapshot,
+    bootstrap_symbol_model_snapshot,
+)
 
 PAYOUT_ALGORITHM_VERSION = "payout-v2"
 
@@ -48,6 +56,151 @@ class PayoutRulesReference:
     status: RulesVersionStatus
     rows: int
     columns: int
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionJobDeletionReference:
+    run_id: UUID
+    source_selection_id: UUID
+    source_reference_count: int
+    has_curated_import_source: bool
+    has_published_output: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionJobDeletion:
+    job_id: UUID
+    run_id: UUID
+    managed_run_files_deleted: bool
+    source_staging_deleted: bool
+    shared_source_staging_preserved: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _QuarantinedDirectory:
+    original: Path
+    quarantined: Path
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionDeletionQuarantine:
+    directories: tuple[_QuarantinedDirectory, ...]
+
+
+class ImageSelectionDeletionArtifactStore(Protocol):
+    def quarantine(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_selection_id: UUID,
+        delete_source_staging: bool,
+    ) -> ImageSelectionDeletionQuarantine: ...
+
+    def finalize(self, quarantine: ImageSelectionDeletionQuarantine) -> None: ...
+
+    def restore(self, quarantine: ImageSelectionDeletionQuarantine) -> None: ...
+
+
+class ManagedImageSelectionDeletionArtifactStore:
+    """Quarantine run-owned files before their database transaction commits."""
+
+    def __init__(self, *, artifact_root: Path, import_root: Path) -> None:
+        self._artifact_root = artifact_root.resolve()
+        self._import_root = import_root.resolve()
+        self._manual_root = self._artifact_root / "data" / "working" / "is-manual"
+        self._manual_trash = (
+            self._artifact_root / "data" / "trash" / "image-selection-deletions"
+        )
+        self._source_root = self._import_root / "browser-selections"
+        self._source_trash = (
+            self._import_root / ".trash" / "image-selection-deletions"
+        )
+
+    def quarantine(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_selection_id: UUID,
+        delete_source_staging: bool,
+    ) -> ImageSelectionDeletionQuarantine:
+        requested = [
+            (
+                self._manual_root / run_id.hex[:12],
+                self._manual_trash / str(job_id) / "manual",
+                self._manual_root,
+                self._manual_trash,
+            )
+        ]
+        if delete_source_staging:
+            requested.append(
+                (
+                    self._source_root / str(source_selection_id),
+                    self._source_trash / str(job_id) / "source",
+                    self._source_root,
+                    self._source_trash,
+                )
+            )
+        moved: list[_QuarantinedDirectory] = []
+        try:
+            for original, quarantined, source_root, trash_root in requested:
+                original = original.resolve()
+                quarantined = quarantined.resolve()
+                if not original.is_relative_to(source_root.resolve()):
+                    raise JobConflictError(
+                        "IMAGE_SELECTION_JOB_ARTIFACT_PATH_INVALID",
+                        "The managed image-selection path is unsafe.",
+                    )
+                if not quarantined.is_relative_to(trash_root.resolve()):
+                    raise JobConflictError(
+                        "IMAGE_SELECTION_JOB_ARTIFACT_PATH_INVALID",
+                        "The image-selection quarantine path is unsafe.",
+                    )
+                if not original.exists():
+                    continue
+                if not original.is_dir() or quarantined.exists():
+                    raise JobConflictError(
+                        "IMAGE_SELECTION_JOB_ARTIFACT_DELETE_CONFLICT",
+                        "Managed image-selection files cannot be quarantined safely.",
+                    )
+                quarantined.parent.mkdir(parents=True, exist_ok=True)
+                original.replace(quarantined)
+                moved.append(
+                    _QuarantinedDirectory(
+                        original=original,
+                        quarantined=quarantined,
+                    )
+                )
+        except OSError as error:
+            self.restore(ImageSelectionDeletionQuarantine(tuple(moved)))
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_ARTIFACT_DELETE_FAILED",
+                "Managed image-selection files could not be quarantined.",
+            ) from error
+        except JobError:
+            self.restore(ImageSelectionDeletionQuarantine(tuple(moved)))
+            raise
+        return ImageSelectionDeletionQuarantine(tuple(moved))
+
+    def finalize(self, quarantine: ImageSelectionDeletionQuarantine) -> None:
+        for item in quarantine.directories:
+            if item.quarantined.exists():
+                shutil.rmtree(item.quarantined)
+            with suppress(OSError):
+                item.quarantined.parent.rmdir()
+
+    def restore(self, quarantine: ImageSelectionDeletionQuarantine) -> None:
+        for item in reversed(quarantine.directories):
+            if not item.quarantined.exists():
+                continue
+            item.original.parent.mkdir(parents=True, exist_ok=True)
+            if item.original.exists():
+                raise JobConflictError(
+                    "IMAGE_SELECTION_JOB_ARTIFACT_RESTORE_CONFLICT",
+                    "Managed image-selection files could not be restored safely.",
+                )
+            item.quarantined.replace(item.original)
 
 
 class JobRepository(Protocol):
@@ -87,15 +240,45 @@ class JobRepository(Protocol):
 
     def save_job(self, job: Job) -> Job: ...
 
+    def get_image_selection_deletion_reference(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletionReference | None: ...
+
+    def delete_image_selection_run_and_job(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+    ) -> None: ...
+
+
+class SymbolModelSnapshotResolver(Protocol):
+    def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot: ...
+
+
+class GridProfileSnapshotResolver(Protocol):
+    def resolve(self, *, game_id: UUID) -> dict[str, object]: ...
+
 
 class JobService:
     def __init__(
         self,
         repository: JobRepository,
         import_source_inspector: LayoutImportSourceInspector | None = None,
+        symbol_model_snapshot_resolver: SymbolModelSnapshotResolver | None = None,
+        grid_profile_snapshot_resolver: GridProfileSnapshotResolver | None = None,
+        *,
+        deletion_artifact_store: ImageSelectionDeletionArtifactStore | None = None,
     ) -> None:
         self._repository = repository
         self._import_source_inspector = import_source_inspector
+        self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
+        self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
+        self._deletion_artifact_store = deletion_artifact_store
+        self._pending_deletion_quarantines: list[
+            ImageSelectionDeletionQuarantine
+        ] = []
 
     def create_job(
         self,
@@ -185,13 +368,23 @@ class JobService:
                 "IMAGE_FOLDER_NOT_DIRECTORY",
                 "The selected image source must be a directory.",
             )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}".encode("ascii")
+        ).hexdigest()
         input_payload: dict[str, object] = {
-            "schema_version": 1,
+            "schema_version": 2,
             "import_kind": "image_directory",
             "source_selection_id": str(selection_id),
             "source_directory": str(resolved),
             "source_display_name": source_display_name,
-            "pipeline_fingerprint": pipeline_fingerprint,
+            "pipeline_fingerprint": effective_pipeline_fingerprint,
+            "source_pipeline_fingerprint": pipeline_fingerprint,
+            "symbol_model": symbol_model.to_payload(),
         }
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
@@ -199,6 +392,94 @@ class JobService:
             JobType.IMPORT,
             game_id=game_id,
             input_payload=input_payload,
+            game_already_validated=True,
+        )
+
+    def create_curated_image_import_job(
+        self,
+        *,
+        game_id: UUID,
+        source_id: UUID,
+        batch_id: UUID,
+        source_directory: Path,
+        source_display_name: str,
+        manifest_relative_path: str,
+        manifest_checksum_sha256: str,
+        entry_start: int,
+        entry_count: int,
+        image_selection_run_id: UUID,
+        pipeline_fingerprint: str,
+        grid_profile: dict[str, object] | None = None,
+    ) -> Job:
+        """Create a job pinned to one verified, ordered curated-manifest slice."""
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        try:
+            resolved = source_directory.resolve(strict=True)
+        except OSError as error:
+            raise JobError(
+                "IMAGE_FOLDER_NOT_FOUND",
+                "The curated image output does not exist or is unavailable.",
+            ) from error
+        if not resolved.is_dir():
+            raise JobError(
+                "IMAGE_FOLDER_NOT_DIRECTORY",
+                "The curated image source must be a directory.",
+            )
+        if entry_start < 0 or entry_count < 1:
+            raise JobError(
+                "CURATED_IMAGE_IMPORT_RANGE_INVALID",
+                "The curated image manifest slice is invalid.",
+            )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        pinned_grid_profile = grid_profile or (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        grid_fingerprint = pinned_grid_profile.get("inferenceFingerprint")
+        if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The pinned grid profile snapshot is invalid.",
+            )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            (
+                f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:"
+                f"{grid_fingerprint}:{manifest_checksum_sha256}:"
+                f"{entry_start}:{entry_count}"
+            ).encode("ascii")
+        ).hexdigest()
+        return self._persist_job(
+            JobType.IMPORT,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 3,
+                "import_kind": "image_directory",
+                "source_selection_id": str(source_id),
+                "source_directory": str(resolved),
+                "source_display_name": source_display_name,
+                "pipeline_fingerprint": effective_pipeline_fingerprint,
+                "source_pipeline_fingerprint": pipeline_fingerprint,
+                "image_selection_run_id": str(image_selection_run_id),
+                "curated_image_import_source_id": str(source_id),
+                "curated_image_import_batch_id": str(batch_id),
+                "curated_manifest_relative_path": manifest_relative_path,
+                "curated_manifest_checksum_sha256": manifest_checksum_sha256,
+                "curated_manifest_entry_start": entry_start,
+                "curated_manifest_entry_count": entry_count,
+                "symbol_model": symbol_model.to_payload(),
+                "grid_profile": pinned_grid_profile,
+            },
             game_already_validated=True,
         )
 
@@ -428,3 +709,107 @@ class JobService:
                 details={"jobId": str(job_id)},
             )
         return self._repository.save_job(requeue_job(job))
+
+    def delete_cancelled_image_selection_job(
+        self,
+        job_id: UUID,
+    ) -> ImageSelectionJobDeletion:
+        job = self._repository.get_job_for_update(job_id)
+        if job is None:
+            raise JobNotFoundError(
+                "JOB_NOT_FOUND",
+                "Job does not exist.",
+                details={"jobId": str(job_id)},
+            )
+        if job.job_type is not JobType.IMAGE_SELECTION:
+            raise JobConflictError(
+                "JOB_DELETE_TYPE_UNSUPPORTED",
+                "Only image-selection jobs can be deleted.",
+            )
+        if job.status is not JobStatus.CANCELLED:
+            raise JobConflictError(
+                "JOB_DELETE_STATUS_INVALID",
+                "Only cancelled image-selection jobs can be deleted.",
+            )
+        reference = self._repository.get_image_selection_deletion_reference(job_id)
+        if reference is None:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_RUN_MISSING",
+                "The cancelled job has no durable image-selection run.",
+            )
+        if reference.has_curated_import_source:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_HANDOFF_EXISTS",
+                "A run already handed to layout import cannot be deleted.",
+            )
+        if reference.has_published_output:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_PUBLISHED_OUTPUT_EXISTS",
+                "A run with published output cannot be deleted.",
+            )
+        if self._deletion_artifact_store is None:
+            raise JobConflictError(
+                "IMAGE_SELECTION_JOB_DELETE_UNAVAILABLE",
+                "Managed image-selection deletion is not configured.",
+            )
+        delete_source_staging = reference.source_reference_count == 1
+        quarantine = self._deletion_artifact_store.quarantine(
+            job_id=job_id,
+            run_id=reference.run_id,
+            source_selection_id=reference.source_selection_id,
+            delete_source_staging=delete_source_staging,
+        )
+        try:
+            self._repository.delete_image_selection_run_and_job(
+                job_id=job_id,
+                run_id=reference.run_id,
+            )
+        except BaseException:
+            self._deletion_artifact_store.restore(quarantine)
+            raise
+        self._pending_deletion_quarantines.append(quarantine)
+        moved = {item.quarantined.name for item in quarantine.directories}
+        return ImageSelectionJobDeletion(
+            job_id=job_id,
+            run_id=reference.run_id,
+            managed_run_files_deleted="manual" in moved,
+            source_staging_deleted="source" in moved,
+            shared_source_staging_preserved=not delete_source_staging,
+        )
+
+    def finalize_pending_deletions(self) -> None:
+        pending = tuple(self._pending_deletion_quarantines)
+        self._pending_deletion_quarantines.clear()
+        for quarantine in pending:
+            if self._deletion_artifact_store is not None:
+                self._deletion_artifact_store.finalize(quarantine)
+
+    def restore_pending_deletions(self) -> None:
+        pending = tuple(reversed(self._pending_deletion_quarantines))
+        self._pending_deletion_quarantines.clear()
+        for quarantine in pending:
+            if self._deletion_artifact_store is not None:
+                self._deletion_artifact_store.restore(quarantine)
+
+
+def _baseline_grid_profile_snapshot() -> dict[str, object]:
+    value: dict[str, object] = {
+        "profileId": None,
+        "profileVersion": "detector-baseline-v1",
+        "profileChecksumSha256": hashlib.sha256(b"detector-baseline-v1").hexdigest(),
+        "activationId": None,
+        "profilePayload": {
+            "schemaVersion": 1,
+            "calibrationPolicy": "detector-baseline-v1",
+            "scopes": [],
+            "positionFallbacks": [],
+        },
+    }
+    canonical = json.dumps(
+        value,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("ascii")
+    value["inferenceFingerprint"] = hashlib.sha256(canonical).hexdigest()
+    return value

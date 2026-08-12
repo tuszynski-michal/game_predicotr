@@ -594,6 +594,20 @@ GET runu zwraca lifecycle przez zagnieżdżony `job`. GET grup przyjmuje opcjona
 25). Odpowiedź ma `items` oraz opcjonalny `nextAfterGroupOrder`. Endpoint nie
 zwraca pełnej listy kandydatów.
 
+Aktualny kontrakt tworzenia runu v10.4 wymaga również dodatniego pola
+`firstSequenceNumber`. Historyczne rekordy odpowiedzi zachowują pole nullable,
+ponieważ runy v9–v10.3 mogły powstać bez kotwicy. Ponowne użycie istniejącego
+stagingu ma endpoint:
+
+```text
+POST /api/v1/admin/image-selections/{runId}/rerun
+```
+
+Opcjonalne body `{ "firstSequenceNumber": 7300 }` nadpisuje lub uzupełnia
+kotwicę źródłowego runu. Dla selektora v10.4 brak wartości zarówno w body, jak i
+w źródłowym runie zwraca `IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED`; nie powstaje
+job. Dla historycznego fingerprintu nullable pozostaje dozwolone.
+
 Stabilne błędy dostarczone w TASK-0151:
 
 ```text
@@ -611,6 +625,10 @@ TASK-0154–0155 rozszerzają kontrakt o:
 PUT  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-file
 GET  /api/v1/admin/image-selections/{runId}/groups/{groupId}/manual-files/{candidateId}
 POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/approve
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/discard-duplicate
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/confirm-range
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/reject
+POST /api/v1/admin/image-selections/{runId}/groups/{groupId}/restore
 POST /api/v1/admin/image-selections/{runId}/handoff
 ```
 
@@ -619,6 +637,14 @@ POST /api/v1/admin/image-selections/{runId}/handoff
 `X-Image-File-Name`. Limit wynosi 50 MB. Odpowiedź zwraca utworzonego albo
 odnalezionego po checksumie kandydata. `GET .../manual-files/{candidateId}`
 zwraca poświadczony podgląd `image/jpeg` wyłącznie w obrębie runu i grupy.
+
+`POST .../confirm-range` przyjmuje `rangeStart`, `rangeEnd` i UUID
+`idempotencyKey`; działa tylko dla automatycznego reprezentanta w
+`range_required | range_confirmed`. `POST .../reject` przyjmuje UUID i działa
+wyłącznie dla `manual_required | range_required | rejected_by_user`.
+`POST .../restore` odtwarza zapisany stan źródłowy odrzuconej grupy. Wszystkie
+trzy operacje używają lokalnych nagłówków potwierdzenia, blokady runu oraz
+append-only audytu.
 
 `POST .../approve` przyjmuje:
 
@@ -637,6 +663,12 @@ zmiana payloadu pod tym samym kluczem jest konfliktem. Kolejna korekta używa
 nowego UUID i tworzy append-only rewizję. Handoff działa wyłącznie dla
 kompletnego checksumowanego manifestu i zwraca poświadczone źródło do
 istniejącego `POST /image-imports`; nie uruchamia sam ciężkiego pipeline'u.
+
+`POST .../discard-duplicate` używa body `idempotencyKey`, `rangeStart` i
+`rangeEnd`. Zwraca ten sam typ co zatwierdzenie manualne, z decyzją
+`duplicate_range` i grupą `skipped_existing_range`. API nie wykonuje operacji,
+jeżeli inna rozwiązana grupa runu nie ma identycznego zakresu; stabilny kod
+błędu to `IMAGE_SELECTION_DUPLICATE_RANGE_NOT_FOUND`.
 
 TASK-0154 zamraża odpowiedź handoffu:
 
@@ -658,6 +690,20 @@ JPEG-a, jego rozmiar i wymiary oraz porównuje zakresy z trwałymi grupami runu.
 Ponowienie aktywnego handoffu zwraca ten sam token, a logiczne źródło zachowuje
 `selectionId = runId`. Panel przechodzi do `Importu layoutów`, lecz dopiero
 osobne kliknięcie `Rozpocznij import` konsumuje token i tworzy job.
+
+Manifest outputu `curated-image-selection-output-v2` identyfikuje wpis przez
+`groupOrder`, przechowuje oryginalną ścieżkę, checksumy, metryki jakości,
+`reasonCodes` i `selectionMethod`. `rangeStart` oraz `rangeEnd` są parą
+opcjonalną. Bez zakresu publiczna nazwa ma postać `selection_<groupOrder>.jpg`;
+rozpoznany albo historyczny zakres zachowuje `seq_<start>-<end>.jpg`. Endpoint
+`GET .../output` zwraca oba warianty, a `GET .../output/{fileName}` ponownie
+weryfikuje manifest i JPEG. Verifier nadal czyta niezmienne manifesty v1.
+
+Handoff porównuje wybrane trwałe grupy po `groupOrder` i opcjonalnej parze
+zakresu, a nie wymaga zbioru rozpoznanych zakresów. `supportedFileCount` oznacza
+liczbę wybranych grup mających JPEG. Import `image_directory` otrzymuje te same
+checksumowane pliki; dopiero jego istniejący OCR i geometria ustalają
+`sequence_number` oraz wykrywają duplikaty zakresu.
 
 Stabilne rodziny błędów:
 
@@ -787,6 +833,25 @@ na tym samym rekordzie i checkpointcie.
 Powtórzenie identycznego typu, gry i payloadu zwraca
 `409 JOB_INPUT_ALREADY_EXISTS` z `existingJobId`. API nie wykonuje workflow
 w requestcie.
+
+### DELETE `/api/v1/admin/jobs/{jobId}`
+
+Trwale usuwa wyłącznie job `image_selection` w statusie `cancelled`. Operacja
+wymaga lokalnych nagłówków wysokiego ryzyka z dokładnym celem `job:{jobId}`.
+Przed zmianą bazy API blokuje rekord joba i sprawdza jego pojedynczy run.
+Zwraca `409`, jeżeli job ma inny typ lub status, run został przekazany do
+iteracyjnego importu, ma opublikowany manifest albo nie można bezpiecznie
+przenieść zarządzanych artefaktów do kwarantanny.
+
+Usuwane są decyzje manualne, kandydaci, grupy, run i job. Katalog manualny runu
+oraz niewspółdzielony browser staging są najpierw atomowo przenoszone do
+kwarantanny; rollback bazy przywraca je, a commit kończy fizyczne usunięcie.
+Staging używany przez więcej niż jeden run pozostaje. Folder wynikowy wybrany
+przez użytkownika w przeglądarce nie jest częścią zarządzanego storage i nigdy
+nie jest usuwany.
+
+Odpowiedź zawiera `jobId`, `runId`, `managedRunFilesDeleted`,
+`sourceStagingDeleted` oraz `sharedSourceStagingPreserved`.
 
 Dla `import` klient wskazuje wyłącznie względny POSIX `sourcePath` pod
 `GAME_PREDICTOR_IMPORT_ROOT`. Nie może przekazać ścieżki absolutnej, formatu,
@@ -1039,6 +1104,34 @@ pipeline’u Android.
 
 Zwraca najwyżej 200 najnowszych rekordów. Obsługuje filtry `status`,
 `job_type`, `game_id` oraz bounded `limit`, domyślnie 50.
+
+### GET `/api/v1/admin/worker-lanes`
+
+Zwraca zawsze dwa rekordy w kolejności `general`, `image_selection`, niezależnie
+od obecności jobów oraz filtra listy. Status `running | degraded | stopped`
+wynika z heartbeat procesu. Odpowiedź nie ujawnia PID, `workerId`, komendy ani
+lokalnych ścieżek:
+
+```json
+[
+  {
+    "lane": "general",
+    "state": "running",
+    "workerVersion": "worker-v10-general",
+    "threadBudget": 2,
+    "startedAt": "2026-08-05T12:00:00Z",
+    "heartbeatAt": "2026-08-05T12:00:05Z"
+  },
+  {
+    "lane": "image_selection",
+    "state": "stopped",
+    "workerVersion": null,
+    "threadBudget": null,
+    "startedAt": null,
+    "heartbeatAt": null
+  }
+]
+```
 
 ### GET `/api/v1/admin/jobs/{jobId}`
 
@@ -1472,56 +1565,97 @@ sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
 próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
 zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
 
-## Planowany Admin API M6.6 — jakość modelu symboli
+## Admin API M6.6 — jakość modelu symboli
 
-Endpointy tego rozdziału są planowanym kontraktem TASK-0143–0149 i nie są
-jeszcze dostępne w wersji 0.2. Odpowiedzi zostaną dodane do OpenAPI backendu, a
-frontend użyje wyłącznie wygenerowanego klienta.
+Endpointy kohorty z TASK-0143 oraz game-scoped podsumowanie gotowości z
+TASK-0144 są dostępne w backendzie, wygenerowanym kliencie i panelu Admina.
+Pozostałe endpointy TASK-0145–0149 są nadal planowane. Nie są częścią panelu
+wersji 0.2.
 
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
-Zwraca aktywny model, liczby zweryfikowanych plansz ogółem i od ostatniej
-kohorty, pokrycie symboli i źródeł, bieżącą iterację oraz dozwolone akcje.
+Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), liczby
+zweryfikowanych plansz ogółem i pozycje zmienione od ostatniej kohorty,
+pokrycie wszystkich aktywnych symboli, liczbę źródeł, progi doradcze 100/1000,
+ostatnią kohortę, ostrzeżenia i flagę `canFreeze`. Delta porównuje checksumy
+pełnych pozycji, dlatego zmieniona etykieta jest nowym elementem również wtedy,
+gdy liczba plansz się nie zmieniła. Aktywny job `created` albo `processing` tej
+samej gry ustawia `activeHeavyJob = true` i czasowo blokuje freeze. Ostrzeżenie
+o małym pokryciu klasy pojawia się poniżej 10 cropów symbolu, a ostrzeżenie o
+małej różnorodności źródeł poniżej 3 zdjęć; oba progi są doradcze i nie blokują
+operacji.
 
-### GET `/api/v1/admin/games/{gameId}/verified-training-cohorts/preview`
+### GET `/api/v1/admin/games/{game_id}/verified-training-cohorts/preview`
 
 Zwraca dokładne liczniki elementów kwalifikujących, wykluczonych i chronionych,
-manifest preview oraz ostrzeżenia o małym pokryciu. Progi 100 i 1000 są
-informacją, nie warunkiem endpointu.
+checksum preview oraz ostrzeżenia o małym pokryciu. Liczniki rozdzielają
+`resolvedLayoutCount`, `pendingItemCount`, `rejectedItemCount`,
+`incompleteItemCount` i `protectedItemCount`. Progi 100 i 1000 są informacją,
+nie warunkiem endpointu.
 
-### POST `/api/v1/admin/games/{gameId}/verified-training-cohorts`
+### POST `/api/v1/admin/games/{game_id}/verified-training-cohorts`
 
-Z kluczem idempotencji zamraża pełną, skumulowaną kohortę jednej gry. Nie
-uruchamia treningu i nie zmienia review.
+Body zawiera `idempotencyKey`, `createdBy` i
+`expectedManifestChecksumSha256` pochodzące z jawnie potwierdzonego preview.
+Komenda zamraża pełną, skumulowaną kohortę jednej gry. Zmiana stanu po preview
+zwraca `VERIFIED_TRAINING_COHORT_PREVIEW_STALE`, a aktywna ciężka operacja tej
+gry zwraca `VERIFIED_TRAINING_COHORT_HEAVY_JOB_ACTIVE`. Identyczny stan zwraca
+istniejącą kohortę, a zmiana stanu tworzy kolejną iterację. Nie uruchamia
+treningu i nie zmienia review.
 
 ### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations`
 
 Tworzy trwały job treningowy dla wskazanej kohorty i wersjonowanej konfiguracji.
-Odpowiedź zawiera `jobId` oraz `modelIterationId`; request nie wykonuje treningu
-w procesie API.
+Body zawiera `cohortId`, `idempotencyKey` i opcjonalną konfigurację treningu.
+Odpowiedź zawiera zagnieżdżone `job`, `iteration` oraz flagę `created`; request
+nie wykonuje treningu w procesie API. Powtórzenie identycznej komendy zwraca ten
+sam job i iterację, a drugi aktywny trening tej samej gry zwraca konflikt.
 
 ### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations`
 
-Zwraca bounded historię wersji, statusy, checksumy i skrócone metryki.
+Zwraca bounded historię wersji, statusy, checksumy checkpointów, ostatnią
+ukończoną epokę i metryki cząstkowe.
+
+Lista zawiera również checksumy manifestu i raportu kandydata, wersjonowaną
+konfigurację bramki, `gateMetrics` oraz stabilne `rejectionReasons`.
 
 ### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}`
 
-Zwraca manifest, pełne metryki kandydata, porównanie z aktywnym modelem oraz
-stan bramki. Nie zwraca absolutnych ścieżek ani danych obrazu.
+W TASK-0146 zwraca przypiętą kohortę, konfigurację, fingerprint, stan datasetu,
+checkpoint, epokę i metryki cząstkowe. Pełne metryki kandydata, porównanie z
+aktywnym modelem i stan bramki zostaną rozszerzone w TASK-0147. Endpoint nie
+zwraca absolutnych ścieżek ani danych obrazu.
+
+Od TASK-0147 endpoint zwraca pełne metryki kandydata, opcjonalne porównanie z
+aktywną bazą, parity PyTorch–ONNX i wynik smoke CPU. Ścieżki artefaktów są
+względne wobec zarządzanego storage; API nie ujawnia ścieżek absolutnych.
+
+### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/activation-preview`
+
+Parametr `action = activate | rollback` zwraca dokładną checksumę manifestu
+kandydata i bieżący `currentModelIterationId`. Preview nie zmienia rejestru.
 
 ### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/activate`
 
-Po preview i jawnym potwierdzeniu aktywuje wyłącznie `candidate_ready`.
-Komenda jest audytowalna i nie wpływa na model przypięty do trwającego importu.
-
-### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/reject`
-
-Odrzuca kandydata z przyczyną bez zmiany aktywnego modelu.
+Body zawiera `expectedManifestChecksumSha256`,
+`expectedCurrentModelIterationId`, `idempotencyKey`, `actor` i opcjonalny
+`reason`. Komenda aktywuje wyłącznie kompletny `candidate_ready`, którego
+manifest i bieżący aktywny model są zgodne z preview. Dokładne ponowienie zwraca
+`created = false`; ponowne użycie klucza dla innej komendy zwraca konflikt.
+Aktywacja nie wpływa na model przypięty do trwającego importu.
 
 ### POST `/api/v1/admin/games/{gameId}/symbol-model-iterations/{iterationId}/rollback`
 
 Tworzy nowe zdarzenie aktywacji wcześniej poprawnej wersji. Nie nadpisuje
-historii i nie przelicza danych.
+historii i nie przelicza danych. Target rollbacku musiał już wcześniej być
+aktywny dla tej samej gry i nadal mieć kompletny, checksum-bound manifest.
+
+### GET `/api/v1/admin/games/{gameId}/symbol-model-iterations/registry/activations`
+
+Zwraca ograniczoną historię aktywacji i rollbacków w malejącej kolejności
+`activationNumber`. Rekord zawiera poprzednią i nową iterację, akcję, aktora,
+powód, klucz idempotencji i czas. Bieżący model to iteracja z najwyższym
+`activationNumber`.
 
 ### GET `/api/v1/admin/games/{gameId}/pending-reinference-preview`
 
@@ -1871,3 +2005,9 @@ npm run openapi:check
 
 Generowanie nie wymaga uruchomionego API ani połączenia sieciowego. Klient
 pozostaje wyłącznie zależnością panelu; mobile nie importuje tego workspace.
+
+`ImageSelectionRunResponse` zwraca również `selectorVersion`. Backend wyznacza
+wartość z zapisanego `selectorFingerprint` przez rejestr niezmiennych manifestów;
+dla nieznanego historycznego fingerprintu zwraca `unknown`. Panel używa pola do
+opisania pozycji w historii runów, ale fingerprint pozostaje techniczną
+tożsamością zachowania selektora.

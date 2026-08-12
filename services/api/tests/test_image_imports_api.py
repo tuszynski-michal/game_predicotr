@@ -154,8 +154,10 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     job = created.json()["job"]
     assert job["jobType"] == "import"
     assert job["inputPayload"]["importKind"] == "image_directory"
+    assert job["inputPayload"]["schemaVersion"] == 2
     assert job["inputPayload"]["sourceDirectory"] == str(source.resolve())
     assert len(job["inputPayload"]["pipelineFingerprint"]) == 64
+    assert job["inputPayload"]["symbolModel"]["modelVersion"] == ("bootstrap-symbol-cnn-onnx-v1")
     assert replay.status_code == 422
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
@@ -318,6 +320,247 @@ def test_photo_selection_staging_is_resumable_after_service_recreation(
     assert duplicate_retry.uploaded_indexes == {0}
 
 
+def test_photo_selection_staging_uses_a_compact_append_only_journal(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    upload_root = tmp_path / "imports"
+    service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    upload = service.begin(
+        display_name="Duzy folder",
+        expected_file_count=3,
+        expected_total_bytes=len(content) * 3,
+        purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        game_id=game_id,
+    )
+    upload_path = upload_root / "browser-selections" / str(upload.upload_id)
+    state_path = upload_path / image_imports_module.UPLOAD_STATE_FILE_NAME
+    initial_state_bytes = state_path.read_bytes()
+
+    for index in range(3):
+        service.upload_file(
+            upload.upload_id,
+            index,
+            relative_path=f"Duzy folder/photo-{index + 1}.jpg",
+            content=content,
+        )
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    journal_lines = (
+        (upload_path / image_imports_module.UPLOAD_JOURNAL_FILE_NAME)
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
+    resumed = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW + timedelta(minutes=1),
+    ).get(upload.upload_id)
+
+    assert state["schemaVersion"] == 2
+    assert "files" not in state
+    assert state_path.read_bytes() == initial_state_bytes
+    assert len(journal_lines) == 3
+    assert resumed.uploaded_indexes == {0, 1, 2}
+    assert resumed.uploaded_bytes == len(content) * 3
+
+
+def test_legacy_browser_upload_state_is_migrated_without_losing_progress(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    upload_root = tmp_path / "imports"
+    service = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    upload = service.begin(
+        display_name="Legacy upload",
+        expected_file_count=2,
+        expected_total_bytes=len(content) * 2,
+        purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        game_id=game_id,
+    )
+    uploaded = service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="Legacy upload/photo-1.jpg",
+        content=content,
+    )
+    value = uploaded.uploaded_files[0]
+    upload_path = upload_root / "browser-selections" / str(upload.upload_id)
+    state_path = upload_path / image_imports_module.UPLOAD_STATE_FILE_NAME
+    journal_path = upload_path / image_imports_module.UPLOAD_JOURNAL_FILE_NAME
+    state_path.write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "uploadId": str(upload.upload_id),
+                "displayName": upload.display_name,
+                "purpose": upload.purpose.value,
+                "gameId": str(game_id),
+                "expectedFileCount": upload.expected_file_count,
+                "expectedTotalBytes": upload.expected_total_bytes,
+                "createdAt": upload.created_at.isoformat(),
+                "files": [
+                    {
+                        "fileIndex": value.file_index,
+                        "relativePath": value.relative_path,
+                        "storedFileName": value.stored_file_name,
+                        "sizeBytes": value.size_bytes,
+                        "checksumSha256": value.checksum_sha256,
+                    }
+                ],
+            },
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    journal_path.unlink()
+
+    resumed = BrowserImageSelectionService(
+        selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW + timedelta(minutes=1),
+    ).get(upload.upload_id)
+    migrated_state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert resumed.uploaded_indexes == {0}
+    assert resumed.uploaded_bytes == len(content)
+    assert migrated_state["schemaVersion"] == 2
+    assert "files" not in migrated_state
+    assert len(journal_path.read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_file_upload_response_does_not_repeat_the_resume_index_inventory(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    browser_service = BrowserImageSelectionService(
+        selection_service,
+        tmp_path / "imports",
+        max_bytes=1024 * 1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    stream = BytesIO()
+    Image.new("RGB", (32, 24), (50, 60, 70)).save(stream, "JPEG")
+    content = stream.getvalue()
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(
+                {
+                    "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts"),
+                    "GAME_PREDICTOR_IMPORT_ROOT": str(tmp_path / "imports"),
+                }
+            ),
+            job_service_dependency=lambda: JobService(MemoryJobRepository(game_id)),
+            image_folder_selection_service_dependency=lambda: selection_service,
+            browser_image_selection_service_dependency=lambda: browser_service,
+        )
+    )
+
+    with client:
+        created = client.post(
+            "/api/v1/admin/image-imports/browser-selections",
+            json={
+                "displayName": "Zdjecia do selekcji",
+                "expectedFileCount": 1,
+                "expectedTotalBytes": len(content),
+                "purpose": "photo_selection",
+                "gameId": str(game_id),
+            },
+        )
+        uploaded = client.put(
+            f"/api/v1/admin/image-imports/browser-selections/{created.json()['uploadId']}/files/0",
+            content=content,
+            headers={
+                "Content-Type": "application/octet-stream",
+                "X-Image-Relative-Path": "Zdjecia do selekcji/photo.jpg",
+            },
+        )
+
+    assert uploaded.status_code == 200
+    assert uploaded.json()["uploadedFileCount"] == 1
+    assert uploaded.json()["uploadedBytes"] == len(content)
+    assert "uploadedFileIndexes" not in uploaded.json()
+
+
+def test_finalized_photo_selection_can_be_reapproved_after_service_recreation(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    upload_root = tmp_path / "imports"
+    first_selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
+    first_service = BrowserImageSelectionService(
+        first_selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW,
+    )
+    image_bytes = BytesIO()
+    Image.new("RGB", (32, 24), (10, 20, 30)).save(image_bytes, "JPEG")
+    content = image_bytes.getvalue()
+    upload = first_service.begin(
+        display_name="Duzy folder",
+        expected_file_count=1,
+        expected_total_bytes=len(content),
+        purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        game_id=game_id,
+    )
+    first_service.upload_file(
+        upload.upload_id,
+        0,
+        relative_path="Duzy folder/photo-1.jpg",
+        content=content,
+    )
+    first_selected = first_service.finalize(upload.upload_id)
+
+    resumed_selection_service = ImageFolderSelectionService(
+        lambda: None,
+        clock=lambda: NOW + timedelta(minutes=1),
+    )
+    resumed_service = BrowserImageSelectionService(
+        resumed_selection_service,
+        upload_root,
+        max_bytes=1024,
+        photo_selection_max_bytes=1024 * 1024,
+        clock=lambda: NOW + timedelta(minutes=1),
+    )
+    resumed = resumed_service.get(upload.upload_id)
+    repeated_selected = resumed_service.finalize(upload.upload_id)
+
+    assert resumed.uploaded_indexes == {0}
+    assert resumed.uploaded_bytes == len(content)
+    assert first_selected.selection_id == repeated_selected.selection_id == upload.upload_id
+    assert first_selected.input_manifest_sha256 == repeated_selected.input_manifest_sha256
+
+
 def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
     tmp_path: Path,
 ) -> None:
@@ -331,10 +574,18 @@ def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
         clock=lambda: NOW,
     )
 
+    accepted = service.begin(
+        display_name="Maximum supported folder",
+        expected_file_count=100_000,
+        expected_total_bytes=1024,
+        purpose=ImageSelectionPurpose.PHOTO_SELECTION,
+        game_id=game_id,
+    )
+
     with pytest.raises(JobError) as too_many_files:
         service.begin(
             display_name="Too many",
-            expected_file_count=30_001,
+            expected_file_count=100_001,
             expected_total_bytes=1024,
             purpose=ImageSelectionPurpose.PHOTO_SELECTION,
             game_id=game_id,
@@ -348,6 +599,7 @@ def test_photo_selection_staging_enforces_separate_file_and_byte_limits(
             game_id=game_id,
         )
 
+    assert accepted.expected_file_count == 100_000
     assert too_many_files.value.code == "IMAGE_BROWSER_SELECTION_COUNT_INVALID"
     assert too_many_bytes.value.code == "IMAGE_BROWSER_SELECTION_SIZE_INVALID"
 
@@ -404,9 +656,7 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
                 "X-Image-Relative-Path": "Zdjecia do selekcji/photo.jpg",
             },
         )
-        restored = client.get(
-            f"/api/v1/admin/image-imports/browser-selections/{upload_id}"
-        )
+        restored = client.get(f"/api/v1/admin/image-imports/browser-selections/{upload_id}")
         finalized = client.post(
             f"/api/v1/admin/image-imports/browser-selections/{upload_id}/finalize"
         )
@@ -421,6 +671,7 @@ def test_photo_selection_token_cannot_create_layout_import_and_can_create_run(
                 "gameId": str(game_id),
                 "selectionToken": selection_token,
                 "contractVersion": 1,
+                "firstSequenceNumber": 1,
             },
         )
 

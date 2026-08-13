@@ -258,7 +258,7 @@ function Get-VerifiedRecordProcesses {
             }
         }
     }
-    return @($result)
+    return $result.ToArray()
 }
 
 function Get-ActiveRecords {

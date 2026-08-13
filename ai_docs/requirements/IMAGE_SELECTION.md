@@ -633,3 +633,27 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   zakres bez rozpoznanego kandydata nie jest syntetyzowany.
 - Przed pełnym runem obowiązuje regresja wskazanych JPEG-ów i profil pierwszych
   1440 zdjęć z kontrolą błędnych przesunięć, duplikatów i ciągłości.
+
+### Pochodne odzyskiwanie zakresów v10.11 — 2026-08-13
+
+- Historyczny run nie jest mutowany podczas naprawy. Użytkownik otrzymuje nowy
+  run oznaczony jako pochodny, ze wskazaniem wersji silnika i runu źródłowego.
+- Naprawa grup `range_required` nie może ufać dotychczasowej granicy grupy ani
+  wybranemu reprezentantowi. Analizuje wszystkich zachowanych kandydatów w
+  pierwotnej kolejności i potrafi scalić false split, rozdzielić false merge
+  oraz wymienić błędnego reprezentanta.
+- Reprezentant może otrzymać zakres wyłącznie na podstawie własnego zgodnego
+  dowodu. Zdjęcie bardzo rozmazane jest odrzucane; czytelne, ale nadal
+  niejednoznaczne pozostaje dostępne w galerii `Ustal grupę`.
+- Niezależna siatka etykiet ma pierwszeństwo przed niejednoznaczną częściową
+  geometrią. Mocny konflikt pozostaje fail-closed, a słaby konsensus wymaga
+  różnych checksum, zgodnych pozycji i braku konkurencyjnej hipotezy.
+- Przed zapisaniem runu pochodnego system wykonuje pełny dry-run bloków
+  problematycznych i raportuje proponowane scalenia, podziały, wymiany
+  reprezentanta, konflikty oraz pozostałe przypadki ręczne.
+- W ręcznym ustalaniu grupy domyślnie podaje się tylko pierwszy numer, z końcem
+  `start + 8`. Jawny tryb krótkiej grupy końcowej pozwala podać ostatni numer.
+  Użytkownik może zmienić zdjęcie albo odrzucić grupę.
+- Otwarcie modala nie może wykonywać pełnego uzgodnienia folderu. Zapis decyzji
+  czeka tylko na bieżący JPEG; pełne uzgodnienie jest oddzielną operacją z
+  widocznym postępem.

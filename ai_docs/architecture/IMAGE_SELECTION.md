@@ -980,6 +980,32 @@ jego fabryka pozostają rozwiązywalne bez zmiany zachowania. Cache taniego skan
 pozostaje współdzielony, a cache weryfikacji jest izolowany fingerprintem.
 Zmiana nie wymaga migracji bazy ani modyfikacji OpenAPI.
 
+## Architektura pochodnego odzyskiwania v10.11
+
+Run pochodny jest zwykłym runem selekcji korzystającym z istniejącego stagingu
+i lane, ale zapisuje `source_run_id`, `source_revision` oraz tryb
+`range_recovery`. Idempotencja obejmuje źródło, rewizję i fingerprint selektora.
+Publikacja sprawdza, czy rewizja źródła nie zmieniła się od snapshotu; w
+przeciwnym razie wynik nie jest udostępniany jako aktualny.
+
+Pewne grupy są kopiowane jako projekcja z jawnym `origin_group_id`. Maksymalne
+bloki `range_required` otrzymują po dwie kotwice z każdej strony. Kotwice są
+ponownie sprawdzane i przy konflikcie blok rozszerza się do dwóch zgodnych
+kotwic albo granicy zbioru. Wszystkie kandydaty rozszerzonego bloku są
+deduplikowane checksumą, sortowane po `order_index` i ponownie segmentowane;
+stare `group_id`, granice i `selected_candidate_id` nie wpływają na wynik.
+
+V10.11 najpierw ocenia niezależne, pozycyjne hipotezy siatki etykiet. Częściowa
+geometria jest dowodem pomocniczym i nie może zawetować jednego silnego okna.
+Słaby konsensus obejmuje co najmniej dwa różne JPEG-i, trzy różne pozycje i
+cztery zgodne obserwacje. Jedna dokładnie ograniczona luka może potwierdzić
+lokalny odczyt, ale ciągłość nie jest samodzielnym źródłem zakresu.
+
+API tworzenia recovery zwraca run i job pochodny oraz statystyki snapshotu.
+Potwierdzenie zakresu przyjmuje opcjonalny `candidateId`, aby w jednej
+transakcji zmienić reprezentanta i zakres. Admin otwiera modal po przywróceniu
+samego uchwytu folderu; pełny reconcile nie znajduje się na ścieżce krytycznej.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

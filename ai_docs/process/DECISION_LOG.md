@@ -4394,6 +4394,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zaostrza słaby poziom D-178 dla nowego manifestu, zachowując
   historyczne zachowanie v10.9 oraz zakaz rozstrzygania z kursora.
 
+## D-182 — Naprawa zakresów tworzy run pochodny i przebudowuje lokalne grupy
+
+- **Status:** accepted
+- **Date:** 2026-08-13
+- **Decision:** naprawa historycznych grup `range_required` tworzy nowy,
+  idempotentny run pochodny. Run źródłowy i jego audyt pozostają niezmienne.
+  Dla każdego ciągłego bloku problemów system ponownie waliduje sąsiednie
+  kotwice, spłaszcza kandydatów do pierwotnej kolejności i wyznacza granice grup
+  od nowa; dotychczasowa grupa ani wybrany reprezentant nie są źródłem prawdy.
+- **Context:** 748 grup historycznego runu może zawierać nie tylko czytelny
+  JPEG bez wyniku OCR, ale też błędnego reprezentanta, false split, false merge
+  albo zdjęcie przypisane do sąsiedniego zakresu. Zmiana samego pola zakresu
+  utrwaliłaby wadliwe granice i utrudniła rollback.
+- **Reason:** osobny wynik umożliwia porównanie, powtórzenie i kontrolę rewizji
+  bez ryzyka utraty decyzji użytkownika. Lokalne spłaszczenie zachowuje bounded
+  koszt, a jednocześnie nie ufa strukturze, której poprawność jest właśnie
+  przedmiotem naprawy.
+- **Alternatives:** mutowanie starego runu odrzucono z powodu utraty audytu;
+  ponowne OCR tylko reprezentanta odrzucono jako niewystarczające; pełny rerun
+  32 079 zdjęć odrzucono jako zbędny przed pomiarem lokalnego recovery.
+- **Consequences:** schema wiąże run pochodny ze źródłem, rewizją i trybem
+  wykonania. Recovery korzysta z istniejącego lane i stagingu. Zakres może
+  zostać przypisany tylko JPEG-owi, którego własny dowód go potwierdza;
+  ciągłość może walidować dokładną lukę, ale nie tworzy zakresu samodzielnie.
+- **Supersedes:** rozszerza D-181 o bezpieczną naprawę historycznych wyników bez
+  zmiany zachowania istniejących fingerprintów.
+
 ## Szablon nowej decyzji
 
 ```text

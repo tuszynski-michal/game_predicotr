@@ -354,6 +354,9 @@ import type {
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
+  PreviewImageSelectionRangeRecoveryData,
+  PreviewImageSelectionRangeRecoveryErrors,
+  PreviewImageSelectionRangeRecoveryResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
@@ -375,6 +378,9 @@ import type {
   PublishRulesVersionData,
   PublishRulesVersionErrors,
   PublishRulesVersionResponses,
+  RecoverImageSelectionRangesData,
+  RecoverImageSelectionRangesErrors,
+  RecoverImageSelectionRangesResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -2457,6 +2463,53 @@ export const getImageSelectionOutputFile = <
   >({
     url: '/api/v1/admin/image-selections/{run_id}/output/{file_name}',
     ...options,
+  });
+
+/**
+ * Preview an immutable recovery of unresolved range groups
+ */
+export const previewImageSelectionRangeRecovery = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewImageSelectionRangeRecoveryData, ThrowOnError>,
+): RequestResult<
+  PreviewImageSelectionRangeRecoveryResponses,
+  PreviewImageSelectionRangeRecoveryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewImageSelectionRangeRecoveryResponses,
+    PreviewImageSelectionRangeRecoveryErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-selections/{run_id}/range-recovery-preview',
+    ...options,
+  });
+
+/**
+ * Create or return an immutable unresolved-range recovery run
+ */
+export const recoverImageSelectionRanges = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RecoverImageSelectionRangesData, ThrowOnError>,
+): RequestResult<
+  RecoverImageSelectionRangesResponses,
+  RecoverImageSelectionRangesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RecoverImageSelectionRangesResponses,
+    RecoverImageSelectionRangesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-selections/{run_id}/recover-ranges',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

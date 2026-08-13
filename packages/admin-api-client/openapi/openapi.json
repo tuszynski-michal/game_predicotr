@@ -2432,6 +2432,14 @@
         "title": "ImageSelectionDuplicateRangeCommand",
         "type": "object"
       },
+      "ImageSelectionExecutionMode": {
+        "enum": [
+          "full",
+          "range_recovery"
+        ],
+        "title": "ImageSelectionExecutionMode",
+        "type": "string"
+      },
       "ImageSelectionGroupCandidatesResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2548,6 +2556,18 @@
             "title": "Id",
             "type": "string"
           },
+          "originGroupId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Origingroupid"
+          },
           "rangeEnd": {
             "anyOf": [
               {
@@ -2616,6 +2636,7 @@
           "status",
           "selectedCandidateId",
           "rejectionOriginStatus",
+          "originGroupId",
           "createdAt",
           "updatedAt"
         ],
@@ -2734,6 +2755,15 @@
             "title": "Contractversion",
             "type": "integer"
           },
+          "executionMode": {
+            "default": "full",
+            "enum": [
+              "full",
+              "range_recovery"
+            ],
+            "title": "Executionmode",
+            "type": "string"
+          },
           "firstSequenceNumber": {
             "anyOf": [
               {
@@ -2771,10 +2801,34 @@
             "title": "Sequencedirection",
             "type": "string"
           },
+          "sourceRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcerunid"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
             "type": "string"
+          },
+          "sourceSnapshotSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcesnapshotsha256"
           }
         },
         "required": [
@@ -3279,6 +3333,95 @@
         "title": "ImageSelectionRecentWindowResponse",
         "type": "object"
       },
+      "ImageSelectionRecoveryCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedSourceSnapshotSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcesnapshotsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expectedSourceSnapshotSha256"
+        ],
+        "title": "ImageSelectionRecoveryCommand",
+        "type": "object"
+      },
+      "ImageSelectionRecoveryCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "preview": {
+            "$ref": "#/components/schemas/ImageSelectionRecoveryPreviewResponse"
+          },
+          "run": {
+            "$ref": "#/components/schemas/ImageSelectionRunResponse"
+          }
+        },
+        "required": [
+          "run",
+          "created",
+          "preview"
+        ],
+        "title": "ImageSelectionRecoveryCreateResponse",
+        "type": "object"
+      },
+      "ImageSelectionRecoveryPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blockCount": {
+            "minimum": 1.0,
+            "title": "Blockcount",
+            "type": "integer"
+          },
+          "candidateCount": {
+            "minimum": 1.0,
+            "title": "Candidatecount",
+            "type": "integer"
+          },
+          "problemGroupCount": {
+            "minimum": 1.0,
+            "title": "Problemgroupcount",
+            "type": "integer"
+          },
+          "selectorFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Selectorfingerprint",
+            "type": "string"
+          },
+          "selectorVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Selectorversion",
+            "type": "string"
+          },
+          "sourceRunId": {
+            "format": "uuid",
+            "title": "Sourcerunid",
+            "type": "string"
+          },
+          "sourceSnapshotSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcesnapshotsha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceRunId",
+          "sourceSnapshotSha256",
+          "problemGroupCount",
+          "candidateCount",
+          "blockCount",
+          "selectorFingerprint",
+          "selectorVersion"
+        ],
+        "title": "ImageSelectionRecoveryPreviewResponse",
+        "type": "object"
+      },
       "ImageSelectionRerunCommand": {
         "additionalProperties": false,
         "properties": {
@@ -3340,6 +3483,9 @@
             "format": "date-time",
             "title": "Createdat",
             "type": "string"
+          },
+          "executionMode": {
+            "$ref": "#/components/schemas/ImageSelectionExecutionMode"
           },
           "firstSequenceNumber": {
             "anyOf": [
@@ -3437,10 +3583,34 @@
             ],
             "title": "Sequencerangestart"
           },
+          "sourceRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcerunid"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
             "type": "string"
+          },
+          "sourceSnapshotSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcesnapshotsha256"
           },
           "updatedAt": {
             "format": "date-time",
@@ -3462,7 +3632,10 @@
           "outputManifestRelativePath",
           "createdAt",
           "updatedAt",
-          "sequenceDirection"
+          "sequenceDirection",
+          "executionMode",
+          "sourceRunId",
+          "sourceSnapshotSha256"
         ],
         "title": "ImageSelectionRunResponse",
         "type": "object"
@@ -17484,6 +17657,157 @@
           }
         },
         "summary": "Download one checksum-verified curated JPEG",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/range-recovery-preview": {
+      "get": {
+        "operationId": "previewImageSelectionRangeRecovery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionRecoveryPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Preview an immutable recovery of unresolved range groups",
+        "tags": [
+          "image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/image-selections/{run_id}/recover-ranges": {
+      "post": {
+        "operationId": "recoverImageSelectionRanges",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageSelectionRecoveryCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageSelectionRecoveryCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection or game not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Image selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create or return an immutable unresolved-range recovery run",
         "tags": [
           "image-selections"
         ]

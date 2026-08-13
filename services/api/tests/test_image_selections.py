@@ -19,6 +19,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
     ImageSelectionConflictError,
     ImageSelectionError,
+    ImageSelectionExecutionMode,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
     ImageSelectionManualDecision,
@@ -54,6 +55,7 @@ class MemoryImageSelectionRepository:
         self.groups: list[ImageSelectionGroup] = []
         self.candidates: list[ImageSelectionCandidate] = []
         self.manual_decisions: list[ImageSelectionManualDecision] = []
+        self.handoff_run_ids: set[UUID] = set()
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -72,6 +74,7 @@ class MemoryImageSelectionRepository:
                 run
                 for run in self.runs.values()
                 if run.game_id == game_id
+                and run.execution_mode is ImageSelectionExecutionMode.FULL
                 and run.input_manifest_sha256 == input_manifest_sha256
                 and run.selector_fingerprint == selector_fingerprint
                 and run.sequence_direction is sequence_direction
@@ -80,13 +83,70 @@ class MemoryImageSelectionRepository:
             None,
         )
 
+    def find_recovery_run(
+        self,
+        *,
+        source_run_id: UUID,
+        selector_fingerprint: str,
+        source_snapshot_sha256: str,
+    ) -> ImageSelectionRun | None:
+        return next(
+            (
+                run
+                for run in self.runs.values()
+                if run.execution_mode is ImageSelectionExecutionMode.RANGE_RECOVERY
+                and run.source_run_id == source_run_id
+                and run.selector_fingerprint == selector_fingerprint
+                and run.source_snapshot_sha256 == source_snapshot_sha256
+            ),
+            None,
+        )
+
+    def recovery_snapshot(self, run_id: UUID) -> tuple[str, int, int, int]:
+        groups = sorted(
+            (group for group in self.groups if group.run_id == run_id),
+            key=lambda group: group.group_order,
+        )
+        problem = [
+            group for group in groups if group.status is ImageSelectionGroupStatus.RANGE_REQUIRED
+        ]
+        payload = [
+            (group.group_order, group.status.value, group.range_start, group.range_end)
+            for group in groups
+        ]
+        checksum = hashlib.sha256(
+            json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        problem_ids = {group.id for group in problem}
+        candidate_count = sum(
+            candidate.run_id == run_id and candidate.group_id in problem_ids
+            for candidate in self.candidates
+        )
+        block_count = sum(
+            index == 0
+            or problem[index - 1].group_order + 1 != group.group_order
+            for index, group in enumerate(problem)
+        )
+        return checksum, len(problem), candidate_count, block_count
+
+    def has_handoff(self, run_id: UUID) -> bool:
+        return run_id in self.handoff_run_ids
+
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]:
-        existing = self.find_run_by_identity(
-            game_id=run.game_id,
-            input_manifest_sha256=run.input_manifest_sha256,
-            selector_fingerprint=run.selector_fingerprint,
-            sequence_direction=run.sequence_direction,
-            first_sequence_number=run.first_sequence_number,
+        existing = (
+            self.find_run_by_identity(
+                game_id=run.game_id,
+                input_manifest_sha256=run.input_manifest_sha256,
+                selector_fingerprint=run.selector_fingerprint,
+                sequence_direction=run.sequence_direction,
+                first_sequence_number=run.first_sequence_number,
+            )
+            if run.execution_mode is ImageSelectionExecutionMode.FULL
+            else self.find_recovery_run(
+                source_run_id=run.source_run_id or UUID(int=0),
+                selector_fingerprint=run.selector_fingerprint,
+                source_snapshot_sha256=run.source_snapshot_sha256 or "",
+            )
         )
         if existing is not None:
             return existing, False
@@ -383,6 +443,9 @@ def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
         "contract_version": 1,
         "sequence_direction": "ascending",
         "first_sequence_number": None,
+        "execution_mode": "full",
+        "source_run_id": None,
+        "source_snapshot_sha256": None,
     }
 
 
@@ -448,7 +511,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.10"
+    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.11"
     assert history.json()["items"][0]["sequenceRangeStart"] == 1
     assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
@@ -497,6 +560,109 @@ def test_rerun_reuses_unchanged_browser_staging_and_is_idempotent(
     assert rerun.input_manifest_sha256 == original.input_manifest_sha256
     assert rerun.selector_fingerprint == "2" * 64
     assert original.selector_fingerprint == "1" * 64
+
+
+def test_range_recovery_preview_and_creation_are_snapshot_idempotent(
+    tmp_path: Path,
+) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(
+        repository,
+        browser_upload_root=browser_upload_root,
+    )
+    source, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
+        selector_fingerprint="1" * 64,
+        first_sequence_number=1,
+    )
+    source = replace(
+        source,
+        job=replace(source.job, status=JobStatus.WAITING_FOR_REVIEW),
+    )
+    repository.runs[source.id] = source
+    group = _group(source.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    candidate = _manual_candidate(source.id, group.id, 0)
+    repository.groups.append(group)
+    repository.candidates.append(candidate)
+
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+    with client:
+        preview_response = client.get(
+            f"/api/v1/admin/image-selections/{source.id}/range-recovery-preview"
+        )
+        assert preview_response.status_code == 200, preview_response.text
+        preview = preview_response.json()
+        first = client.post(
+            f"/api/v1/admin/image-selections/{source.id}/recover-ranges",
+            json={"expectedSourceSnapshotSha256": preview["sourceSnapshotSha256"]},
+        )
+        repeated = client.post(
+            f"/api/v1/admin/image-selections/{source.id}/recover-ranges",
+            json={"expectedSourceSnapshotSha256": preview["sourceSnapshotSha256"]},
+        )
+
+    assert preview["problemGroupCount"] == 1
+    assert preview["candidateCount"] == 1
+    assert preview["blockCount"] == 1
+    assert preview["selectorVersion"] == "fast-image-selector-v10.11"
+    assert first.status_code == 200, first.text
+    assert repeated.status_code == 200, repeated.text
+    assert first.json()["created"] is True
+    assert repeated.json()["created"] is False
+    assert repeated.json()["run"]["id"] == first.json()["run"]["id"]
+    assert first.json()["run"]["executionMode"] == "range_recovery"
+    assert first.json()["run"]["sourceRunId"] == str(source.id)
+    assert repository.runs[source.id] == source
+
+
+def test_range_recovery_rejects_a_stale_preview(tmp_path: Path) -> None:
+    game_id = uuid4()
+    source_selection_id = uuid4()
+    browser_upload_root = tmp_path / "staging"
+    source_root = browser_upload_root / "browser-selections" / str(source_selection_id)
+    source_root.mkdir(parents=True)
+    manifest_content = b'{"files":[],"schemaVersion":1}'
+    (source_root / "_browser_manifest.json").write_bytes(manifest_content)
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository, browser_upload_root=browser_upload_root)
+    source, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=source_selection_id,
+        input_manifest_sha256=hashlib.sha256(manifest_content).hexdigest(),
+        selector_fingerprint="1" * 64,
+        first_sequence_number=1,
+    )
+    repository.runs[source.id] = replace(
+        source,
+        job=replace(source.job, status=JobStatus.WAITING_FOR_REVIEW),
+    )
+    repository.groups.append(
+        _group(source.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    )
+    stale = service.preview_range_recovery(source.id)
+    repository.groups[0] = replace(repository.groups[0], range_start=1, range_end=9)
+
+    with pytest.raises(ImageSelectionConflictError) as raised:
+        service.recover_ranges(
+            run_id=source.id,
+            expected_source_snapshot_sha256=stale.source_snapshot_sha256,
+        )
+
+    assert raised.value.code == "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED"
 
 
 def test_rerun_can_add_required_first_sequence_to_historical_run(tmp_path: Path) -> None:

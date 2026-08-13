@@ -33,6 +33,9 @@ from game_predictor_api.schemas.image_selections import (
     ImageSelectionOutputFileResponse,
     ImageSelectionOutputResponse,
     ImageSelectionRangeConfirmationCommand,
+    ImageSelectionRecoveryCommand,
+    ImageSelectionRecoveryCreateResponse,
+    ImageSelectionRecoveryPreviewResponse,
     ImageSelectionRerunCommand,
     ImageSelectionRunPageResponse,
     ImageSelectionRunResponse,
@@ -40,6 +43,7 @@ from game_predictor_api.schemas.image_selections import (
     to_image_selection_group_candidates_response,
     to_image_selection_group_page_response,
     to_image_selection_group_response,
+    to_image_selection_recovery_preview_response,
     to_image_selection_run_response,
     to_manual_decision_response,
 )
@@ -161,6 +165,46 @@ def create_image_selections_router(
                 service.get_run_sequence_range(run.id),
             ),
             created=created,
+        )
+
+    @router.get(
+        "/{run_id}/range-recovery-preview",
+        response_model=ImageSelectionRecoveryPreviewResponse,
+        operation_id="previewImageSelectionRangeRecovery",
+        summary="Preview an immutable recovery of unresolved range groups",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_image_selection_range_recovery(
+        run_id: UUID,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionRecoveryPreviewResponse:
+        return to_image_selection_recovery_preview_response(
+            service.preview_range_recovery(run_id)
+        )
+
+    @router.post(
+        "/{run_id}/recover-ranges",
+        response_model=ImageSelectionRecoveryCreateResponse,
+        operation_id="recoverImageSelectionRanges",
+        summary="Create or return an immutable unresolved-range recovery run",
+        responses=ERROR_RESPONSES,
+    )
+    def recover_image_selection_ranges(
+        run_id: UUID,
+        payload: ImageSelectionRecoveryCommand,
+        service: Annotated[ImageSelectionService, service_parameter],
+    ) -> ImageSelectionRecoveryCreateResponse:
+        run, created, preview = service.recover_ranges(
+            run_id=run_id,
+            expected_source_snapshot_sha256=payload.expected_source_snapshot_sha256,
+        )
+        return ImageSelectionRecoveryCreateResponse(
+            run=to_image_selection_run_response(
+                run,
+                service.get_run_sequence_range(run.id),
+            ),
+            created=created,
+            preview=to_image_selection_recovery_preview_response(preview),
         )
 
     @router.get(

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
+from game_predictor_api.domain.image_selections import ImageSelectionExecutionMode
 from game_predictor_api.domain.jobs import (
     Job,
     JobConflictError,
@@ -36,6 +37,7 @@ from game_predictor_worker.images.selection.contracts import (
     SelectionGroupStatus,
     SequenceRange,
 )
+from game_predictor_worker.images.selection.io import load_browser_selection_manifest
 from game_predictor_worker.images.selection.job import (
     ImageSelectionJobHandler,
     ImageSelectionJobRun,
@@ -49,6 +51,10 @@ from game_predictor_worker.images.selection.manifest import (
     SelectorManifest,
 )
 from game_predictor_worker.images.selection.output import PublishedImageSelection
+from game_predictor_worker.images.selection.recovery import (
+    RecoveryProjection,
+    RecoverySourceGroup,
+)
 from game_predictor_worker.images.selection.telemetry import StageTimingCollector
 from game_predictor_worker.jobs.runtime import JobHandlerError
 from PIL import Image
@@ -245,6 +251,10 @@ class _Store:
     groups: tuple[SelectionGroupResult, ...] = ()
     published: PublishedImageSelection | None = None
     gallery_sources: dict[int, tuple[CheapImageObservation, ...]] = field(default_factory=dict)
+    recovery_source_run_id: UUID | None = None
+    recovery_snapshot: str | None = None
+    recovery_source_groups: tuple[RecoverySourceGroup, ...] = ()
+    recovery_origins: dict[int, UUID] = field(default_factory=dict)
 
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun:
         assert job_id == self.run.job_id
@@ -253,6 +263,14 @@ class _Store:
     def load_groups(self, run_id: UUID) -> tuple[SelectionGroupResult, ...]:
         assert run_id == self.run.id
         return self.groups
+
+    def load_recovery_source(
+        self,
+        run_id: UUID,
+    ) -> tuple[str, tuple[RecoverySourceGroup, ...]]:
+        assert run_id == self.recovery_source_run_id
+        assert self.recovery_snapshot is not None
+        return self.recovery_snapshot, self.recovery_source_groups
 
     def persist_groups(
         self,
@@ -290,6 +308,25 @@ class _Store:
             output_manifest_sha256=published.manifest_sha256,
             output_manifest_relative_path=published.manifest_relative_path,
         )
+
+    def persist_recovery_projection(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_run_id: UUID,
+        expected_source_snapshot_sha256: str,
+        lease_token: UUID,
+        projection: RecoveryProjection,
+        persisted_at: datetime,
+    ) -> None:
+        del lease_token, persisted_at
+        assert (job_id, run_id) == (self.run.job_id, self.run.id)
+        assert source_run_id == self.recovery_source_run_id
+        assert expected_source_snapshot_sha256 == self.recovery_snapshot
+        self.groups = projection.groups
+        self.gallery_sources = dict(projection.group_sources)
+        self.recovery_origins = dict(projection.origin_group_ids)
 
 
 class _Context:
@@ -354,6 +391,7 @@ class _Analyzer:
             geometry_confidence=0.0 if corrupted else 0.95,
             quality=ImageQualityMetrics(*(score for _ in range(8))),
             reason_codes=(("IMAGE_SELECTION_SCAN_DECODE_FAILED",) if corrupted else ()),
+            appearance_signature=(() if corrupted else (0.2, 0.4, 0.6)),
         )
 
 
@@ -478,6 +516,94 @@ def _fixture(
         output_manifest_relative_path=None,
     )
     return import_root, artifact_root, claimed, _Store(run)
+
+
+def test_range_recovery_rebuilds_only_preserved_candidates_into_derived_run(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=3,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    source_run_id = uuid4()
+    snapshot = "f" * 64
+    source_root = (
+        import_root
+        / "browser-selections"
+        / str(store.run.source_selection_id)
+    )
+    sources, _ = load_browser_selection_manifest(source_root / "_browser_manifest.json")
+    selected = CandidateResult(
+        source=sources[1],
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        quality=ImageQualityMetrics(*(0.95 for _ in range(8))),
+        recognized_range=None,
+        reason_codes=("REPRESENTATIVE_RANGE_UNKNOWN",),
+        width=64,
+        height=48,
+    )
+    source_group = RecoverySourceGroup(
+        origin_group_id=uuid4(),
+        result=SelectionGroupResult(
+            group_order=0,
+            source_count=3,
+            range=None,
+            fingerprint_sha256="0" * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.RANGE_REQUIRED,
+            selected_candidate=selected,
+            top_candidates=(selected,),
+        ),
+        sources=sources,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        execution_mode=ImageSelectionExecutionMode.RANGE_RECOVERY,
+        source_run_id=source_run_id,
+        source_snapshot_sha256=snapshot,
+    )
+    store.recovery_source_run_id = source_run_id
+    store.recovery_snapshot = snapshot
+    store.recovery_source_groups = (source_group,)
+    calls: list[int] = []
+    context = _Context(job)
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=calls),
+            _Verifier(),
+        ),
+    )
+
+    handler(context, job)  # type: ignore[arg-type]
+
+    assert calls == [0, 1, 2]
+    assert store.recovery_source_groups == (source_group,)
+    assert set(store.recovery_origins.values()) == {source_group.origin_group_id}
+    selected_groups = [
+        group
+        for group in store.groups
+        if group.status is SelectionGroupStatus.AUTO_SELECTED
+    ]
+    assert len(selected_groups) == 1
+    assert selected_groups[0].range == SequenceRange(1, 9, 0.98)
+    selected_orders = [
+        group.selected_candidate.source.order_index
+        for group in store.groups
+        if group.selected_candidate is not None
+    ]
+    assert len(selected_orders) == len(set(selected_orders))
+    assert store.published is not None
+    assert any(
+        checkpoint["checkpoint_payload"]["recovery_projection_complete"] is True
+        for checkpoint in context.checkpoints
+    )
 
 
 def test_v10_4_job_fails_closed_without_first_sequence_number(tmp_path: Path) -> None:

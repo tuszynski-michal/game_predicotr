@@ -643,6 +643,17 @@ class ImageSelectionRunModel(Base):
             name="ck_image_selection_runs_first_sequence_positive",
         ),
         CheckConstraint(
+            "execution_mode IN ('full', 'range_recovery')",
+            name="ck_image_selection_runs_execution_mode",
+        ),
+        CheckConstraint(
+            "(execution_mode = 'full' AND source_run_id IS NULL AND "
+            "source_snapshot_sha256 IS NULL) OR "
+            "(execution_mode = 'range_recovery' AND source_run_id IS NOT NULL AND "
+            "source_run_id <> id AND source_snapshot_sha256 ~ '^[0-9a-f]{64}$')",
+            name="ck_image_selection_runs_recovery_source",
+        ),
+        CheckConstraint(
             "(output_manifest_sha256 IS NULL AND "
             "output_manifest_relative_path IS NULL) OR "
             "(output_manifest_sha256 ~ '^[0-9a-f]{64}$' AND "
@@ -658,13 +669,23 @@ class ImageSelectionRunModel(Base):
             name="ck_image_selection_runs_output_path_safe",
         ),
         UniqueConstraint("job_id", name="uq_image_selection_runs_job_id"),
-        UniqueConstraint(
+        Index(
+            "uq_image_selection_runs_full_identity",
             "game_id",
             "input_manifest_sha256",
             "selector_fingerprint",
             "sequence_direction",
             "first_sequence_number",
-            name="uq_image_selection_runs_identity",
+            unique=True,
+            postgresql_where=text("execution_mode = 'full'"),
+        ),
+        Index(
+            "uq_image_selection_runs_recovery_identity",
+            "source_run_id",
+            "selector_fingerprint",
+            "source_snapshot_sha256",
+            unique=True,
+            postgresql_where=text("execution_mode = 'range_recovery'"),
         ),
         Index(
             "ix_image_selection_runs_game_created",
@@ -675,6 +696,7 @@ class ImageSelectionRunModel(Base):
             "ix_image_selection_runs_source_selection_id",
             "source_selection_id",
         ),
+        Index("ix_image_selection_runs_source_run_id", "source_run_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -704,6 +726,16 @@ class ImageSelectionRunModel(Base):
         nullable=False,
         default=0,
     )
+    execution_mode: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="full",
+    )
+    source_run_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_selection_runs.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    source_snapshot_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     contract_version: Mapped[int] = mapped_column(
         SmallInteger,
         nullable=False,
@@ -884,6 +916,7 @@ class ImageSelectionGroupModel(Base):
                 "AND range_start IS NOT NULL"
             ),
         ),
+        Index("ix_image_selection_groups_origin_group_id", "origin_group_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -906,6 +939,10 @@ class ImageSelectionGroupModel(Base):
     )
     rejection_origin_status: Mapped[ImageSelectionGroupStatus | None] = mapped_column(
         String(40),
+        nullable=True,
+    )
+    origin_group_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("image_selection_groups.id", ondelete="RESTRICT"),
         nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(

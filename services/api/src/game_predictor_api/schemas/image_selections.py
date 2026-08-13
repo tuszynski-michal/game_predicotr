@@ -11,8 +11,10 @@ from uuid import UUID
 from game_predictor_worker.images.selection.manifest import selector_manifest_for_fingerprint
 from pydantic import Field
 
+from game_predictor_api.application.image_selections import ImageSelectionRecoveryPreview
 from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidate,
+    ImageSelectionExecutionMode,
     ImageSelectionGroup,
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
@@ -57,11 +59,48 @@ class ImageSelectionRunResponse(ApiModel):
     first_sequence_number: int | None = Field(default=None, ge=1)
     sequence_range_start: int | None = Field(default=None, ge=1)
     sequence_range_end: int | None = Field(default=None, ge=1)
+    execution_mode: ImageSelectionExecutionMode
+    source_run_id: UUID | None
+    source_snapshot_sha256: Sha256 | None
 
 
 class ImageSelectionCreateResponse(ApiModel):
     run: ImageSelectionRunResponse
     created: bool
+
+
+class ImageSelectionRecoveryCommand(ApiModel):
+    expected_source_snapshot_sha256: Sha256
+
+
+class ImageSelectionRecoveryPreviewResponse(ApiModel):
+    source_run_id: UUID
+    source_snapshot_sha256: Sha256
+    problem_group_count: int = Field(ge=1)
+    candidate_count: int = Field(ge=1)
+    block_count: int = Field(ge=1)
+    selector_fingerprint: Sha256
+    selector_version: str = Field(min_length=1, max_length=100)
+
+
+class ImageSelectionRecoveryCreateResponse(ApiModel):
+    run: ImageSelectionRunResponse
+    created: bool
+    preview: ImageSelectionRecoveryPreviewResponse
+
+
+def to_image_selection_recovery_preview_response(
+    preview: ImageSelectionRecoveryPreview,
+) -> ImageSelectionRecoveryPreviewResponse:
+    return ImageSelectionRecoveryPreviewResponse(
+        source_run_id=preview.source_run_id,
+        source_snapshot_sha256=preview.source_snapshot_sha256,
+        problem_group_count=preview.problem_group_count,
+        candidate_count=preview.candidate_count,
+        block_count=preview.block_count,
+        selector_fingerprint=preview.selector_fingerprint,
+        selector_version=preview.selector_version,
+    )
 
 
 class ImageSelectionRunPageResponse(ApiModel):
@@ -107,6 +146,7 @@ class ImageSelectionGroupResponse(ApiModel):
     status: ImageSelectionGroupStatus
     selected_candidate_id: UUID | None
     rejection_origin_status: ImageSelectionGroupStatus | None
+    origin_group_id: UUID | None
     created_at: datetime
     updated_at: datetime
 
@@ -208,6 +248,9 @@ def to_image_selection_run_response(
         first_sequence_number=run.first_sequence_number,
         sequence_range_start=None if sequence_range is None else sequence_range[0],
         sequence_range_end=None if sequence_range is None else sequence_range[1],
+        execution_mode=run.execution_mode,
+        source_run_id=run.source_run_id,
+        source_snapshot_sha256=run.source_snapshot_sha256,
     )
 
 
@@ -225,6 +268,7 @@ def to_image_selection_group_response(
         status=group.status,
         selected_candidate_id=group.selected_candidate_id,
         rejection_origin_status=group.rejection_origin_status,
+        origin_group_id=group.origin_group_id,
         created_at=group.created_at,
         updated_at=group.updated_at,
     )
@@ -314,10 +358,14 @@ __all__ = [
     "ImageSelectionOutputFileResponse",
     "ImageSelectionOutputResponse",
     "ImageSelectionRangeConfirmationCommand",
+    "ImageSelectionRecoveryCommand",
+    "ImageSelectionRecoveryCreateResponse",
+    "ImageSelectionRecoveryPreviewResponse",
     "to_image_selection_candidate_response",
     "to_image_selection_group_candidates_response",
     "to_image_selection_group_page_response",
     "to_image_selection_group_response",
     "to_image_selection_run_response",
+    "to_image_selection_recovery_preview_response",
     "to_manual_decision_response",
 ]

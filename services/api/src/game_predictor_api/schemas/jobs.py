@@ -114,6 +114,12 @@ class ImageSelectionJobPayload(ApiModel):
     contract_version: Literal[1]
     sequence_direction: Literal["ascending", "descending"] = "ascending"
     first_sequence_number: int | None = Field(default=None, ge=1)
+    execution_mode: Literal["full", "range_recovery"] = "full"
+    source_run_id: UUID | None = None
+    source_snapshot_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
 
 class ValidateJobPayload(ApiModel):

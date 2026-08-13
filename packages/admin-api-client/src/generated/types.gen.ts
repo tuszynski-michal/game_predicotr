@@ -1485,6 +1485,11 @@ export type ImageSelectionDuplicateRangeCommand = {
 };
 
 /**
+ * ImageSelectionExecutionMode
+ */
+export type ImageSelectionExecutionMode = 'full' | 'range_recovery';
+
+/**
  * ImageSelectionGroupCandidatesResponse
  */
 export type ImageSelectionGroupCandidatesResponse = {
@@ -1550,6 +1555,10 @@ export type ImageSelectionGroupResponse = {
    * Id
    */
   id: string;
+  /**
+   * Origingroupid
+   */
+  originGroupId: string | null;
   /**
    * Rangeend
    */
@@ -1658,6 +1667,10 @@ export type ImageSelectionJobPayload = {
    */
   contractVersion: 1;
   /**
+   * Executionmode
+   */
+  executionMode?: 'full' | 'range_recovery';
+  /**
    * Firstsequencenumber
    */
   firstSequenceNumber?: number | null;
@@ -1678,9 +1691,17 @@ export type ImageSelectionJobPayload = {
    */
   sequenceDirection?: 'ascending' | 'descending';
   /**
+   * Sourcerunid
+   */
+  sourceRunId?: string | null;
+  /**
    * Sourceselectionid
    */
   sourceSelectionId: string;
+  /**
+   * Sourcesnapshotsha256
+   */
+  sourceSnapshotSha256?: string | null;
 };
 
 /**
@@ -1953,6 +1974,62 @@ export type ImageSelectionRecentWindowResponse = {
 };
 
 /**
+ * ImageSelectionRecoveryCommand
+ */
+export type ImageSelectionRecoveryCommand = {
+  /**
+   * Expectedsourcesnapshotsha256
+   */
+  expectedSourceSnapshotSha256: string;
+};
+
+/**
+ * ImageSelectionRecoveryCreateResponse
+ */
+export type ImageSelectionRecoveryCreateResponse = {
+  /**
+   * Created
+   */
+  created: boolean;
+  preview: ImageSelectionRecoveryPreviewResponse;
+  run: ImageSelectionRunResponse;
+};
+
+/**
+ * ImageSelectionRecoveryPreviewResponse
+ */
+export type ImageSelectionRecoveryPreviewResponse = {
+  /**
+   * Blockcount
+   */
+  blockCount: number;
+  /**
+   * Candidatecount
+   */
+  candidateCount: number;
+  /**
+   * Problemgroupcount
+   */
+  problemGroupCount: number;
+  /**
+   * Selectorfingerprint
+   */
+  selectorFingerprint: string;
+  /**
+   * Selectorversion
+   */
+  selectorVersion: string;
+  /**
+   * Sourcerunid
+   */
+  sourceRunId: string;
+  /**
+   * Sourcesnapshotsha256
+   */
+  sourceSnapshotSha256: string;
+};
+
+/**
  * ImageSelectionRerunCommand
  */
 export type ImageSelectionRerunCommand = {
@@ -1988,6 +2065,7 @@ export type ImageSelectionRunResponse = {
    * Createdat
    */
   createdAt: string;
+  executionMode: ImageSelectionExecutionMode;
   /**
    * Firstsequencenumber
    */
@@ -2035,9 +2113,17 @@ export type ImageSelectionRunResponse = {
    */
   sequenceRangeStart?: number | null;
   /**
+   * Sourcerunid
+   */
+  sourceRunId: string | null;
+  /**
    * Sourceselectionid
    */
   sourceSelectionId: string;
+  /**
+   * Sourcesnapshotsha256
+   */
+  sourceSnapshotSha256: string | null;
   /**
    * Updatedat
    */
@@ -9923,6 +10009,90 @@ export type GetImageSelectionOutputFileResponses = {
    */
   200: unknown;
 };
+
+export type PreviewImageSelectionRangeRecoveryData = {
+  body?: never;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/range-recovery-preview';
+};
+
+export type PreviewImageSelectionRangeRecoveryErrors = {
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewImageSelectionRangeRecoveryError =
+  PreviewImageSelectionRangeRecoveryErrors[keyof PreviewImageSelectionRangeRecoveryErrors];
+
+export type PreviewImageSelectionRangeRecoveryResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionRecoveryPreviewResponse;
+};
+
+export type PreviewImageSelectionRangeRecoveryResponse =
+  PreviewImageSelectionRangeRecoveryResponses[keyof PreviewImageSelectionRangeRecoveryResponses];
+
+export type RecoverImageSelectionRangesData = {
+  body: ImageSelectionRecoveryCommand;
+  path: {
+    /**
+     * Run Id
+     */
+    run_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-selections/{run_id}/recover-ranges';
+};
+
+export type RecoverImageSelectionRangesErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Image selection or game not found
+   */
+  404: ErrorResponse;
+  /**
+   * Image selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RecoverImageSelectionRangesError =
+  RecoverImageSelectionRangesErrors[keyof RecoverImageSelectionRangesErrors];
+
+export type RecoverImageSelectionRangesResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageSelectionRecoveryCreateResponse;
+};
+
+export type RecoverImageSelectionRangesResponse =
+  RecoverImageSelectionRangesResponses[keyof RecoverImageSelectionRangesResponses];
 
 export type RerunImageSelectionData = {
   /**

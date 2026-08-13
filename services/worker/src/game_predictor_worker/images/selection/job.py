@@ -14,10 +14,14 @@ from uuid import UUID, uuid5
 
 from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
+    ImageSelectionExecutionMode,
     ImageSelectionGroupStatus,
     ImageSelectionSequenceDirection,
 )
 from game_predictor_api.domain.jobs import Job, JobConflictError, JobStatus
+from game_predictor_api.storage.image_selection_repository import (
+    SqlAlchemyImageSelectionRepository,
+)
 from game_predictor_api.storage.models import (
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
@@ -95,6 +99,14 @@ from .output import (
     verify_curated_image_manifest,
 )
 from .ports import SequenceRangeRecognizer
+from .recovery import (
+    RecoveryProjection,
+    RecoverySourceGroup,
+    assemble_recovery_projection,
+    plan_recovery_blocks,
+    prepare_recovery_block,
+    restore_recovered_block,
+)
 from .telemetry import StageTimingCollector
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
@@ -116,12 +128,20 @@ class ImageSelectionJobRun:
     output_manifest_relative_path: str | None
     sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
     first_sequence_number: int | None = None
+    execution_mode: ImageSelectionExecutionMode = ImageSelectionExecutionMode.FULL
+    source_run_id: UUID | None = None
+    source_snapshot_sha256: str | None = None
 
 
 class ImageSelectionJobStore(Protocol):
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun: ...
 
     def load_groups(self, run_id: UUID) -> tuple[SelectionGroupResult, ...]: ...
+
+    def load_recovery_source(
+        self,
+        run_id: UUID,
+    ) -> tuple[str, tuple[RecoverySourceGroup, ...]]: ...
 
     def persist_groups(
         self,
@@ -141,6 +161,18 @@ class ImageSelectionJobStore(Protocol):
         run_id: UUID,
         lease_token: UUID,
         published: PublishedImageSelection,
+        persisted_at: datetime,
+    ) -> None: ...
+
+    def persist_recovery_projection(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_run_id: UUID,
+        expected_source_snapshot_sha256: str,
+        lease_token: UUID,
+        projection: RecoveryProjection,
         persisted_at: datetime,
     ) -> None: ...
 
@@ -218,6 +250,16 @@ class ImageSelectionJobHandler:
                 self._verify_existing_output(run)
             except SelectionContractError as error:
                 raise JobHandlerError(error.code, str(error)) from error
+            return
+
+        if run.execution_mode is ImageSelectionExecutionMode.RANGE_RECOVERY:
+            self._run_range_recovery(
+                context,
+                job,
+                run=run,
+                selector_manifest=selector_manifest,
+                source_root=source_root,
+            )
             return
 
         try:
@@ -325,6 +367,253 @@ class ImageSelectionJobHandler:
             )
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
+
+    def _run_range_recovery(
+        self,
+        context: JobExecutionContext,
+        job: Job,
+        *,
+        run: ImageSelectionJobRun,
+        selector_manifest: SelectorManifest,
+        source_root: Path,
+    ) -> None:
+        if run.source_run_id is None or run.source_snapshot_sha256 is None:
+            raise JobHandlerError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
+                "A range-recovery run has no immutable source snapshot.",
+            )
+        try:
+            current_snapshot, source_groups = self._store.load_recovery_source(
+                run.source_run_id
+            )
+            if current_snapshot != run.source_snapshot_sha256:
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED",
+                    "The source run changed after the recovery run was created.",
+                )
+            checkpoint = job.checkpoint_payload or {}
+            projection_complete = checkpoint.get("recovery_projection_complete") is True
+            if projection_complete:
+                persisted_groups = self._store.load_groups(run.id)
+                if not persisted_groups:
+                    raise SelectionContractError(
+                        "IMAGE_SELECTION_RECOVERY_PROJECTION_MISSING",
+                        "The recovery checkpoint has no durable group projection.",
+                    )
+                result = _recovery_result(
+                    run,
+                    selector_manifest,
+                    persisted_groups,
+                    checkpoint,
+                )
+            else:
+                result = self._build_recovery_projection(
+                    context,
+                    run=run,
+                    selector_manifest=selector_manifest,
+                    source_root=source_root,
+                    source_groups=source_groups,
+                )
+            self._finish_recovery_run(
+                context,
+                run=run,
+                source_root=source_root,
+                result=result,
+            )
+        except SelectionContractError as error:
+            raise JobHandlerError(error.code, str(error)) from error
+
+    def _build_recovery_projection(
+        self,
+        context: JobExecutionContext,
+        *,
+        run: ImageSelectionJobRun,
+        selector_manifest: SelectorManifest,
+        source_root: Path,
+        source_groups: tuple[RecoverySourceGroup, ...],
+    ) -> ImageSelectionResult:
+        source_run_id = run.source_run_id
+        source_snapshot_sha256 = run.source_snapshot_sha256
+        if source_run_id is None or source_snapshot_sha256 is None:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
+                "A range-recovery run has no immutable source snapshot.",
+            )
+        blocks = plan_recovery_blocks(source_groups)
+        if not blocks:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RECOVERY_NOT_REQUIRED",
+                "The source run has no unresolved range-review groups.",
+            )
+        telemetry = StageTimingCollector()
+        if self._adapter_factory is None:
+            analyzer, verifier = self._default_adapter_factory(
+                source_root,
+                selector_manifest,
+                telemetry,
+            )
+        else:
+            analyzer, verifier = self._adapter_factory(source_root, selector_manifest)
+        cached_analyzer = CachedCheapImageAnalyzer(
+            analyzer,
+            self._scan_cache,
+            scan_adapter_fingerprint=selector_manifest.scan_adapter_fingerprint,
+        )
+        cached_verifier = CachedCandidateVerifier(
+            verifier,
+            self._verification_cache,
+            selector_fingerprint=selector_manifest.fingerprint,
+        )
+        prepared = tuple((block, prepare_recovery_block(block)) for block in blocks)
+        total = sum(len(block_input.sources) for _, block_input in prepared)
+        completed = 0
+        recovered = []
+        scan_failures = 0
+        verifications = 0
+        for block_number, (block, block_input) in enumerate(prepared, start=1):
+            sink = _RecoveryBlockAuditSink()
+            local = FastImageSelector(
+                selector_manifest,
+                scan_workers=self._scan_workers,
+                scan_prefetch=self._scan_prefetch,
+            ).select(
+                block_input.sources,
+                analyzer=cached_analyzer,
+                verifier=cached_verifier,
+                audit_sink=sink,
+                sequence_direction=run.sequence_direction.value,
+                first_sequence_number=run.first_sequence_number,
+            )
+            recovered.append(
+                restore_recovered_block(
+                    block=block,
+                    block_input=block_input,
+                    groups=local.groups,
+                    observations=sink.observations,
+                )
+            )
+            completed += len(block_input.sources)
+            scan_failures += local.scan_failure_count
+            verifications += local.verification_count
+            context.checkpoint(
+                checkpoint_payload={
+                    "schema_version": CHECKPOINT_SCHEMA_VERSION,
+                    "workflow": "image_selection_range_recovery",
+                    "run_id": str(run.id),
+                    "source_run_id": str(run.source_run_id),
+                    "source_snapshot_sha256": run.source_snapshot_sha256,
+                    "recovery_projection_complete": False,
+                    "block_count": len(prepared),
+                    "completed_blocks": block_number,
+                    "candidate_count": total,
+                    "scan_failure_count": scan_failures,
+                    "verification_count": verifications,
+                },
+                stage="image_selection:recovering_ranges",
+                current=completed,
+                total=total,
+                success_count=0,
+                failure_count=scan_failures,
+                review_count=0,
+            )
+        projection = assemble_recovery_projection(source_groups, tuple(recovered))
+        self._store.persist_recovery_projection(
+            job_id=run.job_id,
+            run_id=run.id,
+            source_run_id=source_run_id,
+            expected_source_snapshot_sha256=source_snapshot_sha256,
+            lease_token=context.lease_token,
+            projection=projection,
+            persisted_at=context.now(),
+        )
+        result = ImageSelectionResult(
+            selector_version=selector_manifest.algorithm_version,
+            selector_fingerprint=selector_manifest.fingerprint,
+            input_count=total,
+            groups=projection.groups,
+            checkpoint=SelectorCheckpoint(
+                schema_version=CHECKPOINT_SCHEMA_VERSION,
+                selector_fingerprint=selector_manifest.fingerprint,
+                next_order_index=total,
+                processed_count=total,
+                finalized_group_count=len(projection.groups),
+            ),
+            scan_failure_count=scan_failures,
+            verification_count=verifications,
+        )
+        payload = _recovery_checkpoint_payload(run, result, block_count=len(prepared))
+        selected, review = _recovery_counts(result.groups)
+        context.checkpoint(
+            checkpoint_payload=payload,
+            stage="image_selection:recovery_projection_ready",
+            current=total,
+            total=total,
+            success_count=selected,
+            failure_count=scan_failures,
+            review_count=review,
+        )
+        return result
+
+    def _finish_recovery_run(
+        self,
+        context: JobExecutionContext,
+        *,
+        run: ImageSelectionJobRun,
+        source_root: Path,
+        result: ImageSelectionResult,
+    ) -> None:
+        selected, review = _recovery_counts(result.groups)
+        if review:
+            context.wait_for_review()
+        payload = _recovery_checkpoint_payload(
+            run,
+            result,
+            block_count=_checkpoint_int(context.job.checkpoint_payload, "block_count"),
+        )
+
+        def publication_checkpoint(completed: int, total: int) -> None:
+            if completed != total and completed % 16 != 0:
+                return
+            context.checkpoint(
+                checkpoint_payload={
+                    **payload,
+                    "publication": {"completed": completed, "total": total},
+                },
+                stage="image_selection:writing_manifest",
+                current=completed,
+                total=total,
+                success_count=selected,
+                failure_count=result.scan_failure_count,
+                review_count=0,
+            )
+
+        published = self._publisher.publish(
+            run_id=run.id,
+            source_root=source_root,
+            input_manifest_sha256=run.input_manifest_sha256,
+            result=result,
+            source_resolver=lambda candidate: self._resolve_selected_source(
+                source_root,
+                candidate,
+            ),
+            progress_callback=publication_checkpoint,
+        )
+        self._store.record_output(
+            job_id=run.job_id,
+            run_id=run.id,
+            lease_token=context.lease_token,
+            published=published,
+            persisted_at=context.now(),
+        )
+        context.checkpoint(
+            checkpoint_payload=payload,
+            stage="image_selection:ready_for_import",
+            current=result.input_count,
+            total=result.input_count,
+            success_count=selected,
+            failure_count=result.scan_failure_count,
+            review_count=0,
+        )
 
     def _managed_source_root(self, selection_id: UUID) -> Path:
         try:
@@ -502,6 +791,37 @@ class ImageSelectionJobHandler:
             (primary_verifier, secondary_verifier),
             telemetry=telemetry,
         )
+
+
+class _RecoveryBlockAuditSink(SelectionAuditSink):
+    """Capture one bounded block without mutating either durable run."""
+
+    def __init__(self) -> None:
+        self._observations: dict[int, CheapImageObservation] = {}
+
+    @property
+    def observations(self) -> tuple[CheapImageObservation, ...]:
+        return tuple(self._observations[index] for index in sorted(self._observations))
+
+    def candidate_scanned(
+        self,
+        observation: CheapImageObservation,
+        *,
+        group_order: int,
+    ) -> None:
+        del group_order
+        existing = self._observations.setdefault(observation.source.order_index, observation)
+        if existing != observation:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RECOVERY_OBSERVATION_MISMATCH",
+                "One recovery source produced inconsistent scan observations.",
+            )
+
+    def checkpoint_saved(self, checkpoint: SelectorCheckpoint) -> None:
+        del checkpoint
+
+    def group_finalized(self, group: SelectionGroupResult) -> None:
+        del group
 
 
 class _DurableSelectionSink(SelectionAuditSink):
@@ -834,6 +1154,54 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
             _selection_group_from_records(group, by_group.get(group.id, [])) for group in groups
         )
 
+    def load_recovery_source(
+        self,
+        run_id: UUID,
+    ) -> tuple[str, tuple[RecoverySourceGroup, ...]]:
+        with self._session_factory() as session:
+            source_run = session.get(ImageSelectionRunModel, run_id)
+            if (
+                source_run is None
+                or ImageSelectionExecutionMode(source_run.execution_mode)
+                is not ImageSelectionExecutionMode.FULL
+            ):
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
+                    "The recovery source must be an existing full selection run.",
+                )
+            snapshot, _, _, _ = SqlAlchemyImageSelectionRepository(
+                session
+            ).recovery_snapshot(run_id)
+            groups = tuple(
+                session.scalars(
+                    select(ImageSelectionGroupModel)
+                    .where(ImageSelectionGroupModel.run_id == run_id)
+                    .order_by(ImageSelectionGroupModel.group_order)
+                )
+            )
+            candidates = tuple(
+                session.scalars(
+                    select(ImageSelectionCandidateModel)
+                    .where(ImageSelectionCandidateModel.run_id == run_id)
+                    .order_by(ImageSelectionCandidateModel.order_index)
+                )
+            )
+        by_group: dict[UUID, list[ImageSelectionCandidateModel]] = {}
+        for candidate in candidates:
+            if candidate.group_id is not None:
+                by_group.setdefault(candidate.group_id, []).append(candidate)
+        return snapshot, tuple(
+            RecoverySourceGroup(
+                origin_group_id=group.id,
+                result=_selection_group_from_records(group, by_group.get(group.id, [])),
+                sources=tuple(
+                    _source_from_candidate_record(candidate)
+                    for candidate in by_group.get(group.id, [])
+                ),
+            )
+            for group in groups
+        )
+
     def persist_groups(
         self,
         *,
@@ -856,6 +1224,85 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                     observations=group_sources.get(group.group_order, ()),
                     persisted_at=persisted_at,
                 )
+
+    def persist_recovery_projection(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        source_run_id: UUID,
+        expected_source_snapshot_sha256: str,
+        lease_token: UUID,
+        projection: RecoveryProjection,
+        persisted_at: datetime,
+    ) -> None:
+        with self._session_factory() as session, session.begin():
+            _assert_fence(session, job_id, lease_token, persisted_at)
+            derived = session.scalar(
+                select(ImageSelectionRunModel)
+                .where(ImageSelectionRunModel.id == run_id)
+                .with_for_update()
+            )
+            if (
+                derived is None
+                or derived.source_run_id != source_run_id
+                or derived.source_snapshot_sha256 != expected_source_snapshot_sha256
+                or ImageSelectionExecutionMode(derived.execution_mode)
+                is not ImageSelectionExecutionMode.RANGE_RECOVERY
+            ):
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
+                    "The durable recovery run does not match its source snapshot.",
+                )
+            source_groups = tuple(
+                session.scalars(
+                    select(ImageSelectionGroupModel)
+                    .where(ImageSelectionGroupModel.run_id == source_run_id)
+                    .order_by(ImageSelectionGroupModel.group_order)
+                    .with_for_update()
+                )
+            )
+            snapshot, _, _, _ = SqlAlchemyImageSelectionRepository(
+                session
+            ).recovery_snapshot(source_run_id)
+            if snapshot != expected_source_snapshot_sha256:
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED",
+                    "The source run changed before the recovery projection was committed.",
+                )
+            source_group_ids = {group.id for group in source_groups}
+            for group in sorted(projection.groups, key=lambda value: value.group_order):
+                origin_group_id = projection.origin_group_ids[group.group_order]
+                if origin_group_id not in source_group_ids:
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_RECOVERY_PROVENANCE_MISSING",
+                        "A recovered group does not reference its source projection.",
+                    )
+                group_id = self._persist_group(
+                    session,
+                    run_id,
+                    group,
+                    persisted_at,
+                    origin_group_id=origin_group_id,
+                )
+                gallery = projection.group_sources.get(group.group_order)
+                if gallery is None:
+                    self._clone_source_candidates(
+                        session,
+                        run_id=run_id,
+                        group_id=group_id,
+                        origin_group_id=origin_group_id,
+                        persisted_at=persisted_at,
+                    )
+                else:
+                    self._persist_gallery_sources(
+                        session,
+                        run_id=run_id,
+                        group_id=group_id,
+                        group=group,
+                        observations=gallery,
+                        persisted_at=persisted_at,
+                    )
 
     def record_output(
         self,
@@ -896,6 +1343,8 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         run_id: UUID,
         group: SelectionGroupResult,
         persisted_at: datetime,
+        *,
+        origin_group_id: UUID | None = None,
     ) -> UUID:
         record = session.scalar(
             select(ImageSelectionGroupModel)
@@ -935,6 +1384,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
         record.fingerprint_sha256 = group.fingerprint_sha256
         record.board_count_consensus = group.board_count_consensus
         record.status = ImageSelectionGroupStatus(group.status.value)
+        record.origin_group_id = origin_group_id
         if group.status is not SelectionGroupStatus.REJECTED_BY_USER:
             record.rejection_origin_status = None
         record.updated_at = persisted_at
@@ -975,6 +1425,61 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 persisted_at=persisted_at,
             )
         return group_id
+
+    @staticmethod
+    def _clone_source_candidates(
+        session: Session,
+        *,
+        run_id: UUID,
+        group_id: UUID,
+        origin_group_id: UUID,
+        persisted_at: datetime,
+    ) -> None:
+        source_candidates = tuple(
+            session.scalars(
+                select(ImageSelectionCandidateModel)
+                .where(ImageSelectionCandidateModel.group_id == origin_group_id)
+                .order_by(ImageSelectionCandidateModel.order_index)
+            )
+        )
+        for source in source_candidates:
+            existing = session.scalar(
+                select(ImageSelectionCandidateModel).where(
+                    ImageSelectionCandidateModel.run_id == run_id,
+                    ImageSelectionCandidateModel.order_index == source.order_index,
+                )
+            )
+            if existing is not None:
+                if (
+                    existing.group_id != group_id
+                    or existing.checksum_sha256 != source.checksum_sha256
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_PERSISTENCE_CONFLICT",
+                        "A copied recovery candidate already belongs to another group.",
+                    )
+                continue
+            session.add(
+                ImageSelectionCandidateModel(
+                    id=uuid5(
+                        run_id,
+                        f"image-selection-candidate:{source.order_index}:"
+                        f"{source.checksum_sha256}",
+                    ),
+                    run_id=run_id,
+                    group_id=group_id,
+                    order_index=source.order_index,
+                    source_relative_path=source.source_relative_path,
+                    checksum_sha256=source.checksum_sha256,
+                    width=source.width,
+                    height=source.height,
+                    quality_metrics=dict(source.quality_metrics),
+                    range_confidence=source.range_confidence,
+                    reason_codes=list(source.reason_codes),
+                    decision=ImageSelectionCandidateDecision(source.decision),
+                    created_at=persisted_at,
+                )
+            )
 
     @staticmethod
     def _persist_gallery_sources(
@@ -1187,16 +1692,8 @@ def _candidate_from_record(
             end=group.range_end,
             confidence=record.range_confidence or 0.0,
         )
-    original = metrics.get("sourceOriginalRelativePath")
-    size = _positive_int(metrics.get("sourceSizeBytes"), default=1)
     return CandidateResult(
-        source=ImageSelectionSource(
-            order_index=record.order_index,
-            relative_path=(original if isinstance(original, str) else record.source_relative_path),
-            stored_relative_path=record.source_relative_path,
-            checksum_sha256=record.checksum_sha256,
-            size_bytes=size,
-        ),
+        source=_source_from_candidate_record(record),
         decision=CandidateDecision(ImageSelectionCandidateDecision(record.decision).value),
         quality=quality,
         recognized_range=recognized_range,
@@ -1244,6 +1741,96 @@ def _job_run(record: ImageSelectionRunModel) -> ImageSelectionJobRun:
         output_manifest_relative_path=record.output_manifest_relative_path,
         sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
         first_sequence_number=record.first_sequence_number or None,
+        execution_mode=ImageSelectionExecutionMode(record.execution_mode),
+        source_run_id=record.source_run_id,
+        source_snapshot_sha256=record.source_snapshot_sha256,
+    )
+
+
+def _source_from_candidate_record(
+    record: ImageSelectionCandidateModel,
+) -> ImageSelectionSource:
+    metrics = record.quality_metrics
+    original = metrics.get("sourceOriginalRelativePath")
+    size = _positive_int(metrics.get("sourceSizeBytes"), default=1)
+    return ImageSelectionSource(
+        order_index=record.order_index,
+        relative_path=(original if isinstance(original, str) else record.source_relative_path),
+        stored_relative_path=record.source_relative_path,
+        checksum_sha256=record.checksum_sha256,
+        size_bytes=size,
+    )
+
+
+def _recovery_counts(
+    groups: Sequence[SelectionGroupResult],
+) -> tuple[int, int]:
+    selected = sum(
+        group.status
+        in {
+            SelectionGroupStatus.AUTO_SELECTED,
+            SelectionGroupStatus.MANUALLY_SELECTED,
+            SelectionGroupStatus.RANGE_CONFIRMED,
+        }
+        for group in groups
+    )
+    review = sum(
+        group.status
+        in {
+            SelectionGroupStatus.MANUAL_REQUIRED,
+            SelectionGroupStatus.RANGE_REQUIRED,
+        }
+        for group in groups
+    )
+    return selected, review
+
+
+def _recovery_checkpoint_payload(
+    run: ImageSelectionJobRun,
+    result: ImageSelectionResult,
+    *,
+    block_count: int,
+) -> dict[str, object]:
+    selected, review = _recovery_counts(result.groups)
+    return {
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "workflow": "image_selection_range_recovery",
+        "run_id": str(run.id),
+        "source_run_id": str(run.source_run_id),
+        "source_snapshot_sha256": run.source_snapshot_sha256,
+        "recovery_projection_complete": True,
+        "block_count": block_count,
+        "candidate_count": result.input_count,
+        "group_count": len(result.groups),
+        "selected_count": selected,
+        "manual_count": review,
+        "scan_failure_count": result.scan_failure_count,
+        "verification_count": result.verification_count,
+        "selector_state": {"checkpoint": result.checkpoint.to_dict()},
+    }
+
+
+def _recovery_result(
+    run: ImageSelectionJobRun,
+    manifest: SelectorManifest,
+    groups: tuple[SelectionGroupResult, ...],
+    checkpoint: Mapping[str, object],
+) -> ImageSelectionResult:
+    input_count = _checkpoint_int(checkpoint, "candidate_count")
+    return ImageSelectionResult(
+        selector_version=manifest.algorithm_version,
+        selector_fingerprint=manifest.fingerprint,
+        input_count=input_count,
+        groups=groups,
+        checkpoint=SelectorCheckpoint(
+            schema_version=CHECKPOINT_SCHEMA_VERSION,
+            selector_fingerprint=run.selector_fingerprint,
+            next_order_index=input_count,
+            processed_count=input_count,
+            finalized_group_count=len(groups),
+        ),
+        scan_failure_count=_checkpoint_int(checkpoint, "scan_failure_count"),
+        verification_count=_checkpoint_int(checkpoint, "verification_count"),
     )
 
 

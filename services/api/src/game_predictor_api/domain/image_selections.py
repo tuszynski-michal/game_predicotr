@@ -80,6 +80,11 @@ class ImageSelectionSequenceDirection(StrEnum):
     DESCENDING = "descending"
 
 
+class ImageSelectionExecutionMode(StrEnum):
+    FULL = "full"
+    RANGE_RECOVERY = "range_recovery"
+
+
 @dataclass(frozen=True, slots=True)
 class ImageSelectionRun:
     id: UUID
@@ -96,6 +101,9 @@ class ImageSelectionRun:
     updated_at: datetime
     sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
     first_sequence_number: int | None = None
+    execution_mode: ImageSelectionExecutionMode = ImageSelectionExecutionMode.FULL
+    source_run_id: UUID | None = None
+    source_snapshot_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +120,7 @@ class ImageSelectionGroup:
     created_at: datetime
     updated_at: datetime
     rejection_origin_status: ImageSelectionGroupStatus | None = None
+    origin_group_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,6 +170,9 @@ def create_image_selection_run(
         ImageSelectionSequenceDirection.ASCENDING
     ),
     first_sequence_number: int | None = None,
+    execution_mode: ImageSelectionExecutionMode = ImageSelectionExecutionMode.FULL,
+    source_run_id: UUID | None = None,
+    source_snapshot_sha256: str | None = None,
     created_at: datetime | None = None,
 ) -> ImageSelectionRun:
     if game_id.int == 0 or source_selection_id.int == 0:
@@ -175,6 +187,17 @@ def create_image_selection_run(
             "IMAGE_SELECTION_CONFIGURATION_INVALID",
             "The optional first sequence number must be positive.",
         )
+    if execution_mode is ImageSelectionExecutionMode.FULL:
+        if source_run_id is not None or source_snapshot_sha256 is not None:
+            _configuration_error("A full image-selection run cannot reference a source run.")
+        recovery_snapshot = None
+    else:
+        if source_run_id is None or source_run_id.int == 0:
+            _configuration_error("A range-recovery run requires a source run.")
+        recovery_snapshot = validate_sha256(
+            source_snapshot_sha256 or "",
+            field="sourceSnapshotSha256",
+        )
     now = created_at or datetime.now(UTC)
     job = create_job(
         JobType.IMAGE_SELECTION,
@@ -187,6 +210,9 @@ def create_image_selection_run(
             "contract_version": IMAGE_SELECTION_CONTRACT_VERSION,
             "sequence_direction": sequence_direction.value,
             "first_sequence_number": first_sequence_number,
+            "execution_mode": execution_mode.value,
+            "source_run_id": None if source_run_id is None else str(source_run_id),
+            "source_snapshot_sha256": recovery_snapshot,
         },
         created_at=now,
     )
@@ -205,6 +231,9 @@ def create_image_selection_run(
         updated_at=now,
         sequence_direction=sequence_direction,
         first_sequence_number=first_sequence_number,
+        execution_mode=execution_mode,
+        source_run_id=source_run_id,
+        source_snapshot_sha256=recovery_snapshot,
     )
 
 
@@ -700,6 +729,7 @@ __all__ = [
     "ImageSelectionCandidateDecision",
     "ImageSelectionConflictError",
     "ImageSelectionError",
+    "ImageSelectionExecutionMode",
     "ImageSelectionGroup",
     "ImageSelectionGroupPage",
     "ImageSelectionGroupStatus",
@@ -707,6 +737,7 @@ __all__ = [
     "ImageSelectionManualResolution",
     "ImageSelectionNotFoundError",
     "ImageSelectionRun",
+    "ImageSelectionSequenceDirection",
     "create_duplicate_range_decision",
     "create_group_rejection_decision",
     "create_group_restore_decision",

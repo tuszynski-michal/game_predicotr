@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 from game_predictor_worker.images.image_file import ImageFileError, read_jpeg_dimensions
 from game_predictor_worker.images.selection.contracts import SelectionContractError
 from game_predictor_worker.images.selection.manifest import (
+    DEFAULT_SELECTOR_MANIFEST,
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
 )
@@ -26,6 +27,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionCandidateDecision,
     ImageSelectionConflictError,
     ImageSelectionError,
+    ImageSelectionExecutionMode,
     ImageSelectionGroup,
     ImageSelectionGroupPage,
     ImageSelectionGroupStatus,
@@ -108,6 +110,17 @@ class ManualImageSelectionFile:
 class ImageSelectionManualApproval:
     group: ImageSelectionGroup
     decision: ImageSelectionManualDecision
+
+
+@dataclass(frozen=True, slots=True)
+class ImageSelectionRecoveryPreview:
+    source_run_id: UUID
+    source_snapshot_sha256: str
+    problem_group_count: int
+    candidate_count: int
+    block_count: int
+    selector_fingerprint: str
+    selector_version: str
 
 
 class ManualImageSelectionFileStore:
@@ -264,6 +277,18 @@ class ImageSelectionRepository(Protocol):
         first_sequence_number: int | None,
     ) -> ImageSelectionRun | None: ...
 
+    def find_recovery_run(
+        self,
+        *,
+        source_run_id: UUID,
+        selector_fingerprint: str,
+        source_snapshot_sha256: str,
+    ) -> ImageSelectionRun | None: ...
+
+    def recovery_snapshot(self, run_id: UUID) -> tuple[str, int, int, int]: ...
+
+    def has_handoff(self, run_id: UUID) -> bool: ...
+
     def add_run(self, run: ImageSelectionRun) -> tuple[ImageSelectionRun, bool]: ...
 
     def get_run(self, run_id: UUID) -> ImageSelectionRun | None: ...
@@ -405,6 +430,107 @@ class ImageSelectionService:
 
     def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
         return self._repository.get_run_sequence_range(run_id)
+
+    def preview_range_recovery(self, run_id: UUID) -> ImageSelectionRecoveryPreview:
+        source = self.get_run(run_id)
+        if source.execution_mode is not ImageSelectionExecutionMode.FULL:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
+                "Range recovery must start from an original full run.",
+            )
+        if source.job.status not in {JobStatus.WAITING_FOR_REVIEW, JobStatus.COMPLETED}:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_ACTIVE",
+                "Range recovery requires a terminal source selection.",
+            )
+        if self._repository.has_handoff(run_id):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_HANDED_OFF",
+                "A selection already handed to Layout Import cannot be rebuilt in place.",
+            )
+        self._verify_reusable_source(source)
+        snapshot, problem_count, candidate_count, block_count = self._repository.recovery_snapshot(
+            run_id
+        )
+        if problem_count == 0:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_NOT_REQUIRED",
+                "The source run has no unresolved range-review groups.",
+            )
+        return ImageSelectionRecoveryPreview(
+            source_run_id=run_id,
+            source_snapshot_sha256=snapshot,
+            problem_group_count=problem_count,
+            candidate_count=candidate_count,
+            block_count=block_count,
+            selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
+            selector_version=DEFAULT_SELECTOR_MANIFEST.algorithm_version,
+        )
+
+    def recover_ranges(
+        self,
+        *,
+        run_id: UUID,
+        expected_source_snapshot_sha256: str,
+    ) -> tuple[ImageSelectionRun, bool, ImageSelectionRecoveryPreview]:
+        preview = self.preview_range_recovery(run_id)
+        if expected_source_snapshot_sha256 != preview.source_snapshot_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED",
+                "The source run changed after the recovery preview.",
+                details={"sourceSnapshotSha256": preview.source_snapshot_sha256},
+            )
+        existing = self._repository.find_recovery_run(
+            source_run_id=run_id,
+            selector_fingerprint=preview.selector_fingerprint,
+            source_snapshot_sha256=preview.source_snapshot_sha256,
+        )
+        if existing is not None:
+            return existing, False, preview
+        source = self.get_run(run_id)
+        derived = create_image_selection_run(
+            game_id=source.game_id,
+            source_selection_id=source.source_selection_id,
+            input_manifest_sha256=source.input_manifest_sha256,
+            selector_fingerprint=preview.selector_fingerprint,
+            sequence_direction=source.sequence_direction,
+            first_sequence_number=source.first_sequence_number,
+            execution_mode=ImageSelectionExecutionMode.RANGE_RECOVERY,
+            source_run_id=source.id,
+            source_snapshot_sha256=preview.source_snapshot_sha256,
+        )
+        saved, created = self._repository.add_run(derived)
+        return saved, created, preview
+
+    def _verify_reusable_source(self, source_run: ImageSelectionRun) -> None:
+        if self._browser_upload_root is None:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_REUSE_UNAVAILABLE",
+                "The managed browser staging cannot be reused by this API process.",
+            )
+        source_root = (self._browser_upload_root / str(source_run.source_selection_id)).resolve()
+        manifest = source_root / BROWSER_SELECTION_MANIFEST
+        if (
+            not source_root.is_relative_to(self._browser_upload_root)
+            or not source_root.is_dir()
+            or not manifest.is_file()
+        ):
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging is no longer available.",
+            )
+        try:
+            manifest_sha256 = hashlib.sha256(manifest.read_bytes()).hexdigest()
+        except OSError as error:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_SOURCE_MISSING",
+                "The previously uploaded image staging cannot be read.",
+            ) from error
+        if manifest_sha256 != source_run.input_manifest_sha256:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_INPUT_MANIFEST_CHANGED",
+                "The previously uploaded image manifest has changed.",
+            )
 
     def list_runs(
         self,

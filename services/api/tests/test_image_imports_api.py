@@ -162,6 +162,38 @@ def test_approved_folder_token_creates_one_typed_image_job(tmp_path: Path) -> No
     assert replay.json()["code"] == "IMAGE_FOLDER_SELECTION_INVALID"
 
 
+def test_terminal_image_import_can_be_reprocessed_from_managed_originals(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "photos"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "layout.jpg", "JPEG")
+    client, game_id = _client(tmp_path, source)
+
+    with client:
+        selection = client.post("/api/v1/admin/image-imports/folder-selection")
+        created = client.post(
+            "/api/v1/admin/image-imports",
+            json={
+                "gameId": str(game_id),
+                "selectionToken": selection.json()["selectionToken"],
+            },
+        )
+        source_job_id = created.json()["job"]["id"]
+        cancelled = client.post(f"/api/v1/admin/jobs/{source_job_id}/cancel")
+        reprocessed = client.post(
+            f"/api/v1/admin/image-imports/{source_job_id}/reprocess"
+        )
+
+    assert cancelled.status_code == 200
+    assert reprocessed.status_code == 201
+    payload = reprocessed.json()["job"]["inputPayload"]
+    assert payload["schemaVersion"] == 4
+    assert payload["managedSourceJobId"] == source_job_id
+    assert payload["sourceDisplayName"].endswith("(ponowne przetworzenie)")
+    assert len(payload["pipelineFingerprint"]) == 64
+
+
 def test_empty_folder_is_rejected_before_selection_token(tmp_path: Path) -> None:
     source = tmp_path / "empty"
     source.mkdir()

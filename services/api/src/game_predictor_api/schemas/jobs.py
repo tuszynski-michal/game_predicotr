@@ -92,6 +92,20 @@ class CuratedImageImportJobPayload(ApiModel):
     grid_profile: GridProfileJobSnapshotPayload
 
 
+class ManagedImageReprocessJobPayload(ApiModel):
+    schema_version: Literal[4]
+    import_kind: Literal["image_directory"]
+    source_selection_id: UUID | None = None
+    source_directory: str = Field(min_length=1, max_length=2048)
+    source_display_name: str = Field(min_length=1, max_length=255)
+    pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    image_selection_run_id: UUID | None = None
+    managed_source_job_id: UUID
+    symbol_model: SymbolModelJobSnapshotPayload
+    grid_profile: GridProfileJobSnapshotPayload
+
+
 class ImageSelectionJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     source_selection_id: UUID
@@ -184,6 +198,7 @@ JobPayloadResponse = (
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | CuratedImageImportJobPayload
+    | ManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
@@ -412,6 +427,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
                 return LegacyImageImportJobPayload.model_validate(job.input_payload)
             if job.input_payload.get("schema_version") == 3:
                 return CuratedImageImportJobPayload.model_validate(job.input_payload)
+            if job.input_payload.get("schema_version") == 4:
+                return ManagedImageReprocessJobPayload.model_validate(job.input_payload)
             return ImageImportJobPayload.model_validate(job.input_payload)
         return ImportJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SELECTION:

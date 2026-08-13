@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,11 +11,19 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
-from game_predictor_worker.images.geometry import Point
-from game_predictor_worker.images.pipeline_execution import ImageStageContext
+from game_predictor_worker.images.geometry import (
+    ClassicalPageBoardDetector,
+    DetectionResult,
+    Point,
+)
+from game_predictor_worker.images.pipeline_execution import (
+    ImagePipelineExecutionError,
+    ImageStageContext,
+)
 from game_predictor_worker.images.production_workflow import (
     ProductionImageStageAdapterSuite,
     _calibrated_quad,
+    _resolve_page_sequence_numbers,
     _symbol_model_snapshot,
 )
 from game_predictor_worker.images.symbol_onnx import OnnxInference
@@ -58,6 +67,25 @@ def test_grid_profile_uses_run_scope_and_falls_back_without_mutating_detector_qu
     assert detector_quad[0] == Point(10, 10)
 
 
+def test_page_sequence_continuity_repairs_missing_and_isolated_bad_ocr() -> None:
+    resolved, base = _resolve_page_sequence_numbers(
+        (None, 2, 9, 4, 5, 6, 7, 8, 9),
+        tuple(range(9)),
+    )
+
+    assert base == 1
+    assert resolved == tuple(range(1, 10))
+
+
+def test_page_sequence_continuity_rejects_competing_bases() -> None:
+    observed = (1, 2, None, None, 11, 12, None, None, None)
+
+    resolved, base = _resolve_page_sequence_numbers(observed, tuple(range(9)))
+
+    assert base is None
+    assert resolved == observed
+
+
 def _grid_image() -> np.ndarray:
     image = np.full((640, 680, 3), (20, 30, 180), dtype=np.uint8)
     for row in range(3):
@@ -72,6 +100,52 @@ def _grid_image() -> np.ndarray:
                 10,
             )
     return image
+
+
+class _AmbiguousDetector:
+    version = "ambiguous-detector-test-v1"
+
+    def __init__(self, result: DetectionResult) -> None:
+        self._result = replace(
+            result,
+            layout_hypotheses=(result.boards, result.boards),
+        )
+
+    def detect(self, *_args: object, **_kwargs: object) -> DetectionResult:
+        return self._result
+
+
+def test_production_detection_rejects_multiple_partial_grid_hypotheses(
+    tmp_path: Path,
+) -> None:
+    artifact_root = tmp_path / "artifacts"
+    normalized_relative = "working/test/normalized.png"
+    normalized_path = artifact_root / "data" / normalized_relative
+    normalized_path.parent.mkdir(parents=True)
+    Image.fromarray(_grid_image(), mode="RGB").save(normalized_path, format="PNG")
+    detection = ClassicalPageBoardDetector().detect(_grid_image())
+    assert detection.status == "detected"
+    suite = ProductionImageStageAdapterSuite(
+        artifact_root,
+        repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
+    )
+    suite._detector = _AmbiguousDetector(detection)  # type: ignore[assignment]
+    context = ImageStageContext(
+        job_id=uuid4(),
+        file_execution_key="f" * 64,
+        source_checksum_sha256="c" * 64,
+        source_relative_path="unused.jpg",
+        pipeline_fingerprint="d" * 64,
+        previous_results={
+            "normalization": {"normalizedRelativePath": normalized_relative},
+        },
+    )
+
+    with pytest.raises(ImagePipelineExecutionError) as error:
+        suite.board_detection(context)
+
+    assert error.value.code == "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW"
 
 
 def test_production_stages_create_review_ready_board_and_cell_artifacts(
@@ -90,6 +164,7 @@ def test_production_stages_create_review_ready_board_and_cell_artifacts(
     suite = ProductionImageStageAdapterSuite(
         artifact_root,
         repository_root=Path.cwd(),
+        symbol_model=_candidate_snapshot(),
     )
     results: dict[str, dict[str, object]] = {}
     adapters = suite.adapters()[:4]
@@ -111,7 +186,31 @@ def test_production_stages_create_review_ready_board_and_cell_artifacts(
     first = crops[0]
     assert isinstance(first, dict)
     assert len(first["cells"]) == 15
-    assert (artifact_root / "data" / first["boardRelativePath"]).is_file()
+    assert first["cellOutputSize"] == 32
+    assert first["displayAssetKind"] == "source_context"
+    assert f"/{'f' * 64}/" in first["boardRelativePath"]
+    context_path = artifact_root / "data" / first["boardRelativePath"]
+    assert context_path.is_file()
+    context_rgb = np.asarray(Image.open(context_path).convert("RGB"), dtype=np.uint8)
+    assert context_rgb.shape[:2] != (300, 500)
+    bounds = first["sourceContextBounds"]
+    assert isinstance(bounds, dict)
+    normalized_path = artifact_root / "data" / results["normalization"][
+        "normalizedRelativePath"
+    ]
+    normalized_rgb = np.asarray(Image.open(normalized_path).convert("RGB"), dtype=np.uint8)
+    expected_context = normalized_rgb[
+        bounds["y"] : bounds["y"] + bounds["height"],
+        bounds["x"] : bounds["x"] + bounds["width"],
+    ]
+    assert np.array_equal(context_rgb, expected_context)
+    first_cell = first["cells"][0]
+    assert isinstance(first_cell, dict)
+    cell_rgb = np.asarray(
+        Image.open(artifact_root / "data" / first_cell["cropRelativePath"]).convert("RGB"),
+        dtype=np.uint8,
+    )
+    assert cell_rgb.shape == (32, 32, 3)
 
 
 def _candidate_snapshot() -> SymbolModelJobSnapshot:
@@ -186,11 +285,14 @@ class _FakeSymbolAdapter:
         )
 
 
-def test_symbol_projection_records_the_pinned_iteration_and_manifest(tmp_path: Path) -> None:
+def test_symbol_projection_uses_exact_size_crop_without_second_resize(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     artifact_root = tmp_path / "artifacts"
     cell_path = artifact_root / "data" / "cells" / "cell.png"
     cell_path.parent.mkdir(parents=True)
-    Image.new("RGB", (20, 20), (255, 255, 0)).save(cell_path, format="PNG")
+    Image.new("RGB", (32, 32), (255, 255, 0)).save(cell_path, format="PNG")
     snapshot = _candidate_snapshot()
     suite = ProductionImageStageAdapterSuite(
         artifact_root,
@@ -198,6 +300,11 @@ def test_symbol_projection_records_the_pinned_iteration_and_manifest(tmp_path: P
         symbol_model=snapshot,
     )
     suite._symbol_model = _FakeSymbolAdapter()  # type: ignore[assignment]
+
+    def unexpected_resize(*_args: object, **_kwargs: object) -> np.ndarray:
+        raise AssertionError("source-direct model crops must not be resized again")
+
+    monkeypatch.setattr(cv2, "resize", unexpected_resize)
     context = ImageStageContext(
         job_id=uuid4(),
         file_execution_key="f" * 64,

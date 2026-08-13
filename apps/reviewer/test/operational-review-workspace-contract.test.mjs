@@ -41,7 +41,8 @@ test('operational workspace compares square cell crops with one cropped board', 
   );
   assert.doesNotMatch(source, /Plansza do porównania/);
   assert.doesNotMatch(source, />\s*Wycięty układ/);
-  assert.doesNotMatch(source, /item\.id,\s*'board'/);
+  assert.match(source, /item\.geometry\.displayAssetKind === 'source_context'/);
+  assert.match(source, /item\.id,\s*'board'/);
   assert.match(source, /item\.id,\s*'source'/);
   assert.match(source, /OperationalReviewNativeContext/);
   assert.match(source, /operationalReviewNativeContextViewport/);

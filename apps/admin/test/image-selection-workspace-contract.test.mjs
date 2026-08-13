@@ -133,6 +133,17 @@ test('history hides cancelled, failed and incomplete terminal runs', () => {
   );
 });
 
+test('history labels identify a process by short date, engine and sequence range', () => {
+  assert.match(workspaceSource, /year: '2-digit'/);
+  assert.match(workspaceSource, /run\.sequenceRangeStart/);
+  assert.match(workspaceSource, /run\.sequenceRangeEnd/);
+  assert.match(workspaceSource, /`seq \$\{run\.sequenceRangeStart/);
+  assert.doesNotMatch(
+    workspaceSource,
+    /return `\$\{created\} · \$\{formatSelectorVersion\(run\.selectorVersion\)\} · \$\{jobStatusLabel/,
+  );
+});
+
 test('isolates image selection state by active game and keeps four tiles responsive', () => {
   assert.match(catalogSource, /key=\{activeGame\.id\}/);
   assert.match(catalogSource, /gameId=\{activeGame\.id\}/);

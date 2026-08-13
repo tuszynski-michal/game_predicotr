@@ -9,6 +9,7 @@ import type {
   ImageImportJobPayload,
   ImageSequenceSourceSelectionResponse,
   JobResponse,
+  ManagedImageReprocessJobPayload,
 } from '@game-predictor/admin-api-client';
 import {
   type ChangeEvent,
@@ -25,6 +26,7 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   type ImageFolderImportClient,
   createImageFolderImport,
+  reprocessImageFolderImport,
   uploadImageFolder,
 } from './image-folder-import-actions';
 
@@ -37,11 +39,15 @@ interface ImageFolderImportPanelProps {
 }
 
 type ImageImportJob = JobResponse & {
-  readonly inputPayload: ImageImportJobPayload | CuratedImageImportJobPayload;
+  readonly inputPayload:
+    | ImageImportJobPayload
+    | CuratedImageImportJobPayload
+    | ManagedImageReprocessJobPayload;
 };
 
 type ImportAction =
   | 'choose-folder'
+  | 'reprocess-import'
   | 'start-import'
   | 'refresh-status'
   | 'inspect-sequence'
@@ -69,6 +75,22 @@ function curatedBatchTiming(job: JobResponse, imageCount: number) {
     seconds,
     secondsPerImage: seconds / imageCount,
     imagesPerMinute: seconds === 0 ? 0 : (imageCount * 60) / seconds,
+  };
+}
+
+function imageImportOutcome(job: ImageImportJob) {
+  const totalWork = job.progress.total;
+  if (totalWork === null || totalWork < 2 || totalWork % 2 !== 0) return null;
+  const sourceCount = totalWork / 2;
+  return {
+    failedImages: job.progress.failed,
+    pipelineImages: Math.max(
+      0,
+      Math.min(sourceCount, job.progress.current - sourceCount),
+    ),
+    reviewBoards: job.progress.review,
+    sourceCount,
+    succeededImages: Math.max(0, job.progress.succeeded - sourceCount),
   };
 }
 
@@ -317,6 +339,34 @@ export function ImageFolderImportPanel({
       setFeedback('Status importu został odświeżony.');
     } catch {
       setError('Nie udało się odświeżyć statusu importu.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function reprocessImport(sourceJob: ImageImportJob) {
+    if (busy) return;
+    setActiveAction('reprocess-import');
+    setError('');
+    setFeedback('');
+    try {
+      const result = await reprocessImageFolderImport(api, sourceJob.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (isImageImportJob(result.job)) {
+        const imageJob = result.job;
+        setJobs((current) => [
+          imageJob,
+          ...current.filter((item) => item.id !== imageJob.id),
+        ]);
+      }
+      setFeedback(
+        'Utworzono nowy job z zachowanych oryginałów. Poprzedni wynik nie został usunięty.',
+      );
+    } catch {
+      setError('Nie udało się ponownie przetworzyć zachowanych oryginałów.');
     } finally {
       setActiveAction(null);
     }
@@ -744,17 +794,44 @@ export function ImageFolderImportPanel({
           </p>
         ) : (
           <ul className="importCompactList">
-            {jobs.slice(0, 5).map((job) => (
-              <li key={job.id}>
-                <strong>
-                  {job.inputPayload.sourceDisplayName ?? 'Import obrazów'}
-                </strong>
-                <span>
-                  {job.status} · {job.progress.current}/
-                  {job.progress.total ?? '—'}
-                </span>
-              </li>
-            ))}
+            {jobs.slice(0, 5).map((job) => {
+              const outcome = imageImportOutcome(job);
+              return (
+                <li key={job.id}>
+                  <strong>
+                    {job.inputPayload.sourceDisplayName ?? 'Import obrazów'}
+                  </strong>
+                  <span>
+                    {job.status} · {job.progress.current}/
+                    {job.progress.total ?? '—'}
+                  </span>
+                  {outcome === null ? null : (
+                    <span>
+                      Pipeline zdjęć: {outcome.pipelineImages}/
+                      {outcome.sourceCount} · poprawne {outcome.succeededImages}{' '}
+                      · błędy {outcome.failedImages} · plansze do review{' '}
+                      {outcome.reviewBoards}
+                    </span>
+                  )}
+                  {outcome !== null && outcome.failedImages > 0 ? (
+                    <small role="alert">
+                      Wynik jest niekompletny: część zdjęć nie utworzyła plansz.
+                    </small>
+                  ) : null}
+                  {!['created', 'processing'].includes(job.status) ? (
+                    <button
+                      aria-busy={activeAction === 'reprocess-import'}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() => void reprocessImport(job)}
+                      type="button"
+                    >
+                      Przetwórz ponownie z oryginałów
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

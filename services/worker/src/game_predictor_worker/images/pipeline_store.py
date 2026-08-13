@@ -221,10 +221,11 @@ class SqlAlchemyImagePipelineStore:
                     "cells": list(cast(Sequence[object], symbol["cells"])),
                     "modelVersion": model_version,
                 }
-                board_geometry = dict(cast(Mapping[str, object], detected["geometry"]))
-                sequence_label_quad = sequence.get("sequenceLabelQuad")
-                if sequence_label_quad is not None:
-                    board_geometry["sequenceLabelQuad"] = sequence_label_quad
+                board_geometry = _recognized_board_geometry(
+                    detected=detected,
+                    cropped=cropped,
+                    sequence=sequence,
+                )
                 if board is None:
                     board = RecognizedBoardModel(
                         source_image_id=source.id,
@@ -806,9 +807,11 @@ def _require_same_board(
     sequence: Mapping[str, object],
     prediction: Mapping[str, object],
 ) -> None:
-    expected_geometry = dict(cast(Mapping[str, object], detected["geometry"]))
-    if sequence.get("sequenceLabelQuad") is not None:
-        expected_geometry["sequenceLabelQuad"] = sequence["sequenceLabelQuad"]
+    expected_geometry = _recognized_board_geometry(
+        detected=detected,
+        cropped=cropped,
+        sequence=sequence,
+    )
     if (
         board.sequence_number_raw != sequence["rawText"]
         or board.sequence_number != sequence["normalizedNumber"]
@@ -824,6 +827,28 @@ def _require_same_board(
             "IMAGE_RECOGNIZED_BOARD_CONFLICT",
             "The recognized board projection already has different content.",
         )
+
+
+def _recognized_board_geometry(
+    *,
+    detected: Mapping[str, object],
+    cropped: Mapping[str, object],
+    sequence: Mapping[str, object],
+) -> dict[str, object]:
+    geometry = dict(cast(Mapping[str, object], detected["geometry"]))
+    sequence_label_quad = sequence.get("sequenceLabelQuad")
+    if sequence_label_quad is not None:
+        geometry["sequenceLabelQuad"] = sequence_label_quad
+    source_context_bounds = cropped.get("sourceContextBounds")
+    if source_context_bounds is not None:
+        geometry["sourceContextBounds"] = source_context_bounds
+    display_asset_kind = cropped.get("displayAssetKind")
+    if display_asset_kind is not None:
+        geometry["displayAssetKind"] = display_asset_kind
+    cell_output_size = cropped.get("cellOutputSize")
+    if cell_output_size is not None:
+        geometry["cellOutputSize"] = cell_output_size
+    return geometry
 
 
 def _upsert_cell(

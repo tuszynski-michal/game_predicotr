@@ -19,6 +19,7 @@ export type ImageFolderImportClient = Pick<
   | 'listCuratedImageImportSources'
   | 'createNextCuratedImageImportBatch'
   | 'listJobs'
+  | 'reprocessManagedImageImport'
   | 'selectImageSequenceSource'
 >;
 
@@ -125,6 +126,30 @@ export async function createImageFolderImport(
         error: apiErrorMessage(
           result.error,
           'Nie udało się utworzyć importu zdjęć.',
+        ),
+        ok: false,
+      };
+    }
+    return { job: result.data.job, ok: true };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
+
+export async function reprocessImageFolderImport(
+  api: ImageFolderImportClient,
+  sourceJobId: string,
+): Promise<{ readonly job: JobResponse; readonly ok: true } | Failure> {
+  try {
+    const result = await api.reprocessManagedImageImport(sourceJobId);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się ponownie przetworzyć zachowanych oryginałów.',
         ),
         ok: false,
       };

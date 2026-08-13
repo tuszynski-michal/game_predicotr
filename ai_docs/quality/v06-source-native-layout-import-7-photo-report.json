@@ -1,0 +1,40 @@
+{
+  "capturedAt": "2026-08-13",
+  "sourceImportJobId": "04909a56-edc6-42b5-860e-70c662189d1d",
+  "sourceManifestSchemaVersion": 1,
+  "sourceImageCount": 7,
+  "sourceImageDimensions": {
+    "width": 1920,
+    "height": 1080
+  },
+  "pipeline": {
+    "boardDetectionVersion": "page-board-detector-v3-unique-partial-grid-v1",
+    "boardCellCropVersion": "board-cell-crops-v17-source-direct-model-input-v1",
+    "sequenceOcrVersion": "sequence-number-ocr-v2-page-continuity-v1"
+  },
+  "result": {
+    "detectedBoardCount": 63,
+    "cellCropCount": 945,
+    "boardsPerImage": 9,
+    "cellsPerBoard": 15,
+    "sequenceRangeStart": 1,
+    "sequenceRangeEnd": 63,
+    "sequenceIsContinuous": true,
+    "pageContinuityBases": [1, 10, 19, 28, 37, 46, 55],
+    "uniquePartialGridRecoveryImageCount": 6,
+    "standardDetectionImageCount": 1,
+    "ambiguousGridImageCount": 0
+  },
+  "qualityAssertions": {
+    "sourceContextPreservesNativePixels": true,
+    "sourceContextForcedTo500x300": false,
+    "cellProjectionResamplingCount": 1,
+    "modelInputResizeSkippedForNewCrops": true,
+    "rawOcrPreservedSeparately": true
+  },
+  "notes": [
+    "Verification used the seven immutable managed originals from the source import manifest.",
+    "The previous production result contained 9 boards and 135 cells because six images stopped at board detection.",
+    "The v0.6 verification was a read-only pipeline run and did not mutate the existing import or selection jobs."
+  ]
+}

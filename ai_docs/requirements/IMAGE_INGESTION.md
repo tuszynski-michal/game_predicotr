@@ -166,6 +166,25 @@ Przed zaakceptowaniem v2 obowiązuje niezależny golden granic komórek. Golden
 obejmuje reprezentatywne plansze z obu grup źródłowych i wszystkich dziewięciu
 pozycji ekranu. Nie może być wygenerowany wyłącznie przez testowany cropper.
 
+Produkcyjna ścieżka v0.6 zastępuje pośredni raster planszy kontraktem
+`board-cell-crops-v17-source-direct-model-input-v1`:
+
+- `500 × 300` jest wyłącznie logiczną płaszczyzną geometrii i nie jest
+  materializowanym wejściem modelu ani podglądem Reviewera,
+- podgląd planszy jest osiowym wycinkiem z obrazu po korekcie EXIF, zachowanym
+  w natywnej skali pikseli bez obrotu, prostowania i zmiany rozmiaru,
+- każdy z 15 quadów komórek jest projektowany bezpośrednio z obrazu źródłowego
+  do przypiętego rozmiaru wejścia modelu w dokładnie jednym resamplingu,
+- inferencja nie skaluje ponownie cropu o już prawidłowym rozmiarze; skalowanie
+  pozostaje wyłącznie fallbackiem zgodności dla historycznych artefaktów,
+- geometria przechowuje `sourceContextBounds`, `displayAssetKind` oraz
+  `cellOutputSize`, aby Reviewer i audyt nie zgadywały pochodzenia obrazu.
+
+Detektor `page-board-detector-v3-unique-partial-grid-v1` może odzyskać brakujące
+pozycje siatki 3 × 3 tylko wtedy, gdy istnieje dokładnie jedna poprawna hipoteza
+dziewięciu plansz. Zero albo więcej niż jedna hipoteza kończy się fail-closed i
+wymaga review; pipeline nie wybiera arbitralnie geometrii.
+
 ### 5. Odczyt sequence number
 
 - kontrakt `sequence-number-ocr-v1` wyprowadza deterministyczny quad z dolnej
@@ -195,6 +214,13 @@ pozostaje lepszym baseline'em. Nie jest to jednak finalny wybór modelu.
 Detekcja oczekiwanego zestawu plansz wynosi 100% na 43 zdjęciach. Pełny wynik,
 timing i katalog błędów znajdują się w
 `ai_docs/quality/m5-image-benchmark-report.json`.
+
+W produkcyjnej ścieżce v0.6 surowy wynik OCR pozostaje niezmienny w polach
+`rawText` i `ocrNormalizedNumber`. Dla kompletnej strony dziewięciu pozycji
+adapter `sequence-number-ocr-v2-page-continuity-v1` może osobno wyprowadzić
+numer domenowy z bazy strony, jeżeli co najmniej trzy odczyty zgodnie wskazują
+tę samą bazę i przewaga nad konkurencyjną bazą wynosi co najmniej dwa głosy.
+Brak takiego jednoznacznego konsensusu nie uruchamia inferencji ciągłości.
 
 ### Status prototypu po D-062
 
@@ -537,8 +563,14 @@ nadpisywany, a pobranie ponownie sprawdza SHA-256.
 4. Zachować zaakceptowane progi przed kolejną optymalizacją; confidence nie może być
    progiem auto-accept bez kalibracji na held-out source images.
 5. Porównać wyspecjalizowane alternatywy OCR cyfr na rozłącznym podziale
-   źródeł; bieżący OCR pozostaje `manual_review_only`.
+źródeł; bieżący OCR pozostaje `manual_review_only`.
 6. Zatwierdzić finalne modele i ich wersje w osobnej decyzji architektonicznej.
+
+Terminalny image import można ponowić bez ponownego uploadu, klonując jego
+immutable manifest managed originals do nowego joba. Ponowienie przypina
+aktualne wersje pipeline'u, profilu siatki i modelu, ale nie usuwa poprzednich
+projekcji ani źródeł; usuwanie nadal wymaga osobnej, jawnie potwierdzonej
+operacji resetu.
 
 Model symboli został zatwierdzony w D-088 jako
 `production-spatial-symbol-cnn-v1`. Jego automatyczna akceptacja obowiązuje

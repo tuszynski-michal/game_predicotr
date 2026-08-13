@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-12
+last_updated: 2026-08-13
 ---
 
 # Current State
@@ -13,7 +13,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 ## Phase
 
-`Version 0.5 closed by owner; Version 0.6 planning starts with Games and Layout Import workspaces`
+`Version 0.6 implementation: source-native Layout Import quality and completeness`
 
 ## Zamknięcie wersji 0.5
 
@@ -29,6 +29,29 @@ layoutów, kolejne gry i końcowy hardening pozostają jawnie odroczone.
 się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 
 ## Aktywne tory wydań
+
+### Wersja 0.6
+
+- TASK-0231 rozpoczął implementację od jakości i kompletności `Importu
+  layoutów`; nie zmienia ani nie zatrzymuje trwających runów selekcji zdjęć,
+- detektor v3 dopuszcza częściową rekonstrukcję siatki 3 × 3 wyłącznie przy
+  jednej jednoznacznej hipotezie; przypadek wieloznaczny nadal jest fail-closed,
+- cropper v17 nie materializuje rozciągniętej planszy `500 × 300`: zapisuje
+  natywny osiowy kontekst ze źródła, a każdą komórkę projektuje bezpośrednio do
+  rozmiaru wejścia modelu w jednym resamplingu,
+- Reviewer pokazuje nowy source-native context bez transformacji, zachowując
+  kompatybilny viewport dla historycznych importów,
+- Admin rozdziela liczbę przetworzonych zdjęć od liczby plansz do review,
+  ostrzega o niekompletnym wyniku i pozwala utworzyć nowy job z zachowanych
+  managed originals bez ponownego uploadu,
+- ciągłość strony może naprawić pojedynczy brak albo błąd OCR tylko przy co
+  najmniej trzech zgodnych kotwicach i jednoznacznej przewadze; raw OCR pozostaje
+  zachowany osobno,
+- rzeczywista regresja importu `04909a56-edc6-42b5-860e-70c662189d1d` została
+  odtworzona na siedmiu managed originals: wynik v0.6 to 63 plansze, 945 komórek
+  i ciąg `1–63`, zamiast wcześniejszych 9 plansz,
+- lista procesów selekcji pokazuje krótką datę, wersję silnika i zagregowany
+  zakres `seq`, bez technicznego ID i statusu w etykiecie dropdownu.
 
 ### Wersja 0.1
 

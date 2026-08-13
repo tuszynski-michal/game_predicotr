@@ -65,6 +65,10 @@ class ManagedOriginalStore:
         destination = self._safe_path(relative_path)
         if destination.exists():
             return self._load_manifest(destination, relative_path, job)
+        if job.input_payload.get("schema_version") == 4:
+            content = self._managed_reprocess_manifest_bytes(job)
+            self._write_immutable(destination, content)
+            return self._load_manifest(destination, relative_path, job)
         if job.input_payload.get("schema_version") == 3:
             content = _curated_manifest_bytes(job, source_directory)
             self._write_immutable(destination, content)
@@ -89,6 +93,66 @@ class ManagedOriginalStore:
         content = _manifest_bytes(job, source_directory, discovered)
         self._write_immutable(destination, content)
         return self._load_manifest(destination, relative_path, job)
+
+    def _managed_reprocess_manifest_bytes(self, job: Job) -> bytes:
+        raw_source_job_id = job.input_payload.get("managed_source_job_id")
+        try:
+            source_job_id = UUID(str(raw_source_job_id))
+        except (TypeError, ValueError) as error:
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_INVALID",
+                "The managed reprocess source job is invalid.",
+            ) from error
+        if source_job_id == job.id:
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_INVALID",
+                "An image import cannot reprocess itself.",
+            )
+        source_relative = f"data/originals/manifests/{source_job_id}.json"
+        source_path = self._safe_path(source_relative)
+        try:
+            value = json.loads(source_path.read_bytes())
+        except FileNotFoundError as error:
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_MANIFEST_MISSING",
+                "The source import no longer has a managed-original manifest.",
+            ) from error
+        except (OSError, json.JSONDecodeError) as error:
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_MANIFEST_INVALID",
+                "The source import managed-original manifest is invalid.",
+            ) from error
+        if (
+            not isinstance(value, Mapping)
+            or value.get("contractVersion") != SOURCE_INGESTION_CONTRACT
+            or value.get("jobId") != str(source_job_id)
+            or value.get("gameId") != (None if job.game_id is None else str(job.game_id))
+        ):
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_MANIFEST_INVALID",
+                "The source import manifest has different provenance.",
+            )
+        originals = value.get("originals")
+        if not isinstance(originals, Sequence) or isinstance(originals, str | bytes):
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_MANIFEST_INVALID",
+                "The source import manifest has no managed originals.",
+            )
+        parsed = tuple(_parse_original(item) for item in originals)
+        if not parsed:
+            raise JobHandlerError(
+                "IMAGE_REPROCESS_SOURCE_MANIFEST_INVALID",
+                "The source import manifest has no managed originals.",
+            )
+        cloned = dict(value)
+        cloned["jobId"] = str(job.id)
+        cloned["reprocessedFromJobId"] = str(source_job_id)
+        return json.dumps(
+            cloned,
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        ).encode("ascii")
 
     def ensure_original(
         self,

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   createImageFolderImport,
+  reprocessImageFolderImport,
   uploadImageFolder,
 } from '../src/features/imports/image-folder-import-actions.ts';
 
@@ -72,6 +73,29 @@ test('uploads a browser-native folder and returns a validated selection', async 
     file,
   ]);
   assert.deepEqual(calls[2], ['finalize', 'upload-1']);
+});
+
+test('reprocesses an import from its managed originals', async () => {
+  const job = {
+    id: 'job-2',
+    inputPayload: { importKind: 'image_directory', schemaVersion: 4 },
+    jobType: 'import',
+    status: 'created',
+  };
+  let sourceJobId;
+
+  const result = await reprocessImageFolderImport(
+    {
+      reprocessManagedImageImport: async (value) => {
+        sourceJobId = value;
+        return { data: { job } };
+      },
+    },
+    'job-1',
+  );
+
+  assert.equal(sourceJobId, 'job-1');
+  assert.deepEqual(result, { job, ok: true });
 });
 
 test('creates an image import only from the approved selection token', async () => {

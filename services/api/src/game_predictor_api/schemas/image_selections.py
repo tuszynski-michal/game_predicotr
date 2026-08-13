@@ -55,6 +55,8 @@ class ImageSelectionRunResponse(ApiModel):
     updated_at: datetime
     sequence_direction: ImageSelectionSequenceDirection
     first_sequence_number: int | None = Field(default=None, ge=1)
+    sequence_range_start: int | None = Field(default=None, ge=1)
+    sequence_range_end: int | None = Field(default=None, ge=1)
 
 
 class ImageSelectionCreateResponse(ApiModel):
@@ -183,6 +185,7 @@ class ImageSelectionManualApprovalResponse(ApiModel):
 
 def to_image_selection_run_response(
     run: ImageSelectionRun,
+    sequence_range: tuple[int, int] | None = None,
 ) -> ImageSelectionRunResponse:
     selector_manifest = selector_manifest_for_fingerprint(run.selector_fingerprint)
     return ImageSelectionRunResponse(
@@ -203,6 +206,8 @@ def to_image_selection_run_response(
         updated_at=run.updated_at,
         sequence_direction=run.sequence_direction,
         first_sequence_number=run.first_sequence_number,
+        sequence_range_start=None if sequence_range is None else sequence_range[0],
+        sequence_range_end=None if sequence_range is None else sequence_range[1],
     )
 
 

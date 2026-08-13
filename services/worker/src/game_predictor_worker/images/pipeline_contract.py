@@ -546,20 +546,12 @@ def current_pipeline_manifest() -> dict[str, object]:
     return {
         "components": {
             "board_crops": {
-                "adapterVersion": "board-cell-crops-v16-reviewed-v14-merge-v1",
-                "artifacts": [
-                    {
-                        "relativePath": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
-                        "role": "accepted-crop-inventory",
-                        "sha256": (
-                            "55a10739391843f0bc7b17814a209a3fca69ba93ff7fc4a68702008a521d77c1"
-                        ),
-                    }
-                ],
+                "adapterVersion": "board-cell-crops-v17-source-direct-model-input-v1",
+                "artifacts": [],
                 "maturity": "deterministic",
             },
             "board_detection": {
-                "adapterVersion": "page-board-detector-v2",
+                "adapterVersion": "page-board-detector-v3-unique-partial-grid-v1",
                 "artifacts": [
                     {
                         "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
@@ -587,7 +579,7 @@ def current_pipeline_manifest() -> dict[str, object]:
                 "maturity": "deterministic",
             },
             "sequence_ocr": {
-                "adapterVersion": "sequence-number-ocr-v1",
+                "adapterVersion": "sequence-number-ocr-v2-page-continuity-v1",
                 "artifacts": [
                     {
                         "relativePath": (

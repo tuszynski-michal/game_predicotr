@@ -1145,18 +1145,32 @@ function OperationalReviewBoard({
           </div>
 
           <section className="operationalReviewBoardReference">
-            <OperationalReviewNativeContext
-              alt={`Oryginalna plansza i numer układu ${displaySequence ?? 'bez numeru'}`}
-              item={item}
-              key={item.id}
-              src={operationalReviewAssetUrl(
-                apiBaseUrl,
-                context,
-                item.id,
-                'source',
-                { version: item.sourceChecksumSha256 },
-              )}
-            />
+            {item.geometry.displayAssetKind === 'source_context' ? (
+              <OperationalReviewImage
+                alt={`Natywny wycinek planszy i numer układu ${displaySequence ?? 'bez numeru'}`}
+                key={`${item.id}:${item.boardChecksumSha256}`}
+                src={operationalReviewAssetUrl(
+                  apiBaseUrl,
+                  context,
+                  item.id,
+                  'board',
+                  { version: item.boardChecksumSha256 },
+                )}
+              />
+            ) : (
+              <OperationalReviewNativeContext
+                alt={`Oryginalna plansza i numer układu ${displaySequence ?? 'bez numeru'}`}
+                item={item}
+                key={item.id}
+                src={operationalReviewAssetUrl(
+                  apiBaseUrl,
+                  context,
+                  item.id,
+                  'source',
+                  { version: item.sourceChecksumSha256 },
+                )}
+              />
+            )}
           </section>
         </div>
       </article>

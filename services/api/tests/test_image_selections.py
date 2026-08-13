@@ -110,6 +110,18 @@ class MemoryImageSelectionRepository:
         )
         return tuple(values[offset : offset + limit])
 
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
+        ranges = [
+            (group.range_start, group.range_end)
+            for group in self.groups
+            if group.run_id == run_id
+            and group.range_start is not None
+            and group.range_end is not None
+        ]
+        if not ranges:
+            return None
+        return min(value[0] for value in ranges), max(value[1] for value in ranges)
+
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         self.runs[run.id] = run
         return run
@@ -396,7 +408,11 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
         input_manifest_sha256="a" * 64,
         selector_fingerprint=DEFAULT_SELECTOR_MANIFEST.fingerprint,
     )
-    group = _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED)
+    group = replace(
+        _group(run.id, 0, status=ImageSelectionGroupStatus.MANUAL_REQUIRED),
+        range_start=1,
+        range_end=9,
+    )
     candidate = ImageSelectionCandidate(
         id=uuid4(),
         run_id=run.id,
@@ -433,6 +449,8 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
     assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.9"
+    assert history.json()["items"][0]["sequenceRangeStart"] == 1
+    assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
     assert preview.status_code == 200, preview.text
     assert preview.content == content

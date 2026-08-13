@@ -384,6 +384,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  ReprocessManagedImageImportData,
+  ReprocessManagedImageImportErrors,
+  ReprocessManagedImageImportResponses,
   RerunImageSelectionData,
   RerunImageSelectionErrors,
   RerunImageSelectionResponses,
@@ -1605,6 +1608,28 @@ export const selectLocalImageFolder = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/image-imports/folder-selection',
+    ...options,
+  });
+
+/**
+ * Reprocess an image import from its preserved managed originals
+ */
+export const reprocessManagedImageImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ReprocessManagedImageImportData, ThrowOnError>,
+): RequestResult<
+  ReprocessManagedImageImportResponses,
+  ReprocessManagedImageImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReprocessManagedImageImportResponses,
+    ReprocessManagedImageImportErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-imports/{source_job_id}/reprocess',
     ...options,
   });
 

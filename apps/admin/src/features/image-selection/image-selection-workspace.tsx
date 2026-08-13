@@ -84,8 +84,9 @@ export function ImageSelectionWorkspace({
   );
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const pendingOutputDirectoryRef = useRef<OutputDirectoryHandle | null>(null);
-  const outputDirectoryBindingRef =
-    useRef<ActiveOutputDirectoryBinding | null>(null);
+  const outputDirectoryBindingRef = useRef<ActiveOutputDirectoryBinding | null>(
+    null,
+  );
   const savedGroupOrdersRef = useRef(new Set<number>());
   const progressiveSaveRunningRef = useRef(false);
   const progressiveCursorRef = useRef<{
@@ -1426,10 +1427,20 @@ function storageKey(gameId: string): string {
 
 function formatRunHistoryLabel(run: ImageSelectionRunResponse): string {
   const created = new Intl.DateTimeFormat('pl-PL', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(run.createdAt));
-  return `${created} · ${formatSelectorVersion(run.selectorVersion)} · ${jobStatusLabel(run.job.status)} · ${run.id.slice(0, 8)}`;
+    day: '2-digit',
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  })
+    .format(new Date(run.createdAt))
+    .replace(',', '');
+  const sequenceRange =
+    run.sequenceRangeStart == null || run.sequenceRangeEnd == null
+      ? 'seq —'
+      : `seq ${run.sequenceRangeStart.toLocaleString('pl-PL')}–${run.sequenceRangeEnd.toLocaleString('pl-PL')}`;
+  return `${created} · ${formatSelectorVersion(run.selectorVersion)} · ${sequenceRange}`;
 }
 
 function formatSelectorVersion(value: string): string {

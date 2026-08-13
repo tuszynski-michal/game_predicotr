@@ -4335,6 +4335,37 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** zmienia zakres zamknięcia planu 0.5, nie znosi bramek
   bezpieczeństwa ani trwałości danych.
 
+## D-180 — Produkcyjny import v0.6 zachowuje natywny kontekst i skaluje komórkę tylko raz
+
+- **Status:** accepted
+- **Date:** 2026-08-13
+- **Decision:** produkcyjna ścieżka importu zapisuje osiowy kontekst planszy
+  bezpośrednio z obrazu po korekcie EXIF, bez obrotu, prostowania i zmiany
+  rozmiaru. Każdy quad komórki jest projektowany z oryginalnych pikseli od razu
+  do przypiętego rozmiaru wejścia modelu w jednym resamplingu. Płaszczyzna
+  `500 × 300` pozostaje wyłącznie logicznym układem geometrii i historycznym
+  artefaktem.
+- **Context:** rzeczywisty import siedmiu zdjęć raportował zakończenie `14/14`,
+  ale utworzył tylko 9 z oczekiwanych 63 plansz. Historyczna ścieżka prostowała
+  mały obraz planszy do `500 × 300`, wycinała komórkę, a następnie ponownie ją
+  skalowała do modelu, co zwiększało rozmycie. Na sześciu odrzuconych zdjęciach
+  detektor znajdował dokładnie jedną bezpieczną hipotezę siatki dziewięciu
+  pozycji.
+- **Reason:** pojedyncza interpolacja zachowuje więcej informacji symbolu, a
+  natywny podgląd pozwala człowiekowi oceniać rzeczywiste piksele źródłowe.
+  Jednoznaczna hipoteza odzyskuje kompletność bez arbitralnego wyboru geometrii.
+- **Alternatives:** stałe powiększanie każdej planszy do `500 × 300` odrzucono
+  jako stratne; pokazywanie wyprostowanej kopii jako głównego podglądu odrzucono
+  jako mylące; akceptowanie pierwszej z wielu hipotez odrzucono jako
+  niedeterministyczne i niebezpieczne.
+- **Consequences:** powstają wersjonowane adaptery croppera v17, detektora v3 i
+  OCR ciągłości strony v2. Reviewer rozpoznaje nowe metadane geometrii, a stare
+  importy nadal używają historycznego viewportu i fallbacku skalowania. Rerun
+  korzysta z managed originals i tworzy nowy job; nie usuwa poprzednich danych.
+- **Supersedes:** zastępuje D-059 i produkcyjne użycie rastra `500 × 300` w
+  zakresie finalnych cropów oraz podglądu, ale zachowuje jego logiczną geometrię
+  i historyczne artefakty.
+
 ## Szablon nowej decyzji
 
 ```text

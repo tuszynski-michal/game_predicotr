@@ -107,6 +107,7 @@ import {
   listSymbolModelActivations as listGeneratedSymbolModelActivations,
   publishRulesVersion as publishGeneratedRulesVersion,
   registerCuratedImageImportSource as registerGeneratedCuratedImageImportSource,
+  reprocessManagedImageImport as reprocessGeneratedManagedImageImport,
   previewVerifiedTrainingCohort as previewGeneratedVerifiedTrainingCohort,
   previewGridProfileActivation as previewGeneratedGridProfileActivation,
   previewSymbolModelActivation as previewGeneratedSymbolModelActivation,
@@ -214,6 +215,7 @@ export type {
   CuratedImageImportJobPayload,
   CuratedImageImportSourceCreate,
   CuratedImageImportSourceResponse,
+  ManagedImageReprocessJobPayload,
   DatasetLayoutPageResponse,
   DatasetLayoutResponse,
   DatasetVersionResponse,
@@ -742,6 +744,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         headers: confirmedTargetHeaders(`image-import:${body.gameId}`),
+      }),
+    reprocessManagedImageImport: (sourceJobId: string) =>
+      reprocessGeneratedManagedImageImport({
+        client,
+        headers: confirmedTargetHeaders(
+          `image-import:${sourceJobId}:reprocess`,
+        ),
+        path: { source_job_id: sourceJobId },
       }),
     registerCuratedImageImportSource: (body: CuratedImageImportSourceCreate) =>
       registerGeneratedCuratedImageImportSource({

@@ -2027,6 +2027,14 @@ export type ImageSelectionRunResponse = {
   selectorVersion: string;
   sequenceDirection: ImageSelectionSequenceDirection;
   /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd?: number | null;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart?: number | null;
+  /**
    * Sourceselectionid
    */
   sourceSelectionId: string;
@@ -2360,6 +2368,7 @@ export type JobResponse = {
     | LegacyImageImportJobPayload
     | ImageImportJobPayload
     | CuratedImageImportJobPayload
+    | ManagedImageReprocessJobPayload
     | ImageSelectionJobPayload
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
@@ -2785,6 +2794,50 @@ export type LegacyImageImportJobPayload = {
    * Sourceselectionid
    */
   sourceSelectionId?: string | null;
+};
+
+/**
+ * ManagedImageReprocessJobPayload
+ */
+export type ManagedImageReprocessJobPayload = {
+  gridProfile: GridProfileJobSnapshotPayload;
+  /**
+   * Imageselectionrunid
+   */
+  imageSelectionRunId?: string | null;
+  /**
+   * Importkind
+   */
+  importKind: 'image_directory';
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId: string;
+  /**
+   * Pipelinefingerprint
+   */
+  pipelineFingerprint: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 4;
+  /**
+   * Sourcedirectory
+   */
+  sourceDirectory: string;
+  /**
+   * Sourcedisplayname
+   */
+  sourceDisplayName: string;
+  /**
+   * Sourcepipelinefingerprint
+   */
+  sourcePipelineFingerprint: string;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId?: string | null;
+  symbolModel: SymbolModelJobSnapshotPayload;
 };
 
 /**
@@ -8078,6 +8131,50 @@ export type SelectLocalImageFolderResponses = {
 
 export type SelectLocalImageFolderResponse =
   SelectLocalImageFolderResponses[keyof SelectLocalImageFolderResponses];
+
+export type ReprocessManagedImageImportData = {
+  body?: never;
+  path: {
+    /**
+     * Source Job Id
+     */
+    source_job_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-imports/{source_job_id}/reprocess';
+};
+
+export type ReprocessManagedImageImportErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or folder not found
+   */
+  404: ErrorResponse;
+  /**
+   * Import conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Folder validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ReprocessManagedImageImportError =
+  ReprocessManagedImageImportErrors[keyof ReprocessManagedImageImportErrors];
+
+export type ReprocessManagedImageImportResponses = {
+  /**
+   * Successful Response
+   */
+  201: ImageFolderImportResponse;
+};
+
+export type ReprocessManagedImageImportResponse =
+  ReprocessManagedImageImportResponses[keyof ReprocessManagedImageImportResponses];
 
 export type ListImageDiagnosticExportsData = {
   body?: never;

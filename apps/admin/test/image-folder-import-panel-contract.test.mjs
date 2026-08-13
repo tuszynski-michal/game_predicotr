@@ -23,12 +23,20 @@ test('distinguishes the active import operation from a disabled prerequisite', (
   assert.match(panelSource, /activeAction === 'choose-folder'/);
   assert.match(panelSource, /activeAction === 'start-import'/);
   assert.match(panelSource, /activeAction === 'refresh-status'/);
+  assert.match(panelSource, /activeAction === 'reprocess-import'/);
   assert.match(panelSource, /finally \{\s*setActiveAction\(null\)/);
   assert.match(globalStyles, /button:disabled \{\s*cursor: not-allowed;/);
   assert.match(
     globalStyles,
     /button\[aria-busy='true'\] \{\s*cursor: progress;/,
   );
+});
+
+test('reports incomplete board creation and offers managed-original reprocessing', () => {
+  assert.match(panelSource, /Pipeline zdjęć:/);
+  assert.match(panelSource, /Wynik jest niekompletny/);
+  assert.match(panelSource, /Przetwórz ponownie z oryginałów/);
+  assert.match(panelSource, /reprocessImageFolderImport/);
 });
 
 test('provides styled actions and accessible import help', () => {

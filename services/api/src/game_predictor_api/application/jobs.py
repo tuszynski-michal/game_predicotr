@@ -483,6 +483,84 @@ class JobService:
             game_already_validated=True,
         )
 
+    def create_managed_image_reprocess_job(
+        self,
+        source_job_id: UUID,
+        *,
+        pipeline_fingerprint: str,
+    ) -> Job:
+        """Create a new import pinned to an earlier job's managed originals."""
+
+        source = self.get_job(source_job_id)
+        if (
+            source.job_type is not JobType.IMPORT
+            or source.input_payload.get("import_kind") != "image_directory"
+            or source.game_id is None
+        ):
+            raise JobConflictError(
+                "IMAGE_REPROCESS_SOURCE_TYPE_INVALID",
+                "Only an image-directory import can be reprocessed.",
+            )
+        if source.status in {JobStatus.CREATED, JobStatus.PROCESSING}:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_SOURCE_ACTIVE",
+                "An active image import cannot be reprocessed.",
+            )
+        source_directory = source.input_payload.get("source_directory")
+        if not isinstance(source_directory, str) or not source_directory:
+            raise JobConflictError(
+                "IMAGE_REPROCESS_SOURCE_INVALID",
+                "The source image import has no managed source provenance.",
+            )
+        symbol_model = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=source.game_id)
+        )
+        grid_profile = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=source.game_id)
+        )
+        grid_fingerprint = grid_profile.get("inferenceFingerprint")
+        if not isinstance(grid_fingerprint, str) or len(grid_fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The pinned grid profile snapshot is invalid.",
+            )
+        effective_pipeline_fingerprint = hashlib.sha256(
+            (
+                f"{pipeline_fingerprint}:{symbol_model.inference_fingerprint}:"
+                f"{grid_fingerprint}:{source.id}"
+            ).encode("ascii")
+        ).hexdigest()
+        payload: dict[str, object] = {
+            "schema_version": 4,
+            "import_kind": "image_directory",
+            "source_directory": source_directory,
+            "source_display_name": (
+                f"{source.input_payload.get('source_display_name') or 'Import obrazów'} "
+                "(ponowne przetworzenie)"
+            ),
+            "pipeline_fingerprint": effective_pipeline_fingerprint,
+            "source_pipeline_fingerprint": pipeline_fingerprint,
+            "managed_source_job_id": str(source.id),
+            "symbol_model": symbol_model.to_payload(),
+            "grid_profile": grid_profile,
+        }
+        source_selection_id = source.input_payload.get("source_selection_id")
+        if source_selection_id is not None:
+            payload["source_selection_id"] = source_selection_id
+        image_selection_run_id = source.input_payload.get("image_selection_run_id")
+        if image_selection_run_id is not None:
+            payload["image_selection_run_id"] = image_selection_run_id
+        return self._persist_job(
+            JobType.IMPORT,
+            game_id=source.game_id,
+            input_payload=payload,
+            game_already_validated=True,
+        )
+
     def create_layout_import_validation_job(
         self,
         *,

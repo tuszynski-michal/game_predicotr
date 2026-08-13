@@ -86,7 +86,10 @@ def create_image_selections_router(
             first_sequence_number=payload.first_sequence_number,
         )
         return ImageSelectionCreateResponse(
-            run=to_image_selection_run_response(run),
+            run=to_image_selection_run_response(
+                run,
+                service.get_run_sequence_range(run.id),
+            ),
             created=created,
         )
 
@@ -109,7 +112,13 @@ def create_image_selections_router(
             limit=limit,
         )
         return ImageSelectionRunPageResponse(
-            items=[to_image_selection_run_response(run) for run in runs],
+            items=[
+                to_image_selection_run_response(
+                    run,
+                    service.get_run_sequence_range(run.id),
+                )
+                for run in runs
+            ],
             next_offset=next_offset,
         )
 
@@ -124,7 +133,10 @@ def create_image_selections_router(
         run_id: UUID,
         service: Annotated[ImageSelectionService, service_parameter],
     ) -> ImageSelectionRunResponse:
-        return to_image_selection_run_response(service.get_run(run_id))
+        return to_image_selection_run_response(
+            service.get_run(run_id),
+            service.get_run_sequence_range(run_id),
+        )
 
     @router.post(
         "/{run_id}/rerun",
@@ -144,7 +156,10 @@ def create_image_selections_router(
             first_sequence_number=(None if payload is None else payload.first_sequence_number),
         )
         return ImageSelectionCreateResponse(
-            run=to_image_selection_run_response(run),
+            run=to_image_selection_run_response(
+                run,
+                service.get_run_sequence_range(run.id),
+            ),
             created=created,
         )
 

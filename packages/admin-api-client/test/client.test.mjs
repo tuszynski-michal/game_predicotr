@@ -273,6 +273,30 @@ test('generated client selects a folder and creates its image import', async () 
   );
 });
 
+test('generated client reprocesses a managed image import with explicit confirmation', async () => {
+  let captured;
+  const sourceJobId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({ job: {} }, { status: 201 });
+    },
+  });
+
+  await client.reprocessManagedImageImport(sourceJobId);
+
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    `/api/v1/admin/image-imports/${sourceJobId}/reprocess`,
+  );
+  assert.equal(
+    captured.headers.get('X-Admin-Target'),
+    `image-import:${sourceJobId}:reprocess`,
+  );
+});
+
 test('generated client uploads a browser-native folder selection', async () => {
   const requests = [];
   const uploadId = '44444444-4444-4444-8444-444444444444';

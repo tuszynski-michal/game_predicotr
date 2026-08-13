@@ -3413,6 +3413,30 @@
           "sequenceDirection": {
             "$ref": "#/components/schemas/ImageSelectionSequenceDirection"
           },
+          "sequenceRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangeend"
+          },
+          "sequenceRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangestart"
+          },
           "sourceSelectionId": {
             "format": "uuid",
             "title": "Sourceselectionid",
@@ -3987,6 +4011,9 @@
               },
               {
                 "$ref": "#/components/schemas/CuratedImageImportJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/ManagedImageReprocessJobPayload"
               },
               {
                 "$ref": "#/components/schemas/ImageSelectionJobPayload"
@@ -4743,6 +4770,91 @@
           "pipelineFingerprint"
         ],
         "title": "LegacyImageImportJobPayload",
+        "type": "object"
+      },
+      "ManagedImageReprocessJobPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "gridProfile": {
+            "$ref": "#/components/schemas/GridProfileJobSnapshotPayload"
+          },
+          "imageSelectionRunId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageselectionrunid"
+          },
+          "importKind": {
+            "const": "image_directory",
+            "title": "Importkind",
+            "type": "string"
+          },
+          "managedSourceJobId": {
+            "format": "uuid",
+            "title": "Managedsourcejobid",
+            "type": "string"
+          },
+          "pipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Pipelinefingerprint",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 4,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sourceDirectory": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Sourcedirectory",
+            "type": "string"
+          },
+          "sourceDisplayName": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Sourcedisplayname",
+            "type": "string"
+          },
+          "sourcePipelineFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcepipelinefingerprint",
+            "type": "string"
+          },
+          "sourceSelectionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceselectionid"
+          },
+          "symbolModel": {
+            "$ref": "#/components/schemas/SymbolModelJobSnapshotPayload"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "importKind",
+          "sourceDirectory",
+          "sourceDisplayName",
+          "pipelineFingerprint",
+          "sourcePipelineFingerprint",
+          "managedSourceJobId",
+          "symbolModel",
+          "gridProfile"
+        ],
+        "title": "ManagedImageReprocessJobPayload",
         "type": "object"
       },
       "MobileReleaseApkResponse": {
@@ -14039,6 +14151,84 @@
           }
         ],
         "summary": "Open the controlled native Windows folder picker",
+        "tags": [
+          "image-imports"
+        ]
+      }
+    },
+    "/api/v1/admin/image-imports/{source_job_id}/reprocess": {
+      "post": {
+        "operationId": "reprocessManagedImageImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageFolderImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or folder not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Import conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Folder validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Reprocess an image import from its preserved managed originals",
         "tags": [
           "image-imports"
         ]

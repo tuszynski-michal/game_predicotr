@@ -5,6 +5,10 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
+from game_predictor_worker.images.pipeline_contract import (
+    current_pipeline_manifest,
+    pipeline_fingerprint,
+)
 
 from game_predictor_api.application.image_imports import (
     IMAGE_RELATIVE_PATH_HEADER,
@@ -196,6 +200,24 @@ def create_image_imports_router(
             job_service,
             game_id=payload.game_id,
             selection_token=payload.selection_token,
+        )
+        return ImageFolderImportResponse(job=JobResponse.from_domain(job))
+
+    @router.post(
+        "/{source_job_id}/reprocess",
+        response_model=ImageFolderImportResponse,
+        status_code=status.HTTP_201_CREATED,
+        operation_id="reprocessManagedImageImport",
+        summary="Reprocess an image import from its preserved managed originals",
+        responses=responses,
+    )
+    def reprocess_import(
+        source_job_id: UUID,
+        job_service: Annotated[JobService, job_parameter],
+    ) -> ImageFolderImportResponse:
+        job = job_service.create_managed_image_reprocess_job(
+            source_job_id,
+            pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
         )
         return ImageFolderImportResponse(job=JobResponse.from_domain(job))
 

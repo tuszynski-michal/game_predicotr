@@ -142,6 +142,21 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         )
         return tuple(_run_from_records(*row) for row in rows)
 
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
+        range_start, range_end = self._session.execute(
+            select(
+                func.min(ImageSelectionGroupModel.range_start),
+                func.max(ImageSelectionGroupModel.range_end),
+            ).where(
+                ImageSelectionGroupModel.run_id == run_id,
+                ImageSelectionGroupModel.range_start.is_not(None),
+                ImageSelectionGroupModel.range_end.is_not(None),
+            )
+        ).one()
+        if range_start is None or range_end is None:
+            return None
+        return int(range_start), int(range_end)
+
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun:
         record = self._session.get(ImageSelectionRunModel, run.id)
         if record is None:

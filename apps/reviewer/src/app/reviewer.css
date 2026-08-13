@@ -91,6 +91,14 @@
   background: #03070d;
 }
 
+.reviewerShell .operationalReviewBoardReference > img {
+  display: block;
+  width: 100%;
+  max-height: min(360px, 32vw);
+  object-fit: contain;
+  background: #03070d;
+}
+
 .reviewerShell .operationalReviewNativeContext {
   position: relative;
   width: 100%;

@@ -276,6 +276,8 @@ class ImageSelectionRepository(Protocol):
         limit: int,
     ) -> Sequence[ImageSelectionRun]: ...
 
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None: ...
+
     def save_run(self, run: ImageSelectionRun) -> ImageSelectionRun: ...
 
     def invalidate_output(self, run_id: UUID) -> ImageSelectionRun: ...
@@ -400,6 +402,9 @@ class ImageSelectionService:
                 details={"runId": str(run_id)},
             )
         return run
+
+    def get_run_sequence_range(self, run_id: UUID) -> tuple[int, int] | None:
+        return self._repository.get_run_sequence_range(run_id)
 
     def list_runs(
         self,

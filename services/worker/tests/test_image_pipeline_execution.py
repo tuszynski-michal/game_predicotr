@@ -194,7 +194,7 @@ def _adapters() -> list[FakeAdapter]:
         ),
         FakeAdapter(
             "board_detection",
-            "page-board-detector-v2",
+            "page-board-detector-v3-unique-partial-grid-v1",
             {
                 "boards": [
                     {
@@ -207,14 +207,16 @@ def _adapters() -> list[FakeAdapter]:
         ),
         FakeAdapter(
             "board_crops",
-            "board-cell-crops-v16-reviewed-v14-merge-v1",
+            "board-cell-crops-v17-source-direct-model-input-v1",
             {
                 "boards": [
                     {
                         "boardChecksumSha256": "d" * 64,
                         "boardRelativePath": "crops/board-0/board.png",
                         "cells": _board_cells(),
-                        "cropperVersion": "board-cell-crops-v16-reviewed-v14-merge-v1",
+                        "cropperVersion": (
+                            "board-cell-crops-v17-source-direct-model-input-v1"
+                        ),
                         "positionIndex": 0,
                     }
                 ]
@@ -222,7 +224,7 @@ def _adapters() -> list[FakeAdapter]:
         ),
         FakeAdapter(
             "sequence_ocr",
-            "sequence-number-ocr-v1",
+            "sequence-number-ocr-v2-page-continuity-v1",
             {
                 "boards": [
                     {

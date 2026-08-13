@@ -7,6 +7,7 @@ import io
 import json
 import os
 import tempfile
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import cast
@@ -37,21 +38,25 @@ from .pipeline_execution import (
     VersionedImageStageAdapter,
 )
 from .pipeline_store import SqlAlchemyImagePipelineStore
-from .rectification import BoardGeometry, PageGeometry, PerspectiveBoardCellCropperV2
+from .rectification import BoardGeometry, PageGeometry
 from .sequence_ocr import (
-    OCR_VERSION,
     PaddleSequenceNumberRecognizer,
     SequenceOcrError,
     extract_sequence_number_crop,
+)
+from .source_direct_crops import (
+    SOURCE_DIRECT_CROPPER_VERSION,
+    SourceDirectBoardCellCropper,
 )
 from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginalStore
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
 NORMALIZATION_ADAPTER_VERSION = "image-normalization-v1"
-DETECTION_ADAPTER_VERSION = "page-board-detector-v2"
-CROP_ADAPTER_VERSION = "board-cell-crops-v16-reviewed-v14-merge-v1"
+DETECTION_ADAPTER_VERSION = "page-board-detector-v3-unique-partial-grid-v1"
+CROP_ADAPTER_VERSION = SOURCE_DIRECT_CROPPER_VERSION
 SYMBOL_ADAPTER_VERSION = "local-symbol-onnx-runtime-v1"
+SEQUENCE_ADAPTER_VERSION = "sequence-number-ocr-v2-page-continuity-v1"
 
 
 class ProductionImageImportWorkflow:
@@ -204,29 +209,42 @@ class ProductionImageStageAdapterSuite:
         self._grid_profile = dict(grid_profile or {})
         self._image_selection_run_id = image_selection_run_id
         self._detector = ClassicalPageBoardDetector()
-        self._cropper = PerspectiveBoardCellCropperV2()
+        self._cropper = SourceDirectBoardCellCropper(
+            cell_output_size=self._symbol_model_snapshot.input_size,
+        )
         self._ocr: PaddleSequenceNumberRecognizer | None = None
         self._symbol_model: LocalSymbolOnnxAdapter | None = None
 
     def adapters(self) -> tuple[VersionedImageStageAdapter, ...]:
-        return (
-            FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
-            FunctionImageStageAdapter(
-                "normalization",
-                NORMALIZATION_ADAPTER_VERSION,
-                self.normalization,
-            ),
-            FunctionImageStageAdapter(
-                "board_detection",
-                DETECTION_ADAPTER_VERSION,
-                self.board_detection,
-            ),
-            FunctionImageStageAdapter("board_crops", CROP_ADAPTER_VERSION, self.board_crops),
-            FunctionImageStageAdapter("sequence_ocr", OCR_VERSION, self.sequence_ocr),
-            FunctionImageStageAdapter(
-                "symbol_inference",
-                SYMBOL_ADAPTER_VERSION,
-                self.symbol_inference,
+        return cast(
+            tuple[VersionedImageStageAdapter, ...],
+            (
+                FunctionImageStageAdapter("discovery", "image-discovery-v1", self.discovery),
+                FunctionImageStageAdapter(
+                    "normalization",
+                    NORMALIZATION_ADAPTER_VERSION,
+                    self.normalization,
+                ),
+                FunctionImageStageAdapter(
+                    "board_detection",
+                    DETECTION_ADAPTER_VERSION,
+                    self.board_detection,
+                ),
+                FunctionImageStageAdapter(
+                    "board_crops",
+                    CROP_ADAPTER_VERSION,
+                    self.board_crops,
+                ),
+                FunctionImageStageAdapter(
+                    "sequence_ocr",
+                    SEQUENCE_ADAPTER_VERSION,
+                    self.sequence_ocr,
+                ),
+                FunctionImageStageAdapter(
+                    "symbol_inference",
+                    SYMBOL_ADAPTER_VERSION,
+                    self.symbol_inference,
+                ),
             ),
         )
 
@@ -278,11 +296,12 @@ class ProductionImageStageAdapterSuite:
             rgb,
             allow_grid_recovery=True,
             allow_occluded_grid_recovery=True,
+            allow_partial_grid_recovery=True,
         )
-        if result.status != "detected":
+        if result.status != "detected" or len(result.layout_hypotheses) > 1:
             raise ImagePipelineExecutionError(
                 "IMAGE_BOARD_DETECTION_REQUIRES_REVIEW",
-                "The page grid could not be recovered automatically.",
+                "The page grid could not be recovered unambiguously.",
             )
         projected_boards: list[dict[str, object]] = []
         for board in result.boards:
@@ -304,7 +323,12 @@ class ProductionImageStageAdapterSuite:
                     "positionIndex": board.position_index,
                 }
             )
-        return {"boards": [board for board in projected_boards]}
+        return {
+            "boards": [board for board in projected_boards],
+            "recoveryMode": (
+                "unique_partial_grid" if result.layout_hypotheses else "complete_grid"
+            ),
+        }
 
     def board_crops(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
@@ -332,13 +356,16 @@ class ProductionImageStageAdapterSuite:
         for board in result.boards:
             root = PurePosixPath(
                 "crops",
-                "runtime-v1",
-                context.source_checksum_sha256[:2],
-                context.source_checksum_sha256,
+                "source-direct-v1",
+                context.file_execution_key[:2],
+                context.file_execution_key,
                 f"board-{board.position_index:02d}",
             )
-            board_relative = (root / "board.png").as_posix()
-            board_checksum = self._artifacts.write_rgb(board_relative, board.board_rgb)
+            board_relative = (root / "source-context.png").as_posix()
+            board_checksum = self._artifacts.write_rgb(
+                board_relative,
+                board.context_rgb,
+            )
             cells: list[dict[str, object]] = []
             for cell in board.cells:
                 relative = (
@@ -356,9 +383,12 @@ class ProductionImageStageAdapterSuite:
                 {
                     "boardChecksumSha256": board_checksum,
                     "boardRelativePath": board_relative,
+                    "cellOutputSize": self._symbol_model_snapshot.input_size,
                     "cells": cells,
                     "cropperVersion": CROP_ADAPTER_VERSION,
+                    "displayAssetKind": "source_context",
                     "positionIndex": board.position_index,
+                    "sourceContextBounds": board.context_bounds.to_dict(),
                 }
             )
         return {"boards": projected}
@@ -393,6 +423,22 @@ class ProductionImageStageAdapterSuite:
         recognized = iter(
             recognizer.recognize_many(tuple(item for item in prepared if item is not None))
         )
+        raw_results: list[tuple[str, float]] = []
+        for prepared_crop in prepared:
+            if prepared_crop is None:
+                raw_results.append(("", 0.0))
+            else:
+                recognition = next(recognized)
+                raw_results.append((recognition.raw_text, recognition.confidence))
+        observed_numbers = tuple(
+            int(raw_text) if raw_text.isdigit() and int(raw_text) > 0 else None
+            for raw_text, _confidence in raw_results
+        )
+        positions = tuple(_integer(board, "positionIndex") for board in detections)
+        resolved_numbers, continuity_base = _resolve_page_sequence_numbers(
+            observed_numbers,
+            positions,
+        )
         boards: list[dict[str, object]] = []
         for board, prepared_crop, sequence_quad_payload, reasons in zip(
             detections,
@@ -401,21 +447,24 @@ class ProductionImageStageAdapterSuite:
             reason_sets,
             strict=True,
         ):
-            if prepared_crop is None:
-                raw_text = ""
-                confidence = 0.0
-            else:
-                recognition = next(recognized)
-                raw_text = recognition.raw_text
-                confidence = recognition.confidence
-            normalized_number = int(raw_text) if raw_text.isdigit() and int(raw_text) > 0 else None
+            del prepared_crop
+            position = _integer(board, "positionIndex")
+            raw_text, confidence = raw_results[position]
+            observed_number = observed_numbers[position]
+            normalized_number = resolved_numbers[position]
+            projected_reasons = list(reasons)
+            if continuity_base is not None:
+                projected_reasons.append("SEQUENCE_OCR_PAGE_CONTINUITY_INFERRED")
             projected: dict[str, object] = {
                 "confidence": confidence,
                 "normalizedNumber": normalized_number,
-                "positionIndex": _integer(board, "positionIndex"),
+                "ocrNormalizedNumber": observed_number,
+                "positionIndex": position,
                 "rawText": raw_text,
-                "reviewReasons": reasons,
+                "reviewReasons": projected_reasons,
             }
+            if continuity_base is not None:
+                projected["continuityBase"] = continuity_base
             if sequence_quad_payload is not None:
                 projected["sequenceLabelQuad"] = sequence_quad_payload
             boards.append(projected)
@@ -431,15 +480,17 @@ class ProductionImageStageAdapterSuite:
             for value in cells:
                 cell = _mapping(value, "cell")
                 rgb = self._artifacts.load_rgb(_text(cell, "cropRelativePath"))
-                resized = cv2.resize(
-                    rgb,
-                    (
-                        self._symbol_model_snapshot.input_size,
-                        self._symbol_model_snapshot.input_size,
-                    ),
-                    interpolation=cv2.INTER_AREA,
+                input_size = self._symbol_model_snapshot.input_size
+                model_rgb = (
+                    rgb
+                    if rgb.shape[:2] == (input_size, input_size)
+                    else cv2.resize(
+                        rgb,
+                        (input_size, input_size),
+                        interpolation=cv2.INTER_AREA,
+                    )
                 )
-                normalized = resized.astype(np.float32).transpose(2, 0, 1) / 255.0
+                normalized = model_rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
                 tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
                 cell_metadata.append((position, cell))
         if not tensors:
@@ -594,6 +645,31 @@ class _ManagedImageArtifacts:
         finally:
             temporary.unlink(missing_ok=True)
         return checksum
+
+
+def _resolve_page_sequence_numbers(
+    observed_numbers: Sequence[int | None],
+    positions: Sequence[int],
+) -> tuple[tuple[int | None, ...], int | None]:
+    """Resolve a consecutive page from one dominant OCR base without guessing."""
+
+    if len(observed_numbers) != len(positions) or tuple(positions) != tuple(
+        range(len(positions))
+    ):
+        return tuple(observed_numbers), None
+    bases = Counter(
+        number - position
+        for number, position in zip(observed_numbers, positions, strict=True)
+        if number is not None and number - position > 0
+    )
+    ranked = sorted(bases.items(), key=lambda item: (-item[1], item[0]))
+    if not ranked:
+        return tuple(observed_numbers), None
+    winning_base, support = ranked[0]
+    runner_up_support = ranked[1][1] if len(ranked) > 1 else 0
+    if support < 3 or support - runner_up_support < 2:
+        return tuple(observed_numbers), None
+    return tuple(winning_base + position for position in positions), winning_base
 
 
 def _source_directory(job: Job) -> Path:

@@ -32,6 +32,25 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 
 ### Wersja 0.6
 
+- TASK-0241 wprowadza domyślny `fast-image-selector-v10.10` o fingerprintcie
+  `282b08df4c3368c60e60048ac846d95bc41392631ebdeaf069f3afbdef9e4c7f`;
+  v10.9 zachowuje fingerprint `6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720`,
+- v10.10 czyta etykiety ze wszystkich trzech rzędów, odrzuca częściową kotwicę
+  bez obserwowanej planszy w górnym rzędzie, kontroluje zgodność modulo 9 z
+  początkiem zbioru i rozdziela tylko udowodnione kolejne zakresy ukryte w jednej
+  grupie wyglądu,
+- anulowany run v10.9 źródła `200557 - 222912` zatrzymał się na
+  `24 896 / 42 422`; staging `31ea25c9-c1a8-425d-9756-15bd597ee9c4` został
+  zachowany, a dalsza kolejka operatorska jest wstrzymana do startu świeżego
+  runu v10.10,
+- regresja pięciu realnych JPEG-ów przeszła `5/5`, w tym poprawne
+  `208090–208098` i `208108–208116` zamiast wcześniejszych przesunięć o trzy;
+  profil pierwszych 1440 zdjęć trwał `159,84 s` i zakończył 101 grup jako 88
+  automatycznych, 12 duplikatów oraz 1 przypadek ręczny, bez zakresu spoza
+  siatki i bez podwójnego automatycznego zakresu,
+- profil nie syntetyzuje trzech zakresów bez rozpoznanego JPEG-a:
+  `200710–200718`, `200800–200808` i `201367–201375`; jest to jawny brak
+  dowodu w próbce, nie błąd automatycznie przypisanego numeru,
 - TASK-0231 rozpoczął implementację od jakości i kompletności `Importu
   layoutów`; nie zmienia ani nie zatrzymuje trwających runów selekcji zdjęć,
 - detektor v3 dopuszcza częściową rekonstrukcję siatki 3 × 3 wyłącznie przy

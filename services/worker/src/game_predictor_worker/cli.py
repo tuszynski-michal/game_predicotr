@@ -26,6 +26,7 @@ from game_predictor_worker.images.selection.adapters import (
     AnchoredSequenceRangeRecognizer,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LabelLatticeSafeVisibleSequenceLabelRangeRecognizer,
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
@@ -46,7 +47,10 @@ from game_predictor_worker.images.selection.job import (
     ImageSelectionJobHandler,
     SqlAlchemyImageSelectionJobStore,
 )
-from game_predictor_worker.images.selection.manifest import DEFAULT_SELECTOR_MANIFEST
+from game_predictor_worker.images.selection.manifest import (
+    DEFAULT_SELECTOR_MANIFEST,
+    LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION,
+)
 from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
 from game_predictor_worker.imports.dispatch import ImportJobDispatchHandler
 from game_predictor_worker.imports.handler import LayoutImportStagingHandler
@@ -380,12 +384,29 @@ def _run_standalone_image_selection(
             assert fallback_policy is not None
             if DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy is not None:
                 anchor_policy = DEFAULT_SELECTOR_MANIFEST.layout_anchor_policy
-                recognizer_type = (
-                    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer
-                    if anchor_policy.enable_partial_grid_recovery
-                    else LayoutAnchoredVisibleSequenceLabelRangeRecognizer
-                )
-                fallback_range_recognizer = recognizer_type(ocr, fallback_policy, anchor_policy)
+                if (
+                    DEFAULT_SELECTOR_MANIFEST.range_adapter_version
+                    == LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION
+                ):
+                    window_policy = DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy
+                    assert window_policy is not None
+                    fallback_range_recognizer = LabelLatticeSafeVisibleSequenceLabelRangeRecognizer(
+                        ocr,
+                        fallback_policy,
+                        anchor_policy,
+                        window_policy,
+                    )
+                else:
+                    recognizer_type = (
+                        PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer
+                        if anchor_policy.enable_partial_grid_recovery
+                        else LayoutAnchoredVisibleSequenceLabelRangeRecognizer
+                    )
+                    fallback_range_recognizer = recognizer_type(
+                        ocr,
+                        fallback_policy,
+                        anchor_policy,
+                    )
             else:
                 fallback_range_recognizer = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
                     ocr,

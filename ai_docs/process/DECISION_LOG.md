@@ -4366,6 +4366,34 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   zakresie finalnych cropów oraz podglądu, ale zachowuje jego logiczną geometrię
   i historyczne artefakty.
 
+## D-181 — V10.10 ufa pełnej siatce etykiet przed częściową geometrią bez górnego rzędu
+
+- **Status:** accepted
+- **Date:** 2026-08-13
+- **Decision:** v10.10 odrzuca częściową kotwicę, jeżeli żadna obserwowana ramka
+  nie leży w górnym rzędzie, i przechodzi do niezależnego czteroelementowego
+  okna etykiet z wszystkich trzech rzędów. Zakres musi być zgodny modulo 9 z
+  podanym początkiem zbioru. Dwie etykiety nie wystarczają samodzielnie.
+- **Context:** run v10.9 miał około 95% nierozstrzygnięć z powodu
+  `RANGE_LABEL_LATTICE_INCOMPLETE`, mimo czytelnych numerów. Dwa realne JPEG-i
+  zostały jednocześnie błędnie zapisane jako zakresy o trzy mniejsze, ponieważ
+  syntetyczny górny rząd siatki trafił na tabelę wypłat. Profil wykazał też
+  ekrany kolejnych zakresów ukryte wewnątrz jednej szerokiej grupy wyglądu.
+- **Reason:** lokalne liczby i ich przestrzenne pozycje są w tym korpusie
+  stabilniejszym dowodem niż niepełne czerwone ramki. Zgodność modulo 9 usuwa
+  klatki przejściowe bez przewidywania brakującego numeru, a rozdzielenie grupy
+  zachowuje dwa JPEG-i tylko przy dwóch rzeczywistych, kolejnych dowodach.
+- **Alternatives:** obniżenie progu do dwóch niezakotwiczonych liczb odrzucono
+  jako źródło przesunięć; automatyczne wypełnianie każdej luki odrzucono, bo nie
+  gwarantuje istnienia zdjęcia; modyfikację v10.9 odrzucono z powodu trwałych
+  fingerprintów runów.
+- **Consequences:** v10.10 ma osobny fingerprint i poziomy OCR `12/18`.
+  Historyczne v10.9 pozostaje odtwarzalne. Brak dowodu nadal trafia do review
+  albo pozostaje luką, natomiast grupa z dwoma bezpośrednio kolejnymi,
+  wyrównanymi zakresami może deterministycznie utworzyć dwa wyniki.
+- **Supersedes:** zaostrza słaby poziom D-178 dla nowego manifestu, zachowując
+  historyczne zachowanie v10.9 oraz zakaz rozstrzygania z kursora.
+
 ## Szablon nowej decyzji
 
 ```text

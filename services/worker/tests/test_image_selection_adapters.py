@@ -27,6 +27,7 @@ from game_predictor_worker.images.selection.adapters import (
     FullCandidateVerifier,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LabelLatticeSafeVisibleSequenceLabelRangeRecognizer,
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     NoRangeRecognizer,
     OpenCvAppearanceFingerprintAnalyzer,
@@ -100,7 +101,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.9"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.10"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -1493,6 +1494,128 @@ def test_partial_layout_anchor_resolves_preprocessing_variants_as_one_lattice() 
     ) == ((SequenceRange(7300, 7308, 0.94), "three"),)
 
 
+def test_v10_10_prioritizes_all_three_label_rows_before_non_label_noise() -> None:
+    real_labels = tuple(
+        _VisibleLabel(
+            crop=np.full((20, 120, 3), position + 1, dtype=np.uint8),
+            center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+        )
+        for position in range(9)
+    )
+    noise = tuple(
+        _VisibleLabel(
+            crop=np.full((22, 60, 3), 100 + index, dtype=np.uint8),
+            center=(450.0 + index * 90.0, 430.0),
+        )
+        for index in range(9)
+    )
+
+    class _Ranked(LabelLatticeSafeVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return (*noise, *real_labels)
+
+    prioritized = _Ranked._prioritized_label_candidates(np.zeros((1080, 1920, 3), dtype=np.uint8))
+
+    assert {id(label) for label in prioritized[:9]} == {id(label) for label in real_labels}
+    assert {id(label) for label in real_labels[:3]} <= {id(label) for label in prioritized[:9]}
+
+
+def test_v10_10_label_lattice_ignores_narrow_noise_when_fitting_axes() -> None:
+    labels = tuple(
+        _VisibleLabel(
+            crop=np.full((20, 120, 3), position + 1, dtype=np.uint8),
+            center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+        )
+        for position in range(9)
+    )
+    noise = tuple(
+        _VisibleLabel(
+            crop=np.full((20, 55, 3), 100 + position, dtype=np.uint8),
+            center=(420.0 + (position % 3) * 180.0, 420.0 + (position // 3) * 35.0),
+        )
+        for position in range(9)
+    )
+
+    positions = LabelLatticeSafeVisibleSequenceLabelRangeRecognizer._label_lattice_positions(
+        (*noise, *labels),
+        (1080, 1920),
+    )
+
+    assert {positions[index + len(noise)] for index in range(9)} == set(range(9))
+    assert not any(index in positions for index in range(len(noise)))
+
+
+def test_v10_10_recovers_range_from_four_spatial_labels_in_broad_fallback() -> None:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    for position in range(9):
+        crop = np.full((20, 120, 3), position + 1, dtype=np.uint8)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+            )
+        )
+        recognitions[id(crop)] = (
+            Recognition(str(208090 + position), 0.96) if position <= 3 else Recognition("", 0.0)
+        )
+
+    class _Scripted(LabelLatticeSafeVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized is not None
+    assert (recognized.start, recognized.end) == (208090, 208098)
+    assert reasons == ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+
+
+def test_v10_10_rejects_partial_anchor_without_an_observed_top_row() -> None:
+    def boards(observed: set[int]) -> tuple[BoardDetection, ...]:
+        return tuple(
+            BoardDetection(
+                position_index=position,
+                quad=(Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)),
+                bounding_box=(0, 0, 10, 10),
+                red_border_score=0.8 if position in observed else 0.0,
+                refined_from_grid=position not in observed,
+            )
+            for position in range(9)
+        )
+
+    v10_9 = PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(9, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+    )
+    v10_10 = LabelLatticeSafeVisibleSequenceLabelRangeRecognizer(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    partial = boards({3, 4, 7})
+    assert v10_9._layout_anchor_is_safe(partial)
+    assert not v10_10._layout_anchor_is_safe(partial)
+    assert v10_10._layout_anchor_is_safe(boards({0, 4, 7}))
+
+
 def test_layout_blur_gate_rejects_only_when_a_majority_is_severely_blurred(
     tmp_path: Path,
 ) -> None:
@@ -1873,7 +1996,7 @@ def test_standalone_cli_uses_v10_9_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.9"
+    assert report["selectorVersion"] == "fast-image-selector-v10.10"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

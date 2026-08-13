@@ -31,7 +31,7 @@ from game_predictor_worker.images.selection.contracts import (
     SelectorResumeState,
     SequenceRange,
 )
-from game_predictor_worker.images.selection.engine import FastImageSelector
+from game_predictor_worker.images.selection.engine import FastImageSelector, _OpenGroup
 from game_predictor_worker.images.selection.manifest import (
     ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101,
@@ -52,6 +52,7 @@ from game_predictor_worker.images.selection.manifest import (
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
     FOUR_LABEL_SELECTOR_MANIFEST_V107,
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
+    LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010,
     LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
     LEGACY_SELECTOR_MANIFEST_V2,
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
@@ -477,17 +478,29 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_9_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_10_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.9"
+    assert DEFAULT_SELECTOR_MANIFEST is LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.10"
+    assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy is not None
+    assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy.candidate_levels == (
+        12,
+        18,
+    )
+    assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy is not None
     assert (
-        DEFAULT_SELECTOR_MANIFEST.fingerprint
+        PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109.fingerprint
         == "6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720"
+    )
+    assert (
+        selector_manifest_for_fingerprint(
+            PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109.fingerprint
+        )
+        is PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109
     )
     assert (
         LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108.fingerprint
@@ -684,13 +697,109 @@ def test_v10_8_acceptance_contract_remains_pinned_to_its_historical_manifest() -
 def test_v10_9_acceptance_contract_matches_the_default_manifest() -> None:
     contract = json.loads(V109_ACCEPTANCE_PATH.read_text(encoding="utf-8"))
 
-    assert contract["selectorVersion"] == DEFAULT_SELECTOR_MANIFEST.algorithm_version
-    assert contract["selectorFingerprint"] == DEFAULT_SELECTOR_MANIFEST.fingerprint
+    assert (
+        contract["selectorVersion"]
+        == PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109.algorithm_version
+    )
+    assert (
+        contract["selectorFingerprint"]
+        == PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109.fingerprint
+    )
     assert contract["layoutAnchor"]["minimumObservedLayoutFrames"] == 3
     assert contract["layoutAnchor"]["requiresTwoRowsAndColumns"] is True
     assert contract["ocr"]["strongLabelCount"] == 3
     assert contract["ocr"]["weakLabelCount"] == 2
     assert contract["ocr"]["weakEvidenceDistinctJpegCount"] == 2
+
+
+def test_v10_10_rejects_ranges_outside_the_owner_anchored_nine_layout_lattice() -> None:
+    verification = CandidateVerification(
+        representative=RepresentativeAssessment(9, True, True),
+        range_evidence=RangeEvidence(SequenceRange(200576, 200584, 0.96)),
+    )
+    selector = FastImageSelector(LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010)
+    historical_selector = FastImageSelector(PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109)
+
+    rejected = selector._enforce_owner_range_alignment(  # noqa: SLF001
+        verification,
+        first_sequence_number=200557,
+        sequence_direction="ascending",
+    )
+    aligned = selector._enforce_owner_range_alignment(  # noqa: SLF001
+        replace(
+            verification,
+            range_evidence=RangeEvidence(SequenceRange(200575, 200583, 0.96)),
+        ),
+        first_sequence_number=200557,
+        sequence_direction="ascending",
+    )
+    historical = historical_selector._enforce_owner_range_alignment(  # noqa: SLF001
+        verification,
+        first_sequence_number=200557,
+        sequence_direction="ascending",
+    )
+
+    assert rejected.recognized_range is None
+    assert rejected.range_evidence.reason_codes == ("RANGE_OWNER_ALIGNMENT_MISMATCH",)
+    assert aligned.recognized_range == SequenceRange(200575, 200583, 0.96)
+    assert historical is verification
+
+
+def test_v10_10_splits_two_adjacent_ranges_merged_by_appearance_grouping() -> None:
+    sources = _sources("v10-10-mixed-group", 18)
+    analyzer = _AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in sources))
+    observations = tuple(analyzer.analyze(source) for source in sources)
+    group = _OpenGroup(group_order=0, top_k=12)
+    for observation in observations:
+        group.add(observation)
+    first_range = SequenceRange(100, 108, 0.96)
+    second_range = SequenceRange(109, 117, 0.96)
+
+    def candidate(index: int, recognized: SequenceRange, *reasons: str) -> CandidateResult:
+        observation = observations[index]
+        return CandidateResult(
+            source=observation.source,
+            decision=(
+                CandidateDecision.SELECTED_AUTOMATIC if index == 3 else CandidateDecision.REJECTED
+            ),
+            quality=observation.quality,
+            recognized_range=recognized,
+            reason_codes=reasons,
+            width=observation.width,
+            height=observation.height,
+        )
+
+    selected = candidate(3, first_range)
+    result = SelectionGroupResult(
+        group_order=0,
+        source_count=18,
+        range=first_range,
+        fingerprint_sha256="1" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.AUTO_SELECTED,
+        selected_candidate=selected,
+        top_candidates=(
+            selected,
+            candidate(14, second_range, "REPRESENTATIVE_RANGE_MISMATCH"),
+        ),
+    )
+
+    split = FastImageSelector(
+        LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010
+    )._split_label_lattice_mixed_group(  # noqa: SLF001
+        result,
+        group=group,
+        completed_ranges={},
+        first_sequence_number=100,
+        sequence_direction="ascending",
+    )
+
+    assert tuple(item.group_order for item in split) == (0, 1)
+    assert tuple(item.source_count for item in split) == (9, 9)
+    assert tuple(item.range for item in split) == (first_range, second_range)
+    assert all(item.status is SelectionGroupStatus.AUTO_SELECTED for item in split)
+    assert all(item.selected_candidate is not None for item in split)
+    assert "RANGE_MIXED_GROUP_SPLIT" in split[1].selected_candidate.reason_codes  # type: ignore[union-attr]
 
 
 @pytest.mark.parametrize(
@@ -839,9 +948,9 @@ def test_v10_9_exact_gap_keeps_the_best_candidate_in_its_original_group() -> Non
         ),
     ]
 
-    recovered = FastImageSelector(
-        DEFAULT_SELECTOR_MANIFEST
-    )._recover_bounded_best_available_groups(groups)
+    recovered = FastImageSelector(DEFAULT_SELECTOR_MANIFEST)._recover_bounded_best_available_groups(
+        groups
+    )
 
     assert recovered[1].status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
     assert recovered[1].range == SequenceRange(109, 117, 0.9)

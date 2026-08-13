@@ -952,6 +952,34 @@ skanu v10.8. Cache skanu jest więc współdzielony, natomiast cache weryfikacji
 pozostaje rozdzielony fingerprintem selektora. Nie ma zmiany schematu bazy,
 OpenAPI ani typów Admina.
 
+## Architektura bezpiecznej siatki etykiet v10.10
+
+`LabelLatticeSafeVisibleSequenceLabelRangeRecognizer` zachowuje częściową
+kotwicę v10.9, lecz odrzuca ją, gdy żadna rzeczywiście wykryta ramka nie należy
+do górnego rzędu. Eliminuje to przypadek, w którym detektor dopasował
+syntetyczny górny rząd do tabeli wypłat, a dwa poprawne odczyty z niższych
+rzędów wyprowadziły zakres przesunięty o trzy.
+
+Niezależny fallback działa progresywnie na 12, a następnie najwyżej 18 cropach.
+Priorytet obejmuje zakres pionowy od górnych etykiet pierwszego rzędu do etykiet
+trzeciego. Dopasowanie trzech osi odrzuca kandydatów bez minimalnej szerokości i
+proporcji etykiety, dzięki czemu symbole nie przejmują pików wierszy. Resolver
+akceptuje wyłącznie czteroelementowe okno v10.7 z jednoznaczną geometrią.
+
+Podany przez operatora `first_sequence_number` jest w v10.10 ograniczeniem
+modulo liczby layoutów, a nie kursorem przewidującym następny ekran. OCR spoza
+tej siatki jest usuwany z dowodu przed konsensusem. Engine może następnie
+rozdzielić fałszywie szeroką grupę wyglądu, ale tylko gdy dwie lub więcej
+silnych hipotez tworzy bezpośrednio kolejny ciąg i ich reprezentanci występują w
+tej samej kolejności w źródle. Liczność pierwotnej grupy jest dzielona
+deterministycznie na granicach pomiędzy indeksami reprezentantów; kandydat nie
+jest współdzielony przez dwa wyniki.
+
+V10.10 ma osobny adapter zakresu, manifest i fingerprint. Manifest v10.9 oraz
+jego fabryka pozostają rozwiązywalne bez zmiany zachowania. Cache taniego skanu
+pozostaje współdzielony, a cache weryfikacji jest izolowany fingerprintem.
+Zmiana nie wymaga migracji bazy ani modyfikacji OpenAPI.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

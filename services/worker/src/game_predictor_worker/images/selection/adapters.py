@@ -1705,6 +1705,12 @@ class PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
             if self._telemetry is not None:
                 self._telemetry.increment("partialLayoutAnchorAmbiguous")
             return None, ("RANGE_OCR_PARTIAL_LAYOUT_AMBIGUOUS",)
+        return self._recognize_broad_fallback(rgb_image)
+
+    def _recognize_broad_fallback(
+        self,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
         return super().recognize(rgb_image, ())
 
     def _recognize_anchored_layout(
@@ -1934,6 +1940,211 @@ class PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer(
                 "RANGE_OCR_LAYOUT_ANCHORED_TWO_LABEL",
             )
         return recognized, (f"RANGE_OCR_LAYOUT_ANCHORED_{tier.upper()}_LABEL",)
+
+
+class LabelLatticeSafeVisibleSequenceLabelRangeRecognizer(
+    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer
+):
+    """Recover readable ranges without trusting a synthesized leading grid row."""
+
+    version = "visible-sequence-label-range-v10"
+    _minimum_inlier_count = 4
+
+    def __init__(
+        self,
+        recognizer: SequenceNumberRecognizer,
+        progressive_policy: ProgressiveVisibleLabelFallbackPolicy,
+        layout_policy: LayoutAnchorPolicy,
+        window_policy: ContiguousSequenceWindowPolicy,
+        *,
+        telemetry: StageTimingCollector | None = None,
+    ) -> None:
+        super().__init__(
+            recognizer,
+            progressive_policy,
+            layout_policy,
+            telemetry=telemetry,
+        )
+        self._window_policy = window_policy
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        anchored = self._recognize_anchored_layout(rgb_image, boards)
+        if anchored is not None:
+            return anchored
+        return self._recognize_broad_fallback(rgb_image)
+
+    def _layout_anchor_is_safe(self, boards: tuple[BoardDetection, ...]) -> bool:
+        if not super()._layout_anchor_is_safe(boards):
+            return False
+        observed_positions = {
+            board.position_index for board in boards if board.red_border_score >= 0.20
+        }
+        return bool(observed_positions & {0, 1, 2})
+
+    def _anchored_evidence_hypotheses(
+        self,
+        recognitions: Mapping[int, Recognition | tuple[Recognition, ...]],
+        *,
+        observed_positions: set[int] | None = None,
+    ) -> tuple[tuple[SequenceRange, str], ...]:
+        return tuple(
+            evidence
+            for evidence in super()._anchored_evidence_hypotheses(
+                recognitions,
+                observed_positions=observed_positions,
+            )
+            if evidence[1] != "two"
+        )
+
+    def _recognize_broad_fallback(
+        self,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        labels = self._prioritized_label_candidates(rgb_image)
+        if len(labels) < self._minimum_inlier_count:
+            return None, ("RANGE_LABEL_LATTICE_MISSING",)
+
+        recognitions: list[Recognition] = []
+        previous_count = 0
+        for configured_level in self._candidate_levels:
+            candidate_count = min(configured_level, len(labels))
+            if candidate_count <= previous_count:
+                continue
+            batch_labels = labels[previous_count:candidate_count]
+            self._record_level_attempt(configured_level, len(batch_labels))
+            try:
+                recognitions.extend(
+                    self._recognize_many(tuple(label.crop for label in batch_labels))
+                )
+            except (SequenceOcrError, ValueError):
+                return None, ("RANGE_LABEL_OCR_FAILED",)
+            if self._telemetry is not None:
+                self._telemetry.increment("labelLatticeWindowAttempts")
+            hypotheses = self._contiguous_window_hypotheses(
+                labels[:candidate_count],
+                recognitions,
+                rgb_image.shape[:2],
+            )
+            if hypotheses:
+                best_score, recognized = hypotheses[0]
+                if len(hypotheses) > 1 and hypotheses[1][0] == best_score:
+                    return None, ("RANGE_LABEL_CONTIGUOUS_WINDOW_AMBIGUOUS",)
+                self._record_level_resolution(configured_level, candidate_count)
+                if self._telemetry is not None:
+                    self._telemetry.increment("labelLatticeWindowResolved")
+                    self._telemetry.increment("rangeRoute.labelLatticeFour")
+                return recognized, ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+            previous_count = candidate_count
+            if candidate_count == len(labels):
+                break
+
+        if self._telemetry is not None:
+            self._telemetry.increment("progressiveFallbackExhausted")
+        return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+
+    def _contiguous_window_hypotheses(
+        self,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int], SequenceRange]]:
+        window_recognizer = cast(
+            ContiguousWindowVisibleSequenceLabelRangeRecognizer,
+            self,
+        )
+        return ContiguousWindowVisibleSequenceLabelRangeRecognizer._contiguous_window_hypotheses(
+            window_recognizer,
+            labels,
+            recognitions,
+            image_shape,
+        )
+
+    @classmethod
+    def _prioritized_label_candidates(
+        cls,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[_VisibleLabel, ...]:
+        height, width = rgb_image.shape[:2]
+        ranked = cls._ranked_label_candidates(rgb_image)
+
+        def priority(item: tuple[int, _VisibleLabel]) -> tuple[object, ...]:
+            original_index, label = item
+            crop_height, crop_width = label.crop.shape[:2]
+            y_ratio = label.center[1] / height
+            width_ratio = crop_width / width
+            aspect_ratio = crop_width / max(1, crop_height)
+            likely = cls._is_likely_lattice_label(
+                label,
+                image_shape=(height, width),
+            )
+            return (
+                0 if likely else 1,
+                abs(y_ratio - 0.39),
+                -width_ratio,
+                -aspect_ratio,
+                original_index,
+            )
+
+        return tuple(label for _, label in sorted(enumerate(ranked), key=priority))
+
+    @classmethod
+    def _label_lattice_positions(
+        cls,
+        labels: Sequence[_VisibleLabel],
+        image_shape: tuple[int, int],
+    ) -> dict[int, int]:
+        likely_indexes = tuple(
+            index
+            for index, label in enumerate(labels)
+            if cls._is_likely_lattice_label(label, image_shape=image_shape)
+        )
+        likely_labels = tuple(labels[index] for index in likely_indexes)
+        local_positions = (
+            ContiguousWindowVisibleSequenceLabelRangeRecognizer._label_lattice_positions(
+                likely_labels,
+                image_shape,
+            )
+        )
+        return {
+            likely_indexes[local_index]: position
+            for local_index, position in local_positions.items()
+        }
+
+    @staticmethod
+    def _is_likely_lattice_label(
+        label: _VisibleLabel,
+        *,
+        image_shape: tuple[int, int],
+    ) -> bool:
+        height, width = image_shape
+        crop_height, crop_width = label.crop.shape[:2]
+        x_ratio = label.center[0] / width
+        y_ratio = label.center[1] / height
+        return (
+            0.22 <= x_ratio <= 0.82
+            and 0.25 <= y_ratio <= 0.53
+            and crop_width / width >= 0.055
+            and crop_width / max(1, crop_height) >= 2.4
+        )
+
+    @staticmethod
+    def _contiguous_window_geometry_is_valid(
+        positions: tuple[int, ...],
+        by_position: dict[int, tuple[tuple[float, float], float]],
+        image_shape: tuple[int, int],
+    ) -> bool:
+        validate_geometry = (
+            ContiguousWindowVisibleSequenceLabelRangeRecognizer._contiguous_window_geometry_is_valid
+        )
+        return validate_geometry(
+            positions,
+            by_position,
+            image_shape,
+        )
 
 
 def _bounded_edit_distance(first: str, second: str, *, maximum: int = 1) -> int:
@@ -2898,6 +3109,7 @@ __all__ = [
     "FullCandidateVerifier",
     "GridFirstVisibleSequenceLabelRangeRecognizer",
     "LayoutAnchoredVisibleSequenceLabelRangeRecognizer",
+    "LabelLatticeSafeVisibleSequenceLabelRangeRecognizer",
     "PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer",
     "NoRangeRecognizer",
     "OpenCvImageQualityAnalyzer",

@@ -604,3 +604,32 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   kolejki review oraz reguła `skipped_unreadable` nie zmieniają się.
 - Przed pełnym runem obowiązuje próba pierwszych 1440 zdjęć. Dopiero wynik z
   zerem błędnych zakresów i review pozwala uruchomić wszystkie 42 403 źródła.
+
+### Bezpieczna siatka etykiet v10.10 — 2026-08-13
+
+- Nowy run używa `fast-image-selector-v10.10`; v10.9 oraz wszystkie wcześniejsze
+  fingerprinty zachowują historyczne zachowanie i nie mogą być wznawiane jako
+  nowy silnik.
+- Ogólny fallback obejmuje etykiety wszystkich trzech rzędów widocznego ekranu.
+  Osie `3 × 3` są dopasowywane wyłącznie z komponentów o położeniu, szerokości i
+  proporcjach zgodnych z etykietami numerów; wąskie symbole i tabela wypłat nie
+  mogą wyznaczać rzędów siatki.
+- Cztery kolejne liczby o confidence `>= 0.72` wystarczają tylko wtedy, gdy
+  tworzą cztery kolejne pozycje row-major i przechodzą kontrolę odstępów w osi X
+  i Y. Remis albo niezgodna geometria pozostają `range_required`.
+- Częściowa kotwica musi zawierać co najmniej jedną faktycznie wykrytą planszę w
+  górnym rzędzie. Rekonstrukcja złożona wyłącznie ze środkowego i dolnego rzędu
+  nie może automatycznie przesunąć zakresu o trzy numery; przechodzi do
+  niezależnej siatki etykiet.
+- Dwie etykiety nie są w v10.10 samodzielnym dowodem zakresu. Trzy etykiety mogą
+  pozostać silnym dowodem wyłącznie w bezpiecznej, rzeczywiście zakotwiczonej
+  siatce.
+- Jeśli operator podał pierwszy numer zbioru, automatyczny zakres musi należeć
+  do tej samej siatki dziewięcioelementowej. Niezgodny zakres jest odrzucany z
+  `RANGE_OWNER_ALIGNMENT_MISMATCH`; wartość nie jest poprawiana ani zgadywana.
+- Jedna grupa wyglądu może zostać rozdzielona na więcej niż jeden wynik tylko,
+  gdy jej własne kandydaty zawierają silne, bezpośrednio kolejne zakresy w
+  zgodnej kolejności źródłowej. Każdy wynik zachowuje własnego JPEG-a; brakujący
+  zakres bez rozpoznanego kandydata nie jest syntetyzowany.
+- Przed pełnym runem obowiązuje regresja wskazanych JPEG-ów i profil pierwszych
+  1440 zdjęć z kontrolą błędnych przesunięć, duplikatów i ciągłości.

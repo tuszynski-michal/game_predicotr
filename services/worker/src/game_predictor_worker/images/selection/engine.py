@@ -48,10 +48,11 @@ from .manifest import (
     FIRST_USABLE_SELECTOR_VERSIONS,
     HYBRID_BOUNDED_SELECTOR_VERSION,
     HYBRID_BOUNDED_SELECTOR_VERSIONS,
+    LABEL_LATTICE_SAFE_SELECTOR_VERSION,
     LAYOUT_ANCHORED_SELECTOR_VERSIONS,
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
-    PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION,
+    PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS,
     AppearanceDescriptorConfig,
     RangeFreeRepresentativePolicy,
     SelectorManifest,
@@ -599,31 +600,48 @@ class FastImageSelector:
             for before, after in zip(previous_groups, groups, strict=True):
                 if before != after:
                     sink.group_finalized(after)
-            if result.status is SelectionGroupStatus.AUTO_SELECTED and result.range is not None:
-                completed_ranges[(result.range.start, result.range.end)] = result.group_order
-            elif result.status in {
-                SelectionGroupStatus.MANUAL_REQUIRED,
-                SelectionGroupStatus.RANGE_REQUIRED,
-            }:
-                if result.range is not None:
-                    unresolved_ranges[(result.range.start, result.range.end)] = result.group_order
-                if group.reference is not None:
-                    unresolved_fingerprints[result.group_order] = group.reference.fingerprint_hex
-            groups.append(result)
-            sink.group_finalized(result)
-            if (
-                self.manifest.algorithm_version in EXACT_MULTI_GAP_SELECTOR_VERSIONS
-                and result.status is SelectionGroupStatus.AUTO_SELECTED
-                and result.range is not None
-            ):
-                for recovered_index, recovered in self._recover_trailing_exact_gap(groups):
-                    groups[recovered_index] = recovered
-                    assert recovered.range is not None
-                    completed_ranges[(recovered.range.start, recovered.range.end)] = (
-                        recovered.group_order
+            finalized_results = self._split_label_lattice_mixed_group(
+                result,
+                group=group,
+                completed_ranges=completed_ranges,
+                first_sequence_number=first_sequence_number,
+                sequence_direction=sequence_direction,
+            )
+            for finalized in finalized_results:
+                if (
+                    finalized.status is SelectionGroupStatus.AUTO_SELECTED
+                    and finalized.range is not None
+                ):
+                    completed_ranges[(finalized.range.start, finalized.range.end)] = (
+                        finalized.group_order
                     )
-                    unresolved_fingerprints.pop(recovered.group_order, None)
-                    sink.group_finalized(recovered)
+                elif finalized.status in {
+                    SelectionGroupStatus.MANUAL_REQUIRED,
+                    SelectionGroupStatus.RANGE_REQUIRED,
+                }:
+                    if finalized.range is not None:
+                        unresolved_ranges[(finalized.range.start, finalized.range.end)] = (
+                            finalized.group_order
+                        )
+                    if group.reference is not None:
+                        unresolved_fingerprints[finalized.group_order] = (
+                            group.reference.fingerprint_hex
+                        )
+                groups.append(finalized)
+                sink.group_finalized(finalized)
+                if (
+                    self.manifest.algorithm_version in EXACT_MULTI_GAP_SELECTOR_VERSIONS
+                    and finalized.status is SelectionGroupStatus.AUTO_SELECTED
+                    and finalized.range is not None
+                ):
+                    for recovered_index, recovered in self._recover_trailing_exact_gap(groups):
+                        groups[recovered_index] = recovered
+                        assert recovered.range is not None
+                        completed_ranges[(recovered.range.start, recovered.range.end)] = (
+                            recovered.group_order
+                        )
+                        unresolved_fingerprints.pop(recovered.group_order, None)
+                        sink.group_finalized(recovered)
 
         first_source_index = 0 if resume_state is None else resume_state.checkpoint.next_order_index
         for observation in self._analyze_in_source_order(
@@ -1039,6 +1057,11 @@ class FastImageSelector:
         if adaptive_policy is None:
             for observation in observations_to_verify:
                 verification = verifier.verify(observation, expected_board_count=consensus)
+                verification = self._enforce_owner_range_alignment(
+                    verification,
+                    first_sequence_number=first_sequence_number,
+                    sequence_direction=sequence_direction,
+                )
                 verified.append((observation, verification))
                 if self._prefer_first_usable and self._is_first_usable_verification(
                     observation,
@@ -1063,6 +1086,14 @@ class FastImageSelector:
                     level_observations,
                     expected_board_count=consensus,
                     include_range_evidence=True,
+                )
+                level_results = tuple(
+                    self._enforce_owner_range_alignment(
+                        verification,
+                        first_sequence_number=first_sequence_number,
+                        sequence_direction=sequence_direction,
+                    )
+                    for verification in level_results
                 )
                 verified.extend(zip(level_observations, level_results, strict=True))
                 range_evidence_count += len(level_results)
@@ -1575,6 +1606,171 @@ class FastImageSelector:
             end=end,
             confidence=1.0,
         )
+
+    def _enforce_owner_range_alignment(
+        self,
+        verification: CandidateVerification,
+        *,
+        first_sequence_number: int | None,
+        sequence_direction: str,
+    ) -> CandidateVerification:
+        recognized = verification.recognized_range
+        if (
+            self.manifest.algorithm_version != LABEL_LATTICE_SAFE_SELECTOR_VERSION
+            or first_sequence_number is None
+            or recognized is None
+        ):
+            return verification
+        anchor = recognized.start if sequence_direction == "ascending" else recognized.end
+        if abs(anchor - first_sequence_number) % recognized.board_count == 0:
+            return verification
+        return replace(
+            verification,
+            range_evidence=RangeEvidence(
+                None,
+                tuple(
+                    dict.fromkeys(
+                        (
+                            *verification.range_evidence.reason_codes,
+                            "RANGE_OWNER_ALIGNMENT_MISMATCH",
+                        )
+                    )
+                ),
+            ),
+        )
+
+    def _split_label_lattice_mixed_group(
+        self,
+        result: SelectionGroupResult,
+        *,
+        group: _OpenGroup,
+        completed_ranges: dict[tuple[int, int], int],
+        first_sequence_number: int | None,
+        sequence_direction: str,
+    ) -> tuple[SelectionGroupResult, ...]:
+        """Preserve adjacent screens that appearance grouping merged into one group."""
+
+        if (
+            self.manifest.algorithm_version != LABEL_LATTICE_SAFE_SELECTOR_VERSION
+            or result.status is not SelectionGroupStatus.AUTO_SELECTED
+            or result.range is None
+            or first_sequence_number is None
+            or group.last_source_order_index is None
+        ):
+            return (result,)
+        threshold = self.manifest.thresholds.minimum_range_confidence
+        by_range: dict[tuple[int, int], list[CandidateResult]] = {}
+        for candidate in result.top_candidates:
+            recognized = candidate.recognized_range
+            if (
+                recognized is None
+                or recognized.confidence < threshold
+                or "RANGE_CONFLICT" in candidate.reason_codes
+            ):
+                continue
+            anchor = recognized.start if sequence_direction == "ascending" else recognized.end
+            if abs(anchor - first_sequence_number) % recognized.board_count != 0:
+                continue
+            by_range.setdefault((recognized.start, recognized.end), []).append(candidate)
+        selected_key = (result.range.start, result.range.end)
+        if selected_key not in by_range or len(by_range) < 2:
+            return (result,)
+
+        ordered_evidence = sorted(
+            by_range.items(),
+            key=lambda entry: min(candidate.source.order_index for candidate in entry[1]),
+        )
+        starts = tuple(key[0] for key, _ in ordered_evidence)
+        expected_delta = 9 if sequence_direction == "ascending" else -9
+        if any(
+            second - first != expected_delta
+            for first, second in zip(starts, starts[1:], strict=False)
+        ):
+            return (result,)
+        if any(key in completed_ranges for key, _ in ordered_evidence):
+            return (result,)
+
+        representatives: list[tuple[tuple[int, int], CandidateResult]] = []
+        for key, candidates in ordered_evidence:
+            usable = tuple(
+                candidate
+                for candidate in candidates
+                if self._can_use_inferred_best_available(candidate)
+            )
+            if not usable:
+                return (result,)
+            representatives.append((key, min(usable, key=_best_available_candidate_rank)))
+        representative_indexes = tuple(
+            candidate.source.order_index for _, candidate in representatives
+        )
+        if any(
+            second <= first
+            for first, second in zip(
+                representative_indexes,
+                representative_indexes[1:],
+                strict=False,
+            )
+        ):
+            return (result,)
+
+        first_index = group.last_source_order_index - group.source_count + 1
+        boundaries = tuple(
+            (first + second) // 2
+            for first, second in zip(
+                representative_indexes,
+                representative_indexes[1:],
+                strict=False,
+            )
+        )
+        source_counts: list[int] = []
+        previous_boundary = first_index - 1
+        for boundary in (*boundaries, group.last_source_order_index):
+            source_counts.append(boundary - previous_boundary)
+            previous_boundary = boundary
+        if any(count < 1 for count in source_counts) or sum(source_counts) != group.source_count:
+            return (result,)
+
+        split_results: list[SelectionGroupResult] = []
+        for offset, ((start, end), representative) in enumerate(representatives):
+            recognized = representative.recognized_range
+            assert recognized is not None
+            reasons = tuple(
+                reason
+                for reason in representative.reason_codes
+                if reason not in {"REPRESENTATIVE_RANGE_MISMATCH", "RANGE_UNKNOWN"}
+            )
+            selected = replace(
+                representative,
+                decision=CandidateDecision.SELECTED_AUTOMATIC,
+                recognized_range=recognized,
+                reason_codes=tuple(dict.fromkeys((*reasons, "RANGE_MIXED_GROUP_SPLIT"))),
+            )
+            range_candidates = tuple(
+                selected
+                if candidate.source.order_index == selected.source.order_index
+                and candidate.source.checksum_sha256 == selected.source.checksum_sha256
+                else replace(
+                    candidate,
+                    decision=CandidateDecision.ELIGIBLE,
+                    reason_codes=tuple(
+                        reason
+                        for reason in candidate.reason_codes
+                        if reason != "REPRESENTATIVE_RANGE_MISMATCH"
+                    ),
+                )
+                for candidate in by_range[(start, end)]
+            )
+            split_results.append(
+                replace(
+                    result,
+                    group_order=result.group_order + offset,
+                    source_count=source_counts[offset],
+                    range=recognized,
+                    selected_candidate=selected,
+                    top_candidates=self._rank_candidates(range_candidates, recognized),
+                )
+            )
+        return tuple(split_results)
 
     @staticmethod
     def _verified_board_count(
@@ -2313,20 +2509,20 @@ class FastImageSelector:
                         range=(
                             previous_range
                             if self.manifest.algorithm_version
-                            == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+                            in PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS
                             else None
                         ),
                         status=(
                             SelectionGroupStatus.SKIPPED_EXISTING_RANGE
                             if self.manifest.algorithm_version
-                            == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+                            in PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS
                             else SelectionGroupStatus.SKIPPED_UNREADABLE
                         ),
                         selected_candidate=None,
                         duplicate_of_group_order=(
                             groups[previous_index].group_order
                             if self.manifest.algorithm_version
-                            == PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSION
+                            in PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS
                             else None
                         ),
                         top_candidates=tuple(
@@ -2412,9 +2608,7 @@ class FastImageSelector:
                         candidate,
                         decision=CandidateDecision.REJECTED,
                         reason_codes=tuple(
-                            dict.fromkeys(
-                                (*candidate.reason_codes, REDUNDANT_TRANSITION_REASON)
-                            )
+                            dict.fromkeys((*candidate.reason_codes, REDUNDANT_TRANSITION_REASON))
                         ),
                     )
                     for candidate in groups[index].top_candidates

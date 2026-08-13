@@ -30,6 +30,7 @@ from game_predictor_worker.images.selection.adapters import (  # noqa: E402
     AnchoredSequenceRangeRecognizer,
     DeterministicParallelCandidateVerifier,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
+    LabelLatticeSafeVisibleSequenceLabelRangeRecognizer,
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
@@ -53,6 +54,7 @@ from game_predictor_worker.images.selection.io import (  # noqa: E402
 )
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
     DEFAULT_SELECTOR_MANIFEST,
+    LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION,
     SelectorManifest,
 )
 from game_predictor_worker.images.selection.telemetry import (  # noqa: E402
@@ -234,24 +236,35 @@ def _build_verification_adapters(
     if fallback_policy is None:
         raise RuntimeError("The active selector profile requires progressive fallback policy.")
     ocr = PaddleSequenceNumberRecognizer(model_root)
-    fallback = (
-        (
+    if manifest.layout_anchor_policy is None:
+        fallback = IndependentEndpointVisibleSequenceLabelRangeRecognizer(
+            ocr,
+            fallback_policy,
+            telemetry=telemetry,
+        )
+    elif manifest.range_adapter_version == LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION:
+        window_policy = manifest.contiguous_sequence_window_policy
+        if window_policy is None:
+            raise RuntimeError("The label-lattice adapter requires a window policy.")
+        fallback = LabelLatticeSafeVisibleSequenceLabelRangeRecognizer(
+            ocr,
+            fallback_policy,
+            manifest.layout_anchor_policy,
+            window_policy,
+            telemetry=telemetry,
+        )
+    else:
+        recognizer_type = (
             PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer
             if manifest.layout_anchor_policy.enable_partial_grid_recovery
             else LayoutAnchoredVisibleSequenceLabelRangeRecognizer
-        )(
+        )
+        fallback = recognizer_type(
             ocr,
             fallback_policy,
             manifest.layout_anchor_policy,
             telemetry=telemetry,
         )
-        if manifest.layout_anchor_policy is not None
-        else IndependentEndpointVisibleSequenceLabelRangeRecognizer(
-            ocr,
-            fallback_policy,
-            telemetry=telemetry,
-        )
-    )
     return build_default_adapters(
         source_root,
         range_recognizer=AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry),

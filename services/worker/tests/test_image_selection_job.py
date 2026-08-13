@@ -21,7 +21,7 @@ from game_predictor_api.domain.jobs import (
 )
 from game_predictor_worker.images.selection.adapters import (
     DeterministicParallelCandidateVerifier,
-    PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
+    LabelLatticeSafeVisibleSequenceLabelRangeRecognizer,
 )
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
@@ -171,7 +171,7 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
     assert verifier is not None
 
 
-def test_v10_9_production_factory_builds_isolated_partial_layout_verifiers(
+def test_v10_10_production_factory_builds_isolated_label_lattice_safe_verifiers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -232,7 +232,7 @@ def test_v10_9_production_factory_builds_isolated_partial_layout_verifiers(
     assert len({id(predictor) for predictor in predictors}) == 2
     assert len({id(item) for item in built_verifiers}) == 2
     assert all(
-        isinstance(item, PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer)
+        isinstance(item, LabelLatticeSafeVisibleSequenceLabelRangeRecognizer)
         for item in fallback_recognizers
     )
     assert isinstance(verifier, DeterministicParallelCandidateVerifier)

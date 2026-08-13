@@ -3,18 +3,12 @@
   "manifest": {
     "components": {
       "board_crops": {
-        "adapterVersion": "board-cell-crops-v16-reviewed-v14-merge-v1",
-        "artifacts": [
-          {
-            "relativePath": "ai_docs/quality/m6-symbol-crop-inventory-v3.json",
-            "role": "accepted-crop-inventory",
-            "sha256": "55a10739391843f0bc7b17814a209a3fca69ba93ff7fc4a68702008a521d77c1"
-          }
-        ],
+        "adapterVersion": "board-cell-crops-v17-source-direct-model-input-v1",
+        "artifacts": [],
         "maturity": "deterministic"
       },
       "board_detection": {
-        "adapterVersion": "page-board-detector-v2",
+        "adapterVersion": "page-board-detector-v3-unique-partial-grid-v1",
         "artifacts": [
           {
             "relativePath": "ai_docs/quality/m5-image-benchmark-report.json",
@@ -40,7 +34,7 @@
         "maturity": "deterministic"
       },
       "sequence_ocr": {
-        "adapterVersion": "sequence-number-ocr-v1",
+        "adapterVersion": "sequence-number-ocr-v2-page-continuity-v1",
         "artifacts": [
           {
             "relativePath": "artifacts/m5-models/sequence-number-ocr-v1/inference.json",
@@ -126,6 +120,6 @@
       "validation"
     ]
   },
-  "pipelineFingerprint": "16f601f7fae76ccc79e23a47869a0e695a5592dbf2e0639af1b3f37a3a925d96",
+  "pipelineFingerprint": "654517f38a4f1d32f808c0323ac764d6c14b9263f1733ea8a13d50b59cb4f2d0",
   "schemaVersion": 1
 }

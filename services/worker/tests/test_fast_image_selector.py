@@ -999,6 +999,29 @@ def test_historical_v10_manifest_keeps_forced_cursor_behavior() -> None:
     ]
 
 
+def test_recovery_can_disable_local_first_group_anchor_without_losing_alignment() -> None:
+    signatures = tuple(_appearance_signature(0, drift=index * 0.05) for index in range(2))
+    ranges = (SequenceRange(100, 108, 0.99),) * 2
+
+    anchored = FastImageSelector(FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011).select(
+        _sources("recovery-local-anchor-enabled", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=_V10RangeVerifier(ranges),
+        first_sequence_number=1,
+    )
+    recovered = FastImageSelector(FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011).select(
+        _sources("recovery-local-anchor-disabled", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=_V10RangeVerifier(ranges),
+        first_sequence_number=1,
+        anchor_first_group=False,
+    )
+
+    assert anchored.groups[0].status is SelectionGroupStatus.MANUAL_REQUIRED
+    assert recovered.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert recovered.groups[0].range == SequenceRange(100, 108, 0.99)
+
+
 def test_v10_evaluates_the_whole_group_and_selects_the_best_candidate() -> None:
     signatures = tuple(_appearance_signature(0, drift=index * 0.05) for index in range(4))
     qualities = tuple(

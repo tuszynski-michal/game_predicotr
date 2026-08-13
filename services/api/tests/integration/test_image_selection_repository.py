@@ -20,7 +20,7 @@ from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -31,6 +31,9 @@ pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
     reason="Set GAME_PREDICTOR_RUN_POSTGRES_TESTS=1 to run isolated PostgreSQL tests.",
 )
+
+DERIVED_RECOVERY_REVISION = "0042_image_selection_derived_recovery"
+REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
 
 
 def _database_url(database_name: str) -> URL:
@@ -139,3 +142,42 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
         assert persisted_missing.range_end is None
     finally:
         engine.dispose()
+
+
+def test_derived_recovery_migration_round_trip(
+    isolated_image_selection_database: URL,
+) -> None:
+    config = _migration_config(isolated_image_selection_database)
+    command.upgrade(config, REVIEW_QUEUES_REVISION)
+
+    command.upgrade(config, DERIVED_RECOVERY_REVISION)
+    upgraded_engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    try:
+        run_columns = {
+            column["name"]
+            for column in inspect(upgraded_engine).get_columns("image_selection_runs")
+        }
+        group_columns = {
+            column["name"]
+            for column in inspect(upgraded_engine).get_columns("image_selection_groups")
+        }
+    finally:
+        upgraded_engine.dispose()
+    assert {"execution_mode", "source_run_id", "source_snapshot_sha256"} <= run_columns
+    assert "origin_group_id" in group_columns
+
+    command.downgrade(config, REVIEW_QUEUES_REVISION)
+    downgraded_engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    try:
+        run_columns = {
+            column["name"]
+            for column in inspect(downgraded_engine).get_columns("image_selection_runs")
+        }
+        group_columns = {
+            column["name"]
+            for column in inspect(downgraded_engine).get_columns("image_selection_groups")
+        }
+    finally:
+        downgraded_engine.dispose()
+    assert not {"execution_mode", "source_run_id", "source_snapshot_sha256"} & run_columns
+    assert "origin_group_id" not in group_columns

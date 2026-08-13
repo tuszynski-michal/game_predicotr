@@ -100,12 +100,10 @@ from .output import (
 )
 from .ports import SequenceRangeRecognizer
 from .recovery import (
+    RecoveryEvaluationProgress,
     RecoveryProjection,
     RecoverySourceGroup,
-    assemble_recovery_projection,
-    plan_recovery_blocks,
-    prepare_recovery_block,
-    restore_recovered_block,
+    evaluate_recovery,
 )
 from .telemetry import StageTimingCollector
 
@@ -439,12 +437,6 @@ class ImageSelectionJobHandler:
                 "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
                 "A range-recovery run has no immutable source snapshot.",
             )
-        blocks = plan_recovery_blocks(source_groups)
-        if not blocks:
-            raise SelectionContractError(
-                "IMAGE_SELECTION_RECOVERY_NOT_REQUIRED",
-                "The source run has no unresolved range-review groups.",
-            )
         telemetry = StageTimingCollector()
         if self._adapter_factory is None:
             analyzer, verifier = self._default_adapter_factory(
@@ -464,37 +456,13 @@ class ImageSelectionJobHandler:
             self._verification_cache,
             selector_fingerprint=selector_manifest.fingerprint,
         )
-        prepared = tuple((block, prepare_recovery_block(block)) for block in blocks)
-        total = sum(len(block_input.sources) for _, block_input in prepared)
-        completed = 0
-        recovered = []
-        scan_failures = 0
-        verifications = 0
-        for block_number, (block, block_input) in enumerate(prepared, start=1):
-            sink = _RecoveryBlockAuditSink()
-            local = FastImageSelector(
-                selector_manifest,
-                scan_workers=self._scan_workers,
-                scan_prefetch=self._scan_prefetch,
-            ).select(
-                block_input.sources,
-                analyzer=cached_analyzer,
-                verifier=cached_verifier,
-                audit_sink=sink,
-                sequence_direction=run.sequence_direction.value,
-                first_sequence_number=run.first_sequence_number,
+        if run.first_sequence_number is None:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_FIRST_SEQUENCE_REQUIRED",
+                "Range recovery requires the source sequence origin.",
             )
-            recovered.append(
-                restore_recovered_block(
-                    block=block,
-                    block_input=block_input,
-                    groups=local.groups,
-                    observations=sink.observations,
-                )
-            )
-            completed += len(block_input.sources)
-            scan_failures += local.scan_failure_count
-            verifications += local.verification_count
+
+        def checkpoint_recovery(progress: RecoveryEvaluationProgress) -> None:
             context.checkpoint(
                 checkpoint_payload={
                     "schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -503,20 +471,31 @@ class ImageSelectionJobHandler:
                     "source_run_id": str(run.source_run_id),
                     "source_snapshot_sha256": run.source_snapshot_sha256,
                     "recovery_projection_complete": False,
-                    "block_count": len(prepared),
-                    "completed_blocks": block_number,
-                    "candidate_count": total,
-                    "scan_failure_count": scan_failures,
-                    "verification_count": verifications,
+                    "block_count": progress.block_count,
+                    "completed_blocks": progress.completed_blocks,
+                    "candidate_count": progress.candidate_count,
+                    "scan_failure_count": progress.scan_failure_count,
+                    "verification_count": progress.verification_count,
                 },
                 stage="image_selection:recovering_ranges",
-                current=completed,
-                total=total,
+                current=progress.completed_candidates,
+                total=progress.candidate_count,
                 success_count=0,
-                failure_count=scan_failures,
+                failure_count=progress.scan_failure_count,
                 review_count=0,
             )
-        projection = assemble_recovery_projection(source_groups, tuple(recovered))
+        evaluation = evaluate_recovery(
+            source_groups,
+            manifest=selector_manifest,
+            analyzer=cached_analyzer,
+            verifier=cached_verifier,
+            sequence_direction=run.sequence_direction.value,
+            first_sequence_number=run.first_sequence_number,
+            scan_workers=self._scan_workers,
+            scan_prefetch=self._scan_prefetch,
+            progress_callback=checkpoint_recovery,
+        )
+        projection = evaluation.projection
         self._store.persist_recovery_projection(
             job_id=run.job_id,
             run_id=run.id,
@@ -529,27 +508,31 @@ class ImageSelectionJobHandler:
         result = ImageSelectionResult(
             selector_version=selector_manifest.algorithm_version,
             selector_fingerprint=selector_manifest.fingerprint,
-            input_count=total,
+            input_count=evaluation.candidate_count,
             groups=projection.groups,
             checkpoint=SelectorCheckpoint(
                 schema_version=CHECKPOINT_SCHEMA_VERSION,
                 selector_fingerprint=selector_manifest.fingerprint,
-                next_order_index=total,
-                processed_count=total,
+                next_order_index=evaluation.candidate_count,
+                processed_count=evaluation.candidate_count,
                 finalized_group_count=len(projection.groups),
             ),
-            scan_failure_count=scan_failures,
-            verification_count=verifications,
+            scan_failure_count=evaluation.scan_failure_count,
+            verification_count=evaluation.verification_count,
         )
-        payload = _recovery_checkpoint_payload(run, result, block_count=len(prepared))
+        payload = _recovery_checkpoint_payload(
+            run,
+            result,
+            block_count=evaluation.block_count,
+        )
         selected, review = _recovery_counts(result.groups)
         context.checkpoint(
             checkpoint_payload=payload,
             stage="image_selection:recovery_projection_ready",
-            current=total,
-            total=total,
+            current=evaluation.candidate_count,
+            total=evaluation.candidate_count,
             success_count=selected,
-            failure_count=scan_failures,
+            failure_count=evaluation.scan_failure_count,
             review_count=review,
         )
         return result
@@ -629,6 +612,16 @@ class ImageSelectionJobHandler:
                 "The managed browser staging for this run is unavailable.",
             )
         return candidate
+
+    def build_runtime_adapters(
+        self,
+        source_root: Path,
+        manifest: SelectorManifest,
+        telemetry: StageTimingCollector,
+    ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
+        """Build the exact adapter graph used by a durable selection job."""
+
+        return self._default_adapter_factory(source_root, manifest, telemetry)
 
     def _verify_existing_output(self, run: ImageSelectionJobRun) -> None:
         if run.output_manifest_relative_path is None or run.output_manifest_sha256 is None:
@@ -791,37 +784,6 @@ class ImageSelectionJobHandler:
             (primary_verifier, secondary_verifier),
             telemetry=telemetry,
         )
-
-
-class _RecoveryBlockAuditSink(SelectionAuditSink):
-    """Capture one bounded block without mutating either durable run."""
-
-    def __init__(self) -> None:
-        self._observations: dict[int, CheapImageObservation] = {}
-
-    @property
-    def observations(self) -> tuple[CheapImageObservation, ...]:
-        return tuple(self._observations[index] for index in sorted(self._observations))
-
-    def candidate_scanned(
-        self,
-        observation: CheapImageObservation,
-        *,
-        group_order: int,
-    ) -> None:
-        del group_order
-        existing = self._observations.setdefault(observation.source.order_index, observation)
-        if existing != observation:
-            raise SelectionContractError(
-                "IMAGE_SELECTION_RECOVERY_OBSERVATION_MISMATCH",
-                "One recovery source produced inconsistent scan observations.",
-            )
-
-    def checkpoint_saved(self, checkpoint: SelectorCheckpoint) -> None:
-        del checkpoint
-
-    def group_finalized(self, group: SelectionGroupResult) -> None:
-        del group
 
 
 class _DurableSelectionSink(SelectionAuditSink):

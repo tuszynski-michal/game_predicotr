@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from uuid import UUID
 
 from .contracts import (
+    CandidateDecision,
     CandidateResult,
+    CandidateVerifier,
+    CheapImageAnalyzer,
     CheapImageObservation,
     ImageSelectionSource,
     SelectionContractError,
     SelectionGroupResult,
     SelectionGroupStatus,
+    SelectorCheckpoint,
 )
+from .engine import FastImageSelector
+from .manifest import SelectorManifest
 
 _PROTECTED_USER_STATUSES = {
     SelectionGroupStatus.MANUALLY_SELECTED,
@@ -62,6 +69,146 @@ class RecoveryProjection:
     groups: tuple[SelectionGroupResult, ...]
     group_sources: dict[int, tuple[CheapImageObservation, ...]]
     origin_group_ids: dict[int, UUID]
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryEvaluationProgress:
+    """One completed recovery block for bounded durable progress reporting."""
+
+    completed_blocks: int
+    block_count: int
+    completed_candidates: int
+    candidate_count: int
+    scan_failure_count: int
+    verification_count: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecoveryEvaluation:
+    """Read-only result shared by the durable worker and operational dry-run."""
+
+    projection: RecoveryProjection
+    block_count: int
+    candidate_count: int
+    scan_failure_count: int
+    verification_count: int
+
+
+RecoveryProgressCallback = Callable[[RecoveryEvaluationProgress], None]
+
+_FORBIDDEN_RECOVERY_RANGE_REASONS = frozenset(
+    {
+        "RANGE_EXACT_GAP_INFERRED",
+        "RANGE_INFERRED_FROM_BOUNDED_GAP",
+        "RANGE_OWNER_ANCHOR",
+    }
+)
+
+
+def evaluate_recovery(
+    source_groups: tuple[RecoverySourceGroup, ...],
+    *,
+    manifest: SelectorManifest,
+    analyzer: CheapImageAnalyzer,
+    verifier: CandidateVerifier,
+    sequence_direction: str,
+    first_sequence_number: int,
+    scan_workers: int = 1,
+    scan_prefetch: int | None = None,
+    progress_callback: RecoveryProgressCallback | None = None,
+) -> RecoveryEvaluation:
+    """Rebuild unresolved blocks without persisting either source or projection."""
+
+    blocks = plan_recovery_blocks(source_groups)
+    if not blocks:
+        raise SelectionContractError(
+            "IMAGE_SELECTION_RECOVERY_NOT_REQUIRED",
+            "The source run has no unresolved range-review groups.",
+        )
+    prepared = tuple((block, prepare_recovery_block(block)) for block in blocks)
+    candidate_count = sum(len(block_input.sources) for _, block_input in prepared)
+    completed_candidates = 0
+    scan_failure_count = 0
+    verification_count = 0
+    recovered: list[RecoveredBlock] = []
+    for block_number, (block, block_input) in enumerate(prepared, start=1):
+        sink = RecoveryBlockAuditSink()
+        local = FastImageSelector(
+            manifest,
+            scan_workers=scan_workers,
+            scan_prefetch=scan_prefetch,
+        ).select(
+            block_input.sources,
+            analyzer=analyzer,
+            verifier=verifier,
+            audit_sink=sink,
+            sequence_direction=sequence_direction,
+            first_sequence_number=first_sequence_number,
+            # ``first_sequence_number`` remains the global modulo-alignment
+            # origin. A local block must never pretend its first group is the
+            # first group of the complete source run.
+            anchor_first_group=False,
+        )
+        recovered.append(
+            restore_recovered_block(
+                block=block,
+                block_input=block_input,
+                groups=require_representative_range_evidence(local.groups),
+                observations=sink.observations,
+            )
+        )
+        completed_candidates += len(block_input.sources)
+        scan_failure_count += local.scan_failure_count
+        verification_count += local.verification_count
+        if progress_callback is not None:
+            progress_callback(
+                RecoveryEvaluationProgress(
+                    completed_blocks=block_number,
+                    block_count=len(prepared),
+                    completed_candidates=completed_candidates,
+                    candidate_count=candidate_count,
+                    scan_failure_count=scan_failure_count,
+                    verification_count=verification_count,
+                )
+            )
+    return RecoveryEvaluation(
+        projection=assemble_recovery_projection(source_groups, tuple(recovered)),
+        block_count=len(prepared),
+        candidate_count=candidate_count,
+        scan_failure_count=scan_failure_count,
+        verification_count=verification_count,
+    )
+
+
+class RecoveryBlockAuditSink:
+    """Capture one bounded block without mutating either durable run."""
+
+    def __init__(self) -> None:
+        self._observations: dict[int, CheapImageObservation] = {}
+
+    @property
+    def observations(self) -> tuple[CheapImageObservation, ...]:
+        return tuple(self._observations[index] for index in sorted(self._observations))
+
+    def candidate_scanned(
+        self,
+        observation: CheapImageObservation,
+        *,
+        group_order: int,
+    ) -> None:
+        del group_order
+        existing = self._observations.setdefault(observation.source.order_index, observation)
+        if existing != observation:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_RECOVERY_OBSERVATION_MISMATCH",
+                "One recovery source produced inconsistent scan observations.",
+            )
+
+    def checkpoint_saved(self, checkpoint: SelectorCheckpoint) -> None:
+        del checkpoint
+
+    def group_finalized(self, group: SelectionGroupResult) -> None:
+        del group
 
 
 def plan_recovery_blocks(
@@ -206,6 +353,78 @@ def restore_recovered_block(
         group_sources=tuple(restored_sources),
         origin_group_ids=tuple(origins),
     )
+
+
+def require_representative_range_evidence(
+    groups: tuple[SelectionGroupResult, ...],
+) -> tuple[SelectionGroupResult, ...]:
+    """Fail closed when an automatic range was borrowed or inferred."""
+
+    normalized: list[SelectionGroupResult] = []
+    for group in groups:
+        if group.status is not SelectionGroupStatus.AUTO_SELECTED:
+            normalized.append(group)
+            continue
+        selected = group.selected_candidate
+        selected_range = None if selected is None else selected.recognized_range
+        group_key = None if group.range is None else (group.range.start, group.range.end)
+        selected_key = (
+            None
+            if selected_range is None
+            else (selected_range.start, selected_range.end)
+        )
+        forbidden_reason = selected is not None and any(
+            reason in _FORBIDDEN_RECOVERY_RANGE_REASONS
+            for reason in selected.reason_codes
+        )
+        if (
+            selected is not None
+            and group_key is not None
+            and selected_key == group_key
+            and not forbidden_reason
+        ):
+            normalized.append(group)
+            continue
+
+        demoted = (
+            None
+            if selected is None
+            else replace(
+                selected,
+                decision=CandidateDecision.ELIGIBLE,
+                recognized_range=None,
+                reason_codes=tuple(
+                    dict.fromkeys(
+                        (
+                            *selected.reason_codes,
+                            "RECOVERY_REPRESENTATIVE_RANGE_EVIDENCE_REQUIRED",
+                        )
+                    )
+                ),
+            )
+        )
+        selected_identity = (
+            None
+            if selected is None
+            else (selected.source.order_index, selected.source.checksum_sha256)
+        )
+        normalized.append(
+            replace(
+                group,
+                range=None,
+                status=SelectionGroupStatus.RANGE_REQUIRED,
+                selected_candidate=demoted,
+                top_candidates=tuple(
+                    demoted
+                    if demoted is not None
+                    and selected_identity
+                    == (candidate.source.order_index, candidate.source.checksum_sha256)
+                    else candidate
+                    for candidate in group.top_candidates
+                ),
+            )
+        )
+    return tuple(normalized)
 
 
 def assemble_recovery_projection(
@@ -362,11 +581,17 @@ def _representative_origin(
 __all__ = [
     "RecoveredBlock",
     "RecoveryBlock",
+    "RecoveryBlockAuditSink",
     "RecoveryBlockInput",
+    "RecoveryEvaluation",
+    "RecoveryEvaluationProgress",
     "RecoveryProjection",
+    "RecoveryProgressCallback",
     "RecoverySourceGroup",
     "assemble_recovery_projection",
+    "evaluate_recovery",
     "plan_recovery_blocks",
     "prepare_recovery_block",
+    "require_representative_range_evidence",
     "restore_recovered_block",
 ]

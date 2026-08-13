@@ -71,10 +71,10 @@ false split albo false merge również mogą być błędne.
 
 ## Acceptance criteria
 
-- [ ] V10.10 zachowuje dokładny fingerprint i zachowanie po resolverze.
-- [ ] Niezależna siatka rozpoznaje znane regresje `1_013145.jpg`,
+- [x] V10.10 zachowuje dokładny fingerprint i zachowanie po resolverze.
+- [x] Niezależna siatka rozpoznaje znane regresje `1_013145.jpg`,
       `00002809.jpg` i `00005282.jpg` bez przesunięcia zakresu.
-- [ ] Przebudowa obsługuje błędnego reprezentanta, false split i false merge,
+- [x] Przebudowa obsługuje błędnego reprezentanta, false split i false merge,
       a żaden kandydat nie jest użyty jako reprezentant dwóch wyników.
 - [ ] Dry-run 748 grup pozostawia najwyżej 14 czytelnych grup bez zakresu.
 - [ ] Znane decyzje właściciela i warstwowa próba co najmniej 100 wyników mają
@@ -83,7 +83,7 @@ false split albo false merge również mogą być błędne.
       pochodny zachowuje pochodzenie każdej skopiowanej lub przebudowanej grupy.
 - [ ] Modal z istniejącym uprawnieniem folderu otwiera się do 2 sekund, a zapis
       pojedynczej decyzji trwa do 3 sekund bez pełnego reconcile przed modalem.
-- [ ] Migracja upgrade/downgrade, worker, API, OpenAPI i Admin przechodzą.
+- [x] Migracja upgrade/downgrade, worker, API, OpenAPI i Admin przechodzą.
 
 ## Expected files
 
@@ -112,4 +112,37 @@ rozwiązanych tras pozostaje fail-closed. V10.10 zachowuje fingerprint
 `282b08df4c3368c60e60048ac846d95bc41392631ebdeaf069f3afbdef9e4c7f`.
 
 Skupione testy adaptera, selektora i joba przechodzą `168/168`; Ruff przechodzi.
-Run pochodny, UI i bramka wszystkich 748 grup pozostają w toku.
+
+Commity `v0.6.6` i `v0.6.7` dodały migrację 0042, snapshot-bound run pochodny,
+przebudowę bloków z zachowanych kandydatów, jawne `origin_group_id` oraz szybką
+ścieżkę review. W ustalaniu zakresu można zmienić JPEG, podać sam początek
+(`+8` domyślnie), podać krótszy koniec albo odrzucić grupę. Pełne uzgadnianie
+historycznego folderu nie blokuje otwarcia modala.
+
+Etap `v0.6.8` wyodrębnił jedną funkcję `evaluate_recovery`, używaną identycznie
+przez worker i dry-run. Naprawiono lokalne kotwiczenie: blok zachowuje globalną
+siatkę modulo 9, lecz jego pierwsza grupa nie jest traktowana jako pierwsza
+grupa całego zbioru. Dodatkowa bramka wymaga własnego zgodnego OCR wybranego
+JPEG-a i odrzuca zakresy pochodzące wyłącznie z kotwicy albo inferencji luki.
+
+Narzędzie `scripts/run_image_selection_range_recovery_dry_run.py` jest fail-closed:
+odmawia startu przy migracji starszej niż 0042 albo aktywnym jobie selekcji,
+kontroluje manifest i snapshot przed/po, unikalność JPEG-ów i zakresów,
+pochodzenie, ochronę decyzji użytkownika oraz przygotowuje deterministyczną
+próbę 100 wyników do audytu właściciela. Bez kompletnego audytu `0` błędów nie
+ustawia `readyForRecoveryCreation=true`.
+
+Walidacja: 690/690 testów workera; 332/332 wykonanych testów API, 2 pominięte
+testy symlinków Windows; 2/2 testy izolowanego PostgreSQL, w tym rzeczywisty
+upgrade/downgrade migracji 0042; 198/198 testów Admina; skupiony Ruff i mypy;
+OpenAPI oraz typecheck Admina. Zaktualizowano golden manifestu image pipeline.
+
+Dry-run 748 grup i właściwy run pochodny pozostają świadomie niewykonane.
+Aktywny v10.10 nadal działa, a żywa baza pozostaje na 0041; zgodnie z ograniczeniem
+operacyjnym nie wykonano migracji ani równoległego OCR. Po zakończeniu v10.10:
+
+1. wykonać migrację 0042 i uruchomić aktualne API,
+2. uruchomić dry-run źródła `6c6afaf9-e144-4d5d-9cc6-8dc30a395bbd`,
+3. zatwierdzić 100-elementową próbę właściciela i powtórzyć dry-run z plikiem
+   decyzji,
+4. utworzyć run pochodny tylko przy zaliczonych wszystkich bramkach.

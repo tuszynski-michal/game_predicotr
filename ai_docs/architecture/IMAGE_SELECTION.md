@@ -983,9 +983,9 @@ Zmiana nie wymaga migracji bazy ani modyfikacji OpenAPI.
 ## Architektura pochodnego odzyskiwania v10.11
 
 Run pochodny jest zwykłym runem selekcji korzystającym z istniejącego stagingu
-i lane, ale zapisuje `source_run_id`, `source_revision` oraz tryb
-`range_recovery`. Idempotencja obejmuje źródło, rewizję i fingerprint selektora.
-Publikacja sprawdza, czy rewizja źródła nie zmieniła się od snapshotu; w
+i lane, ale zapisuje `source_run_id`, `source_snapshot_sha256` oraz tryb
+`range_recovery`. Idempotencja obejmuje źródło, snapshot i fingerprint selektora.
+Publikacja sprawdza, czy snapshot źródła nie zmienił się od utworzenia runu; w
 przeciwnym razie wynik nie jest udostępniany jako aktualny.
 
 Pewne grupy są kopiowane jako projekcja z jawnym `origin_group_id`. Maksymalne
@@ -1005,6 +1005,21 @@ API tworzenia recovery zwraca run i job pochodny oraz statystyki snapshotu.
 Potwierdzenie zakresu przyjmuje opcjonalny `candidateId`, aby w jednej
 transakcji zmienić reprezentanta i zakres. Admin otwiera modal po przywróceniu
 samego uchwytu folderu; pełny reconcile nie znajduje się na ścieżce krytycznej.
+
+Worker oraz operatorski dry-run wywołują tę samą funkcję `evaluate_recovery`.
+Każdy lokalny blok nadal otrzymuje globalny `first_sequence_number` do kontroli
+zgodności modulo, ale wyłącza regułę kotwiczącą jego pierwszą grupę jako początek
+całego runu. Po zakończeniu segmentacji osobna bramka cofa automatyczny wynik do
+`range_required`, jeżeli wybrany JPEG nie ma własnego, zgodnego odczytu albo ma
+powód `RANGE_OWNER_ANCHOR`/`RANGE_INFERRED_FROM_BOUNDED_GAP`.
+
+Dry-run jest tylko do odczytu względem bazy i źródłowego runu. Odmawia startu
+przed migracją 0042 oraz podczas aktywnego joba selekcji, ponownie sprawdza
+snapshot po analizie i zapisuje atomowy raport
+`image-selection-range-recovery-dry-run-v1`. Raport zawiera wszystkie bramki
+strukturalne oraz deterministyczną, warstwową próbę 100 wyników. Utworzenie runu
+recovery pozostaje zablokowane, dopóki właściciel nie dostarczy pełnego audytu
+tej próby z zerem błędnych zakresów.
 
 ## Odrzucone warianty
 

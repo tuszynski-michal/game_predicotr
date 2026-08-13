@@ -73,14 +73,34 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   zakres `seq`, bez technicznego ID i statusu w etykiecie dropdownu.
 - TASK-0242 wprowadza domyślny `fast-image-selector-v10.11` o fingerprintcie
   `a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c`
-  oraz przygotowuje idempotentny run pochodny dla 748 historycznych grup
+  oraz idempotentny run pochodny dla 748 historycznych grup
   `range_required`; naprawa nie ufa starym
   granicom ani reprezentantowi, lecz przebudowuje lokalne bloki z pełnej
   kolejności kandydatów i zachowuje źródłowy run bez zmian,
+- worker i narzędzie dry-run używają tej samej czystej funkcji recovery;
+  lokalny blok zachowuje globalną kontrolę modulo 9, ale nie jest błędnie
+  kotwiczony jako początek całego zbioru. Automatyczny wynik jest dodatkowo
+  cofany do `range_required`, jeżeli reprezentant nie potwierdza zakresu własnym
+  OCR albo zakres pochodzi wyłącznie z kotwicy/kontynuacji,
+- manualne ustalanie zakresu pozwala zmienić JPEG, podać tylko początek
+  (domyślny koniec `+8`), opcjonalnie skrócić ostatnią grupę albo ją odrzucić;
+  modal nie wykonuje już pełnego reconcile folderu przed otwarciem,
+- dry-run ma trwały kontrakt raportu, sprawdza 748 grup, snapshot źródła,
+  unikalność JPEG-ów i zakresów, pochodzenie oraz własny dowód reprezentanta.
+  Losowanie 100-elementowej próby jest deterministyczne i wymaga osobnego
+  audytu właściciela z zerem błędnych zakresów,
 - przed implementacją zatrzymano wyłącznie pięć oczekujących kontrolerów
   dalszej kolejki v10.10; aktywny run `200557 - 222912`, API oraz worker nie
-  zostały przerwane. Recovery nie może wystartować przed dry-runem i bramą
-  jakości TASK-0242.
+  zostały przerwane. Ostatni odczyt podczas walidacji: `26 656 / 42 422`,
+  1386 zapisanych, 521 manualnych i 0 błędów. Baza pozostaje na 0041; recovery
+  nie może wystartować przed końcem tego runu, migracją 0042, dry-runem i bramą
+  jakości TASK-0242,
+- walidacja implementacji przeszła 690 testów workera, 332 testy API oraz 2
+  testy izolowanego PostgreSQL (w tym upgrade/downgrade migracji 0042)
+  (2 pominięte testy symlinków Windows), 198 testów Admina, skupiony Ruff/mypy,
+  OpenAPI i typecheck Admina. Pełny Ruff ma wcześniejszy dług formatowania
+  migracji 0035, a pełny mypy wcześniejsze błędy `candidate_gate.py` i
+  `workbench_acceptance.py`; nie należą do TASK-0242.
 
 ### Wersja 0.1
 

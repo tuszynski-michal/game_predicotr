@@ -51,6 +51,7 @@ IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION = (
     "0040_image_selection_duplicate_range_decisions"
 )
 IMAGE_SELECTION_REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
+IMAGE_SELECTION_DERIVED_RECOVERY_REVISION = "0042_image_selection_derived_recovery"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -108,8 +109,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
     )
     image_selection_review_queues = script.get_revision(IMAGE_SELECTION_REVIEW_QUEUES_REVISION)
+    image_selection_derived_recovery = script.get_revision(
+        IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
+    )
 
-    assert script.get_heads() == [IMAGE_SELECTION_REVIEW_QUEUES_REVISION]
+    assert script.get_heads() == [IMAGE_SELECTION_DERIVED_RECOVERY_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -199,6 +203,11 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert (
         image_selection_review_queues.down_revision
         == IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
+    )
+    assert image_selection_derived_recovery is not None
+    assert (
+        image_selection_derived_recovery.down_revision
+        == IMAGE_SELECTION_REVIEW_QUEUES_REVISION
     )
 
 

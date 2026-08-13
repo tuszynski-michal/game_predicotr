@@ -11,6 +11,7 @@ from game_predictor_worker.images.selection.contracts import (
     ImageSelectionSource,
     SelectionGroupResult,
     SelectionGroupStatus,
+    SequenceRange,
 )
 from game_predictor_worker.images.selection.recovery import (
     RecoveredBlock,
@@ -18,6 +19,7 @@ from game_predictor_worker.images.selection.recovery import (
     assemble_recovery_projection,
     plan_recovery_blocks,
     prepare_recovery_block,
+    require_representative_range_evidence,
     restore_recovered_block,
 )
 
@@ -195,3 +197,51 @@ def test_projection_replaces_only_recovery_interval_and_keeps_provenance() -> No
         1: source_groups[1].origin_group_id,
     }
     assert set(projection.group_sources) == {1}
+
+
+def test_recovery_demotes_range_inferred_without_representative_ocr() -> None:
+    inferred_range = SequenceRange(10, 18, 0.9)
+    selected = replace(
+        _candidate(_source(10)),
+        recognized_range=inferred_range,
+        reason_codes=("RANGE_INFERRED_FROM_BOUNDED_GAP",),
+    )
+    group = SelectionGroupResult(
+        group_order=0,
+        source_count=1,
+        range=inferred_range,
+        fingerprint_sha256="a" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.AUTO_SELECTED,
+        selected_candidate=selected,
+        top_candidates=(selected,),
+    )
+
+    (recovered,) = require_representative_range_evidence((group,))
+
+    assert recovered.status is SelectionGroupStatus.RANGE_REQUIRED
+    assert recovered.range is None
+    assert recovered.selected_candidate is not None
+    assert recovered.selected_candidate.decision is CandidateDecision.ELIGIBLE
+    assert recovered.selected_candidate.recognized_range is None
+
+
+def test_recovery_keeps_exact_ocr_backed_representative() -> None:
+    recognized_range = SequenceRange(100, 108, 0.96)
+    selected = replace(
+        _candidate(_source(10)),
+        recognized_range=recognized_range,
+        reason_codes=("RANGE_OCR_EXACT",),
+    )
+    group = SelectionGroupResult(
+        group_order=0,
+        source_count=1,
+        range=recognized_range,
+        fingerprint_sha256="a" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.AUTO_SELECTED,
+        selected_candidate=selected,
+        top_candidates=(selected,),
+    )
+
+    assert require_representative_range_evidence((group,)) == (group,)

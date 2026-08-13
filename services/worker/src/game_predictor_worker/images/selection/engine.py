@@ -499,6 +499,7 @@ class FastImageSelector:
         existing_groups: Iterable[SelectionGroupResult] = (),
         sequence_direction: str = "ascending",
         first_sequence_number: int | None = None,
+        anchor_first_group: bool = True,
     ) -> ImageSelectionResult:
         if sequence_direction not in {"ascending", "descending"}:
             raise SelectionContractError(
@@ -594,6 +595,7 @@ class FastImageSelector:
                 unresolved_fingerprints=unresolved_fingerprints,
                 legacy_expected_sequence_cursor=legacy_expected_sequence_cursor,
                 first_sequence_number=first_sequence_number,
+                anchor_first_group=anchor_first_group,
                 sequence_direction=sequence_direction,
             )
             verification_count += count
@@ -1029,6 +1031,7 @@ class FastImageSelector:
         unresolved_fingerprints: dict[int, str],
         legacy_expected_sequence_cursor: int | None,
         first_sequence_number: int | None,
+        anchor_first_group: bool,
         sequence_direction: str,
     ) -> tuple[SelectionGroupResult, int]:
         if group.reference is None:
@@ -1161,6 +1164,7 @@ class FastImageSelector:
             self.manifest.algorithm_version in ADAPTIVE_ACCURACY_SELECTOR_VERSIONS
             and group.group_order == 0
             and first_sequence_number is not None
+            and anchor_first_group
         ):
             anchored_range = self._range_from_anchor(
                 first_sequence_number,

@@ -327,6 +327,17 @@ class MemoryImageSelectionRepository:
                         else candidate.decision
                     )
                 )
+            elif decision.resolution is ImageSelectionManualResolution.RANGE_CONFIRMED:
+                expected = (
+                    ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+                    if candidate.id == decision.candidate_id
+                    else (
+                        ImageSelectionCandidateDecision.ELIGIBLE
+                        if candidate.decision
+                        is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+                        else candidate.decision
+                    )
+                )
             self.candidates[index] = ImageSelectionCandidate(
                 id=candidate.id,
                 run_id=candidate.run_id,
@@ -1120,6 +1131,56 @@ def test_range_queue_confirms_automatic_representative_without_reselecting_image
     assert confirmed.json()["decision"]["resolution"] == "range_confirmed"
     assert repository.candidates[0].decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
     assert repository.get_run(run.id).job.status is JobStatus.CREATED
+
+
+def test_range_queue_accepts_start_only_and_changes_representative() -> None:
+    game_id = uuid4()
+    repository = MemoryImageSelectionRepository(game_id)
+    service = ImageSelectionService(repository)
+    run, _ = service.create_run(
+        game_id=game_id,
+        source_selection_id=uuid4(),
+        input_manifest_sha256="a" * 64,
+        selector_fingerprint="c" * 64,
+    )
+    repository.runs[run.id] = replace(
+        run,
+        job=replace(run.job, status=JobStatus.WAITING_FOR_REVIEW, review_count=1),
+    )
+    group = _group(run.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
+    automatic = replace(
+        _manual_candidate(run.id, group.id, 0),
+        decision=ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+    )
+    replacement = _manual_candidate(run.id, group.id, 1)
+    repository.groups.append(replace(group, selected_candidate_id=automatic.id))
+    repository.candidates.extend((automatic, replacement))
+    client = TestClient(
+        create_app(
+            ApiSettings.from_environment(),
+            image_selection_service_dependency=lambda: service,
+        )
+    )
+
+    with client:
+        confirmed = client.post(
+            f"/api/v1/admin/image-selections/{run.id}/groups/{group.id}/confirm-range",
+            json={
+                "candidateId": str(replacement.id),
+                "idempotencyKey": str(uuid4()),
+                "rangeStart": 7300,
+            },
+        )
+
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["group"]["rangeStart"] == 7300
+    assert confirmed.json()["group"]["rangeEnd"] == 7308
+    assert confirmed.json()["group"]["selectedCandidateId"] == str(replacement.id)
+    assert repository.candidates[0].decision is ImageSelectionCandidateDecision.ELIGIBLE
+    assert (
+        repository.candidates[1].decision
+        is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+    )
 
 
 @pytest.mark.parametrize(

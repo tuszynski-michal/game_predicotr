@@ -198,8 +198,9 @@ class ImageSelectionDuplicateRangeCommand(ApiModel):
 
 class ImageSelectionRangeConfirmationCommand(ApiModel):
     idempotency_key: UUID
+    candidate_id: UUID | None = None
     range_start: int = Field(ge=1)
-    range_end: int = Field(ge=1)
+    range_end: int | None = Field(default=None, ge=1)
 
 
 class ImageSelectionGroupDecisionCommand(ApiModel):

@@ -213,9 +213,15 @@ test('manual fallback uses one JPEG, bounded navigation and idempotent approval'
     workspaceSource,
     /groups\.filter\(\(group\) => group\.id !== updated\.id\)/,
   );
-  assert.match(workspaceSource, /ensureOutputDirectoryForReview\(run\.id\)/);
+  assert.match(workspaceSource, /bindOutputDirectoryForReview\(run\.id\)/);
   assert.match(workspaceSource, /restoreOutputDirectory/);
-  assert.match(workspaceSource, /Uzgadnianie zapisanych decyzji/);
+  const bindingSource = workspaceSource.slice(
+    workspaceSource.indexOf('async function bindOutputDirectoryForReview('),
+    workspaceSource.indexOf('async function openAutomaticVerification()'),
+  );
+  assert.doesNotMatch(bindingSource, /saveFinalizedImageSelectionGroups/);
+  assert.doesNotMatch(bindingSource, /loadImageSelectionGroupsAfter/);
+  assert.match(workspaceSource, /progressiveSaveEnabledRef\.current = false/);
   assert.match(manualModalSource, /const outputError = await onGroupUpdated/);
   assert.match(manualModalSource, /plik nie trafił do folderu/);
   assert.match(
@@ -230,6 +236,13 @@ test('separates image choice from range choice and supports reversible rejection
   assert.match(workspaceSource, /mode="range"/);
   assert.match(workspaceSource, /mode="rejected"/);
   assert.match(manualModalSource, /confirmImageSelectionGroupRange/);
+  assert.match(manualModalSource, /candidateId: draftForApproval\.candidateId/);
+  assert.match(manualModalSource, /rangeStart \+ 8/);
+  assert.match(manualModalSource, /Koniec zakresu \(opcjonalnie\)/);
+  assert.doesNotMatch(
+    manualModalSource,
+    /disabled=\{rangeMode \|\| rejectedMode\}/,
+  );
   assert.match(manualModalSource, /rejectImageSelectionReviewGroup/);
   assert.match(manualModalSource, /restoreRejectedImageSelectionGroup/);
   assert.match(manualModalSource, /Odrzuć grupę/);

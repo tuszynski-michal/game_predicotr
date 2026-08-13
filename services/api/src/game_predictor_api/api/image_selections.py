@@ -420,6 +420,7 @@ def create_image_selections_router(
         confirmed = service.confirm_automatic_range(
             run_id=run_id,
             group_id=group_id,
+            candidate_id=payload.candidate_id,
             idempotency_key=payload.idempotency_key,
             range_start=payload.range_start,
             range_end=payload.range_end,

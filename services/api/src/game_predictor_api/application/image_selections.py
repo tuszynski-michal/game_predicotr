@@ -1055,7 +1055,8 @@ class ImageSelectionService:
         group_id: UUID,
         idempotency_key: UUID,
         range_start: int,
-        range_end: int,
+        range_end: int | None,
+        candidate_id: UUID | None = None,
     ) -> ImageSelectionManualApproval:
         run = self.get_run(run_id)
         locked_job = self._lock_run_job(run)
@@ -1068,19 +1069,26 @@ class ImageSelectionService:
                 "IMAGE_SELECTION_GROUP_NOT_RANGE_REQUIRED",
                 "This group does not require a manual sequence range.",
             )
-        if group.selected_candidate_id is None:
+        selected_candidate_id = candidate_id or group.selected_candidate_id
+        if selected_candidate_id is None:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_CANDIDATE_MISMATCH",
                 "The range-review group has no automatic representative.",
             )
         candidate = self._repository.get_candidate(
             run_id=run_id,
-            candidate_id=group.selected_candidate_id,
+            candidate_id=selected_candidate_id,
         )
         if candidate is None:
             raise ImageSelectionConflictError(
                 "IMAGE_SELECTION_CANDIDATE_MISMATCH",
                 "The automatic representative no longer exists.",
+            )
+        effective_range_end = range_start + 8 if range_end is None else range_end
+        if effective_range_end - range_start + 1 > 9:
+            raise ImageSelectionConflictError(
+                "IMAGE_SELECTION_RANGE_INVALID",
+                "A manually confirmed group may contain at most nine layouts.",
             )
         existing = self._repository.get_manual_decision(idempotency_key)
         proposed_group, proposed = create_range_confirmation_decision(
@@ -1088,7 +1096,7 @@ class ImageSelectionService:
             group=group,
             candidate=candidate,
             range_start=range_start,
-            range_end=range_end,
+            range_end=effective_range_end,
             revision=(
                 existing.revision
                 if existing is not None

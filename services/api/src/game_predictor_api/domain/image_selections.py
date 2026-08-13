@@ -541,11 +541,15 @@ def create_range_confirmation_decision(
     if (
         candidate.run_id != group.run_id
         or candidate.group_id != group.id
-        or candidate.decision is not ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+        or candidate.decision
+        not in {
+            ImageSelectionCandidateDecision.ELIGIBLE,
+            ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+        }
     ):
         raise ImageSelectionConflictError(
             "IMAGE_SELECTION_CANDIDATE_MISMATCH",
-            "The automatic representative no longer belongs to this group.",
+            "The selected representative no longer belongs to this group.",
         )
     validate_image_selection_group(
         group_order=group.group_order,

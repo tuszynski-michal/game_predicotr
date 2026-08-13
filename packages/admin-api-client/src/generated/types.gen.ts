@@ -1930,13 +1930,17 @@ export type ImageSelectionPurpose = 'layout_import' | 'photo_selection';
  */
 export type ImageSelectionRangeConfirmationCommand = {
   /**
+   * Candidateid
+   */
+  candidateId?: string | null;
+  /**
    * Idempotencykey
    */
   idempotencyKey: string;
   /**
    * Rangeend
    */
-  rangeEnd: number;
+  rangeEnd?: number | null;
   /**
    * Rangestart
    */

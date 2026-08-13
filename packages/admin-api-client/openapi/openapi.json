@@ -3270,15 +3270,34 @@
       "ImageSelectionRangeConfirmationCommand": {
         "additionalProperties": false,
         "properties": {
+          "candidateId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidateid"
+          },
           "idempotencyKey": {
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
           },
           "rangeEnd": {
-            "minimum": 1.0,
-            "title": "Rangeend",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
           },
           "rangeStart": {
             "minimum": 1.0,
@@ -3288,8 +3307,7 @@
         },
         "required": [
           "idempotencyKey",
-          "rangeStart",
-          "rangeEnd"
+          "rangeStart"
         ],
         "title": "ImageSelectionRangeConfirmationCommand",
         "type": "object"

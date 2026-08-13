@@ -210,14 +210,7 @@ export function ManualImageSelectionModal({
   }
 
   function chooseCandidate(candidateId: string, fileName: string) {
-    if (
-      current === undefined ||
-      uploading ||
-      approving ||
-      rangeMode ||
-      rejectedMode
-    )
-      return;
+    if (current === undefined || uploading || approving || rejectedMode) return;
     const previousUrl = drafts[current.id]?.previewUrl ?? '';
     if (previousUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previousUrl);
@@ -344,14 +337,21 @@ export function ManualImageSelectionModal({
       return;
     }
     const rangeStart = parseOptionalSequence(draftForApproval.rangeStart);
-    const rangeEnd = parseOptionalSequence(draftForApproval.rangeEnd);
+    const enteredRangeEnd = parseOptionalSequence(draftForApproval.rangeEnd);
+    const rangeEnd =
+      rangeMode && rangeStart !== null && enteredRangeEnd === null
+        ? rangeStart + 8
+        : enteredRangeEnd;
     const hasCompleteRange = rangeStart !== null && rangeEnd !== null;
     const rangeInvalid =
       (rangeStart === null) !== (rangeEnd === null) ||
-      (hasCompleteRange && rangeEnd < rangeStart);
+      (hasCompleteRange &&
+        (rangeEnd < rangeStart ||
+          (rangeMode && rangeEnd - rangeStart + 1 > 9)));
     if (
       rangeInvalid ||
-      (draftForApproval.candidateId !== null && !hasCompleteRange)
+      (draftForApproval.candidateId !== null && !hasCompleteRange) ||
+      (rangeMode && draftForApproval.candidateId === null)
     ) {
       setError(
         draftForApproval.candidateId === null
@@ -377,8 +377,9 @@ export function ManualImageSelectionModal({
     try {
       const result = rangeMode
         ? await client.confirmImageSelectionGroupRange(runId, current.id, {
+            candidateId: draftForApproval.candidateId as string,
             idempotencyKey,
-            rangeEnd: rangeEnd as number,
+            ...(enteredRangeEnd === null ? {} : { rangeEnd: enteredRangeEnd }),
             rangeStart: rangeStart as number,
           })
         : draftForApproval.candidateId === null
@@ -439,7 +440,11 @@ export function ManualImageSelectionModal({
       return;
     }
     const rangeStart = parseOptionalSequence(currentDraft.rangeStart);
-    const rangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    const enteredRangeEnd = parseOptionalSequence(currentDraft.rangeEnd);
+    const rangeEnd =
+      rangeMode && rangeStart !== null && enteredRangeEnd === null
+        ? rangeStart + 8
+        : enteredRangeEnd;
     if (rangeStart === null || rangeEnd === null || rangeEnd < rangeStart) {
       setError('Podaj dodatni, rosnący zakres przed odrzuceniem duplikatu.');
       return;
@@ -875,7 +880,7 @@ export function ManualImageSelectionModal({
                     .filter(Boolean)
                     .join(' ')}
                   key={candidate.id}
-                  disabled={rangeMode || rejectedMode}
+                  disabled={rejectedMode}
                   onClick={() =>
                     chooseCandidate(candidate.id, candidate.displayName)
                   }
@@ -936,9 +941,9 @@ export function ManualImageSelectionModal({
               </>
             ) : rangeMode ? (
               <>
-                <strong>Automatyczne zdjęcie pozostaje wybrane</strong>
+                <strong>Wybierz najlepsze zdjęcie i podaj początek</strong>
                 <span className="manualSelectionFileName">
-                  {algorithmCandidate?.displayName ?? currentDraft.fileName}
+                  {currentDraft.fileName || algorithmCandidate?.displayName}
                 </span>
                 <label>
                   Początek zakresu
@@ -957,9 +962,16 @@ export function ManualImageSelectionModal({
                   />
                 </label>
                 <label>
-                  Koniec zakresu
+                  Koniec zakresu (opcjonalnie)
                   <input
                     inputMode="numeric"
+                    max={
+                      parseOptionalSequence(currentDraft.rangeStart) === null
+                        ? undefined
+                        : (parseOptionalSequence(
+                            currentDraft.rangeStart,
+                          ) as number) + 8
+                    }
                     min={1}
                     onChange={(event) =>
                       updateRangeDraft(
@@ -972,6 +984,10 @@ export function ManualImageSelectionModal({
                     value={currentDraft.rangeEnd}
                   />
                 </label>
+                <p>
+                  Puste pole końca oznacza dziewięć layoutów, czyli początek +
+                  8. Wpisz koniec tylko dla krótszej grupy.
+                </p>
                 {current.status === 'range_required' ? (
                   <button
                     className="dangerButton"

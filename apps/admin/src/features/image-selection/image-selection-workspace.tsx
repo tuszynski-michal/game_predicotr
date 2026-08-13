@@ -89,6 +89,7 @@ export function ImageSelectionWorkspace({
   );
   const savedGroupOrdersRef = useRef(new Set<number>());
   const progressiveSaveRunningRef = useRef(false);
+  const progressiveSaveEnabledRef = useRef(false);
   const progressiveCursorRef = useRef<{
     readonly afterGroupOrder: number;
     readonly runId: string;
@@ -324,6 +325,7 @@ export function ImageSelectionWorkspace({
     if (
       activeRunId === null ||
       outputDirectoryBindingRef.current?.runId !== activeRunId ||
+      !progressiveSaveEnabledRef.current ||
       progressiveSaveRunningRef.current
     ) {
       return;
@@ -435,6 +437,7 @@ export function ImageSelectionWorkspace({
       afterGroupOrder: -1,
       runId: result.created.run.id,
     };
+    progressiveSaveEnabledRef.current = true;
     setOutputFolderName(pendingOutputDirectory.name ?? 'Wybrany folder');
     setPendingOutputFolderName('');
     await outputDirectoryStore
@@ -642,7 +645,7 @@ export function ImageSelectionWorkspace({
     setManualLoading(true);
     setError('');
     try {
-      const directory = await ensureOutputDirectoryForReview(run.id);
+      const directory = await bindOutputDirectoryForReview(run.id);
       if (directory === null) return;
       const groups = await loadManualImageSelectionGroups(api, run.id);
       setManualGroups(groups);
@@ -663,7 +666,7 @@ export function ImageSelectionWorkspace({
     setManualLoading(true);
     setError('');
     try {
-      const directory = await ensureOutputDirectoryForReview(run.id);
+      const directory = await bindOutputDirectoryForReview(run.id);
       if (directory === null) return;
       const queues = await loadImageSelectionReviewQueues(api, run.id);
       setManualGroups(queues.representative);
@@ -702,7 +705,7 @@ export function ImageSelectionWorkspace({
     }
   }
 
-  async function ensureOutputDirectoryForReview(
+  async function bindOutputDirectoryForReview(
     runId: string,
   ): Promise<OutputDirectoryHandle | null> {
     const currentBinding = outputDirectoryBindingRef.current;
@@ -731,42 +734,19 @@ export function ImageSelectionWorkspace({
       }
     }
     outputDirectoryBindingRef.current = { directory, runId };
+    progressiveSaveEnabledRef.current = false;
     savedGroupOrdersRef.current.clear();
-    progressiveCursorRef.current = { afterGroupOrder: -1, runId };
+    progressiveCursorRef.current = null;
     setOutputFolderName(directory.name ?? 'Wybrany folder');
-    await outputDirectoryStore.save(gameId, runId, directory).catch(() => {
+    void outputDirectoryStore.save(gameId, runId, directory).catch(() => {
       setRefreshWarning(
         'Przeglądarka nie zapamiętała dostępu do folderu. W tej sesji zapis nadal działa.',
       );
     });
-    setNotice('Uzgadnianie zapisanych decyzji z folderem wynikowym…');
-    progressiveSaveRunningRef.current = true;
-    try {
-      const page = await loadImageSelectionGroupsAfter(api, runId, -1);
-      const result = await saveFinalizedImageSelectionGroups(
-        api,
-        runId,
-        page.groups,
-        directory,
-        savedGroupOrdersRef.current,
-      );
-      if (result.error !== null) {
-        setError(result.error);
-        return null;
-      }
-      progressiveCursorRef.current = {
-        afterGroupOrder: page.lastGroupOrder,
-        runId,
-      };
-      setNotice(
-        result.savedCount === 0
-          ? 'Folder wynikowy jest uzgodniony. Możesz rozpocząć ręczną selekcję.'
-          : `Odtworzono ${result.savedCount.toLocaleString('pl-PL')} brakujących plików. Możesz rozpocząć ręczną selekcję.`,
-      );
-      return directory;
-    } finally {
-      progressiveSaveRunningRef.current = false;
-    }
+    setNotice(
+      'Folder wynikowy jest gotowy. Otwieram wybór bez skanowania wszystkich wcześniejszych plików.',
+    );
+    return directory;
   }
 
   async function openAutomaticVerification() {
@@ -795,6 +775,7 @@ export function ImageSelectionWorkspace({
     const selected = runHistory.find((item) => item.id === runId);
     if (selected === undefined || selected.id === run?.id) return;
     outputDirectoryBindingRef.current = null;
+    progressiveSaveEnabledRef.current = false;
     savedGroupOrdersRef.current.clear();
     progressiveCursorRef.current = null;
     setOutputFolderName('');

@@ -59,6 +59,7 @@ from game_predictor_worker.images.selection.manifest import (
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -479,20 +480,36 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_11_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_12_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.11"
+    assert DEFAULT_SELECTOR_MANIFEST is TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.12"
+    assert (
+        DEFAULT_SELECTOR_MANIFEST.fingerprint
+        == "d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727"
+    )
+    assert (
+        selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012
+    )
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy is not None
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy.candidate_levels == (
         12,
         18,
     )
     assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy is not None
+    assert (
+        FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.fingerprint
+        == "a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c"
+    )
+    assert (
+        selector_manifest_for_fingerprint(FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.fingerprint)
+        is FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011
+    )
     assert (
         LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010.fingerprint
         == "282b08df4c3368c60e60048ac846d95bc41392631ebdeaf069f3afbdef9e4c7f"

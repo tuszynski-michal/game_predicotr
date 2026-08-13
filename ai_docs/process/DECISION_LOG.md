@@ -4421,6 +4421,34 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza D-181 o bezpieczną naprawę historycznych wyników bez
   zmiany zachowania istniejących fingerprintów.
 
+## D-183 — Dwie etykiety wymagają konsensusu dwóch JPEG-ów i globalnego właściciela zakresu
+
+- **Status:** accepted
+- **Date:** 2026-08-14
+- **Decision:** v10.12 może użyć dwóch zgodnych etykiet jako słabego dowodu
+  wyłącznie przy pewności co najmniej `0.90`, różnych pozycjach siatki i jednej
+  hipotezie zakresu. Automatyczny wynik wymaga niezależnego potwierdzenia tego
+  zakresu przez dwa JPEG-i o różnych checksumach. Projekcja recovery uzgadnia
+  duplikaty zakresów globalnie, również pomiędzy osobno przebudowanymi blokami.
+- **Context:** pełny dry-run v10.11 pozostawił 283 grupy `range_required`; 252 z
+  nich nie miały alternatywnego rozpoznanego zakresu, a 282 kończyły powodem
+  `RANGE_LABEL_LATTICE_INCOMPLETE`. Dwa bloki niezależnie utworzyły też zakres
+  `14608–14616`, przez co bramka strukturalna poprawnie zablokowała recovery.
+- **Reason:** dwie bardzo pewne i przestrzennie zgodne liczby wystarczają do
+  zaproponowania zakresu, lecz bezpieczeństwo zapewnia dopiero zgodność dwóch
+  fizycznie różnych zdjęć. Globalny właściciel jest konieczny, bo lokalne bloki
+  nie widzą wzajemnie swoich wyników.
+- **Alternatives:** zaakceptowanie pojedynczego dwucyfrowego odczytu odrzucono
+  jako zbyt ryzykowne; inferowanie z samej luki odrzucono, bo nie dowodzi
+  istnienia zdjęcia; modyfikację v10.11 odrzucono z powodu niezmiennych
+  fingerprintów historycznych runów.
+- **Consequences:** v10.12 ma osobny fingerprint i cache weryfikacji. Jedyna
+  chroniona decyzja użytkownika wygrywa z wynikiem automatycznym; konflikt co
+  najmniej dwóch chronionych decyzji pozostaje fail-closed. V10.11 nadal można
+  odtworzyć bez zmiany zachowania.
+- **Supersedes:** rozszerza D-181 i D-182 dla v10.12 bez osłabienia zakazu
+  rozstrzygania z kursora lub pojedynczego JPEG-a.
+
 ## Szablon nowej decyzji
 
 ```text

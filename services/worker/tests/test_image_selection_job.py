@@ -23,6 +23,7 @@ from game_predictor_api.domain.jobs import (
 from game_predictor_worker.images.selection.adapters import (
     DeterministicParallelCandidateVerifier,
     FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
+    TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
 )
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
@@ -47,7 +48,9 @@ from game_predictor_worker.images.selection.job import (
 from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     DEFAULT_SELECTOR_MANIFEST,
+    FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     LEGACY_SELECTOR_MANIFEST_V2,
+    TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
 )
 from game_predictor_worker.images.selection.output import PublishedImageSelection
@@ -177,9 +180,24 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
     assert verifier is not None
 
 
-def test_v10_11_production_factory_builds_isolated_fused_range_verifiers(
+@pytest.mark.parametrize(
+    ("selector_manifest", "recognizer_type"),
+    (
+        (
+            FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+            FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+    ),
+)
+def test_production_factory_preserves_v10_11_and_builds_v10_12(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    selector_manifest: SelectorManifest,
+    recognizer_type: type[object],
 ) -> None:
     source_root = tmp_path / "source"
     source_root.mkdir()
@@ -224,23 +242,20 @@ def test_v10_11_production_factory_builds_isolated_fused_range_verifiers(
         browser_upload_root=tmp_path,
         artifact_root=tmp_path,
         repository_root=tmp_path,
-        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        selector_manifest=selector_manifest,
         verification_workers=2,
     )
 
     _, verifier = handler._default_adapter_factory(  # noqa: SLF001
         source_root,
-        DEFAULT_SELECTOR_MANIFEST,
+        selector_manifest,
         StageTimingCollector(),
     )
 
     assert len(predictors) == 2
     assert len({id(predictor) for predictor in predictors}) == 2
     assert len({id(item) for item in built_verifiers}) == 2
-    assert all(
-        isinstance(item, FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer)
-        for item in fallback_recognizers
-    )
+    assert all(isinstance(item, recognizer_type) for item in fallback_recognizers)
     assert isinstance(verifier, DeterministicParallelCandidateVerifier)
     assert verifier.worker_count == 2
 
@@ -528,11 +543,7 @@ def test_range_recovery_rebuilds_only_preserved_candidates_into_derived_run(
     )
     source_run_id = uuid4()
     snapshot = "f" * 64
-    source_root = (
-        import_root
-        / "browser-selections"
-        / str(store.run.source_selection_id)
-    )
+    source_root = import_root / "browser-selections" / str(store.run.source_selection_id)
     sources, _ = load_browser_selection_manifest(source_root / "_browser_manifest.json")
     selected = CandidateResult(
         source=sources[1],
@@ -587,9 +598,7 @@ def test_range_recovery_rebuilds_only_preserved_candidates_into_derived_run(
     assert store.recovery_source_groups == (source_group,)
     assert set(store.recovery_origins.values()) == {source_group.origin_group_id}
     selected_groups = [
-        group
-        for group in store.groups
-        if group.status is SelectionGroupStatus.AUTO_SELECTED
+        group for group in store.groups if group.status is SelectionGroupStatus.AUTO_SELECTED
     ]
     assert len(selected_groups) == 1
     assert selected_groups[0].range == SequenceRange(1, 9, 0.98)

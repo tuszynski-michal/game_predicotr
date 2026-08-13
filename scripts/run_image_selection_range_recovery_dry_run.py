@@ -46,7 +46,7 @@ from game_predictor_worker.images.selection.job import (  # noqa: E402
     SqlAlchemyImageSelectionJobStore,
 )
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
-    FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+    TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
 )
 from game_predictor_worker.images.selection.recovery import (  # noqa: E402
     RecoveryEvaluationProgress,
@@ -100,7 +100,7 @@ def _parse_args() -> argparse.Namespace:
         default=(
             REPOSITORY_ROOT
             / "artifacts"
-            / "image-selection-v1011-range-recovery-dry-run-6c6afaf9.json"
+            / "image-selection-v1012-range-recovery-dry-run-6c6afaf9.json"
         ),
     )
     parser.add_argument(
@@ -143,8 +143,7 @@ def _database_preflight(database_url: str) -> None:
             f"{row['id']} ({row['status']}, {row['stage'] or 'no stage'})" for row in active
         )
         raise DryRunError(
-            "Recovery dry-run refuses to compete with an active image-selection job: "
-            f"{labels}."
+            f"Recovery dry-run refuses to compete with an active image-selection job: {labels}."
         )
 
 
@@ -205,18 +204,13 @@ def _projection_issues(
             continue
         selected_candidate = group.selected_candidate
         selected_range = None if selected_candidate is None else selected_candidate.recognized_range
-        forbidden_reason = (
-            selected_candidate is not None
-            and any(
-                reason in _FORBIDDEN_RECOVERY_REASONS
-                for reason in selected_candidate.reason_codes
-            )
+        forbidden_reason = selected_candidate is not None and any(
+            reason in _FORBIDDEN_RECOVERY_REASONS for reason in selected_candidate.reason_codes
         )
         if (
             group.range is None
             or selected_range is None
-            or (group.range.start, group.range.end)
-            != (selected_range.start, selected_range.end)
+            or (group.range.start, group.range.end) != (selected_range.start, selected_range.end)
             or forbidden_reason
         ):
             issues.append(f"RECOVERED_RANGE_WITHOUT_OWN_EVIDENCE:{group.group_order}")
@@ -378,9 +372,7 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
             raise DryRunError("Recovery source has no first sequence number.")
 
         source_root = (
-            settings.import_root
-            / BROWSER_SELECTION_DIRECTORY
-            / str(source_run.source_selection_id)
+            settings.import_root / BROWSER_SELECTION_DIRECTORY / str(source_run.source_selection_id)
         ).resolve(strict=True)
         sources, manifest_sha256 = load_browser_selection_manifest(
             source_root / BROWSER_SELECTION_MANIFEST
@@ -391,8 +383,7 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
         store = SqlAlchemyImageSelectionJobStore(session_factory)
         snapshot_before, source_groups = store.load_recovery_source(source_run.id)
         unresolved_count = sum(
-            group.result.status is SelectionGroupStatus.RANGE_REQUIRED
-            for group in source_groups
+            group.result.status is SelectionGroupStatus.RANGE_REQUIRED for group in source_groups
         )
         expected_unresolved = cast(int, args.expected_unresolved_groups)
         if unresolved_count != expected_unresolved:
@@ -406,26 +397,26 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
             browser_upload_root=settings.import_root,
             artifact_root=settings.artifact_root,
             repository_root=REPOSITORY_ROOT,
-            selector_manifest=FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+            selector_manifest=TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
             scan_workers=cast(int, args.scan_workers),
             verification_workers=cast(int, args.verification_workers),
         )
         analyzer, verifier = handler.build_runtime_adapters(
             source_root,
-            FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
             telemetry,
         )
         cached_analyzer = CachedCheapImageAnalyzer(
             analyzer,
             FileImageScanObservationCache(settings.artifact_root),
             scan_adapter_fingerprint=(
-                FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.scan_adapter_fingerprint
+                TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.scan_adapter_fingerprint
             ),
         )
         cached_verifier = CachedCandidateVerifier(
             verifier,
             FileImageVerificationCache(settings.artifact_root),
-            selector_fingerprint=FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.fingerprint,
+            selector_fingerprint=TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
         )
 
         print(
@@ -446,7 +437,7 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
 
         evaluation = evaluate_recovery(
             source_groups,
-            manifest=FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
+            manifest=TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
             analyzer=cached_analyzer,
             verifier=cached_verifier,
             sequence_direction=source_run.sequence_direction,
@@ -461,8 +452,7 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
 
     status_counts = Counter(group.status.value for group in evaluation.projection.groups)
     readable_unresolved = sum(
-        group.status is SelectionGroupStatus.RANGE_REQUIRED
-        and group.selected_candidate is not None
+        group.status is SelectionGroupStatus.RANGE_REQUIRED and group.selected_candidate is not None
         for group in evaluation.projection.groups
     )
     issues = _projection_issues(
@@ -502,8 +492,8 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
             "rangeRequiredCount": unresolved_count,
         },
         "selector": {
-            "version": FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.algorithm_version,
-            "fingerprint": FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.fingerprint,
+            "version": TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.algorithm_version,
+            "fingerprint": TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
         },
         "evaluation": {
             "blockCount": evaluation.block_count,

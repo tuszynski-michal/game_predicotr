@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-13
+last_updated: 2026-08-14
 ---
 
 # Current State
@@ -71,8 +71,10 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   i ciąg `1–63`, zamiast wcześniejszych 9 plansz,
 - lista procesów selekcji pokazuje krótką datę, wersję silnika i zagregowany
   zakres `seq`, bez technicznego ID i statusu w etykiecie dropdownu.
-- TASK-0242 wprowadza domyślny `fast-image-selector-v10.11` o fingerprintcie
+- TASK-0242 zachowuje `fast-image-selector-v10.11` o fingerprintcie
   `a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c`
+  i wprowadza domyślny `fast-image-selector-v10.12` o fingerprintcie
+  `d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727`
   oraz idempotentny run pochodny dla 748 historycznych grup
   `range_required`; naprawa nie ufa starym
   granicom ani reprezentantowi, lecz przebudowuje lokalne bloki z pełnej
@@ -89,18 +91,27 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   unikalność JPEG-ów i zakresów, pochodzenie oraz własny dowód reprezentanta.
   Losowanie 100-elementowej próby jest deterministyczne i wymaga osobnego
   audytu właściciela z zerem błędnych zakresów,
-- przed implementacją zatrzymano wyłącznie pięć oczekujących kontrolerów
-  dalszej kolejki v10.10; aktywny run `200557 - 222912`, API oraz worker nie
-  zostały przerwane. Ostatni odczyt podczas walidacji: `26 656 / 42 422`,
-  1386 zapisanych, 521 manualnych i 0 błędów. Baza pozostaje na 0041; recovery
-  nie może wystartować przed końcem tego runu, migracją 0042, dry-runem i bramą
-  jakości TASK-0242,
-- walidacja implementacji przeszła 690 testów workera, 332 testy API oraz 2
-  testy izolowanego PostgreSQL (w tym upgrade/downgrade migracji 0042)
-  (2 pominięte testy symlinków Windows), 198 testów Admina, skupiony Ruff/mypy,
-  OpenAPI i typecheck Admina. Pełny Ruff ma wcześniejszy dług formatowania
-  migracji 0035, a pełny mypy wcześniejsze błędy `candidate_gate.py` i
-  `workbench_acceptance.py`; nie należą do TASK-0242.
+- run v10.10 `200557 - 222912` zakończył 42 422 / 42 422 w 14 823,171 s:
+  3813 grup, 1967 wyników automatycznych, 512 manualnych, 1294 pominięte i zero
+  błędów. Kontroler zatrzymał się naturalnie, stare API zostało zamknięte, a
+  baza jest na migracji `0042_image_selection_derived_recovery`,
+- pełny dry-run v10.11 przeanalizował 748 grup, 32 079 JPEG-ów i 39 bloków w
+  5350,894 s bez zmiany snapshotu źródła. Wynik 1880 automatycznych, 5
+  `range_confirmed`, 283 `range_required` i 127 `skipped_existing_range` nie
+  zaliczył limitu 14 oraz wykrył jeden `DUPLICATE_OUTPUT_RANGE`, dlatego run
+  pochodny nie został utworzony,
+- analiza niezaliczonego dry-runu wykazała, że 282 przypadki kończyły jako
+  `RANGE_LABEL_LATTICE_INCOMPLETE`, a 252 nie miały żadnej alternatywnej
+  hipotezy. V10.12 dopuszcza dwie etykiety od `0.90` tylko jako słaby dowód
+  wymagający zgodności dwóch różnych checksum i globalnie uzgadnia duplikaty
+  zakresów pomiędzy lokalnymi blokami. Konflikty i pojedynczy JPEG pozostają
+  fail-closed,
+- walidacja bieżącego v10.12 przeszła 696 testów w pełnym przebiegu workera;
+  jedyny niezależny test HTTP przerwany chwilowym `WinError 10053` przeszedł
+  `1/1` przy natychmiastowej powtórce. Przeszły też 332 wykonane testy API (24
+  świadomie pominięte), 198 testów Admina, skupiony Ruff/mypy, kontrola OpenAPI,
+  ESLint i typecheck Admina. Po commicie należy wykonać pełny dry-run v10.12,
+  audyt właściciela i dopiero wtedy utworzyć run pochodny.
 
 ### Wersja 0.1
 

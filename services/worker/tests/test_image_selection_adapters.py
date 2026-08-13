@@ -37,6 +37,7 @@ from game_predictor_worker.images.selection.adapters import (
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     PillowThumbnailLoader,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
+    TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     _VisibleLabel,
     build_default_adapters,
@@ -102,7 +103,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.11"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.12"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -1707,6 +1708,83 @@ def test_v10_11_exposes_three_position_lattice_only_as_fuzzy_evidence() -> None:
     assert "RANGE_OCR_LABEL_LATTICE_THREE_LABEL" in reasons
 
 
+def test_v10_12_exposes_two_high_confidence_lattice_labels_as_fuzzy_evidence() -> None:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    for position in range(9):
+        crop = np.full((20, 120, 3), position + 1, dtype=np.uint8)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+            )
+        )
+        recognitions[id(crop)] = (
+            Recognition(str(3520 + position), 0.94) if position in {2, 7} else Recognition("", 0.0)
+        )
+
+    class _Scripted(TwoLabelConsensusVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized == SequenceRange(3520, 3528, 0.82)
+    assert reasons == (
+        "RANGE_OCR_FUZZY_CANDIDATE",
+        "RANGE_OCR_LABEL_LATTICE_TWO_LABEL",
+    )
+
+
+def test_v10_12_rejects_ambiguous_two_label_lattice_hypotheses() -> None:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    values = {0: (100, 0.95), 1: (101, 0.95), 3: (202, 0.95), 4: (203, 0.95)}
+    for position in range(9):
+        crop = np.full((20, 120, 3), position + 1, dtype=np.uint8)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+            )
+        )
+        number, confidence = values.get(position, (0, 0.0))
+        recognitions[id(crop)] = Recognition(str(number) if number else "", confidence)
+
+    class _Scripted(TwoLabelConsensusVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized is None
+    assert reasons == ("RANGE_LABEL_LATTICE_WEAK_AMBIGUOUS",)
+
+
 def test_layout_blur_gate_rejects_only_when_a_majority_is_severely_blurred(
     tmp_path: Path,
 ) -> None:
@@ -2087,7 +2165,7 @@ def test_standalone_cli_uses_v10_9_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.11"
+    assert report["selectorVersion"] == "fast-image-selector-v10.12"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

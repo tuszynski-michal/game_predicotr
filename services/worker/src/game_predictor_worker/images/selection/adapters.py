@@ -2159,6 +2159,9 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
     """
 
     version = "visible-sequence-label-range-v11"
+    _minimum_lattice_label_count = 3
+    _weak_lattice_reason = "RANGE_OCR_LABEL_LATTICE_THREE_LABEL"
+    _weak_lattice_route = "labelLatticeThree"
 
     def recognize(
         self,
@@ -2207,11 +2210,7 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
         if len(keys) == 1:
             start, end = next(iter(keys))
             recognized, reasons = max(
-                (
-                    item
-                    for item in resolved
-                    if (item[0].start, item[0].end) == (start, end)
-                ),
+                (item for item in resolved if (item[0].start, item[0].end) == (start, end)),
                 key=lambda item: item[0].confidence,
             )
             if self._telemetry is not None:
@@ -2228,7 +2227,7 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
         rgb_image: NDArray[np.uint8],
     ) -> tuple[SequenceRange | None, tuple[str, ...]]:
         labels = self._prioritized_label_candidates(rgb_image)
-        if len(labels) < 3:
+        if len(labels) < self._minimum_lattice_label_count:
             return None, ("RANGE_LABEL_LATTICE_MISSING",)
 
         recognitions: list[Recognition] = []
@@ -2262,7 +2261,7 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
                     self._telemetry.increment("labelLatticeWindowResolved")
                     self._telemetry.increment("rangeRoute.labelLatticeFour")
                 return recognized, ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
-            weak_hypotheses = self._three_label_hypotheses(
+            weak_hypotheses = self._weak_label_hypotheses(
                 labels[:candidate_count],
                 recognitions,
                 rgb_image.shape[:2],
@@ -2278,12 +2277,20 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
             if len(weak_hypotheses) > 1 and weak_hypotheses[1][0] == weak_score:
                 return None, ("RANGE_LABEL_LATTICE_WEAK_AMBIGUOUS",)
             if self._telemetry is not None:
-                self._telemetry.increment("rangeRoute.labelLatticeThree")
+                self._telemetry.increment(f"rangeRoute.{self._weak_lattice_route}")
             return recognized, (
                 "RANGE_OCR_FUZZY_CANDIDATE",
-                "RANGE_OCR_LABEL_LATTICE_THREE_LABEL",
+                self._weak_lattice_reason,
             )
         return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+
+    def _weak_label_hypotheses(
+        self,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int, int], SequenceRange]]:
+        return self._three_label_hypotheses(labels, recognitions, image_shape)
 
     def _three_label_hypotheses(
         self,
@@ -2319,9 +2326,7 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
                 int(round(min(confidences) * 1000)),
                 int(round(sum(confidences) / len(confidences) * 1000)),
             )
-            hypotheses.append(
-                (score, SequenceRange(start=start, end=start + 8, confidence=0.82))
-            )
+            hypotheses.append((score, SequenceRange(start=start, end=start + 8, confidence=0.82)))
         return sorted(
             hypotheses,
             key=lambda item: (item[0], -item[1].start),
@@ -2358,6 +2363,58 @@ class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
                     *anchored_reasons,
                 )
             )
+        )
+
+
+class TwoLabelConsensusVisibleSequenceLabelRangeRecognizer(
+    FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer
+):
+    """Expose two high-confidence lattice labels as weak multi-frame evidence."""
+
+    version = "visible-sequence-label-range-v12"
+    _minimum_lattice_label_count = 2
+    _weak_lattice_reason = "RANGE_OCR_LABEL_LATTICE_TWO_LABEL"
+    _weak_lattice_route = "labelLatticeTwo"
+
+    def _weak_label_hypotheses(
+        self,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int, int], SequenceRange]]:
+        if len(labels) != len(recognitions):
+            return []
+        positions = self._label_lattice_positions(labels, image_shape)
+        evidence: dict[int, dict[int, float]] = {}
+        for index, recognition in enumerate(recognitions):
+            number = recognition.normalized_number
+            position = positions.get(index)
+            if (
+                number is None
+                or position is None
+                or recognition.confidence < self._layout_policy.minimum_weak_label_confidence
+                or number - position < 1
+            ):
+                continue
+            start = number - position
+            current = evidence.setdefault(start, {})
+            current[position] = max(current.get(position, 0.0), recognition.confidence)
+
+        hypotheses: list[tuple[tuple[int, int, int], SequenceRange]] = []
+        for start, by_position in evidence.items():
+            if len(by_position) < self._layout_policy.weak_label_count:
+                continue
+            confidences = tuple(by_position.values())
+            score = (
+                len(by_position),
+                int(round(min(confidences) * 1000)),
+                int(round(sum(confidences) / len(confidences) * 1000)),
+            )
+            hypotheses.append((score, SequenceRange(start=start, end=start + 8, confidence=0.82)))
+        return sorted(
+            hypotheses,
+            key=lambda item: (item[0], -item[1].start),
+            reverse=True,
         )
 
 
@@ -3335,6 +3392,7 @@ __all__ = [
     "OPENCV_INTERNAL_THREAD_BUDGET",
     "PillowThumbnailLoader",
     "ProgressiveVisibleSequenceLabelRangeRecognizer",
+    "TwoLabelConsensusVisibleSequenceLabelRangeRecognizer",
     "VisibleSequenceLabelRangeRecognizer",
     "build_default_adapters",
     "configure_opencv_thread_budget",

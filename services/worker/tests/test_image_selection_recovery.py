@@ -84,6 +84,28 @@ def _observation(source: ImageSelectionSource) -> CheapImageObservation:
     )
 
 
+def _group_with_range(
+    order: int,
+    status: SelectionGroupStatus,
+    recognized_range: SequenceRange,
+) -> RecoverySourceGroup:
+    source_group = _group(order, status, (_source(order),))
+    assert source_group.result.selected_candidate is not None
+    selected = replace(
+        source_group.result.selected_candidate,
+        recognized_range=recognized_range,
+    )
+    return replace(
+        source_group,
+        result=replace(
+            source_group.result,
+            range=recognized_range,
+            selected_candidate=selected,
+            top_candidates=(selected,),
+        ),
+    )
+
+
 def test_problem_spans_expand_by_two_auto_guards_and_merge_overlaps() -> None:
     statuses = (
         SelectionGroupStatus.AUTO_SELECTED,
@@ -95,8 +117,7 @@ def test_problem_spans_expand_by_two_auto_guards_and_merge_overlaps() -> None:
         SelectionGroupStatus.AUTO_SELECTED,
     )
     groups = tuple(
-        _group(index, status, (_source(index),))
-        for index, status in enumerate(statuses)
+        _group(index, status, (_source(index),)) for index, status in enumerate(statuses)
     )
 
     blocks = plan_recovery_blocks(groups)
@@ -114,8 +135,7 @@ def test_user_decision_is_a_hard_recovery_boundary() -> None:
         SelectionGroupStatus.RANGE_CONFIRMED,
     )
     groups = tuple(
-        _group(index, status, (_source(index),))
-        for index, status in enumerate(statuses)
+        _group(index, status, (_source(index),)) for index, status in enumerate(statuses)
     )
 
     (block,) = plan_recovery_blocks(groups)
@@ -197,6 +217,51 @@ def test_projection_replaces_only_recovery_interval_and_keeps_provenance() -> No
         1: source_groups[1].origin_group_id,
     }
     assert set(projection.group_sources) == {1}
+
+
+def test_projection_reconciles_duplicate_ranges_across_independent_blocks() -> None:
+    recognized_range = SequenceRange(100, 108, 0.96)
+    source_groups = (
+        _group_with_range(0, SelectionGroupStatus.AUTO_SELECTED, recognized_range),
+        _group_with_range(1, SelectionGroupStatus.AUTO_SELECTED, recognized_range),
+    )
+
+    projection = assemble_recovery_projection(source_groups, ())
+
+    assert projection.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert projection.groups[1].status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    assert projection.groups[1].duplicate_of_group_order == 0
+    assert projection.groups[1].selected_candidate is None
+    assert projection.groups[1].top_candidates == ()
+
+
+def test_projection_keeps_owner_decision_when_duplicate_range_precedes_it() -> None:
+    recognized_range = SequenceRange(100, 108, 0.96)
+    source_groups = (
+        _group_with_range(0, SelectionGroupStatus.AUTO_SELECTED, recognized_range),
+        _group_with_range(1, SelectionGroupStatus.RANGE_CONFIRMED, recognized_range),
+    )
+
+    projection = assemble_recovery_projection(source_groups, ())
+
+    assert projection.groups[0].status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    assert projection.groups[0].duplicate_of_group_order == 1
+    assert projection.groups[1].status is SelectionGroupStatus.RANGE_CONFIRMED
+
+
+def test_projection_keeps_two_conflicting_owner_decisions_fail_closed() -> None:
+    recognized_range = SequenceRange(100, 108, 0.96)
+    source_groups = (
+        _group_with_range(0, SelectionGroupStatus.MANUALLY_SELECTED, recognized_range),
+        _group_with_range(1, SelectionGroupStatus.RANGE_CONFIRMED, recognized_range),
+    )
+
+    projection = assemble_recovery_projection(source_groups, ())
+
+    assert projection.groups[0].status is SelectionGroupStatus.MANUALLY_SELECTED
+    assert projection.groups[1].status is SelectionGroupStatus.RANGE_CONFIRMED
+    assert projection.groups[0].duplicate_of_group_order is None
+    assert projection.groups[1].duplicate_of_group_order is None
 
 
 def test_recovery_demotes_range_inferred_without_representative_ocr() -> None:

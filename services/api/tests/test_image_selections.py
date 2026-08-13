@@ -123,8 +123,7 @@ class MemoryImageSelectionRepository:
             for candidate in self.candidates
         )
         block_count = sum(
-            index == 0
-            or problem[index - 1].group_order + 1 != group.group_order
+            index == 0 or problem[index - 1].group_order + 1 != group.group_order
             for index, group in enumerate(problem)
         )
         return checksum, len(problem), candidate_count, block_count
@@ -333,8 +332,7 @@ class MemoryImageSelectionRepository:
                     if candidate.id == decision.candidate_id
                     else (
                         ImageSelectionCandidateDecision.ELIGIBLE
-                        if candidate.decision
-                        is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
+                        if candidate.decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
                         else candidate.decision
                     )
                 )
@@ -522,7 +520,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.11"
+    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.12"
     assert history.json()["items"][0]["sequenceRangeStart"] == 1
     assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
@@ -629,7 +627,7 @@ def test_range_recovery_preview_and_creation_are_snapshot_idempotent(
     assert preview["problemGroupCount"] == 1
     assert preview["candidateCount"] == 1
     assert preview["blockCount"] == 1
-    assert preview["selectorVersion"] == "fast-image-selector-v10.11"
+    assert preview["selectorVersion"] == "fast-image-selector-v10.12"
     assert first.status_code == 200, first.text
     assert repeated.status_code == 200, repeated.text
     assert first.json()["created"] is True
@@ -661,9 +659,7 @@ def test_range_recovery_rejects_a_stale_preview(tmp_path: Path) -> None:
         source,
         job=replace(source.job, status=JobStatus.WAITING_FOR_REVIEW),
     )
-    repository.groups.append(
-        _group(source.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED)
-    )
+    repository.groups.append(_group(source.id, 0, status=ImageSelectionGroupStatus.RANGE_REQUIRED))
     stale = service.preview_range_recovery(source.id)
     repository.groups[0] = replace(repository.groups[0], range_start=1, range_end=9)
 
@@ -1177,10 +1173,7 @@ def test_range_queue_accepts_start_only_and_changes_representative() -> None:
     assert confirmed.json()["group"]["rangeEnd"] == 7308
     assert confirmed.json()["group"]["selectedCandidateId"] == str(replacement.id)
     assert repository.candidates[0].decision is ImageSelectionCandidateDecision.ELIGIBLE
-    assert (
-        repository.candidates[1].decision
-        is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
-    )
+    assert repository.candidates[1].decision is ImageSelectionCandidateDecision.SELECTED_AUTOMATIC
 
 
 @pytest.mark.parametrize(

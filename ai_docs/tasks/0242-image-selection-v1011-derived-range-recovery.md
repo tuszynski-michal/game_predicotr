@@ -2,7 +2,7 @@
 title: TASK-0242 image selection v10.11 derived range recovery
 status: in_progress
 release: "0.6"
-last_updated: 2026-08-13
+last_updated: 2026-08-14
 ---
 
 # TASK-0242 — Image selection v10.11 derived range recovery
@@ -59,6 +59,8 @@ false split albo false merge również mogą być błędne.
 - otwierać modal bez blokującego uzgadniania wszystkich historycznych plików;
   decyzja zapisuje synchronicznie tylko bieżący JPEG,
 - wykonać dry-run wszystkich 748 grup przed utworzeniem runu pochodnego.
+- po niezaliczonym dry-runie v10.11 dodać niezmienny v10.12 z dwucyfrowym
+  konsensusem dwóch JPEG-ów i globalnym uzgadnianiem duplikatów zakresu.
 
 ## Out of scope
 
@@ -137,12 +139,23 @@ testy symlinków Windows; 2/2 testy izolowanego PostgreSQL, w tym rzeczywisty
 upgrade/downgrade migracji 0042; 198/198 testów Admina; skupiony Ruff i mypy;
 OpenAPI oraz typecheck Admina. Zaktualizowano golden manifestu image pipeline.
 
-Dry-run 748 grup i właściwy run pochodny pozostają świadomie niewykonane.
-Aktywny v10.10 nadal działa, a żywa baza pozostaje na 0041; zgodnie z ograniczeniem
-operacyjnym nie wykonano migracji ani równoległego OCR. Po zakończeniu v10.10:
+Run v10.10 `200557 - 222912` zakończył 42 422 / 42 422 bez błędów, a żywa baza
+została podniesiona do migracji 0042. Pełny, tylko do odczytu dry-run v10.11
+przeanalizował 748 grup i 32 079 zachowanych JPEG-ów w 39 blokach. Pozostawił
+283 przypadki `range_required` oraz wykrył jeden `DUPLICATE_OUTPUT_RANGE`, więc
+zgodnie z bramką nie utworzył runu pochodnego i nie zmienił źródłowego snapshotu.
 
-1. wykonać migrację 0042 i uruchomić aktualne API,
-2. uruchomić dry-run źródła `6c6afaf9-e144-4d5d-9cc6-8dc30a395bbd`,
-3. zatwierdzić 100-elementową próbę właściciela i powtórzyć dry-run z plikiem
-   decyzji,
-4. utworzyć run pochodny tylko przy zaliczonych wszystkich bramkach.
+Analiza pokazała 282 przypadki `RANGE_LABEL_LATTICE_INCOMPLETE`: 252 bez żadnej
+alternatywnej hipotezy i 31 z jedną zgodną słabą hipotezą. Etap v10.12 dodaje
+dwucyfrowy dowód wyłącznie przy dwóch niezależnych checksumach oraz globalne
+uzgadnianie zakresów pomiędzy blokami. Fingerprint v10.12 to
+`d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727`;
+v10.11 pozostaje niezmienny.
+
+Walidacja v10.12: 696 testów przeszło w pełnym przebiegu workera; jedyny test
+HTTP przerwany chwilowym `WinError 10053` przeszedł `1/1` przy natychmiastowej
+powtórce. Przeszły też 332 wykonane testy API i 24 świadomie pominięte
+integracje, 198/198 testów Admina, skupiony Ruff i mypy, aktualny OpenAPI,
+ESLint oraz typecheck Admina. Powtórny dry-run v10.12, audyt 100 wyników i
+utworzenie właściwego runu pochodnego nadal pozostają do wykonania w tej
+kolejności.

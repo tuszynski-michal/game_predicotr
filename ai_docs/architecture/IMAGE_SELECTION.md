@@ -1021,6 +1021,33 @@ strukturalne oraz deterministyczną, warstwową próbę 100 wyników. Utworzenie
 recovery pozostaje zablokowane, dopóki właściciel nie dostarczy pełnego audytu
 tej próby z zerem błędnych zakresów.
 
+## Korekta dwucyfrowego konsensusu v10.12
+
+Dry-run v10.11 wykazał, że niezależna siatka odrzucała 282 grupy jako
+`RANGE_LABEL_LATTICE_INCOMPLETE`, chociaż zakotwiczona ścieżka znajdowała w
+części z nich bezpieczne pary etykiet. `TwoLabelConsensusVisibleSequenceLabelRangeRecognizer`
+dziedziczy kolejność tras i bramki konfliktów v10.11, ale dodaje słabą hipotezę
+z dwóch różnych pozycji o minimalnej pewności `0.90`. Hipoteza musi jednoznacznie
+wyznaczać ten sam początek; równorzędne rozwiązania są odrzucane.
+
+Adapter nie publikuje zakresu na podstawie jednego zdjęcia. Engine zachowuje
+bramkę `_hybrid_group_range`, która dla słabego dowodu wymaga zgodności co
+najmniej dwóch różnych checksum JPEG. Mocna, sprzeczna hipoteza nadal ma
+pierwszeństwo fail-closed. Pozwala to wykorzystać czytelne pary liczb bez
+powrotu do zgadywania z kursora albo z samej ciągłości.
+
+`assemble_recovery_projection` wykonuje po złożeniu wszystkich lokalnych bloków
+globalne uzgodnienie zakresów. Dla powtórzonego zakresu wybiera jednego
+deterministycznego właściciela, preferując jedyną chronioną decyzję użytkownika,
+a inne wyniki oznacza `skipped_existing_range` z odwołaniem do właściciela.
+Co najmniej dwie chronione decyzje o tym samym zakresie pozostają konfliktem
+strukturalnym, aby dry-run nie ukrywał niespójności danych.
+
+V10.12 ma osobny manifest i fingerprint
+`d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727`.
+Cache taniego skanu pozostaje współdzielony, a cache pełnej weryfikacji jest
+izolowany fingerprintem. Resolver i fingerprint v10.11 pozostają niezmienne.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

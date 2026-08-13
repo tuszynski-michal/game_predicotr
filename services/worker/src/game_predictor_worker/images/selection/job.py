@@ -48,6 +48,7 @@ from .adapters import (
     LayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
     ProgressiveVisibleSequenceLabelRangeRecognizer,
+    TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
     VisibleSequenceLabelRangeRecognizer,
     build_default_adapters,
 )
@@ -90,6 +91,7 @@ from .manifest import (
     ORDERED_SELECTOR_VERSIONS,
     OWNER_ANCHORED_SELECTOR_VERSIONS,
     PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -381,9 +383,7 @@ class ImageSelectionJobHandler:
                 "A range-recovery run has no immutable source snapshot.",
             )
         try:
-            current_snapshot, source_groups = self._store.load_recovery_source(
-                run.source_run_id
-            )
+            current_snapshot, source_groups = self._store.load_recovery_source(run.source_run_id)
             if current_snapshot != run.source_snapshot_sha256:
                 raise SelectionContractError(
                     "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED",
@@ -484,6 +484,7 @@ class ImageSelectionJobHandler:
                 failure_count=progress.scan_failure_count,
                 review_count=0,
             )
+
         evaluation = evaluate_recovery(
             source_groups,
             manifest=selector_manifest,
@@ -672,6 +673,19 @@ class ImageSelectionJobHandler:
             if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
                 fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
                     ocr,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = TwoLabelConsensusVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    manifest.contiguous_sequence_window_policy,
                     telemetry=telemetry,
                 )
             elif (
@@ -1131,9 +1145,9 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                     "IMAGE_SELECTION_RECOVERY_SOURCE_INVALID",
                     "The recovery source must be an existing full selection run.",
                 )
-            snapshot, _, _, _ = SqlAlchemyImageSelectionRepository(
-                session
-            ).recovery_snapshot(run_id)
+            snapshot, _, _, _ = SqlAlchemyImageSelectionRepository(session).recovery_snapshot(
+                run_id
+            )
             groups = tuple(
                 session.scalars(
                     select(ImageSelectionGroupModel)
@@ -1224,9 +1238,9 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                     .with_for_update()
                 )
             )
-            snapshot, _, _, _ = SqlAlchemyImageSelectionRepository(
-                session
-            ).recovery_snapshot(source_run_id)
+            snapshot, _, _, _ = SqlAlchemyImageSelectionRepository(session).recovery_snapshot(
+                source_run_id
+            )
             if snapshot != expected_source_snapshot_sha256:
                 raise JobHandlerError(
                     "IMAGE_SELECTION_RECOVERY_SOURCE_CHANGED",
@@ -1425,8 +1439,7 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 ImageSelectionCandidateModel(
                     id=uuid5(
                         run_id,
-                        f"image-selection-candidate:{source.order_index}:"
-                        f"{source.checksum_sha256}",
+                        f"image-selection-candidate:{source.order_index}:{source.checksum_sha256}",
                     ),
                     run_id=run_id,
                     group_id=group_id,

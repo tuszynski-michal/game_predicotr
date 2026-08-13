@@ -657,3 +657,22 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Otwarcie modala nie może wykonywać pełnego uzgodnienia folderu. Zapis decyzji
   czeka tylko na bieżący JPEG; pełne uzgodnienie jest oddzielną operacją z
   widocznym postępem.
+
+### Dwucyfrowy konsensus v10.12 — 2026-08-14
+
+- Pełny dry-run v10.11 na 748 historycznych grupach jest bramką jakości, a nie
+  zgodą na utworzenie runu. Wynik z 283 czytelnymi grupami nadal wymagającymi
+  zakresu i konfliktem zduplikowanego zakresu blokuje publikację.
+- Dwie etykiety mogą tworzyć wyłącznie słaby dowód zakresu, jeżeli obie mają
+  pewność co najmniej `0.90`, zajmują różne pozycje tej samej siatki i wskazują
+  jedną, niekonkurencyjną hipotezę początku. Remis lub druga hipoteza pozostają
+  fail-closed.
+- Pojedynczy JPEG z dwoma etykietami nigdy nie wystarcza do automatycznego
+  wyboru. Ten sam zakres muszą niezależnie potwierdzić co najmniej dwa JPEG-i o
+  różnych checksumach; konflikt z silnym dowodem pozostaje `range_required`.
+- Projekcja recovery globalnie uzgadnia zakresy zaproponowane przez niezależne
+  bloki. Jeden deterministyczny właściciel zachowuje wynik, a pozostałe kopie
+  stają się `skipped_existing_range`. Istniejąca decyzja użytkownika ma
+  pierwszeństwo; konflikt dwóch decyzji użytkownika nadal blokuje dry-run.
+- V10.11 i jego fingerprint pozostają niezmienne oraz rozwiązywalne dla runów
+  historycznych. Nowe wykonania używają osobnego manifestu v10.12.

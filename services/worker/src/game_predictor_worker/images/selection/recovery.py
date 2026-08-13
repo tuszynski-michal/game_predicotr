@@ -27,6 +27,11 @@ _PROTECTED_USER_STATUSES = {
     SelectionGroupStatus.RANGE_CONFIRMED,
     SelectionGroupStatus.REJECTED_BY_USER,
 }
+_OUTPUT_STATUSES = {
+    SelectionGroupStatus.AUTO_SELECTED,
+    SelectionGroupStatus.MANUALLY_SELECTED,
+    SelectionGroupStatus.RANGE_CONFIRMED,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,9 +278,7 @@ def prepare_recovery_block(block: RecoveryBlock) -> RecoveryBlockInput:
         )
     originals = tuple(source for source, _ in values)
     return RecoveryBlockInput(
-        sources=tuple(
-            replace(source, order_index=index) for index, source in enumerate(originals)
-        ),
+        sources=tuple(replace(source, order_index=index) for index, source in enumerate(originals)),
         original_sources=originals,
         origin_group_ids=tuple(origin for _, origin in values),
     )
@@ -290,9 +293,7 @@ def restore_recovered_block(
 ) -> RecoveredBlock:
     """Restore global source identities and deterministically partition galleries."""
 
-    original_by_local = {
-        index: source for index, source in enumerate(block_input.original_sources)
-    }
+    original_by_local = {index: source for index, source in enumerate(block_input.original_sources)}
     observation_by_local = {
         observation.source.order_index: observation for observation in observations
     }
@@ -369,13 +370,10 @@ def require_representative_range_evidence(
         selected_range = None if selected is None else selected.recognized_range
         group_key = None if group.range is None else (group.range.start, group.range.end)
         selected_key = (
-            None
-            if selected_range is None
-            else (selected_range.start, selected_range.end)
+            None if selected_range is None else (selected_range.start, selected_range.end)
         )
         forbidden_reason = selected is not None and any(
-            reason in _FORBIDDEN_RECOVERY_RANGE_REASONS
-            for reason in selected.reason_codes
+            reason in _FORBIDDEN_RECOVERY_RANGE_REASONS for reason in selected.reason_codes
         )
         if (
             selected is not None
@@ -461,11 +459,7 @@ def assemble_recovery_projection(
                         gallery,
                         origin,
                         ("block", block_number, group.group_order),
-                        (
-                            None
-                            if duplicate is None
-                            else ("block", block_number, duplicate)
-                        ),
+                        (None if duplicate is None else ("block", block_number, duplicate)),
                     )
                 )
             index = recovered.block.last_group_index + 1
@@ -499,11 +493,48 @@ def assemble_recovery_projection(
         if gallery:
             galleries[order] = gallery
         origins[order] = origin
+    groups = list(_reconcile_duplicate_output_ranges(tuple(groups)))
     return RecoveryProjection(
         groups=tuple(groups),
         group_sources=galleries,
         origin_group_ids=origins,
     )
+
+
+def _reconcile_duplicate_output_ranges(
+    groups: tuple[SelectionGroupResult, ...],
+) -> tuple[SelectionGroupResult, ...]:
+    """Keep one deterministic output owner when independent blocks overlap."""
+
+    by_range: dict[tuple[int, int], list[int]] = {}
+    for index, group in enumerate(groups):
+        if group.status not in _OUTPUT_STATUSES or group.range is None:
+            continue
+        by_range.setdefault((group.range.start, group.range.end), []).append(index)
+
+    normalized = list(groups)
+    for indexes in by_range.values():
+        if len(indexes) < 2:
+            continue
+        protected = [index for index in indexes if groups[index].status in _PROTECTED_USER_STATUSES]
+        if len(protected) > 1:
+            # Two owner decisions cannot be discarded automatically. The dry-run
+            # structural gate will keep this conflict fail-closed.
+            continue
+        owner_index = protected[0] if protected else indexes[0]
+        owner_order = groups[owner_index].group_order
+        for index in indexes:
+            if index == owner_index:
+                continue
+            duplicate = groups[index]
+            normalized[index] = replace(
+                duplicate,
+                status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                selected_candidate=None,
+                top_candidates=(),
+                duplicate_of_group_order=owner_order,
+            )
+    return tuple(normalized)
 
 
 def _expand_left(

@@ -51,6 +51,7 @@ from game_predictor_worker.images.selection.manifest import (
     EXACT_GAP_SELECTOR_MANIFEST_V6,
     FIRST_USABLE_SELECTOR_MANIFEST_V8,
     FOUR_LABEL_SELECTOR_MANIFEST_V107,
+    FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     HYBRID_BOUNDED_SELECTOR_MANIFEST_V104,
     LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010,
     LAYOUT_ANCHORED_SELECTOR_MANIFEST_V108,
@@ -478,20 +479,28 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_10_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_11_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.10"
+    assert DEFAULT_SELECTOR_MANIFEST is FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.11"
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy is not None
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy.candidate_levels == (
         12,
         18,
     )
     assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy is not None
+    assert (
+        LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010.fingerprint
+        == "282b08df4c3368c60e60048ac846d95bc41392631ebdeaf069f3afbdef9e4c7f"
+    )
+    assert (
+        selector_manifest_for_fingerprint(LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010.fingerprint)
+        is LABEL_LATTICE_SAFE_SELECTOR_MANIFEST_V1010
+    )
     assert (
         PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109.fingerprint
         == "6c14854d3f38744a3451da11e516bc4f10c348d3f8a4c32e9a999c69e9979720"

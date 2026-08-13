@@ -104,4 +104,12 @@ false split albo false merge również mogą być błędne.
 
 ## Outcome
 
-W toku.
+Pierwszy pion dodał domyślny `fast-image-selector-v10.11` o fingerprintcie
+`a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c`.
+Niezależna siatka jest oceniana przed częściową geometrią, trzy zgodne pozycje
+tworzą wyłącznie słaby dowód wymagający drugiego JPEG-a, a konflikt dwóch
+rozwiązanych tras pozostaje fail-closed. V10.10 zachowuje fingerprint
+`282b08df4c3368c60e60048ac846d95bc41392631ebdeaf069f3afbdef9e4c7f`.
+
+Skupione testy adaptera, selektora i joba przechodzą `168/168`; Ruff przechodzi.
+Run pochodny, UI i bramka wszystkich 748 grup pozostają w toku.

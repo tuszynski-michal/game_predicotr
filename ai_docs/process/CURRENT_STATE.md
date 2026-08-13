@@ -71,8 +71,10 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   i ciąg `1–63`, zamiast wcześniejszych 9 plansz,
 - lista procesów selekcji pokazuje krótką datę, wersję silnika i zagregowany
   zakres `seq`, bez technicznego ID i statusu w etykiecie dropdownu.
-- TASK-0242 rozpoczyna `fast-image-selector-v10.11` oraz idempotentny run
-  pochodny dla 748 historycznych grup `range_required`; naprawa nie ufa starym
+- TASK-0242 wprowadza domyślny `fast-image-selector-v10.11` o fingerprintcie
+  `a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c`
+  oraz przygotowuje idempotentny run pochodny dla 748 historycznych grup
+  `range_required`; naprawa nie ufa starym
   granicom ani reprezentantowi, lecz przebudowuje lokalne bloki z pełnej
   kolejności kandydatów i zachowuje źródłowy run bez zmian,
 - przed implementacją zatrzymano wyłącznie pięć oczekujących kontrolerów

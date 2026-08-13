@@ -2147,6 +2147,220 @@ class LabelLatticeSafeVisibleSequenceLabelRangeRecognizer(
         )
 
 
+class FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
+    LabelLatticeSafeVisibleSequenceLabelRangeRecognizer
+):
+    """Fuse independent label evidence with partial layout evidence.
+
+    V10.10 allowed an ambiguous partial layout hypothesis to return before the
+    independent label lattice was evaluated. V10.11 evaluates the lattice once
+    first, treats geometry as supplementary evidence, and fails closed only
+    when two resolved routes disagree.
+    """
+
+    version = "visible-sequence-label-range-v11"
+
+    def recognize(
+        self,
+        rgb_image: NDArray[np.uint8],
+        boards: tuple[BoardDetection, ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        lattice = self._recognize_broad_fallback(rgb_image)
+        anchored = self._recognize_anchored_layout(rgb_image, boards)
+        return self._fuse_routes(lattice, anchored)
+
+    def recognize_layout_hypotheses(
+        self,
+        rgb_image: NDArray[np.uint8],
+        hypotheses: tuple[tuple[BoardDetection, ...], ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        lattice = self._recognize_broad_fallback(rgb_image)
+        anchored = self._recognize_layout_hypotheses_only(rgb_image, hypotheses)
+        return self._fuse_routes(lattice, anchored)
+
+    def _recognize_layout_hypotheses_only(
+        self,
+        rgb_image: NDArray[np.uint8],
+        hypotheses: tuple[tuple[BoardDetection, ...], ...],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]] | None:
+        cache: dict[tuple[tuple[int, int], ...], tuple[Recognition, ...]] = {}
+        resolved: list[tuple[SequenceRange, tuple[str, ...]]] = []
+        ambiguous = False
+        if self._telemetry is not None:
+            self._telemetry.increment("partialLayoutAnchorAttempts")
+            self._telemetry.increment("partialLayoutAnchorHypotheses", len(hypotheses))
+        for boards in hypotheses:
+            result = self._recognize_progressive_layout(rgb_image, boards, cache=cache)
+            if result is None:
+                continue
+            recognized, reasons = result
+            if recognized is None:
+                ambiguous = True
+                continue
+            resolved.append((recognized, reasons))
+
+        keys = {(item.start, item.end) for item, _ in resolved}
+        if len(keys) > 1 or (ambiguous and resolved):
+            if self._telemetry is not None:
+                self._telemetry.increment("partialLayoutAnchorAmbiguous")
+            return None, ("RANGE_OCR_PARTIAL_LAYOUT_AMBIGUOUS",)
+        if len(keys) == 1:
+            start, end = next(iter(keys))
+            recognized, reasons = max(
+                (
+                    item
+                    for item in resolved
+                    if (item[0].start, item[0].end) == (start, end)
+                ),
+                key=lambda item: item[0].confidence,
+            )
+            if self._telemetry is not None:
+                self._telemetry.increment("partialLayoutAnchorResolved")
+            return recognized, reasons
+        if ambiguous:
+            if self._telemetry is not None:
+                self._telemetry.increment("partialLayoutAnchorAmbiguous")
+            return None, ("RANGE_OCR_PARTIAL_LAYOUT_AMBIGUOUS",)
+        return None
+
+    def _recognize_broad_fallback(
+        self,
+        rgb_image: NDArray[np.uint8],
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        labels = self._prioritized_label_candidates(rgb_image)
+        if len(labels) < 3:
+            return None, ("RANGE_LABEL_LATTICE_MISSING",)
+
+        recognitions: list[Recognition] = []
+        previous_count = 0
+        weak_hypotheses: list[tuple[tuple[int, int, int], SequenceRange]] = []
+        for configured_level in self._candidate_levels:
+            candidate_count = min(configured_level, len(labels))
+            if candidate_count <= previous_count:
+                continue
+            batch_labels = labels[previous_count:candidate_count]
+            self._record_level_attempt(configured_level, len(batch_labels))
+            try:
+                recognitions.extend(
+                    self._recognize_many(tuple(label.crop for label in batch_labels))
+                )
+            except (SequenceOcrError, ValueError):
+                return None, ("RANGE_LABEL_OCR_FAILED",)
+            if self._telemetry is not None:
+                self._telemetry.increment("labelLatticeWindowAttempts")
+            hypotheses = self._contiguous_window_hypotheses(
+                labels[:candidate_count],
+                recognitions,
+                rgb_image.shape[:2],
+            )
+            if hypotheses:
+                best_score, recognized = hypotheses[0]
+                if len(hypotheses) > 1 and hypotheses[1][0] == best_score:
+                    return None, ("RANGE_LABEL_CONTIGUOUS_WINDOW_AMBIGUOUS",)
+                self._record_level_resolution(configured_level, candidate_count)
+                if self._telemetry is not None:
+                    self._telemetry.increment("labelLatticeWindowResolved")
+                    self._telemetry.increment("rangeRoute.labelLatticeFour")
+                return recognized, ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+            weak_hypotheses = self._three_label_hypotheses(
+                labels[:candidate_count],
+                recognitions,
+                rgb_image.shape[:2],
+            )
+            previous_count = candidate_count
+            if candidate_count == len(labels):
+                break
+
+        if self._telemetry is not None:
+            self._telemetry.increment("progressiveFallbackExhausted")
+        if weak_hypotheses:
+            weak_score, recognized = weak_hypotheses[0]
+            if len(weak_hypotheses) > 1 and weak_hypotheses[1][0] == weak_score:
+                return None, ("RANGE_LABEL_LATTICE_WEAK_AMBIGUOUS",)
+            if self._telemetry is not None:
+                self._telemetry.increment("rangeRoute.labelLatticeThree")
+            return recognized, (
+                "RANGE_OCR_FUZZY_CANDIDATE",
+                "RANGE_OCR_LABEL_LATTICE_THREE_LABEL",
+            )
+        return None, ("RANGE_LABEL_LATTICE_INCOMPLETE",)
+
+    def _three_label_hypotheses(
+        self,
+        labels: Sequence[_VisibleLabel],
+        recognitions: Sequence[Recognition],
+        image_shape: tuple[int, int],
+    ) -> list[tuple[tuple[int, int, int], SequenceRange]]:
+        if len(labels) != len(recognitions):
+            return []
+        positions = self._label_lattice_positions(labels, image_shape)
+        evidence: dict[int, dict[int, float]] = {}
+        for index, recognition in enumerate(recognitions):
+            number = recognition.normalized_number
+            position = positions.get(index)
+            if (
+                number is None
+                or position is None
+                or recognition.confidence < self._layout_policy.minimum_strong_label_confidence
+                or number - position < 1
+            ):
+                continue
+            start = number - position
+            current = evidence.setdefault(start, {})
+            current[position] = max(current.get(position, 0.0), recognition.confidence)
+
+        hypotheses: list[tuple[tuple[int, int, int], SequenceRange]] = []
+        for start, by_position in evidence.items():
+            if len(by_position) < 3:
+                continue
+            confidences = tuple(by_position.values())
+            score = (
+                len(by_position),
+                int(round(min(confidences) * 1000)),
+                int(round(sum(confidences) / len(confidences) * 1000)),
+            )
+            hypotheses.append(
+                (score, SequenceRange(start=start, end=start + 8, confidence=0.82))
+            )
+        return sorted(
+            hypotheses,
+            key=lambda item: (item[0], -item[1].start),
+            reverse=True,
+        )
+
+    @staticmethod
+    def _fuse_routes(
+        lattice: tuple[SequenceRange | None, tuple[str, ...]],
+        anchored: tuple[SequenceRange | None, tuple[str, ...]] | None,
+    ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+        lattice_range, lattice_reasons = lattice
+        if anchored is None:
+            return lattice
+        anchored_range, anchored_reasons = anchored
+        if lattice_range is None:
+            return anchored
+        if anchored_range is None:
+            return lattice
+        lattice_key = (lattice_range.start, lattice_range.end)
+        anchored_key = (anchored_range.start, anchored_range.end)
+        if lattice_key != anchored_key:
+            return None, (
+                "RANGE_OCR_FUSED_EVIDENCE_CONFLICT",
+                *lattice_reasons,
+                *anchored_reasons,
+            )
+        recognized = max((lattice_range, anchored_range), key=lambda item: item.confidence)
+        return recognized, tuple(
+            dict.fromkeys(
+                (
+                    "RANGE_OCR_FUSED_EVIDENCE",
+                    *lattice_reasons,
+                    *anchored_reasons,
+                )
+            )
+        )
+
+
 def _bounded_edit_distance(first: str, second: str, *, maximum: int = 1) -> int:
     """Return a small Levenshtein distance without allocating an OCR-sized matrix."""
 
@@ -3107,6 +3321,7 @@ __all__ = [
     "ContiguousWindowVisibleSequenceLabelRangeRecognizer",
     "DeterministicParallelCandidateVerifier",
     "FullCandidateVerifier",
+    "FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer",
     "GridFirstVisibleSequenceLabelRangeRecognizer",
     "LayoutAnchoredVisibleSequenceLabelRangeRecognizer",
     "LabelLatticeSafeVisibleSequenceLabelRangeRecognizer",

@@ -25,6 +25,7 @@ from game_predictor_worker.images.selection.adapters import (
     ContiguousWindowVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
     FullCandidateVerifier,
+    FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     LabelLatticeSafeVisibleSequenceLabelRangeRecognizer,
@@ -101,7 +102,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.10"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.11"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -1616,6 +1617,96 @@ def test_v10_10_rejects_partial_anchor_without_an_observed_top_row() -> None:
     assert v10_10._layout_anchor_is_safe(boards({0, 4, 7}))
 
 
+def test_v10_11_strong_lattice_survives_ambiguous_partial_geometry() -> None:
+    expected = SequenceRange(1648, 1656, 0.97)
+
+    class _Scripted(FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer):
+        def _recognize_broad_fallback(
+            self,
+            rgb_image: np.ndarray,
+        ) -> tuple[SequenceRange | None, tuple[str, ...]]:
+            del rgb_image
+            return expected, ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+
+        def _recognize_progressive_layout(
+            self,
+            rgb_image: np.ndarray,
+            boards: tuple[BoardDetection, ...],
+            *,
+            cache: dict[tuple[tuple[int, int], ...], tuple[Recognition, ...]],
+        ) -> tuple[SequenceRange | None, tuple[str, ...]] | None:
+            del rgb_image, boards, cache
+            return None, ("RANGE_OCR_LAYOUT_ANCHORED_AMBIGUOUS",)
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr({}),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    recognized, reasons = recognizer.recognize_layout_hypotheses(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        ((BoardDetection(0, (), (0, 0, 1, 1), 0.8, False),),),
+    )
+
+    assert recognized == expected
+    assert reasons == ("RANGE_OCR_LABEL_LATTICE_WINDOW",)
+
+
+def test_v10_11_fails_closed_when_strong_routes_disagree() -> None:
+    lattice = SequenceRange(1648, 1656, 0.97)
+    anchored = SequenceRange(1657, 1665, 0.96)
+
+    recognized, reasons = FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer._fuse_routes(
+        (lattice, ("RANGE_OCR_LABEL_LATTICE_WINDOW",)),
+        (anchored, ("RANGE_OCR_LAYOUT_ANCHORED_FOUR_LABEL",)),
+    )
+
+    assert recognized is None
+    assert reasons[0] == "RANGE_OCR_FUSED_EVIDENCE_CONFLICT"
+
+
+def test_v10_11_exposes_three_position_lattice_only_as_fuzzy_evidence() -> None:
+    labels: list[_VisibleLabel] = []
+    recognitions: dict[int, Recognition] = {}
+    for position in range(9):
+        crop = np.full((20, 120, 3), position + 1, dtype=np.uint8)
+        labels.append(
+            _VisibleLabel(
+                crop=crop,
+                center=(500.0 + (position % 3) * 460.0, 300.0 + (position // 3) * 110.0),
+            )
+        )
+        recognitions[id(crop)] = (
+            Recognition(str(3358 + position), 0.93)
+            if position in {1, 4, 7}
+            else Recognition("", 0.0)
+        )
+
+    class _Scripted(FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer):
+        @classmethod
+        def _ranked_label_candidates(cls, rgb_image: np.ndarray) -> tuple[_VisibleLabel, ...]:
+            del cls, rgb_image
+            return tuple(labels)
+
+    recognizer = _Scripted(
+        _ProgressiveLabelOcr(recognitions),
+        ProgressiveVisibleLabelFallbackPolicy(candidate_levels=(12, 18)),
+        LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+        ContiguousSequenceWindowPolicy(),
+    )
+
+    recognized, reasons = recognizer.recognize(
+        np.zeros((1080, 1920, 3), dtype=np.uint8),
+        (),
+    )
+
+    assert recognized == SequenceRange(3358, 3366, 0.82)
+    assert "RANGE_OCR_FUZZY_CANDIDATE" in reasons
+    assert "RANGE_OCR_LABEL_LATTICE_THREE_LABEL" in reasons
+
+
 def test_layout_blur_gate_rejects_only_when_a_majority_is_severely_blurred(
     tmp_path: Path,
 ) -> None:
@@ -1996,7 +2087,7 @@ def test_standalone_cli_uses_v10_9_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.10"
+    assert report["selectorVersion"] == "fast-image-selector-v10.11"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

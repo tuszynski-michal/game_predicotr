@@ -37,6 +37,7 @@ from .adapters import (
     BestEffortVisibleSequenceLabelRangeRecognizer,
     ContiguousWindowVisibleSequenceLabelRangeRecognizer,
     DeterministicParallelCandidateVerifier,
+    FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer,
     GridFirstVisibleSequenceLabelRangeRecognizer,
     IndependentEndpointVisibleSequenceLabelRangeRecognizer,
     LabelLatticeSafeVisibleSequenceLabelRangeRecognizer,
@@ -77,6 +78,7 @@ from .manifest import (
     BEST_EFFORT_SELECTOR_VERSIONS,
     CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
+    FUSED_RANGE_EVIDENCE_ADAPTER_VERSION,
     GRID_FIRST_RANGE_ADAPTER_VERSION,
     INDEPENDENT_ENDPOINT_RANGE_ADAPTER_VERSION,
     LABEL_LATTICE_SAFE_RANGE_ADAPTER_VERSION,
@@ -388,6 +390,19 @@ class ImageSelectionJobHandler:
             if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
                 fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
                     ocr,
+                    telemetry=telemetry,
+                )
+            elif (
+                manifest.range_adapter_version == FUSED_RANGE_EVIDENCE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.layout_anchor_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = FusedRangeEvidenceVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    manifest.contiguous_sequence_window_policy,
                     telemetry=telemetry,
                 )
             elif (

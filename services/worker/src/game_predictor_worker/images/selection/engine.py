@@ -48,7 +48,7 @@ from .manifest import (
     FIRST_USABLE_SELECTOR_VERSIONS,
     HYBRID_BOUNDED_SELECTOR_VERSION,
     HYBRID_BOUNDED_SELECTOR_VERSIONS,
-    LABEL_LATTICE_SAFE_SELECTOR_VERSION,
+    LABEL_LATTICE_SAFE_SELECTOR_VERSIONS,
     LAYOUT_ANCHORED_SELECTOR_VERSIONS,
     LEGACY_SELECTOR_VERSION,
     ORDERED_SELECTOR_VERSIONS,
@@ -1616,7 +1616,7 @@ class FastImageSelector:
     ) -> CandidateVerification:
         recognized = verification.recognized_range
         if (
-            self.manifest.algorithm_version != LABEL_LATTICE_SAFE_SELECTOR_VERSION
+            self.manifest.algorithm_version not in LABEL_LATTICE_SAFE_SELECTOR_VERSIONS
             or first_sequence_number is None
             or recognized is None
         ):
@@ -1651,7 +1651,7 @@ class FastImageSelector:
         """Preserve adjacent screens that appearance grouping merged into one group."""
 
         if (
-            self.manifest.algorithm_version != LABEL_LATTICE_SAFE_SELECTOR_VERSION
+            self.manifest.algorithm_version not in LABEL_LATTICE_SAFE_SELECTOR_VERSIONS
             or result.status is not SelectionGroupStatus.AUTO_SELECTED
             or result.range is None
             or first_sequence_number is None

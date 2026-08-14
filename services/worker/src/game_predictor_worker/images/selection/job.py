@@ -512,6 +512,7 @@ class ImageSelectionJobHandler:
             )
 
         def checkpoint_recovery(progress: RecoveryEvaluationProgress) -> None:
+            previous = context.job
             context.checkpoint(
                 checkpoint_payload={
                     "schema_version": CHECKPOINT_SCHEMA_VERSION,
@@ -527,11 +528,11 @@ class ImageSelectionJobHandler:
                     "verification_count": progress.verification_count,
                 },
                 stage="image_selection:recovering_ranges",
-                current=progress.completed_candidates,
-                total=progress.candidate_count,
-                success_count=0,
-                failure_count=progress.scan_failure_count,
-                review_count=0,
+                current=max(previous.progress_current, progress.completed_candidates),
+                total=max(previous.progress_total or 0, progress.candidate_count),
+                success_count=previous.success_count,
+                failure_count=max(previous.failure_count, progress.scan_failure_count),
+                review_count=previous.review_count,
             )
 
         evaluation = evaluate_recovery(
@@ -577,14 +578,15 @@ class ImageSelectionJobHandler:
             block_count=evaluation.block_count,
         )
         selected, review = _recovery_counts(result.groups)
+        previous = context.job
         context.checkpoint(
             checkpoint_payload=payload,
             stage="image_selection:recovery_projection_ready",
-            current=evaluation.candidate_count,
-            total=evaluation.candidate_count,
-            success_count=selected,
-            failure_count=evaluation.scan_failure_count,
-            review_count=review,
+            current=max(previous.progress_current, evaluation.candidate_count),
+            total=max(previous.progress_total or 0, evaluation.candidate_count),
+            success_count=max(previous.success_count, selected),
+            failure_count=max(previous.failure_count, evaluation.scan_failure_count),
+            review_count=max(previous.review_count, review),
         )
         return result
 
@@ -608,17 +610,18 @@ class ImageSelectionJobHandler:
         def publication_checkpoint(completed: int, total: int) -> None:
             if completed != total and completed % 16 != 0:
                 return
+            previous = context.job
             context.checkpoint(
                 checkpoint_payload={
                     **payload,
                     "publication": {"completed": completed, "total": total},
                 },
                 stage="image_selection:writing_manifest",
-                current=completed,
-                total=total,
-                success_count=selected,
-                failure_count=result.scan_failure_count,
-                review_count=0,
+                current=max(previous.progress_current, completed),
+                total=max(previous.progress_total or 0, total),
+                success_count=max(previous.success_count, selected),
+                failure_count=max(previous.failure_count, result.scan_failure_count),
+                review_count=previous.review_count,
             )
 
         published = self._publisher.publish(
@@ -639,14 +642,15 @@ class ImageSelectionJobHandler:
             published=published,
             persisted_at=context.now(),
         )
+        previous = context.job
         context.checkpoint(
             checkpoint_payload=payload,
             stage="image_selection:ready_for_import",
-            current=result.input_count,
-            total=result.input_count,
-            success_count=selected,
-            failure_count=result.scan_failure_count,
-            review_count=0,
+            current=max(previous.progress_current, result.input_count),
+            total=max(previous.progress_total or 0, result.input_count),
+            success_count=max(previous.success_count, selected),
+            failure_count=max(previous.failure_count, result.scan_failure_count),
+            review_count=previous.review_count,
         )
 
     def _managed_source_root(self, selection_id: UUID) -> Path:
@@ -1124,15 +1128,16 @@ class _DurableSelectionSink(SelectionAuditSink):
             (self._context.now() - self._processing_started_at).total_seconds(),
         )
         payload["processing_duration_seconds"] = processing_seconds
+        previous = self._context.job
         with self._telemetry.measure("persistence"):
             self._context.checkpoint(
                 checkpoint_payload=payload,
                 stage=stage,
-                current=state.checkpoint.processed_count,
-                total=self._total,
-                success_count=selected,
-                failure_count=state.scan_failure_count,
-                review_count=max(self._context.job.review_count, manual),
+                current=max(previous.progress_current, state.checkpoint.processed_count),
+                total=max(previous.progress_total or 0, self._total),
+                success_count=max(previous.success_count, selected),
+                failure_count=max(previous.failure_count, state.scan_failure_count),
+                review_count=max(previous.review_count, manual),
             )
         self._telemetry.increment("persistenceWrites")
         if window_advanced:

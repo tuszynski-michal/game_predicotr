@@ -4490,6 +4490,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   niechronionych, następnie zapisuje całą projekcję i przed commitem sprawdza jej
   dokładną liczność, siatkę i reprezentantów. `selected_candidate` jest
   autorytatywny wobec historycznych decyzji pozostałych `top_candidates`.
+  Dokładne liczniki statusów projekcji są zapisywane w payloadzie checkpointu,
+  natomiast ogólne liczniki domeny joba stanowią monotoniczną kopertę historii
+  wykonania i nie cofają się po retry ani zmianie klasyfikacji.
   Terminalny runner
   ponownie czyta wszystkie grupy od początku i oddzielnie bramkuje logiczne
   pokrycie projekcji oraz pokrycie gotowych grup plikami.
@@ -4499,6 +4502,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   cofnęła całą reconciliację. Po zwolnieniu zakresów ujawnił się analogiczny
   konflikt reprezentanta: nowy JPEG był autorytatywny, ale stary element listy
   kandydatów nadal niósł historyczne `selected_automatic` lub `selected_manual`.
+  Po naprawie obu indeksów rzeczywisty zapis 2201 właścicieli przeszedł, lecz
+  checkpoint próbował zmniejszyć historyczne `success_count` z 1888 do 1406 i
+  został odrzucony jako `JOB_PROGRESS_REGRESSION`.
   Niezależnie progresywny kursor eksportu nie wracał do wcześniejszych grup
   wypromowanych dopiero w końcowej projekcji.
 - **Reason:** inwariant 2201 właścicieli musi obowiązywać również w trwałym
@@ -4514,7 +4520,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   kod domenowy. Raport schema v3
   jest wymagany przed przejściem kolejki, a `failed`/`cancelled` nie naprawia
   katalogu. Manifest selektora v10.13 nie zmienia się, bo poprawka dotyczy
-  trwałości i projekcji wynikowej, nie algorytmu analizy obrazu.
+  trwałości i projekcji wynikowej, nie algorytmu analizy obrazu. Konsumenci
+  aktualnego stanu selekcji czytają dokładne liczniki payloadu; ogólne liczniki
+  joba mogą być wyższe po rekonsyliacji, bo opisują historię wykonania.
 - **Supersedes:** rozszerza D-184 o trwałość końcowego inwariantu i kanoniczny
   eksport bez zmiany reguł selektora.
 

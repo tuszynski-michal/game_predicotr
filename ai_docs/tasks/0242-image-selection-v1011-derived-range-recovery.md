@@ -101,6 +101,8 @@ false split albo false merge również mogą być błędne.
 - [x] Terminalny eksport wraca do `groupOrder=-1`, obejmuje `range_confirmed`,
       usuwa wyłącznie stare `seq_*.jpg`, a raport schema v3 osobno bramkuje
       pokrycie logiczne i plikowe.
+- [x] Reconciliacja może zmienić proporcje statusów bez regresji ogólnych
+      liczników joba; dokładne liczniki projekcji pozostają w checkpoint payload.
 
 ## Expected files
 
@@ -257,3 +259,13 @@ została wymuszenie wycofana. Regresja izolowanego PostgreSQL i 24 testy skupion
 przeszły. Pełny suite workera zakończył 709 testów poprawnie; jedyny niezależny
 test HTTP przerwany znanym `WinError 10053` przeszedł 1/1 po natychmiastowej
 powtórce. Fingerprint v10.13 pozostaje niezmieniony.
+
+Rzeczywiste wznowienie v0.6.14 zatwierdziło w bazie pełną projekcję: 2298 grup
+fizycznych, 2201 logicznych właścicieli, 97 duplikatów i brak luk, duplikatów
+właścicieli oraz zakresów poza siatką. Następny checkpoint zatrzymał się na
+`JOB_PROGRESS_REGRESSION`, ponieważ uzgodnienie zmieniło surowe 1888 wyborów na
+1406 gotowych i 795 manualnych. V0.6.15 rozdziela dokładne liczniki projekcji w
+payloadzie od monotonicznych liczników domeny joba oraz stosuje tę samą kopertę
+w pełnym runie, recovery i publikacji. Regresja testowa rozpoczyna retry z
+wyższym historycznym licznikiem i potwierdza, że wynik projekcji pozostaje
+dokładny bez cofnięcia postępu joba.

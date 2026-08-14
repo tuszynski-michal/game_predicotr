@@ -381,6 +381,10 @@ class _Context:
         self.checkpoints.append(dict(values))
         checkpoint_payload = values["checkpoint_payload"]
         assert isinstance(checkpoint_payload, dict)
+        assert int(values["current"]) >= self.job.progress_current
+        assert int(values["success_count"]) >= self.job.success_count
+        assert int(values["failure_count"]) >= self.job.failure_count
+        assert int(values["review_count"]) >= self.job.review_count
         self.job = replace(
             self.job,
             checkpoint_payload=checkpoint_payload,
@@ -753,6 +757,50 @@ def test_job_enforces_declared_sequence_group_count_before_publication(
     assert logical_groups[0].range == SequenceRange(1, 9, 1.0)
     assert store.reconciled_persist_count == 1
     assert store.published is not None
+
+
+def test_reconciled_projection_keeps_generic_job_counters_monotonic(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=3,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=9,
+    )
+    resumed_job = replace(
+        job,
+        progress_current=3,
+        progress_total=3,
+        success_count=2,
+        review_count=1,
+    )
+    context = _Context(resumed_job)
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=[]),
+            _Verifier(),
+        ),
+    )
+
+    handler(context, resumed_job)  # type: ignore[arg-type]
+
+    final = context.checkpoints[-1]
+    payload = final["checkpoint_payload"]
+    assert isinstance(payload, dict)
+    assert payload["selected_count"] == 1
+    assert payload["manual_count"] == 0
+    assert final["success_count"] == 2
+    assert final["review_count"] == 1
 
 
 def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(

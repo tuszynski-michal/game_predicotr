@@ -1117,6 +1117,15 @@ Dzięki temu checkpoint `manual_review` albo `writing_manifest` raportuje tę sa
 liczbę właścicieli i duplikatów, którą odczyta API, zamiast stanu sprzed
 reconciliacji.
 
+Dokładne `selected_count`, `manual_count`, `missing_image_count` i
+`skipped_count` w payloadzie checkpointu opisują aktualną projekcję i mogą
+zmienić proporcje po reconciliacji. Ogólne pola domeny joba (`progress_current`,
+`success_count`, `failure_count`, `review_count`) są osobną monotoniczną kopertą
+historii wykonania: każdy zapis bierze maksimum z poprzedniego licznika i
+bieżącej wartości. Dotyczy to także recovery i jego publikacji. Dzięki temu
+retry nie narusza `JOB_PROGRESS_REGRESSION`, a dokładność raportu selekcji nie
+jest poświęcana na rzecz technicznych liczników joba.
+
 Progresywny eksport nadal przesuwa monotoniczny `groupOrder`, ale nie jest
 źródłem prawdy dla stanu końcowego. Dla `waiting_for_review` i `completed`
 runner pobiera wszystkie strony od `afterGroupOrder=-1`, buduje kanoniczny zbiór

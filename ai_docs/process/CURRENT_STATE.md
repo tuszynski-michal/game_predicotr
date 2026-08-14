@@ -180,6 +180,15 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   została celowo wycofana bez zmiany bazy. Regresja PostgreSQL przeszła 1/1,
   testy skupione 24/24; pełny worker zakończył 709 testów poprawnie, a jedyny
   niezależny `WinError 10053` przeszedł 1/1 przy natychmiastowej powtórce.
+- Wznowienie v0.6.14 trwale zapisało dokładnie 2298 grup fizycznych, 2201
+  logicznych właścicieli i 97 duplikatów bez luk, duplikatów zakresu ani pozycji
+  poza siatką. Job zatrzymał dopiero kolejny checkpoint kodem
+  `JOB_PROGRESS_REGRESSION`: aktualna projekcja miała 1406 gotowych i 795
+  manualnych grup, podczas gdy historyczny ogólny licznik sukcesów wynosił
+  1888. Etap `v0.6.15` zachowuje dokładne liczniki projekcji w checkpoint
+  payload, a ogólne liczniki joba zapisuje jako monotoniczną kopertę również w
+  retry, recovery i publikacji. Fingerprint v10.13 i wynik rozpoznawania nie
+  zmieniają się.
 
 ### Wersja 0.1
 

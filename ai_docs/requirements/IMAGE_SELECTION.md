@@ -724,8 +724,11 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Błąd zapisu projekcji ma stabilny kod
   `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`; nie może zostać ukryty jako
   ogólny `JOB_EXECUTION_FAILED` ani pozostawić częściowo przepisanych zakresów.
-- Końcowy checkpoint oraz liczniki joba powstają z projekcji po uzgodnieniu, a
-  nie z surowych grup zapisanych podczas skanowania.
+- Końcowy checkpoint zapisuje dokładne liczniki bieżącej projekcji po
+  uzgodnieniu, a nie z surowych grup zapisanych podczas skanowania. Ogólne
+  liczniki postępu joba pozostają monotoniczną historią wykonania: retry ani
+  zmiana klasyfikacji nie mogą ich zmniejszyć. UI i raport stanu selekcji muszą
+  używać dokładnych liczników projekcji z payloadu checkpointu.
 - Monitor operatorski przy `waiting_for_review` albo `completed` odczytuje
   wszystkie grupy ponownie od początku. Eksportuje `auto_selected`,
   `manually_selected` i `range_confirmed`, uzupełnia wybory zmienione za bieżącym

@@ -342,12 +342,19 @@ class CachedCandidateVerifier:
         cache: FileImageVerificationCache,
         *,
         selector_fingerprint: str,
+        compatible_selector_fingerprints: tuple[str, ...] = (),
     ) -> None:
         self._delegate = delegate
         self._cache = cache
         self._selector_fingerprint = selector_fingerprint
+        self._compatible_selector_fingerprints = tuple(
+            fingerprint
+            for fingerprint in dict.fromkeys(compatible_selector_fingerprints)
+            if fingerprint != selector_fingerprint
+        )
         self._lock = Lock()
         self._hits = 0
+        self._compatible_hits = 0
         self._misses = 0
         self._invalid = 0
         self._writes = 0
@@ -389,9 +396,8 @@ class CachedCandidateVerifier:
         missing_indexes: list[int] = []
         missing_observations: list[CheapImageObservation] = []
         for index, observation in enumerate(observations):
-            lookup = self._cache.get(
-                observation.source.checksum_sha256,
-                selector_fingerprint=self._selector_fingerprint,
+            lookup = self._lookup(
+                observation,
                 expected_board_count=expected_board_count,
                 include_range_evidence=include_range_evidence,
             )
@@ -485,9 +491,8 @@ class CachedCandidateVerifier:
         expected_board_count: int | None,
         include_range_evidence: bool,
     ) -> CandidateVerification:
-        lookup = self._cache.get(
-            observation.source.checksum_sha256,
-            selector_fingerprint=self._selector_fingerprint,
+        lookup = self._lookup(
+            observation,
             expected_board_count=expected_board_count,
             include_range_evidence=include_range_evidence,
         )
@@ -522,6 +527,40 @@ class CachedCandidateVerifier:
         )
         return result
 
+    def _lookup(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> ImageVerificationCacheLookup:
+        invalid = False
+        fingerprints = (
+            self._selector_fingerprint,
+            *self._compatible_selector_fingerprints,
+        )
+        for index, fingerprint in enumerate(fingerprints):
+            lookup = self._cache.get(
+                observation.source.checksum_sha256,
+                selector_fingerprint=fingerprint,
+                expected_board_count=expected_board_count,
+                include_range_evidence=include_range_evidence,
+            )
+            invalid = invalid or lookup.invalid
+            if lookup.verification is None:
+                continue
+            if index > 0:
+                with self._lock:
+                    self._compatible_hits += 1
+                self._store(
+                    observation,
+                    lookup.verification,
+                    expected_board_count=expected_board_count,
+                    include_range_evidence=include_range_evidence,
+                )
+            return lookup
+        return ImageVerificationCacheLookup(None, invalid=invalid)
+
     def _store(
         self,
         observation: CheapImageObservation,
@@ -551,6 +590,8 @@ class CachedCandidateVerifier:
             return {
                 "contract": IMAGE_VERIFICATION_CACHE_CONTRACT,
                 "hitCount": self._hits,
+                "compatibleHitCount": self._compatible_hits,
+                "compatibleSelectorFingerprints": list(self._compatible_selector_fingerprints),
                 "invalidEntryCount": self._invalid,
                 "missCount": self._misses,
                 "schemaVersion": IMAGE_VERIFICATION_CACHE_SCHEMA_VERSION,

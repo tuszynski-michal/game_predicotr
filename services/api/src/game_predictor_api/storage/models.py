@@ -643,6 +643,19 @@ class ImageSelectionRunModel(Base):
             name="ck_image_selection_runs_first_sequence_positive",
         ),
         CheckConstraint(
+            "last_sequence_number >= 0",
+            name="ck_image_selection_runs_last_sequence_positive",
+        ),
+        CheckConstraint(
+            "last_sequence_number = 0 OR "
+            "(first_sequence_number > 0 AND "
+            "((sequence_direction = 'ascending' AND "
+            "last_sequence_number >= first_sequence_number) OR "
+            "(sequence_direction = 'descending' AND "
+            "last_sequence_number <= first_sequence_number)))",
+            name="ck_image_selection_runs_sequence_bounds",
+        ),
+        CheckConstraint(
             "execution_mode IN ('full', 'range_recovery')",
             name="ck_image_selection_runs_execution_mode",
         ),
@@ -676,6 +689,7 @@ class ImageSelectionRunModel(Base):
             "selector_fingerprint",
             "sequence_direction",
             "first_sequence_number",
+            "last_sequence_number",
             unique=True,
             postgresql_where=text("execution_mode = 'full'"),
         ),
@@ -684,6 +698,7 @@ class ImageSelectionRunModel(Base):
             "source_run_id",
             "selector_fingerprint",
             "source_snapshot_sha256",
+            "last_sequence_number",
             unique=True,
             postgresql_where=text("execution_mode = 'range_recovery'"),
         ),
@@ -722,6 +737,11 @@ class ImageSelectionRunModel(Base):
         default="ascending",
     )
     first_sequence_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+    last_sequence_number: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=0,

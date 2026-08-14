@@ -103,7 +103,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.12"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.13"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -393,6 +393,42 @@ def test_verification_cache_ignores_corruption_and_fingerprint_change(
 
     assert repaired.snapshot()["invalidEntryCount"] == 1
     assert changed.snapshot()["missCount"] == 1
+    assert len(tuple(cache.root.rglob("*.json"))) == 2
+
+
+def test_verification_cache_promotes_explicitly_compatible_selector_entry(
+    tmp_path: Path,
+) -> None:
+    cache = FileImageVerificationCache(tmp_path)
+    observation = _CountingCheapAnalyzer().analyze(_source("b" * 64))
+    previous = CachedCandidateVerifier(
+        _BatchCandidateVerifier(),
+        cache,
+        selector_fingerprint="c" * 64,
+    )
+    expected = previous.verify_many(
+        (observation,),
+        expected_board_count=9,
+        include_range_evidence=True,
+    )
+    current_delegate = _BatchCandidateVerifier()
+    current = CachedCandidateVerifier(
+        current_delegate,
+        cache,
+        selector_fingerprint="d" * 64,
+        compatible_selector_fingerprints=("c" * 64,),
+    )
+
+    actual = current.verify_many(
+        (observation,),
+        expected_board_count=9,
+        include_range_evidence=True,
+    )
+
+    assert actual == expected
+    assert current_delegate.batch_calls == []
+    assert current.snapshot()["compatibleHitCount"] == 1
+    assert current.snapshot()["writeCount"] == 1
     assert len(tuple(cache.root.rglob("*.json"))) == 2
 
 
@@ -2110,7 +2146,7 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert counters["parallelVerificationWorkerSlots"] == 2
 
 
-def test_standalone_cli_uses_v10_9_and_fails_closed_without_ocr_model(
+def test_standalone_cli_uses_v10_13_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -2165,7 +2201,7 @@ def test_standalone_cli_uses_v10_9_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.12"
+    assert report["selectorVersion"] == "fast-image-selector-v10.13"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

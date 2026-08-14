@@ -52,6 +52,7 @@ IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION = (
 )
 IMAGE_SELECTION_REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
 IMAGE_SELECTION_DERIVED_RECOVERY_REVISION = "0042_image_selection_derived_recovery"
+IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION = "0043_image_selection_sequence_bounds"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -112,8 +113,9 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     image_selection_derived_recovery = script.get_revision(
         IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
     )
+    image_selection_sequence_bounds = script.get_revision(IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_DERIVED_RECOVERY_REVISION]
+    assert script.get_heads() == [IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -205,9 +207,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         == IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION
     )
     assert image_selection_derived_recovery is not None
+    assert image_selection_derived_recovery.down_revision == IMAGE_SELECTION_REVIEW_QUEUES_REVISION
+    assert image_selection_sequence_bounds is not None
     assert (
-        image_selection_derived_recovery.down_revision
-        == IMAGE_SELECTION_REVIEW_QUEUES_REVISION
+        image_selection_sequence_bounds.down_revision == IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
     )
 
 
@@ -375,6 +378,31 @@ def test_image_selection_optional_exceptions_allow_missing_ranges() -> None:
     assert "alter column range_start drop not null" in upgrade_sql
     assert "alter column range_end drop not null" in upgrade_sql
     assert "range_start is null and range_end is null" in upgrade_sql
+
+
+def test_image_selection_sequence_bounds_add_complete_range_cardinality_contract() -> None:
+    upgrade_output = StringIO()
+    downgrade_output = StringIO()
+
+    command.upgrade(
+        create_alembic_config(output_buffer=upgrade_output),
+        f"{IMAGE_SELECTION_DERIVED_RECOVERY_REVISION}:{IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION}",
+        sql=True,
+    )
+    command.downgrade(
+        create_alembic_config(output_buffer=downgrade_output),
+        f"{IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION}:{IMAGE_SELECTION_DERIVED_RECOVERY_REVISION}",
+        sql=True,
+    )
+
+    upgrade_sql = upgrade_output.getvalue().lower()
+    assert "add column last_sequence_number" in upgrade_sql
+    assert "ck_image_selection_runs_sequence_bounds" in upgrade_sql
+    assert "create unique index uq_image_selection_runs_full_identity" in upgrade_sql
+    assert "create unique index uq_image_selection_runs_recovery_identity" in upgrade_sql
+    downgrade_sql = downgrade_output.getvalue().lower()
+    assert "drop column last_sequence_number" in downgrade_sql
+    assert "create unique index uq_image_selection_runs_full_identity" in downgrade_sql
 
 
 def test_dataset_quality_migration_adds_expected_counts_and_override_audit() -> None:

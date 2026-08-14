@@ -7,16 +7,21 @@ from uuid import UUID
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
     CandidateResult,
+    CheapImageObservation,
     ImageQualityMetrics,
     ImageSelectionSource,
     SelectionGroupResult,
     SelectionGroupStatus,
     SequenceRange,
 )
-from game_predictor_worker.images.selection.recovery import RecoveryProjection
+from game_predictor_worker.images.selection.recovery import (
+    RecoveryProjection,
+    RecoverySourceGroup,
+)
 
 from scripts.run_image_selection_range_recovery_dry_run import (
     _owner_audit,
+    _projection_image_coverage,
     _stratified_audit_sample,
 )
 
@@ -51,6 +56,135 @@ def _group(order: int) -> SelectionGroupResult:
     )
 
 
+def _observation(source: ImageSelectionSource) -> CheapImageObservation:
+    return CheapImageObservation(
+        source=source,
+        width=100,
+        height=100,
+        fingerprint_hex="a" * 16,
+        geometry_signature=(0.1,),
+        board_count=9,
+        geometry_confidence=0.9,
+        quality=QUALITY,
+    )
+
+
+def _source_group(group: SelectionGroupResult) -> RecoverySourceGroup:
+    assert group.selected_candidate is not None
+    return RecoverySourceGroup(
+        origin_group_id=UUID(int=group.group_order + 1),
+        result=group,
+        sources=(group.selected_candidate.source,),
+    )
+
+
+def test_image_coverage_requires_one_manifest_image_per_logical_group() -> None:
+    selected_group = _group(0)
+    manual_source = _group(1).selected_candidate
+    assert manual_source is not None
+    manual_group = SelectionGroupResult(
+        group_order=1,
+        source_count=1,
+        range=SequenceRange(10, 18, 1.0),
+        fingerprint_sha256="b" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.MANUAL_REQUIRED,
+        selected_candidate=None,
+        top_candidates=(),
+    )
+    skipped_group = SelectionGroupResult(
+        group_order=2,
+        source_count=1,
+        range=SequenceRange(10, 18, 1.0),
+        fingerprint_sha256="c" * 64,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+        selected_candidate=None,
+        top_candidates=(),
+    )
+    origins = {order: UUID(int=order + 1) for order in range(3)}
+    projection = RecoveryProjection(
+        groups=(selected_group, manual_group, skipped_group),
+        group_sources={1: (_observation(manual_source.source),)},
+        origin_group_ids=origins,
+    )
+    source_groups = (_source_group(selected_group),)
+
+    coverage = _projection_image_coverage(
+        source_groups,
+        projection,
+        staged_checksums={
+            selected_group.selected_candidate.source.checksum_sha256,
+            manual_source.source.checksum_sha256,
+        },
+        affected_origins=set(origins.values()),
+    )
+
+    assert coverage.logical_group_count == 2
+    assert coverage.groups_with_image_count == 2
+    assert coverage.groups_without_image == ()
+    assert coverage.groups_with_unknown_image == ()
+
+
+def test_image_coverage_uses_preserved_sources_only_for_untouched_groups() -> None:
+    source_result = _group(0)
+    source_group = _source_group(source_result)
+    empty_result = SelectionGroupResult(
+        group_order=0,
+        source_count=1,
+        range=source_result.range,
+        fingerprint_sha256=source_result.fingerprint_sha256,
+        board_count_consensus=9,
+        status=SelectionGroupStatus.MANUAL_REQUIRED,
+        selected_candidate=None,
+        top_candidates=(),
+    )
+    projection = RecoveryProjection(
+        groups=(empty_result,),
+        group_sources={},
+        origin_group_ids={0: source_group.origin_group_id},
+    )
+    staged = {source_group.sources[0].checksum_sha256}
+
+    untouched = _projection_image_coverage(
+        (source_group,),
+        projection,
+        staged_checksums=staged,
+        affected_origins=set(),
+    )
+    rebuilt = _projection_image_coverage(
+        (source_group,),
+        projection,
+        staged_checksums=staged,
+        affected_origins={source_group.origin_group_id},
+    )
+
+    assert untouched.groups_with_image_count == 1
+    assert untouched.groups_without_image == ()
+    assert rebuilt.groups_with_image_count == 0
+    assert rebuilt.groups_without_image == (0,)
+
+
+def test_image_coverage_rejects_references_outside_staged_manifest() -> None:
+    group = _group(0)
+    projection = RecoveryProjection(
+        groups=(group,),
+        group_sources={},
+        origin_group_ids={0: UUID(int=1)},
+    )
+
+    coverage = _projection_image_coverage(
+        (_source_group(group),),
+        projection,
+        staged_checksums=set(),
+        affected_origins=set(),
+    )
+
+    assert coverage.groups_with_image_count == 0
+    assert coverage.groups_without_image == (0,)
+    assert coverage.groups_with_unknown_image == (0,)
+
+
 def test_dry_run_builds_deterministic_100_item_stratified_audit() -> None:
     groups = tuple(_group(order) for order in range(150))
     projection = RecoveryProjection(
@@ -72,9 +206,7 @@ def test_dry_run_builds_deterministic_100_item_stratified_audit() -> None:
         sample_size=100,
         origin_group_ids=affected,
     )
-    assert [item["derivedGroupOrder"] for item in affected_sample] == list(
-        range(25, 125)
-    )
+    assert [item["derivedGroupOrder"] for item in affected_sample] == list(range(25, 125))
 
 
 def test_owner_audit_requires_every_sample_and_zero_wrong_ranges(tmp_path: Path) -> None:

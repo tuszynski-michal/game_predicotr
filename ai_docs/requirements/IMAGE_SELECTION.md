@@ -676,3 +676,35 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   pierwszeństwo; konflikt dwóch decyzji użytkownika nadal blokuje dry-run.
 - V10.11 i jego fingerprint pozostają niezmienne oraz rozwiązywalne dla runów
   historycznych. Nowe wykonania używają osobnego manifestu v10.12.
+
+### Pełna liczność sekwencji v10.13 — 2026-08-14
+
+- Nowy run utworzony z folderu o ścisłej nazwie `pierwszy - ostatni` zapisuje
+  oba końce inkluzywnego przedziału. Pierwszy numer musi zgadzać się z kierunkiem
+  i wartością podaną przez operatora; niespójna nazwa kończy się jawnym błędem.
+- Liczba logicznych grup wynosi
+  `ceil((abs(last_sequence_number - first_sequence_number) + 1) / 9)`.
+  Każda pełna grupa obejmuje dziewięć kolejnych layoutów, a wyłącznie ostatnia
+  grupa może być krótsza.
+- Gotowy wynik musi mieć dokładnie jednego logicznego właściciela każdej pozycji
+  tej siatki. Dodatkowe fizyczne fragmenty mogą istnieć tylko jako
+  `skipped_existing_range` z odwołaniem do właściciela; luka, duplikat właściciela
+  albo zakres poza siatką blokują publikację.
+- Każdy logiczny właściciel musi wskazywać co najmniej jeden rzeczywisty JPEG
+  obecny w niezmiennym manifeście wejściowym. Grupa bez wybranego zdjęcia może
+  pozostać manualna tylko wtedy, gdy ma niepustą galerię review; pusta grupa albo
+  checksum spoza manifestu blokują dry-run i utworzenie recovery.
+- Istniejącej decyzji użytkownika nie wolno pominąć ani przenieść do innego
+  zakresu. Konflikt decyzji z pełnym przedziałem pozostaje fail-closed.
+- Historyczny fragment o dużej liczbie źródeł nie może zostać uznany za prosty
+  duplikat tylko po pozycji. Taki potencjalny false merge oraz automatyczny
+  zakres poza globalną siatką muszą ponownie przejść segmentację i wybór JPEG-a.
+- Pełna liczność może przypisać numer bez OCR dopiero po udowodnieniu ciągłej
+  projekcji i istnienia bezpiecznego reprezentanta. Rozmazanie, zasłonięcie,
+  błąd geometrii albo konflikt zakresu nadal kierują zdjęcie do review.
+  Kandydat z własnym rozpoznanym zakresem innym niż oczekiwany nie może zostać
+  automatycznie przepisany; algorytm wybiera zgodnego lub nierozstrzygniętego
+  reprezentanta, a przy ich braku pozostawia grupę manualną.
+- V10.12 oraz starsze fingerprinty pozostają niezmienne. V10.13 może ponownie
+  wykorzystać cache weryfikacji v10.12, ponieważ adapter obrazu i OCR nie uległ
+  zmianie; nowy wpis jest następnie zapisywany pod fingerprintem v10.13.

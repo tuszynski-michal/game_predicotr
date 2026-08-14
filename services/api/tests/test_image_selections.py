@@ -68,6 +68,7 @@ class MemoryImageSelectionRepository:
         selector_fingerprint: str,
         sequence_direction: ImageSelectionSequenceDirection,
         first_sequence_number: int | None,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         return next(
             (
@@ -79,6 +80,7 @@ class MemoryImageSelectionRepository:
                 and run.selector_fingerprint == selector_fingerprint
                 and run.sequence_direction is sequence_direction
                 and run.first_sequence_number == first_sequence_number
+                and run.last_sequence_number == last_sequence_number
             ),
             None,
         )
@@ -89,6 +91,7 @@ class MemoryImageSelectionRepository:
         source_run_id: UUID,
         selector_fingerprint: str,
         source_snapshot_sha256: str,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         return next(
             (
@@ -98,6 +101,7 @@ class MemoryImageSelectionRepository:
                 and run.source_run_id == source_run_id
                 and run.selector_fingerprint == selector_fingerprint
                 and run.source_snapshot_sha256 == source_snapshot_sha256
+                and run.last_sequence_number == last_sequence_number
             ),
             None,
         )
@@ -139,12 +143,14 @@ class MemoryImageSelectionRepository:
                 selector_fingerprint=run.selector_fingerprint,
                 sequence_direction=run.sequence_direction,
                 first_sequence_number=run.first_sequence_number,
+                last_sequence_number=run.last_sequence_number,
             )
             if run.execution_mode is ImageSelectionExecutionMode.FULL
             else self.find_recovery_run(
                 source_run_id=run.source_run_id or UUID(int=0),
                 selector_fingerprint=run.selector_fingerprint,
                 source_snapshot_sha256=run.source_snapshot_sha256 or "",
+                last_sequence_number=run.last_sequence_number,
             )
         )
         if existing is not None:
@@ -452,6 +458,7 @@ def test_create_run_is_idempotent_for_game_manifest_and_selector() -> None:
         "contract_version": 1,
         "sequence_direction": "ascending",
         "first_sequence_number": None,
+        "last_sequence_number": None,
         "execution_mode": "full",
         "source_run_id": None,
         "source_snapshot_sha256": None,
@@ -520,7 +527,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.12"
+    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.13"
     assert history.json()["items"][0]["sequenceRangeStart"] == 1
     assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
@@ -627,7 +634,7 @@ def test_range_recovery_preview_and_creation_are_snapshot_idempotent(
     assert preview["problemGroupCount"] == 1
     assert preview["candidateCount"] == 1
     assert preview["blockCount"] == 1
-    assert preview["selectorVersion"] == "fast-image-selector-v10.12"
+    assert preview["selectorVersion"] == "fast-image-selector-v10.13"
     assert first.status_code == 200, first.text
     assert repeated.status_code == 200, repeated.text
     assert first.json()["created"] is True

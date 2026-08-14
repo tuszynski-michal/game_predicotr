@@ -700,6 +700,45 @@ def test_job_isolates_one_bad_scan_and_publishes_bounded_diagnostics(
     assert b"photo2.jpg" not in diagnostic_content
 
 
+def test_job_enforces_declared_sequence_group_count_before_publication(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=3,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=9,
+    )
+    calls: list[int] = []
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=calls),
+            _Verifier(),
+        ),
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    logical_groups = tuple(
+        group
+        for group in store.groups
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    assert calls == [0, 1, 2]
+    assert len(logical_groups) == 1
+    assert logical_groups[0].range == SequenceRange(1, 9, 1.0)
+    assert store.published is not None
+
+
 def test_default_handler_resumes_a_persisted_v2_run_with_its_original_manifest(
     tmp_path: Path,
 ) -> None:

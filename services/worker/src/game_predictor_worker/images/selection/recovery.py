@@ -17,9 +17,11 @@ from .contracts import (
     SelectionGroupResult,
     SelectionGroupStatus,
     SelectorCheckpoint,
+    SequenceRange,
 )
 from .engine import FastImageSelector
-from .manifest import SelectorManifest
+from .manifest import CARDINALITY_GUARDED_SELECTOR_VERSION, SelectorManifest
+from .sequence_bounds import SequenceBounds
 
 _PROTECTED_USER_STATUSES = {
     SelectionGroupStatus.MANUALLY_SELECTED,
@@ -108,6 +110,16 @@ _FORBIDDEN_RECOVERY_RANGE_REASONS = frozenset(
         "RANGE_OWNER_ANCHOR",
     }
 )
+_CARDINALITY_RANGE_REASON = "RANGE_CARDINALITY_INFERRED"
+_CARDINALITY_BLOCKING_REASONS = frozenset(
+    {
+        "IMAGE_OCCLUDED",
+        "IMAGE_SELECTION_VERIFY_GEOMETRY_FAILED",
+        "QUALITY_BLUR",
+        "RANGE_CONFLICT",
+    }
+)
+_INFINITE_ASSIGNMENT_COST = 10**15
 
 
 def evaluate_recovery(
@@ -118,13 +130,28 @@ def evaluate_recovery(
     verifier: CandidateVerifier,
     sequence_direction: str,
     first_sequence_number: int,
+    last_sequence_number: int | None = None,
     scan_workers: int = 1,
     scan_prefetch: int | None = None,
     progress_callback: RecoveryProgressCallback | None = None,
 ) -> RecoveryEvaluation:
     """Rebuild unresolved blocks without persisting either source or projection."""
 
-    blocks = plan_recovery_blocks(source_groups)
+    bounds = (
+        None
+        if last_sequence_number is None
+        else SequenceBounds(
+            first_sequence_number,
+            last_sequence_number,
+            sequence_direction,
+        )
+    )
+    planned_source_groups = (
+        source_groups
+        if bounds is None
+        else prepare_source_groups_for_bounds(source_groups, bounds=bounds)
+    )
+    blocks = plan_recovery_blocks(planned_source_groups)
     if not blocks:
         raise SelectionContractError(
             "IMAGE_SELECTION_RECOVERY_NOT_REQUIRED",
@@ -158,7 +185,13 @@ def evaluate_recovery(
             restore_recovered_block(
                 block=block,
                 block_input=block_input,
-                groups=require_representative_range_evidence(local.groups),
+                groups=require_representative_range_evidence(
+                    local.groups,
+                    allow_exact_gap=(
+                        manifest.algorithm_version == CARDINALITY_GUARDED_SELECTOR_VERSION
+                        and bounds is not None
+                    ),
+                ),
                 observations=sink.observations,
             )
         )
@@ -176,8 +209,17 @@ def evaluate_recovery(
                     verification_count=verification_count,
                 )
             )
+    projection = assemble_recovery_projection(
+        planned_source_groups,
+        tuple(recovered),
+        reconcile_duplicates=bounds is None,
+    )
     return RecoveryEvaluation(
-        projection=assemble_recovery_projection(source_groups, tuple(recovered)),
+        projection=(
+            projection
+            if bounds is None
+            else reconcile_projection_to_sequence_bounds(projection, bounds=bounds)
+        ),
         block_count=len(prepared),
         candidate_count=candidate_count,
         scan_failure_count=scan_failure_count,
@@ -257,6 +299,359 @@ def plan_recovery_blocks(
         )
         for first, last in raw
     )
+
+
+def prepare_source_groups_for_bounds(
+    groups: tuple[RecoverySourceGroup, ...],
+    *,
+    bounds: SequenceBounds,
+) -> tuple[RecoverySourceGroup, ...]:
+    """Turn every cardinality or grid disagreement into an explicit rebuild input."""
+
+    assignment = _sequence_assignment(
+        tuple(group.result for group in groups),
+        bounds=bounds,
+    )
+    prepared: list[RecoverySourceGroup] = []
+    for source_group, slot in zip(groups, assignment, strict=True):
+        result = source_group.result
+        if slot is None:
+            prepared.append(
+                replace(
+                    source_group,
+                    result=replace(
+                        result,
+                        status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                        selected_candidate=None,
+                        top_candidates=(),
+                        duplicate_of_group_order=None,
+                    ),
+                )
+            )
+            continue
+        expected = bounds.range_for_group(slot)
+        if result.status in _PROTECTED_USER_STATUSES:
+            _require_expected_protected_range(result, expected)
+            prepared.append(source_group)
+            continue
+        if (
+            result.status is SelectionGroupStatus.AUTO_SELECTED
+            and _same_range(result.range, expected)
+            and result.selected_candidate is not None
+        ):
+            prepared.append(source_group)
+            continue
+        prepared.append(
+            replace(
+                source_group,
+                result=replace(
+                    result,
+                    range=None,
+                    status=SelectionGroupStatus.RANGE_REQUIRED,
+                    selected_candidate=_demote_candidate(result.selected_candidate),
+                    top_candidates=tuple(
+                        replace(
+                            candidate,
+                            decision=CandidateDecision.ELIGIBLE,
+                            recognized_range=None,
+                        )
+                        for candidate in result.top_candidates
+                    ),
+                    duplicate_of_group_order=None,
+                ),
+            )
+        )
+    return tuple(prepared)
+
+
+def reconcile_projection_to_sequence_bounds(
+    projection: RecoveryProjection,
+    *,
+    bounds: SequenceBounds,
+) -> RecoveryProjection:
+    """Enforce one logical owner for every group in the declared inclusive range."""
+
+    assignment = _sequence_assignment(projection.groups, bounds=bounds)
+    owner_order_by_slot = {
+        slot: group.group_order
+        for group, slot in zip(projection.groups, assignment, strict=True)
+        if slot is not None
+    }
+    normalized: list[SelectionGroupResult] = []
+    kept_before = 0
+    for group, slot in zip(projection.groups, assignment, strict=True):
+        if slot is not None:
+            normalized.append(
+                _assign_cardinality_range(
+                    group,
+                    expected=bounds.range_for_group(slot),
+                )
+            )
+            kept_before += 1
+            continue
+        recognized_slot = None if group.range is None else bounds.group_index_for_range(group.range)
+        owner_slot = (
+            recognized_slot
+            if recognized_slot in owner_order_by_slot
+            else min(max(kept_before - 1, 0), bounds.expected_group_count - 1)
+        )
+        owner_range = bounds.range_for_group(owner_slot)
+        normalized.append(
+            replace(
+                group,
+                range=owner_range,
+                status=SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+                selected_candidate=None,
+                top_candidates=(),
+                duplicate_of_group_order=owner_order_by_slot[owner_slot],
+            )
+        )
+
+    owners = tuple(
+        group
+        for group in normalized
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    if len(owners) != bounds.expected_group_count:
+        raise SelectionContractError(
+            "IMAGE_SELECTION_GROUP_CARDINALITY_MISMATCH",
+            "The recovered projection does not contain the expected number of groups.",
+        )
+    for index, group in enumerate(owners):
+        if not _same_range(group.range, bounds.range_for_group(index)):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_SEQUENCE_COVERAGE_MISMATCH",
+                "The recovered projection does not cover the complete sequence grid.",
+            )
+    return replace(projection, groups=tuple(normalized))
+
+
+def _sequence_assignment(
+    groups: tuple[SelectionGroupResult, ...],
+    *,
+    bounds: SequenceBounds,
+) -> tuple[int | None, ...]:
+    """Choose exactly N ordered owners while preserving hard user decisions."""
+
+    expected = bounds.expected_group_count
+    extra = len(groups) - expected
+    if extra < 0:
+        raise SelectionContractError(
+            "IMAGE_SELECTION_GROUP_CARDINALITY_UNDERFLOW",
+            "There are fewer detected image groups than the declared sequence requires.",
+        )
+    total_sources = sum(max(1, group.source_count) for group in groups)
+    max_skippable_sources = max(
+        2,
+        (2 * total_sources + expected - 1) // expected,
+    )
+    previous: list[float] = [float(_INFINITE_ASSIGNMENT_COST)] * (extra + 1)
+    previous[0] = 0.0
+    history: list[list[tuple[int, bool] | None]] = []
+    for physical_index, group in enumerate(groups):
+        current: list[float] = [float(_INFINITE_ASSIGNMENT_COST)] * (extra + 1)
+        back: list[tuple[int, bool] | None] = [None] * (extra + 1)
+        for skipped in range(min(physical_index, extra) + 1):
+            prior = previous[skipped]
+            if prior >= _INFINITE_ASSIGNMENT_COST:
+                continue
+            slot = physical_index - skipped
+            if slot < expected:
+                keep_cost = _keep_assignment_cost(
+                    group,
+                    expected=bounds.range_for_group(slot),
+                    slot=slot,
+                    bounds=bounds,
+                )
+                if prior + keep_cost < current[skipped]:
+                    current[skipped] = prior + keep_cost
+                    back[skipped] = (skipped, True)
+            if (
+                skipped < extra
+                and group.status not in _PROTECTED_USER_STATUSES
+                and group.source_count <= max_skippable_sources
+            ):
+                skip_cost = _skip_assignment_cost(group, max_skippable_sources)
+                if prior + skip_cost < current[skipped + 1]:
+                    current[skipped + 1] = prior + skip_cost
+                    back[skipped + 1] = (skipped, False)
+        previous = current
+        history.append(back)
+    if previous[extra] >= _INFINITE_ASSIGNMENT_COST:
+        raise SelectionContractError(
+            "IMAGE_SELECTION_GROUP_CARDINALITY_CONFLICT",
+            "The expected group count conflicts with protected decisions or merged groups.",
+        )
+
+    assignment: list[int | None] = [None] * len(groups)
+    skipped = extra
+    for physical_index in range(len(groups) - 1, -1, -1):
+        step = history[physical_index][skipped]
+        if step is None:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_GROUP_CARDINALITY_CONFLICT",
+                "The sequence assignment could not be reconstructed.",
+            )
+        prior_skipped, kept = step
+        if kept:
+            assignment[physical_index] = physical_index - skipped
+        skipped = prior_skipped
+    return tuple(assignment)
+
+
+def _keep_assignment_cost(
+    group: SelectionGroupResult,
+    *,
+    expected: SequenceRange,
+    slot: int,
+    bounds: SequenceBounds,
+) -> float:
+    if group.status in _PROTECTED_USER_STATUSES:
+        return 0.0 if _same_range(group.range, expected) else _INFINITE_ASSIGNMENT_COST
+    if group.range is None:
+        return 3.0
+    if _same_range(group.range, expected):
+        return 0.0
+    anchor = group.range.start if bounds.direction == "ascending" else group.range.end
+    delta = (
+        (anchor - bounds.first) / bounds.group_size
+        if bounds.direction == "ascending"
+        else (bounds.first - anchor) / bounds.group_size
+    )
+    return 2.0 + abs(delta - slot) * 3.0
+
+
+def _skip_assignment_cost(group: SelectionGroupResult, limit: int) -> float:
+    base = {
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE: 0.0,
+        SelectionGroupStatus.RANGE_REQUIRED: 12.0,
+        SelectionGroupStatus.AUTO_SELECTED: 30.0,
+    }.get(group.status, 40.0)
+    return base + max(1, group.source_count) / limit
+
+
+def _assign_cardinality_range(
+    group: SelectionGroupResult,
+    *,
+    expected: SequenceRange,
+) -> SelectionGroupResult:
+    if group.status in _PROTECTED_USER_STATUSES:
+        _require_expected_protected_range(group, expected)
+        return replace(group, duplicate_of_group_order=None)
+    if group.status in {
+        SelectionGroupStatus.SKIPPED_UNREADABLE,
+        SelectionGroupStatus.REJECTED_BY_USER,
+    }:
+        return replace(group, range=expected, duplicate_of_group_order=None)
+
+    candidate = _cardinality_candidate(group, expected=expected)
+    if candidate is None:
+        return replace(
+            group,
+            range=expected,
+            status=SelectionGroupStatus.MANUAL_REQUIRED,
+            selected_candidate=None,
+            duplicate_of_group_order=None,
+        )
+    selected = replace(
+        candidate,
+        decision=CandidateDecision.SELECTED_AUTOMATIC,
+        recognized_range=expected,
+        reason_codes=tuple(
+            dict.fromkeys(
+                (
+                    *(
+                        reason
+                        for reason in candidate.reason_codes
+                        if reason not in _FORBIDDEN_RECOVERY_RANGE_REASONS
+                    ),
+                    _CARDINALITY_RANGE_REASON,
+                )
+            )
+        ),
+    )
+    identity = (selected.source.order_index, selected.source.checksum_sha256)
+    top_candidates = tuple(
+        selected
+        if (candidate.source.order_index, candidate.source.checksum_sha256) == identity
+        else candidate
+        for candidate in group.top_candidates
+    )
+    if not any(
+        (candidate.source.order_index, candidate.source.checksum_sha256) == identity
+        for candidate in top_candidates
+    ):
+        top_candidates = (selected, *top_candidates)
+    return replace(
+        group,
+        range=expected,
+        status=SelectionGroupStatus.AUTO_SELECTED,
+        selected_candidate=selected,
+        top_candidates=top_candidates,
+        duplicate_of_group_order=None,
+    )
+
+
+def _cardinality_candidate(
+    group: SelectionGroupResult,
+    *,
+    expected: SequenceRange,
+) -> CandidateResult | None:
+    candidates = (
+        () if group.selected_candidate is None else (group.selected_candidate,)
+    ) + group.top_candidates
+    seen: set[tuple[int, str]] = set()
+    usable: list[CandidateResult] = []
+    for candidate in candidates:
+        identity = (candidate.source.order_index, candidate.source.checksum_sha256)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if candidate.decision is CandidateDecision.REJECTED:
+            continue
+        if candidate.recognized_range is not None and not _same_range(
+            candidate.recognized_range,
+            expected,
+        ):
+            continue
+        if any(
+            reason in _CARDINALITY_BLOCKING_REASONS or reason.startswith("IMAGE_SELECTION_SCAN_")
+            for reason in candidate.reason_codes
+        ):
+            continue
+        usable.append(candidate)
+    if not usable:
+        return None
+    return min(
+        usable,
+        key=lambda candidate: (
+            candidate.recognized_range is None,
+            -candidate.quality.overall_score,
+            candidate.source.order_index,
+            candidate.source.checksum_sha256,
+        ),
+    )
+
+
+def _demote_candidate(candidate: CandidateResult | None) -> CandidateResult | None:
+    if candidate is None:
+        return None
+    return replace(candidate, decision=CandidateDecision.ELIGIBLE, recognized_range=None)
+
+
+def _require_expected_protected_range(
+    group: SelectionGroupResult,
+    expected: SequenceRange,
+) -> None:
+    if not _same_range(group.range, expected):
+        raise SelectionContractError(
+            "IMAGE_SELECTION_PROTECTED_RANGE_CONFLICT",
+            "A protected user decision conflicts with the declared sequence bounds.",
+        )
+
+
+def _same_range(first: SequenceRange | None, second: SequenceRange) -> bool:
+    return first is not None and (first.start, first.end) == (second.start, second.end)
 
 
 def prepare_recovery_block(block: RecoveryBlock) -> RecoveryBlockInput:
@@ -358,6 +753,8 @@ def restore_recovered_block(
 
 def require_representative_range_evidence(
     groups: tuple[SelectionGroupResult, ...],
+    *,
+    allow_exact_gap: bool = False,
 ) -> tuple[SelectionGroupResult, ...]:
     """Fail closed when an automatic range was borrowed or inferred."""
 
@@ -372,8 +769,13 @@ def require_representative_range_evidence(
         selected_key = (
             None if selected_range is None else (selected_range.start, selected_range.end)
         )
+        forbidden_reasons = (
+            _FORBIDDEN_RECOVERY_RANGE_REASONS - {"RANGE_EXACT_GAP_INFERRED"}
+            if allow_exact_gap
+            else _FORBIDDEN_RECOVERY_RANGE_REASONS
+        )
         forbidden_reason = selected is not None and any(
-            reason in _FORBIDDEN_RECOVERY_RANGE_REASONS for reason in selected.reason_codes
+            reason in forbidden_reasons for reason in selected.reason_codes
         )
         if (
             selected is not None
@@ -428,6 +830,8 @@ def require_representative_range_evidence(
 def assemble_recovery_projection(
     source_groups: tuple[RecoverySourceGroup, ...],
     recovered_blocks: tuple[RecoveredBlock, ...],
+    *,
+    reconcile_duplicates: bool = True,
 ) -> RecoveryProjection:
     """Replace rebuilt intervals, preserve all other groups, and renumber once."""
 
@@ -493,7 +897,8 @@ def assemble_recovery_projection(
         if gallery:
             galleries[order] = gallery
         origins[order] = origin
-    groups = list(_reconcile_duplicate_output_ranges(tuple(groups)))
+    if reconcile_duplicates:
+        groups = list(_reconcile_duplicate_output_ranges(tuple(groups)))
     return RecoveryProjection(
         groups=tuple(groups),
         group_sources=galleries,
@@ -622,7 +1027,9 @@ __all__ = [
     "assemble_recovery_projection",
     "evaluate_recovery",
     "plan_recovery_blocks",
+    "prepare_source_groups_for_bounds",
     "prepare_recovery_block",
+    "reconcile_projection_to_sequence_bounds",
     "require_representative_range_evidence",
     "restore_recovered_block",
 ]

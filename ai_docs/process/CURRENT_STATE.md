@@ -73,8 +73,10 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   zakres `seq`, bez technicznego ID i statusu w etykiecie dropdownu.
 - TASK-0242 zachowuje `fast-image-selector-v10.11` o fingerprintcie
   `a3c3fcb1c36a1fe9e5a95b242aaa2d7d31ec067b28f1a16fe3f29ecb7318bc0c`
-  i wprowadza domyślny `fast-image-selector-v10.12` o fingerprintcie
+  oraz `fast-image-selector-v10.12` o fingerprintcie
   `d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727`
+  i wprowadza domyślny `fast-image-selector-v10.13` o fingerprintcie
+  `b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`
   oraz idempotentny run pochodny dla 748 historycznych grup
   `range_required`; naprawa nie ufa starym
   granicom ani reprezentantowi, lecz przebudowuje lokalne bloki z pełnej
@@ -94,7 +96,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 - run v10.10 `200557 - 222912` zakończył 42 422 / 42 422 w 14 823,171 s:
   3813 grup, 1967 wyników automatycznych, 512 manualnych, 1294 pominięte i zero
   błędów. Kontroler zatrzymał się naturalnie, stare API zostało zamknięte, a
-  baza jest na migracji `0042_image_selection_derived_recovery`,
+  baza jest na migracji `0043_image_selection_sequence_bounds`,
 - pełny dry-run v10.11 przeanalizował 748 grup, 32 079 JPEG-ów i 39 bloków w
   5350,894 s bez zmiany snapshotu źródła. Wynik 1880 automatycznych, 5
   `range_confirmed`, 283 `range_required` i 127 `skipped_existing_range` nie
@@ -106,12 +108,29 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   wymagający zgodności dwóch różnych checksum i globalnie uzgadnia duplikaty
   zakresów pomiędzy lokalnymi blokami. Konflikty i pojedynczy JPEG pozostają
   fail-closed,
-- walidacja bieżącego v10.12 przeszła 696 testów w pełnym przebiegu workera;
+- walidacja v10.12 przeszła 696 testów w pełnym przebiegu workera;
   jedyny niezależny test HTTP przerwany chwilowym `WinError 10053` przeszedł
   `1/1` przy natychmiastowej powtórce. Przeszły też 332 wykonane testy API (24
   świadomie pominięte), 198 testów Admina, skupiony Ruff/mypy, kontrola OpenAPI,
-  ESLint i typecheck Admina. Po commicie należy wykonać pełny dry-run v10.12,
-  audyt właściciela i dopiero wtedy utworzyć run pochodny.
+  ESLint i typecheck Admina,
+- analiza liczności ujawniła, że źródło `1–19809` ma 2295 fizycznych fragmentów,
+  lecz v10.12 zachowywał tylko 2167 logicznych właścicieli zamiast wymaganych
+  2201. V10.13 zapisuje inkluzywny koniec sekwencji, wylicza grupy jako
+  `ceil((abs(last-first)+1)/9)` i uzgadnia pełną projekcję z ciągłą siatką;
+  decyzje użytkownika są twardymi ograniczeniami, a duże false merge wracają do
+  segmentacji,
+- ostateczny dry-run v10.13 na 32 079 zachowanych JPEG-ach zakończył 50 bloków
+  oraz 24 684 kandydatów bez błędów skanu i problemów strukturalnych. Projekcja
+  ma 2298 fizycznych fragmentów: 2181 automatycznych, 15 manualnych, 5 wcześniej
+  potwierdzonych i 97 duplikatów, czyli dokładnie 2201 logicznych właścicieli.
+  Nie pozostał żaden `range_required`; automatyczne bramki przeszły. Powtórka z
+  7840/7840 trafieniami cache trwała 105,395 s,
+- twarda bramka pokrycia potwierdziła, że wszystkie `2201/2201` logiczne grupy
+  mają co najmniej jeden rzeczywisty JPEG z manifestu 32 079 plików; liczba grup
+  pustych oraz referencji spoza manifestu wynosi zero,
+- `readyForRecoveryCreation=false` wynika już tylko z oczekującego audytu
+  właściciela na deterministycznej próbie 100 wyników. Kolejka i utworzenie runu
+  pochodnego pozostają wstrzymane do audytu z zerem błędnych zakresów.
 
 ### Wersja 0.1
 

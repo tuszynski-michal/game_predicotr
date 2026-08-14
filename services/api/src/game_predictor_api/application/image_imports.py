@@ -21,6 +21,10 @@ from game_predictor_worker.images.pipeline_contract import (
     current_pipeline_manifest,
     pipeline_fingerprint,
 )
+from game_predictor_worker.images.selection.contracts import SelectionContractError
+from game_predictor_worker.images.selection.sequence_bounds import (
+    parse_sequence_bounds_display_name,
+)
 
 from game_predictor_api.application.image_selections import ImageSelectionService
 from game_predictor_api.application.jobs import JobService
@@ -324,6 +328,18 @@ class ImageFolderSelectionService:
                 "IMAGE_FOLDER_SELECTION_CHANGED",
                 "The selected image folder no longer resolves to the approved path.",
             )
+        try:
+            bounds = (
+                None
+                if first_sequence_number is None
+                else parse_sequence_bounds_display_name(
+                    selected.display_name,
+                    first_sequence_number=first_sequence_number,
+                    direction=sequence_direction.value,
+                )
+            )
+        except SelectionContractError as error:
+            raise JobError(error.code, str(error)) from error
         run, created = image_selection_service.create_run(
             game_id=game_id,
             source_selection_id=selected.selection_id,
@@ -331,6 +347,7 @@ class ImageFolderSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=sequence_direction,
             first_sequence_number=first_sequence_number,
+            last_sequence_number=None if bounds is None else bounds.last,
         )
         with self._lock:
             self._selections.pop(selection_token, None)

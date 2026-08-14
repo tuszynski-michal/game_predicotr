@@ -1048,6 +1048,50 @@ V10.12 ma osobny manifest i fingerprint
 Cache taniego skanu pozostaje współdzielony, a cache pełnej weryfikacji jest
 izolowany fingerprintem. Resolver i fingerprint v10.11 pozostają niezmienne.
 
+## Uzgadnianie pełnej liczności v10.13
+
+`SequenceBounds` modeluje inkluzywny przedział, kierunek i stały rozmiar grupy
+równy dziewięć. Liczba oczekiwanych grup jest zaokrąglana w górę, dzięki czemu
+przedział `229913–248184` ma 2031 grup, z ostatnią `248183–248184`. API zapisuje
+`last_sequence_number` w runie i payloadzie joba; migracja 0043 rozszerza nim
+również klucze idempotencji pełnego runu i recovery. Historyczne runy zachowują
+wartość zerową i wymagają jawnego końca przy pierwszej naprawie.
+
+Przed recovery algorytm rozwiązuje monotoniczne przypisanie 2295 fizycznych
+fragmentów do 2201 pozycji siatki. Programowanie dynamiczne ma dokładnie dwie
+operacje: zachowanie fragmentu jako kolejnego właściciela albo pominięcie go
+jako duplikatu. Liczba pominięć jest z góry wyznaczona przez różnicę liczności.
+Chroniona decyzja użytkownika może tylko pozostać właścicielem swojego dokładnego
+zakresu. Koszt preferuje istniejący zgodny zakres oraz dotychczasowy duplikat;
+duży fragment nie jest pomijalny, ponieważ może zawierać false merge.
+
+Fragment zachowany na innej pozycji niż jego poprzedni automatyczny zakres oraz
+wcześniej nadmiarowo pominięty fragment stają się wejściem `range_required`.
+Recovery ponownie analizuje ich kandydatów, wyznacza granice i reprezentanta.
+Po złożeniu bloków ten sam typ przypisania działa jako końcowy reconciler:
+ustawia dokładne zakresy siatki, wiąże każdy nadmiarowy fragment z właścicielem
+i sprawdza liczbę oraz ciągłość wszystkich właścicieli.
+
+Operatorski dry-run wykonuje dodatkową bramkę pokrycia obrazami. Dla grup
+przebudowanych źródłem dowodu jest wybrany kandydat, lista kandydatów albo
+odtworzona galeria; dla grup nietkniętych wolno użyć zachowanej galerii grupy
+źródłowej. Checksum każdego dowodu musi występować w manifeście stagingu.
+`skipped_existing_range` nie jest osobnym logicznym właścicielem. Raport zapisuje
+liczbę właścicieli ze zdjęciem, grup pustych i referencji spoza manifestu.
+
+Powód `RANGE_CARDINALITY_INFERRED` oznacza, że numer wynika z udowodnionej
+pozycji w kompletnej sekwencji, a nie z pojedynczego OCR. Nie omija on bramek
+jakości reprezentanta: konflikt, rozmycie, zasłonięcie i błąd geometrii
+pozostają manualne. Własny rozpoznany zakres kandydata musi być zgodny z
+oczekiwanym; zakresu sprzecznego nie wolno nadpisać inferencją liczności. Pełny
+run wykonuje końcowe uzgodnienie przed review i eksportem; recovery stosuje je
+po globalnym złożeniu przebudowanych bloków.
+
+V10.13 zachowuje adaptery obrazu oraz OCR v10.12, ma jednak osobny manifest i
+fingerprint `b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`.
+Cache może odczytać zgodny wynik weryfikacji v10.12 i promować go pod nowy klucz;
+telemetria raportuje takie trafienia osobno.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

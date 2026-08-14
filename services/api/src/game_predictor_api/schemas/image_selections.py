@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from game_predictor_worker.images.selection.manifest import selector_manifest_for_fingerprint
+from game_predictor_worker.images.selection.sequence_bounds import SequenceBounds
 from pydantic import Field
 
 from game_predictor_api.application.image_selections import ImageSelectionRecoveryPreview
@@ -57,6 +58,8 @@ class ImageSelectionRunResponse(ApiModel):
     updated_at: datetime
     sequence_direction: ImageSelectionSequenceDirection
     first_sequence_number: int | None = Field(default=None, ge=1)
+    last_sequence_number: int | None = Field(default=None, ge=1)
+    expected_group_count: int | None = Field(default=None, ge=1)
     sequence_range_start: int | None = Field(default=None, ge=1)
     sequence_range_end: int | None = Field(default=None, ge=1)
     execution_mode: ImageSelectionExecutionMode
@@ -71,6 +74,7 @@ class ImageSelectionCreateResponse(ApiModel):
 
 class ImageSelectionRecoveryCommand(ApiModel):
     expected_source_snapshot_sha256: Sha256
+    last_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class ImageSelectionRecoveryPreviewResponse(ApiModel):
@@ -229,6 +233,15 @@ def to_image_selection_run_response(
     sequence_range: tuple[int, int] | None = None,
 ) -> ImageSelectionRunResponse:
     selector_manifest = selector_manifest_for_fingerprint(run.selector_fingerprint)
+    bounds = (
+        None
+        if run.first_sequence_number is None or run.last_sequence_number is None
+        else SequenceBounds(
+            run.first_sequence_number,
+            run.last_sequence_number,
+            run.sequence_direction.value,
+        )
+    )
     return ImageSelectionRunResponse(
         id=run.id,
         game_id=run.game_id,
@@ -247,6 +260,8 @@ def to_image_selection_run_response(
         updated_at=run.updated_at,
         sequence_direction=run.sequence_direction,
         first_sequence_number=run.first_sequence_number,
+        last_sequence_number=run.last_sequence_number,
+        expected_group_count=None if bounds is None else bounds.expected_group_count,
         sequence_range_start=None if sequence_range is None else sequence_range[0],
         sequence_range_end=None if sequence_range is None else sequence_range[1],
         execution_mode=run.execution_mode,

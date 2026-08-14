@@ -4449,6 +4449,37 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza D-181 i D-182 dla v10.12 bez osłabienia zakazu
   rozstrzygania z kursora lub pojedynczego JPEG-a.
 
+## D-184 — Pełne granice sekwencji wyznaczają dokładną liczbę grup
+
+- **Status:** accepted
+- **Date:** 2026-08-14
+- **Decision:** v10.13 zapisuje inkluzywne `first_sequence_number` i
+  `last_sequence_number`, a następnie wymaga dokładnie
+  `ceil((abs(last-first)+1)/9)` logicznych właścicieli w ciągłej siatce.
+  Nadmiarowe fizyczne fragmenty są jawnymi duplikatami właściciela. Chronione
+  decyzje użytkownika są twardymi ograniczeniami, a potencjalny false merge nie
+  może zostać pominięty bez ponownej segmentacji.
+- **Context:** źródłowy run `1–19809` ma 2295 fizycznych fragmentów. V10.12
+  oznaczył 128 jako `skipped_existing_range`, pozostawiając 2167 właścicieli,
+  chociaż inkluzywny zakres wymaga 2201. Odrzucono więc o 34 fragmenty za dużo;
+  występowały też duże pominięte grupy i automatyczne zakresy przesunięte
+  względem globalnej siatki modulo 9.
+- **Reason:** sam OCR potwierdza treść widocznego JPEG-a, ale nie dowodzi
+  kompletności całej projekcji. Znane granice folderu dostarczają niezależnego,
+  deterministycznego inwariantu liczności i pozwalają wykryć false split,
+  false merge oraz nadmiarowe odrzucenie.
+- **Alternatives:** samo policzenie statusów po zakończeniu odrzucono, bo nie
+  naprawia wyniku; sekwencyjne przepisanie numerów bez ponownej segmentacji
+  odrzucono, bo utrwala błędne granice i reprezentantów; wymaganie wielokrotności
+  dziewięciu odrzucono, ponieważ ostatnia grupa legalnie może być krótsza.
+- **Consequences:** migracja 0043 dodaje koniec sekwencji i rozszerza klucze
+  idempotencji. Folder o ścisłej nazwie `pierwszy - ostatni` ustawia granice
+  automatycznie. Pełny run oraz recovery wykonują końcowe uzgodnienie przed
+  publikacją. V10.12 pozostaje odtwarzalne, a cache jego identycznej weryfikacji
+  obrazu może zostać użyty przez v10.13.
+- **Supersedes:** rozszerza D-182 i D-183 o globalny inwariant kompletności;
+  nie osłabia ochrony decyzji użytkownika ani bramek jakości reprezentanta.
+
 ## Szablon nowej decyzji
 
 ```text

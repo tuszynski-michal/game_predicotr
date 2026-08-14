@@ -19,8 +19,14 @@ from game_predictor_worker.images.selection.recovery import (
     assemble_recovery_projection,
     plan_recovery_blocks,
     prepare_recovery_block,
+    prepare_source_groups_for_bounds,
+    reconcile_projection_to_sequence_bounds,
     require_representative_range_evidence,
     restore_recovered_block,
+)
+from game_predictor_worker.images.selection.sequence_bounds import (
+    SequenceBounds,
+    parse_sequence_bounds_display_name,
 )
 
 QUALITY = ImageQualityMetrics(*(0.8 for _ in range(8)))
@@ -310,3 +316,137 @@ def test_recovery_keeps_exact_ocr_backed_representative() -> None:
     )
 
     assert require_representative_range_evidence((group,)) == (group,)
+
+
+def test_sequence_bounds_count_inclusive_groups_and_keep_partial_tail() -> None:
+    bounds = SequenceBounds(229_913, 248_184)
+
+    assert bounds.sequence_count == 18_272
+    assert bounds.expected_group_count == 2_031
+    assert bounds.range_for_group(0) == SequenceRange(229_913, 229_921, 1.0)
+    assert bounds.range_for_group(2_030) == SequenceRange(248_183, 248_184, 1.0)
+    assert (
+        parse_sequence_bounds_display_name(
+            "229913 - 248184",
+            first_sequence_number=229_913,
+            direction="ascending",
+        )
+        == bounds
+    )
+
+
+def test_cardinality_plan_restores_over_rejected_group_and_rebuilds_wrong_grid() -> None:
+    bounds = SequenceBounds(1, 27)
+    groups = (
+        _group_with_range(0, SelectionGroupStatus.AUTO_SELECTED, SequenceRange(1, 9, 0.9)),
+        _group_with_range(
+            1,
+            SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+            SequenceRange(1, 9, 0.9),
+        ),
+        _group_with_range(
+            2,
+            SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+            SequenceRange(10, 18, 0.9),
+        ),
+        _group_with_range(3, SelectionGroupStatus.AUTO_SELECTED, SequenceRange(11, 19, 0.9)),
+    )
+
+    prepared = prepare_source_groups_for_bounds(groups, bounds=bounds)
+
+    assert [group.result.status for group in prepared] == [
+        SelectionGroupStatus.AUTO_SELECTED,
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+        SelectionGroupStatus.RANGE_REQUIRED,
+        SelectionGroupStatus.RANGE_REQUIRED,
+    ]
+
+
+def test_cardinality_projection_has_exact_continuous_owner_grid() -> None:
+    bounds = SequenceBounds(1, 27)
+    groups = (
+        _group_with_range(0, SelectionGroupStatus.AUTO_SELECTED, SequenceRange(1, 9, 0.9)),
+        _group_with_range(1, SelectionGroupStatus.AUTO_SELECTED, SequenceRange(1, 9, 0.9)),
+        _group(2, SelectionGroupStatus.RANGE_REQUIRED, (_source(2),)),
+        _group_with_range(3, SelectionGroupStatus.AUTO_SELECTED, SequenceRange(19, 27, 0.9)),
+    )
+    projection = assemble_recovery_projection(groups, (), reconcile_duplicates=False)
+
+    reconciled = reconcile_projection_to_sequence_bounds(projection, bounds=bounds)
+
+    owners = tuple(
+        group
+        for group in reconciled.groups
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    assert len(owners) == 3
+    assert [(group.range.start, group.range.end) for group in owners if group.range] == [
+        (1, 9),
+        (10, 18),
+        (19, 27),
+    ]
+    assert [group.status for group in owners] == [
+        SelectionGroupStatus.AUTO_SELECTED,
+        SelectionGroupStatus.MANUAL_REQUIRED,
+        SelectionGroupStatus.AUTO_SELECTED,
+    ]
+    assert (
+        sum(
+            group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+            for group in reconciled.groups
+        )
+        == 1
+    )
+
+
+def test_cardinality_projection_never_overwrites_conflicting_candidate_range() -> None:
+    wrong = replace(
+        _candidate(_source(0)),
+        recognized_range=SequenceRange(10, 18, 0.99),
+    )
+    unknown = _candidate(_source(1))
+    source_group = _group(0, SelectionGroupStatus.RANGE_REQUIRED, (_source(0), _source(1)))
+    source_group = replace(
+        source_group,
+        result=replace(
+            source_group.result,
+            selected_candidate=wrong,
+            top_candidates=(wrong, unknown),
+        ),
+    )
+    projection = assemble_recovery_projection(
+        (source_group,),
+        (),
+        reconcile_duplicates=False,
+    )
+
+    reconciled = reconcile_projection_to_sequence_bounds(
+        projection,
+        bounds=SequenceBounds(1, 9),
+    )
+
+    selected = reconciled.groups[0].selected_candidate
+    assert selected is not None
+    assert selected.source.order_index == 1
+    assert selected.recognized_range == SequenceRange(1, 9, 1.0)
+
+
+def test_cardinality_projection_preserves_complete_user_decision() -> None:
+    decided_range = SequenceRange(1, 9, 0.77)
+    source_group = _group_with_range(
+        0,
+        SelectionGroupStatus.MANUALLY_SELECTED,
+        decided_range,
+    )
+    projection = assemble_recovery_projection(
+        (source_group,),
+        (),
+        reconcile_duplicates=False,
+    )
+
+    reconciled = reconcile_projection_to_sequence_bounds(
+        projection,
+        bounds=SequenceBounds(1, 9),
+    )
+
+    assert reconciled.groups[0] == source_group.result

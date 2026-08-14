@@ -101,6 +101,7 @@ class ImageSelectionRun:
     updated_at: datetime
     sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
     first_sequence_number: int | None = None
+    last_sequence_number: int | None = None
     execution_mode: ImageSelectionExecutionMode = ImageSelectionExecutionMode.FULL
     source_run_id: UUID | None = None
     source_snapshot_sha256: str | None = None
@@ -170,6 +171,7 @@ def create_image_selection_run(
         ImageSelectionSequenceDirection.ASCENDING
     ),
     first_sequence_number: int | None = None,
+    last_sequence_number: int | None = None,
     execution_mode: ImageSelectionExecutionMode = ImageSelectionExecutionMode.FULL,
     source_run_id: UUID | None = None,
     source_snapshot_sha256: str | None = None,
@@ -187,6 +189,29 @@ def create_image_selection_run(
             "IMAGE_SELECTION_CONFIGURATION_INVALID",
             "The optional first sequence number must be positive.",
         )
+    if last_sequence_number is not None and last_sequence_number < 1:
+        raise ImageSelectionError(
+            "IMAGE_SELECTION_CONFIGURATION_INVALID",
+            "The optional last sequence number must be positive.",
+        )
+    if last_sequence_number is not None and first_sequence_number is None:
+        _configuration_error("A last sequence number requires the first sequence number.")
+    bounds_out_of_order = (
+        first_sequence_number is not None
+        and last_sequence_number is not None
+        and (
+            (
+                sequence_direction is ImageSelectionSequenceDirection.ASCENDING
+                and last_sequence_number < first_sequence_number
+            )
+            or (
+                sequence_direction is ImageSelectionSequenceDirection.DESCENDING
+                and last_sequence_number > first_sequence_number
+            )
+        )
+    )
+    if bounds_out_of_order:
+        _configuration_error("Sequence bounds must follow the selected direction.")
     if execution_mode is ImageSelectionExecutionMode.FULL:
         if source_run_id is not None or source_snapshot_sha256 is not None:
             _configuration_error("A full image-selection run cannot reference a source run.")
@@ -210,6 +235,7 @@ def create_image_selection_run(
             "contract_version": IMAGE_SELECTION_CONTRACT_VERSION,
             "sequence_direction": sequence_direction.value,
             "first_sequence_number": first_sequence_number,
+            "last_sequence_number": last_sequence_number,
             "execution_mode": execution_mode.value,
             "source_run_id": None if source_run_id is None else str(source_run_id),
             "source_snapshot_sha256": recovery_snapshot,
@@ -231,6 +257,7 @@ def create_image_selection_run(
         updated_at=now,
         sequence_direction=sequence_direction,
         first_sequence_number=first_sequence_number,
+        last_sequence_number=last_sequence_number,
         execution_mode=execution_mode,
         source_run_id=source_run_id,
         source_snapshot_sha256=recovery_snapshot,

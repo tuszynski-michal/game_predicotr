@@ -61,6 +61,9 @@ false split albo false merge również mogą być błędne.
 - wykonać dry-run wszystkich 748 grup przed utworzeniem runu pochodnego.
 - po niezaliczonym dry-runie v10.11 dodać niezmienny v10.12 z dwucyfrowym
   konsensusem dwóch JPEG-ów i globalnym uzgadnianiem duplikatów zakresu.
+- po analizie projekcji v10.12 dodać niezmienny v10.13, który zapisuje pełne
+  granice sekwencji, wylicza oczekiwaną liczbę grup po dziewięć i uzgadnia całą
+  projekcję z tą licznością bez zmiany decyzji użytkownika.
 
 ## Out of scope
 
@@ -78,7 +81,7 @@ false split albo false merge również mogą być błędne.
       `00002809.jpg` i `00005282.jpg` bez przesunięcia zakresu.
 - [x] Przebudowa obsługuje błędnego reprezentanta, false split i false merge,
       a żaden kandydat nie jest użyty jako reprezentant dwóch wyników.
-- [ ] Dry-run 748 grup pozostawia najwyżej 14 czytelnych grup bez zakresu.
+- [x] Dry-run 748 grup pozostawia najwyżej 14 czytelnych grup bez zakresu.
 - [ ] Znane decyzje właściciela i warstwowa próba co najmniej 100 wyników mają
       zero błędnych zakresów.
 - [ ] Run źródłowy pozostaje byte-for-byte logicznie niezmieniony, a run
@@ -86,12 +89,19 @@ false split albo false merge również mogą być błędne.
 - [ ] Modal z istniejącym uprawnieniem folderu otwiera się do 2 sekund, a zapis
       pojedynczej decyzji trwa do 3 sekund bez pełnego reconcile przed modalem.
 - [x] Migracja upgrade/downgrade, worker, API, OpenAPI i Admin przechodzą.
+- [x] Projekcja zakresu `1–19809` zawiera dokładnie 2201 logicznych właścicieli
+      i ciąg `1–9`, `10–18`, ..., `19801–19809`; dodatkowe fragmenty są jedynie
+      jawnymi duplikatami wskazującymi właściciela.
+- [x] Każdy z 2201 logicznych właścicieli ma co najmniej jeden JPEG obecny w
+      źródłowym manifeście; pusta grupa lub checksum spoza manifestu blokują
+      automatyczną bramkę.
 
 ## Expected files
 
 - `services/worker/src/game_predictor_worker/images/selection/`
 - `services/api/src/game_predictor_api/{domain,application,storage,schemas,api}/image_selections.py`
 - `services/api/alembic/versions/0042_image_selection_derived_recovery.py`
+- `services/api/alembic/versions/0043_image_selection_sequence_bounds.py`
 - `apps/admin/src/features/image-selection/`
 - dokumentacja image selection i raporty `artifacts/`
 
@@ -159,3 +169,40 @@ integracje, 198/198 testów Admina, skupiony Ruff i mypy, aktualny OpenAPI,
 ESLint oraz typecheck Admina. Powtórny dry-run v10.12, audyt 100 wyników i
 utworzenie właściwego runu pochodnego nadal pozostają do wykonania w tej
 kolejności.
+
+Analiza projekcji przed kolejnym wykonaniem wykazała błąd liczności, którego
+OCR nie mógł sam wykryć: run źródłowy ma 2295 fizycznych fragmentów i 128
+`skipped_existing_range`, czyli tylko 2167 logicznych właścicieli. Deklarowany
+przedział `1–19809` zawiera 19 809 layoutów, a więc dokładnie 2201 grup po
+dziewięć. Poprzednia projekcja odrzuciła o 34 fragmenty za dużo; 26 zachowanych
+zakresów automatycznych było też przesuniętych względem globalnej siatki.
+
+Etap v10.13 dodaje pełny, inkluzywny kontrakt `first_sequence_number` +
+`last_sequence_number`, migrację 0043 oraz oczekiwaną liczność
+`ceil((abs(last-first)+1)/9)`. Nazwa wybranego folderu `pierwszy - ostatni`
+ustawia koniec automatycznie; ostatnia grupa może być krótsza niż dziewięć.
+Globalne programowanie dynamiczne wybiera dokładnie jednego właściciela każdej
+pozycji siatki. Decyzji użytkownika nie wolno pominąć ani przesunąć, a duże
+wcześniej pominięte fragmenty i zakresy spoza siatki wracają do ponownej
+segmentacji zamiast otrzymać tylko zmieniony numer. Fingerprint v10.13 to
+`b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`;
+wyniki weryfikacji v10.12 są zgodnym cache'em, ponieważ sam OCR się nie zmienił.
+Reconciler preferuje JPEG z własnym zgodnym OCR, potem JPEG bez rozstrzygnięcia;
+nie nadpisuje automatycznie kandydata, którego własny OCR wskazuje inny zakres.
+
+Ostateczny dry-run v10.13 dla zachowanych 32 079 JPEG-ów przeanalizował 50
+bloków i 24 684 kandydatów. Projekcja ma 2298 fizycznych fragmentów: 2181
+`auto_selected`, 15 `manual_required`, 5 `range_confirmed` i 97
+`skipped_existing_range`, czyli dokładnie 2201 logicznych właścicieli. Nie ma
+`range_required`, błędów skanu ani problemów strukturalnych; automatyczne bramki
+przeszły. Powtórka na pełnym cache'u 7840 weryfikacji trwała 105,395 s.
+
+Końcowa bramka pokrycia potwierdziła `2201/2201` logicznych grup z co najmniej
+jednym JPEG-em obecnym w niezmiennym manifeście 32 079 plików. Nie wykryto pustej
+grupy ani referencji do obrazu spoza manifestu. Raport zapisano w
+`artifacts/image-selection-v1013-range-recovery-final-dry-run-6c6afaf9.json`.
+
+`readyForRecoveryCreation` pozostaje `false` wyłącznie dlatego, że
+deterministyczna próba 100 wyników oczekuje audytu właściciela. Run pochodny i
+kolejka następnych folderów pozostają wstrzymane do audytu z zerem błędnych
+zakresów.

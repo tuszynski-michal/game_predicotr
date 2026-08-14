@@ -178,9 +178,7 @@ def create_image_selections_router(
         run_id: UUID,
         service: Annotated[ImageSelectionService, service_parameter],
     ) -> ImageSelectionRecoveryPreviewResponse:
-        return to_image_selection_recovery_preview_response(
-            service.preview_range_recovery(run_id)
-        )
+        return to_image_selection_recovery_preview_response(service.preview_range_recovery(run_id))
 
     @router.post(
         "/{run_id}/recover-ranges",
@@ -197,6 +195,7 @@ def create_image_selections_router(
         run, created, preview = service.recover_ranges(
             run_id=run_id,
             expected_source_snapshot_sha256=payload.expected_source_snapshot_sha256,
+            last_sequence_number=payload.last_sequence_number,
         )
         return ImageSelectionRecoveryCreateResponse(
             run=to_image_selection_run_response(

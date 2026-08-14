@@ -2781,6 +2781,18 @@
             "title": "Inputmanifestsha256",
             "type": "string"
           },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
+          },
           "schemaVersion": {
             "const": 1,
             "default": 1,
@@ -3358,6 +3370,18 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Expectedsourcesnapshotsha256",
             "type": "string"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
           }
         },
         "required": [
@@ -3505,6 +3529,18 @@
           "executionMode": {
             "$ref": "#/components/schemas/ImageSelectionExecutionMode"
           },
+          "expectedGroupCount": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedgroupcount"
+          },
           "firstSequenceNumber": {
             "anyOf": [
               {
@@ -3534,6 +3570,18 @@
           },
           "job": {
             "$ref": "#/components/schemas/JobResponse"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
           },
           "orderingPolicy": {
             "pattern": "^natural_relative_path_v1$",

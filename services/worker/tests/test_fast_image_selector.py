@@ -42,6 +42,7 @@ from game_predictor_worker.images.selection.manifest import (
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
+    CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
     CENTER_FIRST_SELECTOR_MANIFEST_V106,
     COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102,
     CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103,
@@ -480,20 +481,24 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_12_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_13_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.12"
+    assert DEFAULT_SELECTOR_MANIFEST is CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.13"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "d1f482ef3b52f62d478e9bcd3c06777d0e62eb118bb639a854fbb2cb594b0727"
+        == "b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013
+    )
+    assert (
+        selector_manifest_for_fingerprint(TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint)
         is TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012
     )
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy is not None

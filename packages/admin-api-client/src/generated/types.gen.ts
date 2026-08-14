@@ -1679,6 +1679,10 @@ export type ImageSelectionJobPayload = {
    */
   inputManifestSha256: string;
   /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber?: number | null;
+  /**
    * Schemaversion
    */
   schemaVersion?: 1;
@@ -1985,6 +1989,10 @@ export type ImageSelectionRecoveryCommand = {
    * Expectedsourcesnapshotsha256
    */
   expectedSourceSnapshotSha256: string;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber?: number | null;
 };
 
 /**
@@ -2071,6 +2079,10 @@ export type ImageSelectionRunResponse = {
   createdAt: string;
   executionMode: ImageSelectionExecutionMode;
   /**
+   * Expectedgroupcount
+   */
+  expectedGroupCount?: number | null;
+  /**
    * Firstsequencenumber
    */
   firstSequenceNumber?: number | null;
@@ -2087,6 +2099,10 @@ export type ImageSelectionRunResponse = {
    */
   inputManifestSha256: string;
   job: JobResponse;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber?: number | null;
   /**
    * Orderingpolicy
    */

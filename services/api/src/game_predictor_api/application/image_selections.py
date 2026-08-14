@@ -275,6 +275,7 @@ class ImageSelectionRepository(Protocol):
         selector_fingerprint: str,
         sequence_direction: ImageSelectionSequenceDirection,
         first_sequence_number: int | None,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None: ...
 
     def find_recovery_run(
@@ -283,6 +284,7 @@ class ImageSelectionRepository(Protocol):
         source_run_id: UUID,
         selector_fingerprint: str,
         source_snapshot_sha256: str,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None: ...
 
     def recovery_snapshot(self, run_id: UUID) -> tuple[str, int, int, int]: ...
@@ -392,6 +394,7 @@ class ImageSelectionService:
             ImageSelectionSequenceDirection.ASCENDING
         ),
         first_sequence_number: int | None = None,
+        last_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         if not self._repository.game_exists(game_id):
             raise ImageSelectionNotFoundError(
@@ -405,6 +408,7 @@ class ImageSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=sequence_direction,
             first_sequence_number=first_sequence_number,
+            last_sequence_number=last_sequence_number,
         )
         if existing is not None:
             return existing, False
@@ -415,6 +419,7 @@ class ImageSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=sequence_direction,
             first_sequence_number=first_sequence_number,
+            last_sequence_number=last_sequence_number,
         )
         return self._repository.add_run(run)
 
@@ -472,6 +477,7 @@ class ImageSelectionService:
         *,
         run_id: UUID,
         expected_source_snapshot_sha256: str,
+        last_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool, ImageSelectionRecoveryPreview]:
         preview = self.preview_range_recovery(run_id)
         if expected_source_snapshot_sha256 != preview.source_snapshot_sha256:
@@ -480,14 +486,18 @@ class ImageSelectionService:
                 "The source run changed after the recovery preview.",
                 details={"sourceSnapshotSha256": preview.source_snapshot_sha256},
             )
+        source = self.get_run(run_id)
+        effective_last_sequence_number = (
+            source.last_sequence_number if last_sequence_number is None else last_sequence_number
+        )
         existing = self._repository.find_recovery_run(
             source_run_id=run_id,
             selector_fingerprint=preview.selector_fingerprint,
             source_snapshot_sha256=preview.source_snapshot_sha256,
+            last_sequence_number=effective_last_sequence_number,
         )
         if existing is not None:
             return existing, False, preview
-        source = self.get_run(run_id)
         derived = create_image_selection_run(
             game_id=source.game_id,
             source_selection_id=source.source_selection_id,
@@ -495,6 +505,7 @@ class ImageSelectionService:
             selector_fingerprint=preview.selector_fingerprint,
             sequence_direction=source.sequence_direction,
             first_sequence_number=source.first_sequence_number,
+            last_sequence_number=effective_last_sequence_number,
             execution_mode=ImageSelectionExecutionMode.RANGE_RECOVERY,
             source_run_id=source.id,
             source_snapshot_sha256=preview.source_snapshot_sha256,
@@ -573,6 +584,15 @@ class ImageSelectionService:
             if first_sequence_number is None
             else first_sequence_number
         )
+        effective_last_sequence_number = (
+            source_run.last_sequence_number
+            if first_sequence_number is None
+            else (
+                source_run.last_sequence_number
+                if first_sequence_number == source_run.first_sequence_number
+                else None
+            )
+        )
         if (
             selector_fingerprint
             in {
@@ -620,6 +640,7 @@ class ImageSelectionService:
             selector_fingerprint=selector_fingerprint,
             sequence_direction=source_run.sequence_direction,
             first_sequence_number=effective_first_sequence_number,
+            last_sequence_number=effective_last_sequence_number,
         )
         if created or rerun.job.status not in {
             JobStatus.CANCELLED,

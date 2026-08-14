@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from collections import Counter
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
@@ -46,6 +47,7 @@ from game_predictor_worker.images.selection.job import (  # noqa: E402
     SqlAlchemyImageSelectionJobStore,
 )
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
+    CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
 )
 from game_predictor_worker.images.selection.recovery import (  # noqa: E402
@@ -54,13 +56,17 @@ from game_predictor_worker.images.selection.recovery import (  # noqa: E402
     RecoverySourceGroup,
     evaluate_recovery,
     plan_recovery_blocks,
+    prepare_source_groups_for_bounds,
+)
+from game_predictor_worker.images.selection.sequence_bounds import (  # noqa: E402
+    SequenceBounds,
 )
 from game_predictor_worker.images.selection.telemetry import (  # noqa: E402
     StageTimingCollector,
 )
 
 TARGET_SOURCE_RUN_ID = UUID("6c6afaf9-e144-4d5d-9cc6-8dc30a395bbd")
-EXPECTED_DATABASE_REVISION = "0042_image_selection_derived_recovery"
+EXPECTED_DATABASE_REVISION = "0043_image_selection_sequence_bounds"
 EXPECTED_UNRESOLVED_GROUPS = 748
 DEFAULT_AUDIT_SAMPLE_SIZE = 100
 _PROTECTED_USER_STATUSES = frozenset(
@@ -91,6 +97,16 @@ class DryRunError(RuntimeError):
     """A safety precondition prevents the read-only recovery evaluation."""
 
 
+@dataclass(frozen=True, slots=True)
+class ProjectionImageCoverage:
+    """Evidence that every logical group owns at least one staged image."""
+
+    logical_group_count: int
+    groups_with_image_count: int
+    groups_without_image: tuple[int, ...]
+    groups_with_unknown_image: tuple[int, ...]
+
+
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-id", type=UUID, default=TARGET_SOURCE_RUN_ID)
@@ -100,7 +116,7 @@ def _parse_args() -> argparse.Namespace:
         default=(
             REPOSITORY_ROOT
             / "artifacts"
-            / "image-selection-v1012-range-recovery-dry-run-6c6afaf9.json"
+            / "image-selection-v1013-range-recovery-dry-run-6c6afaf9.json"
         ),
     )
     parser.add_argument(
@@ -112,6 +128,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--verification-workers", type=int, choices=(1, 2), default=2)
     parser.add_argument("--audit-sample-size", type=int, default=DEFAULT_AUDIT_SAMPLE_SIZE)
     parser.add_argument("--audit-decisions", type=Path)
+    parser.add_argument("--last-sequence-number", type=int, default=19_809)
     return parser.parse_args()
 
 
@@ -160,12 +177,62 @@ def _selected_identity(group: SelectionGroupResult) -> tuple[int, str] | None:
     return source.order_index, source.checksum_sha256
 
 
+def _projection_image_coverage(
+    source_groups: tuple[RecoverySourceGroup, ...],
+    projection: RecoveryProjection,
+    *,
+    staged_checksums: set[str],
+    affected_origins: set[UUID],
+) -> ProjectionImageCoverage:
+    """Count logical owners backed by a real JPEG from the immutable manifest."""
+
+    sources_by_origin = {group.origin_group_id: group.sources for group in source_groups}
+    groups_without_image: list[int] = []
+    groups_with_unknown_image: list[int] = []
+    logical_group_count = 0
+    groups_with_image_count = 0
+    for group in projection.groups:
+        if group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE:
+            continue
+        logical_group_count += 1
+        origin = projection.origin_group_ids.get(group.group_order)
+        references = []
+        if group.selected_candidate is not None:
+            references.append(group.selected_candidate.source)
+        references.extend(candidate.source for candidate in group.top_candidates)
+        references.extend(
+            observation.source
+            for observation in projection.group_sources.get(group.group_order, ())
+        )
+        # Untouched groups deliberately have no rebuilt gallery in the projection.
+        # Their preserved source gallery is therefore the authoritative fallback.
+        if origin is not None and origin not in affected_origins:
+            references.extend(sources_by_origin.get(origin, ()))
+
+        referenced_checksums = {source.checksum_sha256 for source in references}
+        if referenced_checksums - staged_checksums:
+            groups_with_unknown_image.append(group.group_order)
+        if referenced_checksums & staged_checksums:
+            groups_with_image_count += 1
+        else:
+            groups_without_image.append(group.group_order)
+    return ProjectionImageCoverage(
+        logical_group_count=logical_group_count,
+        groups_with_image_count=groups_with_image_count,
+        groups_without_image=tuple(groups_without_image),
+        groups_with_unknown_image=tuple(groups_with_unknown_image),
+    )
+
+
 def _projection_issues(
     source_groups: tuple[RecoverySourceGroup, ...],
     projection: RecoveryProjection,
     *,
     snapshot_before: str,
     snapshot_after: str,
+    bounds: SequenceBounds,
+    affected_origins: set[UUID],
+    image_coverage: ProjectionImageCoverage,
 ) -> tuple[str, ...]:
     issues: list[str] = []
     source_ids = {group.origin_group_id for group in source_groups}
@@ -192,10 +259,26 @@ def _projection_issues(
     if len(output_ranges) != len(set(output_ranges)):
         issues.append("DUPLICATE_OUTPUT_RANGE")
 
-    blocks = plan_recovery_blocks(source_groups)
-    affected_origins = {
-        source.origin_group_id for block in blocks for source in block.source_groups
-    }
+    logical_groups = tuple(
+        group
+        for group in projection.groups
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    if len(logical_groups) != bounds.expected_group_count:
+        issues.append("LOGICAL_GROUP_CARDINALITY_MISMATCH")
+    else:
+        for index, group in enumerate(logical_groups):
+            expected_range = bounds.range_for_group(index)
+            if _range_key(group) != (expected_range.start, expected_range.end):
+                issues.append(f"SEQUENCE_GRID_MISMATCH:{group.group_order}")
+                break
+    if image_coverage.logical_group_count != bounds.expected_group_count:
+        issues.append("IMAGE_COVERAGE_CARDINALITY_MISMATCH")
+    for group_order in image_coverage.groups_without_image:
+        issues.append(f"LOGICAL_GROUP_WITHOUT_STAGED_IMAGE:{group_order}")
+    for group_order in image_coverage.groups_with_unknown_image:
+        issues.append(f"PROJECTION_IMAGE_OUTSIDE_MANIFEST:{group_order}")
+
     for group in projection.groups:
         if (
             projection.origin_group_ids[group.group_order] not in affected_origins
@@ -397,26 +480,29 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
             browser_upload_root=settings.import_root,
             artifact_root=settings.artifact_root,
             repository_root=REPOSITORY_ROOT,
-            selector_manifest=TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+            selector_manifest=CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
             scan_workers=cast(int, args.scan_workers),
             verification_workers=cast(int, args.verification_workers),
         )
         analyzer, verifier = handler.build_runtime_adapters(
             source_root,
-            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+            CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
             telemetry,
         )
         cached_analyzer = CachedCheapImageAnalyzer(
             analyzer,
             FileImageScanObservationCache(settings.artifact_root),
             scan_adapter_fingerprint=(
-                TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.scan_adapter_fingerprint
+                CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.scan_adapter_fingerprint
             ),
         )
         cached_verifier = CachedCandidateVerifier(
             verifier,
             FileImageVerificationCache(settings.artifact_root),
-            selector_fingerprint=TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
+            selector_fingerprint=CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint,
+            compatible_selector_fingerprints=(
+                TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
+            ),
         )
 
         print(
@@ -437,11 +523,12 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
 
         evaluation = evaluate_recovery(
             source_groups,
-            manifest=TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+            manifest=CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
             analyzer=cached_analyzer,
             verifier=cached_verifier,
             sequence_direction=source_run.sequence_direction,
             first_sequence_number=source_run.first_sequence_number,
+            last_sequence_number=cast(int, args.last_sequence_number),
             scan_workers=cast(int, args.scan_workers),
             progress_callback=report_progress,
         )
@@ -455,20 +542,36 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
         group.status is SelectionGroupStatus.RANGE_REQUIRED and group.selected_candidate is not None
         for group in evaluation.projection.groups
     )
+    bounds = SequenceBounds(
+        source_run.first_sequence_number,
+        cast(int, args.last_sequence_number),
+        source_run.sequence_direction,
+    )
+    planned_source_groups = prepare_source_groups_for_bounds(source_groups, bounds=bounds)
+    affected_origins = {
+        group.origin_group_id
+        for block in plan_recovery_blocks(planned_source_groups)
+        for group in block.source_groups
+    }
+    image_coverage = _projection_image_coverage(
+        source_groups,
+        evaluation.projection,
+        staged_checksums={source.checksum_sha256 for source in sources},
+        affected_origins=affected_origins,
+    )
     issues = _projection_issues(
         source_groups,
         evaluation.projection,
         snapshot_before=snapshot_before,
         snapshot_after=snapshot_after,
+        bounds=bounds,
+        affected_origins=affected_origins,
+        image_coverage=image_coverage,
     )
     sample = _stratified_audit_sample(
         evaluation.projection,
         sample_size=cast(int, args.audit_sample_size),
-        origin_group_ids={
-            group.origin_group_id
-            for block in plan_recovery_blocks(source_groups)
-            for group in block.source_groups
-        },
+        origin_group_ids=affected_origins,
     )
     owner_audit = _owner_audit(
         sample,
@@ -490,10 +593,15 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
             "stagedJpegCount": len(sources),
             "groupCount": len(source_groups),
             "rangeRequiredCount": unresolved_count,
+            "sequenceBounds": {
+                "first": bounds.first,
+                "last": bounds.last,
+                "expectedGroupCount": bounds.expected_group_count,
+            },
         },
         "selector": {
-            "version": TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.algorithm_version,
-            "fingerprint": TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
+            "version": CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.algorithm_version,
+            "fingerprint": CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint,
         },
         "evaluation": {
             "blockCount": evaluation.block_count,
@@ -502,6 +610,14 @@ def _run(args: argparse.Namespace) -> tuple[Path, bool]:
             "elapsedSeconds": round(elapsed_seconds, 3),
             "scanFailureCount": evaluation.scan_failure_count,
             "verificationCount": evaluation.verification_count,
+            "imageCoverage": {
+                "logicalGroupCount": image_coverage.logical_group_count,
+                "groupsWithImageCount": image_coverage.groups_with_image_count,
+                "groupsWithoutImageCount": len(image_coverage.groups_without_image),
+                "groupsWithoutImage": list(image_coverage.groups_without_image),
+                "groupsWithUnknownImageCount": len(image_coverage.groups_with_unknown_image),
+                "groupsWithUnknownImage": list(image_coverage.groups_with_unknown_image),
+            },
             "statusCounts": dict(sorted(status_counts.items())),
             "readableRangeRequiredCount": readable_unresolved,
             "scanCache": cached_analyzer.snapshot(),

@@ -62,6 +62,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         selector_fingerprint: str,
         sequence_direction: ImageSelectionSequenceDirection,
         first_sequence_number: int | None,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         row = self._session.execute(
             select(ImageSelectionRunModel, JobModel)
@@ -72,6 +73,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 ImageSelectionRunModel.selector_fingerprint == selector_fingerprint,
                 ImageSelectionRunModel.sequence_direction == sequence_direction.value,
                 ImageSelectionRunModel.first_sequence_number == (first_sequence_number or 0),
+                ImageSelectionRunModel.last_sequence_number == (last_sequence_number or 0),
                 ImageSelectionRunModel.execution_mode == ImageSelectionExecutionMode.FULL.value,
             )
         ).one_or_none()
@@ -83,6 +85,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
         source_run_id: UUID,
         selector_fingerprint: str,
         source_snapshot_sha256: str,
+        last_sequence_number: int | None,
     ) -> ImageSelectionRun | None:
         row = self._session.execute(
             select(ImageSelectionRunModel, JobModel)
@@ -93,6 +96,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                 ImageSelectionRunModel.source_run_id == source_run_id,
                 ImageSelectionRunModel.selector_fingerprint == selector_fingerprint,
                 ImageSelectionRunModel.source_snapshot_sha256 == source_snapshot_sha256,
+                ImageSelectionRunModel.last_sequence_number == (last_sequence_number or 0),
             )
         ).one_or_none()
         return None if row is None else _run_from_records(*row)
@@ -197,6 +201,7 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
             ordering_policy=run.ordering_policy,
             sequence_direction=run.sequence_direction.value,
             first_sequence_number=run.first_sequence_number or 0,
+            last_sequence_number=run.last_sequence_number or 0,
             execution_mode=run.execution_mode.value,
             source_run_id=run.source_run_id,
             source_snapshot_sha256=run.source_snapshot_sha256,
@@ -223,12 +228,14 @@ class SqlAlchemyImageSelectionRepository(ImageSelectionRepository):
                     selector_fingerprint=run.selector_fingerprint,
                     sequence_direction=run.sequence_direction,
                     first_sequence_number=run.first_sequence_number,
+                    last_sequence_number=run.last_sequence_number,
                 )
                 if run.execution_mode is ImageSelectionExecutionMode.FULL
                 else self.find_recovery_run(
                     source_run_id=run.source_run_id or UUID(int=0),
                     selector_fingerprint=run.selector_fingerprint,
                     source_snapshot_sha256=run.source_snapshot_sha256 or "",
+                    last_sequence_number=run.last_sequence_number,
                 )
             )
             if existing is not None:
@@ -632,6 +639,7 @@ def _run_from_records(
         updated_at=record.updated_at,
         sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
         first_sequence_number=record.first_sequence_number or None,
+        last_sequence_number=record.last_sequence_number or None,
         execution_mode=ImageSelectionExecutionMode(record.execution_mode),
         source_run_id=record.source_run_id,
         source_snapshot_sha256=record.source_snapshot_sha256,

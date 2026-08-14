@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Protocol
@@ -81,6 +81,7 @@ from .manifest import (
     ACCURACY_FIRST_SELECTOR_VERSIONS,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
+    CARDINALITY_GUARDED_SELECTOR_VERSION,
     CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
     FUSED_RANGE_EVIDENCE_ADAPTER_VERSION,
@@ -92,6 +93,7 @@ from .manifest import (
     OWNER_ANCHORED_SELECTOR_VERSIONS,
     PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
     TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -106,7 +108,9 @@ from .recovery import (
     RecoveryProjection,
     RecoverySourceGroup,
     evaluate_recovery,
+    reconcile_projection_to_sequence_bounds,
 )
+from .sequence_bounds import SequenceBounds
 from .telemetry import StageTimingCollector
 
 BROWSER_SELECTION_DIRECTORY = "browser-selections"
@@ -128,6 +132,7 @@ class ImageSelectionJobRun:
     output_manifest_relative_path: str | None
     sequence_direction: ImageSelectionSequenceDirection = ImageSelectionSequenceDirection.ASCENDING
     first_sequence_number: int | None = None
+    last_sequence_number: int | None = None
     execution_mode: ImageSelectionExecutionMode = ImageSelectionExecutionMode.FULL
     source_run_id: UUID | None = None
     source_snapshot_sha256: str | None = None
@@ -287,6 +292,9 @@ class ImageSelectionJobHandler:
                 verifier,
                 self._verification_cache,
                 selector_fingerprint=selector_manifest.fingerprint,
+                compatible_selector_fingerprints=_compatible_verification_fingerprints(
+                    selector_manifest
+                ),
             )
             sink = _DurableSelectionSink(
                 context,
@@ -315,6 +323,33 @@ class ImageSelectionJobHandler:
                 sequence_direction=run.sequence_direction.value,
                 first_sequence_number=run.first_sequence_number,
             )
+            if run.last_sequence_number is not None:
+                if run.first_sequence_number is None:
+                    raise SelectionContractError(
+                        "IMAGE_SELECTION_SEQUENCE_BOUNDS_INVALID",
+                        "A complete sequence bound requires its first number.",
+                    )
+                projection = reconcile_projection_to_sequence_bounds(
+                    RecoveryProjection(
+                        groups=result.groups,
+                        group_sources={},
+                        origin_group_ids={},
+                    ),
+                    bounds=SequenceBounds(
+                        run.first_sequence_number,
+                        run.last_sequence_number,
+                        run.sequence_direction.value,
+                    ),
+                )
+                result = replace(result, groups=projection.groups)
+                self._store.persist_groups(
+                    job_id=job.id,
+                    run_id=run.id,
+                    lease_token=context.lease_token,
+                    groups=result.groups,
+                    group_sources={},
+                    persisted_at=context.now(),
+                )
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
 
@@ -455,6 +490,9 @@ class ImageSelectionJobHandler:
             verifier,
             self._verification_cache,
             selector_fingerprint=selector_manifest.fingerprint,
+            compatible_selector_fingerprints=_compatible_verification_fingerprints(
+                selector_manifest
+            ),
         )
         if run.first_sequence_number is None:
             raise SelectionContractError(
@@ -492,6 +530,7 @@ class ImageSelectionJobHandler:
             verifier=cached_verifier,
             sequence_direction=run.sequence_direction.value,
             first_sequence_number=run.first_sequence_number,
+            last_sequence_number=run.last_sequence_number,
             scan_workers=self._scan_workers,
             scan_prefetch=self._scan_prefetch,
             progress_callback=checkpoint_recovery,
@@ -1685,6 +1724,14 @@ def _quality_from_metrics(metrics: Mapping[str, object]) -> ImageQualityMetrics:
         return ImageQualityMetrics(*(0.0 for _ in range(8)))
 
 
+def _compatible_verification_fingerprints(
+    manifest: SelectorManifest,
+) -> tuple[str, ...]:
+    if manifest.algorithm_version == CARDINALITY_GUARDED_SELECTOR_VERSION:
+        return (TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,)
+    return ()
+
+
 def _assert_fence(
     session: Session,
     job_id: UUID,
@@ -1716,6 +1763,7 @@ def _job_run(record: ImageSelectionRunModel) -> ImageSelectionJobRun:
         output_manifest_relative_path=record.output_manifest_relative_path,
         sequence_direction=ImageSelectionSequenceDirection(record.sequence_direction),
         first_sequence_number=record.first_sequence_number or None,
+        last_sequence_number=record.last_sequence_number or None,
         execution_mode=ImageSelectionExecutionMode(record.execution_mode),
         source_run_id=record.source_run_id,
         source_snapshot_sha256=record.source_snapshot_sha256,

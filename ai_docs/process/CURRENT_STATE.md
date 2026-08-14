@@ -189,6 +189,20 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   payload, a ogólne liczniki joba zapisuje jako monotoniczną kopertę również w
   retry, recovery i publikacji. Fingerprint v10.13 i wynik rozpoznawania nie
   zmieniają się.
+- Po commicie v0.6.15 ten sam run `7ef1bffe-5dd8-4443-b8cc-77b50a5fefcd` i job
+  `ccc8db3a-0ebb-4691-a7e4-c68c9c59ddd7` zostały wznowione z checkpointu
+  `32079/32079`, bez OCR. Job zakończył jako `waiting_for_review`: 2298 grup
+  fizycznych, 2201 logicznych właścicieli, 97 duplikatów, 1406 wyborów
+  automatycznych i 795 manualnych. Brak luk, powtórzonych zakresów i pozycji poza
+  siatką; `logicalCoverageValid` oraz `outputCoverageValid` są prawdziwe, a
+  katalog `C:\Users\user\Documents\1-19809 v10.13` zawiera dokładnie 1406
+  plików dla 1406 gotowych grup. Raport:
+  `artifacts/image-selection-v1013-resume-v0615-1-19809.json`.
+- Walidacja v0.6.15: 711 testów workera, 30 testów domeny/API jobów, Ruff i mypy
+  dla 327 modułów przeszły. Jedna próba długiej transakcji została odzyskana
+  przez ten sam worker po lease i zakończyła idempotentnie na `attemptCount=6`;
+  dla kolejnych dużych projekcji czas transakcji względem lease pozostaje
+  obserwowaną metryką operatorską.
 
 ### Wersja 0.1
 

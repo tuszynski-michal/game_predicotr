@@ -269,3 +269,21 @@ payloadzie od monotonicznych liczników domeny joba oraz stosuje tę samą koper
 w pełnym runie, recovery i publikacji. Regresja testowa rozpoczyna retry z
 wyższym historycznym licznikiem i potwierdza, że wynik projekcji pozostaje
 dokładny bez cofnięcia postępu joba.
+
+Kontrolowane wznowienie po commicie v0.6.15 użyło tego samego runu
+`7ef1bffe-5dd8-4443-b8cc-77b50a5fefcd`, joba
+`ccc8db3a-0ebb-4691-a7e4-c68c9c59ddd7` i checkpointu `32079/32079`, bez
+ponownego OCR. Job zakończył jako `waiting_for_review`, a raport schema v3
+potwierdził 2298 grup fizycznych, dokładnie 2201 logicznych właścicieli, 97
+duplikatów, 1406 wyborów automatycznych i 795 manualnych. Nie ma brakujących,
+powtórzonych ani pozasiatkowych zakresów. Obie bramki przeszły:
+`logicalCoverageValid=true`, `outputCoverageValid=true`, a izolowany katalog
+zawiera dokładnie 1406 plików dla 1406 gotowych grup. Raport znajduje się w
+`artifacts/image-selection-v1013-resume-v0615-1-19809.json`.
+
+Walidacja v0.6.15 objęła 711/711 testów workera, 30/30 testów domeny i API jobów,
+Ruff oraz mypy dla 327 modułów. Podczas kontrolowanego wznowienia ten sam worker
+odzyskał raz wygasłą próbę długiej transakcji (końcowy `attemptCount=6`) i
+idempotentnie doprowadził job do stanu terminalnego bez drugiego procesu oraz
+bez zmiany wyniku. Czas i zachowanie lease dużych kolejnych projekcji pozostają
+metryką operatorską do obserwacji, nie blokują poprawności tego runu.

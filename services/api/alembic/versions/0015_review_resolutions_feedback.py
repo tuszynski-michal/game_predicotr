@@ -125,8 +125,7 @@ def upgrade() -> None:
             name="ck_review_feedback_exports_version_positive",
         ),
         sa.CheckConstraint(
-            "source_state_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND payload_sha256 ~ '^[0-9a-f]{64}$'",
+            "source_state_sha256 ~ '^[0-9a-f]{64}$' AND payload_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_review_feedback_exports_sha256",
         ),
         sa.CheckConstraint(

@@ -653,9 +653,7 @@ def _resolve_page_sequence_numbers(
 ) -> tuple[tuple[int | None, ...], int | None]:
     """Resolve a consecutive page from one dominant OCR base without guessing."""
 
-    if len(observed_numbers) != len(positions) or tuple(positions) != tuple(
-        range(len(positions))
-    ):
+    if len(observed_numbers) != len(positions) or tuple(positions) != tuple(range(len(positions))):
         return tuple(observed_numbers), None
     bases = Counter(
         number - position

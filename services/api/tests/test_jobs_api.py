@@ -311,18 +311,14 @@ def test_delete_cancelled_image_selection_job_contract(tmp_path: Path) -> None:
             input_payload={"schema_version": 1},
         )
     )
-    repository.image_selection_deletions[job.id] = (
-        ImageSelectionJobDeletionReference(
-            run_id=run_id,
-            source_selection_id=source_selection_id,
-            source_reference_count=1,
-            has_curated_import_source=False,
-            has_published_output=False,
-        )
+    repository.image_selection_deletions[job.id] = ImageSelectionJobDeletionReference(
+        run_id=run_id,
+        source_selection_id=source_selection_id,
+        source_reference_count=1,
+        has_curated_import_source=False,
+        has_published_output=False,
     )
-    manual_directory = (
-        tmp_path / "artifacts" / "data" / "working" / "is-manual" / run_id.hex[:12]
-    )
+    manual_directory = tmp_path / "artifacts" / "data" / "working" / "is-manual" / run_id.hex[:12]
     manual_directory.mkdir(parents=True)
     service.cancel_job(job.id)
 

@@ -348,9 +348,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
         android_builder.before_return = request_cancellation
         cancellation_result = worker.run_once()
         with Session(engine) as session:
-            persisted_cancelled_job = SqlAlchemyJobRepository(session).get_job(
-                cancelled_job.id
-            )
+            persisted_cancelled_job = SqlAlchemyJobRepository(session).get_job(cancelled_job.id)
         assert persisted_cancelled_job is not None
         assert cancellation_result is JobExecutionResult.CANCELLED, (
             persisted_cancelled_job.status,

@@ -258,14 +258,12 @@ def _validate_declared_counts(cohort: Mapping[str, object]) -> None:
     boards = _sequence(cohort.get("boards"), "boards")
     counts = _mapping(cohort.get("counts"), "counts")
     source_ids = {
-        _text(_mapping(board, "board").get("sourceImageId"), "sourceImageId")
-        for board in boards
+        _text(_mapping(board, "board").get("sourceImageId"), "sourceImageId") for board in boards
     }
     expected = {
         "resolvedLayouts": len(boards),
         "cellSamples": sum(
-            len(_sequence(_mapping(board, "board").get("cells"), "cells"))
-            for board in boards
+            len(_sequence(_mapping(board, "board").get("cells"), "cells")) for board in boards
         ),
         "sourceImages": len(source_ids),
     }
@@ -317,12 +315,15 @@ def _source_split(
     source_family: str,
     config: TrainingDatasetConfig,
 ) -> SplitName:
-    bucket = int.from_bytes(
-        hashlib.sha256(
-            f"{config.split_policy_version}\0{config.seed}\0{source_family}".encode()
-        ).digest(),
-        "big",
-    ) % 10_000
+    bucket = (
+        int.from_bytes(
+            hashlib.sha256(
+                f"{config.split_policy_version}\0{config.seed}\0{source_family}".encode()
+            ).digest(),
+            "big",
+        )
+        % 10_000
+    )
     boundary = 0
     for split, ratio in config.split_ratios():
         boundary += ratio
@@ -454,9 +455,7 @@ def _manifest(
         source: _source_split(source, config)
         for source in sorted({sample.source_family for sample in samples})
     }
-    split_samples: dict[SplitName, list[_Sample]] = {
-        split: [] for split in SPLIT_ORDER
-    }
+    split_samples: dict[SplitName, list[_Sample]] = {split: [] for split in SPLIT_ORDER}
     for sample in samples:
         split_samples[split_by_source[sample.source_family]].append(sample)
 
@@ -524,16 +523,12 @@ def _manifest(
         "artifactBaseRelativePath": PurePosixPath(
             "training", game_code, cohort_checksum
         ).as_posix(),
-        "catalog": [
-            {"symbolCode": code, "symbolId": catalog[code]}
-            for code in sorted(catalog)
-        ],
+        "catalog": [{"symbolCode": code, "symbolId": catalog[code]} for code in sorted(catalog)],
         "cohortChecksumSha256": cohort_checksum,
         "configuration": config.to_dict(),
         "datasetVersion": TRAINING_DATASET_VERSION,
         "exclusions": [
-            {"count": count, "reason": reason}
-            for reason, count in sorted(exclusions.items())
+            {"count": count, "reason": reason} for reason, count in sorted(exclusions.items())
         ],
         "gameCode": game_code,
         "gameId": game_id,
@@ -543,9 +538,7 @@ def _manifest(
             "status": "passed",
         },
         "sampleCount": len(samples),
-        "samples": [
-            sample.to_dict(split_by_source[sample.source_family]) for sample in samples
-        ],
+        "samples": [sample.to_dict(split_by_source[sample.source_family]) for sample in samples],
         "schemaVersion": TRAINING_DATASET_SCHEMA_VERSION,
         "sourceFamilyCount": len(split_by_source),
         "splits": split_reports,
@@ -694,9 +687,7 @@ def build_cumulative_training_dataset(
                 copied.add(sample.crop_checksum)
                 _copy_asset(
                     sample.crop_source_path,
-                    artifact_directory.joinpath(
-                        *PurePosixPath(sample.asset_relative_path).parts
-                    ),
+                    artifact_directory.joinpath(*PurePosixPath(sample.asset_relative_path).parts),
                 )
                 if progress_callback is not None:
                     progress_callback(len(copied), total_assets)

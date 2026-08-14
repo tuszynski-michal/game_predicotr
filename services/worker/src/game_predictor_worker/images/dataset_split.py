@@ -268,14 +268,10 @@ def _assignment_score(
 ) -> float:
     total_samples = sum(len(source.samples) for source in sources)
     total_sources = len(sources)
-    total_symbols = Counter(
-        sample.symbol_code for source in sources for sample in source.samples
-    )
+    total_symbols = Counter(sample.symbol_code for source in sources for sample in source.samples)
     split_samples: Counter[SplitName] = Counter()
     split_sources: Counter[SplitName] = Counter()
-    split_symbols: dict[SplitName, Counter[str]] = {
-        name: Counter() for name, _ in SPLIT_RATIOS
-    }
+    split_symbols: dict[SplitName, Counter[str]] = {name: Counter() for name, _ in SPLIT_RATIOS}
     for source in sources:
         split = assignment[source.checksum]
         split_samples[split] += len(source.samples)
@@ -287,15 +283,12 @@ def _assignment_score(
         sample_target = total_samples * ratio
         source_target = total_sources * ratio
         score += ((split_samples[split] - sample_target) / max(sample_target, 1.0)) ** 2
-        score += 0.25 * (
-            (split_sources[split] - source_target) / max(source_target, 1.0)
-        ) ** 2
+        score += 0.25 * ((split_sources[split] - source_target) / max(source_target, 1.0)) ** 2
         for code in symbol_codes:
             symbol_target = total_symbols[code] * ratio
-            score += 0.08 * (
-                (split_symbols[split][code] - symbol_target)
-                / max(symbol_target, 1.0)
-            ) ** 2
+            score += (
+                0.08 * ((split_symbols[split][code] - symbol_target) / max(symbol_target, 1.0)) ** 2
+            )
     return score
 
 
@@ -316,13 +309,9 @@ def _candidate_assignment(
     assignment: dict[str, SplitName] = {}
     counts: Counter[SplitName] = Counter()
     source_counts: Counter[SplitName] = Counter()
-    symbol_counts: dict[SplitName, Counter[str]] = {
-        split: Counter() for split in split_names
-    }
+    symbol_counts: dict[SplitName, Counter[str]] = {split: Counter() for split in split_names}
     total_samples = sum(len(source.samples) for source in sources)
-    total_symbols = Counter(
-        sample.symbol_code for source in sources for sample in source.samples
-    )
+    total_symbols = Counter(sample.symbol_code for source in sources for sample in source.samples)
 
     for index, source in enumerate(order):
         remaining_after = len(order) - index - 1
@@ -341,20 +330,23 @@ def _candidate_assignment(
             target_count = total_samples * ratios[split]
             score = ((projected_count - target_count) / max(target_count, 1.0)) ** 2
             target_sources = len(sources) * ratios[split]
-            score += 0.25 * (
-                (projected_source_counts[split] - target_sources)
-                / max(target_sources, 1.0)
-            ) ** 2
+            score += (
+                0.25
+                * ((projected_source_counts[split] - target_sources) / max(target_sources, 1.0))
+                ** 2
+            )
             source_symbol_counts = source.symbol_counts
             for code in symbol_codes:
-                projected_symbol_count = (
-                    symbol_counts[split][code] + source_symbol_counts[code]
-                )
+                projected_symbol_count = symbol_counts[split][code] + source_symbol_counts[code]
                 target_symbol_count = total_symbols[code] * ratios[split]
-                score += 0.08 * (
-                    (projected_symbol_count - target_symbol_count)
-                    / max(target_symbol_count, 1.0)
-                ) ** 2
+                score += (
+                    0.08
+                    * (
+                        (projected_symbol_count - target_symbol_count)
+                        / max(target_symbol_count, 1.0)
+                    )
+                    ** 2
+                )
                 if symbol_counts[split][code] == 0 and source_symbol_counts[code] > 0:
                     score -= 0.15
             tie_break = hashlib.sha256(
@@ -372,11 +364,7 @@ def _candidate_assignment(
 
     if any(source_counts[split] < MINIMUM_SOURCES_PER_SPLIT for split in split_names):
         return None
-    if any(
-        symbol_counts[split][code] == 0
-        for split in split_names
-        for code in symbol_codes
-    ):
+    if any(symbol_counts[split][code] == 0 for split in split_names for code in symbol_codes):
         return None
     return assignment
 
@@ -425,12 +413,8 @@ def _build_report_value(
     seed: str,
 ) -> dict[str, object]:
     split_names = tuple(name for name, _ in SPLIT_RATIOS)
-    split_samples: dict[SplitName, list[_Sample]] = {
-        split: [] for split in split_names
-    }
-    split_sources: dict[SplitName, list[_Source]] = {
-        split: [] for split in split_names
-    }
+    split_samples: dict[SplitName, list[_Sample]] = {split: [] for split in split_names}
+    split_sources: dict[SplitName, list[_Source]] = {split: [] for split in split_names}
     for source in sources:
         split = assignment[source.checksum]
         split_sources[split].append(source)
@@ -447,9 +431,7 @@ def _build_report_value(
             {
                 "bootstrapTargetMet": target_met,
                 "sampleCount": len(total_samples),
-                "sourceImageCount": len(
-                    {sample.source_checksum for sample in total_samples}
-                ),
+                "sourceImageCount": len({sample.source_checksum for sample in total_samples}),
                 "splits": {
                     split: {
                         "sampleCount": sum(
@@ -476,9 +458,7 @@ def _build_report_value(
         current_sources = sorted(split_sources[split], key=lambda source: source.checksum)
         split_reports.append(
             {
-                "assetCount": len(
-                    {sample.crop_checksum for sample in current_samples}
-                ),
+                "assetCount": len({sample.crop_checksum for sample in current_samples}),
                 "name": split,
                 "ratio": dict(SPLIT_RATIOS)[split],
                 "sampleCount": len(current_samples),
@@ -527,9 +507,7 @@ def _build_report_value(
         "qualityGate": {
             "assetLeakageCount": 0,
             "minimumSourcesPerSplit": MINIMUM_SOURCES_PER_SPLIT,
-            "missingSymbolsBySplit": {
-                split: [] for split in split_names
-            },
+            "missingSymbolsBySplit": {split: [] for split in split_names},
             "sourceImageLeakageCount": 0,
             "status": "passed",
         },

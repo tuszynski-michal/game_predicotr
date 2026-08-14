@@ -34,8 +34,7 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.CheckConstraint(
-            "minimum_match_length IS NULL OR "
-            "minimum_match_length BETWEEN 2 AND 32767",
+            "minimum_match_length IS NULL OR minimum_match_length BETWEEN 2 AND 32767",
             name="ck_rules_version_symbols_minimum_range",
         ),
         sa.ForeignKeyConstraint(

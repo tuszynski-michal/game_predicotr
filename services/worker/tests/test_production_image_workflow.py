@@ -195,9 +195,7 @@ def test_production_stages_create_review_ready_board_and_cell_artifacts(
     assert context_rgb.shape[:2] != (300, 500)
     bounds = first["sourceContextBounds"]
     assert isinstance(bounds, dict)
-    normalized_path = artifact_root / "data" / results["normalization"][
-        "normalizedRelativePath"
-    ]
+    normalized_path = artifact_root / "data" / results["normalization"]["normalizedRelativePath"]
     normalized_rgb = np.asarray(Image.open(normalized_path).convert("RGB"), dtype=np.uint8)
     expected_context = normalized_rgb[
         bounds["y"] : bounds["y"] + bounds["height"],

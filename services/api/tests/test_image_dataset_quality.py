@@ -74,8 +74,7 @@ class QualityRepository(OperationalImageReviewRepository):
                     quality_score=0.9425 if rank == 1 else 0.7514,
                     selected=review_item_id == selected_id,
                     selected_manually=(
-                        self.override_id is not None
-                        and review_item_id == self.override_id
+                        self.override_id is not None and review_item_id == self.override_id
                     ),
                 )
                 for rank, review_item_id in ((1, self.first), (2, self.second))
@@ -103,9 +102,7 @@ def _client(repository: QualityRepository) -> TestClient:
     return TestClient(
         create_app(
             ApiSettings.from_environment({}),
-            image_review_service_dependency=lambda: OperationalImageReviewService(
-                repository
-            ),
+            image_review_service_dependency=lambda: OperationalImageReviewService(repository),
         )
     )
 
@@ -127,10 +124,7 @@ def test_completeness_is_exact_and_missing_sample_is_bounded() -> None:
 def test_source_override_preserves_automatic_rank_and_can_be_cleared() -> None:
     repository = QualityRepository()
     client = _client(repository)
-    endpoint = (
-        "/api/v1/admin/image-review-items/sequence-sources/"
-        f"{repository.game_id}/7"
-    )
+    endpoint = f"/api/v1/admin/image-review-items/sequence-sources/{repository.game_id}/7"
 
     automatic = client.get(endpoint)
     assert automatic.status_code == 200
@@ -156,8 +150,7 @@ def test_source_override_preserves_automatic_rank_and_can_be_cleared() -> None:
 def test_source_override_rejects_candidate_from_another_sequence() -> None:
     repository = QualityRepository()
     response = _client(repository).post(
-        "/api/v1/admin/image-review-items/sequence-sources/"
-        f"{repository.game_id}/7/override",
+        f"/api/v1/admin/image-review-items/sequence-sources/{repository.game_id}/7/override",
         json={"reviewItemId": str(uuid4()), "selectedBy": "local-owner"},
     )
 

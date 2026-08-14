@@ -107,9 +107,9 @@ def write_layout_import_fixture(
                     )
                 ),
             }
-            encoded = (
-                json.dumps(payload, separators=(",", ":"), ensure_ascii=True) + "\n"
-            ).encode("utf-8")
+            encoded = (json.dumps(payload, separators=(",", ":"), ensure_ascii=True) + "\n").encode(
+                "utf-8"
+            )
             output.write(encoded)
             digest.update(encoded)
             if progress is not None:
@@ -144,11 +144,7 @@ def write_blocked_layout_import_fixture(
 
     with resolved_path.open("wb") as output:
         for line_number in range(1, layout_count + 1):
-            sequence_number = (
-                line_number - 1
-                if line_number == faulty_line_number
-                else line_number
-            )
+            sequence_number = line_number - 1 if line_number == faulty_line_number else line_number
             payload = {
                 "schemaVersion": 1,
                 "sequenceNumber": sequence_number,
@@ -159,9 +155,9 @@ def write_blocked_layout_import_fixture(
                     )
                 ),
             }
-            encoded = (
-                json.dumps(payload, separators=(",", ":"), ensure_ascii=True) + "\n"
-            ).encode("utf-8")
+            encoded = (json.dumps(payload, separators=(",", ":"), ensure_ascii=True) + "\n").encode(
+                "utf-8"
+            )
             output.write(encoded)
             digest.update(encoded)
 

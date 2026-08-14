@@ -179,10 +179,7 @@ def _load_json(path: Path) -> tuple[bytes, Mapping[str, object]]:
 
 
 def _batches[T](values: Sequence[T], batch_size: int) -> tuple[Sequence[T], ...]:
-    return tuple(
-        values[index : index + batch_size]
-        for index in range(0, len(values), batch_size)
-    )
+    return tuple(values[index : index + batch_size] for index in range(0, len(values), batch_size))
 
 
 def _validate_onnx_provenance(
@@ -390,9 +387,7 @@ def _infer_pending_boards(
     sample_probabilities: dict[str, tuple[float, ...]] = {}
     for batch in _batches(tuple(pending), INFERENCE_BATCH_SIZE):
         paths = [_safe_crop_path(crop_root, sample) for sample in batch]
-        tensors = torch.stack(
-            [load_image_tensor(path, adapter.input_size) for path in paths]
-        )
+        tensors = torch.stack([load_image_tensor(path, adapter.input_size) for path in paths])
         result = adapter.infer(tensor_batch_to_numpy(tensors))
         probabilities = calibrated_probabilities(result.logits, temperature)
         for sample, vector in zip(batch, probabilities, strict=True):

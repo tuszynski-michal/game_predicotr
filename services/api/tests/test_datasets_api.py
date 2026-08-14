@@ -136,9 +136,7 @@ class FakeDatasetService:
             columns=item.columns,
             items=records,
             next_after_sequence_number=(
-                records[-1].sequence_number
-                if records and records[-1].sequence_number < 3
-                else None
+                records[-1].sequence_number if records and records[-1].sequence_number < 3 else None
             ),
         )
 
@@ -249,19 +247,10 @@ def test_mock_generation_list_and_get_contract() -> None:
         }
         assert service.last_request == (game_id, rules_version_id, 71401)
         dataset_id = body["id"]
-        assert (
-            client.get(
-                f"/api/v1/admin/dataset-versions/{dataset_id}"
-            ).status_code
-            == 200
-        )
-        listed = client.get(
-            f"/api/v1/admin/games/{game_id}/dataset-versions"
-        )
+        assert client.get(f"/api/v1/admin/dataset-versions/{dataset_id}").status_code == 200
+        listed = client.get(f"/api/v1/admin/games/{game_id}/dataset-versions")
         assert [item["id"] for item in listed.json()] == [dataset_id]
-        report = client.get(
-            f"/api/v1/admin/dataset-versions/{dataset_id}/validation-report"
-        )
+        report = client.get(f"/api/v1/admin/dataset-versions/{dataset_id}/validation-report")
         assert report.status_code == 200
         assert report.json() == {
             "datasetVersionId": dataset_id,
@@ -276,9 +265,7 @@ def test_mock_generation_list_and_get_contract() -> None:
                     "code": "DUPLICATE_SIGNATURE",
                     "status": "warning",
                     "issueCount": 6,
-                    "message": (
-                        "Duplicate layout signatures are allowed and were found."
-                    ),
+                    "message": ("Duplicate layout signatures are allowed and were found."),
                     "sequenceNumbers": [],
                     "mobileCodes": [],
                     "truncated": False,
@@ -295,21 +282,15 @@ def test_mock_generation_list_and_get_contract() -> None:
             params={"afterSequenceNumber": 0, "limit": 2},
         )
         assert layouts.status_code == 200
-        assert [
-            item["sequenceNumber"] for item in layouts.json()["items"]
-        ] == [1, 2]
+        assert [item["sequenceNumber"] for item in layouts.json()["items"]] == [1, 2]
         assert layouts.json()["nextAfterSequenceNumber"] == 2
 
-        published = client.post(
-            f"/api/v1/admin/dataset-versions/{dataset_id}/publish"
-        )
+        published = client.post(f"/api/v1/admin/dataset-versions/{dataset_id}/publish")
         assert published.status_code == 200
         assert published.json()["status"] == "published"
         assert published.json()["publishedAt"] is not None
 
-        archived = client.delete(
-            f"/api/v1/admin/dataset-versions/{dataset_id}"
-        )
+        archived = client.delete(f"/api/v1/admin/dataset-versions/{dataset_id}")
         assert archived.status_code == 204
         assert service.items[UUID(dataset_id)].status is DatasetVersionStatus.ARCHIVED
 
@@ -333,9 +314,7 @@ def test_dataset_api_reports_validation_conflict_and_missing() -> None:
         assert conflict.status_code == 409
         assert conflict.json()["code"] == "RULES_VERSION_NOT_PUBLISHED"
 
-        missing = client.get(
-            f"/api/v1/admin/dataset-versions/{uuid4()}"
-        )
+        missing = client.get(f"/api/v1/admin/dataset-versions/{uuid4()}")
         assert missing.status_code == 404
         assert missing.json()["code"] == "DATASET_VERSION_NOT_FOUND"
 
@@ -356,11 +335,6 @@ def test_dataset_api_reports_validation_conflict_and_missing() -> None:
             created_at=datetime.now(UTC),
             published_at=None,
         )
-        requires_job = client.get(
-            f"/api/v1/admin/dataset-versions/{imported_id}/validation-report"
-        )
+        requires_job = client.get(f"/api/v1/admin/dataset-versions/{imported_id}/validation-report")
         assert requires_job.status_code == 409
-        assert (
-            requires_job.json()["code"]
-            == "DATASET_VALIDATION_REQUIRES_JOB"
-        )
+        assert requires_job.json()["code"] == "DATASET_VALIDATION_REQUIRES_JOB"

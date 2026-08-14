@@ -155,9 +155,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
         self._flush_or_raise_conflict()
 
         for payline in self._session.scalars(
-            select(PaylineModel).where(
-                PaylineModel.rules_version_id == source.id
-            )
+            select(PaylineModel).where(PaylineModel.rules_version_id == source.id)
         ):
             self._session.add(
                 PaylineModel(
@@ -183,9 +181,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
                 )
             )
         for payout in self._session.scalars(
-            select(PayoutRuleModel).where(
-                PayoutRuleModel.rules_version_id == source.id
-            )
+            select(PayoutRuleModel).where(PayoutRuleModel.rules_version_id == source.id)
         ):
             self._session.add(
                 PayoutRuleModel(
@@ -311,10 +307,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
                 RulesVersionSymbolModel.minimum_match_length.is_not(None),
             )
         )
-        if any(
-            minimum is not None and minimum > columns
-            for minimum in minimums
-        ):
+        if any(minimum is not None and minimum > columns for minimum in minimums):
             return False
         match_lengths = self._session.scalars(
             select(PayoutRuleModel.match_length).where(
@@ -346,9 +339,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
                 SymbolModel,
                 SymbolModel.id == RulesVersionSymbolModel.symbol_id,
             )
-            .where(
-                RulesVersionSymbolModel.rules_version_id == rules_version_id
-            )
+            .where(RulesVersionSymbolModel.rules_version_id == rules_version_id)
             .order_by(
                 SymbolModel.display_order,
                 SymbolModel.mobile_code,
@@ -388,9 +379,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
             )
             self._session.add(record)
         else:
-            record.minimum_match_length = (
-                rules_version_symbol.minimum_match_length
-            )
+            record.minimum_match_length = rules_version_symbol.minimum_match_length
             record.is_active = rules_version_symbol.is_active
         self._flush_or_raise_conflict()
         return _to_rules_version_symbol(record)
@@ -478,9 +467,7 @@ class SqlAlchemyRulesRepository(RulesRepository):
     def save_payout_rule(self, payout_rule: PayoutRule) -> PayoutRule:
         record = self._session.get(PayoutRuleModel, payout_rule.id)
         if record is None or record.rules_version_id != payout_rule.rules_version_id:
-            raise RuntimeError(
-                "Payout rule disappeared during a rules transaction."
-            )
+            raise RuntimeError("Payout rule disappeared during a rules transaction.")
         record.payout_credits = payout_rule.payout_credits
         record.is_active = payout_rule.is_active
         self._flush_or_raise_conflict()

@@ -214,9 +214,7 @@ def _adapters() -> list[FakeAdapter]:
                         "boardChecksumSha256": "d" * 64,
                         "boardRelativePath": "crops/board-0/board.png",
                         "cells": _board_cells(),
-                        "cropperVersion": (
-                            "board-cell-crops-v17-source-direct-model-input-v1"
-                        ),
+                        "cropperVersion": ("board-cell-crops-v17-source-direct-model-input-v1"),
                         "positionIndex": 0,
                     }
                 ]

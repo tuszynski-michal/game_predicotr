@@ -149,16 +149,13 @@ class SqlAlchemyJobRepository(JobRepository):
         job_id: UUID,
     ) -> ImageSelectionJobDeletionReference | None:
         run = self._session.scalar(
-            select(ImageSelectionRunModel).where(
-                ImageSelectionRunModel.job_id == job_id
-            )
+            select(ImageSelectionRunModel).where(ImageSelectionRunModel.job_id == job_id)
         )
         if run is None:
             return None
         source_reference_count = self._session.scalar(
             select(func.count(ImageSelectionRunModel.id)).where(
-                ImageSelectionRunModel.source_selection_id
-                == run.source_selection_id
+                ImageSelectionRunModel.source_selection_id == run.source_selection_id
             )
         )
         curated_source_id = self._session.scalar(
@@ -194,9 +191,7 @@ class SqlAlchemyJobRepository(JobRepository):
             )
         )
         self._session.execute(
-            delete(ImageSelectionGroupModel).where(
-                ImageSelectionGroupModel.run_id == run_id
-            )
+            delete(ImageSelectionGroupModel).where(ImageSelectionGroupModel.run_id == run_id)
         )
         deleted_run = self._session.execute(
             delete(ImageSelectionRunModel)

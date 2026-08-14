@@ -181,9 +181,7 @@ def test_terminal_image_import_can_be_reprocessed_from_managed_originals(
         )
         source_job_id = created.json()["job"]["id"]
         cancelled = client.post(f"/api/v1/admin/jobs/{source_job_id}/cancel")
-        reprocessed = client.post(
-            f"/api/v1/admin/image-imports/{source_job_id}/reprocess"
-        )
+        reprocessed = client.post(f"/api/v1/admin/image-imports/{source_job_id}/reprocess")
 
     assert cancelled.status_code == 200
     assert reprocessed.status_code == 201

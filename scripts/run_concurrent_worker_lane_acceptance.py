@@ -332,9 +332,7 @@ def start_worker(
     environment = os.environ.copy()
     environment.update(
         {
-            "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(
-                hide_password=False
-            ),
+            "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(hide_password=False),
             "GAME_PREDICTOR_IMPORT_ROOT": str(root / "imports"),
             "GAME_PREDICTOR_ARTIFACT_ROOT": str(root / "artifacts"),
             "GAME_PREDICTOR_WORKER_THREAD_BUDGET": str(budget),
@@ -641,8 +639,7 @@ def main() -> int:
         state.record("general_cancel_requested")
 
         wait_until(
-            lambda: job_snapshot(database_url, import_job_id)["status"]
-            is JobStatus.CANCELLED,
+            lambda: job_snapshot(database_url, import_job_id)["status"] is JobStatus.CANCELLED,
             deadline=deadline,
             processes=process_tuple,
             metrics=metrics_tuple,

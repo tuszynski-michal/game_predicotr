@@ -255,27 +255,26 @@ def _v2_crop_report(
                         }
                     )
             board: dict[str, object] = {
-                    "boardChecksumSha256": board_checksum,
-                    "boardHeight": 300,
-                    "boardRelativePath": board_relative,
-                    "boardWidth": 500,
-                    "cells": cells,
-                    "grid": V2_GRID_CONTRACT.to_dict(),
-                    "overlayChecksumSha256": overlay_checksum,
-                    "overlayRelativePath": overlay_relative,
-                    "positionIndex": candidate.board_position,
-                    "sourceQuad": [],
-                    "sourceQuadSource": quad_source,
-                    "transformMatrix": [
-                        [1.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0],
-                        [0.0, 0.0, 1.0],
-                    ],
-                }
+                "boardChecksumSha256": board_checksum,
+                "boardHeight": 300,
+                "boardRelativePath": board_relative,
+                "boardWidth": 500,
+                "cells": cells,
+                "grid": V2_GRID_CONTRACT.to_dict(),
+                "overlayChecksumSha256": overlay_checksum,
+                "overlayRelativePath": overlay_relative,
+                "positionIndex": candidate.board_position,
+                "sourceQuad": [],
+                "sourceQuadSource": quad_source,
+                "transformMatrix": [
+                    [1.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                    [0.0, 0.0, 1.0],
+                ],
+            }
             if profiles is None:
                 board["sourceQuad"] = [
-                    {"x": point[0], "y": point[1]}
-                    for point in candidate.detected_source_quad
+                    {"x": point[0], "y": point[1]} for point in candidate.detected_source_quad
                 ]
             else:
                 application = profiles.apply(
@@ -285,13 +284,10 @@ def _v2_crop_report(
                     detected_quad=candidate.detected_source_quad,
                 )
                 board["sourceQuad"] = [
-                    {"x": point.x, "y": point.y}
-                    for point in application.calibrated_quad
+                    {"x": point.x, "y": point.y} for point in application.calibrated_quad
                 ]
                 board["calibrationProfile"] = {
-                    "anchorSequenceNumbers": list(
-                        application.anchor_sequence_numbers
-                    ),
+                    "anchorSequenceNumbers": list(application.anchor_sequence_numbers),
                     "interpolationWeight": application.interpolation_weight,
                     "profileId": application.profile_id,
                     "profileVersion": 1,
@@ -310,20 +306,20 @@ def _v2_crop_report(
         )
     output = paths["repository_root"] / "ai_docs" / "quality" / "v2-report.json"
     report: dict[str, object] = {
-            "boardCount": board_count,
-            "cellCount": cell_count,
-            "croppedImageCount": len(images),
-            "cropperVersion": cropper_version,
-            "detectionReportSha256": "d" * 64,
-            "imageCount": len(images),
-            "images": images,
-            "needsReviewCount": 0,
-            "normalizationReportSha256": "n" * 64,
-            "numpyVersion": "test",
-            "opencvVersion": "test",
-            "schemaVersion": 1,
-            "status": "cropped",
-        }
+        "boardCount": board_count,
+        "cellCount": cell_count,
+        "croppedImageCount": len(images),
+        "cropperVersion": cropper_version,
+        "detectionReportSha256": "d" * 64,
+        "imageCount": len(images),
+        "images": images,
+        "needsReviewCount": 0,
+        "normalizationReportSha256": "n" * 64,
+        "numpyVersion": "test",
+        "opencvVersion": "test",
+        "schemaVersion": 1,
+        "status": "cropped",
+    }
     if profiles is not None:
         report.update(
             {
@@ -341,18 +337,13 @@ def _calibration_profiles(
     paths: dict[str, Path],
 ) -> GridCalibrationProfiles:
     profile_path = (
-        paths["repository_root"]
-        / "ai_docs"
-        / "quality"
-        / "grid-calibration-profiles.json"
+        paths["repository_root"] / "ai_docs" / "quality" / "grid-calibration-profiles.json"
     )
     profile_path.write_bytes(
         profile_document_bytes(
             build_profile_document(
                 review.golden,
-                golden_sha256=hashlib.sha256(
-                    paths["output_path"].read_bytes()
-                ).hexdigest(),
+                golden_sha256=hashlib.sha256(paths["output_path"].read_bytes()).hexdigest(),
                 detector_report_sha256="d" * 64,
             )
         )

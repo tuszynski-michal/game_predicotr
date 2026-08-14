@@ -566,9 +566,7 @@ def test_reviewed_v16_inventory_loads_with_geometry_acceptance_chain(
     assert loaded.geometry_report_sha256 == expected["geometryReportSha256"]
     assert loaded.owner_acceptance_sha256 == expected["ownerAcceptanceSha256"]
     assert len(loaded.samples) == 15
-    assert all(
-        sample.calibration_profile_version == 16 for sample in loaded.samples
-    )
+    assert all(sample.calibration_profile_version == 16 for sample in loaded.samples)
 
 
 def test_reviewed_v16_inventory_is_consumed_by_dataset_export(

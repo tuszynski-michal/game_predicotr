@@ -236,13 +236,10 @@ class SqlAlchemyPayoutStore:
                 LayoutPayoutModel.algorithm_version == algorithm_version,
             )
             payout_count = session.scalar(
-                select(func.count())
-                .select_from(LayoutPayoutModel)
-                .where(exact_payout)
+                select(func.count()).select_from(LayoutPayoutModel).where(exact_payout)
             )
             missing_join = and_(
-                LayoutPayoutModel.dataset_version_id
-                == LayoutModel.dataset_version_id,
+                LayoutPayoutModel.dataset_version_id == LayoutModel.dataset_version_id,
                 LayoutPayoutModel.sequence_number == LayoutModel.sequence_number,
                 LayoutPayoutModel.rules_version_id == rules_version_id,
                 LayoutPayoutModel.algorithm_version == algorithm_version,
@@ -290,8 +287,6 @@ class SqlAlchemyPayoutStore:
                 payout_count=payout_count or 0,
                 missing_payout_count=missing_count or 0,
                 missing_sequence_numbers=missing_sample,
-                missing_sequences_truncated=(
-                    (missing_count or 0) > PAYOUT_DIAGNOSTIC_LIMIT
-                ),
+                missing_sequences_truncated=((missing_count or 0) > PAYOUT_DIAGNOSTIC_LIMIT),
                 missing_audit_count=missing_audit_count or 0,
             )

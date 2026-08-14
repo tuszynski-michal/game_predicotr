@@ -154,10 +154,7 @@ def assess_payout_completeness(
             datasetGameId=str(facts.dataset_game_id),
             rulesGameId=str(facts.rules_game_id),
         )
-    if (
-        facts.dataset_rows != facts.rules_rows
-        or facts.dataset_columns != facts.rules_columns
-    ):
+    if facts.dataset_rows != facts.rules_rows or facts.dataset_columns != facts.rules_columns:
         add_issue(
             "PAYOUT_DIMENSIONS_MISMATCH",
             "The payout dataset and rules dimensions must match.",

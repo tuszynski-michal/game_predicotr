@@ -42,10 +42,7 @@ test('requires an exact typed prefix before deleting a cancelled selection job',
     /deleteCancelledImageSelectionJob\(api, job\.id\)/,
   );
   assert.match(monitorSource, /job\.id\.slice\(0, 8\)/);
-  assert.match(
-    monitorSource,
-    /folder wybranych/,
-  );
+  assert.match(monitorSource, /folder wybranych/);
 });
 
 test('shows independent worker health even when the job list is empty', () => {

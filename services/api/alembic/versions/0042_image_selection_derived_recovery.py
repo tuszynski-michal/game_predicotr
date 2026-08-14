@@ -108,9 +108,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "DELETE FROM image_selection_runs WHERE execution_mode = 'range_recovery'"
-    )
+    op.execute("DELETE FROM image_selection_runs WHERE execution_mode = 'range_recovery'")
     op.drop_index(
         "ix_image_selection_groups_origin_group_id",
         table_name="image_selection_groups",

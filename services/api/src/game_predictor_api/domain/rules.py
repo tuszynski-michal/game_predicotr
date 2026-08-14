@@ -307,11 +307,7 @@ def assess_rules_publication(
             )
 
     active_configurations = sorted(
-        (
-            configuration
-            for configuration in symbol_configurations
-            if configuration.is_active
-        ),
+        (configuration for configuration in symbol_configurations if configuration.is_active),
         key=lambda configuration: str(configuration.symbol_id),
     )
     if not active_configurations:
@@ -321,8 +317,7 @@ def assess_rules_publication(
         )
 
     configurations_by_symbol = {
-        configuration.symbol_id: configuration
-        for configuration in symbol_configurations
+        configuration.symbol_id: configuration for configuration in symbol_configurations
     }
     active_ordinary: list[RulesVersionSymbol] = []
     for configuration in active_configurations:
@@ -344,9 +339,7 @@ def assess_rules_publication(
             continue
         if (
             configuration.minimum_match_length is None
-            or not 2
-            <= configuration.minimum_match_length
-            <= rules_version.columns
+            or not 2 <= configuration.minimum_match_length <= rules_version.columns
         ):
             add_issue(
                 "INVALID_MINIMUM_MATCH_LENGTH",
@@ -401,10 +394,7 @@ def assess_rules_publication(
             )
             continue
         minimum = payout_configuration.minimum_match_length
-        if (
-            minimum is None
-            or not minimum <= rule.match_length <= rules_version.columns
-        ):
+        if minimum is None or not minimum <= rule.match_length <= rules_version.columns:
             add_issue(
                 "INVALID_PAYOUT_MATCH_LENGTH",
                 "An active payout length is outside the configured range.",
@@ -439,9 +429,7 @@ def assess_rules_publication(
                 matchLengths=duplicate_lengths,
             )
         expected_lengths = range(minimum, rules_version.columns + 1)
-        missing_lengths = [
-            length for length in expected_lengths if length not in by_length
-        ]
+        missing_lengths = [length for length in expected_lengths if length not in by_length]
         if missing_lengths:
             add_issue(
                 "INCOMPLETE_PAYOUT_RULES",
@@ -450,9 +438,7 @@ def assess_rules_publication(
                 missingMatchLengths=missing_lengths,
             )
         ordered = [
-            by_length[length][0]
-            for length in expected_lengths
-            if len(by_length[length]) == 1
+            by_length[length][0] for length in expected_lengths if len(by_length[length]) == 1
         ]
         for previous, current in zip(ordered, ordered[1:], strict=False):
             if current.match_length != previous.match_length + 1:

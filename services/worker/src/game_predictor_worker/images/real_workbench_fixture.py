@@ -60,13 +60,9 @@ GEOMETRY_REPORT_PATH = Path(
 )
 INVENTORY_PATH = Path("ai_docs/quality/m6-symbol-crop-inventory-v3.json")
 REVIEWED_LABELS_PATH = Path("artifacts/m6-symbol-review-v16/reviewed-labels.json")
-RELEASE_MANIFEST_PATH = Path(
-    "ai_docs/quality/m6-spatial-symbol-model-release-manifest.json"
-)
+RELEASE_MANIFEST_PATH = Path("ai_docs/quality/m6-spatial-symbol-model-release-manifest.json")
 SOURCE_ROOT_PATH = Path("examples/imgs")
-GEOMETRY_ASSET_ROOT_PATH = Path(
-    "artifacts/m5-reviewed-manual-merge-v16-full-preflight"
-)
+GEOMETRY_ASSET_ROOT_PATH = Path("artifacts/m5-reviewed-manual-merge-v16-full-preflight")
 
 
 class RealWorkbenchFixtureError(RuntimeError):
@@ -126,8 +122,7 @@ def load_real_workbench_source(repository_root: Path) -> RealWorkbenchSource:
     boards = _mapping_rows(geometry.get("entries"), "geometry entries")
     samples = _mapping_rows(inventory.get("samples"), "inventory samples")
     class_codes = tuple(
-        _text(value, "release class")
-        for value in _sequence(release.get("classes"))
+        _text(value, "release class") for value in _sequence(release.get("classes"))
     )
     if (
         corpus.get("status") != "accepted"
@@ -207,9 +202,7 @@ def load_real_workbench_source(repository_root: Path) -> RealWorkbenchSource:
         images=images,
         boards=tuple(boards_by_sequence[number] for number in range(1, 388)),
         samples_by_sequence=normalized_samples,
-        labels_by_sequence={
-            number: dict(values) for number, values in labels_by_sequence.items()
-        },
+        labels_by_sequence={number: dict(values) for number, values in labels_by_sequence.items()},
         class_codes=class_codes,
         pipeline_fingerprint=pipeline_fingerprint,
         cropper_version=_text(geometry.get("cropperVersion"), "cropper version"),
@@ -242,9 +235,7 @@ def prepare_real_workbench_fixture(
             },
             created_at=now,
         )
-        existing = SqlAlchemyJobRepository(session).get_job_by_input_key(
-            candidate.input_key
-        )
+        existing = SqlAlchemyJobRepository(session).get_job_by_input_key(candidate.input_key)
         if existing is not None:
             result = _fixture_result(
                 session,
@@ -303,9 +294,7 @@ def prepare_real_workbench_fixture(
 
 def _ensure_catalog(session: Session, class_codes: Sequence[str]) -> UUID:
     catalog = CatalogService(SqlAlchemyCatalogRepository(session))
-    record = session.scalar(
-        select(GameModel).where(GameModel.code == REAL_WORKBENCH_GAME_CODE)
-    )
+    record = session.scalar(select(GameModel).where(GameModel.code == REAL_WORKBENCH_GAME_CODE))
     if record is None:
         game = catalog.create_game(
             code=REAL_WORKBENCH_GAME_CODE,
@@ -344,9 +333,7 @@ def _ensure_catalog(session: Session, class_codes: Sequence[str]) -> UUID:
 def _publish_assets(repository_root: Path, source: RealWorkbenchSource) -> None:
     data_root = repository_root / "artifacts" / "data"
     copies: list[tuple[Path, Path, str]] = []
-    corpus_by_id = {
-        _text(image.get("id"), "source image id"): image for image in source.images
-    }
+    corpus_by_id = {_text(image.get("id"), "source image id"): image for image in source.images}
     for image in source.images:
         relative = _safe_relative(image.get("relativePath"), "source path")
         copies.append(
@@ -361,9 +348,7 @@ def _publish_assets(repository_root: Path, source: RealWorkbenchSource) -> None:
         source_image_id = _text(board.get("sourceImageId"), "source image id")
         if source_image_id not in corpus_by_id:
             raise RealWorkbenchFixtureError("A board references an unknown source image.")
-        board_relative = _safe_relative(
-            board.get("boardRelativePath"), "board relative path"
-        )
+        board_relative = _safe_relative(board.get("boardRelativePath"), "board relative path")
         copies.append(
             (
                 repository_root / GEOMETRY_ASSET_ROOT_PATH / board_relative,
@@ -372,9 +357,7 @@ def _publish_assets(repository_root: Path, source: RealWorkbenchSource) -> None:
             )
         )
         for sample in source.samples_by_sequence[sequence_number]:
-            crop_relative = _safe_relative(
-                sample.get("cropRelativePath"), "crop relative path"
-            )
+            crop_relative = _safe_relative(sample.get("cropRelativePath"), "crop relative path")
             copies.append(
                 (
                     repository_root / GEOMETRY_ASSET_ROOT_PATH / crop_relative,
@@ -522,9 +505,7 @@ def _insert_boards(
         observation_rows: list[dict[str, object]] = []
         review_rows: list[dict[str, object]] = []
         for board in source.boards[start : start + batch_size]:
-            sequence_number = _positive_int(
-                board.get("sequenceNumber"), "sequence number"
-            )
+            sequence_number = _positive_int(board.get("sequenceNumber"), "sequence number")
             source_image_id = _text(board.get("sourceImageId"), "source image id")
             board_id = uuid5(
                 REAL_WORKBENCH_NAMESPACE,
@@ -537,19 +518,14 @@ def _insert_boards(
             review_ids[sequence_number] = review_id
             samples = source.samples_by_sequence[sequence_number]
             board_predictions = [
-                predictions[_sha256(item.get("sampleId"), "sample id")]
-                for item in samples
+                predictions[_sha256(item.get("sampleId"), "sample id")] for item in samples
             ]
-            board_relative = _safe_relative(
-                board.get("boardRelativePath"), "board path"
-            )
+            board_relative = _safe_relative(board.get("boardRelativePath"), "board path")
             board_rows.append(
                 {
                     "id": board_id,
                     "source_image_id": source_ids[source_image_id],
-                    "position_index": _index(
-                        board.get("positionIndex"), 9, "board position"
-                    ),
+                    "position_index": _index(board.get("positionIndex"), 9, "board position"),
                     "sequence_number_raw": str(sequence_number),
                     "sequence_number": sequence_number,
                     "sequence_confidence": 1.0,
@@ -565,8 +541,7 @@ def _insert_boards(
                     ),
                     "cells_prediction": {
                         "symbolCodes": [
-                            cast(str, prediction["symbolCode"])
-                            for prediction in board_predictions
+                            cast(str, prediction["symbolCode"]) for prediction in board_predictions
                         ]
                     },
                     "board_confidence": sum(
@@ -590,19 +565,14 @@ def _insert_boards(
                     {
                         "id": uuid5(
                             REAL_WORKBENCH_NAMESPACE,
-                            (
-                                f"cell:{source.pipeline_fingerprint}:"
-                                f"{sequence_number}:{cell_index}"
-                            ),
+                            (f"cell:{source.pipeline_fingerprint}:{sequence_number}:{cell_index}"),
                         ),
                         "recognized_board_id": board_id,
                         "row_index": cell_index // 5,
                         "column_index": cell_index % 5,
                         "crop_relative_path": _asset_path(
                             "",
-                            _safe_relative(
-                                sample.get("cropRelativePath"), "crop path"
-                            ),
+                            _safe_relative(sample.get("cropRelativePath"), "crop path"),
                         ),
                         "crop_checksum_sha256": _sha256(
                             sample.get("cropChecksumSha256"), "crop checksum"
@@ -647,9 +617,7 @@ def _resolve_complete_human_boards(
         if len(values) == 15
     }
     with Session(engine) as session:
-        service = OperationalImageReviewService(
-            SqlAlchemyOperationalImageReviewRepository(session)
-        )
+        service = OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
         for sequence_number in sorted(complete):
             item = service.get_item(
                 review_ids[sequence_number],
@@ -667,10 +635,7 @@ def _resolve_complete_human_boards(
             )
             action = (
                 ImageReviewAction.ACCEPTED
-                if all(
-                    labels[cell.cell_index] == cell.predicted_symbol_code
-                    for cell in item.cells
-                )
+                if all(labels[cell.cell_index] == cell.predicted_symbol_code for cell in item.cells)
                 else ImageReviewAction.CORRECTED
             )
             service.resolve_item(
@@ -716,9 +681,7 @@ def _fixture_result(
     counts = {str(status): int(count) for status, count in rows}
     total = sum(counts.values())
     if total != 387:
-        raise RealWorkbenchFixtureError(
-            "The existing real-corpus workbench import is incomplete."
-        )
+        raise RealWorkbenchFixtureError("The existing real-corpus workbench import is incomplete.")
     completed = counts.get("accepted", 0) + counts.get("corrected", 0)
     return RealWorkbenchFixtureResult(
         game_id=game_id,
@@ -736,18 +699,14 @@ def _copy_verified(source: Path, target: Path, expected_sha256: str) -> None:
         raise RealWorkbenchFixtureError(f"Source artifact checksum drift: {source}.")
     if target.exists():
         if _file_sha256(target) != expected_sha256:
-            raise RealWorkbenchFixtureError(
-                f"Managed workbench asset checksum drift: {target}."
-            )
+            raise RealWorkbenchFixtureError(f"Managed workbench asset checksum drift: {target}.")
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
     try:
         shutil.copyfile(source, temporary)
         if _file_sha256(temporary) != expected_sha256:
-            raise RealWorkbenchFixtureError(
-                f"Copied workbench asset checksum mismatch: {target}."
-            )
+            raise RealWorkbenchFixtureError(f"Copied workbench asset checksum mismatch: {target}.")
         temporary.replace(target)
     finally:
         if temporary.exists():
@@ -809,22 +768,13 @@ def _positive_int(value: object, label: str) -> int:
 
 
 def _number(value: object, label: str) -> float:
-    if (
-        not isinstance(value, int | float)
-        or isinstance(value, bool)
-        or float(value) < 0
-    ):
+    if not isinstance(value, int | float) or isinstance(value, bool) or float(value) < 0:
         raise RealWorkbenchFixtureError(f"{label} must be a non-negative number.")
     return float(value)
 
 
 def _index(value: object, upper_bound: int, label: str) -> int:
-    if (
-        not isinstance(value, int)
-        or isinstance(value, bool)
-        or value < 0
-        or value >= upper_bound
-    ):
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0 or value >= upper_bound:
         raise RealWorkbenchFixtureError(f"{label} is outside its allowed range.")
     return value
 

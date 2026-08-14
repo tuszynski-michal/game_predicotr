@@ -160,8 +160,7 @@ class MemoryRulesRepository(RulesRepository):
         columns: int,
     ) -> bool:
         return all(
-            item.minimum_match_length is None
-            or item.minimum_match_length <= columns
+            item.minimum_match_length is None or item.minimum_match_length <= columns
             for item in self.rules_symbols.values()
             if item.rules_version_id == rules_version_id
         ) and all(
@@ -241,11 +240,7 @@ class MemoryRulesRepository(RulesRepository):
         payout_rule_id: UUID,
     ) -> PayoutRule | None:
         item = self.payout_rules.get(payout_rule_id)
-        return (
-            item
-            if item is not None and item.rules_version_id == rules_version_id
-            else None
-        )
+        return item if item is not None and item.rules_version_id == rules_version_id else None
 
     def find_payout_rule(
         self,
@@ -717,9 +712,7 @@ def test_publication_requires_strictly_increasing_payouts() -> None:
 
     readiness = service.get_publication_readiness(rules_version.id)
 
-    assert [issue.code for issue in readiness.issues] == [
-        "NON_INCREASING_PAYOUT"
-    ]
+    assert [issue.code for issue in readiness.issues] == ["NON_INCREASING_PAYOUT"]
 
 
 def test_publication_rejects_active_payouts_outside_symbol_membership() -> None:

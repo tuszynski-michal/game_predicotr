@@ -53,9 +53,7 @@ def test_global_candidates_are_assigned_to_shifted_symbol_columns() -> None:
 
 
 def test_global_homography_keeps_the_global_locator_provenance() -> None:
-    result = estimate_global_symbol_lattice_homography(
-        _synthetic_shifted_lattice()
-    )
+    result = estimate_global_symbol_lattice_homography(_synthetic_shifted_lattice())
 
     assert result.status == "fitted"
     assert result.fallback_reason is None

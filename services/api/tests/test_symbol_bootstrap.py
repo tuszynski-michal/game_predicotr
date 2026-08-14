@@ -419,9 +419,7 @@ def test_http_image_picker_lists_reads_and_selects_scoped_crop(tmp_path) -> None
     )
 
     with TestClient(app) as client:
-        page = client.get(
-            f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates"
-        )
+        page = client.get(f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}/image-candidates")
         asset = client.get(
             f"/api/v1/admin/games/{game_id}/symbols/{symbol_id}/"
             f"image-candidates/{observation_id}/asset"

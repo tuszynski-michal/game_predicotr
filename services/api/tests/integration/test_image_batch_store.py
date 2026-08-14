@@ -295,9 +295,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                     prediction={
                         "symbolCode": "lemon",
                         "confidence": 1.0,
-                        "alternatives": [
-                            {"symbolCode": "lemon", "confidence": 1.0}
-                        ],
+                        "alternatives": [{"symbolCode": "lemon", "confidence": 1.0}],
                     },
                     created_at=now,
                 )
@@ -471,14 +469,9 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 session.scalar(select(func.count()).select_from(ImageReviewResolutionEventModel))
                 == 4
             )
+            assert session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel)) == 0
             assert (
-                session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel))
-                == 0
-            )
-            assert (
-                session.scalar(
-                    select(func.count()).select_from(ImageBoardGeometryRevisionModel)
-                )
+                session.scalar(select(func.count()).select_from(ImageBoardGeometryRevisionModel))
                 == 1
             )
     finally:

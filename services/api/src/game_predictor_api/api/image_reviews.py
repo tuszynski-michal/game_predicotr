@@ -98,9 +98,7 @@ def create_image_reviews_router(
         game_id: UUID,
         service: Annotated[OperationalImageReviewService, service_parameter],
     ) -> ImageDatasetCompletenessResponse:
-        return to_image_dataset_completeness_response(
-            service.dataset_completeness(game_id)
-        )
+        return to_image_dataset_completeness_response(service.dataset_completeness(game_id))
 
     @router.get(
         "/sequence-sources/{game_id}/{sequence_number}",

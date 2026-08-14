@@ -145,8 +145,7 @@ class ProgressWorkerJobStore(SqlAlchemyWorkerJobStore):
         if self._checkpoint_count == 1 or self._checkpoint_count % 25 == 0:
             rendered_total = "?" if total is None else f"{total:,}"
             print(
-                f"{stage}: {current:,}/{rendered_total} "
-                f"(checkpoint {self._checkpoint_count})",
+                f"{stage}: {current:,}/{rendered_total} (checkpoint {self._checkpoint_count})",
                 flush=True,
             )
         if (
@@ -247,12 +246,8 @@ class AcceptanceRunFailed(RuntimeError):
 
 def _database_url(database_name: str) -> URL:
     if not _SAFE_DATABASE_NAME.fullmatch(database_name):
-        raise ValueError(
-            "Acceptance database must start with game_predictor_m4_acceptance."
-        )
-    return make_url(ApiSettings.from_environment().database_url).set(
-        database=database_name
-    )
+        raise ValueError("Acceptance database must start with game_predictor_m4_acceptance.")
+    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -273,9 +268,7 @@ def _recreate_database(database_name: str) -> tuple[URL, Any]:
     database_url = _database_url(database_name)
     identifier = f'"{database_name}"'
     with maintenance_engine.connect() as connection:
-        connection.exec_driver_sql(
-            f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)"
-        )
+        connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
         connection.exec_driver_sql(f"CREATE DATABASE {identifier}")
     command.upgrade(_migration_config(database_url), "head")
     return database_url, maintenance_engine
@@ -286,9 +279,7 @@ def _drop_database(maintenance_engine: Any, database_name: str) -> None:
         raise ValueError("Refusing to drop an unexpected database.")
     identifier = f'"{database_name}"'
     with maintenance_engine.connect() as connection:
-        connection.exec_driver_sql(
-            f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)"
-        )
+        connection.exec_driver_sql(f"DROP DATABASE IF EXISTS {identifier} WITH (FORCE)")
     maintenance_engine.dispose()
 
 
@@ -322,9 +313,7 @@ def _create_rules(client: TestClient) -> tuple[str, str]:
                     json={
                         "mobileCode": mobile_code,
                         "code": f"S{mobile_code}",
-                        "name": (
-                            "Joker" if mobile_code == 12 else f"Symbol {mobile_code}"
-                        ),
+                        "name": ("Joker" if mobile_code == 12 else f"Symbol {mobile_code}"),
                         "imagePath": f"symbols/m4-acceptance/s{mobile_code}.png",
                         "isWildcard": mobile_code == 12,
                         "displayOrder": mobile_code * 10,
@@ -386,9 +375,7 @@ def _create_rules(client: TestClient) -> tuple[str, str]:
                 201,
             )
     readiness = _json(
-        client.get(
-            f"/api/v1/admin/rules-versions/{rules_id}/publication-readiness"
-        ),
+        client.get(f"/api/v1/admin/rules-versions/{rules_id}/publication-readiness"),
         200,
     )
     if readiness != {"rulesVersionId": rules_id, "ready": True, "issues": []}:
@@ -494,9 +481,7 @@ def _release_handler(
         payout_handler,
         PayoutReadinessService(payout_store),
         ProductionSnapshotArtifactPublisher(
-            ProductionSnapshotGenerator(
-                SqlAlchemyProductionSnapshotStore(session_factory)
-            ),
+            ProductionSnapshotGenerator(SqlAlchemyProductionSnapshotStore(session_factory)),
             artifact_root,
         ),
         android_builder,
@@ -661,9 +646,7 @@ def run_acceptance(
         )
         settings = ApiSettings.from_environment(
             {
-                "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(
-                    hide_password=False
-                ),
+                "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(hide_password=False),
                 "GAME_PREDICTOR_IMPORT_ROOT": str(import_root.resolve()),
                 "GAME_PREDICTOR_IMPORT_MAX_BYTES": str(1024 * 1024 * 1024),
                 "GAME_PREDICTOR_ARTIFACT_ROOT": str(artifact_root.resolve()),
@@ -732,8 +715,7 @@ def run_acceptance(
                 ),
             )
             blocked_publication = client.post(
-                "/api/v1/admin/layout-import-validations/"
-                f"{blocked_validation['id']}/publish"
+                f"/api/v1/admin/layout-import-validations/{blocked_validation['id']}/publish"
             )
             blocked_error = _json(blocked_publication, 409)
             if (
@@ -851,16 +833,14 @@ def run_acceptance(
                 "datasetPublication",
                 lambda: _json(
                     client.post(
-                        "/api/v1/admin/layout-import-validations/"
-                        f"{valid_validation['id']}/publish"
+                        f"/api/v1/admin/layout-import-validations/{valid_validation['id']}/publish"
                     ),
                     200,
                 ),
             )
             publication_retry = _json(
                 client.post(
-                    "/api/v1/admin/layout-import-validations/"
-                    f"{valid_validation['id']}/publish"
+                    f"/api/v1/admin/layout-import-validations/{valid_validation['id']}/publish"
                 ),
                 200,
             )
@@ -886,8 +866,7 @@ def run_acceptance(
                 "datasetVersion": dataset["version"],
                 "generatorVersion": dataset["generatorVersion"],
                 "id": dataset_id,
-                "publicationRetryReturnedSameId": dataset["id"]
-                == publication_retry["id"],
+                "publicationRetryReturnedSameId": dataset["id"] == publication_retry["id"],
                 "rulesVersionId": rules_id,
                 "sourceJobId": dataset["sourceJobId"],
             }
@@ -896,9 +875,7 @@ def run_acceptance(
                 "duplicateSignatureAffectedRowCount": (
                     valid_report["duplicateSignatureAffectedRowCount"]
                 ),
-                "duplicateSignatureGroupCount": (
-                    valid_report["duplicateSignatureGroupCount"]
-                ),
+                "duplicateSignatureGroupCount": (valid_report["duplicateSignatureGroupCount"]),
                 "errorCodeCounts": valid_report["errorCodeCounts"],
                 "readyForPublication": valid_report["readyForPublication"],
             }
@@ -920,9 +897,7 @@ def run_acceptance(
                 201,
             )
             build_job = _json(
-                client.post(
-                    f"/api/v1/admin/mobile-releases/{release['id']}/build"
-                ),
+                client.post(f"/api/v1/admin/mobile-releases/{release['id']}/build"),
                 201,
             )
             release_result, release_store = recorder.measure(
@@ -945,8 +920,7 @@ def run_acceptance(
                     200,
                 )
                 raise RuntimeError(
-                    "Release workflow failed: "
-                    f"{persisted.get('error')} ({release_result.value})"
+                    f"Release workflow failed: {persisted.get('error')} ({release_result.value})"
                 )
             ready = _json(
                 client.get(f"/api/v1/admin/mobile-releases/{release['id']}"),
@@ -965,9 +939,7 @@ def run_acceptance(
             apk_path = artifact_root / ready["apk"]["relativePath"]
             if _file_sha256(apk_path) != ready["apk"]["checksum"]:
                 raise RuntimeError("APK checksum differs from the immutable release.")
-            downloaded = client.get(
-                f"/api/v1/admin/mobile-releases/{release['id']}/apk"
-            )
+            downloaded = client.get(f"/api/v1/admin/mobile-releases/{release['id']}/apk")
             if downloaded.status_code != 200:
                 raise RuntimeError(f"Verified APK download failed: {downloaded.text}")
             if hashlib.sha256(downloaded.content).hexdigest() != ready["apk"]["checksum"]:
@@ -1004,9 +976,7 @@ def run_acceptance(
                 "offlineVerifierPassed": not skip_android_build,
                 "payoutCount": payout_count,
                 "snapshotChecksum": ready["snapshot"]["checksum"],
-                "snapshotLogicalChecksum": (
-                    snapshot.manifest.logical_content_sha256
-                ),
+                "snapshotLogicalChecksum": (snapshot.manifest.logical_content_sha256),
                 "snapshotRelativePath": ready["snapshot"]["relativePath"],
                 "snapshotSizeBytes": snapshot.database_path.stat().st_size,
                 "status": ready["status"],
@@ -1029,11 +999,7 @@ def run_acceptance(
             application.state.database_engine.dispose()
         if worker_engine is not None:
             worker_engine.dispose()
-        if (
-            maintenance_engine is not None
-            and succeeded
-            and not keep_database
-        ):
+        if maintenance_engine is not None and succeeded and not keep_database:
             _drop_database(maintenance_engine, database_name)
         elif maintenance_engine is not None:
             maintenance_engine.dispose()

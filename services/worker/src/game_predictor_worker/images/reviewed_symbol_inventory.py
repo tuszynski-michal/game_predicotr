@@ -74,15 +74,11 @@ def build_reviewed_symbol_crop_inventory(
 ) -> SymbolCropInventory:
     """Verify the accepted v16 chain and enumerate all row-major cell crops."""
 
-    corpus_bytes, corpus = _load_json(
-        corpus_manifest_path, "SYMBOL_DATASET_CORPUS_INVALID"
-    )
+    corpus_bytes, corpus = _load_json(corpus_manifest_path, "SYMBOL_DATASET_CORPUS_INVALID")
     annotations_bytes, annotations = _load_json(
         golden_annotations_path, "SYMBOL_DATASET_GOLDEN_INVALID"
     )
-    report_bytes, report = _load_json(
-        geometry_report_path, "SYMBOL_DATASET_CROP_REPORT_INVALID"
-    )
+    report_bytes, report = _load_json(geometry_report_path, "SYMBOL_DATASET_CROP_REPORT_INVALID")
     acceptance_bytes, acceptance = _load_json(
         owner_acceptance_path, "SYMBOL_DATASET_OWNER_ACCEPTANCE_INVALID"
     )
@@ -170,9 +166,7 @@ def build_reviewed_symbol_crop_inventory(
                 "SYMBOL_DATASET_GEOMETRY_NOT_ACCEPTED",
                 "Every v16 board must be cropped without a fallback.",
             )
-        source_checksum = _sha256(
-            entry.get("sourceChecksumSha256"), "sourceChecksumSha256"
-        )
+        source_checksum = _sha256(entry.get("sourceChecksumSha256"), "sourceChecksumSha256")
         corpus_image = corpus_by_checksum.get(source_checksum)
         if corpus_image is None:
             raise SymbolDatasetError(
@@ -199,9 +193,7 @@ def build_reviewed_symbol_crop_inventory(
         board_relative, board_path = _safe_existing_path(
             crop_base, entry.get("boardRelativePath"), "boardRelativePath"
         )
-        board_checksum = _sha256(
-            entry.get("boardChecksumSha256"), "boardChecksumSha256"
-        )
+        board_checksum = _sha256(entry.get("boardChecksumSha256"), "boardChecksumSha256")
         _verify_board(
             board_path,
             board_checksum,
@@ -219,9 +211,7 @@ def build_reviewed_symbol_crop_inventory(
                 "A logical v16 board is duplicated.",
             )
         seen_boards.add(board_id)
-        analysis_frame_source = _text(
-            entry.get("analysisFrameSource"), "analysisFrameSource"
-        )
+        analysis_frame_source = _text(entry.get("analysisFrameSource"), "analysisFrameSource")
         raw_geometry_route = entry.get("geometryRoute")
         if raw_geometry_route is None and analysis_frame_source == "human-reviewed-source-quad":
             geometry_route = "manual-reviewed-source-quad"
@@ -258,9 +248,7 @@ def build_reviewed_symbol_crop_inventory(
             crop_relative, crop_path = _safe_existing_path(
                 crop_base, cell.get("relativePath"), "cell.relativePath"
             )
-            crop_checksum = _sha256(
-                cell.get("checksumSha256"), "cell.checksumSha256"
-            )
+            crop_checksum = _sha256(cell.get("checksumSha256"), "cell.checksumSha256")
             _verify_crop(
                 crop_path,
                 expected_checksum=crop_checksum,
@@ -295,9 +283,7 @@ def build_reviewed_symbol_crop_inventory(
                     source_image_relative_path=_text(
                         corpus_image.get("relativePath"), "source relativePath"
                     ),
-                    source_group=_text(
-                        corpus_image.get("sourceGroup"), "sourceGroup"
-                    ),
+                    source_group=_text(corpus_image.get("sourceGroup"), "sourceGroup"),
                     sequence_number=sequence_number,
                     board_index=position_index,
                     cell_index=cell_index,
@@ -318,13 +304,10 @@ def build_reviewed_symbol_crop_inventory(
             )
 
     expected_source_keys = set(corpus_by_checksum)
-    if (
-        set(boards_per_source) != expected_source_keys
-        or any(
-            boards_per_source[checksum]
-            != _integer(image.get("expectedBoardCount"), "expectedBoardCount")
-            for checksum, image in corpus_by_checksum.items()
-        )
+    if set(boards_per_source) != expected_source_keys or any(
+        boards_per_source[checksum]
+        != _integer(image.get("expectedBoardCount"), "expectedBoardCount")
+        for checksum, image in corpus_by_checksum.items()
     ):
         raise SymbolDatasetError(
             "SYMBOL_DATASET_BOARD_COUNT_MISMATCH",

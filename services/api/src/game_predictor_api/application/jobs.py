@@ -109,13 +109,9 @@ class ManagedImageSelectionDeletionArtifactStore:
         self._artifact_root = artifact_root.resolve()
         self._import_root = import_root.resolve()
         self._manual_root = self._artifact_root / "data" / "working" / "is-manual"
-        self._manual_trash = (
-            self._artifact_root / "data" / "trash" / "image-selection-deletions"
-        )
+        self._manual_trash = self._artifact_root / "data" / "trash" / "image-selection-deletions"
         self._source_root = self._import_root / "browser-selections"
-        self._source_trash = (
-            self._import_root / ".trash" / "image-selection-deletions"
-        )
+        self._source_trash = self._import_root / ".trash" / "image-selection-deletions"
 
     def quarantine(
         self,
@@ -276,9 +272,7 @@ class JobService:
         self._symbol_model_snapshot_resolver = symbol_model_snapshot_resolver
         self._grid_profile_snapshot_resolver = grid_profile_snapshot_resolver
         self._deletion_artifact_store = deletion_artifact_store
-        self._pending_deletion_quarantines: list[
-            ImageSelectionDeletionQuarantine
-        ] = []
+        self._pending_deletion_quarantines: list[ImageSelectionDeletionQuarantine] = []
 
     def create_job(
         self,

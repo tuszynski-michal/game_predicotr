@@ -23,15 +23,9 @@ from game_predictor_worker.images.symbol_dataset import (  # noqa: E402
 QUALITY_ROOT = REPOSITORY_ROOT / "ai_docs" / "quality"
 DEFAULT_CORPUS = QUALITY_ROOT / "m5-corpus-manifest.json"
 DEFAULT_ANNOTATIONS = QUALITY_ROOT / "m5-golden-annotations.json"
-DEFAULT_CROP_REPORT = (
-    QUALITY_ROOT / "m5-reviewed-manual-merge-v16-full-preflight-report.json"
-)
-DEFAULT_OWNER_ACCEPTANCE = (
-    QUALITY_ROOT / "m5-reviewed-manual-merge-v16-owner-acceptance.json"
-)
-DEFAULT_CROP_ROOT = (
-    REPOSITORY_ROOT / "artifacts" / "m5-reviewed-manual-merge-v16-full-preflight"
-)
+DEFAULT_CROP_REPORT = QUALITY_ROOT / "m5-reviewed-manual-merge-v16-full-preflight-report.json"
+DEFAULT_OWNER_ACCEPTANCE = QUALITY_ROOT / "m5-reviewed-manual-merge-v16-owner-acceptance.json"
+DEFAULT_CROP_ROOT = REPOSITORY_ROOT / "artifacts" / "m5-reviewed-manual-merge-v16-full-preflight"
 DEFAULT_INVENTORY = QUALITY_ROOT / "m6-symbol-crop-inventory-v3.json"
 
 

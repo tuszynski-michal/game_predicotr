@@ -10,12 +10,8 @@ type CheckStatus = Literal["passed", "failed", "missing"]
 
 EXPECTED_LAYOUT_COUNT = 500_000
 EXPECTED_RELEASE_VERSION = "m35-benchmark.1"
-EXPECTED_LOGICAL_CONTENT_SHA256 = (
-    "1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89"
-)
-EXPECTED_SNAPSHOT_FILE_SHA256 = (
-    "04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27"
-)
+EXPECTED_LOGICAL_CONTENT_SHA256 = "1b03171b268be8ee370151fc1033a7e64cb644d21610a2d4145be0d4e7492d89"
+EXPECTED_SNAPSHOT_FILE_SHA256 = "04b4136ca2c9452bc45de09182907e1a0276acb9f4f96b209f8da00a8b0e0f27"
 EXPECTED_SNAPSHOT_SIZE_BYTES = 41_025_536
 MAX_ACCEPTED_RELEASE_SIZE_BYTES = 5 * 1024**3
 
@@ -54,8 +50,7 @@ class M35AcceptanceResult:
                 "mobileAdapter": self.architecture_decision,
                 "signatureRepresentation": (
                     "text-v1"
-                    if self.architecture_decision
-                    == "retain_text_signature_and_typescript_adapter"
+                    if self.architecture_decision == "retain_text_signature_and_typescript_adapter"
                     else "pending"
                 ),
             },
@@ -138,9 +133,7 @@ def _check_dataset(report: Mapping[str, object] | None) -> AcceptanceCheck:
             "Raport datasetu nie zawiera estymacji snapshotu dla 15 gier.",
         )
     if estimated_size > MAX_ACCEPTED_RELEASE_SIZE_BYTES:
-        mismatches.append(
-            f"estymacja 15 gier {estimated_size} B przekracza 5 GiB"
-        )
+        mismatches.append(f"estymacja 15 gier {estimated_size} B przekracza 5 GiB")
 
     if mismatches:
         return AcceptanceCheck(
@@ -172,20 +165,11 @@ def _check_repository(report: Mapping[str, object] | None) -> AcceptanceCheck:
         mismatches.append("co najmniej jeden budżet baseline SQLite nie przeszedł")
     if _nested(report, "dataset", "layoutCount") != EXPECTED_LAYOUT_COUNT:
         mismatches.append("layoutCount nie wynosi 500 000")
-    if (
-        _nested(report, "dataset", "logicalContentSha256")
-        != EXPECTED_LOGICAL_CONTENT_SHA256
-    ):
+    if _nested(report, "dataset", "logicalContentSha256") != EXPECTED_LOGICAL_CONTENT_SHA256:
         mismatches.append("logiczny checksum nie odpowiada datasetowi M3.5")
-    if (
-        _nested(report, "dataset", "snapshotFileSha256")
-        != EXPECTED_SNAPSHOT_FILE_SHA256
-    ):
+    if _nested(report, "dataset", "snapshotFileSha256") != EXPECTED_SNAPSHOT_FILE_SHA256:
         mismatches.append("checksum pliku SQLite nie odpowiada datasetowi M3.5")
-    if (
-        _nested(report, "measurements", "cyclicNMinusOne", "rowCount")
-        != EXPECTED_LAYOUT_COUNT - 1
-    ):
+    if _nested(report, "measurements", "cyclicNMinusOne", "rowCount") != EXPECTED_LAYOUT_COUNT - 1:
         mismatches.append("pełny cykl nie zawiera dokładnie 499 999 rekordów")
     if mismatches:
         return AcceptanceCheck(
@@ -210,10 +194,7 @@ def _check_worker(report: Mapping[str, object] | None) -> AcceptanceCheck:
     mismatches: list[str] = []
     if _nested(report, "dataset", "layoutCount") != EXPECTED_LAYOUT_COUNT:
         mismatches.append("worker nie raportuje 500 000 layoutów")
-    if (
-        _nested(report, "dataset", "logicalContentSha256")
-        != EXPECTED_LOGICAL_CONTENT_SHA256
-    ):
+    if _nested(report, "dataset", "logicalContentSha256") != EXPECTED_LOGICAL_CONTENT_SHA256:
         mismatches.append("worker użył innego logicznego checksumu")
     maximum_batch = _nested(report, "generation", "maximumGeneratedBatchSize")
     if not _is_number(maximum_batch):
@@ -248,9 +229,7 @@ def _device_identity(report: Mapping[str, object]) -> str | None:
     model = str(_nested(report, "collection", "model") or "").lower()
     if "pixel 10 pro xl" in model:
         return "pixel_10_pro_xl"
-    if "samsung" in manufacturer and (
-        "s21 ultra" in model or model.startswith("sm-g998")
-    ):
+    if "samsung" in manufacturer and ("s21 ultra" in model or model.startswith("sm-g998")):
         return "galaxy_s21_ultra"
     return None
 
@@ -265,9 +244,7 @@ def _select_device_reports(
             continue
         previous = selected.get(identity)
         captured_at = str(report.get("capturedAt") or "")
-        previous_captured_at = (
-            "" if previous is None else str(previous[1].get("capturedAt") or "")
-        )
+        previous_captured_at = "" if previous is None else str(previous[1].get("capturedAt") or "")
         if previous is None or (captured_at, source) > (previous_captured_at, previous[0]):
             selected[identity] = (source, report)
     return selected
@@ -384,11 +361,7 @@ def _check_device(
         value = _nested(report, *path)
         if not _is_number(value):
             missing.append(name)
-        elif (
-            value > maximum
-            if name == "widoczny postęp"
-            else value >= maximum
-        ):
+        elif value > maximum if name == "widoczny postęp" else value >= maximum:
             failures.append(f"{name} {value} ms nie jest poniżej {maximum} ms")
             budget_failed = True
 
@@ -458,8 +431,7 @@ def _check_architecture(report: Mapping[str, object] | None) -> AcceptanceCheck:
         return AcceptanceCheck(
             "architecture_dependency_guard",
             "failed",
-            "Wykryto niedozwolone zależności: "
-            + ", ".join(str(value) for value in unexpected),
+            "Wykryto niedozwolone zależności: " + ", ".join(str(value) for value in unexpected),
         )
     if adapter_present is not True:
         return AcceptanceCheck(
@@ -555,25 +527,19 @@ def _check_release_evidence(
         ("sizes", "estimatedFifteenGamesReleaseBytes"),
     )
     missing_sizes = [
-        ".".join(path)
-        for path in size_paths
-        if not _is_number(_nested(report, *path))
+        ".".join(path) for path in size_paths if not _is_number(_nested(report, *path))
     ]
     update_paths = (
         ("deviceUpdate", "inPlacePassed"),
         ("deviceUpdate", "newSnapshotActivated"),
     )
-    missing_updates = [
-        ".".join(path) for path in update_paths if _nested(report, *path) is None
-    ]
+    missing_updates = [".".join(path) for path in update_paths if _nested(report, *path) is None]
     failed_updates = [
         ".".join(path)
         for path in update_paths
         if _nested(report, *path) is not None and _nested(report, *path) is not True
     ]
-    estimated_release_size = _nested(
-        report, "sizes", "estimatedFifteenGamesReleaseBytes"
-    )
+    estimated_release_size = _nested(report, "sizes", "estimatedFifteenGamesReleaseBytes")
     if failed_updates:
         sizes_and_update = AcceptanceCheck(
             "release_sizes_and_device_update",

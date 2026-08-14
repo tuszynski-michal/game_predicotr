@@ -55,9 +55,7 @@ WORKBENCH_CELL_COUNT = WORKBENCH_BOARD_COUNT * 15
 WORKBENCH_READ_ITERATIONS = 40
 WORKBENCH_WRITE_ITERATIONS = 30
 WORKBENCH_P95_LIMIT_MS = 500.0
-WORKBENCH_PIPELINE_FINGERPRINT = hashlib.sha256(
-    b"m65-workbench-acceptance-pipeline-v1"
-).hexdigest()
+WORKBENCH_PIPELINE_FINGERPRINT = hashlib.sha256(b"m65-workbench-acceptance-pipeline-v1").hexdigest()
 SYMBOL_CODES = (
     "cherries",
     "grapes",
@@ -97,9 +95,7 @@ def build_workbench_acceptance_report(
         "decision": {
             "automaticMassImportAllowed": False,
             "g6_5Status": (
-                "passed_local_supervised"
-                if physical["allChecksPassed"] is True
-                else "failed"
+                "passed_local_supervised" if physical["allChecksPassed"] is True else "failed"
             ),
             "manualReviewRequired": True,
             "remoteReviewEnabled": False,
@@ -130,10 +126,7 @@ def build_workbench_acceptance_report(
 
 def workbench_acceptance_report_bytes(report: Mapping[str, object]) -> bytes:
     validate_workbench_acceptance_report(report)
-    return (
-        json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8")
-        + b"\n"
-    )
+    return json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8") + b"\n"
 
 
 def validate_workbench_acceptance_report(report: Mapping[str, object]) -> None:
@@ -228,6 +221,7 @@ def _execute_physical_profile(
             after_cursor=None,
             before_cursor=None,
             sequence_number=None,
+            resume_at_first_pending=False,
             limit=1,
         )
         middle = service.list_items(
@@ -237,6 +231,7 @@ def _execute_physical_profile(
             after_cursor=None,
             before_cursor=None,
             sequence_number=1_500,
+            resume_at_first_pending=False,
             limit=1,
         )
         last = service.list_items(
@@ -246,6 +241,7 @@ def _execute_physical_profile(
             after_cursor=None,
             before_cursor=None,
             sequence_number=WORKBENCH_BOARD_COUNT,
+            resume_at_first_pending=False,
             limit=1,
         )
         if (
@@ -280,6 +276,7 @@ def _execute_physical_profile(
                 after_cursor=middle_cursor,
                 before_cursor=None,
                 sequence_number=None,
+                resume_at_first_pending=False,
                 limit=1,
             )
             read_sequences.add(cast(int, page.items[0].suggested_sequence_number))
@@ -301,6 +298,7 @@ def _execute_physical_profile(
                 after_cursor=None,
                 before_cursor=None,
                 sequence_number=sequence_number,
+                resume_at_first_pending=False,
                 limit=1,
             )
             item = page.items[0]
@@ -338,15 +336,20 @@ def _execute_physical_profile(
 
     conflict_sequence = WORKBENCH_WRITE_ITERATIONS + 1
     with session_factory() as session:
-        stale_item = _service(session).list_items(
-            game_id=game_id,
-            import_job_id=job_id,
-            view=ImageReviewView.PENDING,
-            after_cursor=None,
-            before_cursor=None,
-            sequence_number=conflict_sequence,
-            limit=1,
-        ).items[0]
+        stale_item = (
+            _service(session)
+            .list_items(
+                game_id=game_id,
+                import_job_id=job_id,
+                view=ImageReviewView.PENDING,
+                after_cursor=None,
+                before_cursor=None,
+                sequence_number=conflict_sequence,
+                resume_at_first_pending=False,
+                limit=1,
+            )
+            .items[0]
+        )
     with session_factory() as session:
         service = _service(session)
         current = service.get_item(
@@ -397,6 +400,7 @@ def _execute_physical_profile(
             after_cursor=None,
             before_cursor=None,
             sequence_number=None,
+            resume_at_first_pending=False,
             limit=1,
         )
         completed = _service(session).list_items(
@@ -406,6 +410,7 @@ def _execute_physical_profile(
             after_cursor=None,
             before_cursor=None,
             sequence_number=1,
+            resume_at_first_pending=False,
             limit=1,
         )
     resume_sequence = resumed.items[0].suggested_sequence_number
@@ -500,9 +505,7 @@ def _create_fixture(
         for index in range(start, stop):
             sequence_number = index + 1
             source_checksum = _digest(f"source:{index}")
-            execution_key = _digest(
-                f"{source_checksum}:{WORKBENCH_PIPELINE_FINGERPRINT}"
-            )
+            execution_key = _digest(f"{source_checksum}:{WORKBENCH_PIPELINE_FINGERPRINT}")
             source_id = uuid5(NAMESPACE_URL, f"m65-workbench-source:{index}")
             board_id = uuid5(NAMESPACE_URL, f"m65-workbench-board:{index}")
             review_id = uuid5(NAMESPACE_URL, f"m65-workbench-review:{index}")
@@ -550,8 +553,7 @@ def _create_fixture(
                 }
             )
             symbols = [
-                SYMBOL_CODES[(index + cell_index) % len(SYMBOL_CODES)]
-                for cell_index in range(15)
+                SYMBOL_CODES[(index + cell_index) % len(SYMBOL_CODES)] for cell_index in range(15)
             ]
             boards.append(
                 {
@@ -584,8 +586,7 @@ def _create_fixture(
                     {
                         "confidence": round(0.9 - alternative_index * 0.1, 2),
                         "symbolCode": SYMBOL_CODES[
-                            (index + cell_index + alternative_index)
-                            % len(SYMBOL_CODES)
+                            (index + cell_index + alternative_index) % len(SYMBOL_CODES)
                         ],
                     }
                     for alternative_index in range(4)
@@ -600,12 +601,9 @@ def _create_fixture(
                         "row_index": cell_index // 5,
                         "column_index": cell_index % 5,
                         "crop_relative_path": (
-                            f"m65-workbench/board-{index:04d}/"
-                            f"cell-{cell_index:02d}.png"
+                            f"m65-workbench/board-{index:04d}/cell-{cell_index:02d}.png"
                         ),
-                        "crop_checksum_sha256": _digest(
-                            f"crop:{index}:{cell_index}"
-                        ),
+                        "crop_checksum_sha256": _digest(f"crop:{index}:{cell_index}"),
                         "cropper_version": "m65-workbench-cropper-v1",
                         "prediction": {
                             "alternatives": alternatives,
@@ -637,9 +635,7 @@ def _create_fixture(
 
 
 def _service(session: Session) -> OperationalImageReviewService:
-    return OperationalImageReviewService(
-        SqlAlchemyOperationalImageReviewRepository(session)
-    )
+    return OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
 
 
 def _resolve_as_predicted(
@@ -728,8 +724,7 @@ def _operator_projection(
         "symbolCorrectionSeconds": 25.0,
     }
     weighted_seconds = (
-        max(0.0, 1.0 - symbol_correction_rate - geometry_rate)
-        * assumptions["cleanBoardSeconds"]
+        max(0.0, 1.0 - symbol_correction_rate - geometry_rate) * assumptions["cleanBoardSeconds"]
         + symbol_correction_rate * assumptions["symbolCorrectionSeconds"]
         + geometry_rate * assumptions["geometryCorrectionSeconds"]
     )
@@ -770,9 +765,7 @@ def _digest(value: str) -> str:
 
 
 def _database_url(source: URL, database_name: str) -> URL:
-    return source.set(database=database_name).update_query_dict(
-        {"connect_timeout": "3"}
-    )
+    return source.set(database=database_name).update_query_dict({"connect_timeout": "3"})
 
 
 def _migration_config(repository_root: Path, database_url: URL) -> Config:

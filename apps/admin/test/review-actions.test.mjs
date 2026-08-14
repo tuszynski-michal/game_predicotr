@@ -93,11 +93,7 @@ test('submits a typed resolution and loads immutable history', async () => {
     },
   };
 
-  const saved = await submitReviewResolution(
-    api,
-    selected.id,
-    command,
-  );
+  const saved = await submitReviewResolution(api, selected.id, command);
   const history = await loadReviewResolutions(api, selected.id);
 
   assert.equal(saved.ok, true);

@@ -571,17 +571,11 @@ class RulesService:
         self,
         rules_version: RulesVersion,
     ) -> RulesPublicationReadiness:
-        configurations = self._repository.list_rules_version_symbols(
-            rules_version.id
-        )
+        configurations = self._repository.list_rules_version_symbols(rules_version.id)
         symbols = {
             configuration.symbol_id: symbol
             for configuration in configurations
-            if (
-                symbol := self._repository.get_rules_symbol_definition(
-                    configuration.symbol_id
-                )
-            )
+            if (symbol := self._repository.get_rules_symbol_definition(configuration.symbol_id))
             is not None
         }
         return assess_rules_publication(
@@ -593,9 +587,7 @@ class RulesService:
         )
 
     def _get_locked_rules_version(self, rules_version_id: UUID) -> RulesVersion:
-        rules_version = self._repository.get_rules_version_for_update(
-            rules_version_id
-        )
+        rules_version = self._repository.get_rules_version_for_update(rules_version_id)
         if rules_version is None:
             raise RulesNotFoundError(
                 "RULES_VERSION_NOT_FOUND",

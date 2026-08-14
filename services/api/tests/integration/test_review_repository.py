@@ -161,9 +161,7 @@ def test_review_repository_persists_idempotent_immutable_batch(
                 )
                 resolution_command = {
                     "review_item_id": item.id,
-                    "idempotency_key": first_key
-                    if item.id == all_items[0].id
-                    else uuid4(),
+                    "idempotency_key": first_key if item.id == all_items[0].id else uuid4(),
                     "expected_revision": 0,
                     "action": ReviewResolutionAction.ACCEPT,
                     "geometry_accepted": True,
@@ -178,15 +176,13 @@ def test_review_repository_persists_idempotent_immutable_batch(
                     "rejection_reason": None,
                     "resolved_by": "integration-admin",
                 }
-                resolved, event, event_created = service.resolve_review_item(
-                    **resolution_command
-                )
+                resolved, event, event_created = service.resolve_review_item(**resolution_command)
                 assert resolved.resolution_revision == 1
                 assert event.revision == 1
                 assert event_created is True
                 if item.id == all_items[0].id:
-                    _, retried_event, created_on_resolution_retry = (
-                        service.resolve_review_item(**resolution_command)
+                    _, retried_event, created_on_resolution_retry = service.resolve_review_item(
+                        **resolution_command
                     )
                     assert retried_event.id == event.id
                     assert created_on_resolution_retry is False
@@ -205,11 +201,7 @@ def test_review_repository_persists_idempotent_immutable_batch(
             assert export_created_on_retry is False
             assert retried_export.id == feedback_export.id
             assert feedback_export.sample_count == 30 * 15
-            assert session.scalar(
-                select(func.count()).select_from(ReviewResolutionModel)
-            ) == 30
-            assert session.scalar(
-                select(func.count()).select_from(ReviewFeedbackExportModel)
-            ) == 1
+            assert session.scalar(select(func.count()).select_from(ReviewResolutionModel)) == 30
+            assert session.scalar(select(func.count()).select_from(ReviewFeedbackExportModel)) == 1
     finally:
         engine.dispose()

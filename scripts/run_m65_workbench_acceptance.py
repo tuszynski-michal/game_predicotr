@@ -16,9 +16,7 @@ from game_predictor_worker.images.workbench_acceptance import (
 )
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OUTPUT = (
-    REPOSITORY_ROOT / "ai_docs" / "quality" / "m65-workbench-acceptance-report.json"
-)
+DEFAULT_OUTPUT = REPOSITORY_ROOT / "ai_docs" / "quality" / "m65-workbench-acceptance-report.json"
 
 
 def main() -> int:
@@ -36,9 +34,7 @@ def main() -> int:
             validate_workbench_acceptance_report(report)
             payload = workbench_acceptance_report_bytes(report)
             if payload != output.read_bytes():
-                raise WorkbenchAcceptanceError(
-                    "Report is valid but not canonical JSON."
-                )
+                raise WorkbenchAcceptanceError("Report is valid but not canonical JSON.")
             print(f"Report is valid: {output}")
         else:
             report = build_workbench_acceptance_report(

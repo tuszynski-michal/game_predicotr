@@ -44,9 +44,7 @@ class MemoryJobRepository(JobRepository):
         self.rules: dict[UUID, LayoutImportRulesReference] = {}
         self.payout_datasets: dict[UUID, PayoutDatasetReference] = {}
         self.payout_rules: dict[UUID, PayoutRulesReference] = {}
-        self.image_selection_deletions: dict[
-            UUID, ImageSelectionJobDeletionReference
-        ] = {}
+        self.image_selection_deletions: dict[UUID, ImageSelectionJobDeletionReference] = {}
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -419,14 +417,12 @@ def test_service_physically_deletes_cancelled_image_selection_job(
             input_payload={"schema_version": 1},
         )
     )
-    repository.image_selection_deletions[job.id] = (
-        ImageSelectionJobDeletionReference(
-            run_id=run_id,
-            source_selection_id=source_selection_id,
-            source_reference_count=1,
-            has_curated_import_source=False,
-            has_published_output=False,
-        )
+    repository.image_selection_deletions[job.id] = ImageSelectionJobDeletionReference(
+        run_id=run_id,
+        source_selection_id=source_selection_id,
+        source_reference_count=1,
+        has_curated_import_source=False,
+        has_published_output=False,
     )
     artifact_root = tmp_path / "artifacts"
     import_root = tmp_path / "imports"
@@ -457,9 +453,7 @@ def test_service_physically_deletes_cancelled_image_selection_job(
     assert not (
         artifact_root / "data" / "trash" / "image-selection-deletions" / str(job.id)
     ).exists()
-    assert not (
-        import_root / ".trash" / "image-selection-deletions" / str(job.id)
-    ).exists()
+    assert not (import_root / ".trash" / "image-selection-deletions" / str(job.id)).exists()
 
 
 def test_service_preserves_shared_source_and_blocks_handoff(tmp_path: Path) -> None:
@@ -474,14 +468,12 @@ def test_service_preserves_shared_source_and_blocks_handoff(tmp_path: Path) -> N
             input_payload={"schema_version": 1},
         )
     )
-    repository.image_selection_deletions[job.id] = (
-        ImageSelectionJobDeletionReference(
-            run_id=run_id,
-            source_selection_id=source_selection_id,
-            source_reference_count=2,
-            has_curated_import_source=False,
-            has_published_output=False,
-        )
+    repository.image_selection_deletions[job.id] = ImageSelectionJobDeletionReference(
+        run_id=run_id,
+        source_selection_id=source_selection_id,
+        source_reference_count=2,
+        has_curated_import_source=False,
+        has_published_output=False,
     )
     source_directory = tmp_path / "imports" / "browser-selections" / str(source_selection_id)
     source_directory.mkdir(parents=True)
@@ -502,19 +494,17 @@ def test_service_preserves_shared_source_and_blocks_handoff(tmp_path: Path) -> N
 
     blocked_job = repository.add_job(
         create_job(
-                JobType.IMAGE_SELECTION,
-                game_id=game_id,
-                input_payload={"schema_version": 1, "marker": "handoff"},
+            JobType.IMAGE_SELECTION,
+            game_id=game_id,
+            input_payload={"schema_version": 1, "marker": "handoff"},
         )
     )
-    repository.image_selection_deletions[blocked_job.id] = (
-        ImageSelectionJobDeletionReference(
-            run_id=uuid4(),
-            source_selection_id=uuid4(),
-            source_reference_count=1,
-            has_curated_import_source=True,
-            has_published_output=False,
-        )
+    repository.image_selection_deletions[blocked_job.id] = ImageSelectionJobDeletionReference(
+        run_id=uuid4(),
+        source_selection_id=uuid4(),
+        source_reference_count=1,
+        has_curated_import_source=True,
+        has_published_output=False,
     )
     service.cancel_job(blocked_job.id)
     with pytest.raises(JobConflictError) as blocked:

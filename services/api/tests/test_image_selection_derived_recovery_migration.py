@@ -20,6 +20,5 @@ def test_derived_recovery_migration_is_reversible_and_keeps_full_identity() -> N
     assert "execution_mode = 'range_recovery'" in content
     assert "DELETE FROM image_selection_runs" in content
     assert (
-        'down_revision: str | Sequence[str] | None = '
-        '"0041_image_selection_review_queues"'
+        'down_revision: str | Sequence[str] | None = "0041_image_selection_review_queues"'
     ) in content

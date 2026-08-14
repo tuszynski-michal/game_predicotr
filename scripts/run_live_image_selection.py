@@ -414,8 +414,7 @@ def _resume_existing(options: argparse.Namespace) -> int:
                 )
                 if saved_terminal:
                     print(
-                        f"terminal reconciliation saved={saved_terminal} "
-                        f"total={len(saved_orders)}",
+                        f"terminal reconciliation saved={saved_terminal} total={len(saved_orders)}",
                         flush=True,
                     )
                 _write_report(options.report, report)
@@ -512,18 +511,13 @@ def main() -> int:
                 "purpose": "photo_selection",
             }
             mismatches = [
-                key
-                for key, expected in expected_contract.items()
-                if upload.get(key) != expected
+                key for key, expected in expected_contract.items() if upload.get(key) != expected
             ]
             if mismatches:
-                raise RuntimeError(
-                    "Resume upload contract mismatch: " + ", ".join(mismatches)
-                )
+                raise RuntimeError("Resume upload contract mismatch: " + ", ".join(mismatches))
             raw_indexes = upload.get("uploadedFileIndexes")
             if not isinstance(raw_indexes, list) or not all(
-                isinstance(index, int) and 0 <= index < len(files)
-                for index in raw_indexes
+                isinstance(index, int) and 0 <= index < len(files) for index in raw_indexes
             ):
                 raise RuntimeError("Resume upload contains invalid file indexes.")
             uploaded_indexes = set(raw_indexes)
@@ -674,8 +668,7 @@ def main() -> int:
                 )
                 if saved_terminal:
                     print(
-                        f"terminal reconciliation saved={saved_terminal} "
-                        f"total={len(saved_orders)}",
+                        f"terminal reconciliation saved={saved_terminal} total={len(saved_orders)}",
                         flush=True,
                     )
                 _write_report(options.report, report)

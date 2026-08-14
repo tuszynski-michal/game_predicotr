@@ -15,9 +15,7 @@ test('generated client drift ignores Windows and Unix line-ending differences', 
 });
 
 test('generated client drift still rejects a semantic content change', () => {
-  const current = new Map([
-    ['types.gen.ts', 'export type Health = "ok";\r\n'],
-  ]);
+  const current = new Map([['types.gen.ts', 'export type Health = "ok";\r\n']]);
   const expected = new Map([
     ['types.gen.ts', 'export type Health = "error";\n'],
   ]);

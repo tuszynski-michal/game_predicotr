@@ -85,9 +85,7 @@ def test_worker_lane_api_returns_both_lanes_without_process_details(tmp_path) ->
         clock=lambda: now,
     )
     app = create_app(
-        ApiSettings.from_environment(
-            {"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}
-        ),
+        ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path / "artifacts")}),
         worker_lane_status_service_dependency=lambda: service,
     )
 

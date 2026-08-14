@@ -46,8 +46,7 @@ def upgrade() -> None:
             name="ck_verified_training_cohorts_versions",
         ),
         sa.CheckConstraint(
-            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND command_sha256 ~ '^[0-9a-f]{64}$'",
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' AND command_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_verified_training_cohorts_sha256",
         ),
         sa.CheckConstraint(

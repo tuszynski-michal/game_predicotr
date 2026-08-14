@@ -151,13 +151,8 @@ def main() -> int:
                     isinstance(name, str) and isinstance(value, torch.Tensor)
                     for name, value in existing_state.items()
                 )
-                or logical_state_sha256(existing_state)
-                != logical_state_sha256(state)
-                or {
-                    key: existing_payload.get(key)
-                    for key in payload
-                    if key != "stateDict"
-                }
+                or logical_state_sha256(existing_state) != logical_state_sha256(state)
+                or {key: existing_payload.get(key) for key in payload if key != "stateDict"}
                 != {key: value for key, value in payload.items() if key != "stateDict"}
             ):
                 raise SymbolClassifierError(

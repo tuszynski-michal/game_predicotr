@@ -35,12 +35,7 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         self._session = session
 
     def game_exists(self, game_id: UUID) -> bool:
-        return (
-            self._session.scalar(
-                select(GameModel.id).where(GameModel.id == game_id)
-            )
-            is not None
-        )
+        return self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is not None
 
     def list_dataset_versions(self, game_id: UUID) -> list[DatasetVersion]:
         records = self._session.scalars(
@@ -97,8 +92,7 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
                     RulesVersionSymbolModel.symbol_id == SymbolModel.id,
                 )
                 .where(
-                    RulesVersionSymbolModel.rules_version_id
-                    == rules_version_id,
+                    RulesVersionSymbolModel.rules_version_id == rules_version_id,
                     RulesVersionSymbolModel.is_active.is_(True),
                     SymbolModel.game_id == game_id,
                 )
@@ -123,9 +117,7 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         layouts: Sequence[LayoutDraft],
     ) -> DatasetVersion | None:
         game = self._session.scalar(
-            select(GameModel)
-            .where(GameModel.id == source.game_id)
-            .with_for_update()
+            select(GameModel).where(GameModel.id == source.game_id).with_for_update()
         )
         if game is None:
             return None
@@ -223,9 +215,7 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
             dataset_version.id,
         )
         if record is None:
-            raise RuntimeError(
-                "Dataset version disappeared during a transaction."
-            )
+            raise RuntimeError("Dataset version disappeared during a transaction.")
         record.status = dataset_version.status
         record.published_at = dataset_version.published_at
         self._flush_or_raise_conflict()
@@ -244,9 +234,7 @@ class SqlAlchemyDatasetRepository(DatasetRepository):
         )
         layout_records = self._session.scalars(
             select(LayoutModel)
-            .where(
-                LayoutModel.dataset_version_id == dataset_record.id
-            )
+            .where(LayoutModel.dataset_version_id == dataset_record.id)
             .order_by(LayoutModel.sequence_number, LayoutModel.id)
         )
         return DatasetValidationSource(

@@ -26,9 +26,6 @@ def create_worker_lanes_router(
     def list_worker_lanes(
         service: Annotated[WorkerLaneStatusService, service_parameter],
     ) -> list[WorkerLaneStatusResponse]:
-        return [
-            WorkerLaneStatusResponse.from_domain(item)
-            for item in service.list_statuses()
-        ]
+        return [WorkerLaneStatusResponse.from_domain(item) for item in service.list_statuses()]
 
     return router

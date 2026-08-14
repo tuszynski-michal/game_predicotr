@@ -15,9 +15,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.artifact_root.is_absolute()
     assert settings.artifact_root.name == "artifacts"
     assert settings.review_crop_root.is_absolute()
-    assert settings.review_crop_root.name == (
-        "m5-reviewed-manual-merge-v16-full-preflight"
-    )
+    assert settings.review_crop_root.name == ("m5-reviewed-manual-merge-v16-full-preflight")
     assert settings.review_source_root.is_absolute()
     assert settings.review_source_root.as_posix().endswith("examples/imgs")
     assert settings.import_root.is_absolute()

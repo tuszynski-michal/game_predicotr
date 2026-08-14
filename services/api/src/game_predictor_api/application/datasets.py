@@ -137,9 +137,7 @@ class DatasetService:
         saved = self._repository.add_mock_dataset(
             source=source,
             seed=validated_seed,
-            signature_width=signature_cell_width(
-                source.symbol_mobile_codes
-            ),
+            signature_width=signature_cell_width(source.symbol_mobile_codes),
             layouts=layouts,
         )
         if saved is None:
@@ -196,9 +194,7 @@ class DatasetService:
             columns=dataset.columns,
             items=items,
             next_after_sequence_number=(
-                items[-1].sequence_number
-                if has_next_page and items
-                else None
+                items[-1].sequence_number if has_next_page and items else None
             ),
         )
 
@@ -206,9 +202,7 @@ class DatasetService:
         self,
         dataset_version_id: UUID,
     ) -> DatasetVersion:
-        source = self._repository.get_locked_validation_source(
-            dataset_version_id
-        )
+        source = self._repository.get_locked_validation_source(dataset_version_id)
         if source is None:
             raise DatasetNotFoundError(
                 "DATASET_VERSION_NOT_FOUND",
@@ -235,9 +229,7 @@ class DatasetService:
                             "code": check.code,
                             "message": check.message,
                             "issueCount": check.issue_count,
-                            "sequenceNumbers": list(
-                                check.sequence_numbers
-                            ),
+                            "sequenceNumbers": list(check.sequence_numbers),
                             "mobileCodes": list(check.mobile_codes),
                             "truncated": check.truncated,
                         }
@@ -252,9 +244,7 @@ class DatasetService:
         self,
         dataset_version_id: UUID,
     ) -> DatasetVersion:
-        dataset = self._repository.get_dataset_version_for_update(
-            dataset_version_id
-        )
+        dataset = self._repository.get_dataset_version_for_update(dataset_version_id)
         if dataset is None:
             raise DatasetNotFoundError(
                 "DATASET_VERSION_NOT_FOUND",

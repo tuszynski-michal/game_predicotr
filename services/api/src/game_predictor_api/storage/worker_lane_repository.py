@@ -108,6 +108,7 @@ class SqlAlchemyWorkerLaneRepository:
             ).all()
             return tuple(_from_record(record) for record in records)
 
+
 def _from_record(record: WorkerLaneRuntimeModel) -> WorkerLaneRuntime:
     return WorkerLaneRuntime(
         lane=record.lane,

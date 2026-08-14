@@ -31,10 +31,7 @@ DEFAULT_PROFILES = ROOT / "ai_docs" / "quality" / "m5-complete-local-grid-profil
 DEFAULT_NORMALIZATION_ROOT = ROOT / "artifacts" / "m5-normalization"
 DEFAULT_ARTIFACT_ROOT = ROOT / "artifacts" / "m5-board-crops"
 DEFAULT_OUTPUT = (
-    ROOT
-    / "ai_docs"
-    / "quality"
-    / "m5-board-cell-crops-v5-symbol-aware-affine-report.json"
+    ROOT / "ai_docs" / "quality" / "m5-board-cell-crops-v5-symbol-aware-affine-report.json"
 )
 
 

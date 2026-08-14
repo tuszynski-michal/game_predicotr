@@ -296,8 +296,7 @@ def generate_mock_layouts(
         unique_cells.append(cells)
 
     all_cells = unique_cells + [
-        unique_cells[sequence_number - 1]
-        for sequence_number in _DUPLICATE_SOURCE_SEQUENCES
+        unique_cells[sequence_number - 1] for sequence_number in _DUPLICATE_SOURCE_SEQUENCES
     ]
     return tuple(
         LayoutDraft(
@@ -323,23 +322,16 @@ def validate_dataset(
 
     missing_numbers = expected_numbers - actual_numbers
     out_of_range_numbers = actual_numbers - expected_numbers
-    duplicate_numbers = {
-        number for number, count in sequence_counts.items() if count > 1
-    }
+    duplicate_numbers = {number for number, count in sequence_counts.items() if count > 1}
     invalid_cell_records = [
-        item
-        for item in layouts
-        if len(item.cells) != dataset.rows * dataset.columns
+        item for item in layouts if len(item.cells) != dataset.rows * dataset.columns
     ]
     allowed_codes = set(source.allowed_symbol_mobile_codes)
     foreign_records = [
         item for item in layouts if any(cell not in allowed_codes for cell in item.cells)
     ]
     foreign_codes = {
-        cell
-        for item in foreign_records
-        for cell in item.cells
-        if cell not in allowed_codes
+        cell for item in foreign_records for cell in item.cells if cell not in allowed_codes
     }
     signature_mismatches: list[LayoutValidationRecord] = []
     for item in layouts:
@@ -370,9 +362,7 @@ def validate_dataset(
             sequence_numbers=numbers[:VALIDATION_DIAGNOSTIC_LIMIT],
             truncated=len(numbers) > VALIDATION_DIAGNOSTIC_LIMIT,
         )
-        for signature, numbers in duplicate_groups_all[
-            :VALIDATION_DIAGNOSTIC_LIMIT
-        ]
+        for signature, numbers in duplicate_groups_all[:VALIDATION_DIAGNOSTIC_LIMIT]
     )
 
     count_difference = abs(dataset.expected_layout_count - len(layouts))
@@ -424,9 +414,7 @@ def validate_dataset(
                 if not invalid_cell_records
                 else "Some layouts have an invalid number of cells."
             ),
-            sequence_numbers=(
-                item.sequence_number for item in invalid_cell_records
-            ),
+            sequence_numbers=(item.sequence_number for item in invalid_cell_records),
         ),
         _validation_check(
             DatasetValidationCheckCode.FOREIGN_SYMBOL,
@@ -447,9 +435,7 @@ def validate_dataset(
                 if not signature_mismatches
                 else "Some signatures do not match their cells and codec width."
             ),
-            sequence_numbers=(
-                item.sequence_number for item in signature_mismatches
-            ),
+            sequence_numbers=(item.sequence_number for item in signature_mismatches),
         ),
         _validation_check(
             DatasetValidationCheckCode.DUPLICATE_SIGNATURE,
@@ -466,8 +452,7 @@ def validate_dataset(
         dataset_version_id=dataset.id,
         dataset_version=dataset.version,
         ready_for_publication=not any(
-            check.status is DatasetValidationCheckStatus.BLOCKING
-            for check in checks
+            check.status is DatasetValidationCheckStatus.BLOCKING for check in checks
         ),
         declared_layout_count=dataset.layout_count,
         actual_layout_count=len(layouts),
@@ -482,9 +467,7 @@ def validate_dataset(
             len(numbers) - 1 for _, numbers in duplicate_groups_all
         ),
         duplicate_signatures=duplicate_groups,
-        duplicate_signatures_truncated=(
-            len(duplicate_groups_all) > VALIDATION_DIAGNOSTIC_LIMIT
-        ),
+        duplicate_signatures_truncated=(len(duplicate_groups_all) > VALIDATION_DIAGNOSTIC_LIMIT),
     )
 
 
@@ -497,9 +480,7 @@ def _validation_check(
     mobile_codes: Iterable[int] = (),
     warning: bool = False,
 ) -> DatasetValidationCheck:
-    sampled_sequences, sequences_truncated = _diagnostic_sample(
-        sequence_numbers
-    )
+    sampled_sequences, sequences_truncated = _diagnostic_sample(sequence_numbers)
     sampled_codes, codes_truncated = _diagnostic_sample(mobile_codes)
     return DatasetValidationCheck(
         code=code,

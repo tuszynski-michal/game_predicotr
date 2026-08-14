@@ -131,6 +131,17 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 - `readyForRecoveryCreation=false` wynika już tylko z oczekującego audytu
   właściciela na deterministycznej próbie 100 wyników. Kolejka i utworzenie runu
   pochodnego pozostają wstrzymane do audytu z zerem błędnych zakresów.
+- Etap `v0.6.11` normalizuje całe repozytorium aktualnymi konfiguracjami
+  Prettier i Ruff Formatter. Pełne kontrole formatowania, lint wszystkich
+  workspace'ów, Ruff, składnia 32 skryptów PowerShell oraz mypy dla 327 modułów
+  przechodzą. Usunięto też flakiness lokalnego serwera symbol review na Windows:
+  wczesne 403 opróżnia ograniczone body POST przed odpowiedzią, dzięki czemu
+  socket nie jest zamykany przez RST; scenariusz przeszedł 10/10 powtórzeń.
+- Po formatowaniu przeszły testy Admina 198/198, Mobile 82/82, Reviewera 23/23,
+  klienta API 37/37 i shared-ts 24/24. Pełny przebieg Python doszedł do 98% z
+  jedynym `WinError 10053`; po trwałej naprawie sam plik przeszedł 5/5, test
+  krytyczny 10/10, a cały końcowy segment workera 40/40. OpenAPI, snapshot oraz
+  fixture validation również przechodzą.
 
 ### Wersja 0.1
 

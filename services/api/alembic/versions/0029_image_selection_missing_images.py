@@ -76,10 +76,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "DELETE FROM image_selection_manual_decisions "
-        "WHERE resolution = 'missing_image'"
-    )
+    op.execute("DELETE FROM image_selection_manual_decisions WHERE resolution = 'missing_image'")
     op.execute(
         "UPDATE image_selection_groups SET status = 'manual_required' "
         "WHERE status = 'missing_image'"
@@ -122,7 +119,6 @@ def downgrade() -> None:
         ["run_id", "range_start", "range_end"],
         unique=True,
         postgresql_where=sa.text(
-            "status IN ('auto_selected', 'manually_selected') "
-            "AND range_start IS NOT NULL"
+            "status IN ('auto_selected', 'manually_selected') AND range_start IS NOT NULL"
         ),
     )

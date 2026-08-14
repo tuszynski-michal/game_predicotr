@@ -131,10 +131,7 @@ def _bright_components(
         if not 0.18 <= fill_fraction <= 0.96:
             continue
         touches_border = (
-            x <= 1
-            or y <= 1
-            or x + width >= BOARD_WIDTH - 1
-            or y + height >= BOARD_HEIGHT - 1
+            x <= 1 or y <= 1 or x + width >= BOARD_WIDTH - 1 or y + height >= BOARD_HEIGHT - 1
         )
         weight = min(1.0, area / 1800.0)
         if touches_border:
@@ -278,11 +275,7 @@ def _refine_center(
     sigma_x = width * 0.36
     sigma_y = height * 0.36
     prior = np.exp(
-        -0.5
-        * (
-            ((xx - local_expected_x) / sigma_x) ** 2
-            + ((yy - local_expected_y) / sigma_y) ** 2
-        )
+        -0.5 * (((xx - local_expected_x) / sigma_x) ** 2 + ((yy - local_expected_y) / sigma_y) ** 2)
     ).astype(np.float32)
     threshold = float(np.percentile(saliency, 62.0))
     foreground = saliency >= max(0.28, threshold)
@@ -355,11 +348,7 @@ def _assign_candidates(
         if existing is None or (score, candidate.candidate_index) < existing:
             selected[slot] = (score, candidate.candidate_index)
     return tuple(
-        (
-            selected[(row, column)][1]
-            if (row, column) in selected
-            else None
-        )
+        (selected[(row, column)][1] if (row, column) in selected else None)
         for row in range(BOARD_ROWS)
         for column in range(BOARD_COLUMNS)
     )
@@ -429,8 +418,7 @@ def locate_global_symbol_lattice(
         for index in range(BOARD_COLUMNS - 1)
     )
     row_spacing = statistics.median(
-        row_lattice.bases[index + 1] - row_lattice.bases[index]
-        for index in range(BOARD_ROWS - 1)
+        row_lattice.bases[index + 1] - row_lattice.bases[index] for index in range(BOARD_ROWS - 1)
     )
     centers = tuple(
         _refine_center(

@@ -263,6 +263,11 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         help="First layout number visible in the first source-image group.",
     )
+    parser.add_argument(
+        "--last-sequence-number",
+        type=int,
+        help="Last layout number in an existing staging rerun.",
+    )
     parser.add_argument("--api-base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--upload-workers", type=int, default=4, choices=range(1, 9))
@@ -291,16 +296,20 @@ def _start_existing_rerun(options: argparse.Namespace) -> int:
         timeout=httpx.Timeout(60.0, connect=10.0),
     ) as client:
         first_sequence_number = getattr(options, "first_sequence_number", None)
-        rerun_body = (
-            None
-            if first_sequence_number is None
-            else {"firstSequenceNumber": first_sequence_number}
-        )
+        last_sequence_number = getattr(options, "last_sequence_number", None)
+        rerun_body = {
+            key: value
+            for key, value in {
+                "firstSequenceNumber": first_sequence_number,
+                "lastSequenceNumber": last_sequence_number,
+            }.items()
+            if value is not None
+        }
         created = _request_json(
             client,
             "POST",
             f"/api/v1/admin/image-selections/{options.rerun_id}/rerun",
-            json_body=rerun_body,
+            json_body=rerun_body or None,
         )
     run = created.get("run")
     if not isinstance(run, dict):
@@ -430,6 +439,10 @@ def main() -> int:
         return _resume_existing(options)
     if options.first_sequence_number is not None and options.first_sequence_number < 1:
         raise RuntimeError("--first-sequence-number must be positive.")
+    if options.last_sequence_number is not None and options.last_sequence_number < 1:
+        raise RuntimeError("--last-sequence-number must be positive.")
+    if options.last_sequence_number is not None and options.rerun_id is None:
+        raise RuntimeError("--last-sequence-number is supported only with --rerun-id.")
     if options.rerun_id is not None:
         return _start_existing_rerun(options)
     if not options.resume_existing and options.first_sequence_number is None:

@@ -700,11 +700,15 @@ def test_rerun_can_add_required_first_sequence_to_historical_run(tmp_path: Path)
         run_id=historical.id,
         selector_fingerprint="2" * 64,
         first_sequence_number=7300,
+        last_sequence_number=19809,
     )
 
     assert created is True
     assert rerun.first_sequence_number == 7300
+    assert rerun.last_sequence_number == 19809
+    assert rerun.job.input_payload["last_sequence_number"] == 19809
     assert historical.first_sequence_number is None
+    assert historical.last_sequence_number is None
 
 
 @pytest.mark.parametrize("terminal_status", [JobStatus.CANCELLED, JobStatus.FAILED])
@@ -1350,13 +1354,23 @@ def test_image_selection_api_reruns_existing_managed_staging(tmp_path: Path) -> 
     )
 
     with client:
-        rerun = client.post(f"/api/v1/admin/image-selections/{original.id}/rerun")
-        repeated = client.post(f"/api/v1/admin/image-selections/{original.id}/rerun")
+        rerun_payload = {"firstSequenceNumber": 1, "lastSequenceNumber": 19809}
+        rerun = client.post(
+            f"/api/v1/admin/image-selections/{original.id}/rerun",
+            json=rerun_payload,
+        )
+        repeated = client.post(
+            f"/api/v1/admin/image-selections/{original.id}/rerun",
+            json=rerun_payload,
+        )
 
     assert rerun.status_code == 200, rerun.text
     assert rerun.json()["created"] is True
     assert rerun.json()["run"]["sourceSelectionId"] == str(source_selection_id)
     assert rerun.json()["run"]["id"] != str(original.id)
+    assert rerun.json()["run"]["firstSequenceNumber"] == 1
+    assert rerun.json()["run"]["lastSequenceNumber"] == 19809
+    assert rerun.json()["run"]["expectedGroupCount"] == 2201
     assert repeated.status_code == 200, repeated.text
     assert repeated.json()["created"] is False
     assert repeated.json()["run"]["id"] == rerun.json()["run"]["id"]

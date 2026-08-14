@@ -682,6 +682,10 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Nowy run utworzony z folderu o ścisłej nazwie `pierwszy - ostatni` zapisuje
   oba końce inkluzywnego przedziału. Pierwszy numer musi zgadzać się z kierunkiem
   i wartością podaną przez operatora; niespójna nazwa kończy się jawnym błędem.
+- Rerun istniejącego stagingu może jawnie podać oba końce przedziału. Jest to
+  wymagane dla historycznego runu bez `last_sequence_number`, aby nowy run miał
+  twardą oczekiwaną liczność zamiast niepełnego kontraktu odziedziczonego ze
+  starej wersji.
 - Liczba logicznych grup wynosi
   `ceil((abs(last_sequence_number - first_sequence_number) + 1) / 9)`.
   Każda pełna grupa obejmuje dziewięć kolejnych layoutów, a wyłącznie ostatnia

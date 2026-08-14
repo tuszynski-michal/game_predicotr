@@ -3478,6 +3478,18 @@
               }
             ],
             "title": "Firstsequencenumber"
+          },
+          "lastSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastsequencenumber"
           }
         },
         "title": "ImageSelectionRerunCommand",

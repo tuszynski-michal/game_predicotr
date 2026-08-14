@@ -158,6 +158,7 @@ def create_image_selections_router(
             run_id=run_id,
             selector_fingerprint=IMAGE_SELECTION_SELECTOR_FINGERPRINT,
             first_sequence_number=(None if payload is None else payload.first_sequence_number),
+            last_sequence_number=(None if payload is None else payload.last_sequence_number),
         )
         return ImageSelectionCreateResponse(
             run=to_image_selection_run_response(

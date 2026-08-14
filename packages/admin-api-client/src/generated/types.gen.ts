@@ -2049,6 +2049,10 @@ export type ImageSelectionRerunCommand = {
    * Firstsequencenumber
    */
   firstSequenceNumber?: number | null;
+  /**
+   * Lastsequencenumber
+   */
+  lastSequenceNumber?: number | null;
 };
 
 /**

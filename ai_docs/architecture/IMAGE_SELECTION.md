@@ -371,6 +371,10 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   `sourceSelectionId` i checksum manifestu, a następnie sprawdza kontrolowany
   katalog `browser-selections/<sourceSelectionId>` przed użyciem aktualnego
   fingerprintu. Nie przyjmuje od UI ścieżki ani checksumy i nie kopiuje obrazów.
+- Opcjonalne `firstSequenceNumber` i `lastSequenceNumber` nadpisują historyczne
+  granice rerunu. Jawny koniec jest częścią tożsamości runu i payloadu joba;
+  umożliwia bezpieczne objęcie v10.13 pełną licznością stagingu utworzonego przed
+  migracją 0043.
 - Gdy idempotentna tożsamość wskazuje run `cancelled` albo `failed`, endpoint
   blokuje jego job, wykonuje przejście do `created`, czyści terminalny błąd,
   `finishedAt` i żądanie anulowania, ale zachowuje postęp oraz checkpoint.
@@ -1055,7 +1059,9 @@ równy dziewięć. Liczba oczekiwanych grup jest zaokrąglana w górę, dzięki 
 przedział `229913–248184` ma 2031 grup, z ostatnią `248183–248184`. API zapisuje
 `last_sequence_number` w runie i payloadzie joba; migracja 0043 rozszerza nim
 również klucze idempotencji pełnego runu i recovery. Historyczne runy zachowują
-wartość zerową i wymagają jawnego końca przy pierwszej naprawie.
+wartość zerową i wymagają jawnego końca przy pierwszej naprawie. Kontrakt rerunu
+przenosi ten koniec razem z opcjonalną nową kotwicą początku; kontrolowany runner
+zapisuje oba parametry w PID state i raporcie operatorskim.
 
 Przed recovery algorytm rozwiązuje monotoniczne przypisanie 2295 fizycznych
 fragmentów do 2201 pozycji siatki. Programowanie dynamiczne ma dokładnie dwie

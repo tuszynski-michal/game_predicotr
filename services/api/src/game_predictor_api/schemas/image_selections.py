@@ -40,6 +40,7 @@ class ImageSelectionCreate(ApiModel):
 
 class ImageSelectionRerunCommand(ApiModel):
     first_sequence_number: int | None = Field(default=None, ge=1)
+    last_sequence_number: int | None = Field(default=None, ge=1)
 
 
 class ImageSelectionRunResponse(ApiModel):

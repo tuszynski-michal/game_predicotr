@@ -206,3 +206,12 @@ grupy ani referencji do obrazu spoza manifestu. Raport zapisano w
 deterministyczna próba 100 wyników oczekuje audytu właściciela. Run pochodny i
 kolejka następnych folderów pozostają wstrzymane do audytu z zerem błędnych
 zakresów.
+
+Etap `v0.6.12` domyka operatorski kontrakt pełnego rerunu z historycznego
+stagingu: endpoint, runner i kontrolowany launcher przyjmują jawny koniec
+sekwencji. Rerun `1–19809` nie może już utracić oczekiwanej liczności 2201 grup
+tylko dlatego, że źródłowy run powstał przed migracją 0043.
+
+Walidacja etapu: 334 testy API przeszły, 24 integracje zależne od środowiska
+zostały pominięte; pełny Ruff format/lint, parser 33 skryptów PowerShell, mypy
+327 modułów, OpenAPI i kontrola wygenerowanego klienta przeszły.

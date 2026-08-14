@@ -142,6 +142,15 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   jedynym `WinError 10053`; po trwałej naprawie sam plik przeszedł 5/5, test
   krytyczny 10/10, a cały końcowy segment workera 40/40. OpenAPI, snapshot oraz
   fixture validation również przechodzą.
+- Etap `v0.6.12` rozszerza rerun istniejącego managed stagingu o jawny
+  `lastSequenceNumber`. Historyczny staging 32 079 JPEG-ów może dzięki temu
+  utworzyć pełny run v10.13 z zakresem `1–19809`, oczekiwaną liczbą 2201 grup i
+  odrębnym kontrolowanym PID/reportem, bez ponownego uploadu ani dziedziczenia
+  pustego końca ze starego runu.
+- Walidacja v0.6.12: 334 testy API przeszły, 24 integracje środowiskowe zostały
+  jawnie pominięte; pełny Ruff potwierdził format 518 plików i brak lint errors,
+  parser zaakceptował 33 skrypty PowerShell, mypy przeszedł 327 modułów, a
+  OpenAPI i wygenerowany klient Admina pozostają aktualne.
 
 ### Wersja 0.1
 

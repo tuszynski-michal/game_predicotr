@@ -577,6 +577,7 @@ class ImageSelectionService:
         run_id: UUID,
         selector_fingerprint: str,
         first_sequence_number: int | None = None,
+        last_sequence_number: int | None = None,
     ) -> tuple[ImageSelectionRun, bool]:
         source_run = self.get_run(run_id)
         effective_first_sequence_number = (
@@ -585,12 +586,16 @@ class ImageSelectionService:
             else first_sequence_number
         )
         effective_last_sequence_number = (
-            source_run.last_sequence_number
-            if first_sequence_number is None
+            last_sequence_number
+            if last_sequence_number is not None
             else (
                 source_run.last_sequence_number
-                if first_sequence_number == source_run.first_sequence_number
-                else None
+                if first_sequence_number is None
+                else (
+                    source_run.last_sequence_number
+                    if first_sequence_number == source_run.first_sequence_number
+                    else None
+                )
             )
         )
         if (

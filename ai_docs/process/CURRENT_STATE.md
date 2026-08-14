@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-14
+last_updated: 2026-08-15
 ---
 
 # Current State
@@ -1353,6 +1353,14 @@ Kontrolery dalszej kolejki zostały przeładowane po poprawce odpowiedzi listy
 jobów w PowerShell `StrictMode`: endpoint może zwrócić obiekt z `items` albo
 bezpośrednią tablicę. Etap `93853 -117828` rozpoczął świeże przygotowanie źródła,
 a sześć dalszych kontrolerów czeka sekwencyjnie; nie działa drugi job selekcji.
+
+Benchmark przepustowości v10.13 z 2026-08-15 porównał w układzie ABBA ten sam
+wycinek 1000 JPEG-ów. `3 scan + 1 verification` uzyskało średni wall time
+`210,338 s`, a `4 scan + 1 verification` — `194,425 s`, czyli poprawę
+`7,566%`. Kanoniczne wyniki wszystkich grup były identyczne. Etap `v0.6.18`
+podnosi dlatego domyślny budżet lane selekcji z czterech do pięciu; manifest i
+fingerprint v10.13 pozostają bez zmian. Po walidacji i commicie lane selekcji
+ma zostać kontrolowanie przeładowany przed kontynuacją istniejącej kolejki.
 
 ## Do not start yet
 

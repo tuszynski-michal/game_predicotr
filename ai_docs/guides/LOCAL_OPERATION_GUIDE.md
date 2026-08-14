@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -176,17 +176,17 @@ blokują swoich kolejek. Można uruchomić tylko potrzebny proces. Przy pracy
 równoległej konkurują o CPU, RAM i dysk, więc pojedynczy job może działać wolniej
 niż wtedy, gdy jest jedynym obciążeniem komputera.
 
-Domyślny budżet wynosi 2 wątki dla general i 4 dla Selekcji. Można go zmienić
+Domyślny budżet wynosi 2 wątki dla general i 5 dla Selekcji. Można go zmienić
 przy starcie, nadal w zakresie 1–64:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 4
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\manage_worker_lanes.ps1 -Action Start -GeneralThreadBudget 2 -ImageSelectionThreadBudget 5
 ```
 
 Nie przekazuj tych parametrów przez `npm run workers:start -- ...`: npm na
 Windows może usunąć nazwy argumentów i PowerShell zwiąże wartość `2` z
 parametrem `Lane`. Zwykłe `npm run workers:start` zawsze stosuje domyślne
-budżety `2/4`.
+budżety `2/5`.
 
 Workspace `Joby` pokazuje oba procesy niezależnie jako `Działa`, `Brak świeżego
 sygnału` albo `Zatrzymany`, również gdy nie ma żadnego joba w kolejce. Status

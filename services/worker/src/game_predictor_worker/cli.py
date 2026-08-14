@@ -84,7 +84,7 @@ WORKER_VERSION = "worker-v10"
 GENERAL_LANE = "general"
 IMAGE_SELECTION_LANE = "image-selection"
 DEFAULT_GENERAL_THREAD_BUDGET = 2
-DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 4
+DEFAULT_IMAGE_SELECTION_THREAD_BUDGET = 5
 
 
 def main(arguments: Sequence[str] | None = None) -> int:

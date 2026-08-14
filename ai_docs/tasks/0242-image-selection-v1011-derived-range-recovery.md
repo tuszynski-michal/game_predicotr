@@ -2,7 +2,7 @@
 title: TASK-0242 image selection v10.11 derived range recovery
 status: in_progress
 release: "0.6"
-last_updated: 2026-08-14
+last_updated: 2026-08-15
 ---
 
 # TASK-0242 — Image selection v10.11 derived range recovery
@@ -296,3 +296,10 @@ oczekiwaną licznością 2816. Run `13db48f3-7551-498c-aec2-a62016f23f3c`, job
 `.runtime/live-image-selection-v1013-19810-45152.pid.json` są jedynym aktywnym
 torem selekcji. Output to izolowany katalog
 `C:\Users\user\Documents\19810-45152 v10.13`.
+
+Profil przepustowości z 2026-08-15 wykonał cztery porównywalne przebiegi ABBA na
+tym samym wycinku 1000 JPEG-ów. Średni wall time `3 scan + 1 verification`
+wyniósł `210,338 s`, a `4 scan + 1 verification` — `194,425 s`; poprawa to
+`7,566%`. Pełna kanoniczna projekcja grup była identyczna w każdym przebiegu.
+Etap `v0.6.18` podnosi domyślny budżet wykonawczy lane z czterech do pięciu,
+zachowuje pojedynczy verifier oraz nie zmienia fingerprintu v10.13.

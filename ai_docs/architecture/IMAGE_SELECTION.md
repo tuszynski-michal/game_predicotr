@@ -2,7 +2,7 @@
 title: Fast representative image selection architecture
 status: accepted
 release: "0.4"
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Architektura selekcji reprezentatywnych zdjęć
@@ -420,10 +420,11 @@ kandydata. Priorytetem pozostaje brak fałszywego scalenia.
   jak utrata lease; handler nie może wtedy wykonać terminalnego zapisu.
 - Supervisor ustawia per proces budżet wątków dla OpenMP, OpenBLAS, MKL,
   NumExpr i Accelerate oraz limit współbieżności CLI. General domyślnie używa
-  budżetu 2. Selekcja ma cztery zewnętrzne `scan_workers`, ale biblioteki
-  natywne wewnątrz każdego skanu pozostają jednowątkowe, aby nie tworzyć
-  zagnieżdżonej nadsubskrypcji. Jest to przenośny limit współbieżności, nie
-  twardy limit procentu CPU systemu operacyjnego.
+  budżetu 2. Selekcja używa łącznego budżetu 5: czterech zewnętrznych
+  `scan_workers` i jednego `verification_worker`. Biblioteki natywne wewnątrz
+  każdego zadania pozostają jednowątkowe, aby nie tworzyć zagnieżdżonej
+  nadsubskrypcji. Jest to przenośny limit współbieżności, nie twardy limit
+  procentu CPU systemu operacyjnego.
 - Checkpoint JSON przechowuje tylko potwierdzony `nextOrderIndex`, bounded stan
   otwartej grupy, pending guard, top-k i liczniki. Pełne grupy oraz kandydaci
   pozostają w PostgreSQL.
@@ -653,10 +654,14 @@ Implementacja potrafi dzielić każdy poziom adaptacyjny na najwyżej dwie
 szeregowe partycje. Każda partycja ma własny predictor, recognizery i detector,
 a wynik jest składany według indeksu wejściowego. Pomiar TASK-0194 wykazał na
 komputerze właściciela konkurencję Paddle/OpenCV: dwa verifiery były wolniejsze
-od jednego. Produkcyjny budżet lane równy cztery używa dlatego trzech scan
-workers i jednego verification workera. Adapter dwóch izolowanych verifierów
-pozostaje nieaktywną opcją do ponownej bramki na innym sprzęcie. Telemetria
-`parallelVerification*` nie uczestniczy w decyzji domenowej.
+od jednego, dlatego produkcja nadal używa jednego verification workera.
+Powtarzalny profil ABBA v10.13 z 2026-08-15 podniósł wyłącznie łączny budżet
+lane z czterech do pięciu: cztery scan workers plus jeden verification worker
+skróciły średni wall time próbki 1000 JPEG-ów z `210,338 s` do `194,425 s`
+(`7,566%`) przy identycznej kanonicznej decyzji wszystkich grup. Adapter dwóch
+izolowanych verifierów pozostaje nieaktywną opcją do ponownej bramki na innym
+sprzęcie. Telemetria `parallelVerification*` nie uczestniczy w decyzji
+domenowej.
 
 Powtarzalna bramka `scripts/run_image_selection_verifier_gate.py` uruchamia oba
 warianty sekwencyjnie na tym samym wycinku i tym samym aktywnym manifeście.

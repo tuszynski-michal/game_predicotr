@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Decision Log
@@ -4525,6 +4525,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   joba mogą być wyższe po rekonsyliacji, bo opisują historię wykonania.
 - **Supersedes:** rozszerza D-184 o trwałość końcowego inwariantu i kanoniczny
   eksport bez zmiany reguł selektora.
+
+## D-186 — Produkcyjna selekcja używa czterech skanerów i jednego verifiera
+
+- **Status:** accepted
+- **Date:** 2026-08-15
+- **Decision:** domyślny łączny budżet CPU lane `image-selection` wynosi pięć:
+  cztery `scan_workers` i jeden `verification_worker`. Natywne biblioteki
+  pozostają jednowątkowe, a drugi verifier nie jest aktywowany. Zmiana dotyczy
+  wyłącznie wykonania i nie zmienia manifestu ani fingerprintu v10.13.
+- **Context:** dotychczasowy budżet cztery dawał efektywnie trzy skanery i jeden
+  verifier. Profil ABBA na tym samym wycinku 1000 JPEG-ów porównał czasy
+  `3+1`: `225,290 s` i `195,385 s` z czasami `4+1`: `195,612 s` i
+  `193,237 s`. Średnie wyniosły odpowiednio `210,338 s` i `194,425 s`.
+- **Reason:** wariant `4+1` skrócił średni wall time o `7,566%`. Kanoniczne
+  projekcje grup, zakresy, reprezentanci, checksumy i decyzje kandydatów były
+  identyczne we wszystkich czterech wykonaniach.
+- **Alternatives:** pozostawienie `3+1` odrzucono po powtarzalnym pomiarze.
+  Aktywację dwóch verifierów oraz równoległe joby produkcyjne odłożono, ponieważ
+  stanowią osobne zmiany modelu zasobów i wymagają własnej bramki operacyjnej.
+  GPU nie jest używane przez bieżący pipeline i wymagałoby osobnego prototypu.
+- **Consequences:** supervisor i bezpośrednie uruchomienie CLI stosują domyślnie
+  budżet pięć. Jawne `--cpu-thread-budget 4` nadal odtwarza konfigurację `3+1`.
+  Po wdrożeniu lane selekcji musi zostać kontrolowanie przeładowany, aby nowy
+  proces zarejestrował budżet pięć w heartbeat.
+- **Supersedes:** aktualizuje zasobową część D-154 i pomiarową konsekwencję
+  TASK-0194; nie zmienia execution slotów, lease, fencing ani reguł selektora.
 
 ## Szablon nowej decyzji
 

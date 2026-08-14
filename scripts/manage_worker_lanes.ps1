@@ -12,7 +12,7 @@ param(
     [int]$GeneralThreadBudget = 2,
 
     [ValidateRange(1, 64)]
-    [int]$ImageSelectionThreadBudget = 4,
+    [int]$ImageSelectionThreadBudget = 5,
 
     [ValidateRange(1, 30)]
     [int]$TimeoutSeconds = 10

@@ -56,6 +56,23 @@ def test_job_progress_rejects_response_without_progress() -> None:
         monitor._job_progress({"status": "processing"})
 
 
+def test_job_error_reads_nested_api_contract() -> None:
+    monitor = _monitor_module()
+
+    assert monitor._job_error(
+        {
+            "error": {
+                "code": "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                "message": "Projection conflict.",
+            }
+        }
+    ) == (
+        "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+        "Projection conflict.",
+    )
+    assert monitor._job_error({"error": None}) == (None, None)
+
+
 def test_existing_rerun_writes_resumable_report(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

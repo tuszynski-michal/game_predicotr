@@ -77,6 +77,13 @@ def _job_progress(job: dict[str, Any]) -> dict[str, object]:
     }
 
 
+def _job_error(job: dict[str, Any]) -> tuple[object | None, object | None]:
+    error = job.get("error")
+    if not isinstance(error, dict):
+        return None, None
+    return error.get("code"), error.get("message")
+
+
 def _write_report(path: Path, report: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     content = (json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
@@ -595,6 +602,7 @@ def _resume_existing(options: argparse.Namespace) -> int:
                 }
             )
             if job["status"] in TERMINAL_STATUSES:
+                error_code, error_message = _job_error(job)
                 coverage, saved_terminal, export_cursor = _finalize_terminal_run(
                     client,
                     run_id,
@@ -610,8 +618,8 @@ def _resume_existing(options: argparse.Namespace) -> int:
                         "selectionFinishedAt": _utc_now(),
                         "selectionElapsedSeconds": elapsed,
                         "finishedAt": _utc_now(),
-                        "errorCode": job.get("errorCode"),
-                        "errorMessage": job.get("errorMessage"),
+                        "errorCode": error_code,
+                        "errorMessage": error_message,
                     }
                 )
                 if saved_terminal:
@@ -859,6 +867,7 @@ def main() -> int:
                 }
             )
             if job["status"] in TERMINAL_STATUSES:
+                error_code, error_message = _job_error(job)
                 coverage, saved_terminal, export_cursor = _finalize_terminal_run(
                     client,
                     run_id,
@@ -874,8 +883,8 @@ def main() -> int:
                         "selectionFinishedAt": _utc_now(),
                         "selectionElapsedSeconds": _duration(selection_started),
                         "finishedAt": _utc_now(),
-                        "errorCode": job.get("errorCode"),
-                        "errorMessage": job.get("errorMessage"),
+                        "errorCode": error_code,
+                        "errorMessage": error_message,
                     }
                 )
                 if saved_terminal:

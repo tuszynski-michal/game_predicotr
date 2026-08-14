@@ -167,6 +167,19 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   izolowanym PostgreSQL przeszła 1/1. Ruff potwierdził format 518 plików i brak
   lint errors, mypy przeszedł 327 modułów, OpenAPI i generowany klient są
   aktualne.
+- Próba wznowienia pełnego runu na v0.6.13 ujawniła drugi wariant tego samego
+  problemu: grupa automatyczna zmieniała reprezentanta, ale stary element
+  `top_candidates` nadal miał historyczne `selected_automatic` lub
+  `selected_manual`, co kolidowało z
+  `uq_image_selection_candidates_selected_group`. Transakcja poprawnie wykonała
+  rollback i raport v3 nie uznał częściowego eksportu za wynik.
+- Etap `v0.6.14` zwalnia przed końcowym zapisem także sloty kandydatów wszystkich
+  niechronionych grup, traktuje `selected_candidate` jako jedyne źródło wyboru i
+  po zapisie kontroluje dokładnie jednego reprezentanta każdej gotowej grupy.
+  Diagnostyczna transakcja na rzeczywistych 2298 grupach przeszła w 81,5 s i
+  została celowo wycofana bez zmiany bazy. Regresja PostgreSQL przeszła 1/1,
+  testy skupione 24/24; pełny worker zakończył 709 testów poprawnie, a jedyny
+  niezależny `WinError 10053` przeszedł 1/1 przy natychmiastowej powtórce.
 
 ### Wersja 0.1
 

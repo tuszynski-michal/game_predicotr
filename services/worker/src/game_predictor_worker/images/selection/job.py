@@ -1302,10 +1302,21 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                         "The durable groups do not match the reconciled projection.",
                     )
 
-                # Release every mutable selected-range slot before assigning any
-                # new slot. PostgreSQL checks the partial unique index per row,
-                # so a direct ordered rewrite can otherwise conflict with the
-                # still-unmodified owner of a range that moves earlier/later.
+                # Release every mutable range and selected-candidate slot before
+                # assigning any new slot. PostgreSQL checks both partial unique
+                # indexes per row, so a direct ordered rewrite can otherwise
+                # conflict with a still-unmodified range owner or representative.
+                protected_statuses = {
+                    ImageSelectionGroupStatus.MANUALLY_SELECTED,
+                    ImageSelectionGroupStatus.MISSING_IMAGE,
+                    ImageSelectionGroupStatus.RANGE_CONFIRMED,
+                    ImageSelectionGroupStatus.REJECTED_BY_USER,
+                }
+                mutable_group_ids = tuple(
+                    record.id
+                    for record in records
+                    if ImageSelectionGroupStatus(record.status) not in protected_statuses
+                )
                 mutable_selected_ids = tuple(
                     record.id
                     for record in records
@@ -1323,6 +1334,22 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                             rejection_origin_status=None,
                             updated_at=persisted_at,
                         )
+                    )
+                    session.flush()
+                if mutable_group_ids:
+                    session.execute(
+                        update(ImageSelectionCandidateModel)
+                        .where(
+                            ImageSelectionCandidateModel.run_id == run_id,
+                            ImageSelectionCandidateModel.group_id.in_(mutable_group_ids),
+                            ImageSelectionCandidateModel.decision.in_(
+                                (
+                                    ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+                                    ImageSelectionCandidateDecision.SELECTED_MANUAL,
+                                )
+                            ),
+                        )
+                        .values(decision=ImageSelectionCandidateDecision.ELIGIBLE)
                     )
                     session.flush()
 
@@ -1401,6 +1428,47 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                 raise JobHandlerError(
                     "IMAGE_SELECTION_SEQUENCE_COVERAGE_MISMATCH",
                     "The committed projection does not cover the complete sequence grid.",
+                )
+
+        selected_candidates = tuple(
+            session.scalars(
+                select(ImageSelectionCandidateModel).where(
+                    ImageSelectionCandidateModel.run_id == run.id,
+                    ImageSelectionCandidateModel.decision.in_(
+                        (
+                            ImageSelectionCandidateDecision.SELECTED_AUTOMATIC,
+                            ImageSelectionCandidateDecision.SELECTED_MANUAL,
+                        )
+                    ),
+                )
+            )
+        )
+        selected_by_group: dict[UUID, list[ImageSelectionCandidateModel]] = {}
+        for candidate in selected_candidates:
+            if candidate.group_id is not None:
+                selected_by_group.setdefault(candidate.group_id, []).append(candidate)
+        ready_statuses = {
+            SelectionGroupStatus.AUTO_SELECTED,
+            SelectionGroupStatus.MANUALLY_SELECTED,
+            SelectionGroupStatus.RANGE_CONFIRMED,
+        }
+        for record, group in zip(records, expected, strict=True):
+            selected = selected_by_group.get(record.id, [])
+            desired_order = (
+                None
+                if group.selected_candidate is None
+                else group.selected_candidate.source.order_index
+            )
+            if group.status in ready_statuses:
+                if len(selected) != 1 or selected[0].order_index != desired_order:
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                        "The committed representative differs from the reconciled projection.",
+                    )
+            elif selected:
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                    "A non-ready group retained a selected representative.",
                 )
 
     def persist_recovery_projection(
@@ -1593,6 +1661,14 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                     if group.status is SelectionGroupStatus.MANUALLY_SELECTED
                     else CandidateDecision.SELECTED_AUTOMATIC
                 )
+            elif decision in {
+                CandidateDecision.SELECTED_AUTOMATIC,
+                CandidateDecision.SELECTED_MANUAL,
+            }:
+                # ``selected_candidate`` is authoritative. A reconciler may
+                # replace it while an older candidate in ``top_candidates``
+                # still carries its historical selected decision.
+                decision = CandidateDecision.ELIGIBLE
             _upsert_candidate(
                 session,
                 run_id=run_id,

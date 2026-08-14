@@ -1097,12 +1097,18 @@ Końcowe uzgodnienie pełnego runu używa osobnej operacji repozytorium
 `persist_reconciled_groups`. W jednej fenced transakcji PostgreSQL blokowany jest
 run i wszystkie jego grupy. Pierwsza faza zmienia wyłącznie modyfikowalne
 `auto_selected` na neutralne `range_required` bez zakresu, aby zwolnić wpisy
-częściowego indeksu `uq_image_selection_groups_selected_range`; po `flush` druga
-faza zapisuje wszystkie docelowe statusy i zakresy. Chronione decyzje
+częściowego indeksu `uq_image_selection_groups_selected_range`, a we wszystkich
+niechronionych grupach cofa `selected_automatic` i historyczne
+`selected_manual` do `eligible`, zwalniając
+`uq_image_selection_candidates_selected_group`. Po `flush` druga faza zapisuje
+wszystkie docelowe statusy, zakresy i reprezentantów. `selected_candidate` jest
+źródłem prawdy; stare flagi wyboru pozostałych `top_candidates` są normalizowane
+do `eligible`. Chronione decyzje
 `manually_selected`, `missing_image`, `range_confirmed` i `rejected_by_user`
 pozostają nietknięte przez fazę zwalniania. Przed commitem repozytorium porównuje
-każdy rekord z projekcją i ponownie egzekwuje dokładną liczność oraz uporządkowaną
-siatkę `SequenceBounds`. `IntegrityError` tej operacji jest mapowany na
+każdy rekord z projekcją i ponownie egzekwuje dokładną liczność, uporządkowaną
+siatkę `SequenceBounds` oraz dokładnie jednego zgodnego reprezentanta gotowej
+grupy. `IntegrityError` tej operacji jest mapowany na
 `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT` i powoduje rollback całej
 transakcji.
 

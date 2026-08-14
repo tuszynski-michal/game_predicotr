@@ -95,9 +95,9 @@ false split albo false merge również mogą być błędne.
 - [x] Każdy z 2201 logicznych właścicieli ma co najmniej jeden JPEG obecny w
       źródłowym manifeście; pusta grupa lub checksum spoza manifestu blokują
       automatyczną bramkę.
-- [x] Końcowy zapis pełnej projekcji zwalnia modyfikowalne zakresy w osobnej
-      fazie, zapisuje wynik atomowo i przed commitem egzekwuje dokładną liczność
-      oraz siatkę.
+- [x] Końcowy zapis pełnej projekcji zwalnia modyfikowalne zakresy i sloty
+      kandydatów niechronionych grup w osobnej fazie, zapisuje wynik atomowo i
+      przed commitem egzekwuje dokładną liczność, siatkę oraz reprezentantów.
 - [x] Terminalny eksport wraca do `groupOrder=-1`, obejmuje `range_confirmed`,
       usuwa wyłącznie stare `seq_*.jpg`, a raport schema v3 osobno bramkuje
       pokrycie logiczne i plikowe.
@@ -241,3 +241,19 @@ przeszło; 25 testów API pominięto zgodnie z bramkami środowiskowymi. Dedykow
 regresja PostgreSQL przeszła 1/1. Ruff potwierdził format 518 plików i brak
 błędów lint, mypy przeszedł 327 modułów, a OpenAPI oraz generowany klient Admina
 pozostają aktualne.
+
+Pierwsze wznowienie po v0.6.13 ujawniło niezależny konflikt częściowego indeksu
+kandydatów. Reconciler poprawnie wskazał nowy `selected_candidate`, ale stary
+element `top_candidates` zachował historyczne `selected_automatic`; rzeczywiste
+dane zawierały również analogiczny przypadek `selected_manual` w grupie o
+statusie automatycznym. V0.6.14 rozszerza pierwszą fazę transakcji o zwolnienie
+obu rodzajów slotu wybranego kandydata we wszystkich niechronionych grupach i
+normalizuje stare decyzje listy wobec autorytatywnego `selected_candidate`.
+Końcowa kontrola obejmuje teraz również dokładnie jednego zgodnego reprezentanta
+każdej gotowej grupy.
+
+Pełna diagnostyczna transakcja na rzeczywistych 2298 grupach przeszła w 81,5 s i
+została wymuszenie wycofana. Regresja izolowanego PostgreSQL i 24 testy skupione
+przeszły. Pełny suite workera zakończył 709 testów poprawnie; jedyny niezależny
+test HTTP przerwany znanym `WinError 10053` przeszedł 1/1 po natychmiastowej
+powtórce. Fingerprint v10.13 pozostaje niezmieniony.

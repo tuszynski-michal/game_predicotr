@@ -4486,15 +4486,21 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Date:** 2026-08-14
 - **Decision:** pełny run z kompletnymi granicami sekwencji zapisuje wynik
   reconciliacji dedykowaną fenced transakcją dwufazową: najpierw zwalnia zakresy
-  modyfikowalnych właścicieli automatycznych, następnie zapisuje całą projekcję i
-  przed commitem sprawdza jej dokładną liczność oraz siatkę. Terminalny runner
+  modyfikowalnych właścicieli automatycznych i sloty wybranych kandydatów grup
+  niechronionych, następnie zapisuje całą projekcję i przed commitem sprawdza jej
+  dokładną liczność, siatkę i reprezentantów. `selected_candidate` jest
+  autorytatywny wobec historycznych decyzji pozostałych `top_candidates`.
+  Terminalny runner
   ponownie czyta wszystkie grupy od początku i oddzielnie bramkuje logiczne
   pokrycie projekcji oraz pokrycie gotowych grup plikami.
 - **Context:** pierwszy pełny run v10.13 zeskanował 32 079 JPEG-ów, ale
   sekwencyjny upsert końcowych zakresów trafił w częściowy unikalny indeks, gdy
   docelowy zakres nadal należał do jeszcze niezmienionego rekordu. Transakcja
-  cofnęła całą reconciliację. Niezależnie progresywny kursor eksportu nie wracał
-  do wcześniejszych grup wypromowanych dopiero w końcowej projekcji.
+  cofnęła całą reconciliację. Po zwolnieniu zakresów ujawnił się analogiczny
+  konflikt reprezentanta: nowy JPEG był autorytatywny, ale stary element listy
+  kandydatów nadal niósł historyczne `selected_automatic` lub `selected_manual`.
+  Niezależnie progresywny kursor eksportu nie wracał do wcześniejszych grup
+  wypromowanych dopiero w końcowej projekcji.
 - **Reason:** inwariant 2201 właścicieli musi obowiązywać również w trwałym
   stanie bazy, a nie tylko w wyniku czystej funkcji. Eksport jest projekcją
   wtórną i wymaga własnego pełnego uzgodnienia, ponieważ monotoniczny polling nie
@@ -4503,8 +4509,9 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   odrzucono jako zależne od kolejności oraz trudniejsze do audytu; usunięcie
   indeksu odrzucono, bo osłabiłoby globalnego właściciela zakresu; pełny ponowny
   OCR odrzucono, ponieważ checkpoint 32 079 źródeł jest kompletny.
-- **Consequences:** decyzje użytkownika nigdy nie są zwalniane w pierwszej
-  fazie. Każdy błąd powoduje rollback i stabilny kod domenowy. Raport schema v3
+- **Consequences:** decyzje użytkownika i kandydaci ich chronionych grup nigdy
+  nie są zwalniani w pierwszej fazie. Każdy błąd powoduje rollback i stabilny
+  kod domenowy. Raport schema v3
   jest wymagany przed przejściem kolejki, a `failed`/`cancelled` nie naprawia
   katalogu. Manifest selektora v10.13 nie zmienia się, bo poprawka dotyczy
   trwałości i projekcji wynikowej, nie algorytmu analizy obrazu.

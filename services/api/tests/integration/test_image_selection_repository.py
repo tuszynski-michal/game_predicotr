@@ -12,6 +12,7 @@ from game_predictor_api.application.image_selections import ImageSelectionServic
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.domain.image_selections import (
+    ImageSelectionCandidateDecision,
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
 )
@@ -21,6 +22,7 @@ from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
+from game_predictor_api.storage.models import ImageSelectionCandidateModel
 from game_predictor_worker.images.selection.contracts import (
     CandidateDecision,
     CandidateResult,
@@ -32,7 +34,7 @@ from game_predictor_worker.images.selection.contracts import (
 )
 from game_predictor_worker.images.selection.job import SqlAlchemyImageSelectionJobStore
 from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, update
 from sqlalchemy.engine import URL, make_url
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -164,33 +166,51 @@ def test_final_projection_reassigns_selected_ranges_atomically(
     session_factory = create_session_factory(engine)
     now = datetime(2026, 8, 14, 10, tzinfo=UTC)
 
-    def group(order: int, start: int) -> SelectionGroupResult:
+    def group(
+        order: int,
+        start: int,
+        *,
+        selected_order: int | None = None,
+        candidate_orders: tuple[int, ...] | None = None,
+        stale_selected_order: int | None = None,
+    ) -> SelectionGroupResult:
         recognized_range = SequenceRange(start, start + 8, 0.99)
-        source = ImageSelectionSource(
-            order_index=order,
-            relative_path=f"source/{order}.jpg",
-            stored_relative_path=f"{order:08d}.jpg",
-            checksum_sha256=format(order + 1, "x") * 64,
-            size_bytes=1024,
+        orders = candidate_orders or (order,)
+        selected = order if selected_order is None else selected_order
+        candidates = tuple(
+            CandidateResult(
+                source=ImageSelectionSource(
+                    order_index=candidate_order,
+                    relative_path=f"source/{candidate_order}.jpg",
+                    stored_relative_path=f"{candidate_order:08d}.jpg",
+                    checksum_sha256=format(candidate_order + 1, "x") * 64,
+                    size_bytes=1024,
+                ),
+                decision=(
+                    CandidateDecision.SELECTED_AUTOMATIC
+                    if candidate_order == stale_selected_order
+                    else CandidateDecision.ELIGIBLE
+                ),
+                quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+                recognized_range=recognized_range,
+                reason_codes=(),
+                width=1080,
+                height=1920,
+            )
+            for candidate_order in orders
         )
-        candidate = CandidateResult(
-            source=source,
-            decision=CandidateDecision.ELIGIBLE,
-            quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
-            recognized_range=recognized_range,
-            reason_codes=(),
-            width=1080,
-            height=1920,
+        selected_candidate = next(
+            candidate for candidate in candidates if candidate.source.order_index == selected
         )
         return SelectionGroupResult(
             group_order=order,
-            source_count=1,
+            source_count=len(candidates),
             range=recognized_range,
             fingerprint_sha256=format(order, "x") * 64,
             board_count_consensus=9,
             status=SelectionGroupStatus.AUTO_SELECTED,
-            selected_candidate=candidate,
-            top_candidates=(candidate,),
+            selected_candidate=selected_candidate,
+            top_candidates=candidates,
         )
 
     try:
@@ -215,7 +235,7 @@ def test_final_projection_reassigns_selected_ranges_atomically(
 
         claimed = SqlAlchemyWorkerJobStore(session_factory).claim_next(
             worker_id="projection-test-worker",
-            worker_version="v0.6.13-test",
+            worker_version="v0.6.14-test",
             lease_duration=timedelta(minutes=1),
             claimed_at=now,
             allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
@@ -227,16 +247,40 @@ def test_final_projection_reassigns_selected_ranges_atomically(
             job_id=run.job.id,
             run_id=run.id,
             lease_token=claimed.lease_token,
-            groups=(group(0, 10), group(1, 1)),
+            groups=(
+                group(0, 10, selected_order=0, candidate_orders=(0, 2)),
+                group(1, 1),
+            ),
             group_sources={},
             persisted_at=now,
         )
+        # Reproduce the historical inconsistency from the 32,079-image run:
+        # the mutable group is automatic, while its old representative still
+        # carries a selected_manual candidate decision.
+        with session_factory() as session, session.begin():
+            session.execute(
+                update(ImageSelectionCandidateModel)
+                .where(
+                    ImageSelectionCandidateModel.run_id == run.id,
+                    ImageSelectionCandidateModel.order_index == 0,
+                )
+                .values(decision=ImageSelectionCandidateDecision.SELECTED_MANUAL)
+            )
 
         store.persist_reconciled_groups(
             job_id=run.job.id,
             run_id=run.id,
             lease_token=claimed.lease_token,
-            groups=(group(0, 1), group(1, 10)),
+            groups=(
+                group(
+                    0,
+                    1,
+                    selected_order=2,
+                    candidate_orders=(0, 2),
+                    stale_selected_order=0,
+                ),
+                group(1, 10),
+            ),
             persisted_at=now + timedelta(seconds=1),
         )
 
@@ -246,6 +290,8 @@ def test_final_projection_reassigns_selected_ranges_atomically(
             (10, 18),
         ]
         assert all(item.status is SelectionGroupStatus.AUTO_SELECTED for item in persisted)
+        assert persisted[0].selected_candidate is not None
+        assert persisted[0].selected_candidate.source.order_index == 2
     finally:
         engine.dispose()
 

@@ -713,10 +713,14 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   wykorzystać cache weryfikacji v10.12, ponieważ adapter obrazu i OCR nie uległ
   zmianie; nowy wpis jest następnie zapisywany pod fingerprintem v10.13.
 - Końcowa projekcja pełnego runu jest zapisywana atomowo. System najpierw zwalnia
-  zakresy wszystkich modyfikowalnych automatycznych właścicieli, potem zapisuje
-  całą uzgodnioną projekcję i przed zatwierdzeniem transakcji ponownie sprawdza
-  liczbę właścicieli, liczbę duplikatów oraz dokładną kolejność siatki. Decyzje
-  użytkownika nie są zwalniane ani degradowane.
+  zakresy modyfikowalnych automatycznych właścicieli oraz wszystkie stare sloty
+  wybranych kandydatów w niechronionych grupach, potem zapisuje całą uzgodnioną
+  projekcję i przed zatwierdzeniem transakcji ponownie sprawdza liczbę
+  właścicieli, liczbę duplikatów, dokładną kolejność siatki oraz jednego właściwego
+  reprezentanta każdej gotowej grupy. Pole `selected_candidate` jest
+  autorytatywne; historyczna decyzja innego elementu `top_candidates` nie może
+  ponownie wybrać starego JPEG-a. Decyzje użytkownika nie są zwalniane ani
+  degradowane.
 - Błąd zapisu projekcji ma stabilny kod
   `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`; nie może zostać ukryty jako
   ogólny `JOB_EXECUTION_FAILED` ani pozostawić częściowo przepisanych zakresów.

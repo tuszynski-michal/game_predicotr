@@ -1,6 +1,6 @@
 import os
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,11 +15,23 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionGroup,
     ImageSelectionGroupStatus,
 )
+from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
+from game_predictor_worker.images.selection.contracts import (
+    CandidateDecision,
+    CandidateResult,
+    ImageQualityMetrics,
+    ImageSelectionSource,
+    SelectionGroupResult,
+    SelectionGroupStatus,
+    SequenceRange,
+)
+from game_predictor_worker.images.selection.job import SqlAlchemyImageSelectionJobStore
+from game_predictor_worker.jobs.store import SqlAlchemyWorkerJobStore
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import URL, make_url
 
@@ -140,6 +152,100 @@ def test_create_run_persists_job_before_foreign_key_dependent_run(
         assert persisted_missing.status is ImageSelectionGroupStatus.MISSING_IMAGE
         assert persisted_missing.range_start is None
         assert persisted_missing.range_end is None
+    finally:
+        engine.dispose()
+
+
+def test_final_projection_reassigns_selected_ranges_atomically(
+    isolated_image_selection_database: URL,
+) -> None:
+    command.upgrade(_migration_config(isolated_image_selection_database), "head")
+    engine = create_engine(isolated_image_selection_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 8, 14, 10, tzinfo=UTC)
+
+    def group(order: int, start: int) -> SelectionGroupResult:
+        recognized_range = SequenceRange(start, start + 8, 0.99)
+        source = ImageSelectionSource(
+            order_index=order,
+            relative_path=f"source/{order}.jpg",
+            stored_relative_path=f"{order:08d}.jpg",
+            checksum_sha256=format(order + 1, "x") * 64,
+            size_bytes=1024,
+        )
+        candidate = CandidateResult(
+            source=source,
+            decision=CandidateDecision.ELIGIBLE,
+            quality=ImageQualityMetrics(*(0.9 for _ in range(8))),
+            recognized_range=recognized_range,
+            reason_codes=(),
+            width=1080,
+            height=1920,
+        )
+        return SelectionGroupResult(
+            group_order=order,
+            source_count=1,
+            range=recognized_range,
+            fingerprint_sha256=format(order, "x") * 64,
+            board_count_consensus=9,
+            status=SelectionGroupStatus.AUTO_SELECTED,
+            selected_candidate=candidate,
+            top_candidates=(candidate,),
+        )
+
+    try:
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="atomic-projection-test",
+                name="Atomic projection test",
+                status=GameStatus.DRAFT,
+            )
+            run, created = ImageSelectionService(
+                SqlAlchemyImageSelectionRepository(session)
+            ).create_run(
+                game_id=game.id,
+                source_selection_id=uuid4(),
+                input_manifest_sha256="1" * 64,
+                selector_fingerprint="2" * 64,
+                first_sequence_number=1,
+                last_sequence_number=18,
+            )
+            session.commit()
+        assert created is True
+
+        claimed = SqlAlchemyWorkerJobStore(session_factory).claim_next(
+            worker_id="projection-test-worker",
+            worker_version="v0.6.13-test",
+            lease_duration=timedelta(minutes=1),
+            claimed_at=now,
+            allowed_job_types=frozenset({JobType.IMAGE_SELECTION}),
+            execution_slot=JobExecutionSlot.IMAGE_SELECTION,
+        )
+        assert claimed is not None and claimed.lease_token is not None
+        store = SqlAlchemyImageSelectionJobStore(session_factory)
+        store.persist_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(group(0, 10), group(1, 1)),
+            group_sources={},
+            persisted_at=now,
+        )
+
+        store.persist_reconciled_groups(
+            job_id=run.job.id,
+            run_id=run.id,
+            lease_token=claimed.lease_token,
+            groups=(group(0, 1), group(1, 10)),
+            persisted_at=now + timedelta(seconds=1),
+        )
+
+        persisted = store.load_groups(run.id)
+        assert [(item.range.start, item.range.end) for item in persisted if item.range] == [
+            (1, 9),
+            (10, 18),
+        ]
+        assert all(item.status is SelectionGroupStatus.AUTO_SELECTED for item in persisted)
     finally:
         engine.dispose()
 

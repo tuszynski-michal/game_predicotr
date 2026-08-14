@@ -712,3 +712,24 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - V10.12 oraz starsze fingerprinty pozostają niezmienne. V10.13 może ponownie
   wykorzystać cache weryfikacji v10.12, ponieważ adapter obrazu i OCR nie uległ
   zmianie; nowy wpis jest następnie zapisywany pod fingerprintem v10.13.
+- Końcowa projekcja pełnego runu jest zapisywana atomowo. System najpierw zwalnia
+  zakresy wszystkich modyfikowalnych automatycznych właścicieli, potem zapisuje
+  całą uzgodnioną projekcję i przed zatwierdzeniem transakcji ponownie sprawdza
+  liczbę właścicieli, liczbę duplikatów oraz dokładną kolejność siatki. Decyzje
+  użytkownika nie są zwalniane ani degradowane.
+- Błąd zapisu projekcji ma stabilny kod
+  `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`; nie może zostać ukryty jako
+  ogólny `JOB_EXECUTION_FAILED` ani pozostawić częściowo przepisanych zakresów.
+- Końcowy checkpoint oraz liczniki joba powstają z projekcji po uzgodnieniu, a
+  nie z surowych grup zapisanych podczas skanowania.
+- Monitor operatorski przy `waiting_for_review` albo `completed` odczytuje
+  wszystkie grupy ponownie od początku. Eksportuje `auto_selected`,
+  `manually_selected` i `range_confirmed`, uzupełnia wybory zmienione za bieżącym
+  kursorem oraz usuwa wyłącznie nieaktualne pliki własnego kontraktu
+  `seq_<start>-<end>.jpg` z izolowanego katalogu wynikowego.
+- Raport operatorski schema v3 zapisuje oczekiwaną i rzeczywistą liczbę grup
+  logicznych, liczbę duplikatów, dokładne liczniki statusów, brakujące,
+  powtórzone i pozasiatkowe zakresy oraz osobne bramki pokrycia projekcji i
+  plików. Job `failed` albo `cancelled` jest tylko audytowany i nie naprawia
+  katalogu wynikowego; następny etap może ruszyć wyłącznie po przejściu obu
+  bramek przez `waiting_for_review` albo `completed`.

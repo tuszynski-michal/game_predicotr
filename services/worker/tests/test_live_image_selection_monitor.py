@@ -109,7 +109,7 @@ def test_existing_rerun_writes_resumable_report(
     assert saved["runId"] == "new-run"
     assert saved["jobId"] == "new-job"
     assert saved["savedOutputFiles"] == 0
-    assert saved["schemaVersion"] == 2
+    assert saved["schemaVersion"] == 3
     assert saved["exportCursor"] == -1
 
 
@@ -297,3 +297,149 @@ def test_terminal_export_drains_every_remaining_page(
     assert cursor == 250
     assert calls == [99, 199, 250]
     assert saved_orders == {5, 150, 250}
+
+
+def test_terminal_reconciliation_rescans_promoted_groups_and_removes_stale_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _monitor_module()
+    groups = [
+        {
+            "groupOrder": 0,
+            "id": "group-0",
+            "rangeStart": 1,
+            "rangeEnd": 9,
+            "status": "auto_selected",
+        },
+        {
+            "groupOrder": 1,
+            "id": "group-1",
+            "rangeStart": 10,
+            "rangeEnd": 18,
+            "status": "manual_required",
+        },
+        {
+            "groupOrder": 2,
+            "id": "group-2",
+            "rangeStart": 19,
+            "rangeEnd": 27,
+            "status": "range_confirmed",
+        },
+        {
+            "groupOrder": 3,
+            "id": "group-3",
+            "rangeStart": 19,
+            "rangeEnd": 27,
+            "status": "skipped_existing_range",
+        },
+    ]
+
+    class _Response:
+        def __init__(self, content: bytes) -> None:
+            self.content = content
+
+        def raise_for_status(self) -> None:
+            pass
+
+    class _Client:
+        def get(self, path: str) -> _Response:
+            return _Response(path.encode("ascii"))
+
+    def request_json(
+        _client: object,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+        **_: object,
+    ) -> dict[str, Any]:
+        return {"items": groups if int(params["afterGroupOrder"]) == -1 else []}
+
+    monkeypatch.setattr(monitor, "_request_json", request_json)
+    (tmp_path / "seq_1-9.jpg").write_bytes(b"old-owner")
+    (tmp_path / "seq_999-1007.jpg").write_bytes(b"stale")
+    saved_orders = {99}
+    run = {
+        "firstSequenceNumber": 1,
+        "lastSequenceNumber": 27,
+        "sequenceDirection": "ascending",
+        "expectedGroupCount": 3,
+        "job": {"status": "waiting_for_review"},
+    }
+
+    coverage, saved, cursor = monitor._finalize_terminal_run(
+        _Client(),
+        "run",
+        run,
+        tmp_path,
+        saved_orders,
+    )
+
+    assert saved == 2
+    assert cursor == 3
+    assert coverage["logicalCoverageValid"] is True
+    assert coverage["outputCoverageValid"] is True
+    assert coverage["expectedLogicalGroups"] == 3
+    assert coverage["logicalGroups"] == 3
+    assert coverage["duplicateGroups"] == 1
+    assert coverage["readyOutputGroups"] == 2
+    assert coverage["savedOutputFiles"] == 2
+    assert coverage["groupStatusCounts"]["range_confirmed"] == 1
+    assert saved_orders == {0, 2}
+    assert not (tmp_path / "seq_999-1007.jpg").exists()
+    assert (tmp_path / "seq_1-9.jpg").read_bytes().endswith(b"selected-file")
+    assert (tmp_path / "seq_19-27.jpg").is_file()
+
+
+def test_failed_terminal_run_is_a_read_only_invalid_audit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monitor = _monitor_module()
+    groups = [
+        {
+            "groupOrder": 0,
+            "id": "group-0",
+            "rangeStart": 1,
+            "rangeEnd": 9,
+            "status": "auto_selected",
+        }
+    ]
+
+    class _Client:
+        def get(self, _path: str) -> object:
+            raise AssertionError("A failed run must not repair exported files.")
+
+    def request_json(
+        _client: object,
+        _method: str,
+        _path: str,
+        *,
+        params: dict[str, Any],
+        **_: object,
+    ) -> dict[str, Any]:
+        return {"items": groups if int(params["afterGroupOrder"]) == -1 else []}
+
+    monkeypatch.setattr(monitor, "_request_json", request_json)
+    stale = tmp_path / "seq_1-9.jpg"
+    stale.write_bytes(b"preserve-failure-evidence")
+
+    coverage, saved, _cursor = monitor._finalize_terminal_run(
+        _Client(),
+        "run",
+        {
+            "firstSequenceNumber": 1,
+            "lastSequenceNumber": 9,
+            "sequenceDirection": "ascending",
+            "expectedGroupCount": 1,
+            "job": {"status": "failed"},
+        },
+        tmp_path,
+        set(),
+    )
+
+    assert saved == 0
+    assert coverage["logicalCoverageValid"] is True
+    assert coverage["outputCoverageValid"] is False
+    assert stale.read_bytes() == b"preserve-failure-evidence"

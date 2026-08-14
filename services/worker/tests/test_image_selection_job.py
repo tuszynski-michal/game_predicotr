@@ -270,6 +270,7 @@ class _Store:
     recovery_snapshot: str | None = None
     recovery_source_groups: tuple[RecoverySourceGroup, ...] = ()
     recovery_origins: dict[int, UUID] = field(default_factory=dict)
+    reconciled_persist_count: int = 0
 
     def get_run_for_job(self, job_id: UUID) -> ImageSelectionJobRun:
         assert job_id == self.run.job_id
@@ -323,6 +324,20 @@ class _Store:
             output_manifest_sha256=published.manifest_sha256,
             output_manifest_relative_path=published.manifest_relative_path,
         )
+
+    def persist_reconciled_groups(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        groups: Sequence[SelectionGroupResult],
+        persisted_at: datetime,
+    ) -> None:
+        del lease_token, persisted_at
+        assert (job_id, run_id) == (self.run.job_id, self.run.id)
+        self.groups = tuple(groups)
+        self.reconciled_persist_count += 1
 
     def persist_recovery_projection(
         self,
@@ -736,6 +751,7 @@ def test_job_enforces_declared_sequence_group_count_before_publication(
     assert calls == [0, 1, 2]
     assert len(logical_groups) == 1
     assert logical_groups[0].range == SequenceRange(1, 9, 1.0)
+    assert store.reconciled_persist_count == 1
     assert store.published is not None
 
 

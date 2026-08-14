@@ -95,6 +95,12 @@ false split albo false merge również mogą być błędne.
 - [x] Każdy z 2201 logicznych właścicieli ma co najmniej jeden JPEG obecny w
       źródłowym manifeście; pusta grupa lub checksum spoza manifestu blokują
       automatyczną bramkę.
+- [x] Końcowy zapis pełnej projekcji zwalnia modyfikowalne zakresy w osobnej
+      fazie, zapisuje wynik atomowo i przed commitem egzekwuje dokładną liczność
+      oraz siatkę.
+- [x] Terminalny eksport wraca do `groupOrder=-1`, obejmuje `range_confirmed`,
+      usuwa wyłącznie stare `seq_*.jpg`, a raport schema v3 osobno bramkuje
+      pokrycie logiczne i plikowe.
 
 ## Expected files
 
@@ -215,3 +221,23 @@ tylko dlatego, że źródłowy run powstał przed migracją 0043.
 Walidacja etapu: 334 testy API przeszły, 24 integracje zależne od środowiska
 zostały pominięte; pełny Ruff format/lint, parser 33 skryptów PowerShell, mypy
 327 modułów, OpenAPI i kontrola wygenerowanego klienta przeszły.
+
+Etap `v0.6.13` usuwa przyczynę awarii pełnego runu v10.13 po zakończeniu skanu.
+Końcowe przepisanie zakresów nie wykonuje już kolizyjnych upsertów rekord po
+rekordzie: dedykowana fenced transakcja zwalnia automatyczne sloty, zapisuje całą
+projekcję i zatwierdza ją dopiero po kontroli liczności oraz ciągłej siatki.
+Checkpoint przełącza się na zapisany wynik uzgodnienia. Fingerprint v10.13 nie
+uległ zmianie.
+
+Monitor operatorski ma raport schema v3 i pełną reconciliację eksportu dla
+stanów `waiting_for_review`/`completed`. Naprawia wybory wypromowane za
+progresywnym kursorem, zapisuje także `range_confirmed` i usuwa tylko osierocone
+pliki `seq_*.jpg`. Dla `failed`/`cancelled` pozostaje read-only. Test na
+izolowanym PostgreSQL odtwarza zamianę dwóch zajętych zakresów i potwierdza brak
+`IntegrityError` oraz dokładną siatkę po commicie.
+
+Walidacja v0.6.13: 709/709 testów workera i 334/334 wykonywalnych testów API
+przeszło; 25 testów API pominięto zgodnie z bramkami środowiskowymi. Dedykowana
+regresja PostgreSQL przeszła 1/1. Ruff potwierdził format 518 plików i brak
+błędów lint, mypy przeszedł 327 modułów, a OpenAPI oraz generowany klient Admina
+pozostają aktualne.

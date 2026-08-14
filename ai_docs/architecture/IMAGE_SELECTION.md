@@ -1093,6 +1093,33 @@ oczekiwanym; zakresu sprzecznego nie wolno nadpisać inferencją liczności. Pe�
 run wykonuje końcowe uzgodnienie przed review i eksportem; recovery stosuje je
 po globalnym złożeniu przebudowanych bloków.
 
+Końcowe uzgodnienie pełnego runu używa osobnej operacji repozytorium
+`persist_reconciled_groups`. W jednej fenced transakcji PostgreSQL blokowany jest
+run i wszystkie jego grupy. Pierwsza faza zmienia wyłącznie modyfikowalne
+`auto_selected` na neutralne `range_required` bez zakresu, aby zwolnić wpisy
+częściowego indeksu `uq_image_selection_groups_selected_range`; po `flush` druga
+faza zapisuje wszystkie docelowe statusy i zakresy. Chronione decyzje
+`manually_selected`, `missing_image`, `range_confirmed` i `rejected_by_user`
+pozostają nietknięte przez fazę zwalniania. Przed commitem repozytorium porównuje
+każdy rekord z projekcją i ponownie egzekwuje dokładną liczność oraz uporządkowaną
+siatkę `SequenceBounds`. `IntegrityError` tej operacji jest mapowany na
+`IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT` i powoduje rollback całej
+transakcji.
+
+Po udanym zapisie sink zastępuje swój surowy widok grup uzgodnioną projekcją.
+Dzięki temu checkpoint `manual_review` albo `writing_manifest` raportuje tę samą
+liczbę właścicieli i duplikatów, którą odczyta API, zamiast stanu sprzed
+reconciliacji.
+
+Progresywny eksport nadal przesuwa monotoniczny `groupOrder`, ale nie jest
+źródłem prawdy dla stanu końcowego. Dla `waiting_for_review` i `completed`
+runner pobiera wszystkie strony od `afterGroupOrder=-1`, buduje kanoniczny zbiór
+plików dla trzech gotowych statusów, weryfikuje lub atomowo zastępuje zawartość i
+usuwa wyłącznie osierocone pliki pasujące do `seq_<start>-<end>.jpg`. Następnie
+raport schema v3 niezależnie sprawdza pokrycie logicznej siatki i pokrycie
+gotowych grup plikami. Stan `failed`/`cancelled` uruchamia ten sam audyt bez
+jakiejkolwiek mutacji katalogu.
+
 V10.13 zachowuje adaptery obrazu oraz OCR v10.12, ma jednak osobny manifest i
 fingerprint `b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`.
 Cache może odczytać zgodny wynik weryfikacji v10.12 i promować go pod nowy klucz;

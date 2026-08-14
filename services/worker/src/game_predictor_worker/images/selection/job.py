@@ -29,6 +29,7 @@ from game_predictor_api.storage.models import (
     JobModel,
 )
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.images.sequence_ocr import PaddleSequenceNumberRecognizer
@@ -156,6 +157,16 @@ class ImageSelectionJobStore(Protocol):
         lease_token: UUID,
         groups: Sequence[SelectionGroupResult],
         group_sources: Mapping[int, Sequence[CheapImageObservation]],
+        persisted_at: datetime,
+    ) -> None: ...
+
+    def persist_reconciled_groups(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        groups: Sequence[SelectionGroupResult],
         persisted_at: datetime,
     ) -> None: ...
 
@@ -342,14 +353,14 @@ class ImageSelectionJobHandler:
                     ),
                 )
                 result = replace(result, groups=projection.groups)
-                self._store.persist_groups(
+                self._store.persist_reconciled_groups(
                     job_id=job.id,
                     run_id=run.id,
                     lease_token=context.lease_token,
                     groups=result.groups,
-                    group_sources={},
                     persisted_at=context.now(),
                 )
+                sink.projection_reconciled(result.groups)
         except SelectionContractError as error:
             raise JobHandlerError(error.code, str(error)) from error
 
@@ -939,6 +950,11 @@ class _DurableSelectionSink(SelectionAuditSink):
             )
         self._checkpoint(state, stage=stage)
 
+    def projection_reconciled(self, groups: Sequence[SelectionGroupResult]) -> None:
+        """Replace raw scan counters with the atomically committed final projection."""
+
+        self._latest_groups = {group.group_order: group for group in groups}
+
     def publication_checkpoint(
         self,
         checkpoint: SelectorCheckpoint,
@@ -1238,6 +1254,153 @@ class SqlAlchemyImageSelectionJobStore(ImageSelectionJobStore):
                     group=group,
                     observations=group_sources.get(group.group_order, ()),
                     persisted_at=persisted_at,
+                )
+
+    def persist_reconciled_groups(
+        self,
+        *,
+        job_id: UUID,
+        run_id: UUID,
+        lease_token: UUID,
+        groups: Sequence[SelectionGroupResult],
+        persisted_at: datetime,
+    ) -> None:
+        """Atomically replace the bounded projection without transient range conflicts."""
+
+        ordered_groups = tuple(sorted(groups, key=lambda value: value.group_order))
+        try:
+            with self._session_factory() as session, session.begin():
+                _assert_fence(session, job_id, lease_token, persisted_at)
+                run = session.scalar(
+                    select(ImageSelectionRunModel)
+                    .where(ImageSelectionRunModel.id == run_id)
+                    .with_for_update()
+                )
+                if run is None:
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_RUN_NOT_FOUND",
+                        "The image-selection run no longer exists.",
+                    )
+                if run.first_sequence_number < 1 or run.last_sequence_number < 1:
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_SEQUENCE_BOUNDS_INVALID",
+                        "The final projection requires complete sequence bounds.",
+                    )
+                records = tuple(
+                    session.scalars(
+                        select(ImageSelectionGroupModel)
+                        .where(ImageSelectionGroupModel.run_id == run_id)
+                        .order_by(ImageSelectionGroupModel.group_order)
+                        .with_for_update()
+                    )
+                )
+                if tuple(record.group_order for record in records) != tuple(
+                    group.group_order for group in ordered_groups
+                ):
+                    raise JobHandlerError(
+                        "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                        "The durable groups do not match the reconciled projection.",
+                    )
+
+                # Release every mutable selected-range slot before assigning any
+                # new slot. PostgreSQL checks the partial unique index per row,
+                # so a direct ordered rewrite can otherwise conflict with the
+                # still-unmodified owner of a range that moves earlier/later.
+                mutable_selected_ids = tuple(
+                    record.id
+                    for record in records
+                    if ImageSelectionGroupStatus(record.status)
+                    is ImageSelectionGroupStatus.AUTO_SELECTED
+                )
+                if mutable_selected_ids:
+                    session.execute(
+                        update(ImageSelectionGroupModel)
+                        .where(ImageSelectionGroupModel.id.in_(mutable_selected_ids))
+                        .values(
+                            range_start=None,
+                            range_end=None,
+                            status=ImageSelectionGroupStatus.RANGE_REQUIRED,
+                            rejection_origin_status=None,
+                            updated_at=persisted_at,
+                        )
+                    )
+                    session.flush()
+
+                for group in ordered_groups:
+                    self._persist_group(session, run_id, group, persisted_at)
+                session.flush()
+                self._assert_reconciled_projection(
+                    session,
+                    run=run,
+                    expected=ordered_groups,
+                )
+        except IntegrityError as error:
+            raise JobHandlerError(
+                "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                "The final image-selection projection conflicts with durable range ownership.",
+            ) from error
+
+    @staticmethod
+    def _assert_reconciled_projection(
+        session: Session,
+        *,
+        run: ImageSelectionRunModel,
+        expected: Sequence[SelectionGroupResult],
+    ) -> None:
+        records = tuple(
+            session.scalars(
+                select(ImageSelectionGroupModel)
+                .where(ImageSelectionGroupModel.run_id == run.id)
+                .order_by(ImageSelectionGroupModel.group_order)
+                .with_for_update()
+            )
+        )
+        if len(records) != len(expected):
+            raise JobHandlerError(
+                "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                "The final projection changed the physical group count.",
+            )
+        for record, group in zip(records, expected, strict=True):
+            expected_range = (
+                (None, None) if group.range is None else (group.range.start, group.range.end)
+            )
+            if (
+                record.group_order != group.group_order
+                or ImageSelectionGroupStatus(record.status).value != group.status.value
+                or (record.range_start, record.range_end) != expected_range
+            ):
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT",
+                    "The committed groups differ from the reconciled projection.",
+                )
+
+        bounds = SequenceBounds(
+            run.first_sequence_number,
+            run.last_sequence_number,
+            run.sequence_direction,
+        )
+        owners = tuple(
+            record
+            for record in records
+            if ImageSelectionGroupStatus(record.status)
+            is not ImageSelectionGroupStatus.SKIPPED_EXISTING_RANGE
+        )
+        duplicates = len(records) - len(owners)
+        expected_duplicates = len(records) - bounds.expected_group_count
+        if len(owners) != bounds.expected_group_count or duplicates != expected_duplicates:
+            raise JobHandlerError(
+                "IMAGE_SELECTION_GROUP_CARDINALITY_MISMATCH",
+                "The committed projection does not have the required logical cardinality.",
+            )
+        for index, record in enumerate(owners):
+            expected_grid_range = bounds.range_for_group(index)
+            if (record.range_start, record.range_end) != (
+                expected_grid_range.start,
+                expected_grid_range.end,
+            ):
+                raise JobHandlerError(
+                    "IMAGE_SELECTION_SEQUENCE_COVERAGE_MISMATCH",
+                    "The committed projection does not cover the complete sequence grid.",
                 )
 
     def persist_recovery_projection(

@@ -151,6 +151,22 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   jawnie pominięte; pełny Ruff potwierdził format 518 plików i brak lint errors,
   parser zaakceptował 33 skrypty PowerShell, mypy przeszedł 327 modułów, a
   OpenAPI i wygenerowany klient Admina pozostają aktualne.
+- Etap `v0.6.13` atomizuje końcowy zapis uzgodnionej projekcji v10.13. Worker
+  zwalnia modyfikowalne automatyczne zakresy przed ich ponownym przypisaniem,
+  zachowuje decyzje użytkownika i przed commitem sprawdza dokładną liczność oraz
+  siatkę. Konflikt ma stabilny kod
+  `IMAGE_SELECTION_PROJECTION_PERSISTENCE_CONFLICT`, a checkpoint używa już
+  projekcji po reconciliacji. Manifest i fingerprint v10.13 pozostają bez zmian.
+- Raport operatorski schema v3 zawiera oczekiwane/rzeczywiste grupy logiczne,
+  duplikaty, dokładne statusy, brakujące/powtórzone/pozasiatkowe zakresy i osobną
+  bramkę plików. Terminalny eksport wraca do pierwszej grupy, obejmuje
+  `range_confirmed` i usuwa wyłącznie stare `seq_*.jpg`; job nieudany jest
+  audytowany bez mutowania wyników.
+- Walidacja v0.6.13: 709 testów workera i 334 wykonywalne testy API przeszły;
+  25 testów API pominięto zgodnie z warunkami środowiskowymi, a nowa regresja na
+  izolowanym PostgreSQL przeszła 1/1. Ruff potwierdził format 518 plików i brak
+  lint errors, mypy przeszedł 327 modułów, OpenAPI i generowany klient są
+  aktualne.
 
 ### Wersja 0.1
 

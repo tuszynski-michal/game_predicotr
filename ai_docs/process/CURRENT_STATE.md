@@ -203,6 +203,15 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   przez ten sam worker po lease i zakończyła idempotentnie na `attemptCount=6`;
   dla kolejnych dużych projekcji czas transakcji względem lease pozostaje
   obserwowaną metryką operatorską.
+- Następny pełny run v10.13 został uruchomiony z kompletnego historycznego
+  stagingu 42 403 JPEG-ów dla zakresu `19810–45152`, bez ponownego uploadu. Run
+  `13db48f3-7551-498c-aec2-a62016f23f3c` i job
+  `09d131ab-f1e0-4172-b372-749db511166e` zapisują do nowego katalogu
+  `C:\Users\user\Documents\19810-45152 v10.13`; oczekiwana liczba logicznych
+  grup wynosi 2816. Raport i PID state to odpowiednio
+  `artifacts/image-selection-v1013-live-19810-45152.json` oraz
+  `.runtime/live-image-selection-v1013-19810-45152.pid.json`. Nie uruchamiać
+  drugiego runu ani workera; przed ingerencją sprawdzić oba pliki i heartbeat.
 
 ### Wersja 0.1
 

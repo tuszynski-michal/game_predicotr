@@ -287,3 +287,12 @@ odzyskał raz wygasłą próbę długiej transakcji (końcowy `attemptCount=6`) 
 idempotentnie doprowadził job do stanu terminalnego bez drugiego procesu oraz
 bez zmiany wyniku. Czas i zachowanie lease dużych kolejnych projekcji pozostają
 metryką operatorską do obserwacji, nie blokują poprawności tego runu.
+
+Po przejściu obu bramek `1–19809` uruchomiono jeden kolejny pełny run v10.13 z
+historycznego stagingu 42 403 JPEG-ów, z twardymi granicami `19810–45152` i
+oczekiwaną licznością 2816. Run `13db48f3-7551-498c-aec2-a62016f23f3c`, job
+`09d131ab-f1e0-4172-b372-749db511166e`, raport
+`artifacts/image-selection-v1013-live-19810-45152.json` i PID state
+`.runtime/live-image-selection-v1013-19810-45152.pid.json` są jedynym aktywnym
+torem selekcji. Output to izolowany katalog
+`C:\Users\user\Documents\19810-45152 v10.13`.

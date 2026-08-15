@@ -232,9 +232,9 @@ Nie uruchamiaj dwóch kopii tego samego lane ani kilku buildów Android. Poprawn
 układ równoległy to najwyżej jeden general worker i jeden image-selection
 worker.
 
-### Uruchomienie dużego runu Selekcji Zdjęć na selektorze v10.4
+### Uruchomienie dużego runu Selekcji Zdjęć na bieżącym selektorze
 
-Nowe runy używają `fast-image-selector-v10.4`. Po aktualizacji kodu zatrzymaj
+Nowe runy używają `fast-image-selector-v10.14`. Po aktualizacji kodu zatrzymaj
 procesy uruchomione na wcześniejszej wersji, ponieważ działający proces nie
 zmienia manifestu w pamięci. W PowerShell przejdź do repozytorium:
 
@@ -257,8 +257,8 @@ to poprawne. Sprawdź aktywny manifest:
 Oczekiwany wynik:
 
 ```text
-fast-image-selector-v10.4
-8e913c923036ba7aa3f448d1049a37676d133b603103d0b641912ef17004ee7e
+fast-image-selector-v10.14
+f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8
 ```
 
 Pozostaw pierwszy terminal dla API:
@@ -277,10 +277,11 @@ npm run admin:dev
 Następnie otwórz `http://127.0.0.1:3000/`, wybierz grę i workspace
 `Selekcja zdjęć`. Wskaż folder zawierający naturalnie uporządkowane JPEG-i,
 poczekaj na zakończenie uploadu, wpisz dodatni numer pierwszego layoutu i
-uruchom selekcję. V10.4 nie rozpocznie nowego runu bez tej kotwicy.
+uruchom selekcję. Pełny run v10.14 wymaga jednoznacznych granic sekwencji; bez
+kotwicy początku nie może zastosować bramki pełnej liczności.
 Nie uruchamiaj w tym samym czasie Importu layoutów, jeżeli ten przebieg ma być
-miarodajnym pomiarem v10.4. Postęp i stan procesu obserwuj w workspace `Joby` albo
-przez:
+miarodajnym pomiarem bieżącego selektora. Postęp i stan procesu obserwuj w
+workspace `Joby` albo przez:
 
 ```powershell
 npm run workers:status

@@ -212,6 +212,18 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   `artifacts/image-selection-v1013-live-19810-45152.json` oraz
   `.runtime/live-image-selection-v1013-19810-45152.pid.json`. Nie uruchamiać
   drugiego runu ani workera; przed ingerencją sprawdzić oba pliki i heartbeat.
+- Etap `124129–149634` na v10.13 zakończył skan wszystkich 21 211 JPEG-ów, ale
+  nie przeszedł bramki `IMAGE_SELECTION_GROUP_CARDINALITY_UNDERFLOW`: powstało
+  2678 fragmentów wobec 2834 wymaganych grup. Audyt wykazał false merge 110
+  kolejnych JPEG-ów obejmujących wiele różnych zakresów, bez błędów odczytu
+  plików. Kolejka pozostaje zatrzymana na tym etapie.
+- Domyślny selektor v10.14 nakłada dla pełnego runu limit fizycznego fragmentu
+  wyliczony z liczby źródeł i oczekiwanych grup. Dla `124129–149634` limit wynosi
+  7, co gwarantuje co najmniej 3031 fragmentów przed uzgodnieniem dokładnych
+  2834 właścicieli. Fingerprint v10.14 to
+  `f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8`;
+  v10.13 pozostaje niezmienne. Przed wznowieniem dalszej kolejki należy
+  uruchomić izolowany rerun tego etapu i potwierdzić obie bramki raportu.
 
 ### Wersja 0.1
 

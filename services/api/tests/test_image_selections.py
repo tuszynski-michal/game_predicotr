@@ -527,7 +527,7 @@ def test_run_history_and_staged_candidate_preview_are_available_after_restart(
 
     assert history.status_code == 200, history.text
     assert [item["id"] for item in history.json()["items"]] == [str(run.id)]
-    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.13"
+    assert history.json()["items"][0]["selectorVersion"] == "fast-image-selector-v10.14"
     assert history.json()["items"][0]["sequenceRangeStart"] == 1
     assert history.json()["items"][0]["sequenceRangeEnd"] == 9
     assert history.json()["nextOffset"] is None
@@ -634,7 +634,7 @@ def test_range_recovery_preview_and_creation_are_snapshot_idempotent(
     assert preview["problemGroupCount"] == 1
     assert preview["candidateCount"] == 1
     assert preview["blockCount"] == 1
-    assert preview["selectorVersion"] == "fast-image-selector-v10.13"
+    assert preview["selectorVersion"] == "fast-image-selector-v10.14"
     assert first.status_code == 200, first.text
     assert repeated.status_code == 200, repeated.text
     assert first.json()["created"] is True

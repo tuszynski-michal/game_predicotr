@@ -1145,6 +1145,27 @@ fingerprint `b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30`.
 Cache może odczytać zgodny wynik weryfikacji v10.12 i promować go pod nowy klucz;
 telemetria raportuje takie trafienia osobno.
 
+## Partycjonowanie fizycznych fragmentów v10.14
+
+Pełny run z zadeklarowanymi granicami zna przed skanowaniem oczekiwaną liczbę
+logicznych grup. V10.14 wylicza limit źródeł jednego fizycznego fragmentu jako
+`max(1, floor(source_count / expected_group_count))` i kończy fragment przed
+przekroczeniem tego limitu. Zwykłe granice wyglądu nadal mogą zakończyć go
+wcześniej, dlatego reguła nie zastępuje segmentacji obrazu, lecz nakłada na nią
+bezpieczną górną granicę.
+
+Dla stagingu `124129–149634` limit wynosi `floor(21211 / 2834) = 7`, więc
+segmentacja tworzy co najmniej 3031 fragmentów. Końcowy dynamiczny reconciler
+wybiera z nich dokładnie 2834 logicznych właścicieli, a nadmiar oznacza jako
+duplikaty. Każdy właściciel zachowuje co najmniej jeden rzeczywisty JPEG; gdy
+liczba źródeł jest mniejsza od oczekiwanej liczby grup, job kończy się błędem
+`IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`.
+
+V10.14 ma fingerprint
+`f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8`.
+Adaptery obrazu i OCR są zgodne z v10.13 i v10.12, więc cache weryfikacji może
+być bezpiecznie ponownie wykorzystany. Fingerprint v10.13 nie ulega zmianie.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

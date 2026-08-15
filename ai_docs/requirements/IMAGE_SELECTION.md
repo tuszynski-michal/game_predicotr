@@ -2,7 +2,7 @@
 title: Fast representative image selection
 status: accepted
 release: "0.4"
-last_updated: 2026-08-05
+last_updated: 2026-08-15
 ---
 
 # Selekcja reprezentatywnych zdjęć
@@ -740,3 +740,20 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
   plików. Job `failed` albo `cancelled` jest tylko audytowany i nie naprawia
   katalogu wynikowego; następny etap może ruszyć wyłącznie po przejściu obu
   bramek przez `waiting_for_review` albo `completed`.
+
+### Partycjonowanie przed reconciliacją v10.14 — 2026-08-15
+
+- Pełny run z jawnym początkiem i końcem sekwencji musi utworzyć co najmniej
+  tyle fizycznych fragmentów, ile wynosi oczekiwana liczba logicznych grup.
+- Maksymalna liczba źródeł w jednym fragmencie wynosi
+  `max(1, floor(source_count / expected_group_count))`. Granice wykryte przez
+  analizę obrazu nadal mogą zakończyć fragment wcześniej.
+- Nadmiarowe fragmenty są dozwolone i końcowy reconciler może oznaczyć je jako
+  duplikaty. Każdy logiczny właściciel nadal musi jednak wskazywać rzeczywisty
+  JPEG z niezmiennego manifestu wejściowego.
+- Jeśli źródeł jest mniej niż oczekiwanych grup, job kończy się jawnym błędem
+  `IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`; system nie tworzy pustych ani
+  syntetycznych właścicieli.
+- Manifest i fingerprint v10.13 pozostają niezmienne. Reguła partycjonowania
+  należy do osobnego selektora v10.14, który może ponownie wykorzystać zgodny
+  cache weryfikacji v10.13 lub v10.12.

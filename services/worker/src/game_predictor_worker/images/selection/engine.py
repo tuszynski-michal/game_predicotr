@@ -500,6 +500,7 @@ class FastImageSelector:
         sequence_direction: str = "ascending",
         first_sequence_number: int | None = None,
         anchor_first_group: bool = True,
+        maximum_group_source_count: int | None = None,
     ) -> ImageSelectionResult:
         if sequence_direction not in {"ascending", "descending"}:
             raise SelectionContractError(
@@ -510,6 +511,11 @@ class FastImageSelector:
             raise SelectionContractError(
                 "IMAGE_SELECTION_CONFIGURATION_INVALID",
                 "The optional first sequence number must be positive.",
+            )
+        if maximum_group_source_count is not None and maximum_group_source_count < 1:
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                "The optional maximum group source count must be positive.",
             )
         ordered_sources = tuple(sources)
         self._validate_source_order(ordered_sources)
@@ -651,6 +657,22 @@ class FastImageSelector:
             analyzer=analyzer,
         ):
             processed_count += 1
+            if (
+                maximum_group_source_count is not None
+                and current is not None
+                and current.source_count + len(pending) >= maximum_group_source_count
+            ):
+                finalize(current)
+                current = _OpenGroup(
+                    group_order=len(groups),
+                    top_k=self.manifest.top_k,
+                    prefer_first_usable=self._prefer_first_usable,
+                    appearance_only=self._appearance_grouping,
+                    representative_policy=self._representative_policy,
+                )
+                for item in pending:
+                    ingest(current, item)
+                pending.clear()
             if current is None:
                 current = _OpenGroup(
                     group_order=0,

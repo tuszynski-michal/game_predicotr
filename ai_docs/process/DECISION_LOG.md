@@ -4552,6 +4552,33 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** aktualizuje zasobową część D-154 i pomiarową konsekwencję
   TASK-0194; nie zmienia execution slotów, lease, fencing ani reguł selektora.
 
+## D-187 — Pełny run ogranicza rozmiar fragmentu przed bramką liczności
+
+- **Status:** accepted
+- **Date:** 2026-08-15
+- **Decision:** selektor v10.14 dla runu z pełnymi granicami dzieli wejście tak,
+  aby jeden fizyczny fragment zawierał najwyżej
+  `max(1, floor(source_count / expected_group_count))` źródeł. Granica obrazu
+  może zakończyć fragment wcześniej. Reconciler nadal wybiera dokładnie jednego
+  rzeczywistego właściciela każdej logicznej grupy i oznacza nadmiar jako
+  duplikaty.
+- **Context:** run `124129–149634` utworzył na v10.13 tylko 2678 fizycznych grup
+  wobec 2834 wymaganych. Jedna błędnie scalona grupa zawierała 110 kolejnych
+  JPEG-ów z wieloma czytelnymi, różnymi zakresami; ograniczone próbkowanie środka
+  i brzegów nie mogło jej bezpiecznie rozdzielić po skanowaniu.
+- **Reason:** reconciler może odrzucić nadmiarowe fragmenty, ale nie może stworzyć
+  brakującego właściciela bez rzeczywistego zdjęcia. Limit wejściowy gwarantuje
+  wystarczającą liczbę kandydatów i zachowuje pochodzenie każdego wyboru.
+- **Alternatives:** zwiększenie liczby próbek OCR we wszystkich dużych grupach
+  odrzucono jako wolniejsze i nadal zależne od rozpoznania etykiet. Tworzenie
+  pustych lub syntetycznych grup odrzucono jako naruszenie inwariantu źródła.
+- **Consequences:** pełny run z liczbą źródeł mniejszą niż oczekiwana liczba grup
+  kończy się `IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`. V10.14 ma osobny
+  manifest i fingerprint; może czytać zgodny cache weryfikacji v10.13/v10.12.
+  Historyczne fingerprinty nie zmieniają się.
+- **Supersedes:** rozszerza D-183 i D-184 o gwarancję wystarczającej liczby
+  fizycznych fragmentów przed końcową reconciliacją.
+
 ## Szablon nowej decyzji
 
 ```text

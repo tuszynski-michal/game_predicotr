@@ -20,7 +20,11 @@ from .contracts import (
     SequenceRange,
 )
 from .engine import FastImageSelector
-from .manifest import CARDINALITY_GUARDED_SELECTOR_VERSION, SelectorManifest
+from .manifest import (
+    CARDINALITY_GUARDED_SELECTOR_VERSION,
+    CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+    SelectorManifest,
+)
 from .sequence_bounds import SequenceBounds
 
 _PROTECTED_USER_STATUSES = {
@@ -188,7 +192,11 @@ def evaluate_recovery(
                 groups=require_representative_range_evidence(
                     local.groups,
                     allow_exact_gap=(
-                        manifest.algorithm_version == CARDINALITY_GUARDED_SELECTOR_VERSION
+                        manifest.algorithm_version
+                        in {
+                            CARDINALITY_GUARDED_SELECTOR_VERSION,
+                            CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+                        }
                         and bounds is not None
                     ),
                 ),

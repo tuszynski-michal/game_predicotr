@@ -303,3 +303,18 @@ wyniósł `210,338 s`, a `4 scan + 1 verification` — `194,425 s`; poprawa to
 `7,566%`. Pełna kanoniczna projekcja grup była identyczna w każdym przebiegu.
 Etap `v0.6.18` podnosi domyślny budżet wykonawczy lane z czterech do pięciu,
 zachowuje pojedynczy verifier oraz nie zmienia fingerprintu v10.13.
+
+Audyt nieudanego etapu `124129–149634` wykazał 2678 fizycznych grup wobec 2834
+wymaganych oraz false merge 110 kolejnych JPEG-ów z wieloma różnymi zakresami.
+V10.14 dodaje wyliczany z pełnego zakresu limit liczby źródeł w fizycznym
+fragmencie. Dla 21 211 źródeł i 2834 grup limit wynosi 7, co gwarantuje co
+najmniej 3031 fragmentów przed końcowym uzgodnieniem. Test integracyjny odtwarza
+identyczny wygląd kolejnych stron i potwierdza dokładne pokrycie logicznej
+siatki bez pustych właścicieli. Rerun wadliwego etapu musi przejść obie bramki
+raportu przed wznowieniem dalszej kolejki.
+
+Walidacja v10.14 objęła 715 testów workera, 334 testy API, Ruff dla całego kodu
+Python, mypy dla 327 modułów oraz kontrolę OpenAPI i wygenerowanego klienta.
+Testy PostgreSQL wymagające jawnej flagi operatorskiej oraz testy dowiązań
+symbolicznych niedostępnych na tym koncie Windows pozostały pominięte zgodnie z
+konfiguracją pakietu.

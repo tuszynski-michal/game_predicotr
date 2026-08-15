@@ -447,6 +447,28 @@ class _Verifier:
         )
 
 
+class _PartitionVerifier:
+    def __init__(self, *, sources_per_group: int) -> None:
+        self._sources_per_group = sources_per_group
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        group_index = observation.source.order_index // self._sources_per_group
+        start = 1 + group_index * 9
+        return CandidateVerification(
+            representative=RepresentativeAssessment(
+                expected_board_count,
+                True,
+                True,
+            ),
+            range_evidence=RangeEvidence(SequenceRange(start, start + 8, 0.98)),
+        )
+
+
 class _ManualVerifier:
     def verify(
         self,
@@ -757,6 +779,78 @@ def test_job_enforces_declared_sequence_group_count_before_publication(
     assert logical_groups[0].range == SequenceRange(1, 9, 1.0)
     assert store.reconciled_persist_count == 1
     assert store.published is not None
+
+
+def test_job_partitions_false_merge_before_cardinality_reconciliation(
+    tmp_path: Path,
+) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=9,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=27,
+    )
+    calls: list[int] = []
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (
+            _Analyzer(calls=calls),
+            _PartitionVerifier(sources_per_group=3),
+        ),
+    )
+
+    handler(_Context(job), job)  # type: ignore[arg-type]
+
+    logical_groups = tuple(
+        group
+        for group in store.groups
+        if group.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+    )
+    assert calls == list(range(9))
+    assert len(logical_groups) == 3
+    assert all(1 <= group.source_count <= 3 for group in logical_groups)
+    assert [
+        None if group.range is None else (group.range.start, group.range.end)
+        for group in logical_groups
+    ] == [(1, 9), (10, 18), (19, 27)]
+    assert store.reconciled_persist_count == 1
+    assert store.published is not None
+
+
+def test_job_fails_closed_when_declared_groups_outnumber_sources(tmp_path: Path) -> None:
+    import_root, artifact_root, job, store = _fixture(
+        tmp_path,
+        file_count=2,
+        manifest=DEFAULT_SELECTOR_MANIFEST,
+    )
+    store.run = replace(
+        store.run,
+        first_sequence_number=1,
+        last_sequence_number=27,
+    )
+    handler = ImageSelectionJobHandler(
+        store,
+        browser_upload_root=import_root,
+        artifact_root=artifact_root,
+        repository_root=tmp_path,
+        selector_manifest=DEFAULT_SELECTOR_MANIFEST,
+        adapter_factory=lambda _root, _manifest: (_Analyzer(), _Verifier()),
+    )
+
+    with pytest.raises(JobHandlerError) as raised:
+        handler(_Context(job), job)  # type: ignore[arg-type]
+
+    assert raised.value.code == "IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW"
+    assert store.reconciled_persist_count == 0
+    assert store.published is None
 
 
 def test_reconciled_projection_keeps_generic_job_counters_monotonic(

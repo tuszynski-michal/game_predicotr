@@ -43,6 +43,7 @@ from game_predictor_worker.images.selection.manifest import (
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
     CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
+    CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014,
     CENTER_FIRST_SELECTOR_MANIFEST_V106,
     COHERENT_REPRESENTATIVE_SELECTOR_MANIFEST_V102,
     CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_MANIFEST_V103,
@@ -274,6 +275,29 @@ def test_fast_selector_is_deterministic_for_same_manifest_and_bytes() -> None:
     assert first.to_dict() == second.to_dict()
 
 
+def test_cardinality_partition_bounds_false_merge_fragment_size() -> None:
+    observations = tuple(
+        {
+            "quality": "good",
+            "fingerprint": "a",
+            "boardCount": 9,
+            "range": [1, 9, 0.98],
+        }
+        for _ in range(20)
+    )
+
+    result = FastImageSelector(CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014).select(
+        _sources("cardinality-partition", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+        first_sequence_number=1,
+        maximum_group_source_count=6,
+    )
+
+    assert [group.source_count for group in result.groups] == [6, 6, 6, 2]
+    assert sum(group.source_count for group in result.groups) == len(observations)
+
+
 def test_single_last_photo_can_form_a_verified_new_range() -> None:
     case = _golden_cases()[0]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"][:3])
@@ -481,20 +505,28 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_13_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_14_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.13"
+    assert DEFAULT_SELECTOR_MANIFEST is CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.14"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30"
+        == "f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014
+    )
+    assert (
+        CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint
+        == "b52b09737bf59eae712f7757c8e368fbfaf52e56f351889fbd3aa873a3d5fd30"
+    )
+    assert (
+        selector_manifest_for_fingerprint(CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint)
         is CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013
     )
     assert (

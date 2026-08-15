@@ -1,6 +1,7 @@
 import type {
   AdminApiClient,
   ReviewerIngressStatusResponse,
+  ReviewerLocalCommand,
   ReviewerSessionCreate,
   ReviewerSessionCreatedResponse,
 } from '@game-predictor/admin-api-client';
@@ -12,6 +13,7 @@ export type ReviewerAccessClient = Pick<
   | 'createReviewerSession'
   | 'getReviewerIngressStatus'
   | 'revokeReviewerSession'
+  | 'startLocalReviewer'
   | 'startReviewerIngress'
   | 'stopReviewerIngress'
 >;
@@ -38,10 +40,69 @@ export type PublishedReviewerSessionResult =
     }
   | { readonly error: string; readonly ok: false };
 
+export type LocalReviewerResult =
+  | { readonly ok: true; readonly reviewUrl: string }
+  | { readonly error: string; readonly ok: false };
+
 const ingressCommand = {
   confirmed: true,
   target: 'remote-reviewer',
 } as const;
+
+const localCommand: ReviewerLocalCommand = {
+  confirmed: true,
+  target: 'local-reviewer',
+};
+
+export async function openLocalReviewer(
+  api: ReviewerAccessClient,
+  input: { readonly gameId: string; readonly importJobId: string },
+): Promise<LocalReviewerResult> {
+  try {
+    const result = await api.startLocalReviewer(localCommand);
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się uruchomić lokalnej aplikacji Reviewer.',
+        ),
+        ok: false,
+      };
+    }
+    if (
+      result.data.state !== 'running' ||
+      result.data.reviewerReady !== true ||
+      result.data.publicOrigin !== null
+    ) {
+      return {
+        error: 'Lokalna aplikacja Reviewer nie osiągnęła gotowego stanu.',
+        ok: false,
+      };
+    }
+    const target = new URL(result.data.target);
+    if (
+      target.protocol !== 'http:' ||
+      target.hostname !== '127.0.0.1' ||
+      target.port !== '3001'
+    ) {
+      return {
+        error: 'Lokalna aplikacja Reviewer zwróciła nieprawidłowy adres.',
+        ok: false,
+      };
+    }
+    target.pathname = '/';
+    target.search = '';
+    target.searchParams.set('mode', 'local');
+    target.searchParams.set('gameId', input.gameId);
+    target.searchParams.set('importJobId', input.importJobId);
+    return { ok: true, reviewUrl: target.toString() };
+  } catch {
+    return {
+      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      ok: false,
+    };
+  }
+}
 
 export async function loadReviewerIngress(
   api: ReviewerAccessClient,

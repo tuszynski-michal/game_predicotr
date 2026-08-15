@@ -54,6 +54,7 @@ def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> N
     scripts.mkdir()
     for script_name in (
         "start_remote_reviewer_tunnel.ps1",
+        "start_local_reviewer.ps1",
         "get_remote_reviewer_tunnel_status.ps1",
         "stop_remote_reviewer_tunnel.ps1",
     ):
@@ -106,6 +107,80 @@ def test_ingress_service_runs_only_fixed_bounded_controller(tmp_path: Path) -> N
     ]
 
 
+def test_ingress_service_starts_only_the_loopback_reviewer_without_public_origin(
+    tmp_path: Path,
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    script = scripts / "start_local_reviewer.ps1"
+    script.write_text("# controlled", encoding="utf-8")
+    calls: list[tuple[list[str], Path, float]] = []
+
+    def runner(
+        command: list[str] | tuple[str, ...],
+        working_directory: Path,
+        timeout_seconds: float,
+    ) -> subprocess.CompletedProcess[str]:
+        calls.append((list(command), working_directory, timeout_seconds))
+        return _completed(
+            {
+                "state": "running",
+                "publicOrigin": None,
+                "target": "http://127.0.0.1:3001",
+                "startedAt": "2026-08-15T20:00:00+02:00",
+                "reviewerReady": True,
+            }
+        )
+
+    service = ReviewerIngressService(tmp_path, runner=runner)
+
+    status = service.start_local()
+
+    assert status.state == "running"
+    assert status.public_origin is None
+    assert status.target == "http://127.0.0.1:3001"
+    assert calls == [
+        (
+            [
+                "powershell.exe",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                str(script),
+                "-Json",
+                "-ResultPath",
+                str(tmp_path / ".runtime" / "reviewer-ingress-controller-result.json"),
+            ],
+            tmp_path,
+            30,
+        )
+    ]
+
+
+def test_local_reviewer_start_rejects_a_public_or_non_loopback_result(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    (scripts / "start_local_reviewer.ps1").write_text("# controlled", encoding="utf-8")
+    service = ReviewerIngressService(
+        tmp_path,
+        runner=lambda _command, _cwd, _timeout: _completed(
+            {
+                "state": "running",
+                "publicOrigin": "https://unexpected.example",
+                "target": "https://unexpected.example",
+                "startedAt": None,
+                "reviewerReady": True,
+            }
+        ),
+    )
+
+    with pytest.raises(ReviewerIngressError) as raised:
+        service.start_local()
+
+    assert raised.value.code == "REVIEWER_INGRESS_INVALID_RESPONSE"
+
+
 def test_ingress_service_fails_closed_for_invalid_or_failed_output(tmp_path: Path) -> None:
     scripts = tmp_path / "scripts"
     scripts.mkdir()
@@ -155,6 +230,16 @@ class _FakeIngress:
         self.state = "running"
         return self._response()
 
+    def start_local(self) -> ReviewerIngressStatus:
+        self.calls.append("start_local")
+        return ReviewerIngressStatus(
+            state="running",
+            public_origin=None,
+            target="http://127.0.0.1:3001",
+            started_at=datetime(2026, 8, 15, 18, 0, tzinfo=UTC),
+            reviewer_ready=True,
+        )
+
     def stop(self) -> ReviewerIngressStatus:
         self.calls.append("stop")
         self.state = "stopped"
@@ -196,6 +281,15 @@ def test_admin_ingress_endpoints_require_explicit_target_confirmation() -> None:
         assert started.status_code == 200
         assert started.json()["publicOrigin"].endswith(".trycloudflare.com")
 
+        local_started = client.post(
+            "/api/v1/admin/reviewer-local/start",
+            json={"confirmed": True, "target": "local-reviewer"},
+        )
+        assert local_started.status_code == 200
+        assert local_started.json()["state"] == "running"
+        assert local_started.json()["publicOrigin"] is None
+        assert local_started.json()["target"] == "http://127.0.0.1:3001"
+
         stopped = client.post(
             "/api/v1/admin/reviewer-ingress/stop",
             json={"confirmed": True, "target": "remote-reviewer"},
@@ -203,4 +297,4 @@ def test_admin_ingress_endpoints_require_explicit_target_confirmation() -> None:
         assert stopped.status_code == 200
         assert stopped.json()["state"] == "stopped"
 
-    assert ingress.calls == ["status", "start", "stop"]
+    assert ingress.calls == ["status", "start", "start_local", "stop"]

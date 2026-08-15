@@ -7,10 +7,13 @@ const launcherPath = new URL(
   import.meta.url,
 );
 
-test('launcher exposes explicit online start and stop controls', async () => {
+test('launcher exposes local code-free and explicit online controls', async () => {
   const source = await readFile(launcherPath, 'utf8');
 
   assert.match(source, /publishReviewerSession/);
+  assert.match(source, /openLocalReviewer/);
+  assert.match(source, /Otwórz lokalnie/);
+  assert.match(source, /bez Internetu i kodu/);
   assert.match(source, /stopReviewerPublishing/);
   assert.match(source, /Utwórz link i wystaw online/);
   assert.match(source, /Zatrzymaj udostępnianie/);

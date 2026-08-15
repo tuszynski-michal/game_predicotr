@@ -10,3 +10,22 @@ export function resolveAdminApiBaseUrl(value: string | undefined): string {
   }
   return parsed.origin;
 }
+
+export function resolveLocalAdminApiBaseUrl(value: string | undefined): string {
+  const candidate = (value ?? 'http://127.0.0.1:8000').trim();
+  const parsed = new URL(candidate);
+  if (parsed.protocol !== 'http:' || !LOOPBACK_HOSTS.has(parsed.hostname)) {
+    throw new Error('Local Reviewer API must use an HTTP loopback address.');
+  }
+  return parsed.origin;
+}
+
+export function isLoopbackReviewerHost(value: string | null): boolean {
+  if (value === null || value.trim() === '') return false;
+  const host = value.trim().toLowerCase();
+  return (
+    host === '127.0.0.1:3001' ||
+    host === 'localhost:3001' ||
+    host === '[::1]:3001'
+  );
+}

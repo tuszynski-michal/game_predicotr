@@ -3,9 +3,58 @@ import test from 'node:test';
 
 import {
   loadReviewerIngress,
+  openLocalReviewer,
   publishReviewerSession,
   stopReviewerPublishing,
 } from '../src/features/reviewer-access/reviewer-access-actions.ts';
+
+test('starts the loopback Reviewer without creating a session or access code', async () => {
+  const calls = [];
+  const result = await openLocalReviewer(
+    {
+      startLocalReviewer: async (body) => {
+        calls.push(body);
+        return {
+          data: {
+            publicOrigin: null,
+            reviewerReady: true,
+            startedAt: '2026-08-15T20:00:00Z',
+            state: 'running',
+            target: 'http://127.0.0.1:3001',
+          },
+        };
+      },
+    },
+    { gameId: 'game-1', importJobId: 'job-1' },
+  );
+
+  assert.deepEqual(calls, [{ confirmed: true, target: 'local-reviewer' }]);
+  assert.deepEqual(result, {
+    ok: true,
+    reviewUrl:
+      'http://127.0.0.1:3001/?mode=local&gameId=game-1&importJobId=job-1',
+  });
+});
+
+test('rejects a public origin returned by the local Reviewer controller', async () => {
+  const result = await openLocalReviewer(
+    {
+      startLocalReviewer: async () => ({
+        data: {
+          publicOrigin: 'https://unexpected.example',
+          reviewerReady: true,
+          startedAt: null,
+          state: 'running',
+          target: 'https://unexpected.example',
+        },
+      }),
+    },
+    { gameId: 'game-1', importJobId: 'job-1' },
+  );
+
+  assert.equal(result.ok, false);
+  assert.match(result.error, /nie osiągnęła gotowego stanu/);
+});
 
 const ingress = {
   publicOrigin: 'https://safe-name.trycloudflare.com',

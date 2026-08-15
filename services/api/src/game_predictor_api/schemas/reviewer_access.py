@@ -28,6 +28,11 @@ class ReviewerIngressCommand(ApiModel):
     target: Literal["remote-reviewer"]
 
 
+class ReviewerLocalCommand(ApiModel):
+    confirmed: Literal[True]
+    target: Literal["local-reviewer"]
+
+
 class ReviewerIngressStatusResponse(ApiModel):
     state: Literal["running", "stopped", "stale", "degraded"]
     public_origin: str | None
@@ -110,6 +115,7 @@ class ReviewerSessionUnlockResponse(ReviewerSessionScopeResponse):
 __all__ = [
     "ReviewerIngressCommand",
     "ReviewerIngressStatusResponse",
+    "ReviewerLocalCommand",
     "ReviewerSessionCreate",
     "ReviewerSessionCreatedResponse",
     "ReviewerSessionScopeResponse",

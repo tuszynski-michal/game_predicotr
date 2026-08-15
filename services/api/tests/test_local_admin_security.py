@@ -28,6 +28,15 @@ class _FakeIngress:
         self.started = True
         return self._response()
 
+    def start_local(self) -> ReviewerIngressStatus:
+        return ReviewerIngressStatus(
+            state="running",
+            public_origin=None,
+            target="http://127.0.0.1:3001",
+            started_at=datetime(2026, 8, 15, 18, 0, tzinfo=UTC),
+            reviewer_ready=True,
+        )
+
     def stop(self) -> ReviewerIngressStatus:
         self.started = False
         return self._response()
@@ -162,6 +171,9 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     job_operation, job_target = match_high_impact_operation(
         "DELETE", f"/api/v1/admin/jobs/{job_id}"
     )
+    local_reviewer_operation, local_reviewer_target = match_high_impact_operation(
+        "POST", "/api/v1/admin/reviewer-local/start"
+    )
 
     assert release_operation is not None
     assert release_operation.action == "delete-mobile-release"
@@ -172,6 +184,9 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert job_operation is not None
     assert job_operation.action == "delete-image-selection-job"
     assert job_target == f"job:{job_id}"
+    assert local_reviewer_operation is not None
+    assert local_reviewer_operation.action == "start-local-reviewer"
+    assert local_reviewer_target == "local-reviewer"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:

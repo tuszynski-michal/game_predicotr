@@ -4537,6 +4537,20 @@ export type ReviewerIngressStatusResponse = {
 };
 
 /**
+ * ReviewerLocalCommand
+ */
+export type ReviewerLocalCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Target
+   */
+  target: 'local-reviewer';
+};
+
+/**
  * ReviewerSessionCreate
  */
 export type ReviewerSessionCreate = {
@@ -11592,6 +11606,45 @@ export type StopReviewerIngressResponses = {
 
 export type StopReviewerIngressResponse =
   StopReviewerIngressResponses[keyof StopReviewerIngressResponses];
+
+export type StartLocalReviewerData = {
+  body: ReviewerLocalCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/reviewer-local/start';
+};
+
+export type StartLocalReviewerErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type StartLocalReviewerError =
+  StartLocalReviewerErrors[keyof StartLocalReviewerErrors];
+
+export type StartLocalReviewerResponses = {
+  /**
+   * Successful Response
+   */
+  200: ReviewerIngressStatusResponse;
+};
+
+export type StartLocalReviewerResponse =
+  StartLocalReviewerResponses[keyof StartLocalReviewerResponses];
 
 export type CreateReviewerSessionData = {
   body: ReviewerSessionCreate;

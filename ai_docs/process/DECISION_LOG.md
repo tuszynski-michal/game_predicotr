@@ -4579,6 +4579,28 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza D-183 i D-184 o gwarancję wystarczającej liczby
   fizycznych fragmentów przed końcową reconciliacją.
 
+## D-188 — Lokalny Reviewer nie wymaga zdalnej sesji ani kodu
+
+- **Status:** accepted
+- **Date:** 2026-08-15
+- **Decision:** Admin udostępnia osobny przycisk `Otwórz lokalnie`, który przez
+  stały endpoint i skrypt uruchamia Reviewer na `http://127.0.0.1:3001` bez
+  Cloudflare. Lokalny URL otwiera wskazany scope `gameId + importJobId` bez
+  sesji i kodu wyłącznie przy wejściu strony przez loopback.
+- **Context:** kod i rozdzielony link są potrzebne dla dostępu zdalnego, ale
+  podczas pracy na tym samym komputerze dodawały niepotrzebne kroki i zależność
+  od dostępności Internetu.
+- **Reason:** loopback jest już zaufaną granicą lokalnego właściciela Admin API.
+  Rozdzielenie trybów upraszcza lokalną pracę bez osłabiania publicznej bramki.
+- **Alternatives:** uruchamianie tunelu także dla pracy lokalnej odrzucono jako
+  zależność sieciową. Umieszczenie trwałego tokenu albo kodu w URL odrzucono ze
+  względu na historię przeglądarki i logi.
+- **Consequences:** produkcyjny build Reviewera musi istnieć, jeśli port 3001
+  nie jest już obsługiwany przez lokalny proces. Publiczny host ignoruje
+  parametry trybu lokalnego i nadal wymaga ograniczonej sesji z kodem.
+- **Supersedes:** uściśla lokalną część D-43, D-44 i D-122; nie zmienia modelu
+  zagrożeń ani lifecycle zdalnej sesji.
+
 ## Szablon nowej decyzji
 
 ```text

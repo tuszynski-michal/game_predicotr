@@ -133,6 +133,7 @@ import {
   selectSymbolImageCandidate as selectGeneratedSymbolImageCandidate,
   resolveSymbolBootstrap as resolveGeneratedSymbolBootstrap,
   startSymbolBootstrap as startGeneratedSymbolBootstrap,
+  startLocalReviewer as startGeneratedLocalReviewer,
   startReviewerIngress as startGeneratedReviewerIngress,
   stopReviewerIngress as stopGeneratedReviewerIngress,
   updateGame as updateGeneratedGame,
@@ -189,6 +190,7 @@ import type {
   ReviewFeedbackExportCreate,
   ReviewResolutionCommand,
   ReviewerIngressCommand,
+  ReviewerLocalCommand,
   ReviewerSessionCreate,
   ReviewerSessionUnlock,
   ReviewerSessionUnlockResponse,
@@ -373,6 +375,7 @@ export type {
   ReviewResolutionResponse,
   ReviewerIngressCommand,
   ReviewerIngressStatusResponse,
+  ReviewerLocalCommand,
   ReviewerSessionCreate,
   ReviewerSessionCreatedResponse,
   ReviewerSessionScopeResponse,
@@ -465,6 +468,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     getHealth: () => getGeneratedHealth({ client }),
     getReviewerIngressStatus: () =>
       getGeneratedReviewerIngressStatus({ client }),
+    startLocalReviewer: (body: ReviewerLocalCommand) =>
+      startGeneratedLocalReviewer({
+        body,
+        client,
+        headers: confirmedTargetHeaders('local-reviewer'),
+      }),
     startReviewerIngress: (body: ReviewerIngressCommand) =>
       startGeneratedReviewerIngress({
         body,

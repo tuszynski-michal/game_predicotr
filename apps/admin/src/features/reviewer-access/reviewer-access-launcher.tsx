@@ -14,6 +14,7 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   type ReviewerLauncherClient,
   loadReviewerIngress,
+  openLocalReviewer,
   publishReviewerSession,
   stopReviewerPublishing,
 } from '@/features/reviewer-access/reviewer-access-actions';
@@ -58,9 +59,11 @@ export function ReviewerAccessLauncher({
   const [reviewCounts, setReviewCounts] =
     useState<OperationalImageReviewCountsResponse | null>(null);
   const [creating, setCreating] = useState(false);
+  const [openingLocal, setOpeningLocal] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
+  const [localReviewUrl, setLocalReviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -207,6 +210,46 @@ export function ReviewerAccessLauncher({
     }
   }
 
+  async function launchLocalReviewer() {
+    if (
+      gameId === '' ||
+      jobId === '' ||
+      reviewCounts === null ||
+      reviewCounts.total === 0 ||
+      openingLocal
+    )
+      return;
+    const reviewerWindow = window.open('about:blank', '_blank');
+    if (reviewerWindow !== null) reviewerWindow.opener = null;
+    setOpeningLocal(true);
+    setError('');
+    setLocalReviewUrl(null);
+    try {
+      const result = await openLocalReviewer(api, {
+        gameId,
+        importJobId: jobId,
+      });
+      if (!result.ok) {
+        reviewerWindow?.close();
+        setError(result.error);
+        return;
+      }
+      if (reviewerWindow === null) {
+        setLocalReviewUrl(result.reviewUrl);
+        setError(
+          'Przeglądarka zablokowała nowe okno. Otwórz lokalny Reviewer z linku poniżej.',
+        );
+        return;
+      }
+      reviewerWindow.location.replace(result.reviewUrl);
+    } catch {
+      reviewerWindow?.close();
+      setError('Połączenie z lokalnym Admin API zostało przerwane.');
+    } finally {
+      setOpeningLocal(false);
+    }
+  }
+
   async function copy(value: string, kind: 'code' | 'link') {
     await navigator.clipboard.writeText(value);
     setCopied(kind);
@@ -269,9 +312,8 @@ export function ReviewerAccessLauncher({
           <p className="eyebrow">Osobna aplikacja</p>
           <h1>Zatwierdzanie plansz</h1>
           <p className="lead">
-            Jednym kliknięciem uruchom osobną aplikację Reviewer, wystaw ją
-            przez czasowy tunel HTTPS i utwórz dostęp ograniczony do jednej gry
-            oraz importu.
+            Otwórz Reviewer lokalnie bez Internetu i kodu albo utwórz
+            ograniczony link z kodem do pracy zdalnej.
           </p>
         </div>
       </header>
@@ -322,10 +364,29 @@ export function ReviewerAccessLauncher({
             </label>
           ) : null}
           <button
+            className="secondaryButton"
+            disabled={
+              loading ||
+              creating ||
+              openingLocal ||
+              stopping ||
+              gameId === '' ||
+              jobId === '' ||
+              reviewContextLoading ||
+              reviewCounts?.total === 0 ||
+              reviewCounts === null
+            }
+            onClick={() => void launchLocalReviewer()}
+            type="button"
+          >
+            {openingLocal ? 'Uruchamianie lokalnie…' : 'Otwórz lokalnie'}
+          </button>
+          <button
             className="primaryButton"
             disabled={
               loading ||
               creating ||
+              openingLocal ||
               stopping ||
               gameId === '' ||
               jobId === '' ||
@@ -450,6 +511,14 @@ export function ReviewerAccessLauncher({
         {error ? (
           <p className="reviewerLauncherError" role="alert">
             {error}
+          </p>
+        ) : null}
+
+        {localReviewUrl ? (
+          <p className="reviewerLocalFallback" role="status">
+            <a href={localReviewUrl} rel="noreferrer" target="_blank">
+              Otwórz lokalny Reviewer
+            </a>
           </p>
         ) : null}
 

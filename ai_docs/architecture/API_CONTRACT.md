@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-08-02
+last_updated: 2026-08-15
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1564,6 +1564,25 @@ Panel wykonuje start przed `POST /admin/reviewer-sessions`, dzięki czemu nowa
 sesja otrzymuje aktywny publiczny origin. `Zatrzymaj udostępnianie` najpierw
 próbuje unieważnić bieżącą sesję, ale zamyka tunel również wtedy, gdy revoke
 zwróci błąd; zapisane decyzje oraz audyt nie są usuwane.
+
+### Lokalny start Reviewera bez sesji
+
+```text
+POST /api/v1/admin/reviewer-local/start
+```
+
+Żądanie przyjmuje wyłącznie `confirmed = true` i
+`target = local-reviewer`. Backend może uruchomić tylko przypięty skrypt
+`start_local_reviewer.ps1`; payload nie przyjmuje komendy, argumentów, portu ani
+URL. Odpowiedź używa kontraktu statusu ingressu, ale dla stanu `running` ma
+`publicOrigin = null`, dokładny target `http://127.0.0.1:3001` i
+`reviewerReady = true`. Publiczny albo inny target jest błędem kontrolera.
+
+Admin otwiera lokalny URL z `mode=local`, `gameId` oraz `importJobId`. Reviewer
+pomija bramkę kodu wyłącznie wtedy, gdy nagłówek `Host` wskazuje loopback na
+porcie 3001, oba identyfikatory są UUID, a API pozostaje na loopback. Ten URL
+nie tworzy trwałej sesji ani tokenu. Wejście przez publiczny host ignoruje tryb
+lokalny i nadal wymaga standardowej sesji z kodem.
 
 ## Admin API M6.6 — jakość modelu symboli
 

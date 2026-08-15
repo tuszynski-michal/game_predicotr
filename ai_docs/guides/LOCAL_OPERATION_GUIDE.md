@@ -335,22 +335,28 @@ nowego wydania APK z wyższym `VersionCode`.
 ## Uruchomienie aplikacji Reviewer
 
 Do pracy wyłącznie lokalnej Reviewer wymaga działających PostgreSQL, API i
-własnego procesu Next.js. W osobnym oknie PowerShell uruchom:
+własnego procesu Next.js. Po zbudowaniu Reviewera panel może uruchamiać ten
+proces samodzielnie. Jednorazowo po zmianie jego kodu wykonaj:
 
 ```powershell
-npm run reviewer:dev
+npm run reviewer:build
 ```
 
 Następnie:
 
 1. w Adminie otwórz `Zatwierdzanie`,
 2. wybierz aktywną grę i jej import zdjęć,
-3. utwórz lokalną sesję albo użyj niżej opisanego przycisku online,
-4. otwórz wygenerowany link pod portem `3001`,
-5. wpisz kod pokazany osobno w panelu.
+3. kliknij `Otwórz lokalnie`,
+4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
+   import bez tunelu oraz kodu.
 
-Kod jest pokazywany tylko przy tworzeniu sesji. Sesja jest trwała, ważna przez
-8 godzin, ma limit pięciu błędnych prób i może zostać unieważniona.
+Podczas rozwoju można nadal jawnie uruchomić `npm run reviewer:dev`; przycisk
+lokalny wykorzysta gotowy proces na porcie 3001. Przycisk
+`Utwórz link i wystaw online` zachowuje osobny zdalny workflow: uruchamia tunel,
+tworzy sesję i pokazuje link oraz jednorazowy kod.
+
+Kod jest pokazywany tylko przy tworzeniu sesji online. Taka sesja jest trwała,
+ważna przez 8 godzin, ma limit pięciu błędnych prób i może zostać unieważniona.
 
 Nie wysyłaj lokalnego adresu `127.0.0.1`. Zdalny dostęp używa wyłącznie
 kontrolowanego trybu HTTPS opisanego niżej; nie przekierowuj portów routera.

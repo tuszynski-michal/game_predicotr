@@ -435,6 +435,9 @@ import type {
   SelectSymbolImageCandidateData,
   SelectSymbolImageCandidateErrors,
   SelectSymbolImageCandidateResponses,
+  StartLocalReviewerData,
+  StartLocalReviewerErrors,
+  StartLocalReviewerResponses,
   StartReviewerIngressData,
   StartReviewerIngressErrors,
   StartReviewerIngressResponses,
@@ -3173,6 +3176,30 @@ export const stopReviewerIngress = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/reviewer-ingress/stop',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Start the standalone Reviewer on loopback without a public tunnel
+ */
+export const startLocalReviewer = <ThrowOnError extends boolean = false>(
+  options: Options<StartLocalReviewerData, ThrowOnError>,
+): RequestResult<
+  StartLocalReviewerResponses,
+  StartLocalReviewerErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartLocalReviewerResponses,
+    StartLocalReviewerErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/reviewer-local/start',
     ...options,
     headers: {
       'Content-Type': 'application/json',

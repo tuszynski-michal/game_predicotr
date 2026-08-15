@@ -6465,9 +6465,7 @@ div.imageJobInlineError {
 
 .reviewerLauncherControls {
   display: grid;
-  grid-template-columns:
-    minmax(180px, 1fr) minmax(260px, 1.4fr) auto
-    auto;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) repeat(3, auto);
   gap: 12px;
   align-items: end;
 }
@@ -6487,6 +6485,16 @@ div.imageJobInlineError {
 .reviewerLauncherError {
   margin: 16px 0 0;
   color: var(--danger);
+}
+
+.reviewerLocalFallback {
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.reviewerLocalFallback a {
+  color: var(--accent);
+  font-weight: 800;
 }
 
 .reviewerPrerequisite {

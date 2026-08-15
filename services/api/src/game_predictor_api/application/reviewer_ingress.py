@@ -20,6 +20,7 @@ CommandRunner = Callable[
 
 _SCRIPT_BY_ACTION: Final = {
     "start": "start_remote_reviewer_tunnel.ps1",
+    "start-local": "start_local_reviewer.ps1",
     "status": "get_remote_reviewer_tunnel_status.ps1",
     "stop": "stop_remote_reviewer_tunnel.ps1",
 }
@@ -128,12 +129,15 @@ class ReviewerIngressService:
     def start(self) -> ReviewerIngressStatus:
         return self._execute("start", timeout_seconds=60)
 
+    def start_local(self) -> ReviewerIngressStatus:
+        return self._execute("start-local", timeout_seconds=30)
+
     def stop(self) -> ReviewerIngressStatus:
         return self._execute("stop", timeout_seconds=8)
 
     def _execute(
         self,
-        action: Literal["start", "status", "stop"],
+        action: Literal["start", "start-local", "status", "stop"],
         *,
         timeout_seconds: float,
     ) -> ReviewerIngressStatus:
@@ -195,7 +199,10 @@ class ReviewerIngressService:
                 "REVIEWER_INGRESS_COMMAND_FAILED",
                 message,
             )
-        return self._status_from_payload(payload)
+        return self._status_from_payload(
+            payload,
+            allow_local_only=action == "start-local",
+        )
 
     @staticmethod
     def _parse_payload(output: str) -> dict[str, object]:
@@ -220,7 +227,11 @@ class ReviewerIngressService:
         return parsed
 
     @staticmethod
-    def _status_from_payload(payload: dict[str, object]) -> ReviewerIngressStatus:
+    def _status_from_payload(
+        payload: dict[str, object],
+        *,
+        allow_local_only: bool = False,
+    ) -> ReviewerIngressStatus:
         state = payload.get("state")
         if state not in {"running", "stopped", "stale", "degraded"}:
             raise ReviewerIngressError(
@@ -261,10 +272,21 @@ class ReviewerIngressService:
                     "REVIEWER_INGRESS_INVALID_RESPONSE",
                     "Reviewer ingress start time is invalid.",
                 ) from error
-        if parsed_state == "running" and public_origin is None:
+        local_only_ready = (
+            allow_local_only
+            and target == "http://127.0.0.1:3001"
+            and reviewer_ready is True
+            and public_origin is None
+        )
+        if parsed_state == "running" and public_origin is None and not local_only_ready:
             raise ReviewerIngressError(
                 "REVIEWER_INGRESS_INVALID_RESPONSE",
                 "Running Reviewer ingress has no public origin.",
+            )
+        if allow_local_only and parsed_state == "running" and not local_only_ready:
+            raise ReviewerIngressError(
+                "REVIEWER_INGRESS_INVALID_RESPONSE",
+                "Local Reviewer controller returned a non-local target.",
             )
         return ReviewerIngressStatus(
             state=parsed_state,

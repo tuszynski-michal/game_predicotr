@@ -7743,6 +7743,27 @@
         "title": "ReviewerIngressStatusResponse",
         "type": "object"
       },
+      "ReviewerLocalCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "target": {
+            "const": "local-reviewer",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmed",
+          "target"
+        ],
+        "title": "ReviewerLocalCommand",
+        "type": "object"
+      },
       "ReviewerSessionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -20578,6 +20599,91 @@
           }
         ],
         "summary": "Stop public exposure of the standalone Reviewer",
+        "tags": [
+          "reviewer-access"
+        ]
+      }
+    },
+    "/api/v1/admin/reviewer-local/start": {
+      "post": {
+        "operationId": "startLocalReviewer",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewerLocalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewerIngressStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start the standalone Reviewer on loopback without a public tunnel",
         "tags": [
           "reviewer-access"
         ]

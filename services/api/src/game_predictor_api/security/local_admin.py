@@ -110,6 +110,9 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ("POST", "/api/v1/admin/reviewer-ingress/start"): HighImpactOperation(
         "start-reviewer-ingress", "remote-reviewer"
     ),
+    ("POST", "/api/v1/admin/reviewer-local/start"): HighImpactOperation(
+        "start-local-reviewer", "local-reviewer"
+    ),
     ("POST", "/api/v1/admin/reviewer-ingress/stop"): HighImpactOperation(
         "stop-reviewer-ingress", "remote-reviewer"
     ),

@@ -495,14 +495,20 @@ def test_reviewer_ingress_openapi_exposes_only_fixed_confirmed_lifecycle() -> No
     status_path = schema["paths"]["/api/v1/admin/reviewer-ingress"]
     start_path = schema["paths"]["/api/v1/admin/reviewer-ingress/start"]
     stop_path = schema["paths"]["/api/v1/admin/reviewer-ingress/stop"]
+    local_start_path = schema["paths"]["/api/v1/admin/reviewer-local/start"]
 
     assert status_path["get"]["operationId"] == "getReviewerIngressStatus"
     assert start_path["post"]["operationId"] == "startReviewerIngress"
     assert stop_path["post"]["operationId"] == "stopReviewerIngress"
+    assert local_start_path["post"]["operationId"] == "startLocalReviewer"
     command = schema["components"]["schemas"]["ReviewerIngressCommand"]
     assert set(command["required"]) == {"confirmed", "target"}
     assert command["properties"]["confirmed"]["const"] is True
     assert command["properties"]["target"]["const"] == "remote-reviewer"
+    local_command = schema["components"]["schemas"]["ReviewerLocalCommand"]
+    assert set(local_command["required"]) == {"confirmed", "target"}
+    assert local_command["properties"]["confirmed"]["const"] is True
+    assert local_command["properties"]["target"]["const"] == "local-reviewer"
 
 
 def test_layout_import_reports_openapi_exposes_bounded_diagnostics() -> None:

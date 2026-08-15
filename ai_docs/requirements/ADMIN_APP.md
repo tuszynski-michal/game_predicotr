@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-08-03
+last_updated: 2026-08-15
 ---
 
 # Wymagania modułu administracyjnego
@@ -298,15 +298,19 @@ pełnych plansz i ma:
   `Utwórz link i wystaw online` uruchamia brakujący produkcyjny Reviewer,
   kontrolowany tunel HTTPS i dopiero potem generuje ograniczoną sesję, link
   oraz unikalny kod wejścia,
+- mieć osobny przycisk `Otwórz lokalnie`, który uruchamia produkcyjny Reviewer
+  wyłącznie na `127.0.0.1`, otwiera wybraną grę oraz import i nie uruchamia
+  tunelu, nie tworzy sesji ani nie wymaga kodu; ten tryb działa wyłącznie dla
+  strony otwartej przez loopback,
 - pokazywać jawny stan `online` / `wyłączone` / `problem` i udostępniać przycisk
   `Zatrzymaj udostępnianie`, który unieważnia bieżącą sesję i zamyka publiczny
   tunel; decyzje zapisane wcześniej w audycie pozostają w bazie,
 - nigdy nie publikować serwera developerskiego Reviewera ani pełnego Admina;
   wykrycie procesu developerskiego na porcie Reviewera blokuje start z
   czytelnym komunikatem,
-- przed pokazaniem danych wymagać poprawnego kodu. Lokalna wersja pozostaje
-  dostępna wyłącznie przez loopback; kod lokalny nie jest deklarowany jako
-  zabezpieczenie dostępu internetowego,
+- przed pokazaniem danych przez publiczny origin wymagać poprawnego kodu.
+  Lokalna wersja pozostaje dostępna wyłącznie przez loopback i korzysta z
+  uprawnień lokalnego właściciela bez dodatkowego kodu,
 
 - kompaktowy header z grą, `sequence_number`, pozycją w kolejce, statusem,
   przełącznikiem `Widok planszy` / `Plansze kompletne`, nawigacją i małym

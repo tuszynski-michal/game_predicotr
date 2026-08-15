@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-07-31
+last_updated: 2026-08-15
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -22,6 +22,14 @@ Publiczny origin kończy się w aplikacji Reviewer. Nie tunelujemy portu API,
 Admina, PostgreSQL ani workera. Next.js przekazuje wyłącznie jawnie
 dozwolone odczyty kontekstu jednej sesji, operacyjne review, assety, korektę
 geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
+
+Tryb `Otwórz lokalnie` jest odrębną granicą operatorską. Nie uruchamia
+Cloudflare ani sesji z kodem, a Reviewer odblokowuje wskazany scope tylko przy
+żądaniu strony z nagłówkiem `Host` równym loopback na porcie 3001. Następnie
+przeglądarka łączy się bezpośrednio z Admin API na `127.0.0.1`; zdalny komputer
+interpretuje taki adres jako własny loopback i nie uzyskuje dostępu do API
+właściciela. Publiczny host z parametrami trybu lokalnego pozostaje za bramką
+sesji i kodu.
 
 ## Chronione zasoby i aktorzy
 

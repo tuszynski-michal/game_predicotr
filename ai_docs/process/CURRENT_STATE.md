@@ -222,8 +222,16 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   7, co gwarantuje co najmniej 3031 fragmentów przed uzgodnieniem dokładnych
   2834 właścicieli. Fingerprint v10.14 to
   `f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8`;
-  v10.13 pozostaje niezmienne. Przed wznowieniem dalszej kolejki należy
-  uruchomić izolowany rerun tego etapu i potwierdzić obie bramki raportu.
+  v10.13 pozostaje niezmienne.
+- Izolowany rerun v10.14 `124129–149634` zakończył 21 211 / 21 211 JPEG-ów jako
+  `waiting_for_review`: 3904 fragmenty fizyczne, dokładnie 2834 grupy logiczne,
+  2743 automatyczne, 91 manualnych i 1070 duplikatów. Brak luk, powtórzeń oraz
+  pozycji poza siatką; obie bramki raportu przeszły, a błąd liczności nie
+  powrócił.
+- TASK-0243 rozdziela lokalne i zdalne uruchomienie Reviewera. Przycisk
+  `Otwórz lokalnie` uruchamia stały proces na `127.0.0.1:3001` bez Internetu,
+  tunelu, sesji i kodu oraz otwiera wybraną grę/import. Publiczny workflow z
+  Cloudflare, linkiem, kodem i revoke pozostaje bez zmian.
 
 ### Wersja 0.1
 

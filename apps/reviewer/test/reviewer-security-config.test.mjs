@@ -11,6 +11,9 @@ test('CSP permits Next bootstrap while keeping scripts same-origin', async () =>
 
   assert.equal(typeof policy, 'string');
   assert.match(policy, /script-src 'self' 'unsafe-inline'/);
-  assert.doesNotMatch(policy, /https?:/);
+  assert.doesNotMatch(policy, /https:\/\//);
   assert.match(policy, /frame-ancestors 'none'/);
+  assert.match(policy, /connect-src 'self' http:\/\/127\.0\.0\.1:8000/);
+  assert.match(policy, /img-src 'self' http:\/\/127\.0\.0\.1:8000/);
+  assert.doesNotMatch(policy, /connect-src[^;]*https?:\/\/(?!127\.0\.0\.1)/);
 });

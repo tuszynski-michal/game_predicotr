@@ -155,6 +155,35 @@ test('generated client calls the typed health operation', async () => {
   assert.equal(requests[0].url, 'http://127.0.0.1:8000/api/v1/health');
 });
 
+test('generated client starts only the confirmed local Reviewer target', async () => {
+  let captured;
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({
+        publicOrigin: null,
+        reviewerReady: true,
+        startedAt: null,
+        state: 'running',
+        target: 'http://127.0.0.1:3001',
+      });
+    },
+  });
+
+  await client.startLocalReviewer({
+    confirmed: true,
+    target: 'local-reviewer',
+  });
+
+  assert.equal(captured.method, 'POST');
+  assert.equal(
+    new URL(captured.url).pathname,
+    '/api/v1/admin/reviewer-local/start',
+  );
+  assert.equal(captured.headers.get('X-Admin-Target'), 'local-reviewer');
+});
+
 test('generated client reads both local worker lanes', async () => {
   const requests = [];
   const lanes = [

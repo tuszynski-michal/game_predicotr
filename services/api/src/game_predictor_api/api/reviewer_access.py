@@ -25,6 +25,7 @@ from game_predictor_api.schemas.jobs import JobResponse
 from game_predictor_api.schemas.reviewer_access import (
     ReviewerIngressCommand,
     ReviewerIngressStatusResponse,
+    ReviewerLocalCommand,
     ReviewerSessionCreate,
     ReviewerSessionCreatedResponse,
     ReviewerSessionScopeResponse,
@@ -71,6 +72,19 @@ def create_reviewer_access_router(
         ingress: Annotated[ReviewerIngressService, ingress_parameter],
     ) -> ReviewerIngressStatusResponse:
         return ReviewerIngressStatusResponse.from_domain(ingress.start())
+
+    @router.post(
+        "/admin/reviewer-local/start",
+        response_model=ReviewerIngressStatusResponse,
+        operation_id="startLocalReviewer",
+        summary="Start the standalone Reviewer on loopback without a public tunnel",
+        responses={503: {"model": ErrorResponse}},
+    )
+    def start_local_reviewer(
+        _payload: ReviewerLocalCommand,
+        ingress: Annotated[ReviewerIngressService, ingress_parameter],
+    ) -> ReviewerIngressStatusResponse:
+        return ReviewerIngressStatusResponse.from_domain(ingress.start_local())
 
     @router.post(
         "/admin/reviewer-ingress/stop",

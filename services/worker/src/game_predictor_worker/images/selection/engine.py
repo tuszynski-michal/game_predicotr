@@ -479,6 +479,7 @@ class FastImageSelector:
         self._range_free = manifest.algorithm_version in APPEARANCE_ONLY_SELECTOR_VERSIONS
         self._hybrid_bounded = manifest.algorithm_version in HYBRID_BOUNDED_SELECTOR_VERSIONS
         self._center_first = manifest.algorithm_version in CENTER_FIRST_SELECTOR_VERSIONS
+        self._staged_fast_ocr = manifest.staged_ocr_policy is not None
         self._prefer_first_usable = (
             manifest.algorithm_version in FIRST_USABLE_SELECTOR_VERSIONS or self._range_free
         )
@@ -1145,6 +1146,25 @@ class FastImageSelector:
                 ):
                     break
         else:
+            staged_fast_confirmed = False
+            if self._staged_fast_ocr:
+                fast_verified, fast_status = self._verify_staged_fast_candidates(
+                    verifier,
+                    tuple(observations_to_verify),
+                    expected_board_count=consensus,
+                    first_sequence_number=first_sequence_number,
+                    sequence_direction=sequence_direction,
+                )
+                range_evidence_count += len(fast_verified)
+                self._record_staged_fast_outcome(
+                    verifier,
+                    outcome=fast_status,
+                    evidence_count=len(fast_verified),
+                )
+                staged_fast_confirmed = fast_status == "confirmed"
+                if staged_fast_confirmed:
+                    verified.extend(fast_verified)
+                    range_stop_reason = "staged_fast_confirmed"
             verification_levels = tuple(
                 sorted(
                     self._bounded_verification_levels(
@@ -1153,34 +1173,35 @@ class FastImageSelector:
                     )
                 )
             )
-            next_index = 0
-            for level in verification_levels:
-                level_observations = tuple(observations_to_verify[next_index:level])
-                level_results = self._verify_candidate_batch(
-                    verifier,
-                    level_observations,
-                    expected_board_count=consensus,
-                    include_range_evidence=True,
-                )
-                level_results = tuple(
-                    self._enforce_owner_range_alignment(
-                        verification,
-                        first_sequence_number=first_sequence_number,
-                        sequence_direction=sequence_direction,
+            next_index = len(verified) if staged_fast_confirmed else 0
+            if not staged_fast_confirmed:
+                for level in verification_levels:
+                    level_observations = tuple(observations_to_verify[next_index:level])
+                    level_results = self._verify_candidate_batch(
+                        verifier,
+                        level_observations,
+                        expected_board_count=consensus,
+                        include_range_evidence=True,
                     )
-                    for verification in level_results
-                )
-                verified.extend(zip(level_observations, level_results, strict=True))
-                range_evidence_count += len(level_results)
-                next_index = level
-                range_consensus, conflict = self._adaptive_range_consensus(
-                    verified,
-                    minimum_agreeing_frames=adaptive_policy.minimum_agreeing_frames,
-                )
-                range_evidence_conflict = range_evidence_conflict or conflict
-                if range_consensus is not None and not range_evidence_conflict:
-                    range_stop_reason = "confirmed"
-                    break
+                    level_results = tuple(
+                        self._enforce_owner_range_alignment(
+                            verification,
+                            first_sequence_number=first_sequence_number,
+                            sequence_direction=sequence_direction,
+                        )
+                        for verification in level_results
+                    )
+                    verified.extend(zip(level_observations, level_results, strict=True))
+                    range_evidence_count += len(level_results)
+                    next_index = level
+                    range_consensus, conflict = self._adaptive_range_consensus(
+                        verified,
+                        minimum_agreeing_frames=adaptive_policy.minimum_agreeing_frames,
+                    )
+                    range_evidence_conflict = range_evidence_conflict or conflict
+                    if range_consensus is not None and not range_evidence_conflict:
+                        range_stop_reason = "confirmed"
+                        break
             remaining_observations = tuple(observations_to_verify[next_index:])
             if remaining_observations:
                 representative_results = (
@@ -1534,6 +1555,18 @@ class FastImageSelector:
         expected_key = (expected_range.start, expected_range.end)
 
         candidates_to_check = list(eligible)
+        if self._staged_fast_ocr:
+            candidates_to_check.sort(
+                key=lambda candidate: (
+                    not self._candidate_has_own_strong_matching_range(
+                        candidate,
+                        by_identity=by_identity,
+                        expected_key=expected_key,
+                        minimum_confidence=threshold,
+                    ),
+                    _representative_candidate_rank(candidate),
+                )
+            )
         if self.manifest.algorithm_version == CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION:
             eligible_identities = {
                 (candidate.source.order_index, candidate.source.checksum_sha256)
@@ -1636,6 +1669,27 @@ class FastImageSelector:
             ]
 
         return None, tuple(updated), extra_verification_count
+
+    @staticmethod
+    def _candidate_has_own_strong_matching_range(
+        candidate: CandidateResult,
+        *,
+        by_identity: dict[
+            tuple[int, str],
+            tuple[CheapImageObservation, CandidateVerification],
+        ],
+        expected_key: tuple[int, int],
+        minimum_confidence: float,
+    ) -> bool:
+        identity = (candidate.source.order_index, candidate.source.checksum_sha256)
+        verification = by_identity[identity][1]
+        recognized = verification.recognized_range
+        return (
+            recognized is not None
+            and recognized.confidence >= minimum_confidence
+            and (recognized.start, recognized.end) == expected_key
+            and "RANGE_OCR_FUZZY_CANDIDATE" not in verification.range_evidence.reason_codes
+        )
 
     def _can_use_consensus_backed_representative(
         self,
@@ -1899,6 +1953,81 @@ class FastImageSelector:
             return None, False
         return SequenceRange(start, end, max(confidences)), False
 
+    def _verify_staged_fast_candidates(
+        self,
+        verifier: CandidateVerifier,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+        first_sequence_number: int | None,
+        sequence_direction: str,
+    ) -> tuple[list[tuple[CheapImageObservation, CandidateVerification]], str]:
+        policy = self.manifest.staged_ocr_policy
+        if policy is None:
+            return [], "unresolved"
+        verified: list[tuple[CheapImageObservation, CandidateVerification]] = []
+        next_index = 0
+        for level in self._bounded_verification_levels(
+            len(observations),
+            policy.fast_verification_levels,
+        ):
+            level_observations = tuple(observations[next_index:level])
+            level_results = self._verify_fast_candidate_batch(
+                verifier,
+                level_observations,
+                expected_board_count=expected_board_count,
+            )
+            level_results = tuple(
+                self._enforce_owner_range_alignment(
+                    verification,
+                    first_sequence_number=first_sequence_number,
+                    sequence_direction=sequence_direction,
+                )
+                for verification in level_results
+            )
+            verified.extend(zip(level_observations, level_results, strict=True))
+            next_index = level
+            consensus, conflict = self._staged_fast_consensus(
+                verified,
+                minimum_agreeing_frames=policy.minimum_agreeing_frames,
+            )
+            if conflict:
+                return verified, "conflict"
+            if consensus is not None:
+                return verified, "confirmed"
+        return verified, "unresolved"
+
+    def _staged_fast_consensus(
+        self,
+        verified: list[tuple[CheapImageObservation, CandidateVerification]],
+        *,
+        minimum_agreeing_frames: int,
+    ) -> tuple[SequenceRange | None, bool]:
+        evidence: dict[tuple[int, int], list[tuple[str, float]]] = {}
+        route_conflict = False
+        for observation, verification in verified:
+            reasons = verification.range_evidence.reason_codes
+            route_conflict = route_conflict or "RANGE_OCR_FUSED_EVIDENCE_CONFLICT" in reasons
+            recognized = verification.recognized_range
+            if (
+                recognized is None
+                or recognized.confidence < self.manifest.thresholds.minimum_range_confidence
+                or "RANGE_OCR_FUZZY_CANDIDATE" in reasons
+            ):
+                continue
+            evidence.setdefault((recognized.start, recognized.end), []).append(
+                (observation.source.checksum_sha256, recognized.confidence)
+            )
+        if route_conflict or len(evidence) > 1:
+            return None, True
+        if not evidence:
+            return None, False
+        (start, end), values = next(iter(evidence.items()))
+        distinct_checksums = {checksum for checksum, _ in values}
+        if len(distinct_checksums) < minimum_agreeing_frames:
+            return None, False
+        return SequenceRange(start, end, max(confidence for _, confidence in values)), False
+
     @staticmethod
     def _hybrid_range_keys(
         verified: list[tuple[CheapImageObservation, CandidateVerification]],
@@ -2032,6 +2161,43 @@ class FastImageSelector:
         return results
 
     @staticmethod
+    def _verify_fast_candidate_batch(
+        verifier: CandidateVerifier,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[CandidateVerification, ...]:
+        verify_fast_many = getattr(verifier, "verify_fast_many", None)
+        if callable(verify_fast_many):
+            results = tuple(
+                verify_fast_many(
+                    observations,
+                    expected_board_count=expected_board_count,
+                )
+            )
+        else:
+            verify_fast = getattr(verifier, "verify_fast", None)
+            results = tuple(
+                (
+                    verify_fast(observation, expected_board_count=expected_board_count)
+                    if callable(verify_fast)
+                    else verifier.verify(
+                        observation,
+                        expected_board_count=expected_board_count,
+                    )
+                )
+                for observation in observations
+            )
+        if len(results) != len(observations) or any(
+            not isinstance(result, CandidateVerification) for result in results
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                "Fast candidate batch verification returned an invalid result.",
+            )
+        return results
+
+    @staticmethod
     def _assess_representative(
         verifier: CandidateVerifier,
         observation: CheapImageObservation,
@@ -2077,6 +2243,17 @@ class FastImageSelector:
                 evidence_count=evidence_count,
                 candidate_count=candidate_count,
             )
+
+    @staticmethod
+    def _record_staged_fast_outcome(
+        verifier: CandidateVerifier,
+        *,
+        outcome: str,
+        evidence_count: int,
+    ) -> None:
+        record = getattr(verifier, "record_staged_fast_outcome", None)
+        if callable(record):
+            record(outcome, evidence_count=evidence_count)
 
     def _rank_candidates(
         self,

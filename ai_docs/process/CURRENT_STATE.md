@@ -239,6 +239,15 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   Fingerprint v10.15 to
   `70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d`;
   v10.14 i starsze manifesty pozostają rozwiązywalne i niezmienne.
+- Domyślny v10.16 zachowuje partycjonowanie v10.15 i dodaje szybki etap OCR:
+  center-first `1 → 2 → 4`, szeroki poziom 12 oraz wymóg dwóch mocnych zgodnych
+  odczytów z różnych JPEG-ów. Słaby dowód, konflikt lub brak konsensusu wraca do
+  pełnej ścieżki z poziomem 18. Fingerprint v10.16 to
+  `15c9631000d9deb077b6907dc8cda34309a1e328ffe49273fb802fdb91851bad`.
+  Kolejka pozostaje zatrzymana do walidacji i benchmarku na tym samym stagingu.
+- Walidacja kodu v10.16 przeszła 724 testy workera, 188 testów skupionych,
+  Ruff/format dla 208 plików i mypy dla 255 modułów. Benchmark realnego stagingu
+  pozostaje jedyną bramką wydajności przed decyzją o wznowieniu kolejki.
 - TASK-0243 rozdziela lokalne i zdalne uruchomienie Reviewera. Przycisk
   `Otwórz lokalnie` uruchamia stały proces na `127.0.0.1:3001` bez Internetu,
   tunelu, sesji i kodu oraz otwiera wybraną grę/import. Publiczny workflow z

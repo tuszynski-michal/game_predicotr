@@ -775,3 +775,20 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Czas dwóch godzin nie jest sztywną bramką akceptacji. Pomiar ma wykazać
   istotne odzyskanie różnicy wydajności względem porównywalnego, zimnego runu
   v10.13 bez cofnięcia naprawy granic v10.14.
+
+### Etapowy OCR v10.16 — 2026-08-16
+
+- V10.16 najpierw weryfikuje środkowych kandydatów na poziomach `1`, `2`, `4`
+  i ogranicza szeroką siatkę etykiet do poziomu `12`.
+- Szybka ścieżka może zakończyć grupę automatycznie wyłącznie wtedy, gdy co
+  najmniej dwa różne checksumy JPEG wskazują ten sam, zgodny z właścicielem
+  zakres na podstawie mocnego dowodu. Dwucyfrowy dowód słaby nie wystarcza.
+- Konflikt tras OCR, dwa różne zakresy albo brak konsensusu blokują szybki
+  wynik. System wykonuje wtedy niezmienioną pełną weryfikację z poziomami
+  kandydatów `12` i `18` oraz dotychczasowymi bramkami v10.14/v10.15.
+- Reprezentant szybkiego automatu musi mieć własny mocny odczyt zgodny z
+  zakresem grupy. Nie wolno pożyczyć zakresu lepiej wyglądającemu JPEG-owi bez
+  takiego dowodu.
+- Telemetria osobno raportuje próby, sukcesy, konflikty i fallback szybkiego
+  etapu. Wynik szybkiego etapu nie jest zapisywany jako pełny cache; pełny
+  fallback może nadal korzystać ze zgodnych wpisów historycznych.

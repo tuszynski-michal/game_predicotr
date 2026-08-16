@@ -66,6 +66,7 @@ from game_predictor_worker.images.selection.manifest import (
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
     selector_manifest_for_fingerprint,
@@ -175,6 +176,71 @@ class GoldenVerifier:
                     confidence=float(confidence),
                 ),
             ),
+        )
+
+
+@dataclass
+class _StagedOcrVerifier:
+    fast_ranges: tuple[SequenceRange | None, ...]
+    full_ranges: tuple[SequenceRange | None, ...]
+    fast_weak: bool = False
+    fast_calls: list[int] = field(default_factory=list)
+    full_calls: list[int] = field(default_factory=list)
+
+    @staticmethod
+    def _result(
+        recognized_range: SequenceRange | None,
+        *,
+        weak: bool = False,
+    ) -> CandidateVerification:
+        return CandidateVerification(
+            representative=RepresentativeAssessment(9, True, True),
+            range_evidence=RangeEvidence(
+                recognized_range,
+                (
+                    ("RANGE_OCR_FUZZY_CANDIDATE", "RANGE_OCR_STAGED_FAST")
+                    if weak
+                    else ("RANGE_OCR_STAGED_FAST",)
+                ),
+            ),
+        )
+
+    def verify_fast_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[CandidateVerification, ...]:
+        del expected_board_count
+        self.fast_calls.extend(item.source.order_index for item in observations)
+        return tuple(
+            self._result(self.fast_ranges[item.source.order_index], weak=self.fast_weak)
+            for item in observations
+        )
+
+    def verify(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
+        del expected_board_count
+        self.full_calls.append(observation.source.order_index)
+        return self._result(self.full_ranges[observation.source.order_index])
+
+    def verify_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+        include_range_evidence: bool,
+    ) -> tuple[CandidateVerification, ...]:
+        del expected_board_count
+        if not include_range_evidence:
+            return tuple(self._result(None) for _ in observations)
+        self.full_calls.extend(item.source.order_index for item in observations)
+        return tuple(
+            self._result(self.full_ranges[item.source.order_index]) for item in observations
         )
 
 
@@ -360,6 +426,99 @@ def test_adaptive_cardinality_limit_matches_large_run_distribution() -> None:
 
     assert first_limit == 7
     assert final_limit == 6
+
+
+def test_staged_ocr_accepts_two_distinct_strong_fast_ranges_without_full_fallback() -> None:
+    observations = tuple(
+        {
+            "quality": "good",
+            "fingerprint": "a",
+            "boardCount": 9,
+            "range": [1, 9, 0.98],
+        }
+        for _ in range(6)
+    )
+    recognized = SequenceRange(1, 9, 0.98)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(recognized,) * 6,
+        full_ranges=(recognized,) * 6,
+    )
+
+    result = FastImageSelector(STAGED_OCR_SELECTOR_MANIFEST_V1016).select(
+        _sources("staged-fast-confirmed", len(observations)),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in observations)),
+        verifier=verifier,
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert len(verifier.fast_calls) == 2
+    assert verifier.full_calls == []
+    assert result.verification_count == 2
+
+
+def test_staged_ocr_weak_fast_evidence_uses_unchanged_full_fallback() -> None:
+    observations = tuple(
+        {
+            "quality": "good",
+            "fingerprint": "a",
+            "boardCount": 9,
+            "range": [1, 9, 0.98],
+        }
+        for _ in range(6)
+    )
+    weak = SequenceRange(1, 9, 0.82)
+    strong = SequenceRange(1, 9, 0.98)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(weak,) * 6,
+        full_ranges=(strong,) * 6,
+        fast_weak=True,
+    )
+
+    result = FastImageSelector(STAGED_OCR_SELECTOR_MANIFEST_V1016).select(
+        _sources("staged-weak-fallback", len(observations)),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in observations)),
+        verifier=verifier,
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert len(verifier.fast_calls) == 4
+    assert len(verifier.full_calls) == 1
+    assert result.verification_count == 5
+
+
+def test_staged_ocr_fast_conflict_falls_back_without_polluting_full_result() -> None:
+    observations = tuple(
+        {
+            "quality": "good",
+            "fingerprint": "a",
+            "boardCount": 9,
+            "range": [1, 9, 0.98],
+        }
+        for _ in range(6)
+    )
+    first = SequenceRange(1, 9, 0.98)
+    conflicting = SequenceRange(10, 18, 0.98)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(first, conflicting, first, first, first, first),
+        full_ranges=(first,) * 6,
+    )
+
+    result = FastImageSelector(STAGED_OCR_SELECTOR_MANIFEST_V1016).select(
+        _sources("staged-conflict-fallback", len(observations)),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in observations)),
+        verifier=verifier,
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert len(verifier.fast_calls) == 2
+    assert len(verifier.full_calls) == 1
+    assert result.groups[0].range == first
 
 
 def test_single_last_photo_can_form_a_verified_new_range() -> None:
@@ -569,20 +728,28 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_15_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_16_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.15"
+    assert DEFAULT_SELECTOR_MANIFEST is STAGED_OCR_SELECTOR_MANIFEST_V1016
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.16"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d"
+        == "15c9631000d9deb077b6907dc8cda34309a1e328ffe49273fb802fdb91851bad"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is STAGED_OCR_SELECTOR_MANIFEST_V1016
+    )
+    assert (
+        ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015.fingerprint
+        == "70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d"
+    )
+    assert (
+        selector_manifest_for_fingerprint(ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015.fingerprint)
         is ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015
     )
     assert (

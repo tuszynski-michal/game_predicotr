@@ -4624,6 +4624,31 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** koryguje strategię limitu D-187 bez osłabienia jej gwarancji
   liczności.
 
+## D-190 — OCR ma bezpieczną ścieżkę szybką i niezmieniony pełny fallback
+
+- **Status:** accepted
+- **Date:** 2026-08-16
+- **Decision:** v10.16 sprawdza center-first kandydatów na poziomach `1,2,4`
+  przy szerokim limicie 12. Kończy szybko tylko po dwóch mocnych, zgodnych
+  odczytach z różnych checksumów. W pozostałych przypadkach wykonuje pełną
+  ścieżkę v10.15 z poziomem 18.
+- **Context:** telemetria runu v10.14 pokazała, że około 90% czasu selekcji
+  przypadało na OCR, a zimny cache uruchamiał znacznie więcej poziomów 18.
+  Jednocześnie samo zwiększanie równoległości verifiera wcześniej pogarszało
+  czas wykonania.
+- **Reason:** większość czytelnych grup ma zgodne środkowe kadry. Dwa niezależne
+  mocne odczyty pozwalają zatrzymać OCR przed drogim rozszerzeniem, zachowując
+  pełny algorytm jako fail-closed fallback dla trudnych zdjęć.
+- **Alternatives:** akceptację jednego mocnego albo jednego słabego odczytu
+  odrzucono jako regresję bezpieczeństwa. Usunięcie poziomu 18 odrzucono, bo
+  zmniejszyłoby odzysk trudnych, ale czytelnych grup. Drugi verifier pozostaje
+  nieaktywny zgodnie z D-186.
+- **Consequences:** v10.16 ma osobny adapter range i fingerprint. Szybkie wyniki
+  nie trafiają do pełnego cache, a fallback może promować zgodne wpisy
+  v10.15/v10.14/v10.13/v10.12. Telemetria rozdziela oba etapy.
+- **Supersedes:** rozszerza D-189 o optymalizację OCR; nie zmienia reguł
+  liczności ani końcowej reconciliacji.
+
 ## Szablon nowej decyzji
 
 ```text

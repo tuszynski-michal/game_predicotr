@@ -103,7 +103,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.15"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.16"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -251,6 +251,7 @@ def test_scan_cache_misses_after_key_change_and_rebuilds_corrupt_entry(
 class _BatchCandidateVerifier:
     def __init__(self) -> None:
         self.batch_calls: list[tuple[tuple[int, ...], bool]] = []
+        self.fast_calls: list[tuple[int, ...]] = []
         self.representative_calls: list[int] = []
 
     def verify(
@@ -286,6 +287,16 @@ class _BatchCandidateVerifier:
             self._result(item, include_range_evidence=include_range_evidence)
             for item in observations
         )
+
+    def verify_fast_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[CandidateVerification, ...]:
+        del expected_board_count
+        self.fast_calls.append(tuple(item.source.order_index for item in observations))
+        return tuple(self._result(item, include_range_evidence=True) for item in observations)
 
     @staticmethod
     def _result(
@@ -430,6 +441,33 @@ def test_verification_cache_promotes_explicitly_compatible_selector_entry(
     assert current.snapshot()["compatibleHitCount"] == 1
     assert current.snapshot()["writeCount"] == 1
     assert len(tuple(cache.root.rglob("*.json"))) == 2
+
+
+def test_staged_fast_verification_bypasses_full_result_cache(tmp_path: Path) -> None:
+    cache = FileImageVerificationCache(tmp_path)
+    observation = _CountingCheapAnalyzer().analyze(_source("e" * 64))
+    previous = CachedCandidateVerifier(
+        _BatchCandidateVerifier(),
+        cache,
+        selector_fingerprint="f" * 64,
+    )
+    previous.verify(observation, expected_board_count=9)
+    delegate = _BatchCandidateVerifier()
+    current = CachedCandidateVerifier(
+        delegate,
+        cache,
+        selector_fingerprint="1" * 64,
+        compatible_selector_fingerprints=("f" * 64,),
+    )
+
+    fast = current.verify_fast_many((observation,), expected_board_count=9)
+
+    assert fast[0].recognized_range == SequenceRange(1, 9, 0.95)
+    assert delegate.fast_calls == [(0,)]
+    assert current.snapshot()["hitCount"] == 0
+    assert current.snapshot()["compatibleHitCount"] == 0
+    assert current.snapshot()["writeCount"] == 0
+    assert len(tuple(cache.root.rglob("*.json"))) == 1
 
 
 def test_pillow_thumbnail_loader_verifies_checksum_and_applies_exif(tmp_path: Path) -> None:
@@ -2146,7 +2184,7 @@ def test_parallel_candidate_verifier_isolates_workers_and_preserves_input_order(
     assert counters["parallelVerificationWorkerSlots"] == 2
 
 
-def test_standalone_cli_uses_v10_15_and_fails_closed_without_ocr_model(
+def test_standalone_cli_uses_v10_16_and_fails_closed_without_ocr_model(
     tmp_path: Path,
 ) -> None:
     source_root = tmp_path / "staging"
@@ -2201,7 +2239,7 @@ def test_standalone_cli_uses_v10_15_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.15"
+    assert report["selectorVersion"] == "fast-image-selector-v10.16"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

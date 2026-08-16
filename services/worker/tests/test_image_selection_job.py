@@ -50,6 +50,7 @@ from game_predictor_worker.images.selection.manifest import (
     DEFAULT_SELECTOR_MANIFEST,
     FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     LEGACY_SELECTOR_MANIFEST_V2,
+    STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
 )
@@ -191,9 +192,13 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
             TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
             TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
         ),
+        (
+            STAGED_OCR_SELECTOR_MANIFEST_V1016,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
     ),
 )
-def test_production_factory_preserves_v10_11_and_builds_v10_12(
+def test_production_factory_preserves_historical_and_builds_staged_ocr(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     selector_manifest: SelectorManifest,
@@ -204,6 +209,7 @@ def test_production_factory_preserves_v10_11_and_builds_v10_12(
     predictors: list[object] = []
     built_verifiers: list[object] = []
     fallback_recognizers: list[object] = []
+    fast_recognizers: list[object | None] = []
 
     def build_predictor(*_args: object, **_kwargs: object) -> object:
         predictor = object()
@@ -227,6 +233,7 @@ def test_production_factory_preserves_v10_11_and_builds_v10_12(
         verifier = _FactoryVerifier()
         built_verifiers.append(verifier)
         fallback_recognizers.append(kwargs["fallback_range_recognizer"])
+        fast_recognizers.append(kwargs.get("fast_range_recognizer"))
         return object(), verifier
 
     monkeypatch.setattr(
@@ -256,6 +263,13 @@ def test_production_factory_preserves_v10_11_and_builds_v10_12(
     assert len({id(predictor) for predictor in predictors}) == 2
     assert len({id(item) for item in built_verifiers}) == 2
     assert all(isinstance(item, recognizer_type) for item in fallback_recognizers)
+    if selector_manifest is STAGED_OCR_SELECTOR_MANIFEST_V1016:
+        assert all(
+            isinstance(item, TwoLabelConsensusVisibleSequenceLabelRangeRecognizer)
+            for item in fast_recognizers
+        )
+    else:
+        assert fast_recognizers == [None, None]
     assert isinstance(verifier, DeterministicParallelCandidateVerifier)
     assert verifier.worker_count == 2
 

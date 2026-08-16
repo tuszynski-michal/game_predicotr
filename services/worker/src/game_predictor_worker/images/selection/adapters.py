@@ -2675,11 +2675,13 @@ class BoundedGridCandidateVerifier:
         range_recognizer: SequenceRangeRecognizer,
         *,
         layout_anchor_policy: LayoutAnchorPolicy | None = None,
+        fast_range_recognizer: SequenceRangeRecognizer | None = None,
         detector: PageBoardDetector | None = None,
         telemetry: StageTimingCollector | None = None,
     ) -> None:
         self._source_root = source_root.resolve(strict=True)
         self._range_recognizer = range_recognizer
+        self._fast_range_recognizer = fast_range_recognizer
         self._layout_anchor_policy = layout_anchor_policy
         self._detector = detector or ClassicalPageBoardDetector(
             minimum_red_saturation=(
@@ -2699,11 +2701,40 @@ class BoundedGridCandidateVerifier:
         *,
         expected_board_count: int | None,
     ) -> CandidateVerification:
+        return self._verify_with_recognizer(
+            observation,
+            range_recognizer=self._range_recognizer,
+            staged_fast=False,
+        )
+
+    def verify_fast(
+        self,
+        observation: CheapImageObservation,
+        *,
+        expected_board_count: int | None,
+    ) -> CandidateVerification:
         del expected_board_count
+        if self._fast_range_recognizer is None:
+            return self.verify(observation, expected_board_count=None)
+        return self._verify_with_recognizer(
+            observation,
+            range_recognizer=self._fast_range_recognizer,
+            staged_fast=True,
+        )
+
+    def _verify_with_recognizer(
+        self,
+        observation: CheapImageObservation,
+        *,
+        range_recognizer: SequenceRangeRecognizer,
+        staged_fast: bool,
+    ) -> CandidateVerification:
         if self._telemetry is not None:
             self._telemetry.increment("rangeEvidenceVerifications")
             self._telemetry.increment("rangeRecognizerAttempts")
             self._telemetry.increment("gridOcrAttempts")
+            if staged_fast:
+                self._telemetry.increment("stagedFastOcrAttempts")
         boards: tuple[BoardDetection, ...] = ()
         layout_hypotheses: tuple[tuple[BoardDetection, ...], ...] = ()
         representative_reasons: tuple[str, ...] = ()
@@ -2752,15 +2783,15 @@ class BoundedGridCandidateVerifier:
             )
             with timing:
                 if layout_hypotheses and isinstance(
-                    self._range_recognizer,
+                    range_recognizer,
                     PartialLayoutAnchoredVisibleSequenceLabelRangeRecognizer,
                 ):
-                    recognized_range, reasons = self._range_recognizer.recognize_layout_hypotheses(
+                    recognized_range, reasons = range_recognizer.recognize_layout_hypotheses(
                         rgb,
                         layout_hypotheses,
                     )
                 else:
-                    recognized_range, reasons = self._range_recognizer.recognize(rgb, boards)
+                    recognized_range, reasons = range_recognizer.recognize(rgb, boards)
         except (SelectionContractError, SequenceOcrError, ValueError) as error:
             reason = (
                 error.code
@@ -2770,6 +2801,8 @@ class BoundedGridCandidateVerifier:
             recognized_range = None
             reasons = (reason,)
             representative_reasons = ()
+        if staged_fast:
+            reasons = tuple(dict.fromkeys((*reasons, "RANGE_OCR_STAGED_FAST")))
         if self._telemetry is not None:
             self._telemetry.increment(
                 "gridOcrSuccesses" if recognized_range is not None else "gridOcrFailures"
@@ -2781,6 +2814,12 @@ class BoundedGridCandidateVerifier:
             )
             for reason in reasons:
                 self._telemetry.increment(f"rangeReason.{reason}")
+            if staged_fast:
+                self._telemetry.increment(
+                    "stagedFastOcrSuccesses"
+                    if recognized_range is not None
+                    else "stagedFastOcrFailures"
+                )
         return CandidateVerification(
             representative=RepresentativeAssessment(
                 board_count=(
@@ -2872,6 +2911,20 @@ class BoundedGridCandidateVerifier:
             for observation in observations
         )
 
+    def verify_fast_many(
+        self,
+        observations: Sequence[CheapImageObservation],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[CandidateVerification, ...]:
+        return tuple(
+            self.verify_fast(
+                observation,
+                expected_board_count=expected_board_count,
+            )
+            for observation in observations
+        )
+
     def record_adaptive_range_stop(
         self,
         reason: str,
@@ -2884,6 +2937,19 @@ class BoundedGridCandidateVerifier:
         self._telemetry.increment(f"rangeStop.{reason}")
         self._telemetry.increment("rangeEvidenceCandidates", evidence_count)
         self._telemetry.increment("rangeGroupCandidates", candidate_count)
+
+    def record_staged_fast_outcome(
+        self,
+        outcome: str,
+        *,
+        evidence_count: int,
+    ) -> None:
+        if self._telemetry is None:
+            return
+        if outcome not in {"confirmed", "conflict", "unresolved"}:
+            raise ValueError(f"Unsupported staged fast OCR outcome: {outcome}")
+        self._telemetry.increment(f"stagedFastOutcome.{outcome}")
+        self._telemetry.increment("stagedFastEvidenceCandidates", evidence_count)
 
 
 class FullCandidateVerifier:
@@ -3211,6 +3277,55 @@ class DeterministicParallelCandidateVerifier:
             )
         return tuple(cast(CandidateVerification, verification) for verification in ordered)
 
+    def verify_fast_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[CandidateVerification, ...]:
+        if not observations:
+            return ()
+        worker_count = min(len(self._verifiers), len(observations))
+        partitions: list[list[tuple[int, CheapImageObservation]]] = [
+            [] for _ in range(worker_count)
+        ]
+        for index, observation in enumerate(observations):
+            partitions[index % worker_count].append((index, observation))
+        ordered: list[CandidateVerification | None] = [None] * len(observations)
+        partition_results: tuple[tuple[tuple[int, CandidateVerification], ...], ...]
+        if worker_count == 1:
+            partition_results = (
+                self._verify_fast_partition(
+                    self._verifiers[0],
+                    tuple(partitions[0]),
+                    expected_board_count=expected_board_count,
+                ),
+            )
+        else:
+            with ThreadPoolExecutor(
+                max_workers=worker_count,
+                thread_name_prefix="candidate-verifier-fast",
+            ) as executor:
+                futures = tuple(
+                    executor.submit(
+                        self._verify_fast_partition,
+                        self._verifiers[worker_index],
+                        tuple(partition),
+                        expected_board_count=expected_board_count,
+                    )
+                    for worker_index, partition in enumerate(partitions)
+                )
+                partition_results = tuple(future.result() for future in futures)
+        for partition in partition_results:
+            for index, verification in partition:
+                ordered[index] = verification
+        if any(verification is None for verification in ordered):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                "Parallel fast candidate verification returned an incomplete batch.",
+            )
+        return tuple(cast(CandidateVerification, verification) for verification in ordered)
+
     @classmethod
     def _verify_partition(
         cls,
@@ -3238,6 +3353,32 @@ class DeterministicParallelCandidateVerifier:
                 raise SelectionContractError(
                     "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
                     "Parallel candidate verification returned an invalid result.",
+                )
+            results.append((index, verification))
+        return tuple(results)
+
+    @staticmethod
+    def _verify_fast_partition(
+        verifier: CandidateVerifier,
+        partition: tuple[tuple[int, CheapImageObservation], ...],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[tuple[int, CandidateVerification], ...]:
+        verify_fast = getattr(verifier, "verify_fast", None)
+        results: list[tuple[int, CandidateVerification]] = []
+        for index, observation in partition:
+            verification = (
+                verify_fast(observation, expected_board_count=expected_board_count)
+                if callable(verify_fast)
+                else verifier.verify(
+                    observation,
+                    expected_board_count=expected_board_count,
+                )
+            )
+            if not isinstance(verification, CandidateVerification):
+                raise SelectionContractError(
+                    "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                    "Parallel fast candidate verification returned an invalid result.",
                 )
             results.append((index, verification))
         return tuple(results)
@@ -3286,12 +3427,23 @@ class DeterministicParallelCandidateVerifier:
                 candidate_count=candidate_count,
             )
 
+    def record_staged_fast_outcome(
+        self,
+        outcome: str,
+        *,
+        evidence_count: int,
+    ) -> None:
+        record = getattr(self._verifiers[0], "record_staged_fast_outcome", None)
+        if callable(record):
+            record(outcome, evidence_count=evidence_count)
+
 
 def build_default_adapters(
     source_root: Path,
     *,
     range_recognizer: SequenceRangeRecognizer | None = None,
     fallback_range_recognizer: SequenceRangeRecognizer | None = None,
+    fast_range_recognizer: SequenceRangeRecognizer | None = None,
     manifest: SelectorManifest = DEFAULT_SELECTOR_MANIFEST,
     telemetry: StageTimingCollector | None = None,
 ) -> tuple[CheapImageAnalyzer, CandidateVerifier]:
@@ -3331,6 +3483,7 @@ def build_default_adapters(
                     source_root,
                     fallback_range_recognizer or range_recognizer or NoRangeRecognizer(),
                     layout_anchor_policy=manifest.layout_anchor_policy,
+                    fast_range_recognizer=fast_range_recognizer,
                     telemetry=telemetry,
                 ),
             )

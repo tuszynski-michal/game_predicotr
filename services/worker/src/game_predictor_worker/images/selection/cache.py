@@ -469,6 +469,42 @@ class CachedCandidateVerifier:
                 )
         return tuple(resolved[index] for index in range(len(observations)))
 
+    def verify_fast_many(
+        self,
+        observations: tuple[CheapImageObservation, ...],
+        *,
+        expected_board_count: int | None,
+    ) -> tuple[CandidateVerification, ...]:
+        verify_fast_many = getattr(self._delegate, "verify_fast_many", None)
+        if callable(verify_fast_many):
+            results = tuple(
+                verify_fast_many(
+                    observations,
+                    expected_board_count=expected_board_count,
+                )
+            )
+        else:
+            verify_fast = getattr(self._delegate, "verify_fast", None)
+            results = tuple(
+                (
+                    verify_fast(observation, expected_board_count=expected_board_count)
+                    if callable(verify_fast)
+                    else self._delegate.verify(
+                        observation,
+                        expected_board_count=expected_board_count,
+                    )
+                )
+                for observation in observations
+            )
+        if len(results) != len(observations) or any(
+            not isinstance(result, CandidateVerification) for result in results
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_VERIFY_RESULT_INVALID",
+                "Fast candidate batch verification returned an invalid result.",
+            )
+        return results
+
     def record_adaptive_range_stop(
         self,
         reason: str,
@@ -483,6 +519,16 @@ class CachedCandidateVerifier:
                 evidence_count=evidence_count,
                 candidate_count=candidate_count,
             )
+
+    def record_staged_fast_outcome(
+        self,
+        outcome: str,
+        *,
+        evidence_count: int,
+    ) -> None:
+        recorder = getattr(self._delegate, "record_staged_fast_outcome", None)
+        if callable(recorder):
+            recorder(outcome, evidence_count=evidence_count)
 
     def _one(
         self,

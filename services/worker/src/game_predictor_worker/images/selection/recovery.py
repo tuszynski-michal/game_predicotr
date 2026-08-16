@@ -24,6 +24,7 @@ from .manifest import (
     ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
     CARDINALITY_GUARDED_SELECTOR_VERSION,
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+    STAGED_OCR_SELECTOR_VERSION,
     SelectorManifest,
 )
 from .sequence_bounds import SequenceBounds
@@ -198,6 +199,7 @@ def evaluate_recovery(
                             CARDINALITY_GUARDED_SELECTOR_VERSION,
                             CARDINALITY_PARTITIONED_SELECTOR_VERSION,
                             ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+                            STAGED_OCR_SELECTOR_VERSION,
                         }
                         and bounds is not None
                     ),

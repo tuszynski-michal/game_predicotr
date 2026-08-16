@@ -1186,6 +1186,29 @@ duplikaty. Adaptery obrazu oraz OCR pozostają identyczne jak w v10.14, dlatego
 v10.15 może promować zgodne wpisy cache v10.14, v10.13 i v10.12 pod własny
 fingerprint.
 
+## Dwustopniowa weryfikacja OCR v10.16
+
+Engine v10.16 wykonuje przed dotychczasową pętlą weryfikacji osobny etap szybki.
+Kandydaci są nadal uporządkowani center-first, ale analizowani tylko do poziomu
+`1 → 2 → 4`. Szybki verifier używa tej samej detekcji układu, modelu OCR i
+reguł fuzji co pełny verifier, lecz szeroka siatka kończy się na 12 cropach i
+nie uruchamia poziomu 18.
+
+Szybki konsensus uwzględnia wyłącznie mocne zakresy o pewności co najmniej
+`minimum_range_confidence`, odrzuca `RANGE_OCR_FUZZY_CANDIDATE` i wymaga dwóch
+różnych checksum. Każdy konflikt fuzji lub więcej niż jeden klucz zakresu
+zamyka szybką ścieżkę. Po sukcesie selektor preferuje reprezentanta spośród
+JPEG-ów, które same dostarczyły mocny zgodny dowód, dzięki czemu nie wykonuje
+pełnego OCR tylko po to, aby sprawdzić lepiej oceniony, ale nierozpoznany kadr.
+
+Przy braku konsensusu engine odrzuca tymczasowe szybkie wyniki i od początku
+wykonuje historyczną pętlę pełnego verifiera v10.15 na poziomach
+`1, 2, 4, 5, 7, 11`; sam recognizer zachowuje szerokie poziomy `12, 18`.
+Pełne wyniki używają zwykłego cache fingerprintu i mogą być promowane z
+v10.15–v10.12. Wyniki szybkie celowo omijają ten cache, aby pełna odpowiedź
+historycznego selektora nie została błędnie uznana za pomiar ograniczonej
+ścieżki.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

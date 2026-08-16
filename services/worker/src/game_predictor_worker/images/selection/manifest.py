@@ -30,8 +30,9 @@ TWO_LABEL_CONSENSUS_SELECTOR_VERSION = "fast-image-selector-v10.12"
 CARDINALITY_GUARDED_SELECTOR_VERSION = "fast-image-selector-v10.13"
 CARDINALITY_PARTITIONED_SELECTOR_VERSION = "fast-image-selector-v10.14"
 ADAPTIVE_CARDINALITY_SELECTOR_VERSION = "fast-image-selector-v10.15"
+STAGED_OCR_SELECTOR_VERSION = "fast-image-selector-v10.16"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = ADAPTIVE_CARDINALITY_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = STAGED_OCR_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -55,6 +56,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -91,6 +93,7 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 
@@ -142,6 +145,10 @@ TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION = (
     "sequence-anchor-range-v1+visible-sequence-label-range-v12:"
     "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
+STAGED_OCR_RANGE_ADAPTER_VERSION = (
+    "sequence-anchor-range-v1+visible-sequence-label-range-v13:"
+    "sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
+)
 GRID_FIRST_RANGE_ADAPTER_VERSION = (
     "visible-sequence-label-grid-v1:sequence-number-ocr-v1:en_PP-OCRv5_mobile_rec"
 )
@@ -174,6 +181,7 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -197,6 +205,7 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -216,6 +225,7 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -236,6 +246,7 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -251,6 +262,7 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -275,6 +287,7 @@ HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -291,6 +304,7 @@ OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -305,6 +319,7 @@ CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -317,6 +332,7 @@ LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -328,6 +344,7 @@ PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
@@ -338,6 +355,7 @@ LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_GUARDED_SELECTOR_VERSION,
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+        STAGED_OCR_SELECTOR_VERSION,
     }
 )
 
@@ -431,6 +449,13 @@ class AdaptiveRangeConsensusPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class StagedOcrPolicy:
+    fast_verification_levels: tuple[int, ...] = (1, 2, 4)
+    minimum_agreeing_frames: int = 2
+    broad_candidate_levels: tuple[int, ...] = (12,)
+
+
+@dataclass(frozen=True, slots=True)
 class ProgressiveVisibleLabelFallbackPolicy:
     candidate_levels: tuple[int, ...] = (18, 36, 72)
 
@@ -488,6 +513,7 @@ class SelectorManifest:
     representative_policy: RangeFreeRepresentativePolicy = RangeFreeRepresentativePolicy()
     full_geometry_policy: FullGeometryPolicy | None = None
     adaptive_range_consensus_policy: AdaptiveRangeConsensusPolicy | None = None
+    staged_ocr_policy: StagedOcrPolicy | None = None
     progressive_visible_label_fallback_policy: ProgressiveVisibleLabelFallbackPolicy | None = None
     representative_sampling_policy: RepresentativeSamplingPolicy | None = None
     contiguous_sequence_window_policy: ContiguousSequenceWindowPolicy | None = None
@@ -556,6 +582,22 @@ class SelectorManifest:
                 and levels[-1] <= self.top_k
             ):
                 raise ValueError("Adaptive range consensus policy is outside supported bounds.")
+        if self.staged_ocr_policy is not None:
+            staged_policy = self.staged_ocr_policy
+            verification_levels = staged_policy.fast_verification_levels
+            broad_levels = staged_policy.broad_candidate_levels
+            if not (
+                verification_levels
+                and tuple(sorted(set(verification_levels))) == verification_levels
+                and staged_policy.minimum_agreeing_frames >= 2
+                and verification_levels[-1] >= staged_policy.minimum_agreeing_frames
+                and verification_levels[-1] <= self.top_k
+                and broad_levels
+                and tuple(sorted(set(broad_levels))) == broad_levels
+                and broad_levels[0] >= 6
+                and broad_levels[-1] <= 72
+            ):
+                raise ValueError("Staged OCR policy is outside supported bounds.")
         if self.progressive_visible_label_fallback_policy is not None:
             fallback_policy = self.progressive_visible_label_fallback_policy
             levels = fallback_policy.candidate_levels
@@ -700,6 +742,13 @@ class SelectorManifest:
             payload["adaptiveRangeConsensusPolicy"] = {
                 "minimumAgreeingFrames": consensus_policy.minimum_agreeing_frames,
                 "verificationLevels": list(consensus_policy.verification_levels),
+            }
+        if self.staged_ocr_policy is not None:
+            staged_policy = self.staged_ocr_policy
+            payload["stagedOcrPolicy"] = {
+                "broadCandidateLevels": list(staged_policy.broad_candidate_levels),
+                "fastVerificationLevels": list(staged_policy.fast_verification_levels),
+                "minimumAgreeingFrames": staged_policy.minimum_agreeing_frames,
             }
         if self.progressive_visible_label_fallback_policy is not None:
             fallback_policy = self.progressive_visible_label_fallback_policy
@@ -1180,8 +1229,29 @@ ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015 = SelectorManifest(
     contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
     layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
 )
-DEFAULT_SELECTOR_MANIFEST = ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015
+STAGED_OCR_SELECTOR_MANIFEST_V1016 = SelectorManifest(
+    algorithm_version=STAGED_OCR_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=STAGED_OCR_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 2, 4, 5, 7, 11),
+        minimum_agreeing_frames=2,
+    ),
+    staged_ocr_policy=StagedOcrPolicy(),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    representative_sampling_policy=RepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+DEFAULT_SELECTOR_MANIFEST = STAGED_OCR_SELECTOR_MANIFEST_V1016
 SUPPORTED_SELECTOR_MANIFESTS = (
+    STAGED_OCR_SELECTOR_MANIFEST_V1016,
     ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014,
     CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
@@ -1228,6 +1298,10 @@ def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | No
 
 
 __all__ = [
+    "STAGED_OCR_RANGE_ADAPTER_VERSION",
+    "STAGED_OCR_SELECTOR_MANIFEST_V1016",
+    "STAGED_OCR_SELECTOR_VERSION",
+    "StagedOcrPolicy",
     "ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015",
     "ADAPTIVE_CARDINALITY_SELECTOR_VERSION",
     "CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014",

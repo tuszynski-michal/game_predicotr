@@ -66,6 +66,8 @@ false split albo false merge również mogą być błędne.
   projekcję z tą licznością bez zmiany decyzji użytkownika.
 - po pomiarze narzutu v10.14 dodać niezmienny v10.15 z adaptacyjnym limitem
   pozostałych źródeł i grup, zachowując końcową bramkę liczności.
+- dodać v10.16 z szybkim, dwuklatkowym mocnym konsensusem OCR oraz pełnym
+  fallbackiem historycznej ścieżki dla konfliktu i braku rozstrzygnięcia.
 
 ## Out of scope
 
@@ -328,3 +330,18 @@ i 24 377,456 s selekcji. V10.15 przelicza limit na początku każdej grupy jako
 wcześniejszą naturalną granicę, rozkład dużego runu oraz identyczny wynik po
 wznowieniu. Fingerprint v10.15 to
 `70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d`.
+
+V10.16 dodaje szybki etap center-first na poziomach `1,2,4` i ogranicza w nim
+szeroką siatkę do poziomu 12. Automat wymaga dwóch różnych checksumów z mocnym,
+zgodnym zakresem; słaby dwucyfrowy dowód i każdy konflikt uruchamiają pełny
+fallback z poziomem 18. Wynik szybki nie korzysta z cache pełnej weryfikacji,
+natomiast fallback może promować zgodne wpisy v10.15–v10.12. Testy pokrywają
+sukces po dwóch JPEG-ach, słaby dowód, konflikt, brak zanieczyszczenia fallbacku
+oraz omijanie pełnego cache. Fingerprint v10.16 to
+`15c9631000d9deb077b6907dc8cda34309a1e328ffe49273fb802fdb91851bad`.
+Benchmark porównawczy na tym samym stagingu pozostaje bramką przed wznowieniem
+kolejki; dwie godziny są punktem odniesienia, nie sztywnym limitem.
+
+Walidacja implementacji v10.16: pełny worker `724/724`, skupiony pakiet
+selektora/joba/adapterów `188/188`, Ruff i Ruff Formatter dla 208 plików oraz
+mypy dla 255 modułów przechodzą.

@@ -80,6 +80,7 @@ from .engine import FastImageSelector
 from .io import load_browser_selection_manifest
 from .manifest import (
     ACCURACY_FIRST_SELECTOR_VERSIONS,
+    ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
@@ -97,8 +98,11 @@ from .manifest import (
     ORDERED_SELECTOR_VERSIONS,
     OWNER_ANCHORED_SELECTOR_VERSIONS,
     PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    STAGED_OCR_RANGE_ADAPTER_VERSION,
+    STAGED_OCR_SELECTOR_VERSION,
     TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
+    ProgressiveVisibleLabelFallbackPolicy,
     SelectorManifest,
     selector_manifest_for_fingerprint,
 )
@@ -303,7 +307,10 @@ class ImageSelectionJobHandler:
                         source_count=len(sources),
                         expected_group_count=sequence_bounds.expected_group_count,
                     )
-                elif selector_manifest.algorithm_version == ADAPTIVE_CARDINALITY_SELECTOR_VERSION:
+                elif selector_manifest.algorithm_version in {
+                    ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+                    STAGED_OCR_SELECTOR_VERSION,
+                }:
                     expected_group_count_for_partitioning = sequence_bounds.expected_group_count
             persisted_groups = self._store.load_groups(run.id)
             resume_state = _resume_state(job.checkpoint_payload)
@@ -742,7 +749,31 @@ class ImageSelectionJobHandler:
             ocr = PaddleSequenceNumberRecognizer(model_root)
             recognizer = AnchoredSequenceRangeRecognizer(ocr, telemetry=telemetry)
             fallback_recognizer: SequenceRangeRecognizer
-            if manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
+            fast_range_recognizer: SequenceRangeRecognizer | None = None
+            if (
+                manifest.range_adapter_version == STAGED_OCR_RANGE_ADAPTER_VERSION
+                and manifest.progressive_visible_label_fallback_policy is not None
+                and manifest.staged_ocr_policy is not None
+                and manifest.layout_anchor_policy is not None
+                and manifest.contiguous_sequence_window_policy is not None
+            ):
+                fallback_recognizer = TwoLabelConsensusVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    manifest.progressive_visible_label_fallback_policy,
+                    manifest.layout_anchor_policy,
+                    manifest.contiguous_sequence_window_policy,
+                    telemetry=telemetry,
+                )
+                fast_range_recognizer = TwoLabelConsensusVisibleSequenceLabelRangeRecognizer(
+                    ocr,
+                    ProgressiveVisibleLabelFallbackPolicy(
+                        candidate_levels=manifest.staged_ocr_policy.broad_candidate_levels,
+                    ),
+                    manifest.layout_anchor_policy,
+                    manifest.contiguous_sequence_window_policy,
+                    telemetry=telemetry,
+                )
+            elif manifest.range_adapter_version == GRID_FIRST_RANGE_ADAPTER_VERSION:
                 fallback_recognizer = GridFirstVisibleSequenceLabelRangeRecognizer(
                     ocr,
                     telemetry=telemetry,
@@ -858,6 +889,7 @@ class ImageSelectionJobHandler:
                 source_root,
                 range_recognizer=recognizer,
                 fallback_range_recognizer=fallback_recognizer,
+                fast_range_recognizer=fast_range_recognizer,
                 manifest=manifest,
                 telemetry=telemetry,
             )
@@ -2016,6 +2048,13 @@ def _maximum_group_source_count(
 def _compatible_verification_fingerprints(
     manifest: SelectorManifest,
 ) -> tuple[str, ...]:
+    if manifest.algorithm_version == STAGED_OCR_SELECTOR_VERSION:
+        return (
+            ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015.fingerprint,
+            CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014.fingerprint,
+            CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint,
+            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
+        )
     if manifest.algorithm_version == ADAPTIVE_CARDINALITY_SELECTOR_VERSION:
         return (
             CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014.fingerprint,

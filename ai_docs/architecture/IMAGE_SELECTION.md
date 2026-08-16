@@ -1209,6 +1209,32 @@ v10.15–v10.12. Wyniki szybkie celowo omijają ten cache, aby pełna odpowiedź
 historycznego selektora nie została błędnie uznana za pomiar ograniczonej
 ścieżki.
 
+## Kwantylowe próbkowanie reprezentanta v10.17
+
+V10.17 zastępuje `RepresentativeSamplingPolicy(5 center + 3/3 edge)` polityką
+kwantylową. Dla fizycznej grupy o `N` źródłach pozycja kwantyla `q` jest liczona
+jako `clamp(1, N, floor(q * N + 0.5))`, a następnie zamieniana na indeks
+globalnego manifestu. Kolejność `(0.50, 0.35, 0.65, 0.15, 0.85)` jest częścią
+manifestu i fingerprintu. Deduplikacja zachowująca pierwsze wystąpienie obsługuje
+grupy krótsze niż pięć zdjęć.
+
+Tani skan wszystkich źródeł nadal jest konieczny do wyznaczenia granic grupy.
+Kwantyle ograniczają kosztowną analizę reprezentanta i OCR po zamknięciu grupy;
+nie usuwają zdjęć z galerii ani nie zmieniają manifestu wejściowego. Kandydaci
+niespełniający istniejącej bramki jakości są pomijani przed OCR.
+
+Engine uruchamia jeden pełny verifier na skumulowanych poziomach kandydatów
+`1, 3, 5`. Wewnątrz każdego kandydata recognizer zachowuje progresję `12, 18`,
+ale ten sam JPEG nie jest drugi raz weryfikowany przez osobną ścieżkę fast ani
+przy wyborze reprezentanta. Po mocnym konsensusie reprezentant jest wybierany
+według kolejności kwantyli przed rankingiem estetycznym, ale tylko spośród
+kandydatów z własnym zgodnym dowodem i poprawną jakością.
+
+Adapter pełnej weryfikacji jest semantycznie zgodny z v10.15–v10.12, dlatego
+cache tych wersji może być promowany pod fingerprint v10.17. Zmienia się dobór
+i kolejność kandydatów, zapisane osobno w manifeście selektora, nie działanie
+recognizera dla pojedynczego JPEG-a.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

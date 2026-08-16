@@ -31,8 +31,9 @@ CARDINALITY_GUARDED_SELECTOR_VERSION = "fast-image-selector-v10.13"
 CARDINALITY_PARTITIONED_SELECTOR_VERSION = "fast-image-selector-v10.14"
 ADAPTIVE_CARDINALITY_SELECTOR_VERSION = "fast-image-selector-v10.15"
 STAGED_OCR_SELECTOR_VERSION = "fast-image-selector-v10.16"
+QUANTILE_SAMPLED_SELECTOR_VERSION = "fast-image-selector-v10.17"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = STAGED_OCR_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = QUANTILE_SAMPLED_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -57,6 +58,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -94,6 +96,7 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 
@@ -182,6 +185,7 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -206,6 +210,7 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -226,6 +231,7 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -247,6 +253,7 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -263,6 +270,7 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -288,6 +296,7 @@ HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -305,6 +314,7 @@ OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -320,6 +330,7 @@ CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -333,6 +344,7 @@ LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -345,6 +357,7 @@ PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
@@ -356,6 +369,7 @@ LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
         CARDINALITY_PARTITIONED_SELECTOR_VERSION,
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
+        QUANTILE_SAMPLED_SELECTOR_VERSION,
     }
 )
 
@@ -467,6 +481,11 @@ class RepresentativeSamplingPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class QuantileRepresentativeSamplingPolicy:
+    candidate_quantiles: tuple[float, ...] = (0.50, 0.35, 0.65, 0.15, 0.85)
+
+
+@dataclass(frozen=True, slots=True)
 class ContiguousSequenceWindowPolicy:
     consecutive_label_count: int = 4
     minimum_ocr_confidence: float = 0.72
@@ -516,6 +535,7 @@ class SelectorManifest:
     staged_ocr_policy: StagedOcrPolicy | None = None
     progressive_visible_label_fallback_policy: ProgressiveVisibleLabelFallbackPolicy | None = None
     representative_sampling_policy: RepresentativeSamplingPolicy | None = None
+    quantile_representative_sampling_policy: QuantileRepresentativeSamplingPolicy | None = None
     contiguous_sequence_window_policy: ContiguousSequenceWindowPolicy | None = None
     layout_anchor_policy: LayoutAnchorPolicy | None = None
 
@@ -618,6 +638,18 @@ class SelectorManifest:
                 <= self.top_k
             ):
                 raise ValueError("Representative sampling policy is outside supported bounds.")
+        if self.quantile_representative_sampling_policy is not None:
+            quantile_policy = self.quantile_representative_sampling_policy
+            quantiles = quantile_policy.candidate_quantiles
+            if not (
+                quantiles
+                and len(quantiles) <= self.top_k
+                and len(set(quantiles)) == len(quantiles)
+                and all(0 < quantile < 1 for quantile in quantiles)
+            ):
+                raise ValueError(
+                    "Quantile representative sampling policy is outside supported bounds."
+                )
         if self.contiguous_sequence_window_policy is not None:
             window_policy = self.contiguous_sequence_window_policy
             if not (
@@ -760,6 +792,11 @@ class SelectorManifest:
             payload["representativeSamplingPolicy"] = {
                 "centerCandidateCount": sampling_policy.center_candidate_count,
                 "edgeCandidateCount": sampling_policy.edge_candidate_count,
+            }
+        if self.quantile_representative_sampling_policy is not None:
+            quantile_policy = self.quantile_representative_sampling_policy
+            payload["quantileRepresentativeSamplingPolicy"] = {
+                "candidateQuantiles": list(quantile_policy.candidate_quantiles),
             }
         if self.contiguous_sequence_window_policy is not None:
             window_policy = self.contiguous_sequence_window_policy
@@ -1249,8 +1286,28 @@ STAGED_OCR_SELECTOR_MANIFEST_V1016 = SelectorManifest(
     contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
     layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
 )
-DEFAULT_SELECTOR_MANIFEST = STAGED_OCR_SELECTOR_MANIFEST_V1016
+QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017 = SelectorManifest(
+    algorithm_version=QUANTILE_SAMPLED_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 3, 5),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    quantile_representative_sampling_policy=QuantileRepresentativeSamplingPolicy(),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+DEFAULT_SELECTOR_MANIFEST = QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017
 SUPPORTED_SELECTOR_MANIFESTS = (
+    QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014,
@@ -1298,6 +1355,9 @@ def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | No
 
 
 __all__ = [
+    "QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017",
+    "QUANTILE_SAMPLED_SELECTOR_VERSION",
+    "QuantileRepresentativeSamplingPolicy",
     "STAGED_OCR_RANGE_ADAPTER_VERSION",
     "STAGED_OCR_SELECTOR_MANIFEST_V1016",
     "STAGED_OCR_SELECTOR_VERSION",

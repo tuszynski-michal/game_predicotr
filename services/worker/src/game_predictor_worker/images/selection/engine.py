@@ -170,6 +170,41 @@ def _unique_observation_anchors(
     return tuple(anchors)
 
 
+def _quantile_source_indexes(
+    *,
+    first_index: int,
+    source_count: int,
+    quantiles: tuple[float, ...],
+) -> tuple[int, ...]:
+    """Map one-based quantile positions to stable zero-based source indexes."""
+
+    indexes: list[int] = []
+    for quantile in quantiles:
+        one_based_position = max(1, min(source_count, math.floor(quantile * source_count + 0.5)))
+        index = first_index + one_based_position - 1
+        if index not in indexes:
+            indexes.append(index)
+    return tuple(indexes)
+
+
+def _quantile_readable_verification_levels(
+    *,
+    sampled_indexes: tuple[int, ...],
+    readable_indexes: frozenset[int],
+    configured_levels: tuple[int, ...],
+) -> tuple[int, ...]:
+    """Keep center/inner/outer stages after unreadable samples are removed."""
+
+    levels: list[int] = []
+    for configured_level in configured_levels:
+        readable_count = sum(
+            index in readable_indexes for index in sampled_indexes[:configured_level]
+        )
+        if readable_count > 0 and readable_count not in levels:
+            levels.append(readable_count)
+    return tuple(levels)
+
+
 @dataclass(slots=True)
 class _OpenGroup:
     group_order: int
@@ -1165,14 +1200,30 @@ class FastImageSelector:
                 if staged_fast_confirmed:
                     verified.extend(fast_verified)
                     range_stop_reason = "staged_fast_confirmed"
-            verification_levels = tuple(
-                sorted(
-                    self._bounded_verification_levels(
-                        len(observations_to_verify),
-                        adaptive_policy.verification_levels,
+            quantile_policy = self.manifest.quantile_representative_sampling_policy
+            if quantile_policy is not None and group.last_source_order_index is not None:
+                first_group_index = group.last_source_order_index - group.source_count + 1
+                sampled_indexes = _quantile_source_indexes(
+                    first_index=first_group_index,
+                    source_count=group.source_count,
+                    quantiles=quantile_policy.candidate_quantiles,
+                )
+                verification_levels = _quantile_readable_verification_levels(
+                    sampled_indexes=sampled_indexes,
+                    readable_indexes=frozenset(
+                        observation.source.order_index for observation in observations_to_verify
+                    ),
+                    configured_levels=adaptive_policy.verification_levels,
+                )
+            else:
+                verification_levels = tuple(
+                    sorted(
+                        self._bounded_verification_levels(
+                            len(observations_to_verify),
+                            adaptive_policy.verification_levels,
+                        )
                     )
                 )
-            )
             next_index = len(verified) if staged_fast_confirmed else 0
             if not staged_fast_confirmed:
                 for level in verification_levels:
@@ -1234,7 +1285,17 @@ class FastImageSelector:
             )
         accuracy_first = self.manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS
         range_resolution_reason: str | None = None
-        if self._hybrid_bounded:
+        if self.manifest.quantile_representative_sampling_policy is not None:
+            recognized_range, range_conflict = self._strong_distinct_range_consensus(
+                verified,
+                minimum_agreeing_frames=(
+                    self.manifest.adaptive_range_consensus_policy.minimum_agreeing_frames
+                    if self.manifest.adaptive_range_consensus_policy is not None
+                    else 2
+                ),
+            )
+            range_resolution_reason = None
+        elif self._hybrid_bounded:
             recognized_range, range_resolution_reason = self._hybrid_group_range(verified)
         else:
             recognized_range = self._verified_group_range(verified) if accuracy_first else None
@@ -1306,12 +1367,16 @@ class FastImageSelector:
             for candidate in candidates
             if candidate.decision is CandidateDecision.ELIGIBLE
         ]
-        if recognized_range is None:
+        if (
+            recognized_range is None
+            and self.manifest.quantile_representative_sampling_policy is None
+        ):
             recognized_range = self._group_range(candidates)
         extra_verification_count = 0
         if (
             self.manifest.algorithm_version in LAYOUT_ANCHORED_SELECTOR_VERSIONS
             and recognized_range is None
+            and self.manifest.quantile_representative_sampling_policy is None
         ):
             selected = self._select_automatic(eligible[0]) if eligible else None
         elif self.manifest.algorithm_version in COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS:
@@ -1372,6 +1437,26 @@ class FastImageSelector:
                         dict.fromkeys((*best_available.reason_codes, BEST_AVAILABLE_REASON))
                     ),
                 )
+        if (
+            selected is None
+            and recognized_range is None
+            and self.manifest.quantile_representative_sampling_policy is not None
+            and eligible
+        ):
+            observation_order = {
+                (observation.source.order_index, observation.source.checksum_sha256): order
+                for order, observation in enumerate(observations_to_verify)
+            }
+            unresolved_representative = min(
+                eligible,
+                key=lambda candidate: observation_order[
+                    (candidate.source.order_index, candidate.source.checksum_sha256)
+                ],
+            )
+            selected = replace(
+                self._select_automatic(unresolved_representative),
+                recognized_range=None,
+            )
         if selected is not None:
             selected_identity = (
                 selected.source.order_index,
@@ -1555,18 +1640,42 @@ class FastImageSelector:
         expected_key = (expected_range.start, expected_range.end)
 
         candidates_to_check = list(eligible)
-        if self._staged_fast_ocr:
-            candidates_to_check.sort(
-                key=lambda candidate: (
-                    not self._candidate_has_own_strong_matching_range(
-                        candidate,
-                        by_identity=by_identity,
-                        expected_key=expected_key,
-                        minimum_confidence=threshold,
-                    ),
-                    _representative_candidate_rank(candidate),
+        if (
+            self._staged_fast_ocr
+            or self.manifest.quantile_representative_sampling_policy is not None
+        ):
+            if self.manifest.quantile_representative_sampling_policy is not None:
+                verification_order = {
+                    (observation.source.order_index, observation.source.checksum_sha256): order
+                    for order, (observation, _) in enumerate(verified)
+                }
+                candidates_to_check.sort(
+                    key=lambda candidate: (
+                        not self._candidate_has_own_strong_matching_range(
+                            candidate,
+                            by_identity=by_identity,
+                            expected_key=expected_key,
+                            minimum_confidence=threshold,
+                        ),
+                        verification_order.get(
+                            (candidate.source.order_index, candidate.source.checksum_sha256),
+                            len(verification_order),
+                        ),
+                        _representative_candidate_rank(candidate),
+                    )
                 )
-            )
+            else:
+                candidates_to_check.sort(
+                    key=lambda candidate: (
+                        not self._candidate_has_own_strong_matching_range(
+                            candidate,
+                            by_identity=by_identity,
+                            expected_key=expected_key,
+                            minimum_confidence=threshold,
+                        ),
+                        _representative_candidate_rank(candidate),
+                    )
+                )
         if self.manifest.algorithm_version == CONSENSUS_BACKED_REPRESENTATIVE_SELECTOR_VERSION:
             eligible_identities = {
                 (candidate.source.order_index, candidate.source.checksum_sha256)
@@ -1587,7 +1696,9 @@ class FastImageSelector:
             identity = (candidate.source.order_index, candidate.source.checksum_sha256)
             observation, verification = by_identity[identity]
             own_range = verification.recognized_range
-            if own_range is None or own_range.confidence < representative_range_threshold:
+            if (
+                own_range is None or own_range.confidence < representative_range_threshold
+            ) and self.manifest.quantile_representative_sampling_policy is None:
                 verification = self._verify_candidate_batch(
                     verifier,
                     (observation,),
@@ -1930,6 +2041,11 @@ class FastImageSelector:
         *,
         minimum_agreeing_frames: int,
     ) -> tuple[SequenceRange | None, bool]:
+        if self.manifest.quantile_representative_sampling_policy is not None:
+            return self._strong_distinct_range_consensus(
+                verified,
+                minimum_agreeing_frames=minimum_agreeing_frames,
+            )
         if self._hybrid_bounded:
             recognized_range, _ = self._hybrid_group_range(verified)
             return recognized_range, len(self._hybrid_range_keys(verified)) > 1
@@ -1987,7 +2103,7 @@ class FastImageSelector:
             )
             verified.extend(zip(level_observations, level_results, strict=True))
             next_index = level
-            consensus, conflict = self._staged_fast_consensus(
+            consensus, conflict = self._strong_distinct_range_consensus(
                 verified,
                 minimum_agreeing_frames=policy.minimum_agreeing_frames,
             )
@@ -1997,7 +2113,7 @@ class FastImageSelector:
                 return verified, "confirmed"
         return verified, "unresolved"
 
-    def _staged_fast_consensus(
+    def _strong_distinct_range_consensus(
         self,
         verified: list[tuple[CheapImageObservation, CandidateVerification]],
         *,
@@ -2398,7 +2514,8 @@ class FastImageSelector:
         analyzer: CheapImageAnalyzer,
     ) -> tuple[CheapImageObservation, ...]:
         policy = self.manifest.representative_sampling_policy
-        if policy is None or group.last_source_order_index is None:
+        quantile_policy = self.manifest.quantile_representative_sampling_policy
+        if (policy is None and quantile_policy is None) or group.last_source_order_index is None:
             raise SelectionContractError(
                 "IMAGE_SELECTION_SAMPLING_POLICY_INVALID",
                 "Center-first selection requires a bounded sampling policy.",
@@ -2428,6 +2545,24 @@ class FastImageSelector:
         def observations_for(indexes: tuple[int, ...]) -> tuple[CheapImageObservation, ...]:
             return tuple(cached.get(index) or analyzer.analyze(sources[index]) for index in indexes)
 
+        if quantile_policy is not None:
+            sampled = observations_for(
+                _quantile_source_indexes(
+                    first_index=first_index,
+                    source_count=group.source_count,
+                    quantiles=quantile_policy.candidate_quantiles,
+                )
+            )
+            return tuple(
+                observation
+                for observation in sampled
+                if _is_reasonably_readable_observation(
+                    observation,
+                    policy=self.manifest.representative_policy,
+                )
+            )
+
+        assert policy is not None
         center_count = min(policy.center_candidate_count, group.source_count)
         center_start = first_index + (group.source_count - center_count) // 2
         center = observations_for(tuple(range(center_start, center_start + center_count)))

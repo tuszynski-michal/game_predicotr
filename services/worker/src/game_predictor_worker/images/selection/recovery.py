@@ -24,6 +24,7 @@ from .manifest import (
     ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
     CARDINALITY_GUARDED_SELECTOR_VERSION,
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+    QUANTILE_SAMPLED_SELECTOR_VERSION,
     STAGED_OCR_SELECTOR_VERSION,
     SelectorManifest,
 )
@@ -191,18 +192,21 @@ def evaluate_recovery(
             restore_recovered_block(
                 block=block,
                 block_input=block_input,
-                groups=require_representative_range_evidence(
-                    local.groups,
-                    allow_exact_gap=(
-                        manifest.algorithm_version
-                        in {
-                            CARDINALITY_GUARDED_SELECTOR_VERSION,
-                            CARDINALITY_PARTITIONED_SELECTOR_VERSION,
-                            ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
-                            STAGED_OCR_SELECTOR_VERSION,
-                        }
-                        and bounds is not None
-                    ),
+                groups=_partitioned_recovery_groups(
+                    require_representative_range_evidence(
+                        local.groups,
+                        allow_exact_gap=(
+                            manifest.algorithm_version
+                            in {
+                                CARDINALITY_GUARDED_SELECTOR_VERSION,
+                                CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+                                ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+                                STAGED_OCR_SELECTOR_VERSION,
+                                QUANTILE_SAMPLED_SELECTOR_VERSION,
+                            }
+                            and bounds is not None
+                        ),
+                    )
                 ),
                 observations=sink.observations,
             )
@@ -716,10 +720,14 @@ def restore_recovered_block(
         )
         for index in range(len(original_by_local))
     )
-    if sum(group.source_count for group in groups) != len(ordered_observations):
+    covered_source_count = sum(group.source_count for group in groups)
+    if covered_source_count != len(ordered_observations):
         raise SelectionContractError(
             "IMAGE_SELECTION_RECOVERY_PARTITION_MISMATCH",
-            "Recovered group sizes do not cover the candidate block exactly once.",
+            "Recovered group sizes cover "
+            f"{covered_source_count} candidates as "
+            f"{[group.source_count for group in groups]}; "
+            f"expected {len(ordered_observations)}.",
         )
 
     restored_groups: list[SelectionGroupResult] = []
@@ -837,6 +845,23 @@ def require_representative_range_evidence(
             )
         )
     return tuple(normalized)
+
+
+def _partitioned_recovery_groups(
+    groups: tuple[SelectionGroupResult, ...],
+) -> tuple[SelectionGroupResult, ...]:
+    """Drop empty duplicate markers already counted by their recovered owner."""
+
+    return tuple(
+        group
+        for group in groups
+        if not (
+            group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+            and group.duplicate_of_group_order is not None
+            and group.selected_candidate is None
+            and not group.top_candidates
+        )
+    )
 
 
 def assemble_recovery_projection(

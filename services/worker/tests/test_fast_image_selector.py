@@ -35,6 +35,8 @@ from game_predictor_worker.images.selection.engine import (
     FastImageSelector,
     _adaptive_maximum_group_source_count,
     _OpenGroup,
+    _quantile_readable_verification_levels,
+    _quantile_source_indexes,
 )
 from game_predictor_worker.images.selection.manifest import (
     ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
@@ -65,6 +67,7 @@ from game_predictor_worker.images.selection.manifest import (
     LEGACY_SELECTOR_MANIFEST_V2,
     PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109,
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
+    QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
@@ -521,6 +524,165 @@ def test_staged_ocr_fast_conflict_falls_back_without_polluting_full_result() -> 
     assert result.groups[0].range == first
 
 
+def test_quantile_sampling_uses_five_interior_positions_for_thirty_sources() -> None:
+    assert _quantile_source_indexes(
+        first_index=0,
+        source_count=30,
+        quantiles=(0.50, 0.35, 0.65, 0.15, 0.85),
+    ) == (14, 10, 19, 4, 25)
+
+
+def test_quantile_sampling_deduplicates_positions_for_small_groups() -> None:
+    assert _quantile_source_indexes(
+        first_index=20,
+        source_count=3,
+        quantiles=(0.50, 0.35, 0.65, 0.15, 0.85),
+    ) == (21, 20, 22)
+
+
+def test_quantile_levels_preserve_inner_and_outer_pairs_when_center_is_unreadable() -> None:
+    assert _quantile_readable_verification_levels(
+        sampled_indexes=(14, 10, 19, 4, 25),
+        readable_indexes=frozenset({10, 19, 4, 25}),
+        configured_levels=(1, 3, 5),
+    ) == (2, 4)
+
+
+def test_quantile_ocr_checks_center_then_inner_pair_and_keeps_center() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=(recognized,) * source_count,
+    )
+
+    result = FastImageSelector(QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017).select(
+        _sources("quantile-center", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.fast_calls == []
+    assert verifier.full_calls == [14, 10, 19]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 14
+
+
+def test_quantile_ocr_uses_inner_pair_when_center_is_unresolved() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[10] = recognized
+    full_ranges[19] = recognized
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017).select(
+        _sources("quantile-inner", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.fast_calls == []
+    assert verifier.full_calls == [14, 10, 19]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 10
+
+
+def test_quantile_ocr_skips_blurred_center_and_checks_only_inner_pair_first() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[10] = recognized
+    full_ranges[19] = recognized
+    qualities = [_quality("good") for _ in range(source_count)]
+    qualities[14] = replace(_quality("blur"), sharpness=0.01, overall_score=0.10)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017).select(
+        _sources("quantile-blurred-center", source_count),
+        analyzer=_AppearanceAnalyzer(
+            tuple(_appearance_signature(0) for _ in range(source_count)),
+            tuple(qualities),
+        ),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.full_calls == [10, 19]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 10
+
+
+def test_quantile_ocr_reaches_outer_interior_pair_only_when_needed() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[4] = recognized
+    full_ranges[25] = recognized
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017).select(
+        _sources("quantile-outer", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.fast_calls == []
+    assert verifier.full_calls == [14, 10, 19, 4, 25]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 4
+
+
+def test_quantile_ocr_keeps_readable_center_for_range_review_without_consensus() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[14] = recognized
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017).select(
+        _sources("quantile-range-review", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.full_calls == [14, 10, 19, 4, 25]
+    assert result.groups[0].status is SelectionGroupStatus.RANGE_REQUIRED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 14
+    assert result.groups[0].selected_candidate.recognized_range is None
+
+
 def test_single_last_photo_can_form_a_verified_new_range() -> None:
     case = _golden_cases()[0]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"][:3])
@@ -728,20 +890,28 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_16_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_17_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is STAGED_OCR_SELECTOR_MANIFEST_V1016
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.16"
+    assert DEFAULT_SELECTOR_MANIFEST is QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.17"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "15c9631000d9deb077b6907dc8cda34309a1e328ffe49273fb802fdb91851bad"
+        == "1cc0406ec6a908bb2609d1a331b4ec7a025fabbcb9fd5c38ab488f0ae2066726"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017
+    )
+    assert (
+        STAGED_OCR_SELECTOR_MANIFEST_V1016.fingerprint
+        == "15c9631000d9deb077b6907dc8cda34309a1e328ffe49273fb802fdb91851bad"
+    )
+    assert (
+        selector_manifest_for_fingerprint(STAGED_OCR_SELECTOR_MANIFEST_V1016.fingerprint)
         is STAGED_OCR_SELECTOR_MANIFEST_V1016
     )
     assert (
@@ -778,6 +948,11 @@ def test_v10_16_manifest_is_the_default_and_older_versions_remain_resolvable() -
     assert DEFAULT_SELECTOR_MANIFEST.progressive_visible_label_fallback_policy.candidate_levels == (
         12,
         18,
+    )
+    assert DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy is not None
+    assert (
+        DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy.candidate_quantiles
+        == (0.50, 0.35, 0.65, 0.15, 0.85)
     )
     assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy is not None
     assert (
@@ -1626,7 +1801,7 @@ def test_v10_9_checks_edges_after_readable_center_frames_have_no_range() -> None
     signatures = tuple(_appearance_signature(0) for _ in range(15))
     verifier = _AdaptiveConsensusVerifier(tuple(None for _ in range(15)))
 
-    result = FastImageSelector(DEFAULT_SELECTOR_MANIFEST).select(
+    result = FastImageSelector(PARTIAL_LAYOUT_ANCHORED_SELECTOR_MANIFEST_V109).select(
         _sources("v10-8-center-then-edges", len(signatures)),
         analyzer=_AppearanceAnalyzer(signatures),
         verifier=verifier,

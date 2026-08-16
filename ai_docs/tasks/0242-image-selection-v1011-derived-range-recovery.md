@@ -68,6 +68,9 @@ false split albo false merge również mogą być błędne.
   pozostałych źródeł i grup, zachowując końcową bramkę liczności.
 - dodać v10.16 z szybkim, dwuklatkowym mocnym konsensusem OCR oraz pełnym
   fallbackiem historycznej ścieżki dla konfliktu i braku rozstrzygnięcia.
+- po benchmarku regresji v10.16 dodać v10.17 z pięcioma wewnętrznymi
+  kwantylami, bez pierwszej i ostatniej klatki, oraz bez powtarzania poziomu 12
+  w pełnym fallbacku.
 
 ## Out of scope
 
@@ -345,3 +348,26 @@ kolejki; dwie godziny są punktem odniesienia, nie sztywnym limitem.
 Walidacja implementacji v10.16: pełny worker `724/724`, skupiony pakiet
 selektora/joba/adapterów `188/188`, Ruff i Ruff Formatter dla 208 plików oraz
 mypy dla 255 modułów przechodzą.
+
+Benchmark tego samego prefiksu 100 rzeczywistych źródeł wykazał regresję
+v10.16: `177,691636 s` i 144 weryfikacje wobec `137,677154 s` i 101
+weryfikacji v10.15. V10.17 zastępuje próbki `5 center + 3/3 edge` pozycjami
+`50%, 35%, 65%, 15%, 85%`, etapami `1,3,5`. Nie używa pierwszego ani ostatniego
+zdjęcia. Jeden progresywny verifier wykonuje poziomy `12 → 18` najwyżej raz dla
+każdego z maksymalnie pięciu kandydatów i nie powtarza OCR reprezentanta.
+Fingerprint v10.17 to
+`1cc0406ec6a908bb2609d1a331b4ec7a025fabbcb9fd5c38ab488f0ae2066726`.
+
+Końcowy benchmark tego samego prefiksu 100 JPEG-ów utworzył 15 grup. V10.17
+wykonał dokładnie 75 weryfikacji w `79,855540 s`, a v10.15 — 101 weryfikacji w
+`131,386839 s`; poprawa wall time wynosi `39,221051%`. Raport zapisano w
+`artifacts/image-selection-v1017-v1015-real-149626-prefix100.json`. Recovery
+usuwa przed odtwarzaniem partycji puste markery duplikatu, których źródła są
+już wliczone do rozpoznanego właściciela.
+
+Walidacja końcowa v10.17: `207/207` testów skupionych, pełny przebieg workera
+`733/733`, Ruff i Ruff Formatter dla 519 plików oraz mypy dla 328 modułów. Po
+zmianie wyłącznie syntetycznego fixture kolejny pełny przebieg miał `732/733`;
+niezależny, niezmieniany test publikacji APK przeszedł natychmiast w izolacji,
+a zmieniony smoke benchmark również przeszedł osobno. Kolejka pozostała
+`paused_after_current` i nie uruchomiono żadnego pełnego joba.

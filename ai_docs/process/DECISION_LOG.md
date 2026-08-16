@@ -4649,6 +4649,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** rozszerza D-189 o optymalizację OCR; nie zmienia reguł
   liczności ani końcowej reconciliacji.
 
+## D-191 — Reprezentant jest próbkowany w pięciu wewnętrznych kwantylach
+
+- **Status:** accepted
+- **Date:** 2026-08-16
+- **Decision:** v10.17 sprawdza pozycje `50%, 35%, 65%, 15%, 85%` etapami
+  `1,3,5`. Nie sprawdza pierwszego ani ostatniego zdjęcia. Każdy kandydat
+  przechodzi najwyżej raz przez jeden progresywny verifier `12 → 18`.
+- **Context:** v10.16 nadal używał historycznego próbkowania pięciu kolejnych
+  zdjęć środka oraz po trzech z obu krawędzi. Benchmark 100 rzeczywistych
+  źródeł wykazał 177,692 s i 144 weryfikacje wobec 137,677 s i 101 weryfikacji
+  v10.15. Brak konsensusu powodował powtórzenie poziomu 12 w pełnym fallbacku.
+- **Reason:** kwantyle obejmują wnętrze całej grupy bez podatnych na zmianę
+  ekranu i rozmazanie skrajnych klatek. Pięć próbek ogranicza koszt, a dwa różne
+  mocne odczyty zachowują bramkę poprawności zakresu.
+- **Alternatives:** pierwszą i ostatnią klatkę odrzucono jako ryzykowne źródło
+  sąsiedniej grupy. Siedem próbek odłożono do osobnej wersji po pomiarze
+  skuteczności pięciu. Akceptację samego środka odrzucono, ponieważ jeden błąd
+  OCR nie jest bezpiecznym dowodem zakresu.
+- **Consequences:** v10.17 ma osobny manifest i fingerprint. Historyczne
+  fingerprinty pozostają niezmienne. Ponieważ pełny verifier pojedynczego
+  JPEG-a jest zgodny, cache v10.15–v10.12 może być bezpiecznie promowany.
+  Benchmark 100 JPEG-ów zmierzył 79,856 s i 75 weryfikacji wobec 131,387 s i
+  101 weryfikacji v10.15, czyli poprawę wall time o 39,221%.
+- **Supersedes:** koryguje koszt i strategię próbkowania D-190 bez cofania
+  adaptacyjnego partycjonowania D-189.
+
 ## Szablon nowej decyzji
 
 ```text

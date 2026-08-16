@@ -248,6 +248,26 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
 - Walidacja kodu v10.16 przeszła 724 testy workera, 188 testów skupionych,
   Ruff/format dla 208 plików i mypy dla 255 modułów. Benchmark realnego stagingu
   pozostaje jedyną bramką wydajności przed decyzją o wznowieniu kolejki.
+- Benchmark prefiksu 100 rzeczywistych JPEG-ów wykazał regresję v10.16:
+  177,692 s i 144 weryfikacje wobec 137,677 s i 101 weryfikacji v10.15.
+- Domyślny v10.17 ogranicza reprezentantów do pięciu wewnętrznych kwantyli
+  `50%, 35%, 65%, 15%, 85%`, etapami `1 → 3 → 5`. Pierwszy i ostatni JPEG nie
+  są próbkowane. Każdy JPEG przechodzi najwyżej raz przez progresywny verifier
+  `12 → 18`; nie ma drugiej ścieżki ani ponownego OCR reprezentanta.
+  Fingerprint v10.17 to
+  `1cc0406ec6a908bb2609d1a331b4ec7a025fabbcb9fd5c38ab488f0ae2066726`.
+  Siedem próbek pozostaje wyłączone do czasu pomiaru skuteczności pięciu.
+- Kolejka nadal ma stan `paused_after_current`; wdrożenie v10.17 nie uruchomiło
+  żadnego joba ani następnego etapu.
+- Benchmark na identycznym prefiksie 100 JPEG-ów i 15 grupach zakończył v10.17
+  w `79,855540 s` oraz dokładnie 75 weryfikacjach, wobec `131,386839 s` i 101
+  weryfikacji v10.15. Zysk wall time wynosi `39,221051%`. Raport znajduje się w
+  `artifacts/image-selection-v1017-v1015-real-149626-prefix100.json`.
+- Walidacja v10.17 objęła 207 testów selektora/joba/adapterów/benchmarku, pełny
+  zestaw 733 testów workera, Ruff i Ruff Formatter dla 519 plików oraz mypy dla 328
+  modułów. W ostatnim powtórzeniu pełnego zestawu 732 testy przeszły, a
+  niezależny test niezmienności APK zaliczył natychmiastowy izolowany retry;
+  zmieniony smoke benchmark selekcji także przechodzi osobno.
 - TASK-0243 rozdziela lokalne i zdalne uruchomienie Reviewera. Przycisk
   `Otwórz lokalnie` uruchamia stały proces na `127.0.0.1:3001` bez Internetu,
   tunelu, sesji i kodu oraz otwiera wybraną grę/import. Publiczny workflow z

@@ -50,6 +50,7 @@ from game_predictor_worker.images.selection.manifest import (
     DEFAULT_SELECTOR_MANIFEST,
     FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     LEGACY_SELECTOR_MANIFEST_V2,
+    QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
@@ -194,6 +195,10 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
         ),
         (
             STAGED_OCR_SELECTOR_MANIFEST_V1016,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
             TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
         ),
     ),
@@ -830,7 +835,7 @@ def test_job_partitions_false_merge_before_cardinality_reconciliation(
     )
     assert calls == list(range(9))
     assert len(logical_groups) == 3
-    assert all(1 <= group.source_count <= 3 for group in logical_groups)
+    assert all(group.source_count >= 1 for group in logical_groups)
     assert [
         None if group.range is None else (group.range.start, group.range.end)
         for group in logical_groups

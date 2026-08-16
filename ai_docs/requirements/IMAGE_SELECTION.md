@@ -792,3 +792,25 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Telemetria osobno raportuje próby, sukcesy, konflikty i fallback szybkiego
   etapu. Wynik szybkiego etapu nie jest zapisywany jako pełny cache; pełny
   fallback może nadal korzystać ze zgodnych wpisów historycznych.
+
+### Próbkowanie pięciu wnętrz grupy v10.17 — 2026-08-16
+
+- V10.17 nie sprawdza kolejnych pięciu zdjęć wokół środka ani pierwszych i
+  ostatnich zdjęć grupy. Używa maksymalnie pięciu pozycji: `50%`, `35%`, `65%`,
+  `15%`, `85%`, w tej kolejności etapów.
+- Pozycja procentowa jest zaokrąglana deterministycznie do najbliższego numeru
+  zdjęcia z połówką w górę. Dla 30 zdjęć są to numery `15, 11, 20, 5, 26`.
+  Powtórzone pozycje w małej grupie są usuwane bez zmiany kolejności.
+- OCR działa etapami `1 → 3 → 5`: najpierw środek, następnie para wewnętrzna,
+  a na końcu para z 15% i 85%. Automat nadal wymaga dwóch różnych checksumów z
+  tym samym mocnym zakresem; pojedyncze środkowe zdjęcie nie może samodzielnie
+  ustalić zakresu.
+- Po potwierdzeniu zakresu wybierany jest pierwszy czytelny, nierozmazany
+  kandydat w kolejności próbkowania. Dzięki temu środek ma pierwszeństwo, ale
+  zdjęcie niespełniające bramek jakości nie blokuje wyboru dalszych próbek.
+- Każdy z maksymalnie pięciu kandydatów przechodzi jeden progresywny verifier:
+  poziom 12, a przy braku wyniku poziom 18. Kandydat nie może być ponownie
+  weryfikowany wyłącznie po to, aby wybrać reprezentanta.
+- Siedem próbek nie jest aktywne. Może zostać dodane wyłącznie jako osobna,
+  wersjonowana polityka po pomiarze wykazującym, że pięć pozycji daje zbyt małą
+  skuteczność. Pierwsze i ostatnie zdjęcie pozostają wykluczone.

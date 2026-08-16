@@ -69,6 +69,7 @@ from game_predictor_worker.images.selection.manifest import (
     QUALITY_RECOVERY_SELECTOR_MANIFEST_V105,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     REDUCED_FIRST_USABLE_SELECTOR_MANIFEST_V8,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
@@ -683,6 +684,109 @@ def test_quantile_ocr_keeps_readable_center_for_range_review_without_consensus()
     assert result.groups[0].selected_candidate.recognized_range is None
 
 
+def test_single_frame_early_exit_accepts_strong_readable_center_only() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=(recognized,) * source_count,
+    )
+
+    result = FastImageSelector(SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018).select(
+        _sources("single-frame-center", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.fast_calls == []
+    assert verifier.full_calls == [14]
+    assert result.verification_count == 1
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 14
+    assert result.groups[0].range == recognized
+
+
+def test_single_frame_early_exit_checks_inner_pair_after_unresolved_center() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[10] = recognized
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018).select(
+        _sources("single-frame-inner", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.full_calls == [14, 10, 19]
+    assert result.verification_count == 3
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 10
+
+
+def test_single_frame_early_exit_reaches_outer_pair_only_after_inner_failure() -> None:
+    source_count = 30
+    recognized = SequenceRange(1, 9, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[25] = recognized
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018).select(
+        _sources("single-frame-outer", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.full_calls == [14, 10, 19, 4, 25]
+    assert result.groups[0].status is SelectionGroupStatus.AUTO_SELECTED
+    assert result.groups[0].selected_candidate is not None
+    assert result.groups[0].selected_candidate.source.order_index == 25
+
+
+def test_single_frame_early_exit_keeps_conflicting_inner_ranges_fail_closed() -> None:
+    source_count = 30
+    first = SequenceRange(1, 9, 0.98)
+    conflicting = SequenceRange(10, 18, 0.98)
+    full_ranges: list[SequenceRange | None] = [None] * source_count
+    full_ranges[10] = first
+    full_ranges[19] = conflicting
+    verifier = _StagedOcrVerifier(
+        fast_ranges=(None,) * source_count,
+        full_ranges=tuple(full_ranges),
+    )
+
+    result = FastImageSelector(SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018).select(
+        _sources("single-frame-conflict", source_count),
+        analyzer=_AppearanceAnalyzer(tuple(_appearance_signature(0) for _ in range(source_count))),
+        verifier=verifier,
+        first_sequence_number=1,
+        anchor_first_group=False,
+        expected_group_count_for_partitioning=1,
+    )
+
+    assert verifier.full_calls == [14, 10, 19, 4, 25]
+    assert result.groups[0].status is SelectionGroupStatus.RANGE_REQUIRED
+    assert result.groups[0].range is None
+
+
 def test_single_last_photo_can_form_a_verified_new_range() -> None:
     case = _golden_cases()[0]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"][:3])
@@ -890,20 +994,28 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_17_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_18_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.17"
+    assert DEFAULT_SELECTOR_MANIFEST is SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.18"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "1cc0406ec6a908bb2609d1a331b4ec7a025fabbcb9fd5c38ab488f0ae2066726"
+        == "122bfcf412f6a8bbdb5714f2de012e223366f7b234f9e409c4d0d2e231dc51d6"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018
+    )
+    assert (
+        QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017.fingerprint
+        == "1cc0406ec6a908bb2609d1a331b4ec7a025fabbcb9fd5c38ab488f0ae2066726"
+    )
+    assert (
+        selector_manifest_for_fingerprint(QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017.fingerprint)
         is QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017
     )
     assert (
@@ -950,10 +1062,10 @@ def test_v10_17_manifest_is_the_default_and_older_versions_remain_resolvable() -
         18,
     )
     assert DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy is not None
-    assert (
-        DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy.candidate_quantiles
-        == (0.50, 0.35, 0.65, 0.15, 0.85)
-    )
+    quantile_policy = DEFAULT_SELECTOR_MANIFEST.quantile_representative_sampling_policy
+    assert quantile_policy.candidate_quantiles == (0.50, 0.35, 0.65, 0.15, 0.85)
+    assert quantile_policy.allow_single_strong_range
+    assert quantile_policy.stop_after_range_confirmation
     assert DEFAULT_SELECTOR_MANIFEST.contiguous_sequence_window_policy is not None
     assert (
         FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011.fingerprint

@@ -1248,12 +1248,20 @@ class FastImageSelector:
                     range_consensus, conflict = self._adaptive_range_consensus(
                         verified,
                         minimum_agreeing_frames=adaptive_policy.minimum_agreeing_frames,
+                        board_count_consensus=consensus,
                     )
                     range_evidence_conflict = range_evidence_conflict or conflict
                     if range_consensus is not None and not range_evidence_conflict:
                         range_stop_reason = "confirmed"
                         break
-            remaining_observations = tuple(observations_to_verify[next_index:])
+            stop_after_confirmation = (
+                quantile_policy is not None
+                and quantile_policy.stop_after_range_confirmation
+                and range_stop_reason == "confirmed"
+            )
+            remaining_observations = (
+                () if stop_after_confirmation else tuple(observations_to_verify[next_index:])
+            )
             if remaining_observations:
                 representative_results = (
                     tuple(
@@ -1286,13 +1294,14 @@ class FastImageSelector:
         accuracy_first = self.manifest.algorithm_version in ACCURACY_FIRST_SELECTOR_VERSIONS
         range_resolution_reason: str | None = None
         if self.manifest.quantile_representative_sampling_policy is not None:
-            recognized_range, range_conflict = self._strong_distinct_range_consensus(
+            recognized_range, range_conflict = self._quantile_range_consensus(
                 verified,
                 minimum_agreeing_frames=(
                     self.manifest.adaptive_range_consensus_policy.minimum_agreeing_frames
                     if self.manifest.adaptive_range_consensus_policy is not None
                     else 2
                 ),
+                board_count_consensus=consensus,
             )
             range_resolution_reason = None
         elif self._hybrid_bounded:
@@ -2040,11 +2049,13 @@ class FastImageSelector:
         verified: list[tuple[CheapImageObservation, CandidateVerification]],
         *,
         minimum_agreeing_frames: int,
+        board_count_consensus: int | None,
     ) -> tuple[SequenceRange | None, bool]:
         if self.manifest.quantile_representative_sampling_policy is not None:
-            return self._strong_distinct_range_consensus(
+            return self._quantile_range_consensus(
                 verified,
                 minimum_agreeing_frames=minimum_agreeing_frames,
+                board_count_consensus=board_count_consensus,
             )
         if self._hybrid_bounded:
             recognized_range, _ = self._hybrid_group_range(verified)
@@ -2068,6 +2079,41 @@ class FastImageSelector:
         if len(confidences) < minimum_agreeing_frames:
             return None, False
         return SequenceRange(start, end, max(confidences)), False
+
+    def _quantile_range_consensus(
+        self,
+        verified: list[tuple[CheapImageObservation, CandidateVerification]],
+        *,
+        minimum_agreeing_frames: int,
+        board_count_consensus: int | None,
+    ) -> tuple[SequenceRange | None, bool]:
+        policy = self.manifest.quantile_representative_sampling_policy
+        if policy is None:
+            return None, False
+        required_frames = 1 if policy.allow_single_strong_range else minimum_agreeing_frames
+        recognized, conflict = self._strong_distinct_range_consensus(
+            verified,
+            minimum_agreeing_frames=required_frames,
+        )
+        if recognized is None or conflict or not policy.allow_single_strong_range:
+            return recognized, conflict
+        expected_key = (recognized.start, recognized.end)
+        has_usable_strong_frame = any(
+            verification.recognized_range is not None
+            and (
+                verification.recognized_range.start,
+                verification.recognized_range.end,
+            )
+            == expected_key
+            and "RANGE_OCR_FUZZY_CANDIDATE" not in verification.range_evidence.reason_codes
+            and self._is_first_usable_verification(
+                observation,
+                verification,
+                board_count_consensus=board_count_consensus,
+            )
+            for observation, verification in verified
+        )
+        return (recognized if has_usable_strong_frame else None), False
 
     def _verify_staged_fast_candidates(
         self,

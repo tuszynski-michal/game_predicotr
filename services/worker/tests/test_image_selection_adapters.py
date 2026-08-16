@@ -103,7 +103,7 @@ def _source(checksum: str) -> ImageSelectionSource:
 def test_selector_manifest_fingerprint_is_the_api_run_identity() -> None:
     manifest = DEFAULT_SELECTOR_MANIFEST
 
-    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.17"
+    assert manifest.to_dict()["algorithmVersion"] == "fast-image-selector-v10.18"
     assert len(manifest.fingerprint) == 64
     assert manifest.fingerprint == IMAGE_SELECTION_SELECTOR_FINGERPRINT
     assert manifest.canonical_bytes() == DEFAULT_SELECTOR_MANIFEST.canonical_bytes()
@@ -2239,7 +2239,7 @@ def test_standalone_cli_uses_v10_17_and_fails_closed_without_ocr_model(
 
     report = json.loads((output_root / "selection-report.json").read_text("utf-8"))
     assert exit_code == 0
-    assert report["selectorVersion"] == "fast-image-selector-v10.17"
+    assert report["selectorVersion"] == "fast-image-selector-v10.18"
     assert report["groups"][0]["status"] == "skipped_unreadable"
     assert (output_root / "candidates.jsonl").is_file()
     assert (output_root / "groups.jsonl").is_file()

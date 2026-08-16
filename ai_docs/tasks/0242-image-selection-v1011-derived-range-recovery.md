@@ -371,3 +371,25 @@ zmianie wyłącznie syntetycznego fixture kolejny pełny przebieg miał `732/733
 niezależny, niezmieniany test publikacji APK przeszedł natychmiast w izolacji,
 a zmieniony smoke benchmark również przeszedł osobno. Kolejka pozostała
 `paused_after_current` i nie uruchomiono żadnego pełnego joba.
+
+Run v10.17 `177220–179082` zakończył się poprawnie z dokładnie 207 logicznymi
+właścicielami, ale potrzebował 964 weryfikacji i `2771,868 s`. Wynik obejmuje
+174 automaty, 33 grupy manualne i 22 dodatkowe fragmenty pominięte jako
+duplikaty. Kontroler kolejki został zatrzymany przed następnym etapem.
+
+Etap v10.18 wdraża późniejszą decyzję właściciela o pojedynczym mocnym środku.
+Dokładny, niefuzzy zakres z JPEG-a przechodzącego pełną bramkę widoczności,
+board countu i jakości kończy grupę po pierwszym kwantylu. Brak wyniku uruchamia
+pary `35%/65%`, a następnie `15%/85%`; wykryty konflikt jest lepki. Fingerprint
+v10.18 to
+`122bfcf412f6a8bbdb5714f2de012e223366f7b234f9e409c4d0d2e231dc51d6`.
+
+Na dwóch zimnych profilach po 100 rzeczywistych źródeł v10.18 skrócił czas o
+`11,996549%` i `11,511606%`, zmniejszył weryfikacje odpowiednio `75→67` oraz
+`68→57`, a liczbę automatów zwiększył `0→4` i `2→7`. Liczba manualnych nie
+wzrosła. Raporty zapisano jako
+`artifacts/image-selection-v1018-v1017-real-149626-prefix100.json` oraz
+`artifacts/image-selection-v1018-v1017-real-177220-prefix100.json`.
+
+Walidacja v10.18 przeszła: `738/738` testów workera, Ruff i Ruff Formatter dla
+519 plików oraz mypy dla 328 modułów.

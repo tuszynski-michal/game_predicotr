@@ -1422,6 +1422,32 @@ podnosi dlatego domyślny budżet lane selekcji z czterech do pięciu; manifest 
 fingerprint v10.13 pozostają bez zmian. Po walidacji i commicie lane selekcji
 ma zostać kontrolowanie przeładowany przed kontynuacją istniejącej kolejki.
 
+Run v10.17 `177220–179082` zakończył się po `2771,868 s` selekcji.
+Przeanalizował 1570 JPEG-ów, wykonał 964 weryfikacje i utworzył 229 grup
+fizycznych: 174 automatyczne, 33 manualne oraz 22 pominięte duplikaty. Bramka
+potwierdziła dokładnie `207/207` logicznych właścicieli, ciągłość zakresu i 174
+pliki wynikowe. Kontroler kolejki został wcześniej zatrzymany, więc żaden
+następny etap nie rozpoczął się na v10.17.
+
+V10.18 wprowadza mocny single-frame early exit przy zachowaniu kwantyli
+`50%, 35%, 65%, 15%, 85%`. Czytelny środek z dokładnym, niefuzzy zakresem,
+zgodnym board countem i pełną bramką jakości kończy grupę bez OCR pozostałych
+czterech klatek. W przeciwnym razie wykonywane są kolejno pary wewnętrzna i
+zewnętrzna; konflikt pozostaje fail-closed. Fingerprint v10.18 to
+`122bfcf412f6a8bbdb5714f2de012e223366f7b234f9e409c4d0d2e231dc51d6`.
+
+Dwa zimne benchmarki po 100 rzeczywistych JPEG-ów potwierdziły poprawę bez
+zwiększenia kolejki manualnej. Dla `149626` v10.18 wykonał 67 zamiast 75
+weryfikacji, trwał `89,938996 s` zamiast `102,199397 s` i dał 4 automaty wobec
+zera. Dla `177220` wykonał 57 zamiast 68 weryfikacji, trwał `83,049762 s`
+zamiast `93,853847 s` i dał 7 automatów wobec 2. Raporty to
+`artifacts/image-selection-v1018-v1017-real-149626-prefix100.json` oraz
+`artifacts/image-selection-v1018-v1017-real-177220-prefix100.json`.
+
+Walidacja v10.18: pełny worker `738/738`, Ruff i Ruff Formatter dla 519 plików
+oraz mypy dla 328 modułów przechodzą. Następna kolejka ma ruszyć dopiero po
+commicie i kontrolowanym przeładowaniu API oraz lane selekcji na v10.18.
+
 ## Do not start yet
 
 - automatycznej publikacji pełnych 500 000 layoutów przed kontrolą pierwszych

@@ -1235,6 +1235,29 @@ cache tych wersji może być promowany pod fingerprint v10.17. Zmienia się dob�
 i kolejność kandydatów, zapisane osobno w manifeście selektora, nie działanie
 recognizera dla pojedynczego JPEG-a.
 
+## Mocny single-frame early exit v10.18
+
+V10.18 rozszerza `QuantileRepresentativeSamplingPolicy` o dwie jawne flagi
+manifestu: `allowSingleStrongRange` i `stopAfterRangeConfirmation`. V10.17 nie
+ma tych pól w kanonicznym manifeście, dzięki czemu jego fingerprint i historyczne
+zachowanie pozostają niezmienne.
+
+Po każdym poziomie `1, 3, 5` engine buduje zbiór wyłącznie mocnych zakresów.
+Pomija dowód fuzzy, odrzuca konflikt fuzji i wymaga jednego klucza zakresu.
+Przy polityce v10.18 co najmniej jeden JPEG dostarczający ten klucz musi także
+przejść `_candidate_result` oraz bramkę best-available: czytelność, widoczność
+planszy, zgodność board count, brak twardego blur, okluzji i błędu skanu.
+
+Jeżeli warunek jest spełniony po pierwszym kandydacie, lista
+`remaining_observations` jest pusta i nie dochodzi do oceny czterech pozostałych
+kwantyli. Po niepowodzeniu środka poziom `3` weryfikuje parę wewnętrzną jako
+jeden batch, więc dwa różne mocne zakresy nadal tworzą konflikt. Konflikt jest
+lepki dla całej grupy i poziom `5` nie może go zamienić w automat.
+
+Verifier pojedynczego JPEG-a nie zmienia semantyki, dlatego v10.18 może czytać
+zgodny cache v10.17–v10.12. Nowy fingerprint opisuje wyłącznie inną regułę
+zatrzymania i akceptacji grupy.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

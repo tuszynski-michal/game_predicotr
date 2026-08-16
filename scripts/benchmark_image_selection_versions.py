@@ -25,6 +25,7 @@ from game_predictor_worker.images.selection.job import ImageSelectionJobHandler 
 from game_predictor_worker.images.selection.manifest import (  # noqa: E402
     ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     SelectorManifest,
 )
@@ -36,6 +37,7 @@ MANIFESTS = {
     "v10.15": ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     "v10.16": STAGED_OCR_SELECTOR_MANIFEST_V1016,
     "v10.17": QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    "v10.18": SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
 }
 
 
@@ -47,10 +49,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--first-sequence-number", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
+        "--artifact-root",
+        type=Path,
+        default=REPOSITORY_ROOT / "artifacts",
+        help="Isolated cache root; use a fresh directory for a cold comparison.",
+    )
+    parser.add_argument(
         "--order",
         nargs=2,
         choices=tuple(MANIFESTS),
-        default=("v10.17", "v10.15"),
+        default=("v10.18", "v10.17"),
     )
     return parser.parse_args()
 
@@ -62,6 +70,7 @@ def _canonical_bytes(value: object) -> bytes:
 def _run(
     source_root: Path,
     *,
+    artifact_root: Path,
     manifest: SelectorManifest,
     sources: tuple[ImageSelectionSource, ...],
     expected_group_count: int,
@@ -71,7 +80,7 @@ def _run(
     handler = ImageSelectionJobHandler(
         object(),  # type: ignore[arg-type]
         browser_upload_root=REPOSITORY_ROOT / "imports",
-        artifact_root=REPOSITORY_ROOT / "artifacts",
+        artifact_root=artifact_root,
         repository_root=REPOSITORY_ROOT,
         selector_manifest=manifest,
         verification_workers=1,
@@ -139,11 +148,14 @@ def main() -> None:
     if args.expected_groups < 1 or args.expected_groups > args.limit:
         raise SystemExit("--expected-groups must be between one and --limit.")
     sources = tuple(all_sources[: args.limit])
+    artifact_root = args.artifact_root.resolve()
+    artifact_root.mkdir(parents=True, exist_ok=True)
     runs: list[dict[str, object]] = []
     for name in args.order:
         print(f"Starting {name} on {args.limit} sources.", flush=True)
         run = _run(
             source_root,
+            artifact_root=artifact_root,
             manifest=MANIFESTS[name],
             sources=sources,
             expected_group_count=args.expected_groups,

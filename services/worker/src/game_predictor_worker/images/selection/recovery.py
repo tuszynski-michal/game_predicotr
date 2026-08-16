@@ -25,6 +25,7 @@ from .manifest import (
     CARDINALITY_GUARDED_SELECTOR_VERSION,
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
     QUANTILE_SAMPLED_SELECTOR_VERSION,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     STAGED_OCR_SELECTOR_VERSION,
     SelectorManifest,
 )
@@ -203,6 +204,7 @@ def evaluate_recovery(
                                 ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
                                 STAGED_OCR_SELECTOR_VERSION,
                                 QUANTILE_SAMPLED_SELECTOR_VERSION,
+                                SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
                             }
                             and bounds is not None
                         ),

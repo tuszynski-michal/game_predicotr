@@ -4675,6 +4675,32 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** koryguje koszt i strategię próbkowania D-190 bez cofania
   adaptacyjnego partycjonowania D-189.
 
+## D-192 — Mocny czytelny kwantyl może sam zakończyć grupę
+
+- **Status:** accepted
+- **Date:** 2026-08-16
+- **Decision:** v10.18 zachowuje poziomy `50% → 35%/65% → 15%/85%`, ale jeden
+  mocny, niefuzzy zakres z JPEG-a przechodzącego pełną bramkę czytelności może
+  zakończyć grupę. Po takim sukcesie pozostałe kwantyle nie są weryfikowane.
+- **Context:** rzeczywisty run v10.17 `177220–179082` wykonywał średnio `4,53`
+  weryfikacji na grupę, około 91% czasu zużywał w OCR i osiągał około 314
+  JPEG-ów na 15 minut. Benchmark v10.17 mierzył czas, ale jego 15 grup nie
+  zawierało żadnego automatu, więc nie potwierdził oczekiwanej reguły
+  center-first ani recall automatu.
+- **Reason:** właściciel akceptuje pojedynczy czytelny środek, jeżeli layout i
+  zakres są jednoznaczne. Dodatkowe próbki mają być fallbackiem dla słabego lub
+  nierozpoznanego środka, a nie obowiązkowym drugim dowodem.
+- **Safety:** fuzzy, konflikt fuzji, dwa różne mocne zakresy, zakres poza siatką,
+  blur layoutu, okluzja, niewidoczna plansza i błąd techniczny nadal blokują
+  automat. Konflikt wykryty w parze jest lepki dla całej grupy.
+- **Consequences:** v10.18 otrzymuje osobny manifest i fingerprint. V10.17
+  pozostaje odtwarzalne z wymogiem dwóch checksumów. Cache pojedynczych
+  weryfikacji v10.17–v10.12 jest zgodny, ponieważ OCR i adaptery nie zmieniają
+  semantyki.
+- **Supersedes:** zmienia odrzuconą w D-191 alternatywę jednego mocnego środka
+  zgodnie z późniejszą jawną decyzją właściciela; zachowuje kwantyle i
+  partycjonowanie D-189/D-191.
+
 ## Szablon nowej decyzji
 
 ```text

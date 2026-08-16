@@ -32,8 +32,9 @@ CARDINALITY_PARTITIONED_SELECTOR_VERSION = "fast-image-selector-v10.14"
 ADAPTIVE_CARDINALITY_SELECTOR_VERSION = "fast-image-selector-v10.15"
 STAGED_OCR_SELECTOR_VERSION = "fast-image-selector-v10.16"
 QUANTILE_SAMPLED_SELECTOR_VERSION = "fast-image-selector-v10.17"
+SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION = "fast-image-selector-v10.18"
 SELECTOR_VERSION = FIRST_USABLE_SELECTOR_VERSION
-ACTIVE_SELECTOR_VERSION = QUANTILE_SAMPLED_SELECTOR_VERSION
+ACTIVE_SELECTOR_VERSION = SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION
 BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
     {
         BEST_AVAILABLE_SELECTOR_VERSION,
@@ -59,6 +60,7 @@ BEST_AVAILABLE_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 ORDERED_SELECTOR_VERSIONS = frozenset(
@@ -97,6 +99,7 @@ SUPPORTED_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 
@@ -186,6 +189,7 @@ BEST_EFFORT_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 FIRST_USABLE_SELECTOR_VERSIONS = frozenset({FIRST_USABLE_SELECTOR_VERSION})
@@ -211,6 +215,7 @@ APPEARANCE_GROUPING_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -232,6 +237,7 @@ ACCURACY_FIRST_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
         HYBRID_BOUNDED_SELECTOR_VERSION,
     }
 )
@@ -254,6 +260,7 @@ ADAPTIVE_ACCURACY_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
@@ -271,6 +278,7 @@ COHERENT_REPRESENTATIVE_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 EXACT_MULTI_GAP_SELECTOR_VERSIONS = frozenset(
@@ -297,6 +305,7 @@ HYBRID_BOUNDED_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -315,6 +324,7 @@ OWNER_ANCHORED_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
@@ -331,6 +341,7 @@ CENTER_FIRST_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -345,6 +356,7 @@ LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
@@ -358,6 +370,7 @@ PARTIAL_LAYOUT_ANCHORED_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
@@ -370,6 +383,7 @@ LABEL_LATTICE_SAFE_SELECTOR_VERSIONS = frozenset(
         ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
         STAGED_OCR_SELECTOR_VERSION,
         QUANTILE_SAMPLED_SELECTOR_VERSION,
+        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     }
 )
 
@@ -483,6 +497,8 @@ class RepresentativeSamplingPolicy:
 @dataclass(frozen=True, slots=True)
 class QuantileRepresentativeSamplingPolicy:
     candidate_quantiles: tuple[float, ...] = (0.50, 0.35, 0.65, 0.15, 0.85)
+    allow_single_strong_range: bool = False
+    stop_after_range_confirmation: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -650,6 +666,13 @@ class SelectorManifest:
                 raise ValueError(
                     "Quantile representative sampling policy is outside supported bounds."
                 )
+            if (
+                quantile_policy.stop_after_range_confirmation
+                and not quantile_policy.allow_single_strong_range
+            ):
+                raise ValueError(
+                    "Quantile early exit requires single-frame strong-range acceptance."
+                )
         if self.contiguous_sequence_window_policy is not None:
             window_policy = self.contiguous_sequence_window_policy
             if not (
@@ -795,9 +818,14 @@ class SelectorManifest:
             }
         if self.quantile_representative_sampling_policy is not None:
             quantile_policy = self.quantile_representative_sampling_policy
-            payload["quantileRepresentativeSamplingPolicy"] = {
+            quantile_payload: dict[str, object] = {
                 "candidateQuantiles": list(quantile_policy.candidate_quantiles),
             }
+            if quantile_policy.allow_single_strong_range:
+                quantile_payload["allowSingleStrongRange"] = True
+            if quantile_policy.stop_after_range_confirmation:
+                quantile_payload["stopAfterRangeConfirmation"] = True
+            payload["quantileRepresentativeSamplingPolicy"] = quantile_payload
         if self.contiguous_sequence_window_policy is not None:
             window_policy = self.contiguous_sequence_window_policy
             payload["contiguousSequenceWindowPolicy"] = {
@@ -1305,8 +1333,31 @@ QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017 = SelectorManifest(
     contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
     layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
 )
-DEFAULT_SELECTOR_MANIFEST = QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017
+SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018 = SelectorManifest(
+    algorithm_version=SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+    quality_adapter_version="opencv-appearance-quality-v2",
+    geometry_adapter_version="layout-anchor-and-blur-v2",
+    fingerprint_adapter_version="opencv-appearance-descriptor-v2",
+    range_adapter_version=TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
+    top_k=12,
+    representative_policy=CENTER_FIRST_SELECTOR_MANIFEST_V106.representative_policy,
+    adaptive_range_consensus_policy=AdaptiveRangeConsensusPolicy(
+        verification_levels=(1, 3, 5),
+        minimum_agreeing_frames=2,
+    ),
+    progressive_visible_label_fallback_policy=ProgressiveVisibleLabelFallbackPolicy(
+        candidate_levels=(12, 18),
+    ),
+    quantile_representative_sampling_policy=QuantileRepresentativeSamplingPolicy(
+        allow_single_strong_range=True,
+        stop_after_range_confirmation=True,
+    ),
+    contiguous_sequence_window_policy=ContiguousSequenceWindowPolicy(),
+    layout_anchor_policy=LayoutAnchorPolicy(enable_partial_grid_recovery=True),
+)
+DEFAULT_SELECTOR_MANIFEST = SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018
 SUPPORTED_SELECTOR_MANIFESTS = (
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
@@ -1355,6 +1406,8 @@ def selector_manifest_for_fingerprint(fingerprint: str) -> SelectorManifest | No
 
 
 __all__ = [
+    "SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018",
+    "SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION",
     "QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017",
     "QUANTILE_SAMPLED_SELECTOR_VERSION",
     "QuantileRepresentativeSamplingPolicy",

@@ -98,7 +98,9 @@ from .manifest import (
     ORDERED_SELECTOR_VERSIONS,
     OWNER_ANCHORED_SELECTOR_VERSIONS,
     PARTIAL_LAYOUT_ANCHORED_RANGE_ADAPTER_VERSION,
+    QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     QUANTILE_SAMPLED_SELECTOR_VERSION,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     STAGED_OCR_RANGE_ADAPTER_VERSION,
     STAGED_OCR_SELECTOR_VERSION,
     TWO_LABEL_CONSENSUS_RANGE_ADAPTER_VERSION,
@@ -312,6 +314,7 @@ class ImageSelectionJobHandler:
                     ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
                     STAGED_OCR_SELECTOR_VERSION,
                     QUANTILE_SAMPLED_SELECTOR_VERSION,
+                    SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
                 }:
                     expected_group_count_for_partitioning = sequence_bounds.expected_group_count
             persisted_groups = self._store.load_groups(run.id)
@@ -2050,6 +2053,14 @@ def _maximum_group_source_count(
 def _compatible_verification_fingerprints(
     manifest: SelectorManifest,
 ) -> tuple[str, ...]:
+    if manifest.algorithm_version == SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION:
+        return (
+            QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017.fingerprint,
+            ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015.fingerprint,
+            CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014.fingerprint,
+            CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint,
+            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
+        )
     if manifest.algorithm_version == QUANTILE_SAMPLED_SELECTOR_VERSION:
         return (
             ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015.fingerprint,

@@ -51,6 +51,7 @@ from game_predictor_worker.images.selection.manifest import (
     FUSED_RANGE_EVIDENCE_SELECTOR_MANIFEST_V1011,
     LEGACY_SELECTOR_MANIFEST_V2,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
     TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012,
     SelectorManifest,
@@ -199,6 +200,10 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
         ),
         (
             QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+            TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
             TwoLabelConsensusVisibleSequenceLabelRangeRecognizer,
         ),
     ),

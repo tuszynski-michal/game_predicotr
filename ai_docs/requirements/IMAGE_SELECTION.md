@@ -814,3 +814,20 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Siedem próbek nie jest aktywne. Może zostać dodane wyłącznie jako osobna,
   wersjonowana polityka po pomiarze wykazującym, że pięć pozycji daje zbyt małą
   skuteczność. Pierwsze i ostatnie zdjęcie pozostają wykluczone.
+
+### Jednoklatkowe zakończenie po mocnym środku v10.18 — 2026-08-16
+
+- V10.18 zachowuje kwantyle `50%, 35%, 65%, 15%, 85%`, ale mocny,
+  jednoznaczny odczyt pierwszego czytelnego i nierozmazanego JPEG-a może
+  samodzielnie zakończyć grupę automatem.
+- Wynik jednoklatkowy musi przejść pełną bramkę reprezentanta: widoczny layout,
+  zgodna liczba plansz, brak twardego blur, okluzji, błędu skanu i konfliktu
+  zakresu. Dowód `RANGE_OCR_FUZZY_CANDIDATE` nie wystarcza.
+- Jeżeli środek nie przejdzie bramki, selektor sprawdza razem `35%` i `65%`.
+  Dopiero brak mocnego użytecznego wyniku w tej trójce uruchamia `15%` i `85%`.
+- Po zaakceptowaniu mocnego wyniku pozostałe kwantyle nie przechodzą ani OCR,
+  ani pełnej oceny reprezentanta. Tani skan całej grupy i kontrola granic nadal
+  pozostają obowiązkowe.
+- Dwa różne mocne zakresy wykryte w tym samym wykonanym poziomie są konfliktem
+  fail-closed. Zakres spoza zadeklarowanej siatki właściciela również nie może
+  uruchomić early exit.

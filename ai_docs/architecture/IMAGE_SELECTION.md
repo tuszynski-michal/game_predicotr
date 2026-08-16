@@ -1166,6 +1166,26 @@ V10.14 ma fingerprint
 Adaptery obrazu i OCR są zgodne z v10.13 i v10.12, więc cache weryfikacji może
 być bezpiecznie ponownie wykorzystany. Fingerprint v10.13 nie ulega zmianie.
 
+## Adaptacyjne partycjonowanie fizycznych fragmentów v10.15
+
+V10.15 nie używa stałego limitu `floor(total / expected)`. Na początku każdego
+otwartego fragmentu oblicza deterministycznie:
+
+`ceil((total_sources - first_source_index) / (expected_groups - finalized_groups))`.
+
+Limit jest funkcją wyłącznie niezmiennego manifestu źródeł, indeksu pierwszego
+źródła fragmentu i liczby zatwierdzonych fragmentów. Dzięki temu checkpoint nie
+musi zapisywać dodatkowego stanu, a wznowienie odtwarza tę samą granicę. Jeżeli
+segmentacja wyglądu zakończy grupę wcześniej, kolejna grupa przejmuje większą
+część pozostałego budżetu. Bez naturalnych granic wejście `20 / 3` daje
+`7 + 7 + 6`, zamiast statycznego `6 + 6 + 6 + 2`.
+
+Wymuszone granice adaptacyjne są liczone w telemetrii stage timing. Końcowy
+reconciler nadal odpowiada za dokładną siatkę logicznych właścicieli i jawne
+duplikaty. Adaptery obrazu oraz OCR pozostają identyczne jak w v10.14, dlatego
+v10.15 może promować zgodne wpisy cache v10.14, v10.13 i v10.12 pod własny
+fingerprint.
+
 ## Odrzucone warianty
 
 ### Usuwanie lub przenoszenie źródeł

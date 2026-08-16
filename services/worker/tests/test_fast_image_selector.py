@@ -31,7 +31,11 @@ from game_predictor_worker.images.selection.contracts import (
     SelectorResumeState,
     SequenceRange,
 )
-from game_predictor_worker.images.selection.engine import FastImageSelector, _OpenGroup
+from game_predictor_worker.images.selection.engine import (
+    FastImageSelector,
+    _adaptive_maximum_group_source_count,
+    _OpenGroup,
+)
 from game_predictor_worker.images.selection.manifest import (
     ACCURACY_FIRST_SELECTOR_MANIFEST_V10,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101,
@@ -39,6 +43,7 @@ from game_predictor_worker.images.selection.manifest import (
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INDEPENDENT_RANGE,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_INITIAL,
     ADAPTIVE_ACCURACY_SELECTOR_MANIFEST_V101_PROGRESSIVE_FALLBACK,
+    ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     APPEARANCE_ONLY_SELECTOR_MANIFEST_V9,
     BEST_AVAILABLE_SELECTOR_MANIFEST_V4,
     BEST_EFFORT_SELECTOR_MANIFEST_V7,
@@ -298,6 +303,65 @@ def test_cardinality_partition_bounds_false_merge_fragment_size() -> None:
     assert sum(group.source_count for group in result.groups) == len(observations)
 
 
+def test_adaptive_cardinality_partition_distributes_false_merge_without_surplus() -> None:
+    observations = tuple(
+        {
+            "quality": "good",
+            "fingerprint": "a",
+            "boardCount": 9,
+            "range": [1, 9, 0.98],
+        }
+        for _ in range(20)
+    )
+
+    result = FastImageSelector(ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015).select(
+        _sources("adaptive-cardinality-partition", len(observations)),
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=3,
+    )
+
+    assert [group.source_count for group in result.groups] == [7, 7, 6]
+    assert sum(group.source_count for group in result.groups) == len(observations)
+
+
+def test_adaptive_cardinality_limit_rebalances_after_natural_early_boundary() -> None:
+    signatures = tuple(_appearance_signature(0 if index < 4 else 1) for index in range(20))
+    ranges = tuple(
+        SequenceRange(1, 9, 0.98) if index < 4 else SequenceRange(10, 18, 0.98)
+        for index in range(20)
+    )
+
+    result = FastImageSelector(ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015).select(
+        _sources("adaptive-natural-boundary", len(signatures)),
+        analyzer=_AppearanceAnalyzer(signatures),
+        verifier=_V10RangeVerifier(ranges),
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=3,
+    )
+
+    assert [group.source_count for group in result.groups] == [4, 8, 8]
+
+
+def test_adaptive_cardinality_limit_matches_large_run_distribution() -> None:
+    first_limit = _adaptive_maximum_group_source_count(
+        source_count=21_211,
+        current_group_first_source_index=0,
+        finalized_group_count=0,
+        expected_group_count=3_074,
+    )
+    final_limit = _adaptive_maximum_group_source_count(
+        source_count=21_211,
+        current_group_first_source_index=21_205,
+        finalized_group_count=3_073,
+        expected_group_count=3_074,
+    )
+
+    assert first_limit == 7
+    assert final_limit == 6
+
+
 def test_single_last_photo_can_form_a_verified_new_range() -> None:
     case = _golden_cases()[0]
     observations = tuple(cast(dict[str, Any], value) for value in case["observations"][:3])
@@ -505,20 +569,30 @@ def test_v8_manifests_remain_resolvable_after_v9_activation() -> None:
     )
 
 
-def test_v10_14_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
+def test_v10_15_manifest_is_the_default_and_older_versions_remain_resolvable() -> None:
     assert APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.algorithm_version == "fast-image-selector-v9"
     assert (
         APPEARANCE_ONLY_SELECTOR_MANIFEST_V9.fingerprint
         == "eaca91fd6f6c169f25436a81b1059810152899953d3eecdef980391df7124afb"
     )
-    assert DEFAULT_SELECTOR_MANIFEST is CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014
-    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.14"
+    assert DEFAULT_SELECTOR_MANIFEST is ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015
+    assert DEFAULT_SELECTOR_MANIFEST.algorithm_version == "fast-image-selector-v10.15"
     assert (
         DEFAULT_SELECTOR_MANIFEST.fingerprint
-        == "f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8"
+        == "70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d"
     )
     assert (
         selector_manifest_for_fingerprint(DEFAULT_SELECTOR_MANIFEST.fingerprint)
+        is ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015
+    )
+    assert (
+        CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014.fingerprint
+        == "f74178fb612e636d3b7a501f4e0490d450f2bb69903e5dfdde47d9c5a24dc5a8"
+    )
+    assert (
+        selector_manifest_for_fingerprint(
+            CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014.fingerprint
+        )
         is CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014
     )
     assert (
@@ -2958,4 +3032,55 @@ def test_parallel_selector_resumes_at_the_next_file_after_a_durable_checkpoint()
     )
 
     assert resumed_calls == [4, 5]
+    assert resumed.to_dict() == uninterrupted.to_dict()
+
+
+def test_adaptive_cardinality_partition_resume_matches_uninterrupted_result() -> None:
+    observations = tuple(
+        {
+            "quality": "good",
+            "fingerprint": "a",
+            "boardCount": 9,
+            "range": [1, 9, 0.98],
+        }
+        for _ in range(20)
+    )
+    sources = _sources("adaptive-resume", len(observations))
+    manifest = replace(ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015, scan_batch_size=2)
+    sink = _CrashAfterCheckpointSink(
+        [],
+        [],
+        [],
+        crash_after_processed=8,
+        finalized_groups=[],
+    )
+
+    with pytest.raises(_SimulatedCrash):
+        FastImageSelector(manifest).select(
+            sources,
+            analyzer=GoldenAnalyzer(observations),
+            verifier=GoldenVerifier(observations),
+            audit_sink=sink,
+            first_sequence_number=1,
+            expected_group_count_for_partitioning=3,
+        )
+
+    assert sink.resume_state is not None
+    resumed = FastImageSelector(manifest).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+        resume_state=SelectorResumeState.from_dict(sink.resume_state.to_dict()),
+        existing_groups=tuple(sink.finalized_groups or ()),
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=3,
+    )
+    uninterrupted = FastImageSelector(manifest).select(
+        sources,
+        analyzer=GoldenAnalyzer(observations),
+        verifier=GoldenVerifier(observations),
+        first_sequence_number=1,
+        expected_group_count_for_partitioning=3,
+    )
+
     assert resumed.to_dict() == uninterrupted.to_dict()

@@ -501,6 +501,7 @@ class FastImageSelector:
         first_sequence_number: int | None = None,
         anchor_first_group: bool = True,
         maximum_group_source_count: int | None = None,
+        expected_group_count_for_partitioning: int | None = None,
     ) -> ImageSelectionResult:
         if sequence_direction not in {"ascending", "descending"}:
             raise SelectionContractError(
@@ -517,8 +518,24 @@ class FastImageSelector:
                 "IMAGE_SELECTION_CONFIGURATION_INVALID",
                 "The optional maximum group source count must be positive.",
             )
+        if (
+            expected_group_count_for_partitioning is not None
+            and expected_group_count_for_partitioning < 1
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_CONFIGURATION_INVALID",
+                "The optional expected group count must be positive.",
+            )
         ordered_sources = tuple(sources)
         self._validate_source_order(ordered_sources)
+        if (
+            expected_group_count_for_partitioning is not None
+            and len(ordered_sources) < expected_group_count_for_partitioning
+        ):
+            raise SelectionContractError(
+                "IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW",
+                "There are fewer source images than the declared sequence requires.",
+            )
         sink = audit_sink or NullSelectionAuditSink()
         groups = list(existing_groups)
         self._validate_resume(
@@ -657,11 +674,44 @@ class FastImageSelector:
             analyzer=analyzer,
         ):
             processed_count += 1
+            adaptive_group_source_count = (
+                None
+                if expected_group_count_for_partitioning is None or current is None
+                else _adaptive_maximum_group_source_count(
+                    source_count=len(ordered_sources),
+                    current_group_first_source_index=(
+                        current.last_source_order_index - current.source_count + 1
+                        if current.last_source_order_index is not None
+                        else observation.source.order_index
+                    ),
+                    finalized_group_count=len(groups),
+                    expected_group_count=expected_group_count_for_partitioning,
+                )
+            )
+            effective_maximum_group_source_count = (
+                maximum_group_source_count
+                if adaptive_group_source_count is None
+                else adaptive_group_source_count
+                if maximum_group_source_count is None
+                else min(maximum_group_source_count, adaptive_group_source_count)
+            )
             if (
-                maximum_group_source_count is not None
+                effective_maximum_group_source_count is not None
                 and current is not None
-                and current.source_count + len(pending) >= maximum_group_source_count
+                and current.source_count + len(pending) >= effective_maximum_group_source_count
             ):
+                if adaptive_group_source_count is not None:
+                    record_partition_boundary = getattr(
+                        sink,
+                        "adaptive_partition_boundary_forced",
+                        None,
+                    )
+                    if callable(record_partition_boundary):
+                        record_partition_boundary(
+                            group_source_count=current.source_count,
+                            pending_source_count=len(pending),
+                            maximum_group_source_count=adaptive_group_source_count,
+                        )
                 finalize(current)
                 current = _OpenGroup(
                     group_order=len(groups),
@@ -2992,8 +3042,30 @@ class FastImageSelector:
                 )
 
 
+def _adaptive_maximum_group_source_count(
+    *,
+    source_count: int,
+    current_group_first_source_index: int,
+    finalized_group_count: int,
+    expected_group_count: int,
+) -> int | None:
+    """Distribute remaining sources without manufacturing surplus fragments."""
+
+    remaining_group_count = expected_group_count - finalized_group_count
+    if remaining_group_count <= 0:
+        return None
+    remaining_source_count = source_count - current_group_first_source_index
+    if remaining_source_count < remaining_group_count:
+        raise SelectionContractError(
+            "IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW",
+            "There are fewer remaining source images than the declared sequence requires.",
+        )
+    return (remaining_source_count + remaining_group_count - 1) // remaining_group_count
+
+
 __all__ = [
     "FastImageSelector",
+    "_adaptive_maximum_group_source_count",
     "appearance_distance",
     "fingerprint_distance",
     "geometry_distance",

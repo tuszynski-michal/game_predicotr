@@ -757,3 +757,21 @@ Optymalizacja nie może wrócić do `first usable` ani pominąć zdjęć grupy.
 - Manifest i fingerprint v10.13 pozostają niezmienne. Reguła partycjonowania
   należy do osobnego selektora v10.14, który może ponownie wykorzystać zgodny
   cache weryfikacji v10.13 lub v10.12.
+
+### Adaptacyjne partycjonowanie v10.15 — 2026-08-16
+
+- V10.15 zachowuje bramkę liczności v10.14, ale limit bieżącego fragmentu
+  wylicza z liczby pozostałych źródeł i pozostałych wymaganych grup:
+  `ceil(remaining_source_count / remaining_group_count)`.
+- Naturalna granica obrazu nadal może zakończyć fragment wcześniej. Następny
+  limit jest wtedy przeliczany, aby wcześniejszy podział nie wymuszał lawiny
+  nadmiarowych fragmentów i weryfikacji OCR.
+- Dla wejścia bez wykrytych granic reguła musi utworzyć dokładnie oczekiwaną
+  liczbę fizycznych fragmentów, o rozmiarach różniących się najwyżej o jeden.
+  Wznowienie z tego samego checkpointu musi dawać identyczną projekcję.
+- Niedobór rzeczywistych źródeł nadal kończy się
+  `IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW`. Reconciler, ochrona decyzji
+  użytkownika i bramki pokrycia pozostają bez zmian.
+- Czas dwóch godzin nie jest sztywną bramką akceptacji. Pomiar ma wykazać
+  istotne odzyskanie różnicy wydajności względem porównywalnego, zimnego runu
+  v10.13 bez cofnięcia naprawy granic v10.14.

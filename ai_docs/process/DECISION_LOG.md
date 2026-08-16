@@ -4601,6 +4601,29 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Supersedes:** uściśla lokalną część D-43, D-44 i D-122; nie zmienia modelu
   zagrożeń ani lifecycle zdalnej sesji.
 
+## D-189 — Limit liczności jest adaptowany do pozostałego wejścia
+
+- **Status:** accepted
+- **Date:** 2026-08-16
+- **Decision:** v10.15 wyznacza maksymalny rozmiar otwartego fragmentu jako
+  `ceil(remaining_sources / remaining_groups)`. Po naturalnej granicy limit jest
+  przeliczany. V10.14 i jego stała reguła pozostają niezmienne.
+- **Context:** statyczne `floor(total / expected)` naprawiło brakujące granice,
+  ale dla runu `149626–177288` utworzyło 4273 fragmenty wobec 3074 wymaganych
+  właścicieli. 1199 nadmiarowych fragmentów uruchomiło dodatkowe weryfikacje;
+  pełna selekcja trwała 24 377,456 s i była wyraźnie wolniejsza od v10.13.
+- **Reason:** adaptacyjny iloraz nadal gwarantuje wystarczającą liczbę
+  rzeczywistych fragmentów, lecz bez sztucznego minimum wynikającego z
+  zaokrąglenia w dół. Naturalna segmentacja zachowuje pierwszeństwo.
+- **Alternatives:** usunięcie bramki liczności odrzucono, bo przywróciłoby false
+  merge v10.13. Sztywny limit czasu odrzucono; porównanie wydajności musi używać
+  tego samego stagingu i zimnego cache'u.
+- **Consequences:** manifest v10.15 ma osobny fingerprint, może czytać zgodny
+  cache v10.14/v10.13/v10.12 i raportuje wymuszone granice w telemetrii.
+  Wznowienie nie wymaga nowego pola checkpointu.
+- **Supersedes:** koryguje strategię limitu D-187 bez osłabienia jej gwarancji
+  liczności.
+
 ## Szablon nowej decyzji
 
 ```text

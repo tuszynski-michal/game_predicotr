@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-08-15
+last_updated: 2026-08-16
 ---
 
 # Current State
@@ -228,6 +228,17 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   2743 automatyczne, 91 manualnych i 1070 duplikatów. Brak luk, powtórzeń oraz
   pozycji poza siatką; obie bramki raportu przeszły, a błąd liczności nie
   powrócił.
+- Run v10.14 `149626–177288` zakończył 21 211 / 21 211 JPEG-ów jako
+  `waiting_for_review`: 4273 fragmenty fizyczne, dokładnie 3074 grupy logiczne,
+  2971 automatycznych, 103 manualne i 1199 duplikatów. Selekcja trwała
+  24 377,456 s. Kolejka ma stan `paused_after_current` i nie uruchamia następnego
+  etapu podczas prac nad wydajnością.
+- Domyślny v10.15 zastępuje stały limit v10.14 adaptacyjnym
+  `ceil(remaining_sources / remaining_groups)`. Zachowuje naprawę false merge,
+  ale nie wymusza nadmiarowych fragmentów wyłącznie przez zaokrąglenie w dół.
+  Fingerprint v10.15 to
+  `70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d`;
+  v10.14 i starsze manifesty pozostają rozwiązywalne i niezmienne.
 - TASK-0243 rozdziela lokalne i zdalne uruchomienie Reviewera. Przycisk
   `Otwórz lokalnie` uruchamia stały proces na `127.0.0.1:3001` bez Internetu,
   tunelu, sesji i kodu oraz otwiera wybraną grę/import. Publiczny workflow z

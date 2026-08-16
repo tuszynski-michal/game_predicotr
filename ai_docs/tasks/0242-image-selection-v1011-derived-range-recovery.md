@@ -2,7 +2,7 @@
 title: TASK-0242 image selection v10.11 derived range recovery
 status: in_progress
 release: "0.6"
-last_updated: 2026-08-15
+last_updated: 2026-08-16
 ---
 
 # TASK-0242 — Image selection v10.11 derived range recovery
@@ -64,6 +64,8 @@ false split albo false merge również mogą być błędne.
 - po analizie projekcji v10.12 dodać niezmienny v10.13, który zapisuje pełne
   granice sekwencji, wylicza oczekiwaną liczbę grup po dziewięć i uzgadnia całą
   projekcję z tą licznością bez zmiany decyzji użytkownika.
+- po pomiarze narzutu v10.14 dodać niezmienny v10.15 z adaptacyjnym limitem
+  pozostałych źródeł i grup, zachowując końcową bramkę liczności.
 
 ## Out of scope
 
@@ -318,3 +320,11 @@ Python, mypy dla 327 modułów oraz kontrolę OpenAPI i wygenerowanego klienta.
 Testy PostgreSQL wymagające jawnej flagi operatorskiej oraz testy dowiązań
 symbolicznych niedostępnych na tym koncie Windows pozostały pominięte zgodnie z
 konfiguracją pakietu.
+
+Run v10.14 `149626–177288` potwierdził poprawność liczności, ale ujawnił koszt
+stałego limitu: 4273 fragmenty fizyczne dla 3074 właścicieli, 13 296 weryfikacji
+i 24 377,456 s selekcji. V10.15 przelicza limit na początku każdej grupy jako
+`ceil(remaining_sources / remaining_groups)`. Testy pokrywają false merge,
+wcześniejszą naturalną granicę, rozkład dużego runu oraz identyczny wynik po
+wznowieniu. Fingerprint v10.15 to
+`70914754a2e0c2c339d2ce8adb9fdaab869ad137b88bb9e1596837bcaa3fe93d`.

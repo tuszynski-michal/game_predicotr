@@ -21,6 +21,7 @@ from .contracts import (
 )
 from .engine import FastImageSelector
 from .manifest import (
+    ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
     CARDINALITY_GUARDED_SELECTOR_VERSION,
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
     SelectorManifest,
@@ -196,6 +197,7 @@ def evaluate_recovery(
                         in {
                             CARDINALITY_GUARDED_SELECTOR_VERSION,
                             CARDINALITY_PARTITIONED_SELECTOR_VERSION,
+                            ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
                         }
                         and bounds is not None
                     ),

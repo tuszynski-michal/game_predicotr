@@ -80,10 +80,12 @@ from .engine import FastImageSelector
 from .io import load_browser_selection_manifest
 from .manifest import (
     ACCURACY_FIRST_SELECTOR_VERSIONS,
+    ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
     APPEARANCE_ONLY_SELECTOR_VERSIONS,
     BEST_EFFORT_SELECTOR_VERSIONS,
     CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013,
     CARDINALITY_GUARDED_SELECTOR_VERSION,
+    CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014,
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
     CONTIGUOUS_WINDOW_RANGE_ADAPTER_VERSION,
     DEFAULT_SELECTOR_MANIFEST,
@@ -284,6 +286,7 @@ class ImageSelectionJobHandler:
             telemetry = StageTimingCollector()
             sequence_bounds: SequenceBounds | None = None
             maximum_group_source_count: int | None = None
+            expected_group_count_for_partitioning: int | None = None
             if run.last_sequence_number is not None:
                 if run.first_sequence_number is None:
                     raise SelectionContractError(
@@ -300,6 +303,8 @@ class ImageSelectionJobHandler:
                         source_count=len(sources),
                         expected_group_count=sequence_bounds.expected_group_count,
                     )
+                elif selector_manifest.algorithm_version == ADAPTIVE_CARDINALITY_SELECTOR_VERSION:
+                    expected_group_count_for_partitioning = sequence_bounds.expected_group_count
             persisted_groups = self._store.load_groups(run.id)
             resume_state = _resume_state(job.checkpoint_payload)
             existing_groups = _committed_groups(persisted_groups, resume_state)
@@ -354,6 +359,7 @@ class ImageSelectionJobHandler:
                 sequence_direction=run.sequence_direction.value,
                 first_sequence_number=run.first_sequence_number,
                 maximum_group_source_count=maximum_group_source_count,
+                expected_group_count_for_partitioning=expected_group_count_for_partitioning,
             )
             if sequence_bounds is not None:
                 projection = reconcile_projection_to_sequence_bounds(
@@ -933,6 +939,18 @@ class _DurableSelectionSink(SelectionAuditSink):
 
     def checkpoint_saved(self, checkpoint: SelectorCheckpoint) -> None:
         del checkpoint
+
+    def adaptive_partition_boundary_forced(
+        self,
+        *,
+        group_source_count: int,
+        pending_source_count: int,
+        maximum_group_source_count: int,
+    ) -> None:
+        self._telemetry.increment("adaptivePartitionForcedBoundaries")
+        self._telemetry.increment("adaptivePartitionGroupSources", group_source_count)
+        self._telemetry.increment("adaptivePartitionPendingSources", pending_source_count)
+        self._telemetry.increment("adaptivePartitionLimitTotal", maximum_group_source_count)
 
     def group_finalized(self, group: SelectionGroupResult) -> None:
         self._pending_groups[group.group_order] = group
@@ -1998,6 +2016,12 @@ def _maximum_group_source_count(
 def _compatible_verification_fingerprints(
     manifest: SelectorManifest,
 ) -> tuple[str, ...]:
+    if manifest.algorithm_version == ADAPTIVE_CARDINALITY_SELECTOR_VERSION:
+        return (
+            CARDINALITY_PARTITIONED_SELECTOR_MANIFEST_V1014.fingerprint,
+            CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint,
+            TWO_LABEL_CONSENSUS_SELECTOR_MANIFEST_V1012.fingerprint,
+        )
     if manifest.algorithm_version == CARDINALITY_PARTITIONED_SELECTOR_VERSION:
         return (
             CARDINALITY_GUARDED_SELECTOR_MANIFEST_V1013.fingerprint,

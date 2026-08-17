@@ -619,6 +619,7 @@ def create_app(
     application.add_middleware(
         LocalAdminSecurityMiddleware,
         admin_origin=resolved_settings.admin_origin,
+        reviewer_origin=resolved_settings.reviewer_origin,
         audit_log=AppendOnlyAdminAuditLog(resolved_settings.artifact_root),
     )
     application.state.database_engine = database_engine

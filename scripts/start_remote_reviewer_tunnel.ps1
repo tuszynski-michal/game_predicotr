@@ -20,7 +20,9 @@ $reviewerOutPath = Join-Path $runtimeDirectory "remote-reviewer-app.out.log"
 $reviewerErrorPath = Join-Path $runtimeDirectory "remote-reviewer-app.error.log"
 $reviewerUrl = "http://127.0.0.1:3001"
 $reviewerStartupAttempts = 40
-$tunnelStartupAttempts = 60
+$tunnelStartupAttempts = 30
+$tunnelReachabilityAttempts = 30
+$maximumTunnelStarts = 2
 $cloudflareProvisioningHost = "api.trycloudflare.com"
 $cloudflareProvisioningPort = 443
 $cloudflareConnectTimeoutMilliseconds = 5000
@@ -75,6 +77,34 @@ function Test-TcpEndpoint {
     }
     finally {
         $client.Dispose()
+    }
+}
+
+function Test-PublicOriginReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PublicOrigin
+    )
+
+    try {
+        $publicUri = [Uri]$PublicOrigin
+        $dnsResult = Resolve-DnsName `
+            -Name $publicUri.DnsSafeHost `
+            -Type A `
+            -DnsOnly `
+            -QuickTimeout `
+            -ErrorAction Stop
+        if ($null -eq $dnsResult) {
+            return $false
+        }
+        $response = Invoke-WebRequest `
+            -Uri $PublicOrigin `
+            -UseBasicParsing `
+            -TimeoutSec 5
+        return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+    }
+    catch {
+        return $false
     }
 }
 
@@ -146,15 +176,18 @@ try {
         $existing = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
         $existingProcess = Get-Process -Id $existing.pid -ErrorAction SilentlyContinue
         if ($null -ne $existingProcess -and $existingProcess.ProcessName -like "cloudflared*") {
-            Write-Result @{
-                state = "running"
-                publicOrigin = $existing.publicOrigin
-                target = $existing.target
-                startedAt = $existing.startedAt
-                reviewerReady = (Test-ReviewerProductionReady)
-                message = "Tunnel is already running: $($existing.publicOrigin)"
+            if (Test-PublicOriginReady -PublicOrigin $existing.publicOrigin) {
+                Write-Result @{
+                    state = "running"
+                    publicOrigin = $existing.publicOrigin
+                    target = $existing.target
+                    startedAt = $existing.startedAt
+                    reviewerReady = (Test-ReviewerProductionReady)
+                    message = "Tunnel is already running: $($existing.publicOrigin)"
+                }
+                exit 0
             }
-            exit 0
+            Stop-Process -Id $existingProcess.Id
         }
         Remove-Item -LiteralPath $statePath -Force
     }
@@ -187,10 +220,6 @@ try {
         )
     }
 
-    if (Test-Path -LiteralPath $logPath) {
-        Remove-Item -LiteralPath $logPath -Force
-    }
-
     $arguments = @(
         "tunnel",
         "--no-autoupdate",
@@ -198,37 +227,54 @@ try {
         "--logfile", $logPath,
         "--url", $reviewerUrl
     )
-    $process = Start-Process -FilePath $cloudflaredPath -ArgumentList $arguments -PassThru -WindowStyle Hidden
-
     $publicOrigin = $null
-    for ($attempt = 0; $attempt -lt $tunnelStartupAttempts; $attempt++) {
-        Start-Sleep -Milliseconds 500
-        if ($process.HasExited) {
-            break
-        }
+    $process = $null
+    for ($tunnelStart = 0; $tunnelStart -lt $maximumTunnelStarts; $tunnelStart++) {
         if (Test-Path -LiteralPath $logPath) {
-            $match = Select-String -LiteralPath $logPath -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -AllMatches
-            if ($null -ne $match) {
-                $publicOrigin = $match.Matches[-1].Value
+            Remove-Item -LiteralPath $logPath -Force
+        }
+
+        $process = Start-Process -FilePath $cloudflaredPath -ArgumentList $arguments -PassThru -WindowStyle Hidden
+        $candidateOrigin = $null
+        for ($attempt = 0; $attempt -lt $tunnelStartupAttempts; $attempt++) {
+            Start-Sleep -Milliseconds 500
+            if ($process.HasExited) {
                 break
             }
+            if (Test-Path -LiteralPath $logPath) {
+                $match = Select-String -LiteralPath $logPath -Pattern "https://[a-z0-9-]+\.trycloudflare\.com" -AllMatches
+                if ($null -ne $match) {
+                    $candidateOrigin = $match.Matches[-1].Value
+                    break
+                }
+            }
+        }
+
+        if ($null -ne $candidateOrigin) {
+            for ($attempt = 0; $attempt -lt $tunnelReachabilityAttempts; $attempt++) {
+                if ($process.HasExited) {
+                    break
+                }
+                if (Test-PublicOriginReady -PublicOrigin $candidateOrigin) {
+                    $publicOrigin = $candidateOrigin
+                    break
+                }
+                Start-Sleep -Milliseconds 500
+            }
+        }
+
+        if ($null -ne $publicOrigin) {
+            break
+        }
+        if (-not $process.HasExited) {
+            Stop-Process -Id $process.Id
         }
     }
 
     if ($null -eq $publicOrigin) {
-        $processExitedBeforeCleanup = $process.HasExited
-        if (-not $processExitedBeforeCleanup) {
-            Stop-Process -Id $process.Id
-        }
-        $failureKind = if ($processExitedBeforeCleanup) {
-            "cloudflared exited before publishing an address"
-        }
-        else {
-            "the provisioning endpoint was reachable but did not publish an address"
-        }
         throw (
-            "Cloudflare Quick Tunnel could not start within 30 seconds: $failureKind. " +
-            "Retry once; if it repeats, check: $logPath"
+            "Cloudflare Quick Tunnel published no reachable public address after " +
+            "$maximumTunnelStarts bounded attempts. Check DNS, firewall and: $logPath"
         )
     }
 

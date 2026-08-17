@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
@@ -12,6 +13,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
 from game_predictor_api.security.local_admin import (
     AppendOnlyAdminAuditLog,
+    LocalAdminSecurityMiddleware,
     match_high_impact_operation,
     redact_security_metadata,
 )
@@ -230,3 +232,50 @@ def test_manual_image_upload_header_is_allowed_by_cors(tmp_path: Path) -> None:
     assert response.status_code == 200
     allowed_headers = response.headers["access-control-allow-headers"].casefold()
     assert "x-image-file-name" in allowed_headers
+
+
+def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path) -> None:
+    app = FastAPI()
+    app.add_middleware(
+        LocalAdminSecurityMiddleware,
+        admin_origin="http://127.0.0.1:3000",
+        reviewer_origin="http://127.0.0.1:3001",
+        audit_log=AppendOnlyAdminAuditLog(tmp_path),
+    )
+
+    @app.post("/api/v1/admin/image-review-items/{item_id}/geometry-preview")
+    def preview(item_id: str) -> dict[str, str]:
+        return {"itemId": item_id}
+
+    @app.post("/api/v1/admin/jobs")
+    def create_job() -> dict[str, bool]:
+        return {"created": True}
+
+    headers = {
+        "Origin": "http://127.0.0.1:3001",
+        "X-Admin-Intent": "local-owner",
+    }
+    with TestClient(
+        app,
+        base_url="http://127.0.0.1:8000",
+        client=("127.0.0.1", 42002),
+    ) as client:
+        accepted = client.post(
+            "/api/v1/admin/image-review-items/review-item/geometry-preview",
+            headers=headers,
+        )
+        forbidden_admin_mutation = client.post(
+            "/api/v1/admin/jobs",
+            headers=headers,
+        )
+        foreign_origin = client.post(
+            "/api/v1/admin/image-review-items/review-item/geometry-preview",
+            headers=headers | {"Origin": "https://attacker.example"},
+        )
+
+    assert accepted.status_code == 200
+    assert accepted.json() == {"itemId": "review-item"}
+    assert forbidden_admin_mutation.status_code == 403
+    assert forbidden_admin_mutation.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
+    assert foreign_origin.status_code == 403
+    assert foreign_origin.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"

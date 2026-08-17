@@ -272,6 +272,13 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   `Otwórz lokalnie` uruchamia stały proces na `127.0.0.1:3001` bez Internetu,
   tunelu, sesji i kodu oraz otwiera wybraną grę/import. Publiczny workflow z
   Cloudflare, linkiem, kodem i revoke pozostaje bez zmian.
+- Lokalny Reviewer może wykonywać z originu `127.0.0.1:3001` wyłącznie trzy
+  mutacje należące do workbencha: podgląd geometrii, zapis rewizji geometrii i
+  zapis decyzji. Pozostałe mutacje Admin API nadal wymagają originu Admina.
+- Kontroler Quick Tunnel uznaje publiczny URL za uruchomiony dopiero po
+  poprawnym rozwiązaniu DNS i odpowiedzi HTTP. Martwy przydział jest zamykany,
+  a kontroler wykonuje drugi ograniczony start zamiast publikować niedziałający
+  link.
 
 ### Wersja 0.1
 

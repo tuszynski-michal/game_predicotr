@@ -213,9 +213,17 @@ def redact_security_metadata(value: object, *, key: str = "") -> object:
 class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
     """Protect unsafe local Admin requests before they reach domain services."""
 
-    def __init__(self, app: Any, *, admin_origin: str, audit_log: AppendOnlyAdminAuditLog) -> None:
+    def __init__(
+        self,
+        app: Any,
+        *,
+        admin_origin: str,
+        reviewer_origin: str,
+        audit_log: AppendOnlyAdminAuditLog,
+    ) -> None:
         super().__init__(app)
         self._admin_origin = admin_origin.rstrip("/")
+        self._reviewer_origin = reviewer_origin.rstrip("/")
         self._audit_log = audit_log
 
     async def dispatch(
@@ -249,7 +257,15 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
             )
 
         origin = request.headers.get("origin")
-        if origin is not None and origin.rstrip("/") != self._admin_origin:
+        normalized_origin = origin.rstrip("/") if origin is not None else None
+        reviewer_origin_allowed = (
+            normalized_origin == self._reviewer_origin and _matches_reviewer_mutation_path(path)
+        )
+        if (
+            normalized_origin is not None
+            and normalized_origin != self._admin_origin
+            and not reviewer_origin_allowed
+        ):
             return self._reject(
                 action=action,
                 target=target,
@@ -414,9 +430,11 @@ def _header_parameter(name: str, constant: str | None, required: bool) -> dict[s
 
 def _is_reviewer_mutation(request: Request, path: str) -> bool:
     authorization = request.headers.get("authorization", "")
-    return authorization.startswith("Bearer ") and any(
-        pattern.fullmatch(path) for pattern in _REVIEWER_MUTATION_PATTERNS
-    )
+    return authorization.startswith("Bearer ") and _matches_reviewer_mutation_path(path)
+
+
+def _matches_reviewer_mutation_path(path: str) -> bool:
+    return any(pattern.fullmatch(path) for pattern in _REVIEWER_MUTATION_PATTERNS)
 
 
 def _default_action(method: str, path: str) -> str:

@@ -22,6 +22,7 @@ from game_predictor_worker.images.pipeline_execution import (
 )
 from game_predictor_worker.images.production_workflow import (
     ProductionImageStageAdapterSuite,
+    _attested_sequence_payload,
     _calibrated_quad,
     _resolve_page_sequence_numbers,
     _symbol_model_snapshot,
@@ -118,6 +119,35 @@ def test_page_sequence_continuity_rejects_competing_bases() -> None:
 
     assert base is None
     assert resolved == observed
+
+
+def test_attested_sequence_range_assigns_row_major_numbers_without_ocr() -> None:
+    detections = tuple(
+        {"positionIndex": index}
+        for index in range(9)
+    )
+
+    payload = _attested_sequence_payload(detections, (10, 18))
+
+    boards = payload["boards"]
+    assert isinstance(boards, list)
+    assert [board["normalizedNumber"] for board in boards] == list(range(10, 19))
+    assert all(board["sequenceSource"] == "filename" for board in boards)
+    assert payload["rangeSource"] == "filename"
+
+
+def test_attested_sequence_range_keeps_partial_geometry_in_review() -> None:
+    detections = tuple({"positionIndex": index} for index in range(8))
+
+    payload = _attested_sequence_payload(detections, (1, 9))
+
+    boards = payload["boards"]
+    assert isinstance(boards, list)
+    assert all(board["normalizedNumber"] is None for board in boards)
+    assert all(
+        "SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED" in board["reviewReasons"]
+        for board in boards
+    )
 
 
 def _grid_image() -> np.ndarray:

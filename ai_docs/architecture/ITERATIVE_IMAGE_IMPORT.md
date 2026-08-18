@@ -21,6 +21,21 @@ curated image-selection manifest
   -> next batch
 ```
 
+## Import ręcznie nazwanych zakresów
+
+Gdy źródłem jest folder lokalnej ręcznej selekcji, worker rozpoznaje tryb
+`seq_*` po nazwach plików i zapisuje deklarację w managed manifest. Parser
+akceptuje wyłącznie `seq_<start>-<end>.jpg|jpeg`, gdzie zakres obejmuje od 1 do
+9 plansz. Sortowanie odbywa się po liczbie `start`, nie po tekście nazwy ani
+checksumie. Duplikaty i nakładanie blokują start; luki są ostrzeżeniem.
+
+Pipeline przypina adapter `sequence-number-from-attested-range-v1`. Adapter
+pomija OCR numerów i przypisuje numery row-major tylko wtedy, gdy geometria ma
+dokładnie oczekiwaną liczbę uporządkowanych plansz. Przy częściowym wykryciu
+zachowuje brak numeru i kieruje obraz do korekty, bez przesuwania pozostałych
+pozycji. Zakres, jego źródło i checksum pozostają w manifestach oraz wynikach
+stage, dzięki czemu retry nie może zmienić deklaracji operatora.
+
 ## Model trwały
 
 `curated_image_import_sources` przechowuje grę, run Selekcji Zdjęć, ścieżkę i

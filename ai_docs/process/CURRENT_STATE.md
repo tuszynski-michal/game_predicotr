@@ -1568,3 +1568,9 @@ Folder wynikowy jest synchronizowany przez
 `manual-image-selection-output-v1.json`; pełny ślad można jawnie wyeksportować
 jako `manual-image-selection-trace-v1.json`. Artefakty są chronione przez
 `sessionKey` i checksumy, a stare sesje pozostają `anchor_only`.
+
+W `v0.6.29` import layoutów rozpoznaje foldery `seq_<start>-<end>.jpg|jpeg`.
+Managed manifest przechowuje poświadczony zakres, worker sortuje go numerycznie,
+a `sequence-number-from-attested-range-v1` pomija OCR numerów i przypisuje
+plansze row-major. Niepełna geometria pozostaje w korekcie bez przesunięcia
+pozostałych numerów; zwykłe nazwy nadal korzystają z historycznego OCR.

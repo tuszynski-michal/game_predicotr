@@ -129,6 +129,39 @@ def test_ingestion_rejects_source_changed_after_manifest(tmp_path: Path) -> None
     assert caught.value.code == "IMAGE_SOURCE_CHANGED"
 
 
+def test_seq_filenames_are_attested_and_sorted_by_numeric_range(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "seq_10-18.jpg", "JPEG")
+    Image.new("RGB", (32, 24), (0, 255, 0)).save(source / "seq_1-9.jpg", "JPEG")
+
+    manifest = ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+        _job(source),
+        source_directory=source,
+    )
+
+    assert [
+        (item.sequence_range_start, item.sequence_range_end)
+        for item in manifest.originals
+    ] == [(1, 9), (10, 18)]
+    assert all(item.sequence_range_source == "filename" for item in manifest.originals)
+
+
+def test_seq_filenames_reject_invalid_or_overlapping_ranges(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    Image.new("RGB", (32, 24), (255, 0, 0)).save(source / "seq_1-9.jpg", "JPEG")
+    Image.new("RGB", (32, 24), (0, 255, 0)).save(source / "seq_9-17.jpg", "JPEG")
+
+    with pytest.raises(JobHandlerError) as caught:
+        ManagedOriginalStore(tmp_path / "artifacts").load_or_create_manifest(
+            _job(source),
+            source_directory=source,
+        )
+
+    assert caught.value.code == "IMAGE_SEQUENCE_FILENAME_CONFLICT"
+
+
 def test_managed_reprocess_clones_manifest_after_original_folder_was_removed(
     tmp_path: Path,
 ) -> None:

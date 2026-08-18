@@ -4763,6 +4763,21 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** kohorta rankera może być zbudowana deterministycznie z
   jawnie zamrożonego śladu bez kopiowania JPEG-ów do bazy.
 
+## D-196 — Zakres z nazwy `seq_*` jest poświadczonym źródłem numerów
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** Folder zawierający nazwy `seq_<start>-<end>.jpg|jpeg` jest
+  walidowany jako tryb importu poświadczonych zakresów. Worker sortuje zakresy
+  numerycznie, blokuje duplikaty i nakładanie, zachowuje luki jako ostrzeżenia,
+  a adapter `sequence-number-from-attested-range-v1` pomija OCR numerów.
+- **Safety:** deklaracja jest używana tylko przy dokładnej, uporządkowanej
+  geometrii i oczekiwanej liczbie plansz. Częściowy detektor pozostawia brak
+  numeru i kieruje obraz do korekty; nie wolno przesuwać numerów po cichu.
+- **Consequences:** managed manifest oraz wynik stage niosą początek, koniec i
+  źródło zakresu. Historyczne importy bez `seq_*` nadal używają OCR i pozostają
+  odtwarzalne.
+
 ## Szablon nowej decyzji
 
 ```text

@@ -100,6 +100,15 @@ class ProductionImageImportWorkflow:
             )
             for index, original in enumerate(manifest.originals)
         )
+        attested_sequence_ranges = {
+            original.checksum_sha256: (
+                original.sequence_range_start,
+                original.sequence_range_end,
+            )
+            for original in manifest.originals
+            if original.sequence_range_start is not None
+            and original.sequence_range_end is not None
+        }
         self._batch_store.register_files(
             job.id,
             registrations=registrations,
@@ -112,10 +121,15 @@ class ProductionImageImportWorkflow:
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
             image_selection_run_id=_image_selection_run_id(job),
+            attested_sequence_ranges=attested_sequence_ranges,
         ).adapters()
         pipeline = ImageBatchHandler(
             self._batch_store,
-            ImagePipelineStageExecutor(self._projection_store, adapters),
+            ImagePipelineStageExecutor(
+                self._projection_store,
+                adapters,
+                attested_sequence_ranges=attested_sequence_ranges,
+            ),
         )
         pipeline_context = _ProgressWindowContext(
             context,
@@ -201,6 +215,7 @@ class ProductionImageStageAdapterSuite:
         symbol_model: SymbolModelJobSnapshot | None = None,
         grid_profile: Mapping[str, object] | None = None,
         image_selection_run_id: str | None = None,
+        attested_sequence_ranges: Mapping[str, tuple[int, int]] | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
         self._artifacts = _ManagedImageArtifacts(artifact_root)
@@ -208,6 +223,7 @@ class ProductionImageStageAdapterSuite:
         self._symbol_model_snapshot = symbol_model or bootstrap_symbol_model_snapshot()
         self._grid_profile = dict(grid_profile or {})
         self._image_selection_run_id = image_selection_run_id
+        self._attested_sequence_ranges = dict(attested_sequence_ranges or {})
         self._detector = ClassicalPageBoardDetector()
         self._cropper = SourceDirectBoardCellCropper(
             cell_output_size=self._symbol_model_snapshot.input_size,
@@ -237,7 +253,11 @@ class ProductionImageStageAdapterSuite:
                 ),
                 FunctionImageStageAdapter(
                     "sequence_ocr",
-                    SEQUENCE_ADAPTER_VERSION,
+                    (
+                        "sequence-number-from-attested-range-v1"
+                        if self._attested_sequence_ranges
+                        else SEQUENCE_ADAPTER_VERSION
+                    ),
                     self.sequence_ocr,
                 ),
                 FunctionImageStageAdapter(
@@ -396,6 +416,11 @@ class ProductionImageStageAdapterSuite:
     def sequence_ocr(self, context: ImageStageContext) -> Mapping[str, object]:
         normalized = _previous(context, "normalization")
         detections = _boards(_previous(context, "board_detection"))
+        if context.attested_sequence_range is not None:
+            return _attested_sequence_payload(
+                detections,
+                context.attested_sequence_range,
+            )
         rgb = self._artifacts.load_rgb(_text(normalized, "normalizedRelativePath"))
         recognizer = self._ocr_recognizer()
         prepared: list[NDArray[np.uint8] | None] = []
@@ -892,6 +917,50 @@ def _data_relative_path(value: str) -> str:
             "Managed originals must remain below the data namespace.",
         )
     return value[len(prefix) :]
+
+
+def _attested_sequence_payload(
+    detections: Sequence[Mapping[str, object]],
+    sequence_range: tuple[int, int],
+) -> dict[str, object]:
+    """Assign row-major numbers from a validated ``seq_start-end`` filename.
+
+    The filename is authoritative only when the detector returned exactly the
+    declared number of boards. A partial grid remains reviewable, but no
+    remaining board is shifted to fill the missing position.
+    """
+
+    start, end = sequence_range
+    expected_count = end - start + 1
+    complete = len(detections) == expected_count and all(
+        _integer(board, "positionIndex") == index
+        for index, board in enumerate(detections)
+    )
+    boards: list[dict[str, object]] = []
+    for board in detections:
+        position = _integer(board, "positionIndex")
+        number = start + position if complete else None
+        boards.append(
+            {
+                "confidence": 1.0 if complete else 0.0,
+                "normalizedNumber": number,
+                "ocrNormalizedNumber": None,
+                "positionIndex": position,
+                "rawText": "" if number is None else str(number),
+                "reviewReasons": (
+                    []
+                    if complete
+                    else ["SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED"]
+                ),
+                "sequenceSource": "filename",
+            }
+        )
+    return {
+        "attestedRangeEnd": end,
+        "attestedRangeStart": start,
+        "boards": boards,
+        "rangeSource": "filename",
+    }
 
 
 def _previous(context: ImageStageContext, stage: str) -> Mapping[str, object]:

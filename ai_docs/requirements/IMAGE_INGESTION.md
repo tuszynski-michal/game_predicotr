@@ -187,6 +187,21 @@ wymaga review; pipeline nie wybiera arbitralnie geometrii.
 
 ### 5. Odczyt sequence number
 
+#### Import poświadczonych zakresów `seq_*`
+
+Folder przygotowany przez lokalną selekcję może zawierać nazwy
+`seq_<start>-<end>.jpg` albo `.jpeg`. Po wykryciu takiego trybu worker waliduje
+każdą nazwę, zakres `1–9` plansz oraz brak duplikatów i nakładania. Zakresy są
+sortowane numerycznie po `start`; luki są raportowane, ale nie blokują importu.
+Źródłem prawdy jest nazwa pliku, a managed manifest zachowuje
+`sequenceRangeStart`, `sequenceRangeEnd` i `sequenceRangeSource=filename`.
+
+Adapter `sequence-number-from-attested-range-v1` nie uruchamia OCR numerów.
+Przypisuje numery row-major (`start+0 … start+8`) wyłącznie przy dokładnej,
+uporządkowanej liczbie wykrytych plansz. Częściowa geometria trafia do korekty
+bez przesuwania pozostałych numerów. Oryginał oraz source-native cropy pozostają
+niezmienione.
+
 - kontrakt `sequence-number-ocr-v1` wyprowadza deterministyczny quad z dolnej
   krawędzi każdego layoutu i tworzy crop RGB 192 × 64,
 - wersjonowany preprocessing `bright-component-tight-v1` usuwa górną krawędź

@@ -28,6 +28,10 @@ from .selection.output import (
 SOURCE_INGESTION_CONTRACT = "image-source-ingestion-v1"
 COPY_CHECKPOINT_BATCH_SIZE = 25
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+SEQUENCE_RANGE_FILENAME_PATTERN = re.compile(
+    r"^seq_(?P<start>[1-9][0-9]*)-(?P<end>[1-9][0-9]*)\.(?P<extension>jpg|jpeg)$",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +40,9 @@ class ManagedOriginal:
     source_relative_path: str
     managed_relative_path: str
     size_bytes: int
+    sequence_range_start: int | None = None
+    sequence_range_end: int | None = None
+    sequence_range_source: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -381,19 +388,68 @@ class ImageSourceIngestionHandler:
 
 
 def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:
+    all_source_paths = [file.relative_path for image in manifest.images for file in image.files]
+    has_attested_names = any(
+        Path(path).name.lower().startswith("seq_") for path in all_source_paths
+    )
+    attested_ranges: dict[str, tuple[int, int]] = {}
+    sequence_range_warnings: list[dict[str, int | str]] = []
+    if has_attested_names:
+        parsed_ranges: list[tuple[str, int, int]] = []
+        for relative_path in all_source_paths:
+            try:
+                start, end = _parse_sequence_range_filename(relative_path)
+            except ValueError as error:
+                raise JobHandlerError(
+                    "IMAGE_SEQUENCE_FILENAME_INVALID",
+                    f"The seq_* import contains an invalid filename: {relative_path}.",
+                ) from error
+            parsed_ranges.append((relative_path, start, end))
+        ordered_ranges = sorted(parsed_ranges, key=lambda item: (item[1], item[2], item[0]))
+        for index, (relative_path, start, end) in enumerate(ordered_ranges):
+            if index and start > ordered_ranges[index - 1][2] + 1:
+                sequence_range_warnings.append(
+                    {
+                        "code": "IMAGE_SEQUENCE_RANGE_GAP",
+                        "from": ordered_ranges[index - 1][2] + 1,
+                        "to": start - 1,
+                    }
+                )
+            if index and start <= ordered_ranges[index - 1][2]:
+                raise JobHandlerError(
+                    "IMAGE_SEQUENCE_FILENAME_CONFLICT",
+                    "The seq_* import contains duplicate or overlapping ranges.",
+                )
+            attested_ranges[relative_path] = (start, end)
+
     originals = []
     for image in manifest.images:
         source_file = image.files[0]
-        originals.append(
-            {
-                "checksumSha256": image.checksum_sha256,
-                "managedRelativePath": (
-                    f"data/originals/{image.checksum_sha256[:2]}/{image.checksum_sha256}.jpg"
-                ),
-                "sizeBytes": source_file.size_bytes,
-                "sourceRelativePath": source_file.relative_path,
-                "sourceRelativePaths": [item.relative_path for item in image.files],
-            }
+        entry: dict[str, object] = {
+            "checksumSha256": image.checksum_sha256,
+            "managedRelativePath": (
+                f"data/originals/{image.checksum_sha256[:2]}/{image.checksum_sha256}.jpg"
+            ),
+            "sizeBytes": source_file.size_bytes,
+            "sourceRelativePath": source_file.relative_path,
+            "sourceRelativePaths": [item.relative_path for item in image.files],
+        }
+        if has_attested_names:
+            start, end = attested_ranges[source_file.relative_path]
+            entry.update(
+                {
+                    "sequenceRangeEnd": end,
+                    "sequenceRangeStart": start,
+                    "sequenceRangeSource": "filename",
+                }
+            )
+        originals.append(entry)
+    if has_attested_names:
+        originals.sort(
+            key=lambda item: (
+                int(item["sequenceRangeStart"]),
+                int(item["sequenceRangeEnd"]),
+            )
         )
     payload = {
         "contractVersion": SOURCE_INGESTION_CONTRACT,
@@ -401,6 +457,8 @@ def _manifest_bytes(job: Job, source: Path, manifest: SourceManifest) -> bytes:
         "gameId": None if job.game_id is None else str(job.game_id),
         "jobId": str(job.id),
         "originals": originals,
+        "sequenceRangeSource": "filename" if has_attested_names else None,
+        "sequenceRangeWarnings": sequence_range_warnings,
         "schemaVersion": 1,
         "sourceDirectory": str(source.resolve(strict=True)),
     }
@@ -456,6 +514,9 @@ def _curated_manifest_bytes(job: Job, source: Path) -> bytes:
             "curatedGroupOrder": entry.group_order,
             "curatedRangeEnd": entry.range_end,
             "curatedRangeStart": entry.range_start,
+            "sequenceRangeEnd": entry.range_end,
+            "sequenceRangeSource": "filename",
+            "sequenceRangeStart": entry.range_start,
             "managedRelativePath": (
                 "data/originals/"
                 f"{entry.output_checksum_sha256[:2]}/{entry.output_checksum_sha256}.jpg"
@@ -509,6 +570,9 @@ def _parse_original(value: object) -> ManagedOriginal:
     source_path = item.get("sourceRelativePath")
     managed_path = item.get("managedRelativePath")
     size = item.get("sizeBytes")
+    range_start = item.get("sequenceRangeStart")
+    range_end = item.get("sequenceRangeEnd")
+    range_source = item.get("sequenceRangeSource")
     if (
         not isinstance(checksum, str)
         or not SHA256_PATTERN.fullmatch(checksum)
@@ -519,6 +583,16 @@ def _parse_original(value: object) -> ManagedOriginal:
         or not isinstance(size, int)
         or isinstance(size, bool)
         or size < 1
+        or (range_start is not None and (
+            not isinstance(range_start, int) or isinstance(range_start, bool) or range_start < 1
+        ))
+        or (range_end is not None and (
+            not isinstance(range_end, int) or isinstance(range_end, bool) or range_end < 1
+        ))
+        or ((range_start is None) != (range_end is None))
+        or (range_start is not None and range_end is not None and range_end < range_start)
+        or (range_start is not None and range_end is not None and range_end - range_start > 8)
+        or (range_source is not None and range_source != "filename")
     ):
         _invalid_manifest()
     return ManagedOriginal(
@@ -526,7 +600,21 @@ def _parse_original(value: object) -> ManagedOriginal:
         cast(str, source_path),
         cast(str, managed_path),
         cast(int, size),
+        cast(int | None, range_start),
+        cast(int | None, range_end),
+        cast(str | None, range_source),
     )
+
+
+def _parse_sequence_range_filename(relative_path: str) -> tuple[int, int]:
+    match = SEQUENCE_RANGE_FILENAME_PATTERN.fullmatch(Path(relative_path).name)
+    if match is None:
+        raise ValueError("invalid seq filename")
+    start = int(match.group("start"))
+    end = int(match.group("end"))
+    if end < start or end - start > 8:
+        raise ValueError("invalid seq range")
+    return start, end
 
 
 def _safe_source_path(root: Path, relative_path: str) -> Path:

@@ -1624,3 +1624,25 @@ Po `v0.6.31` poświadczony zakres jest również przenoszony do geometrii plansz
 Reviewer pokazuje komunikat „Numer z nazwy pliku seq_*” i blokuje pole numeru
 do czasu jawnego odblokowania korekty. Korekta geometrii zachowuje tę informację,
 aby późniejszy zapis nie zamienił deklaracji operatora w niejawny OCR.
+
+## Naprawa startu importu layoutów z browser stagingu — v0.6.39/v0.6.40
+
+Wdrożono manifest-aware przepływ dla gotowego stagingu
+`31259729-de6a-4962-b8df-7aa0c0b7c49b`. Odczyt `_browser_manifest.json` zachowuje
+logiczne nazwy `seq_*` mimo fizycznych plików `00000001.jpg`, a worker zapisuje
+również fizyczną ścieżkę potrzebną do bezpiecznego kopiowania. Staging layoutów
+nie wygasa po restarcie API; Admin może go wylistować, przygotować preflight,
+usunąć jawnie albo wznowić bez ponownego uploadu.
+
+Start importu wymaga teraz aktualnej checksumy manifestu i preflightu. Jest
+idempotentny i po ponownym kliknięciu zwraca istniejący job zamiast tworzyć
+duplikat. Panel pokazuje raport przed przyciskiem startu oraz komunikat
+`Job utworzony — oczekuje na worker`. Dla bieżącego stagingu read-only preflight
+potwierdzono: `2201` źródeł, `19746` nowych numerów, `63` użyte ponownie,
+`7` pominiętych źródeł, `0` częściowych, `7` alternatywnych oraz pierwszy
+nierozwiązany numer `64`. Job nie został jeszcze uruchomiony.
+
+Weryfikacja: skupione testy API/workera dotyczące manifestu, preflightu i
+idempotentnego startu przechodzą; Admin typecheck, Ruff i wygenerowany OpenAPI
+są aktualne. Pełne mypy repozytorium nadal zgłasza istniejące błędy w
+`images/selection/ranker.py`, niezwiązane z tą zmianą.

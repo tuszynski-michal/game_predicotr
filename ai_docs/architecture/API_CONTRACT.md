@@ -2030,3 +2030,21 @@ wartość z zapisanego `selectorFingerprint` przez rejestr niezmiennych manifest
 dla nieznanego historycznego fingerprintu zwraca `unknown`. Panel używa pola do
 opisania pozycji w historii runów, ale fingerprint pozostaje techniczną
 tożsamością zachowania selektora.
+
+### Browser layout import z poświadczonym manifestem
+
+Dla `purpose=layout_import` backend udostępnia trzy operacje związane z
+trwałym stagingiem:
+
+- `GET /api/v1/admin/image-imports/browser-selections?purpose=layout_import`
+  zwraca gotowe stagingi i checksumę manifestu,
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/preflight`
+  przyjmuje `gameId` i zwraca raport zakresów oraz `preflightChecksumSha256`,
+- `POST /api/v1/admin/image-imports/browser-selections/{uploadId}/start`
+  przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
+
+Start jest idempotentny po `gameId + uploadId + manifestChecksumSha256`.
+Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
+a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
+operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii
+kontraktów.

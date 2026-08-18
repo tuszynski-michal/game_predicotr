@@ -3,6 +3,8 @@
 import type {
   CuratedImageImportJobPayload,
   CuratedImageImportSourceResponse,
+  BrowserImageImportPreflightResponse,
+  BrowserReadySelectionResponse,
   ImageDatasetCompletenessResponse,
   ImageFolderSelectionResponse,
   ImageSelectionHandoffResponse,
@@ -26,7 +28,10 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   type ImageFolderImportClient,
   createImageFolderImport,
+  listReadyBrowserImageSelections,
+  previewReadyBrowserImageImport,
   reprocessImageFolderImport,
+  startReadyBrowserImageImport,
   uploadImageFolder,
 } from './image-folder-import-actions';
 
@@ -47,6 +52,10 @@ type ImageImportJob = JobResponse & {
 
 type ImportAction =
   | 'choose-folder'
+  | 'list-ready'
+  | 'preflight'
+  | 'start-ready'
+  | 'delete-ready'
   | 'reprocess-import'
   | 'start-import'
   | 'refresh-status'
@@ -108,6 +117,12 @@ export function ImageFolderImportPanel({
   const [selection, setSelection] =
     useState<ImageFolderSelectionResponse | null>(null);
   const [selectionDisplayName, setSelectionDisplayName] = useState('');
+  const [readySelections, setReadySelections] = useState<
+    readonly BrowserReadySelectionResponse[]
+  >([]);
+  const [readyUploadId, setReadyUploadId] = useState<string | null>(null);
+  const [preflight, setPreflight] =
+    useState<BrowserImageImportPreflightResponse | null>(null);
   const [curatedSources, setCuratedSources] = useState<
     readonly CuratedImageImportSourceResponse[]
   >([]);
@@ -130,15 +145,17 @@ export function ImageFolderImportPanel({
   const busy = activeAction !== null;
 
   const refreshJobs = useCallback(async () => {
-    const [jobsResult, completenessResult, curatedResult] = await Promise.all([
-      api.listJobs({
-        gameId,
-        jobType: 'import',
-        limit: 20,
-      }),
-      api.getImageDatasetCompleteness(gameId),
-      api.listCuratedImageImportSources(gameId),
-    ]);
+    const [jobsResult, completenessResult, curatedResult, readyResult] =
+      await Promise.all([
+        api.listJobs({
+          gameId,
+          jobType: 'import',
+          limit: 20,
+        }),
+        api.getImageDatasetCompleteness(gameId),
+        api.listCuratedImageImportSources(gameId),
+        listReadyBrowserImageSelections(api),
+      ]);
     if (jobsResult.error === undefined && jobsResult.data !== undefined) {
       setJobs(jobsResult.data.filter(isImageImportJob));
     }
@@ -150,6 +167,22 @@ export function ImageFolderImportPanel({
     }
     if (curatedResult.error === undefined && curatedResult.data !== undefined) {
       setCuratedSources(curatedResult.data);
+    }
+    if (readyResult.ok) {
+      const gameReady = readyResult.data.filter(
+        (item) => item.gameId === null || item.gameId === gameId,
+      );
+      setReadySelections(gameReady);
+      setReadyUploadId((current) => {
+        if (
+          current !== null &&
+          !gameReady.some((item) => item.uploadId === current)
+        ) {
+          setPreflight(null);
+          return null;
+        }
+        return current;
+      });
     }
   }, [api, gameId]);
 
@@ -232,6 +265,7 @@ export function ImageFolderImportPanel({
       const result = await uploadImageFolder(
         api,
         selectedFiles,
+        gameId,
         (uploaded, total) => setUploadProgress({ total, uploaded }),
       );
       if (!result.ok) {
@@ -240,13 +274,134 @@ export function ImageFolderImportPanel({
       }
       setSelection(result.selection);
       setSelectionDisplayName(result.displayName);
+      setReadyUploadId(result.uploadId);
+      setPreflight(null);
       setFeedback(
-        `Folder zweryfikowany: ${result.selection.supportedFileCount} plików JPEG.`,
+        `Folder przesłany: ${result.selection.supportedFileCount} plików JPEG. Przygotowuję raport przed importem.`,
       );
+      const preflightResult = await previewReadyBrowserImageImport(
+        api,
+        result.uploadId,
+        gameId,
+      );
+      if (!preflightResult.ok) {
+        setError(preflightResult.error);
+        return;
+      }
+      setPreflight(preflightResult.data);
+      const readyResult = await listReadyBrowserImageSelections(api);
+      if (readyResult.ok) {
+        setReadySelections(
+          readyResult.data.filter(
+            (item) => item.gameId === null || item.gameId === gameId,
+          ),
+        );
+      }
     } catch {
       setError('Nie udało się otworzyć wyboru folderu. Spróbuj ponownie.');
     } finally {
       setUploadProgress(null);
+      setActiveAction(null);
+    }
+  }
+
+  async function prepareReadyImport(uploadId: string) {
+    if (busy) return;
+    setActiveAction('preflight');
+    setError('');
+    setFeedback('Sprawdzanie gotowego stagingu i decyzji kanonicznych…');
+    try {
+      const result = await previewReadyBrowserImageImport(
+        api,
+        uploadId,
+        gameId,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setReadyUploadId(uploadId);
+      setPreflight(result.data);
+      setFeedback(
+        'Raport preflight jest gotowy. Import nie został jeszcze uruchomiony.',
+      );
+    } catch {
+      setError('Nie udało się przygotować raportu przed importem layoutów.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function startReadyImport() {
+    if (busy || readyUploadId === null || preflight === null) {
+      return;
+    }
+    setActiveAction('start-ready');
+    setError('');
+    setFeedback('Ponowna weryfikacja raportu i tworzenie joba…');
+    try {
+      const result = await startReadyBrowserImageImport(
+        api,
+        readyUploadId,
+        gameId,
+        preflight.manifestChecksumSha256,
+        preflight.preflightChecksumSha256,
+      );
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      const imageJob = result.data.job;
+      if (isImageImportJob(imageJob)) {
+        setJobs((current) => [
+          imageJob,
+          ...current.filter((item) => item.id !== imageJob.id),
+        ]);
+      }
+      setFeedback(
+        result.data.created
+          ? `Import ${imageJob.id} utworzony — oczekuje na worker.`
+          : `Import ${imageJob.id} już istnieje. Nie utworzono drugiego joba.`,
+      );
+      setSelection(null);
+      setSelectionDisplayName('');
+      setPreflight(null);
+      await refreshJobs();
+    } catch {
+      setError('Nie udało się utworzyć importu layoutów.');
+    } finally {
+      setActiveAction(null);
+    }
+  }
+
+  async function deleteReadyStaging(uploadId: string) {
+    if (
+      busy ||
+      !window.confirm('Usunąć nieużywany staging i zwolnić miejsce?')
+    ) {
+      return;
+    }
+    setActiveAction('delete-ready');
+    setError('');
+    try {
+      const result = await api.cancelBrowserImageSelection(uploadId);
+      if (result.error !== undefined) {
+        setError(
+          apiErrorMessage(result.error, 'Nie udało się usunąć stagingu.'),
+        );
+        return;
+      }
+      setReadySelections((current) =>
+        current.filter((item) => item.uploadId !== uploadId),
+      );
+      if (readyUploadId === uploadId) {
+        setReadyUploadId(null);
+        setPreflight(null);
+      }
+      setFeedback('Nieużywany staging został usunięty.');
+    } catch {
+      setError('Nie udało się usunąć stagingu.');
+    } finally {
       setActiveAction(null);
     }
   }
@@ -563,18 +718,126 @@ export function ImageFolderImportPanel({
         );
       })}
 
+      {readySelections.length > 0 ? (
+        <section
+          className="importCompletenessCard"
+          aria-labelledby="ready-layout-staging-title"
+        >
+          <header className="importCompletenessHeader">
+            <div>
+              <p className="eyebrow">Gotowy staging do wznowienia</p>
+              <h3 id="ready-layout-staging-title">
+                Import layoutów z manifestu
+              </h3>
+              <p>
+                Staging pozostaje dostępny po restarcie API i nie wymaga
+                ponownego uploadu.
+              </p>
+            </div>
+          </header>
+          <ul className="importCompactList">
+            {readySelections.map((ready) => {
+              const active = ready.uploadId === readyUploadId;
+              return (
+                <li key={ready.uploadId}>
+                  <strong>{ready.displayName}</strong>
+                  <span>
+                    {ready.uploadedFileCount.toLocaleString('pl-PL')} plików ·{' '}
+                    {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
+                    staging {ready.uploadId.slice(0, 8)}
+                  </span>
+                  <div className="importActionButtons">
+                    <button
+                      aria-busy={activeAction === 'preflight' && active}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() => void prepareReadyImport(ready.uploadId)}
+                      type="button"
+                    >
+                      {activeAction === 'preflight' && active
+                        ? 'Sprawdzanie…'
+                        : active
+                          ? 'Odśwież raport'
+                          : 'Pokaż raport'}
+                    </button>
+                    <button
+                      aria-busy={activeAction === 'delete-ready' && active}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() => void deleteReadyStaging(ready.uploadId)}
+                      type="button"
+                    >
+                      Usuń nieużywany staging
+                    </button>
+                  </div>
+                  {active && preflight !== null ? (
+                    <dl className="importMetrics">
+                      <div className="importMetric">
+                        <dt>Źródła</dt>
+                        <dd>
+                          {preflight.sourceFileCount.toLocaleString('pl-PL')}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Nowe plansze</dt>
+                        <dd>
+                          {preflight.newSequenceCount.toLocaleString('pl-PL')}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Już zatwierdzone</dt>
+                        <dd>
+                          {preflight.reusedSequenceCount.toLocaleString(
+                            'pl-PL',
+                          )}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Pominięte źródła</dt>
+                        <dd>
+                          {preflight.skippedSourceCount.toLocaleString('pl-PL')}
+                        </dd>
+                      </div>
+                      <div className="importMetric">
+                        <dt>Pierwszy nierozwiązany</dt>
+                        <dd>{preflight.firstUnresolvedSequence ?? 'brak'}</dd>
+                      </div>
+                    </dl>
+                  ) : null}
+                  {active && preflight?.warnings.length ? (
+                    <p className="curatedImportStatus">
+                      Ostrzeżenia: {preflight.warnings.join(' · ')}
+                    </p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       <div className="importActionToolbar">
         <div className="importActionButtons">
           <button
-            aria-busy={activeAction === 'start-import'}
+            aria-busy={
+              activeAction === 'start-import' || activeAction === 'start-ready'
+            }
             className="primaryButton"
-            disabled={busy || selection?.selectionToken == null}
-            onClick={() => void startImport()}
+            disabled={
+              busy ||
+              (preflight === null &&
+                (readyUploadId !== null || selection?.selectionToken == null))
+            }
+            onClick={() =>
+              void (preflight === null ? startImport() : startReadyImport())
+            }
             type="button"
           >
-            {activeAction === 'start-import'
+            {activeAction === 'start-import' || activeAction === 'start-ready'
               ? 'Uruchamianie…'
-              : 'Rozpocznij import'}
+              : preflight === null
+                ? 'Rozpocznij import'
+                : 'Rozpocznij import z raportu'}
           </button>
           <input
             accept=".jpg,.jpeg,image/jpeg"
@@ -631,13 +894,20 @@ export function ImageFolderImportPanel({
             <dl>
               <div>
                 <dt>Rozpocznij import</dt>
-                <dd>Tworzy job po poprawnym wyborze folderu.</dd>
+                <dd>Tworzy job dopiero po aktualnym raporcie preflight.</dd>
               </div>
               <div>
                 <dt>Wybierz folder</dt>
                 <dd>
                   Otwiera natywne okno przeglądarki i przesyła JPEG-i do
-                  lokalnego API.
+                  trwałego stagingu lokalnego API.
+                </dd>
+              </div>
+              <div>
+                <dt>Gotowy staging</dt>
+                <dd>
+                  Pozwala wznowić raport lub usunąć staging po restarcie API bez
+                  ponownego uploadu.
                 </dd>
               </div>
               <div>

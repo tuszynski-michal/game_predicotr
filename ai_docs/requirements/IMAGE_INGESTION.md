@@ -606,3 +606,24 @@ numery rosnąco.
 Uczenie symboli może działać na istniejących, kompletnych cropach. Jawne
 `Przelicz oczekujące` zapisuje nowe rewizje sugestii tylko dla pozycji nadal
 `pending`; decyzje człowieka, geometria i staging są chronione transakcją.
+
+### Browser staging i start importu `seq_*`
+
+Browser-native upload layoutów jest dwuetapowy. Finalizacja tworzy trwały
+staging z `_browser_manifest.json`; gotowy staging nie wygasa po restarcie API
+i może zostać wznowiony z listy Admina. Nie wolno traktować fizycznych nazw
+`00000001.jpg` jako nazw domenowych. API i worker odczytują z manifestu
+`relativePath` (`seq_<start>-<end>.jpg`) oraz osobne `storedFileName`.
+
+Przed utworzeniem joba Admin wywołuje preflight związany z `gameId` i checksumą
+manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte
+źródła, częściowe zakresy, alternatywne checksumy oraz pierwszy i ostatni
+nierozwiązany numer. Dopiero jawna akcja startu przekazuje obie checksumy;
+backend ponownie wykonuje preflight i odrzuca nieaktualny raport. Powtórzenie
+tej samej akcji dla tego samego stagingu zwraca istniejący job (`created=false`)
+i nie tworzy duplikatu.
+
+Staging z `purpose=layout_import` może zostać usunięty wyłącznie jawną akcją
+Admina. Staging przypisany do innej gry jest ukryty przed bieżącą grą i blokuje
+próbę startu. Po skopiowaniu oryginałów worker zachowuje obie tożsamości:
+logiczny zakres do audytu oraz fizyczny plik do bezpiecznego kopiowania.

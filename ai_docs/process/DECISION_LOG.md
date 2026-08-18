@@ -4834,6 +4834,31 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   zostać odświeżone, a późniejsze przeliczenie symboli korzysta z najnowszej
   rewizji cropów.
 
+## D-201 — Browser staging `seq_*` ma trwały manifest i jawny, idempotentny start
+
+- **Status:** accepted
+- **Date:** 2026-08-19
+- **Decision:** finalized browser staging dla `layout_import` pozostaje na dysku
+  po restarcie API, a `_browser_manifest.json` jest źródłem logicznych nazw
+  `seq_<start>-<end>`. Admin najpierw pobiera checksumowany preflight, pokazuje
+  liczniki nowych, użytych ponownie i pominiętych sekwencji, a dopiero jawny
+  start tworzy job. Start jest idempotentny dla `game + upload + manifest` i
+  zwraca istniejący job zamiast tworzyć drugi.
+- **Context:** wcześniejszy przepływ kończył upload, ale przycisk startu był
+  oddzielony od wyniku, token żył wyłącznie w pamięci API, a worker widział
+  fizyczne nazwy `00000001.jpg` zamiast poświadczonych zakresów. Restart lub
+  odświeżenie mogły więc pozostawić 517 MB stagingu bez możliwości wznowienia,
+  a uruchomienie groziło utratą zakresów i powrotem do OCR.
+- **Safety:** manifest jest walidowany pod kątem wersji, purpose, kolejności,
+  bezpiecznych ścieżek, rozmiarów, checksum i overlapów. Preflight oraz start
+  ponownie sprawdzają staging i projekcję kanoniczną; zmiana któregokolwiek
+  checksumu daje stabilny konflikt, a obcy `gameId` jest blokowany.
+- **Consequences:** legacy token pozostaje dla innych przepływów, lecz Admin
+  importu layoutów korzysta z trwałego uploadId, listy gotowych stagingów,
+  preflightu i wygenerowanego klienta OpenAPI. Worker zachowuje jednocześnie
+  logiczną nazwę `seq_*` i fizyczną ścieżkę pliku stagingowego.
+- **Supersedes:** rozszerza D-118 i D-196 bez zmiany ich zasad bezpieczeństwa.
+
 ## Szablon nowej decyzji
 
 ```text

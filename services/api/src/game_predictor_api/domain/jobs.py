@@ -18,6 +18,8 @@ class JobType(StrEnum):
     SNAPSHOT = "snapshot"
     ANDROID_BUILD = "android_build"
     SYMBOL_TRAINING = "symbol_training"
+    IMAGE_SYMBOL_REINFERENCE = "image_symbol_reinference"
+    IMAGE_GRID_REINFERENCE = "image_grid_reinference"
 
 
 class JobStatus(StrEnum):

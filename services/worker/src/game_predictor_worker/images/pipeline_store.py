@@ -19,6 +19,8 @@ from game_predictor_api.storage.models import (
     ImagePipelineStageResultModel,
     ImageReviewItemModel,
     ImageReviewResolutionEventModel,
+    ImageSequenceAlternativeModel,
+    ImageSequenceCanonicalModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -204,11 +206,83 @@ class SqlAlchemyImagePipelineStore:
                 checked_at=executed_at,
             )
             source = _locked_source(session, job_id, candidate.execution.file_execution_key)
+            job = session.get(JobModel, job_id)
+            if job is None or job.game_id is None:
+                raise ImagePipelineStoreError(
+                    "IMAGE_PIPELINE_GAME_MISSING",
+                    "The image import job has no game projection.",
+                )
+            projected_positions = 0
             for position in sorted(detection):
                 detected = detection[position]
                 cropped = crops[position]
                 sequence = sequences[position]
                 symbol = symbols[position]
+                sequence_number = sequence.get("normalizedNumber")
+                canonical = None
+                if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):
+                    normalized_sequence_number = sequence_number
+                    canonical = session.scalar(
+                        select(ImageSequenceCanonicalModel).where(
+                            ImageSequenceCanonicalModel.game_id == job.game_id,
+                            ImageSequenceCanonicalModel.sequence_number == sequence_number,
+                        )
+                    )
+                if canonical is not None:
+                    pending_duplicate = session.scalar(
+                        select(ImageReviewItemModel)
+                        .join(
+                            RecognizedBoardModel,
+                            RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                        )
+                        .where(
+                            RecognizedBoardModel.source_image_id == source.id,
+                            RecognizedBoardModel.position_index == position,
+                            ImageReviewItemModel.status == "pending",
+                        )
+                        .with_for_update()
+                    )
+                    if pending_duplicate is not None:
+                        pending_duplicate.status = "rejected"
+                        pending_duplicate.resolved_value = {
+                            "sequenceNumber": normalized_sequence_number,
+                            "rejectionReason": "reused_accepted",
+                        }
+                        pending_duplicate.resolved_by = "canonical-import"
+                        pending_duplicate.resolved_at = executed_at
+                        pending_duplicate.resolution_revision += 1
+                        session.execute(
+                            delete(ImageLayoutStagingRowModel).where(
+                                ImageLayoutStagingRowModel.review_item_id
+                                == pending_duplicate.id
+                            )
+                        )
+                    if (
+                        canonical.source_checksum_sha256 != source.checksum_sha256
+                        or canonical.import_job_id != job_id
+                    ):
+                        alternative_exists = session.scalar(
+                            select(ImageSequenceAlternativeModel.id).where(
+                                ImageSequenceAlternativeModel.game_id == job.game_id,
+                                ImageSequenceAlternativeModel.sequence_number
+                                == normalized_sequence_number,
+                                ImageSequenceAlternativeModel.import_job_id == job_id,
+                                ImageSequenceAlternativeModel.source_checksum_sha256
+                                == source.checksum_sha256,
+                            )
+                        )
+                        if alternative_exists is None:
+                            session.add(
+                                ImageSequenceAlternativeModel(
+                                    game_id=job.game_id,
+                                    sequence_number=normalized_sequence_number,
+                                    import_job_id=job_id,
+                                    source_checksum_sha256=source.checksum_sha256,
+                                    source_relative_path=source.relative_path,
+                                    reason="reused_accepted",
+                                )
+                            )
+                    continue
                 board = session.scalar(
                     select(RecognizedBoardModel)
                     .where(
@@ -284,7 +358,8 @@ class SqlAlchemyImagePipelineStore:
                     prediction,
                     created_at=executed_at,
                 )
-            source.status = "waiting_for_review"
+                projected_positions += 1
+            source.status = "waiting_for_review" if projected_positions else "completed"
             source.processed_at = executed_at
             session.flush()
 
@@ -518,6 +593,8 @@ class SqlAlchemyImagePipelineStore:
                         "An image staging row already has different accepted values.",
                     )
             source.status = "accepted" if accepted else "rejected"
+            if not rows:
+                source.status = "completed"
             source.processed_at = executed_at
             session.flush()
             return materialized

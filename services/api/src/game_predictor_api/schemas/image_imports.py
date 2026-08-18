@@ -13,6 +13,7 @@ from game_predictor_api.application.image_imports import (
 from game_predictor_api.application.iterative_image_imports import (
     CuratedImageImportProgress,
 )
+from game_predictor_api.domain.image_sequence_canonical import ImageSequenceImportPreflight
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -53,6 +54,39 @@ class ImageFolderImportCreate(ApiModel):
 
 class ImageFolderImportResponse(ApiModel):
     job: JobResponse
+
+
+class ImageSequenceImportPreflightResponse(ApiModel):
+    game_id: UUID
+    source_file_count: int = Field(ge=0)
+    attested_file_count: int = Field(ge=0)
+    new_sequence_count: int = Field(ge=0)
+    reused_sequence_count: int = Field(ge=0)
+    skipped_source_count: int = Field(ge=0)
+    partial_source_count: int = Field(ge=0)
+    alternative_source_count: int = Field(ge=0)
+    first_unresolved_sequence: int | None = Field(default=None, ge=1)
+    last_unresolved_sequence: int | None = Field(default=None, ge=1)
+    warnings: list[str]
+
+    @classmethod
+    def from_domain(
+        cls,
+        value: ImageSequenceImportPreflight,
+    ) -> "ImageSequenceImportPreflightResponse":
+        return cls(
+            game_id=value.game_id,
+            source_file_count=value.source_file_count,
+            attested_file_count=value.attested_file_count,
+            new_sequence_count=value.new_sequence_count,
+            reused_sequence_count=value.reused_sequence_count,
+            skipped_source_count=value.skipped_source_count,
+            partial_source_count=value.partial_source_count,
+            alternative_source_count=value.alternative_source_count,
+            first_unresolved_sequence=value.first_unresolved_sequence,
+            last_unresolved_sequence=value.last_unresolved_sequence,
+            warnings=list(value.warnings),
+        )
 
 
 class BrowserImageSelectionCreate(ApiModel):

@@ -1,7 +1,7 @@
 """Loopback-only image folder selection and import creation."""
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, Header, Query, Response, status
@@ -20,6 +20,8 @@ from game_predictor_api.application.iterative_image_imports import (
     IterativeImageImportService,
 )
 from game_predictor_api.application.jobs import JobService
+from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
+from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_imports import (
     BrowserImageSelectionCreate,
@@ -31,6 +33,7 @@ from game_predictor_api.schemas.image_imports import (
     ImageFolderImportCreate,
     ImageFolderImportResponse,
     ImageFolderSelectionResponse,
+    ImageSequenceImportPreflightResponse,
 )
 from game_predictor_api.schemas.jobs import JobResponse
 
@@ -40,12 +43,18 @@ def create_image_imports_router(
     browser_selection_service_dependency: Callable[..., object],
     job_service_dependency: Callable[..., object],
     iterative_import_service_dependency: Callable[..., object],
+    image_sequence_canonical_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/image-imports", tags=["image-imports"])
     selection_parameter = Depends(selection_service_dependency)
     browser_selection_parameter = Depends(browser_selection_service_dependency)
     job_parameter = Depends(job_service_dependency)
     iterative_import_parameter = Depends(iterative_import_service_dependency)
+    canonical_parameter = (
+        None
+        if image_sequence_canonical_service_dependency is None
+        else Depends(image_sequence_canonical_service_dependency)
+    )
     responses: dict[int | str, dict[str, object]] = {
         404: {"model": ErrorResponse, "description": "Game or folder not found"},
         409: {"model": ErrorResponse, "description": "Import conflict"},
@@ -195,13 +204,52 @@ def create_image_imports_router(
             selection_parameter,
         ],
         job_service: Annotated[JobService, job_parameter],
+        canonical_service: object | None = canonical_parameter,
     ) -> ImageFolderImportResponse:
+        canonical_numbers: list[int] | None = None
+        if canonical_service is not None:
+            get_numbers = getattr(canonical_service, "canonical_numbers", None)
+            if callable(get_numbers):
+                canonical_numbers = sorted(set(get_numbers(payload.game_id)))
         job = selection_service.create_import_job(
             job_service,
             game_id=payload.game_id,
             selection_token=payload.selection_token,
+            canonical_sequence_numbers=canonical_numbers,
         )
         return ImageFolderImportResponse(job=JobResponse.from_domain(job))
+
+    @router.post(
+        "/preflight",
+        response_model=ImageSequenceImportPreflightResponse,
+        operation_id="previewImageSequenceImport",
+        summary="Preview reuse of already resolved seq_* ranges",
+        responses=responses,
+    )
+    def preflight_import(
+        payload: ImageFolderImportCreate,
+        selection_service: Annotated[
+            ImageFolderSelectionService,
+            selection_parameter,
+        ],
+        canonical_service: object | None = canonical_parameter,
+    ) -> ImageSequenceImportPreflightResponse:
+        if canonical_service is None:
+            raise JobError(
+                "IMAGE_SEQUENCE_PREFLIGHT_UNAVAILABLE",
+                "Canonical sequence preflight is not configured.",
+            )
+        selected = selection_service.get_for_import(
+            game_id=payload.game_id,
+            selection_token=payload.selection_token,
+        )
+        # Keep this annotation-free at the transport boundary so custom test
+        # dependencies can provide the same small service contract.
+        result = cast(ImageSequenceCanonicalService, canonical_service).preflight(
+            game_id=payload.game_id,
+            source_directory=selected.path,
+        )
+        return ImageSequenceImportPreflightResponse.from_domain(result)
 
     @router.post(
         "/{source_job_id}/reprocess",

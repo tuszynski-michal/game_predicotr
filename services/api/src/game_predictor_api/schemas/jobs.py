@@ -61,6 +61,7 @@ class ImageImportJobPayload(ApiModel):
     pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_pipeline_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     image_selection_run_id: UUID | None = None
+    canonical_sequence_numbers: tuple[int, ...] = Field(default=())
     symbol_model: SymbolModelJobSnapshotPayload
 
 
@@ -161,6 +162,18 @@ class SymbolTrainingJobPayload(ApiModel):
     idempotency_key: UUID
 
 
+class PendingSymbolReinferenceJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    inference_kind: Literal["pending_symbols_only"]
+    symbol_model: SymbolModelJobSnapshotPayload
+
+
+class PendingGridReinferenceJobPayload(ApiModel):
+    schema_version: Literal[1] = 1
+    inference_kind: Literal["pending_grid_only"]
+    grid_profile: GridProfileJobSnapshotPayload
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -213,6 +226,8 @@ JobPayloadResponse = (
     | SnapshotJobPayload
     | AndroidBuildJobPayload
     | SymbolTrainingJobPayload
+    | PendingSymbolReinferenceJobPayload
+    | PendingGridReinferenceJobPayload
 )
 
 
@@ -454,4 +469,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return SnapshotJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.SYMBOL_TRAINING:
         return SymbolTrainingJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
+        return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.IMAGE_GRID_REINFERENCE:
+        return PendingGridReinferenceJobPayload.model_validate(job.input_payload)
     return AndroidBuildJobPayload.model_validate(job.input_payload)

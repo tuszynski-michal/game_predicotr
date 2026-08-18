@@ -48,6 +48,7 @@ def create_api_router(
     image_folder_selection_service_dependency: Callable[..., object],
     browser_image_selection_service_dependency: Callable[..., object],
     iterative_image_import_service_dependency: Callable[..., object],
+    image_sequence_canonical_service_dependency: Callable[..., object],
     image_storage_service_dependency: Callable[..., object],
     image_review_service_dependency: Callable[..., object],
     image_review_cohort_service_dependency: Callable[..., object],
@@ -97,6 +98,7 @@ def create_api_router(
             browser_image_selection_service_dependency,
             job_service_dependency,
             iterative_image_import_service_dependency,
+            image_sequence_canonical_service_dependency,
         )
     )
     router.include_router(
@@ -111,6 +113,7 @@ def create_api_router(
             image_review_service_dependency,
             settings.artifact_root,
             reviewer_access_service_dependency,
+            job_service_dependency,
         )
     )
     router.include_router(create_image_review_cohort_router(image_review_cohort_service_dependency))

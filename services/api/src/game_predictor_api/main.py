@@ -100,6 +100,7 @@ from game_predictor_api.domain.image_selections import (
     ImageSelectionError,
     ImageSelectionNotFoundError,
 )
+from game_predictor_api.domain.image_sequence_canonical import ImageSequenceCanonicalService
 from game_predictor_api.domain.iterative_image_imports import (
     IterativeImageImportConflictError,
     IterativeImageImportError,
@@ -162,6 +163,9 @@ from game_predictor_api.storage.image_review_repository import (
 from game_predictor_api.storage.image_selection_repository import (
     SqlAlchemyImageSelectionRepository,
 )
+from game_predictor_api.storage.image_sequence_canonical_repository import (
+    SqlAlchemyImageSequenceCanonicalRepository,
+)
 from game_predictor_api.storage.iterative_image_import_repository import (
     SqlAlchemyIterativeImageImportRepository,
 )
@@ -211,6 +215,7 @@ def create_app(
     image_job_service_dependency: Callable[..., object] | None = None,
     image_folder_selection_service_dependency: Callable[..., object] | None = None,
     browser_image_selection_service_dependency: Callable[..., object] | None = None,
+    image_sequence_canonical_service_dependency: Callable[..., object] | None = None,
     iterative_image_import_service_dependency: Callable[..., object] | None = None,
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
@@ -358,6 +363,24 @@ def create_app(
     )
     resolved_browser_image_selection_dependency = browser_image_selection_service_dependency or (
         lambda: default_browser_image_selection_service
+    )
+
+    def default_image_sequence_canonical_service_dependency() -> Iterator[
+        ImageSequenceCanonicalService
+    ]:
+        with session_factory() as session:
+            try:
+                yield ImageSequenceCanonicalService(
+                    SqlAlchemyImageSequenceCanonicalRepository(session)
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_image_sequence_canonical_dependency = (
+        image_sequence_canonical_service_dependency
+        or default_image_sequence_canonical_service_dependency
     )
 
     def default_iterative_image_import_service_dependency() -> Iterator[
@@ -636,6 +659,7 @@ def create_app(
             resolved_image_folder_selection_dependency,
             resolved_browser_image_selection_dependency,
             resolved_iterative_image_import_dependency,
+            resolved_image_sequence_canonical_dependency,
             resolved_image_storage_dependency,
             resolved_image_review_dependency,
             resolved_image_review_cohort_dependency,

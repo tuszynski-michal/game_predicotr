@@ -343,6 +343,7 @@ class JobService:
         source_display_name: str,
         pipeline_fingerprint: str,
         image_selection_run_id: UUID | None = None,
+        canonical_sequence_numbers: Sequence[int] | None = None,
     ) -> Job:
         if not self._repository.game_exists(game_id):
             raise JobNotFoundError(
@@ -382,10 +383,70 @@ class JobService:
         }
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
+        if canonical_sequence_numbers is not None:
+            input_payload["canonical_sequence_numbers"] = sorted(
+                {int(number) for number in canonical_sequence_numbers if int(number) > 0}
+            )
         return self._persist_job(
             JobType.IMPORT,
             game_id=game_id,
             input_payload=input_payload,
+            game_already_validated=True,
+        )
+
+    def create_pending_symbol_reinference_job(self, *, game_id: UUID) -> Job:
+        """Create an explicit job that may update pending symbol predictions only."""
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        snapshot = (
+            bootstrap_symbol_model_snapshot()
+            if self._symbol_model_snapshot_resolver is None
+            else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
+        )
+        return self._persist_job(
+            JobType.IMAGE_SYMBOL_REINFERENCE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "inference_kind": "pending_symbols_only",
+                "symbol_model": snapshot.to_payload(),
+            },
+            game_already_validated=True,
+        )
+
+    def create_pending_grid_reinference_job(self, *, game_id: UUID) -> Job:
+        """Create a job that refreshes geometry and crops for pending boards only."""
+
+        if not self._repository.game_exists(game_id):
+            raise JobNotFoundError(
+                "GAME_NOT_FOUND",
+                "Game does not exist.",
+                details={"gameId": str(game_id)},
+            )
+        grid_profile = (
+            _baseline_grid_profile_snapshot()
+            if self._grid_profile_snapshot_resolver is None
+            else self._grid_profile_snapshot_resolver.resolve(game_id=game_id)
+        )
+        fingerprint = grid_profile.get("inferenceFingerprint")
+        if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+            raise JobError(
+                "GRID_PROFILE_SNAPSHOT_INVALID",
+                "The active grid profile snapshot is invalid.",
+            )
+        return self._persist_job(
+            JobType.IMAGE_GRID_REINFERENCE,
+            game_id=game_id,
+            input_payload={
+                "schema_version": 1,
+                "inference_kind": "pending_grid_only",
+                "grid_profile": grid_profile,
+            },
             game_already_validated=True,
         )
 

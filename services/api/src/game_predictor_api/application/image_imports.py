@@ -7,7 +7,7 @@ import json
 import os
 import shutil
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -256,6 +256,7 @@ class ImageFolderSelectionService:
         *,
         game_id: UUID,
         selection_token: str,
+        canonical_sequence_numbers: Sequence[int] | None = None,
     ) -> Job:
         now = self._clock()
         with self._lock:
@@ -289,10 +290,41 @@ class ImageFolderSelectionService:
             source_display_name=selected.display_name,
             pipeline_fingerprint=pipeline_fingerprint(current_pipeline_manifest()),
             image_selection_run_id=selected.image_selection_run_id,
+            canonical_sequence_numbers=canonical_sequence_numbers,
         )
         with self._lock:
             self._selections.pop(selection_token, None)
         return job
+
+    def get_for_import(self, *, game_id: UUID, selection_token: str) -> SelectedImageFolder:
+        """Return an approved folder without consuming its short-lived token."""
+
+        now = self._clock()
+        with self._lock:
+            self._remove_expired(now)
+            selected = self._selections.get(selection_token)
+        if selected is None:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_INVALID",
+                "The folder selection is missing, expired, or already used.",
+            )
+        if selected.purpose is not ImageSelectionPurpose.LAYOUT_IMPORT:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_PURPOSE_INVALID",
+                "Photo-selection staging cannot be used as a layout import.",
+            )
+        if selected.game_id is not None and selected.game_id != game_id:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",
+                "The selected image folder belongs to a different game.",
+            )
+        resolved, _count = inspect_image_folder(selected.path)
+        if resolved != selected.path:
+            raise JobError(
+                "IMAGE_FOLDER_SELECTION_CHANGED",
+                "The selected image folder no longer resolves to the approved path.",
+            )
+        return selected
 
     def create_image_selection_run(
         self,

@@ -48,7 +48,7 @@ from .source_direct_crops import (
     SOURCE_DIRECT_CROPPER_VERSION,
     SourceDirectBoardCellCropper,
 )
-from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginalStore
+from .source_ingestion import ImageSourceIngestionHandler, ManagedOriginal, ManagedOriginalStore
 from .symbol_model_release import build_symbol_predictions
 from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
 
@@ -92,22 +92,37 @@ class ProductionImageImportWorkflow:
             cast(JobExecutionContext, source_context),
             job,
         )
+        pipeline_originals = _filter_canonical_originals(manifest.originals, job)
+        if not pipeline_originals:
+            context.checkpoint(
+                checkpoint_payload={
+                    "checkpoint_kind": "image-canonical-skip-v1",
+                    "skipped_source_count": len(manifest.originals),
+                    "schema_version": 1,
+                },
+                stage="image_canonical_skip",
+                current=source_count * 2,
+                total=source_count * 2,
+                success_count=source_count,
+                failure_count=0,
+                review_count=0,
+            )
+            return
         registrations = tuple(
             ImageFileRegistration(
                 source_checksum_sha256=original.checksum_sha256,
                 source_relative_path=_data_relative_path(original.managed_relative_path),
                 order_index=index,
             )
-            for index, original in enumerate(manifest.originals)
+            for index, original in enumerate(pipeline_originals)
         )
         attested_sequence_ranges = {
             original.checksum_sha256: (
                 original.sequence_range_start,
                 original.sequence_range_end,
             )
-            for original in manifest.originals
-            if original.sequence_range_start is not None
-            and original.sequence_range_end is not None
+            for original in pipeline_originals
+            if original.sequence_range_start is not None and original.sequence_range_end is not None
         }
         self._batch_store.register_files(
             job.id,
@@ -139,6 +154,36 @@ class ProductionImageImportWorkflow:
             success_offset=source_count,
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
+
+
+def _filter_canonical_originals(
+    originals: Sequence[ManagedOriginal],
+    job: Job,
+) -> tuple[ManagedOriginal, ...]:
+    """Skip whole attested seq_* sources already resolved for this game.
+
+    The API stores a canonical sequence snapshot in the job payload.  Partial
+    sources remain in the pipeline so projection can preserve only their
+    unresolved boards; only a source whose complete attested range is covered
+    is removed before registration and expensive stages.
+    """
+
+    raw_numbers = job.input_payload.get("canonical_sequence_numbers")
+    if not isinstance(raw_numbers, list):
+        return tuple(originals)
+    canonical = {int(number) for number in raw_numbers if isinstance(number, int) and number > 0}
+    if not canonical:
+        return tuple(originals)
+    retained: list[ManagedOriginal] = []
+    for original in originals:
+        start = getattr(original, "sequence_range_start", None)
+        end = getattr(original, "sequence_range_end", None)
+        if not isinstance(start, int) or not isinstance(end, int):
+            retained.append(original)
+            continue
+        if any(number not in canonical for number in range(start, end + 1)):
+            retained.append(original)
+    return tuple(retained)
 
 
 class _ProgressWindowContext:
@@ -933,8 +978,7 @@ def _attested_sequence_payload(
     start, end = sequence_range
     expected_count = end - start + 1
     complete = len(detections) == expected_count and all(
-        _integer(board, "positionIndex") == index
-        for index, board in enumerate(detections)
+        _integer(board, "positionIndex") == index for index, board in enumerate(detections)
     )
     boards: list[dict[str, object]] = []
     for board in detections:
@@ -948,9 +992,7 @@ def _attested_sequence_payload(
                 "positionIndex": position,
                 "rawText": "" if number is None else str(number),
                 "reviewReasons": (
-                    []
-                    if complete
-                    else ["SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED"]
+                    [] if complete else ["SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED"]
                 ),
                 "attestedRangeEnd": end,
                 "attestedRangeStart": start,

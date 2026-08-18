@@ -2993,6 +2993,158 @@ class ReviewFeedbackExportModel(Base):
     )
 
 
+class ImageSymbolPredictionRevisionModel(Base):
+    """Append-only predictions produced by explicit pending-only inference."""
+
+    __tablename__ = "image_symbol_prediction_revisions"
+    __table_args__ = (
+        CheckConstraint(
+            "length(btrim(model_version)) > 0 AND model_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_prediction_revisions_model",
+        ),
+        CheckConstraint(
+            "crop_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_prediction_revisions_crop_manifest",
+        ),
+        UniqueConstraint(
+            "review_item_id",
+            "model_checksum_sha256",
+            "crop_manifest_checksum_sha256",
+            name="uq_image_symbol_prediction_revision_snapshot",
+        ),
+        Index(
+            "ix_image_symbol_prediction_revisions_item_created",
+            "review_item_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    model_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")
+    )
+    model_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    model_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    predictions: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ImageSequenceCanonicalModel(Base):
+    """The immutable owner of one resolved sequence number for a game."""
+
+    __tablename__ = "image_sequence_canonical"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND resolution_revision > 0 AND geometry_revision >= 0",
+            name="ck_image_sequence_canonical_values",
+        ),
+        CheckConstraint(
+            "status IN ('accepted', 'corrected')",
+            name="ck_image_sequence_canonical_status",
+        ),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_sequence_canonical_checksums",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "sequence_number",
+            name="uq_image_sequence_canonical_game_sequence",
+        ),
+        Index(
+            "ix_image_sequence_canonical_game_sequence",
+            "game_id",
+            "sequence_number",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_item_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_review_items.id", ondelete="RESTRICT"), nullable=False
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
+    )
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    board_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+
+class ImageSequenceAlternativeModel(Base):
+    """A skipped source for an already canonical sequence."""
+
+    __tablename__ = "image_sequence_alternatives"
+    __table_args__ = (
+        CheckConstraint(
+            "sequence_number > 0 AND source_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_sequence_alternatives_values",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "sequence_number",
+            "source_checksum_sha256",
+            "import_job_id",
+            name="uq_image_sequence_alternatives_source",
+        ),
+        Index(
+            "ix_image_sequence_alternatives_game_sequence",
+            "game_id",
+            "sequence_number",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_relative_path: Mapped[str] = mapped_column(String(1000), nullable=False)
+    reason: Mapped[str] = mapped_column(String(50), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class RepresentativeRankingCohortModel(Base):
     __tablename__ = "representative_ranking_cohorts"
     __table_args__ = (

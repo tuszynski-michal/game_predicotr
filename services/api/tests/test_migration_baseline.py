@@ -53,6 +53,10 @@ IMAGE_SELECTION_DUPLICATE_RANGE_DECISIONS_REVISION = (
 IMAGE_SELECTION_REVIEW_QUEUES_REVISION = "0041_image_selection_review_queues"
 IMAGE_SELECTION_DERIVED_RECOVERY_REVISION = "0042_image_selection_derived_recovery"
 IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION = "0043_image_selection_sequence_bounds"
+REPRESENTATIVE_RANKING_REVISION = "0044_representative_ranking"
+CANONICAL_IMAGE_SEQUENCES_REVISION = "0045_canonical_image_sequences"
+IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION = "0046_image_symbol_prediction_revisions"
+PENDING_SYMBOL_REINFERENCE_JOB_REVISION = "0047_pending_symbol_reinference_job"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -114,8 +118,14 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
         IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
     )
     image_selection_sequence_bounds = script.get_revision(IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION)
+    representative_ranking = script.get_revision(REPRESENTATIVE_RANKING_REVISION)
 
-    assert script.get_heads() == [IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION]
+    canonical_image_sequences = script.get_revision(CANONICAL_IMAGE_SEQUENCES_REVISION)
+    image_symbol_prediction_revisions = script.get_revision(
+        IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
+    )
+    pending_symbol_reinference_job = script.get_revision(PENDING_SYMBOL_REINFERENCE_JOB_REVISION)
+    assert script.get_heads() == [PENDING_SYMBOL_REINFERENCE_JOB_REVISION]
     assert baseline is not None
     assert baseline.down_revision is None
     assert catalog is not None
@@ -212,6 +222,12 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     assert (
         image_selection_sequence_bounds.down_revision == IMAGE_SELECTION_DERIVED_RECOVERY_REVISION
     )
+    assert canonical_image_sequences is not None
+    assert representative_ranking is not None
+    assert representative_ranking.down_revision == IMAGE_SELECTION_SEQUENCE_BOUNDS_REVISION
+    assert canonical_image_sequences.down_revision == REPRESENTATIVE_RANKING_REVISION
+    assert image_symbol_prediction_revisions.down_revision == CANONICAL_IMAGE_SEQUENCES_REVISION
+    assert pending_symbol_reinference_job.down_revision == IMAGE_SYMBOL_PREDICTION_REVISIONS_REVISION
 
 
 def test_symbol_model_registry_migration_adds_append_only_activation_history() -> None:

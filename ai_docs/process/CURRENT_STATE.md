@@ -1587,3 +1587,8 @@ W `v0.6.31` eksport ONNX jest sprawdzany na tych samych wektorach cech co
 PyTorch, a maksymalny błąd zgodności trafia do raportu treningowego. Snapshot
 shadow jest weryfikowany checksumą przed utworzeniem rekomendacji; ranking jest
 wyłącznie diagnostyczny i nie zmienia wyniku selekcji.
+
+Po `v0.6.31` poświadczony zakres jest również przenoszony do geometrii planszy.
+Reviewer pokazuje komunikat „Numer z nazwy pliku seq_*” i blokuje pole numeru
+do czasu jawnego odblokowania korekty. Korekta geometrii zachowuje tę informację,
+aby późniejszy zapis nie zamienił deklaracji operatora w niejawny OCR.

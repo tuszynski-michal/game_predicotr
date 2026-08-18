@@ -704,6 +704,10 @@ function OperationalReviewBoard({
   const [sequenceDraft, setSequenceDraft] = useState(() =>
     String(operationalReviewSequence(item) ?? ''),
   );
+  const sequenceIsAttestedByFilename =
+    item.geometry.sequenceSource === 'filename';
+  const [sequenceCorrectionEnabled, setSequenceCorrectionEnabled] =
+    useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [revisionConflict, setRevisionConflict] = useState(false);
@@ -1008,7 +1012,10 @@ function OperationalReviewBoard({
             Numer układu
             <input
               aria-invalid={!sequenceIsValid}
-              disabled={isSaving}
+              disabled={
+                isSaving ||
+                (sequenceIsAttestedByFilename && !sequenceCorrectionEnabled)
+              }
               min="1"
               onChange={(event) => {
                 setSequenceDraft(event.target.value);
@@ -1018,6 +1025,26 @@ function OperationalReviewBoard({
               value={sequenceDraft}
             />
           </label>
+          {sequenceIsAttestedByFilename ? (
+            <div className="operationalReviewAttestedSequence" role="status">
+              <small>
+                Numer z nazwy pliku <code>seq_*</code>; przypisanie jest
+                zablokowane do czasu jawnej korekty.
+              </small>
+              {!sequenceCorrectionEnabled ? (
+                <button
+                  className="textButton"
+                  disabled={isSaving}
+                  onClick={() => setSequenceCorrectionEnabled(true)}
+                  type="button"
+                >
+                  Zezwól na korektę numeru
+                </button>
+              ) : (
+                <small>Korekta numeru odblokowana.</small>
+              )}
+            </div>
+          ) : null}
           {item.status !== 'pending' ? (
             <em>Edycja dozwolona — kolejny zapis utworzy nową rewizję.</em>
           ) : null}

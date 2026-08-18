@@ -839,6 +839,10 @@ def _recognized_board_geometry(
     sequence_label_quad = sequence.get("sequenceLabelQuad")
     if sequence_label_quad is not None:
         geometry["sequenceLabelQuad"] = sequence_label_quad
+    for key in ("attestedRangeStart", "attestedRangeEnd", "sequenceSource"):
+        value = sequence.get(key)
+        if value is not None:
+            geometry[key] = value
     source_context_bounds = cropped.get("sourceContextBounds")
     if source_context_bounds is not None:
         geometry["sourceContextBounds"] = source_context_bounds

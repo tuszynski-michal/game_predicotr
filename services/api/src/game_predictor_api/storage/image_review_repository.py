@@ -827,7 +827,13 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             )
         revision = board.geometry_revision + 1
         revised_geometry = dict(artifacts.geometry)
-        for retained_key in ("sequenceLabelQuad", "sourceContextBounds"):
+        for retained_key in (
+            "sequenceLabelQuad",
+            "sourceContextBounds",
+            "attestedRangeStart",
+            "attestedRangeEnd",
+            "sequenceSource",
+        ):
             retained_value = board.board_geometry.get(retained_key)
             if retained_value is not None and retained_key not in revised_geometry:
                 revised_geometry[retained_key] = retained_value

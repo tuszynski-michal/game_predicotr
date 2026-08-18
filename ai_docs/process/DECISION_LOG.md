@@ -4795,6 +4795,20 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** kohorty, iteracje i aktywacje mają osobne append-only tabele;
   aktywny v10.22 wymaga osobnej decyzji właściciela.
 
+## D-198 — Poświadczony numer jest widoczny i jawnie odblokowywany w Reviewerze
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** plansza przypisana z `seq_<start>-<end>` przenosi źródło zakresu do
+  geometrii review. Reviewer pokazuje operatorowi, że numer pochodzi z nazwy
+  pliku, a pole numeru pozostaje zablokowane do kliknięcia jawnej akcji korekty.
+- **Reason:** deklarowany zakres ma być źródłem prawdy, ale człowiek musi móc
+  poprawić go w przypadku błędnej nazwy lub geometrii bez niejawnej zmiany.
+- **Safety:** korekta wymaga istniejącego mechanizmu rewizji i nie przesuwa
+  numerów pozostałych plansz; metadane źródła są zachowywane przy zapisie geometrii.
+- **Consequences:** zwykłe importy OCR pozostają bez blokady, a poświadczone
+  importy są jednoznaczne dla operatora i audytu.
+
 ## Szablon nowej decyzji
 
 ```text

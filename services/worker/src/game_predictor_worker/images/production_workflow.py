@@ -952,6 +952,8 @@ def _attested_sequence_payload(
                     if complete
                     else ["SEQUENCE_ATTESTED_RANGE_GEOMETRY_REVIEW_REQUIRED"]
                 ),
+                "attestedRangeEnd": end,
+                "attestedRangeStart": start,
                 "sequenceSource": "filename",
             }
         )

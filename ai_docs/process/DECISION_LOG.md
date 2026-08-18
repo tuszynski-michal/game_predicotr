@@ -1221,14 +1221,14 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   manual review; nie istnieje próg auto-accept. M4 pozostaje bezpiecznym
   sposobem wprowadzania danych. TASK-0051 ma status `blocked` na dodatkowym
   materiale i odpowiedziach Q-016/Q-017. M6 nie rozpoczyna się, dopóki:
-  1) korpus nie ma co najmniej 20 reprezentatywnych zdjęć z opisanymi wariantami,
-  2) niezależne goldeny pozycji/narożników nie pozwalają zmierzyć geometrii,
-  3) progi nie zostaną zaakceptowane przed kolejną optymalizacją,
-  4) OCR nie przejdzie zaakceptowanego progu na held-out source images,
-  5) Q-017 nie potwierdzi wystarczającego materiału symboli.
-  Rework porównuje wyspecjalizowane alternatywy cyfr na podziale według zdjęcia,
-  bez strojenia i raportowania na tych samych 12 goldenach. Czas cropów jest
-  obserwowany, ale nie optymalizowany bez zaakceptowanego budżetu.
+  1. korpus nie ma co najmniej 20 reprezentatywnych zdjęć z opisanymi wariantami,
+  2. niezależne goldeny pozycji/narożników nie pozwalają zmierzyć geometrii,
+  3. progi nie zostaną zaakceptowane przed kolejną optymalizacją,
+  4. OCR nie przejdzie zaakceptowanego progu na held-out source images,
+  5. Q-017 nie potwierdzi wystarczającego materiału symboli.
+     Rework porównuje wyspecjalizowane alternatywy cyfr na podziale według zdjęcia,
+     bez strojenia i raportowania na tych samych 12 goldenach. Czas cropów jest
+     obserwowany, ale nie optymalizowany bez zaakceptowanego budżetu.
 - **Supersedes:** D-053–D-055 wyłącznie w zakresie statusu po benchmarku;
   kontrakty, ograniczenie wariantu, lokalność i checksumy pozostają w mocy.
 
@@ -1920,7 +1920,7 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   POSIX i SHA-256 artefaktów. `pipelineFingerprint` jest SHA-256 kanonicznych
   bajtów manifestu bez envelope. Wynik per plik identyfikuje
   `fileExecutionKey = SHA-256(image-file-execution-v1, source SHA-256,
-  pipelineFingerprint)`. Checkpoint przechowuje tylko uporządkowany prefiks
+pipelineFingerprint)`. Checkpoint przechowuje tylko uporządkowany prefiks
   etapów i nie może ominąć wymaganej granicy manual review.
 - **Context:** M5–M6 wersjonowały komponenty osobno. Sam ogólny
   `pipeline_version`, nazwa pliku albo nazwa modelu nie chroniły przed
@@ -2613,7 +2613,7 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
 - **Status:** accepted
 - **Date:** 2026-07-31
 - **Decision:** główna nawigacja Admina `0.2` ma trzy zakładki: `Zarządzanie
-  grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
+grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   proste filtrowanie po statusie. `0.2` nie dodaje automatycznej retencji ani
   osobnej logiki cleanupu jobów.
 - **Context:** joby są potrzebne do obserwacji importu, przeliczania i buildów,
@@ -4726,6 +4726,25 @@ Statusy: `proposed`, `accepted`, `rejected`, `superseded`.
   i 20 ręcznych adnotacji jest obowiązkową bramką zmian tej ścieżki.
 - **Supersedes:** precyzuje D-192 dla niezgodności zakresu i rozszerza proof-first
   v10.19 bez zmiany historycznych fingerprintów.
+
+## D-194 — Lokalny fallback ręcznej selekcji zdjęć
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** Admin otrzymuje osobną zakładkę `Ręczna selekcja`, która działa
+  lokalnie na dwóch folderach wybranych przez operatora. Zakresy są wyliczane
+  jako `start–start+8`; Enter zapisuje bieżący JPEG i zwiększa start o 9, Tab
+  pomija zakres przy tym samym zdjęciu, a strzałki zmieniają tylko zdjęcie.
+- **Context:** automatyczne selektory wielokrotnie wymagały ręcznej korekty, a
+  ponowne uruchamianie OCR dla czytelnych zdjęć zużywało czas bez gwarancji
+  poprawnego zakresu. Potrzebny jest prosty, przewidywalny tor awaryjny.
+- **Reason:** bezpośredni odczyt i zapis przez File System Access API zachowuje
+  jakość oryginału i nie zależy od dostępności API, workera, stagingu ani sieci.
+  IndexedDB pozwala wznowić pracę po zamknięciu okna.
+- **Safety:** zapis i undo są związane z checksumem źródła; obcy plik o tej samej
+  nazwie blokuje operację. Zakładka nie mutuje automatycznych jobów ani bazy.
+- **Consequences:** pliki `seq_*.jpg` są gotowym lokalnym wynikiem do późniejszego
+  jawnego importu layoutów. Automatyczny kontrakt selekcji pozostaje bez zmian.
 
 ## Szablon nowej decyzji
 

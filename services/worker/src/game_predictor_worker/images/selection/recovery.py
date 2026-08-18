@@ -26,6 +26,7 @@ from .manifest import (
     CARDINALITY_PARTITIONED_SELECTOR_VERSION,
     PROOF_FIRST_SELECTOR_VERSIONS,
     QUANTILE_SAMPLED_SELECTOR_VERSION,
+    SEQUENCE_STABLE_SELECTOR_VERSION,
     SEQUENCE_VALIDATED_SELECTOR_VERSION,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
     STAGED_OCR_SELECTOR_VERSION,
@@ -249,7 +250,11 @@ def evaluate_recovery(
                     manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
                 ),
                 allow_expected_sequence_confirmation=(
-                    manifest.algorithm_version == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                    manifest.algorithm_version
+                    in {
+                        SEQUENCE_VALIDATED_SELECTOR_VERSION,
+                        SEQUENCE_STABLE_SELECTOR_VERSION,
+                    }
                 ),
             )
         ),
@@ -478,6 +483,7 @@ def _reconcile_proof_first_projection(
 
     normalized: list[SelectionGroupResult] = []
     owner_order_by_range: dict[tuple[int, int], int] = {}
+    groups_by_order = {group.group_order: group for group in projection.groups}
     for group in projection.groups:
         if group.status in _PROTECTED_USER_STATUSES:
             if group.range is not None and bounds.group_index_for_range(group.range) is None:
@@ -494,6 +500,18 @@ def _reconcile_proof_first_projection(
                     )
                 owner_order_by_range[key] = group.group_order
             normalized.append(replace(group, duplicate_of_group_order=None))
+            continue
+
+        if (
+            group.status is SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+            and group.range is not None
+            and group.duplicate_of_group_order is not None
+            and bounds.group_index_for_range(group.range) is not None
+            and (owner := groups_by_order.get(group.duplicate_of_group_order)) is not None
+            and owner.status is not SelectionGroupStatus.SKIPPED_EXISTING_RANGE
+            and _same_range(owner.range, group.range)
+        ):
+            normalized.append(group)
             continue
 
         if (
@@ -649,14 +667,22 @@ def _promote_expected_sequence_matches(
             allow_skipped_owners=False,
         )
     except SelectionContractError:
-        # Conflicting OCR anchors make the ordered hypothesis ambiguous. Keep the
-        # existing proof-first result for manual range review instead of failing
-        # the complete run or manufacturing sequence ownership.
-        return groups
+        # Strong OCR anchors can still contradict their physical order after a
+        # missed or surplus appearance boundary.  Keeping every conflicting
+        # automatic result would export a correct OCR range under the wrong
+        # logical slot.  Rebuild only the ordered ownership without locks and
+        # demote every mismatching automatic owner below; no range is
+        # manufactured from this fallback assignment.
+        try:
+            assignment = _sequence_assignment(
+                groups,
+                bounds=bounds,
+                allow_skipped_owners=False,
+            )
+        except SelectionContractError:
+            return groups
     owner_physical_by_slot = {
-        slot: physical_index
-        for physical_index, slot in enumerate(assignment)
-        if slot is not None
+        slot: physical_index for physical_index, slot in enumerate(assignment) if slot is not None
     }
     owner_order_by_slot = {
         slot: groups[physical_index].group_order
@@ -691,10 +717,25 @@ def _promote_expected_sequence_matches(
                 )
             )
             continue
+        expected = bounds.range_for_group(slot)
+        if group.status is SelectionGroupStatus.AUTO_SELECTED and not _same_range(
+            group.range, expected
+        ):
+            candidates = _proof_first_review_candidates(group)
+            promoted.append(
+                replace(
+                    group,
+                    range=None,
+                    status=SelectionGroupStatus.RANGE_REQUIRED,
+                    selected_candidate=(candidates[0] if candidates else None),
+                    top_candidates=candidates,
+                    duplicate_of_group_order=None,
+                )
+            )
+            continue
         if group.status is not SelectionGroupStatus.RANGE_REQUIRED:
             promoted.append(group)
             continue
-        expected = bounds.range_for_group(slot)
         candidate = _expected_sequence_candidate(group, expected=expected)
         if candidate is None:
             promoted.append(group)
@@ -751,8 +792,7 @@ def _expected_sequence_candidate(
     }
     for candidate in _proof_first_review_candidates(group):
         geometry_support = (
-            group.board_count_consensus is not None
-            and group.board_count_consensus >= 5
+            group.board_count_consensus is not None and group.board_count_consensus >= 5
         ) or "RANGE_OCR_LAYOUT_ANCHORED_TWO_LABEL" in candidate.reason_codes
         if not geometry_support:
             continue
@@ -852,6 +892,7 @@ def _sequence_assignment(
                     back[skipped] = (skipped, True)
             if (
                 skipped < extra
+                and (locked_slots is None or physical_index not in locked_slots)
                 and group.status not in _PROTECTED_USER_STATUSES
                 and (
                     group.source_count <= max_skippable_sources

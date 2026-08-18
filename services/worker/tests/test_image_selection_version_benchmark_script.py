@@ -7,11 +7,7 @@ from game_predictor_worker.images.selection.sequence_bounds import SequenceBound
 
 
 def _benchmark_module() -> ModuleType:
-    script = (
-        Path(__file__).parents[3]
-        / "scripts"
-        / "benchmark_image_selection_versions.py"
-    )
+    script = Path(__file__).parents[3] / "scripts" / "benchmark_image_selection_versions.py"
     spec = spec_from_file_location("benchmark_image_selection_versions", script)
     if spec is None or spec.loader is None:
         raise RuntimeError("Unable to load the image-selection version benchmark.")
@@ -43,6 +39,23 @@ def test_raw_jpeg_loader_supports_natural_and_reverse_read_only_order(
     assert natural_sha256 != reverse_sha256
 
 
+def test_raw_jpeg_loader_applies_profile_limit_before_hashing_sources(
+    tmp_path: Path,
+) -> None:
+    benchmark = _benchmark_module()
+    (tmp_path / "photo1.jpg").write_bytes(b"one")
+    (tmp_path / "photo2.jpg").write_bytes(b"two")
+
+    sources, _, source_kind = benchmark._load_sources(
+        tmp_path,
+        source_order="natural",
+        limit=1,
+    )
+
+    assert [source.relative_path for source in sources] == ["photo1.jpg"]
+    assert source_kind == "raw_jpeg_directory"
+
+
 def test_v1020_low_quality_annotations_cover_every_descending_range() -> None:
     path = (
         Path(__file__).parents[3]
@@ -66,10 +79,7 @@ def test_v1020_low_quality_annotations_cover_every_descending_range() -> None:
     assert len(cases) == 20
     assert len({case["relativePath"] for case in cases}) == len(cases)
     assert all(len(case["checksumSha256"]) == 64 for case in cases)
-    assert all(
-        case["readability"] in {"clear", "borderline", "unreadable"}
-        for case in cases
-    )
+    assert all(case["readability"] in {"clear", "borderline", "unreadable"} for case in cases)
     clear_ranges = {
         (case["expectedRange"]["start"], case["expectedRange"]["end"])
         for case in cases
@@ -77,9 +87,7 @@ def test_v1020_low_quality_annotations_cover_every_descending_range() -> None:
     }
     expected_ranges = {
         (value.start, value.end)
-        for value in (
-            bounds.range_for_group(index) for index in range(bounds.expected_group_count)
-        )
+        for value in (bounds.range_for_group(index) for index in range(bounds.expected_group_count))
     }
     assert clear_ranges == expected_ranges
     assert all(

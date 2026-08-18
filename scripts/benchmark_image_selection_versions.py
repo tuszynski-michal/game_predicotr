@@ -40,6 +40,7 @@ from game_predictor_worker.images.selection.manifest import (  # noqa: E402
     ADAPTIVE_CARDINALITY_SELECTOR_MANIFEST_V1015,
     PROOF_FIRST_SELECTOR_MANIFEST_V1019,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
     SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
@@ -66,6 +67,7 @@ MANIFESTS = {
     "v10.18": SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     "v10.19": PROOF_FIRST_SELECTOR_MANIFEST_V1019,
     "v10.20": SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+    "v10.21": SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
 }
 _JPEG_SUFFIXES = {".jpeg", ".jpg"}
 _NATURAL_PART = re.compile(r"(\d+)")
@@ -126,7 +128,7 @@ def _parse_args() -> argparse.Namespace:
         "--order",
         nargs="+",
         choices=tuple(MANIFESTS),
-        default=("v10.20", "v10.19"),
+        default=("v10.21", "v10.20"),
         help=(
             "One candidate version for a cold production gate, or candidate and "
             "baseline versions for an in-process comparison."
@@ -150,6 +152,7 @@ def _load_sources(
     source_root: Path,
     *,
     source_order: str,
+    limit: int | None = None,
 ) -> tuple[tuple[ImageSelectionSource, ...], str, str]:
     manifest_path = source_root / "_browser_manifest.json"
     if manifest_path.is_file():
@@ -169,6 +172,8 @@ def _load_sources(
                 ),
             )
         )
+        if limit is not None:
+            files = files[:limit]
         if not files:
             raise SystemExit("--source-root contains no JPEG files.")
         raw_sources: list[ImageSelectionSource] = []
@@ -198,8 +203,7 @@ def _load_sources(
         source_kind = "raw_jpeg_directory"
     if source_order == "reverse":
         sources = tuple(
-            replace(source, order_index=index)
-            for index, source in enumerate(reversed(sources))
+            replace(source, order_index=index) for index, source in enumerate(reversed(sources))
         )
         fingerprint = hashlib.sha256(
             _canonical_bytes(
@@ -321,9 +325,7 @@ def _validated_annotation_cases(
 
     expected_ranges = {
         (value.start, value.end)
-        for value in (
-            bounds.range_for_group(index) for index in range(bounds.expected_group_count)
-        )
+        for value in (bounds.range_for_group(index) for index in range(bounds.expected_group_count))
     }
     if clear_ranges != expected_ranges:
         raise SystemExit(
@@ -378,7 +380,9 @@ def _run(
         sequence_direction=sequence_direction,
         first_sequence_number=first_sequence_number,
         last_sequence_number=last_sequence_number,
-        expected_group_count_for_partitioning=expected_group_count,
+        expected_group_count_for_partitioning=(
+            None if manifest is SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021 else expected_group_count
+        ),
     )
     bounds: SequenceBounds | None = None
     if last_sequence_number is not None:
@@ -388,9 +392,7 @@ def _run(
             sequence_direction,
         )
         if bounds.expected_group_count != expected_group_count:
-            raise SystemExit(
-                "--expected-groups does not match the inclusive sequence bounds."
-            )
+            raise SystemExit("--expected-groups does not match the inclusive sequence bounds.")
         projection = reconcile_projection_to_sequence_bounds(
             RecoveryProjection(
                 groups=result.groups,
@@ -400,10 +402,15 @@ def _run(
             bounds=bounds,
             require_local_range_proof=(
                 manifest.algorithm_version
-                in {"fast-image-selector-v10.19", "fast-image-selector-v10.20"}
+                in {
+                    "fast-image-selector-v10.19",
+                    "fast-image-selector-v10.20",
+                    "fast-image-selector-v10.21",
+                }
             ),
             allow_expected_sequence_confirmation=(
-                manifest.algorithm_version == "fast-image-selector-v10.20"
+                manifest.algorithm_version
+                in {"fast-image-selector-v10.20", "fast-image-selector-v10.21"}
             ),
         )
         result = replace(result, groups=projection.groups)
@@ -464,7 +471,11 @@ def _run(
             label_observations=group.selected_candidate.range_label_observations,
             require_position_evidence=(
                 manifest.algorithm_version
-                in {"fast-image-selector-v10.19", "fast-image-selector-v10.20"}
+                in {
+                    "fast-image-selector-v10.19",
+                    "fast-image-selector-v10.20",
+                    "fast-image-selector-v10.21",
+                }
             ),
         )
     )
@@ -486,9 +497,7 @@ def _run(
                 "groupOrder": group.group_order,
                 "range": None if group.range is None else group.range.to_dict(),
                 "selectedCandidate": (
-                    None
-                    if group.selected_candidate is None
-                    else group.selected_candidate.to_dict()
+                    None if group.selected_candidate is None else group.selected_candidate.to_dict()
                 ),
                 "sourceCount": group.source_count,
                 "status": group.status.value,
@@ -498,9 +507,7 @@ def _run(
         ],
         "scanCache": cached_analyzer.snapshot(),
         "verificationCache": cached_verifier.snapshot(),
-        "projectionSha256": hashlib.sha256(
-            _canonical_bytes(serialized_projection)
-        ).hexdigest(),
+        "projectionSha256": hashlib.sha256(_canonical_bytes(serialized_projection)).hexdigest(),
         "selectorFingerprint": manifest.fingerprint,
         "selectorVersion": manifest.algorithm_version,
         "sequenceCoverageCount": len(covered_slots),
@@ -576,9 +583,7 @@ def _evaluate_annotation_cases(
             recognized.start,
             recognized.end,
         ) == (expected.start, expected.end)
-        ordered_evidence_matches = (
-            len(matching_positions) >= 2 and not conflicting_positions
-        )
+        ordered_evidence_matches = len(matching_positions) >= 2 and not conflicting_positions
         quality = observation.quality
         quality_eligible = (
             quality.overall_score >= policy.minimum_quality_score
@@ -595,15 +600,13 @@ def _evaluate_annotation_cases(
                 *verification.reason_codes,
             )
         )
-        representative_eligible = (
-            quality_eligible
-            and not hard_reason
+        representative_eligible = not hard_reason and (
+            manifest is SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021 or quality_eligible
         )
         passed = (
-            representative_eligible
-            and (recognized_matches or ordered_evidence_matches)
+            representative_eligible and (recognized_matches or ordered_evidence_matches)
             if should_be_eligible
-            else not representative_eligible
+            else hard_reason or not quality_eligible
         )
         results.append(
             {
@@ -680,6 +683,7 @@ def main() -> None:
     all_sources, input_manifest_sha256, source_kind = _load_sources(
         source_root,
         source_order=args.source_order,
+        limit=args.limit,
     )
     if args.limit < 1 or args.limit > len(all_sources):
         raise SystemExit("--limit must fit within the staging manifest.")

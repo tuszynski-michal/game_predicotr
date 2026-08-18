@@ -42,6 +42,7 @@ implementacyjnym.
 - [Algorithms](requirements/ALGORITHMS.md)
 - [Image ingestion](requirements/IMAGE_INGESTION.md)
 - [Fast representative image selection](requirements/IMAGE_SELECTION.md)
+- [Local manual image selection](requirements/MANUAL_IMAGE_SELECTION.md)
 - [Manual data import](requirements/MANUAL_DATA_IMPORT.md)
 - [Iterative supervised model improvement](requirements/SUPERVISED_MODEL_IMPROVEMENT.md)
 
@@ -53,6 +54,7 @@ implementacyjnym.
 - [API contract](architecture/API_CONTRACT.md)
 - [Supervised model improvement architecture](architecture/SUPERVISED_MODEL_IMPROVEMENT.md)
 - [Fast representative image selection architecture](architecture/IMAGE_SELECTION.md)
+- [Local manual image selection architecture](architecture/MANUAL_IMAGE_SELECTION.md)
 
 ### Dostarczanie
 
@@ -110,16 +112,16 @@ architektury ani Decision Log.
 
 ## Zasada pojedynczego źródła prawdy
 
-| Rodzaj informacji | Dokument właścicielski |
-|---|---|
-| Cel produktu i zakres | `PROJECT_BRIEF.md` |
-| Zachowanie ekranów | pliki w `requirements/` |
-| Model danych | `DATA_MODEL.md` |
-| Endpointy | `API_CONTRACT.md` |
-| Stos technologiczny | `TECH_STACK.md` |
-| Bieżący etap | `CURRENT_STATE.md` |
-| Historia decyzji | `DECISION_LOG.md` |
-| Kryteria ukończenia | `DEFINITION_OF_DONE.md` |
+| Rodzaj informacji     | Dokument właścicielski  |
+| --------------------- | ----------------------- |
+| Cel produktu i zakres | `PROJECT_BRIEF.md`      |
+| Zachowanie ekranów    | pliki w `requirements/` |
+| Model danych          | `DATA_MODEL.md`         |
+| Endpointy             | `API_CONTRACT.md`       |
+| Stos technologiczny   | `TECH_STACK.md`         |
+| Bieżący etap          | `CURRENT_STATE.md`      |
+| Historia decyzji      | `DECISION_LOG.md`       |
+| Kryteria ukończenia   | `DEFINITION_OF_DONE.md` |
 
 Nie kopiuj pełnej reguły do kilku dokumentów. W dokumentach pomocniczych podaj
 krótkie podsumowanie i link do właściciela reguły.

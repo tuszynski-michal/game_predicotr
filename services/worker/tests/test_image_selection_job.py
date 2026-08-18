@@ -55,6 +55,7 @@ from game_predictor_worker.images.selection.manifest import (
     LEGACY_SELECTOR_MANIFEST_V2,
     PROOF_FIRST_SELECTOR_MANIFEST_V1019,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
+    SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
     SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_MANIFEST_V1018,
     STAGED_OCR_SELECTOR_MANIFEST_V1016,
@@ -224,6 +225,10 @@ def test_v9_production_adapter_factory_does_not_construct_sequence_ocr(
         ),
         (
             SEQUENCE_VALIDATED_SELECTOR_MANIFEST_V1020,
+            SequenceValidatedVisibleSequenceLabelRangeRecognizer,
+        ),
+        (
+            SEQUENCE_STABLE_SELECTOR_MANIFEST_V1021,
             SequenceValidatedVisibleSequenceLabelRangeRecognizer,
         ),
     ),
@@ -836,7 +841,7 @@ def test_job_enforces_declared_sequence_group_count_before_publication(
     assert store.published is not None
 
 
-def test_job_partitions_false_merge_before_cardinality_reconciliation(
+def test_job_splits_false_merge_from_sampled_range_proof_without_cardinality_partition(
     tmp_path: Path,
 ) -> None:
     import_root, artifact_root, job, store = _fixture(
@@ -880,7 +885,9 @@ def test_job_partitions_false_merge_before_cardinality_reconciliation(
     assert store.published is not None
 
 
-def test_job_fails_closed_when_declared_groups_outnumber_sources(tmp_path: Path) -> None:
+def test_job_uses_declared_range_for_completeness_without_forcing_source_partition(
+    tmp_path: Path,
+) -> None:
     import_root, artifact_root, job, store = _fixture(
         tmp_path,
         file_count=2,
@@ -891,21 +898,26 @@ def test_job_fails_closed_when_declared_groups_outnumber_sources(tmp_path: Path)
         first_sequence_number=1,
         last_sequence_number=27,
     )
+    calls: list[int] = []
     handler = ImageSelectionJobHandler(
         store,
         browser_upload_root=import_root,
         artifact_root=artifact_root,
         repository_root=tmp_path,
         selector_manifest=DEFAULT_SELECTOR_MANIFEST,
-        adapter_factory=lambda _root, _manifest: (_Analyzer(), _Verifier()),
+        adapter_factory=lambda _root, _manifest: (_Analyzer(calls=calls), _Verifier()),
     )
 
-    with pytest.raises(JobHandlerError) as raised:
-        handler(_Context(job), job)  # type: ignore[arg-type]
+    handler(_Context(job), job)  # type: ignore[arg-type]
 
-    assert raised.value.code == "IMAGE_SELECTION_SOURCE_CARDINALITY_UNDERFLOW"
-    assert store.reconciled_persist_count == 0
-    assert store.published is None
+    assert calls == [0, 1]
+    assert store.reconciled_persist_count == 1
+    assert len(store.groups) == 2
+    assert [group.status for group in store.groups] == [
+        SelectionGroupStatus.AUTO_SELECTED,
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+    ]
+    assert store.published is not None
 
 
 def test_reconciled_projection_keeps_generic_job_counters_monotonic(

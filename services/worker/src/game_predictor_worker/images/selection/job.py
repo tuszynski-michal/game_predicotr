@@ -105,6 +105,7 @@ from .manifest import (
     PROOF_FIRST_SELECTOR_VERSIONS,
     QUANTILE_SAMPLED_SELECTOR_MANIFEST_V1017,
     QUANTILE_SAMPLED_SELECTOR_VERSION,
+    SEQUENCE_STABLE_SELECTOR_VERSION,
     SEQUENCE_VALIDATED_RANGE_ADAPTER_VERSION,
     SEQUENCE_VALIDATED_SELECTOR_VERSION,
     SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
@@ -318,15 +319,14 @@ class ImageSelectionJobHandler:
                         source_count=len(sources),
                         expected_group_count=sequence_bounds.expected_group_count,
                     )
-                elif (
-                    selector_manifest.algorithm_version
-                    in {
-                        ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
-                        STAGED_OCR_SELECTOR_VERSION,
-                        QUANTILE_SAMPLED_SELECTOR_VERSION,
-                        SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
-                    }
-                    or selector_manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                elif selector_manifest.algorithm_version in {
+                    ADAPTIVE_CARDINALITY_SELECTOR_VERSION,
+                    STAGED_OCR_SELECTOR_VERSION,
+                    QUANTILE_SAMPLED_SELECTOR_VERSION,
+                    SINGLE_FRAME_EARLY_EXIT_SELECTOR_VERSION,
+                } or (
+                    selector_manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
+                    and selector_manifest.algorithm_version != SEQUENCE_STABLE_SELECTOR_VERSION
                 ):
                     expected_group_count_for_partitioning = sequence_bounds.expected_group_count
             persisted_groups = self._store.load_groups(run.id)
@@ -398,7 +398,11 @@ class ImageSelectionJobHandler:
                         selector_manifest.algorithm_version in PROOF_FIRST_SELECTOR_VERSIONS
                     ),
                     allow_expected_sequence_confirmation=(
-                        selector_manifest.algorithm_version == SEQUENCE_VALIDATED_SELECTOR_VERSION
+                        selector_manifest.algorithm_version
+                        in {
+                            SEQUENCE_VALIDATED_SELECTOR_VERSION,
+                            SEQUENCE_STABLE_SELECTOR_VERSION,
+                        }
                     ),
                 )
                 result = replace(result, groups=projection.groups)

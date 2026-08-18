@@ -775,6 +775,291 @@ nav {
   margin-top: 12px;
 }
 
+.manualImageSelectionWorkspace {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.manualImageSelectionHeader,
+.manualImageSelectionSetup {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.manualImageSelectionHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+}
+
+.manualImageSelectionHeader h1,
+.manualImageSelectionHeader p {
+  margin-top: 0;
+}
+
+.manualImageSelectionHeader p:last-child {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.manualImageSelectionHeader strong {
+  color: var(--accent);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.manualImageSelectionSetup {
+  display: grid;
+  max-width: 760px;
+  gap: 16px;
+  padding: 24px;
+}
+
+.manualImageSelectionSetup label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.manualImageSelectionSetup input,
+.manualImageSelectionSetup select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(4, 12, 22, 0.82);
+  color: var(--text);
+  font: inherit;
+}
+
+.manualImageSelectionSetup label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.manualImageSelectionFolderActions,
+.manualImageSelectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.manualImageSelectionReady {
+  margin: 0;
+  color: #baf3dc;
+}
+
+.manualImageSelectionStatus {
+  margin: 0;
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.manualImageSelectionActive {
+  min-height: min(78vh, 900px);
+}
+
+.manualImageSelectionCounters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+}
+
+.manualImageSelectionViewer {
+  display: grid;
+  grid-template-columns: minmax(48px, 72px) minmax(0, 1fr) minmax(48px, 72px);
+  align-items: center;
+  gap: 12px;
+  min-height: 55vh;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(1, 7, 14, 0.72);
+  overflow: auto;
+}
+
+.manualImageSelectionViewerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.manualImageSelectionStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.manualImageSelectionStep select {
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 30px 6px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.manualImageSelectionZoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+}
+
+.manualImageSelectionZoom .secondaryButton {
+  min-width: 38px;
+  padding: 7px 10px;
+}
+
+.manualImageSelectionViewer:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border: 0;
+  border-radius: 0;
+  background: #020617;
+}
+
+.manualImageSelectionFullscreenInfo {
+  display: none;
+}
+
+.manualImageSelectionViewer:fullscreen .manualImageSelectionFullscreenInfo {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(2, 6, 23, 0.94);
+  color: var(--text);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+}
+
+.manualImageSelectionViewer:fullscreen
+  .manualImageSelectionFullscreenInfo
+  span:last-child {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.manualImageSelectionImageFrame {
+  display: grid;
+  min-width: 0;
+  min-height: 50vh;
+  place-items: center;
+  gap: 12px;
+}
+
+.manualImageSelectionImageFrame img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 64vh;
+  object-fit: contain;
+  border-radius: 8px;
+  transform-origin: center center;
+  transition: transform 120ms ease-out;
+}
+
+.manualImageSelectionNav {
+  min-height: 86px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 34px;
+}
+
+.manualImageSelectionNav:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.manualImageSelectionNav:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.manualImageSelectionFilename,
+.manualImageSelectionHelp {
+  margin: 0;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.manualImageSelectionActions {
+  justify-content: center;
+}
+
+.manualImageSelectionActions .primaryButton {
+  min-width: min(100%, 330px);
+}
+
+.manualImageSelectionHelp {
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .manualImageSelectionViewerToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .manualImageSelectionStep {
+    justify-content: space-between;
+  }
+
+  .manualImageSelectionHeader {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .manualImageSelectionCounters {
+    justify-content: flex-start;
+  }
+
+  .manualImageSelectionViewer {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    padding: 8px;
+  }
+
+  .manualImageSelectionNav {
+    min-height: 64px;
+    font-size: 26px;
+  }
+}
+
 .manualSelectionOverlay {
   position: fixed;
   z-index: 80;

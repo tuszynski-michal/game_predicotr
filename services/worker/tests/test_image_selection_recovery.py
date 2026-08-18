@@ -719,6 +719,99 @@ def test_sequence_confirmation_marks_surplus_fragment_as_existing_range() -> Non
     assert reconciled.groups[1].top_candidates == ()
 
 
+def test_sequence_confirmation_preserves_engine_linked_transition_fragment() -> None:
+    first = _proof_group(
+        0,
+        SequenceRange(1, 9, 0.96),
+        "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+    )
+    fragment = _group_with_range(
+        1,
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+        SequenceRange(10, 18, 0.96),
+    )
+    fragment = replace(
+        fragment,
+        result=replace(
+            fragment.result,
+            selected_candidate=None,
+            top_candidates=(),
+            duplicate_of_group_order=2,
+        ),
+    )
+    owner = _proof_group(
+        2,
+        SequenceRange(10, 18, 0.96),
+        "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+    )
+    projection = assemble_recovery_projection(
+        (first, fragment, owner),
+        (),
+        reconcile_duplicates=False,
+    )
+
+    reconciled = reconcile_projection_to_sequence_bounds(
+        projection,
+        bounds=SequenceBounds(1, 18),
+        require_local_range_proof=True,
+        allow_expected_sequence_confirmation=True,
+    )
+
+    assert [group.status for group in reconciled.groups] == [
+        SelectionGroupStatus.AUTO_SELECTED,
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+        SelectionGroupStatus.AUTO_SELECTED,
+    ]
+    assert reconciled.groups[1].range is not None
+    assert (reconciled.groups[1].range.start, reconciled.groups[1].range.end) == (10, 18)
+    assert reconciled.groups[1].duplicate_of_group_order == 2
+
+
+def test_sequence_confirmation_demotes_automatic_ranges_with_conflicting_slot_order() -> None:
+    groups = (
+        _proof_group(
+            0,
+            SequenceRange(1, 9, 0.96),
+            "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+        ),
+        _proof_group(
+            1,
+            SequenceRange(19, 27, 0.96),
+            "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+        ),
+        _proof_group(
+            2,
+            SequenceRange(10, 18, 0.96),
+            "RANGE_OCR_LAYOUT_ANCHORED_THREE_LABEL",
+        ),
+        _group(3, SelectionGroupStatus.RANGE_REQUIRED, (_source(3),)),
+    )
+    projection = assemble_recovery_projection(
+        groups,
+        (),
+        reconcile_duplicates=False,
+    )
+
+    reconciled = reconcile_projection_to_sequence_bounds(
+        projection,
+        bounds=SequenceBounds(1, 27),
+        require_local_range_proof=True,
+        allow_expected_sequence_confirmation=True,
+    )
+
+    assert [group.status for group in reconciled.groups] == [
+        SelectionGroupStatus.AUTO_SELECTED,
+        SelectionGroupStatus.RANGE_REQUIRED,
+        SelectionGroupStatus.RANGE_REQUIRED,
+        SelectionGroupStatus.SKIPPED_EXISTING_RANGE,
+    ]
+    assert reconciled.groups[0].range == SequenceRange(1, 9, 0.96)
+    assert reconciled.groups[1].range is None
+    assert reconciled.groups[2].range is None
+    assert reconciled.groups[1].selected_candidate is not None
+    assert reconciled.groups[2].selected_candidate is not None
+
+
 def test_proof_first_projection_keeps_off_by_one_label_in_range_review() -> None:
     anchor = _proof_group(
         0,

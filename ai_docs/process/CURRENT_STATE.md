@@ -52,7 +52,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   `200710–200718`, `200800–200808` i `201367–201375`; jest to jawny brak
   dowodu w próbce, nie błąd automatycznie przypisanego numeru,
 - TASK-0231 rozpoczął implementację od jakości i kompletności `Importu
-  layoutów`; nie zmienia ani nie zatrzymuje trwających runów selekcji zdjęć,
+layoutów`; nie zmienia ani nie zatrzymuje trwających runów selekcji zdjęć,
 - detektor v3 dopuszcza częściową rekonstrukcję siatki 3 × 3 wyłącznie przy
   jednej jednoznacznej hipotezie; przypadek wieloznaczny nadal jest fail-closed,
 - cropper v17 nie materializuje rozciągniętej planszy `500 × 300`: zapisuje
@@ -114,8 +114,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   świadomie pominięte), 198 testów Admina, skupiony Ruff/mypy, kontrola OpenAPI,
   ESLint i typecheck Admina,
 - analiza liczności ujawniła, że źródło `1–19809` ma 2295 fizycznych fragmentów,
-  lecz v10.12 zachowywał tylko 2167 logicznych właścicieli zamiast wymaganych
-  2201. V10.13 zapisuje inkluzywny koniec sekwencji, wylicza grupy jako
+  lecz v10.12 zachowywał tylko 2167 logicznych właścicieli zamiast wymaganych 2201. V10.13 zapisuje inkluzywny koniec sekwencji, wylicza grupy jako
   `ceil((abs(last-first)+1)/9)` i uzgadnia pełną projekcję z ciągłą siatką;
   decyzje użytkownika są twardymi ograniczeniami, a duże false merge wracają do
   segmentacji,
@@ -184,8 +183,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   logicznych właścicieli i 97 duplikatów bez luk, duplikatów zakresu ani pozycji
   poza siatką. Job zatrzymał dopiero kolejny checkpoint kodem
   `JOB_PROGRESS_REGRESSION`: aktualna projekcja miała 1406 gotowych i 795
-  manualnych grup, podczas gdy historyczny ogólny licznik sukcesów wynosił
-  1888. Etap `v0.6.15` zachowuje dokładne liczniki projekcji w checkpoint
+  manualnych grup, podczas gdy historyczny ogólny licznik sukcesów wynosił 1888. Etap `v0.6.15` zachowuje dokładne liczniki projekcji w checkpoint
   payload, a ogólne liczniki joba zapisuje jako monotoniczną kopertę również w
   retry, recovery i publikacji. Fingerprint v10.13 i wynik rozpoznawania nie
   zmieniają się.
@@ -823,7 +821,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   pełne i nowe plansze liczone po checksumach względem ostatniej kohorty,
   źródła, pokrycie każdego aktywnego symbolu, progi doradcze 100/1000,
   ostrzeżenia oraz wszystkie chronione decyzje człowieka. `Ulepsz
-  rozpoznawanie` wymaga jawnego potwierdzenia dokładnej checksumy preview;
+rozpoznawanie` wymaga jawnego potwierdzenia dokładnej checksumy preview;
   zmiana manifestu albo aktywny ciężki job tej gry blokują freeze. Operacja
   tworzy wyłącznie niezmienną kohortę i nie uruchamia jeszcze treningu,
 - TASK-0145 dodał deterministyczny builder
@@ -862,7 +860,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   kalibracja siatki z osobną aktywacją i rollbackiem,
 - profil siatki jest przypinany do nowego joba wraz z payloadem, checksumą i
   fingerprintem; działa tylko dla dokładnego `imageSelectionRunId +
-  positionIndex`, a brak dopasowania bezpiecznie pozostawia wynik detektora,
+positionIndex`, a brak dopasowania bezpiecznie pozostawia wynik detektora,
 - TASK-0208 ma gotową obserwowalność i bounded skrypt pomiarowy; rzeczywiste
   pomiary 10/100/1000 oraz warunkowe 5000 pozostają odbiorem właściciela,
 - Selekcja Zdjęć pozostaje oddzielnym, niezmienianym modułem v0.4.
@@ -900,7 +898,7 @@ się w `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
   dodaje append-only audyt ręcznych decyzji selektora,
 - ręczne wyjątki selekcji nie wymagają już pliku: użytkownik może podać sam
   zakres, np. `1–9`, a Admin zapisuje i pokazuje `Brak zdjęcia dla layoutów
-  1–9`; opcjonalny JPEG nadal można dodać przed zatwierdzeniem,
+1–9`; opcjonalny JPEG nadal można dodać przed zatwierdzeniem,
 - 4 sierpnia 2026 lokalny PostgreSQL został wyczyszczony przed rozpoczęciem
   rzeczywistego, etapowego zasilania docelowego zbioru 500 000 layoutów;
   wszystkie 38 tabel domenowych ma zero rekordów, a schemat jest na migracji
@@ -1552,3 +1550,13 @@ commicie i kontrolowanym przeładowaniu API oraz lane selekcji na v10.18.
 - wielogrowego wydania mobilnego,
 - pełnej macierzy urządzeń i odroczonego hardeningu bez nowego jawnego planu,
 - Celery/Redis, mikroserwisów, chmury, Google Play lub publicznego Admin API.
+
+## Lokalna ręczna selekcja — TASK-0246
+
+Admin ma niezależną zakładkę `Ręczna selekcja` dla awaryjnego przypisywania
+oryginalnych JPEG-ów do kolejnych zakresów `start–start+8`. Działa lokalnie przez
+File System Access API, zapisuje sesję per gra w IndexedDB i nie uruchamia API,
+workera, stagingu ani OCR. Enter zapisuje `seq_*.jpg` i przechodzi do następnego
+zdjęcia, Tab pomija zakres przy tym samym zdjęciu, a Ctrl+Z usuwa wyłącznie
+zweryfikowany plik zapisany przez tę sesję. Implementacja jest gotowa do testu
+manualnego w przeglądarce; zadanie `0246` pozostaje `in_progress` do akceptacji.

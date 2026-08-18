@@ -17,6 +17,6 @@ reprezentantów bez zmiany segmentacji ani decyzji selektora.
 Dodano content-addressed kohortę cech, deterministyczny pairwise split i trening
 `representative-quality-mlp-v1` (`8→16→8→1`, ReLU, ONNX FP32). Worker może
 przypiąć snapshot joba w trybie `shadow`; diagnostyka zapisuje rekomendacje,
-zgodność z heurystyką i checksum modelu. Dodano migrację tabel kohort,
+zgodność z heurystyką, zgodność PyTorch–ONNX i checksum modelu. Dodano migrację tabel kohort,
 iteracji i historii aktywacji. Promocja pozostaje zablokowana do bramek jakości
 i jawnej akceptacji właściciela.

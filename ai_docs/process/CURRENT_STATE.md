@@ -1582,3 +1582,8 @@ snapshot `shadow`. Job może przypiąć snapshot przez
 przez model bez zmiany wyniku v10.21. Migracja `0044_representative_ranking`
 tworzy osobne tabele kohort, iteracji i historii aktywacji. Promocja do v10.22
 nie została wykonana.
+
+W `v0.6.31` eksport ONNX jest sprawdzany na tych samych wektorach cech co
+PyTorch, a maksymalny błąd zgodności trafia do raportu treningowego. Snapshot
+shadow jest weryfikowany checksumą przed utworzeniem rekomendacji; ranking jest
+wyłącznie diagnostyczny i nie zmienia wyniku selekcji.

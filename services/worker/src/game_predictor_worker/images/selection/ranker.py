@@ -413,13 +413,20 @@ def train_ranker(
         output_names=["score"],
         opset_version=17,
         dynamo=False,
+        dynamic_axes={"features": {0: "batch"}, "score": {0: "batch"}},
     )
     model_checksum = hashlib.sha256(model_path.read_bytes()).hexdigest()
+    onnx_parity_error = _onnx_parity_error(
+        model,
+        model_path,
+        normalized,
+    )
     report: dict[str, object] = {
         "baselinePairwiseAccuracy": baseline_pairwise,
         "cohortChecksumSha256": _checksum(cohort.get("manifestChecksumSha256")),
         "featureVersion": RANKER_FEATURE_VERSION,
         "modelPairwiseAccuracy": model_pairwise,
+        "onnxParityMaxAbsError": onnx_parity_error,
         "pairCount": len(pair_values),
         "seed": seed,
         "testPairCount": len(test_pairs),
@@ -436,6 +443,7 @@ def train_ranker(
         metrics={
             "baselinePairwiseAccuracy": baseline_pairwise,
             "modelPairwiseAccuracy": model_pairwise,
+            "onnxParityMaxAbsError": onnx_parity_error,
         },
         cohort_checksum_sha256=_checksum(cohort.get("manifestChecksumSha256")),
     )
@@ -461,8 +469,25 @@ def shadow_rank(
     normalized = (values - np.asarray(snapshot.standardization_mean)) / np.asarray(
         snapshot.standardization_scale
     )
+    normalized = normalized.astype(np.float32)
     scores = session.run(["score"], {"features": normalized})[0].reshape(-1)
     return tuple(sorted(range(len(features)), key=lambda index: (-float(scores[index]), index)))
+
+
+def _onnx_parity_error(
+    model: nn.Module,
+    model_path: Path,
+    normalized_features: np.ndarray,
+) -> float:
+    import onnxruntime as ort
+
+    with torch.no_grad():
+        expected = model(torch.from_numpy(normalized_features)).reshape(-1).numpy()
+    session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+    actual = session.run(["score"], {"features": normalized_features})[0].reshape(-1)
+    if expected.shape != actual.shape:
+        raise ValueError("PyTorch and ONNX ranker outputs have different shapes.")
+    return float(np.max(np.abs(expected - actual)))
 
 
 def shadow_recommendations(
@@ -505,6 +530,7 @@ def shadow_recommendations(
         normalized = (np.asarray(values, dtype=np.float32) - np.asarray(
             snapshot.standardization_mean
         )) / np.asarray(snapshot.standardization_scale)
+        normalized = normalized.astype(np.float32)
         scores = session.run(["score"], {"features": normalized})[0].reshape(-1)
         order = tuple(
             sorted(range(len(values)), key=lambda index: (-float(scores[index]), index))

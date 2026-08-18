@@ -6,6 +6,7 @@ from game_predictor_worker.images.selection.ranker import (
     RANKER_FEATURE_VERSION,
     build_ranking_cohort,
     quality_features,
+    shadow_rank,
     train_ranker,
 )
 from PIL import Image
@@ -109,4 +110,8 @@ def test_train_ranker_exports_shadow_snapshot(tmp_path: Path) -> None:
     assert snapshot.status == "shadow"
     assert snapshot.model_version == "representative-quality-mlp-v1"
     assert report["pairCount"] == 1
-    assert (tmp_path / snapshot.model_relative_path).is_file()
+    assert float(report["onnxParityMaxAbsError"]) < 1e-5
+    model_path = tmp_path / snapshot.model_relative_path
+    assert model_path.is_file()
+    features = [sample["features"] for sample in cohort["samples"]]
+    assert sorted(shadow_rank(snapshot, features, model_path=model_path)) == [0, 1]

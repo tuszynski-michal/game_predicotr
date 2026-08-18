@@ -8,7 +8,11 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
-from game_predictor_api.application.image_reviews import OperationalImageReviewPage
+from game_predictor_api.application.image_reviews import (
+    CanonicalImageReviewPage,
+    OperationalImageReviewPage,
+    PendingGridReinferencePreview,
+)
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     MAX_IMAGE_REVIEW_ALTERNATIVES,
@@ -91,6 +95,31 @@ class OperationalImageReviewPageResponse(ApiModel):
     counts: OperationalImageReviewCountsResponse
     previous_cursor: str | None
     next_cursor: str | None
+
+
+class CanonicalImageReviewPageResponse(ApiModel):
+    game_id: UUID
+    items: tuple[OperationalImageReviewItemResponse, ...]
+    counts: OperationalImageReviewCountsResponse
+    previous_cursor: str | None
+    next_cursor: str | None
+
+
+class PendingSymbolReinferencePreviewResponse(ApiModel):
+    game_id: UUID
+    pending_count: int = Field(ge=0)
+    protected_resolved_count: int = Field(ge=0)
+    requires_explicit_activation: bool = True
+
+
+class PendingGridReinferencePreviewResponse(ApiModel):
+    game_id: UUID
+    pending_board_count: int = Field(ge=0)
+    protected_board_count: int = Field(ge=0)
+    pending_source_count: int = Field(ge=0)
+    partially_resolved_source_count: int = Field(ge=0)
+    fully_resolved_source_count: int = Field(ge=0)
+    requires_explicit_activation: bool = True
 
 
 class ImageDatasetCompletenessResponse(ApiModel):
@@ -315,6 +344,38 @@ def to_operational_page_response(
     )
 
 
+def to_canonical_page_response(
+    page: CanonicalImageReviewPage,
+) -> CanonicalImageReviewPageResponse:
+    return CanonicalImageReviewPageResponse(
+        game_id=page.game_id,
+        items=tuple(to_operational_item_response(item) for item in page.items),
+        counts=OperationalImageReviewCountsResponse(
+            pending=page.counts.pending,
+            accepted=page.counts.accepted,
+            corrected=page.counts.corrected,
+            rejected=page.counts.rejected,
+            completed=page.counts.completed,
+            total=page.counts.total,
+        ),
+        previous_cursor=page.previous_cursor,
+        next_cursor=page.next_cursor,
+    )
+
+
+def to_pending_grid_reinference_preview_response(
+    preview: PendingGridReinferencePreview,
+) -> PendingGridReinferencePreviewResponse:
+    return PendingGridReinferencePreviewResponse(
+        game_id=preview.game_id,
+        pending_board_count=preview.pending_board_count,
+        protected_board_count=preview.protected_board_count,
+        pending_source_count=preview.pending_source_count,
+        partially_resolved_source_count=preview.partially_resolved_source_count,
+        fully_resolved_source_count=preview.fully_resolved_source_count,
+    )
+
+
 def to_image_dataset_completeness_response(
     report: ImageDatasetCompleteness,
 ) -> ImageDatasetCompletenessResponse:
@@ -422,6 +483,9 @@ def to_operational_geometry_revision_response(
 
 __all__ = [
     "OperationalImageReviewPageResponse",
+    "CanonicalImageReviewPageResponse",
+    "PendingSymbolReinferencePreviewResponse",
+    "PendingGridReinferencePreviewResponse",
     "ImageDatasetCompletenessResponse",
     "ImageSequenceSourceOverrideCommand",
     "ImageSequenceSourceSelectionResponse",
@@ -435,6 +499,8 @@ __all__ = [
     "to_operational_geometry_revision_response",
     "to_operational_item_response",
     "to_operational_page_response",
+    "to_canonical_page_response",
+    "to_pending_grid_reinference_preview_response",
     "to_image_dataset_completeness_response",
     "to_image_sequence_source_selection_response",
 ]

@@ -57,6 +57,25 @@ class OperationalImageReviewPage:
     next_cursor: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class CanonicalImageReviewPage:
+    game_id: UUID
+    items: tuple[ImageReviewItem, ...]
+    counts: ImageReviewCounts
+    previous_cursor: str | None
+    next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class PendingGridReinferencePreview:
+    game_id: UUID
+    pending_board_count: int
+    protected_board_count: int
+    pending_source_count: int
+    partially_resolved_source_count: int
+    fully_resolved_source_count: int
+
+
 class OperationalImageReviewRepository(Protocol):
     def require_context(self, *, game_id: UUID, import_job_id: UUID) -> None: ...
 
@@ -72,6 +91,22 @@ class OperationalImageReviewRepository(Protocol):
         resume_at_first_pending: bool,
         limit: int,
     ) -> ImageReviewPage: ...
+
+    def list_canonical_pending_items(
+        self,
+        *,
+        game_id: UUID,
+        after_sequence: int | None,
+        limit: int,
+    ) -> ImageReviewPage: ...
+
+    def canonical_pending_count(self, game_id: UUID) -> int: ...
+
+    def game_counts(self, game_id: UUID) -> ImageReviewCounts: ...
+
+    def pending_grid_reinference_preview(
+        self, game_id: UUID
+    ) -> PendingGridReinferencePreview: ...
 
     def get_item(
         self,
@@ -254,6 +289,54 @@ class OperationalImageReviewService:
                 else None
             ),
         )
+
+    def list_canonical_pending_items(
+        self,
+        *,
+        game_id: UUID,
+        after_sequence: int | None,
+        limit: int,
+    ) -> CanonicalImageReviewPage:
+        if not 1 <= limit <= MAX_IMAGE_REVIEW_PAGE_SIZE or (
+            after_sequence is not None and after_sequence < 1
+        ):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PAGE_INVALID",
+                "The canonical review page cursor or limit is invalid.",
+            )
+        page = self._repository.list_canonical_pending_items(
+            game_id=game_id,
+            after_sequence=after_sequence,
+            limit=limit,
+        )
+        last_sequence = (
+            page.items[-1].queue_sequence_number
+            if page.items and page.items[-1].queue_sequence_number is not None
+            else None
+        )
+        first_sequence = (
+            page.items[0].queue_sequence_number
+            if page.items and page.items[0].queue_sequence_number is not None
+            else None
+        )
+        return CanonicalImageReviewPage(
+            game_id=game_id,
+            items=page.items,
+            counts=page.counts,
+            previous_cursor=None if first_sequence is None else str(first_sequence),
+            next_cursor=None if last_sequence is None or not page.has_next else str(last_sequence),
+        )
+
+    def canonical_pending_count(self, game_id: UUID) -> int:
+        return self._repository.canonical_pending_count(game_id)
+
+    def game_counts(self, game_id: UUID) -> ImageReviewCounts:
+        return self._repository.game_counts(game_id)
+
+    def pending_grid_reinference_preview(
+        self, game_id: UUID
+    ) -> PendingGridReinferencePreview:
+        return self._repository.pending_grid_reinference_preview(game_id)
 
     def get_item(
         self,

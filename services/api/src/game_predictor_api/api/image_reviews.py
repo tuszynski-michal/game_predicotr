@@ -20,6 +20,7 @@ from game_predictor_api.application.image_review_assets import (
 from game_predictor_api.application.image_reviews import (
     OperationalImageReviewService,
 )
+from game_predictor_api.application.jobs import JobService
 from game_predictor_api.application.reviewer_access import (
     ReviewerAccessService,
     ReviewerAccessSession,
@@ -30,8 +31,10 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewResolutionCell,
     ImageReviewView,
 )
+from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_reviews import (
+    CanonicalImageReviewPageResponse,
     ImageDatasetCompletenessResponse,
     ImageSequenceSourceOverrideCommand,
     ImageSequenceSourceSelectionResponse,
@@ -43,13 +46,18 @@ from game_predictor_api.schemas.image_reviews import (
     OperationalImageReviewResolutionCommand,
     OperationalImageReviewResolutionEventResponse,
     OperationalImageReviewResolutionResponse,
+    PendingGridReinferencePreviewResponse,
+    PendingSymbolReinferencePreviewResponse,
+    to_canonical_page_response,
     to_image_dataset_completeness_response,
     to_image_sequence_source_selection_response,
     to_operational_event_response,
     to_operational_geometry_revision_response,
     to_operational_item_response,
     to_operational_page_response,
+    to_pending_grid_reinference_preview_response,
 )
+from game_predictor_api.schemas.jobs import JobResponse
 
 OperationalImageReviewServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -63,6 +71,7 @@ def create_image_reviews_router(
     service_dependency: OperationalImageReviewServiceDependency,
     artifact_root: Path,
     reviewer_access_service_dependency: Callable[..., object],
+    job_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/image-review-items", tags=["image-reviews"])
     service_parameter = Depends(service_dependency)
@@ -86,6 +95,7 @@ def create_image_reviews_router(
         return f"reviewer-session:{reviewer_session.id}"
 
     reviewer_service_parameter = Depends(reviewer_access_service_dependency)
+    job_parameter = None if job_service_dependency is None else Depends(job_service_dependency)
 
     @router.get(
         "/dataset-completeness/{game_id}",
@@ -179,6 +189,117 @@ def create_image_reviews_router(
                 resume_at_first_pending=resume_at_first_pending,
                 limit=limit,
             )
+        )
+
+    @router.get(
+        "/canonical/{game_id}",
+        response_model=CanonicalImageReviewPageResponse,
+        operation_id="listCanonicalImageReviewItems",
+        summary="List the game-wide pending review queue in sequence order",
+        responses=ERROR_RESPONSES,
+    )
+    def list_canonical_image_review_items(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        after_sequence: Annotated[
+            int | None,
+            Query(alias="afterSequence", ge=1),
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=MAX_IMAGE_REVIEW_PAGE_SIZE)] = 25,
+    ) -> CanonicalImageReviewPageResponse:
+        return to_canonical_page_response(
+            service.list_canonical_pending_items(
+                game_id=game_id,
+                after_sequence=after_sequence,
+                limit=limit,
+            )
+        )
+
+    @router.get(
+        "/pending-symbol-reinference/preview/{game_id}",
+        response_model=PendingSymbolReinferencePreviewResponse,
+        operation_id="previewPendingSymbolReinference",
+        summary="Preview the explicit pending-only symbol recalculation",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_pending_symbol_reinference(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> PendingSymbolReinferencePreviewResponse:
+        pending = service.canonical_pending_count(game_id)
+        counts = service.game_counts(game_id)
+        return PendingSymbolReinferencePreviewResponse(
+            game_id=game_id,
+            pending_count=pending,
+            protected_resolved_count=counts.accepted + counts.corrected + counts.rejected,
+        )
+
+    @router.post(
+        "/pending-symbol-reinference/{game_id}",
+        response_model=JobResponse,
+        operation_id="startPendingSymbolReinference",
+        summary="Start an explicit pending-only symbol recalculation",
+        responses=ERROR_RESPONSES,
+    )
+    def start_pending_symbol_reinference(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        job_service: JobService | None = job_parameter,
+    ) -> JobResponse:
+        if job_service is None:
+            raise JobError(
+                "IMAGE_SYMBOL_REINFERENCE_UNAVAILABLE",
+                "Pending symbol reinference is not configured.",
+            )
+        pending = service.canonical_pending_count(game_id)
+        if pending == 0:
+            raise JobError(
+                "IMAGE_SYMBOL_REINFERENCE_EMPTY",
+                "There are no pending symbol predictions to recalculate.",
+            )
+        job = job_service.create_pending_symbol_reinference_job(game_id=game_id)
+        return JobResponse.from_domain(job)
+
+    @router.get(
+        "/pending-grid-reinference/preview/{game_id}",
+        response_model=PendingGridReinferencePreviewResponse,
+        operation_id="previewPendingGridReinference",
+        summary="Preview pending-only grid and crop recalculation",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_pending_grid_reinference(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> PendingGridReinferencePreviewResponse:
+        return to_pending_grid_reinference_preview_response(
+            service.pending_grid_reinference_preview(game_id)
+        )
+
+    @router.post(
+        "/pending-grid-reinference/{game_id}",
+        response_model=JobResponse,
+        operation_id="startPendingGridReinference",
+        summary="Start pending-only grid and crop recalculation",
+        responses=ERROR_RESPONSES,
+    )
+    def start_pending_grid_reinference(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        job_service: JobService | None = job_parameter,
+    ) -> JobResponse:
+        if job_service is None:
+            raise JobError(
+                "IMAGE_GRID_REINFERENCE_UNAVAILABLE",
+                "Pending grid reinference is not configured.",
+            )
+        preview = service.pending_grid_reinference_preview(game_id)
+        if preview.pending_board_count == 0:
+            raise JobError(
+                "IMAGE_GRID_REINFERENCE_EMPTY",
+                "There are no pending board geometries to recalculate.",
+            )
+        return JobResponse.from_domain(
+            job_service.create_pending_grid_reinference_job(game_id=game_id)
         )
 
     @router.post(

@@ -14,6 +14,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from game_predictor_api.application.image_reviews import (
     OperationalImageReviewRepository,
+    PendingGridReinferencePreview,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import (
@@ -51,7 +52,10 @@ from game_predictor_api.storage.models import (
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     ImageReviewResolutionEventModel,
+    ImageSequenceAlternativeModel,
+    ImageSequenceCanonicalModel,
     ImageSequenceSourceOverrideEventModel,
+    ImageSymbolPredictionRevisionModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
@@ -107,9 +111,9 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         if expected is None:
             return None
         accepted = (
-            select(ImageLayoutStagingRowModel.sequence_number.label("sequence_number"))
-            .join(JobModel, JobModel.id == ImageLayoutStagingRowModel.import_job_id)
-            .where(JobModel.game_id == game_id)
+            select(ImageSequenceCanonicalModel.sequence_number.label("sequence_number")).where(
+                ImageSequenceCanonicalModel.game_id == game_id
+            )
         ).subquery()
         accepted_count = int(self._session.scalar(select(func.count()).select_from(accepted)) or 0)
         in_range = (
@@ -250,8 +254,16 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             .order_by(ImageSequenceSourceOverrideEventModel.revision.desc())
             .limit(1)
         )
+        canonical = self._session.scalar(
+            select(ImageSequenceCanonicalModel).where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == sequence_number,
+            )
+        )
         manual_id = None if override is None else override.selected_review_item_id
-        selected_id = manual_id or rows[0][0].id
+        selected_id = (
+            canonical.review_item_id if canonical is not None else manual_id or rows[0][0].id
+        )
         candidates = tuple(
             ImageSequenceSourceCandidate(
                 review_item_id=item.id,
@@ -403,6 +415,82 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             counts=self._counts(game_id, import_job_id),
             has_previous=has_previous,
             has_next=has_next,
+        )
+
+    def list_canonical_pending_items(
+        self,
+        *,
+        game_id: UUID,
+        after_sequence: int | None,
+        limit: int,
+    ) -> ImageReviewPage:
+        """Return one game-wide queue ordered by attested sequence number.
+
+        A pending duplicate of an already canonical sequence is hidden here;
+        it remains available through its job-local endpoint for audit purposes.
+        ``None`` sequence values are retained at the end for manual range
+        assignment.
+        """
+
+        query = _base_game_query(game_id).where(ImageReviewItemModel.status == "pending")
+        canonical_exists = (
+            select(ImageSequenceCanonicalModel.sequence_number)
+            .where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == RecognizedBoardModel.sequence_number,
+            )
+            .exists()
+        )
+        query = query.where(or_(RecognizedBoardModel.sequence_number.is_(None), ~canonical_exists))
+        order = _order_expressions(ImageReviewView.PENDING)
+        if after_sequence is not None:
+            query = query.where(
+                or_(
+                    RecognizedBoardModel.sequence_number > after_sequence,
+                    RecognizedBoardModel.sequence_number.is_(None),
+                )
+            )
+        rows = list(
+            self._session.execute(
+                query.order_by(*[expression.asc() for expression in order]).limit(limit + 1)
+            )
+            .tuples()
+            .all()
+        )
+        has_next = len(rows) > limit
+        return ImageReviewPage(
+            items=self._items_from_rows(rows[:limit]),
+            counts=self._counts_for_game(game_id),
+            has_previous=after_sequence is not None,
+            has_next=has_next,
+        )
+
+    def canonical_pending_count(self, game_id: UUID) -> int:
+        canonical_exists = (
+            select(ImageSequenceCanonicalModel.sequence_number)
+            .where(
+                ImageSequenceCanonicalModel.game_id == game_id,
+                ImageSequenceCanonicalModel.sequence_number == RecognizedBoardModel.sequence_number,
+            )
+            .exists()
+        )
+        return int(
+            self._session.scalar(
+                select(func.count())
+                .select_from(ImageReviewItemModel)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                .where(
+                    JobModel.game_id == game_id,
+                    ImageReviewItemModel.status == "pending",
+                    or_(RecognizedBoardModel.sequence_number.is_(None), ~canonical_exists),
+                )
+            )
+            or 0
         )
 
     def get_item(
@@ -640,6 +728,15 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         else:
             symbols = tuple(cell.symbol_code for cell in resolution.cells)
             mobile_codes = self._mobile_codes(game_id, symbols)
+            resolved_sequence = cast(int, resolution.sequence_number)
+            canonical = self._session.scalar(
+                select(ImageSequenceCanonicalModel)
+                .where(
+                    ImageSequenceCanonicalModel.game_id == game_id,
+                    ImageSequenceCanonicalModel.sequence_number == resolved_sequence,
+                )
+                .with_for_update()
+            )
             staging = self._session.get(
                 ImageLayoutStagingRowModel,
                 {
@@ -648,25 +745,73 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 },
                 with_for_update=True,
             )
-            if staging is None:
-                self._session.add(
-                    ImageLayoutStagingRowModel(
-                        import_job_id=import_job_id,
-                        recognized_board_id=board.id,
-                        review_item_id=review_item_id,
-                        sequence_number=cast(int, resolution.sequence_number),
-                        cells=mobile_codes,
-                        created_at=resolved_at,
+            if canonical is None or canonical.review_item_id == review_item_id:
+                if staging is None:
+                    self._session.add(
+                        ImageLayoutStagingRowModel(
+                            import_job_id=import_job_id,
+                            recognized_board_id=board.id,
+                            review_item_id=review_item_id,
+                            sequence_number=resolved_sequence,
+                            cells=mobile_codes,
+                            created_at=resolved_at,
+                        )
+                    )
+                elif staging.review_item_id != review_item_id:
+                    raise ImageReviewConflictError(
+                        "IMAGE_REVIEW_STAGING_CONFLICT",
+                        "The recognized board belongs to another staging decision.",
+                    )
+                else:
+                    staging.sequence_number = resolved_sequence
+                    staging.cells = mobile_codes
+                if canonical is None:
+                    self._session.add(
+                        ImageSequenceCanonicalModel(
+                            game_id=game_id,
+                            sequence_number=resolved_sequence,
+                            review_item_id=review_item_id,
+                            recognized_board_id=board.id,
+                            import_job_id=import_job_id,
+                            source_image_id=source.id,
+                            source_checksum_sha256=source.checksum_sha256,
+                            board_checksum_sha256=board.board_checksum_sha256,
+                            status=resolution.action.value,
+                            resolution_revision=revision,
+                            geometry_revision=board.geometry_revision,
+                            created_at=resolved_at,
+                            updated_at=resolved_at,
+                        )
+                    )
+                else:
+                    canonical.status = resolution.action.value
+                    canonical.resolution_revision = revision
+                    canonical.geometry_revision = board.geometry_revision
+                    canonical.board_checksum_sha256 = board.board_checksum_sha256
+                    canonical.updated_at = resolved_at
+            else:
+                alternative_exists = self._session.scalar(
+                    select(ImageSequenceAlternativeModel.id).where(
+                        ImageSequenceAlternativeModel.game_id == game_id,
+                        ImageSequenceAlternativeModel.sequence_number == resolved_sequence,
+                        ImageSequenceAlternativeModel.import_job_id == import_job_id,
+                        ImageSequenceAlternativeModel.source_checksum_sha256
+                        == source.checksum_sha256,
                     )
                 )
-            elif staging.review_item_id != review_item_id:
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_STAGING_CONFLICT",
-                    "The recognized board belongs to another staging decision.",
-                )
-            else:
-                staging.sequence_number = cast(int, resolution.sequence_number)
-                staging.cells = mobile_codes
+                if alternative_exists is None:
+                    self._session.add(
+                        ImageSequenceAlternativeModel(
+                            game_id=game_id,
+                            sequence_number=resolved_sequence,
+                            import_job_id=import_job_id,
+                            source_checksum_sha256=source.checksum_sha256,
+                            source_relative_path=source.relative_path,
+                            reason="reused_accepted",
+                        )
+                    )
+                if staging is not None:
+                    self._session.delete(staging)
         self._session.flush()
         pending_count = self._session.scalar(
             select(func.count())
@@ -862,6 +1007,22 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         )
         self._session.add(record)
         previous_status = item_record.status
+        previous_resolved = cast(Mapping[str, object] | None, item_record.resolved_value)
+        previous_sequence = (
+            previous_resolved.get("sequenceNumber") if previous_resolved is not None else None
+        )
+        if (
+            previous_status in {"accepted", "corrected"}
+            and isinstance(previous_sequence, int)
+            and not isinstance(previous_sequence, bool)
+        ):
+            self._session.execute(
+                delete(ImageSequenceCanonicalModel).where(
+                    ImageSequenceCanonicalModel.game_id == game_id,
+                    ImageSequenceCanonicalModel.sequence_number == previous_sequence,
+                    ImageSequenceCanonicalModel.review_item_id == review_item_id,
+                )
+            )
         item_record.status = "pending"
         item_record.resolved_value = cast(Any, null())
         item_record.resolved_by = None
@@ -950,6 +1111,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             for observation in observations:
                 observations_by_board[observation.recognized_board_id].append(observation)
         revisions_by_board: dict[UUID, ImageBoardGeometryRevisionModel] = {}
+        predictions_by_item: dict[UUID, list[dict[str, object]]] = {}
         if board_ids:
             for revision in self._session.scalars(
                 select(ImageBoardGeometryRevisionModel)
@@ -960,6 +1122,19 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 )
             ).all():
                 revisions_by_board[revision.recognized_board_id] = revision
+            item_ids = [item.id for item, _board, _source, _association, _job in rows]
+            if item_ids:
+                for symbol_revision in self._session.scalars(
+                    select(ImageSymbolPredictionRevisionModel)
+                    .where(ImageSymbolPredictionRevisionModel.review_item_id.in_(item_ids))
+                    .order_by(
+                        ImageSymbolPredictionRevisionModel.review_item_id,
+                        ImageSymbolPredictionRevisionModel.created_at,
+                    )
+                ).all():
+                    predictions_by_item[symbol_revision.review_item_id] = list(
+                        symbol_revision.predictions
+                    )
         return tuple(
             _item_from_records(
                 item,
@@ -969,6 +1144,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 job,
                 observations_by_board[board.id],
                 revisions_by_board.get(board.id),
+                predictions_by_item.get(item.id),
             )
             for item, board, source, association, job in rows
         )
@@ -998,6 +1174,72 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             accepted=values.get("accepted", 0),
             corrected=values.get("corrected", 0),
             rejected=values.get("rejected", 0),
+        )
+
+    def _counts_for_game(self, game_id: UUID) -> ImageReviewCounts:
+        rows = self._session.execute(
+            select(ImageReviewItemModel.status, func.count())
+            .select_from(ImageReviewItemModel)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(JobModel.game_id == game_id)
+            .group_by(ImageReviewItemModel.status)
+        ).all()
+        values = {status: int(count) for status, count in rows}
+        return ImageReviewCounts(
+            pending=values.get("pending", 0),
+            accepted=values.get("accepted", 0),
+            corrected=values.get("corrected", 0),
+            rejected=values.get("rejected", 0),
+        )
+
+    def game_counts(self, game_id: UUID) -> ImageReviewCounts:
+        """Return status counts across every import belonging to a game."""
+
+        return self._counts_for_game(game_id)
+
+    def pending_grid_reinference_preview(
+        self, game_id: UUID
+    ) -> PendingGridReinferencePreview:
+        rows = self._session.execute(
+            select(SourceImageModel.id, ImageReviewItemModel.status)
+            .select_from(ImageReviewItemModel)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(JobModel.game_id == game_id)
+        ).all()
+        source_statuses: dict[UUID, set[str]] = defaultdict(set)
+        pending_board_count = 0
+        protected_board_count = 0
+        for source_id, status in rows:
+            source_statuses[source_id].add(str(status))
+            if status == "pending":
+                pending_board_count += 1
+            else:
+                protected_board_count += 1
+        pending_sources = sum("pending" in statuses for statuses in source_statuses.values())
+        partial_sources = sum(
+            "pending" in statuses and len(statuses) > 1
+            for statuses in source_statuses.values()
+        )
+        fully_resolved_sources = sum(
+            "pending" not in statuses for statuses in source_statuses.values()
+        )
+        return PendingGridReinferencePreview(
+            game_id=game_id,
+            pending_board_count=pending_board_count,
+            protected_board_count=protected_board_count,
+            pending_source_count=pending_sources,
+            partially_resolved_source_count=partial_sources,
+            fully_resolved_source_count=fully_resolved_sources,
         )
 
     def _cursor_exists(
@@ -1121,13 +1363,10 @@ def _sequence_expression(view: ImageReviewView) -> ColumnElement[int]:
 
 
 def _order_expressions(view: ImageReviewView) -> tuple[ColumnElement[object], ...]:
+    raw_sequence = _sequence_expression(view)
     sequence: ColumnElement[object] = cast(
         ColumnElement[object],
-        (
-            literal(0)
-            if view in {ImageReviewView.PENDING, ImageReviewView.ALL}
-            else _sequence_expression(view)
-        ),
+        func.coalesce(raw_sequence, literal(9223372036854775807)),
     )
     return (
         sequence,
@@ -1194,6 +1433,7 @@ def _item_from_records(
     job: JobModel,
     observations: Sequence[CellObservationModel],
     geometry_revision: ImageBoardGeometryRevisionModel | None,
+    prediction_override: Sequence[Mapping[str, object]] | None = None,
 ) -> ImageReviewItem:
     if len(observations) != 15:
         raise ImageReviewConflictError(
@@ -1235,7 +1475,11 @@ def _item_from_records(
                 "IMAGE_REVIEW_CELL_ORDER_INVALID",
                 "The operational review cells are not a complete row-major board.",
             )
-        prediction = cast(Mapping[str, object], observation.prediction)
+        prediction = (
+            prediction_override[index]
+            if prediction_override is not None and len(prediction_override) == 15
+            else cast(Mapping[str, object], observation.prediction)
+        )
         symbol_code = prediction.get("symbolCode")
         confidence = prediction.get("confidence")
         raw_alternatives = prediction.get("alternatives")

@@ -21,6 +21,12 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
+from game_predictor_worker.images.pending_grid_reinference import (
+    PendingGridReinferenceHandler,
+)
+from game_predictor_worker.images.pending_symbol_reinference import (
+    PendingSymbolReinferenceHandler,
+)
 from game_predictor_worker.images.production_workflow import ProductionImageImportWorkflow
 from game_predictor_worker.images.selection.adapters import (
     AnchoredSequenceRangeRecognizer,
@@ -300,6 +306,15 @@ def main(arguments: Sequence[str] | None = None) -> int:
             JobType.ANDROID_BUILD: release_handler,
             JobType.SYMBOL_TRAINING: SymbolTrainingJobHandler(
                 SymbolTrainingJobStore(session_factory, artifact_root)
+            ),
+            JobType.IMAGE_SYMBOL_REINFERENCE: PendingSymbolReinferenceHandler(
+                session_factory,
+                artifact_root,
+                repository_root=Path.cwd(),
+            ),
+            JobType.IMAGE_GRID_REINFERENCE: PendingGridReinferenceHandler(
+                session_factory,
+                artifact_root,
             ),
         }
         execution_slot = JobExecutionSlot.GENERAL

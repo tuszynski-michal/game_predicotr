@@ -4746,6 +4746,23 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
 - **Consequences:** pliki `seq_*.jpg` są gotowym lokalnym wynikiem do późniejszego
   jawnego importu layoutów. Automatyczny kontrakt selekcji pozostaje bez zmian.
 
+## D-195 — Ręczna selekcja zapisuje trwały ślad do kohorty rankera
+
+- **Status:** accepted
+- **Date:** 2026-08-18
+- **Decision:** IndexedDB v2 utrzymuje append-only zdarzenia widoczności i
+  decyzji. Kandydat treningowy wymaga udanego dekodowania oraz co najmniej
+  300 ms rzeczywistego wyświetlenia. Wynik zaakceptowanych plików jest
+  synchronizowany jako `manual-image-selection-output-v1.json`, a pełny ślad
+  jest eksportowany jawnie jako `manual-image-selection-trace-v1.json`.
+- **Reason:** dane do późniejszego uczenia nie mogą zależeć od pamięci sesji ani
+  spowalniać każdego Entera. Tab nie jest negatywną etykietą, a historyczne
+  sesje bez pomiaru widoczności pozostają `anchor_only`.
+- **Safety:** manifest obcej sesji lub zmieniony checksum blokuje zapis;
+  istniejące decyzje i uchwyty folderów są zachowane podczas migracji.
+- **Consequences:** kohorta rankera może być zbudowana deterministycznie z
+  jawnie zamrożonego śladu bez kopiowania JPEG-ów do bazy.
+
 ## Szablon nowej decyzji
 
 ```text

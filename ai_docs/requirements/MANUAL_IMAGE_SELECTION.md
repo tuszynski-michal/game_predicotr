@@ -54,5 +54,25 @@ skalowania, obrotu ani zmiany perspektywy. Istniejący plik wynikowy jest
 idempotentny, gdy checksum jest taki sam; obcy plik o tej samej nazwie blokuje
 nadpisanie. Nie są wysyłane obrazy ani decyzje do backendu.
 
+### Manifest i ślad uczenia
+
+IndexedDB ma wersję 2. Oprócz sesji utrzymuje append-only magazyn zdarzeń
+`traceEvents`. Zdarzenie `viewed` powstaje dopiero po udanym `decode()` i co
+najmniej 300 ms rzeczywistej widoczności obrazu. `Enter` zapisuje zdarzenie
+`accepted` z zakresem, ścieżką, indeksem i checksumą; `Tab` zapisuje `skipped`
+bez tworzenia negatywnej etykiety. `Ctrl+Z` zapisuje `undo`, powiązane z cofniętą
+decyzją. Niedekodowane lub szybko przewinięte obrazy nie są etykietowane.
+
+W folderze wynikowym utrzymywany jest kompaktowy
+`manual-image-selection-output-v1.json`. Zawiera wyłącznie zaakceptowane pliki,
+ich zakresy i checksumy. Zapis jest bezpieczny dla obcych plików: istniejący
+manifest innej sesji albo o nieprawidłowej strukturze blokuje nadpisanie.
+Pełny `manual-image-selection-trace-v1.json` jest tworzony dopiero po jawnej
+akcji `Eksportuj ślad uczenia`; jego źródłem są zdarzenia z IndexedDB.
+
+Dotychczasowe sesje nie mają pewnego czasu widoczności i pozostają
+`anchor_only`: można je eksportować i używać jako kotwic, ale nie tworzą
+automatycznie par treningowych rankera.
+
 Ta zakładka jest narzędziem lokalnym i nie zmienia automatycznego kontraktu
 selekcji zdjęć, stagingu ani importu layoutów.

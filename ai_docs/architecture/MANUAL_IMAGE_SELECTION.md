@@ -17,8 +17,17 @@ strony, wywołuje `decode()` jako read-ahead oraz zwalnia URL-e poza oknem.
 Sesje są przechowywane w osobnej bazie IndexedDB
 `game-predictor-manual-image-selection`, w magazynie `sessions` z kluczem
 `gameId`. Rekord obejmuje uchwyty folderów i serializowalny stan decyzji, więc
-nie wymaga migracji backendowej ani tabel domenowych. LocalStorage służy tylko
+nie wymaga migracji backendowej ani tabel domenowych. Wersja 2 bazy dodaje
+magazyn `traceEvents` z kluczem złożonym `(gameId, sessionKey, eventIndex)`;
+migracja zachowuje istniejące sesje i uchwyty folderów. LocalStorage służy tylko
 do szybkiego odtworzenia kursora diagnostycznego.
+
+Workspace zapisuje dwa jawne artefakty przez wybrany uchwyt folderu wynikowego:
+kompaktowy `manual-image-selection-output-v1.json` oraz, na żądanie operatora,
+`manual-image-selection-trace-v1.json`. Manifest wyjściowy jest synchronizowany
+po każdym Enterze, Tabie i Ctrl+Z, natomiast pełny ślad jest materializowany
+poza ścieżką krytyczną sesji. Każdy zapis sprawdza właściciela `sessionKey`, aby
+nie nadpisać artefaktu innej sesji.
 
 Zapis pliku jest atomizowany na poziomie uchwytu: źródłowy Blob jest kopiowany
 bez transformacji, checksum SHA-256 jest porównywany z istniejącym plikiem,

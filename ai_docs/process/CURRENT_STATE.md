@@ -1560,3 +1560,11 @@ workera, stagingu ani OCR. Enter zapisuje `seq_*.jpg` i przechodzi do następneg
 zdjęcia, Tab pomija zakres przy tym samym zdjęciu, a Ctrl+Z usuwa wyłącznie
 zweryfikowany plik zapisany przez tę sesję. Implementacja jest gotowa do testu
 manualnego w przeglądarce; zadanie `0246` pozostaje `in_progress` do akceptacji.
+
+W ramach `v0.6.28` sesja otrzymała IndexedDB v2 z append-only magazynem
+`traceEvents`. Widok zapisuje zdarzenie dopiero po `decode()` i 300 ms
+widoczności, a Enter/Tab/Ctrl+Z zapisują odpowiednio decyzje i ich cofnięcia.
+Folder wynikowy jest synchronizowany przez
+`manual-image-selection-output-v1.json`; pełny ślad można jawnie wyeksportować
+jako `manual-image-selection-trace-v1.json`. Artefakty są chronione przez
+`sessionKey` i checksumy, a stare sesje pozostają `anchor_only`.

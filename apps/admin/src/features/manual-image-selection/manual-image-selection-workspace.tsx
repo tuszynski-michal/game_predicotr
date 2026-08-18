@@ -9,10 +9,13 @@ import {
   previousManualSelectionState,
   rangeForStart,
   removeManagedManualOutput,
+  writeManualOutputManifest,
+  writeManualTraceManifest,
   type ManualImageFile,
   type ManualSelectionDecision,
   type ManualSelectionSessionRecord,
   type ManualSelectionState,
+  type ManualSelectionTraceEvent,
   writeManualOutput,
 } from './manual-image-selection';
 import { ManualImageSelectionStore } from './manual-image-selection-store';
@@ -44,6 +47,8 @@ export function ManualImageSelectionWorkspace({
   const imageUrlCacheRef = useRef<Map<number, string>>(new Map());
   const imageUrlLoadRef = useRef<Map<number, Promise<string>>>(new Map());
   const imageCacheGenerationRef = useRef(0);
+  const traceEventIndexRef = useRef(0);
+  const viewTimerRef = useRef<number | null>(null);
   const [firstLayout, setFirstLayout] = useState('1');
   const [direction, setDirection] = useState<'ascending' | 'descending'>(
     'ascending',
@@ -67,6 +72,7 @@ export function ManualImageSelectionWorkspace({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const currentImageIndex = state?.currentIndex ?? -1;
+  const currentRangeStart = state?.nextRangeStart ?? -1;
 
   useEffect(() => {
     let cancelled = false;
@@ -224,6 +230,60 @@ export function ManualImageSelectionWorkspace({
     );
   }, [gameId, record, state]);
 
+  useEffect(() => {
+    if (viewTimerRef.current !== null) {
+      window.clearTimeout(viewTimerRef.current);
+      viewTimerRef.current = null;
+    }
+    const sessionKey = record?.key ?? null;
+    const current = images[currentImageIndex];
+    if (
+      sessionKey === null ||
+      current === undefined ||
+      currentImageIndex < 0 ||
+      currentRangeStart < 1 ||
+      imageUrlIndex !== currentImageIndex ||
+      imageUrl === null
+    ) {
+      return;
+    }
+    const range = rangeForStart(currentRangeStart);
+    const startedAt = performance.now();
+    viewTimerRef.current = window.setTimeout(() => {
+      if (stateRef.current?.currentIndex !== currentImageIndex) return;
+      if (stateRef.current?.nextRangeStart !== currentRangeStart) return;
+      const event: ManualSelectionTraceEvent = {
+        decoded: true,
+        eventIndex: traceEventIndexRef.current++,
+        gameId,
+        imagePath: current.relativePath,
+        kind: 'viewed',
+        rangeEnd: range.end,
+        rangeStart: range.start,
+        recordedAt: new Date().toISOString(),
+        sessionKey,
+        sourceIndex: currentImageIndex,
+        visibleMilliseconds: Math.round(performance.now() - startedAt),
+      };
+      void store.appendTraceEvent(event).catch(() => undefined);
+    }, 300);
+    return () => {
+      if (viewTimerRef.current !== null) {
+        window.clearTimeout(viewTimerRef.current);
+        viewTimerRef.current = null;
+      }
+    };
+  }, [
+    currentImageIndex,
+    currentRangeStart,
+    gameId,
+    imageUrl,
+    imageUrlIndex,
+    images,
+    record?.key,
+    store,
+  ]);
+
   async function pickDirectory(
     mode: 'read' | 'readwrite',
   ): Promise<FileSystemDirectoryHandle> {
@@ -325,6 +385,7 @@ export function ManualImageSelectionWorkspace({
     setState(next);
     stateRef.current = next;
     setSavedRecord(null);
+    traceEventIndexRef.current = 0;
     await store.save(nextRecord);
   }
 
@@ -348,6 +409,12 @@ export function ManualImageSelectionWorkspace({
       setRecord(savedRecord);
       setState(savedRecord.state);
       stateRef.current = savedRecord.state;
+      const events = await store.loadTraceEvents(gameId, savedRecord.key);
+      traceEventIndexRef.current =
+        events.reduce(
+          (highest, event) => Math.max(highest, event.eventIndex),
+          -1,
+        ) + 1;
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Nie udało się wznowić sesji.',
@@ -400,12 +467,22 @@ export function ManualImageSelectionWorkspace({
         rangeEnd: range.end,
         rangeStart: range.start,
       };
-      await persist(
-        nextManualSelectionState(
-          currentState,
-          decision,
-          Math.min(currentState.currentIndex + 1, images.length - 1),
-        ),
+      const nextState = nextManualSelectionState(
+        currentState,
+        decision,
+        Math.min(currentState.currentIndex + 1, images.length - 1),
+      );
+      await persist(nextState);
+      await writeManualOutputManifest(outputDirectory, {
+        ...record,
+        state: nextState,
+      });
+      await appendDecisionTrace(
+        'accepted',
+        current,
+        range,
+        output,
+        currentState.decisions.length,
       );
     } catch (cause) {
       setError(
@@ -424,21 +501,39 @@ export function ManualImageSelectionWorkspace({
     if (record === null || currentState === null || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    const current = images[currentState.currentIndex];
+    if (current === undefined) {
+      busyRef.current = false;
+      setBusy(false);
+      return;
+    }
     const range = rangeForStart(currentState.nextRangeStart);
     try {
-      await persist(
-        nextManualSelectionState(
-          currentState,
-          {
-            action: 'skipped',
-            imageChecksum: null,
-            imagePath: null,
-            outputName: null,
-            rangeEnd: range.end,
-            rangeStart: range.start,
-          },
-          currentState.currentIndex,
-        ),
+      const nextState = nextManualSelectionState(
+        currentState,
+        {
+          action: 'skipped',
+          imageChecksum: null,
+          imagePath: null,
+          outputName: null,
+          rangeEnd: range.end,
+          rangeStart: range.start,
+        },
+        currentState.currentIndex,
+      );
+      await persist(nextState);
+      if (outputDirectory !== null) {
+        await writeManualOutputManifest(outputDirectory, {
+          ...record,
+          state: nextState,
+        });
+      }
+      await appendDecisionTrace(
+        'skipped',
+        current,
+        range,
+        null,
+        currentState.decisions.length,
       );
     } finally {
       busyRef.current = false;
@@ -460,6 +555,26 @@ export function ManualImageSelectionWorkspace({
         await removeManagedManualOutput(outputDirectory, last);
       }
       await persist(previous);
+      if (outputDirectory !== null) {
+        await writeManualOutputManifest(outputDirectory, {
+          ...record,
+          state: previous,
+        });
+      }
+      const traceImage =
+        (last.imagePath === null
+          ? images[currentState.currentIndex]
+          : images.find((image) => image.relativePath === last.imagePath)) ??
+        images[currentState.currentIndex];
+      if (traceImage !== undefined) {
+        await appendDecisionTrace(
+          'undo',
+          traceImage,
+          { start: last.rangeStart, end: last.rangeEnd },
+          null,
+          currentState.decisions.length - 1,
+        );
+      }
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -468,6 +583,51 @@ export function ManualImageSelectionWorkspace({
       );
     } finally {
       busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function appendDecisionTrace(
+    kind: 'accepted' | 'skipped' | 'undo',
+    image: ManualImageFile,
+    decisionRange: { readonly start: number; readonly end: number },
+    output: { readonly checksum: string; readonly name: string } | null,
+    decisionOrdinal: number,
+  ): Promise<void> {
+    if (record === null) return;
+    await store.appendTraceEvent({
+      decoded: true,
+      decisionOrdinal: kind === 'undo' ? null : decisionOrdinal,
+      eventIndex: traceEventIndexRef.current++,
+      gameId,
+      imageChecksum: output?.checksum ?? null,
+      imagePath: image.relativePath,
+      kind,
+      outputName: output?.name ?? null,
+      rangeEnd: decisionRange.end,
+      rangeStart: decisionRange.start,
+      recordedAt: new Date().toISOString(),
+      revertsDecisionOrdinal: kind === 'undo' ? decisionOrdinal : null,
+      sessionKey: record.key,
+      sourceIndex: images.indexOf(image),
+      visibleMilliseconds: 0,
+    });
+  }
+
+  async function exportTrainingTrace(): Promise<void> {
+    if (record === null || outputDirectory === null || busyRef.current) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const events = await store.loadTraceEvents(gameId, record.key);
+      await writeManualTraceManifest(outputDirectory, record, events);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się wyeksportować śladu selekcji.',
+      );
+    } finally {
       setBusy(false);
     }
   }
@@ -824,6 +984,14 @@ export function ManualImageSelectionWorkspace({
           type="button"
         >
           Zapisz Enter jako seq_{range.start}-{range.end}.jpg
+        </button>
+        <button
+          className="secondaryButton"
+          disabled={busy}
+          onClick={() => void exportTrainingTrace()}
+          type="button"
+        >
+          Eksportuj ślad uczenia
         </button>
       </div>
       {error !== null ? (

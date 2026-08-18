@@ -8,6 +8,7 @@ import {
   nextManualSelectionState,
   previousManualSelectionState,
   rangeForStart,
+  writeManualOutputManifest,
 } from '../src/features/manual-image-selection/manual-image-selection.ts';
 
 const workspaceSource = await readFile(
@@ -122,4 +123,13 @@ test('indexes handles without opening every JPEG and preloads a bounded neighbou
   assert.match(workspaceSource, /currentImageIndex - 3/);
   assert.match(workspaceSource, /preview\.decode\(\)/);
   assert.match(workspaceSource, /saveQueueRef/);
+});
+
+test('defines durable output and training trace manifests', () => {
+  assert.match(selectionSource, /manual-image-selection-output-v1\.json/);
+  assert.match(selectionSource, /manual-image-selection-trace-v1\.json/);
+  assert.match(workspaceSource, /Eksportuj ślad uczenia/);
+  assert.match(workspaceSource, /appendTraceEvent/);
+  assert.match(workspaceSource, /visibleMilliseconds/);
+  assert.equal(typeof writeManualOutputManifest, 'function');
 });

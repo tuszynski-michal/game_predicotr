@@ -34,6 +34,9 @@ ciągłych zakresów 9 layoutów bez zależności od automatycznego selektora.
 
 ## Outcome
 
-Implementacja UI, logiki plików, magazynu IndexedDB i testów jest gotowa. Pozostało
-wykonać końcowy przegląd integracyjny oraz oznaczyć zadanie jako done po akceptacji
-manualnego przepływu w przeglądarce.
+Implementacja UI, logiki plików, magazynu IndexedDB i testów jest gotowa.
+W `v0.6.28` magazyn został podniesiony do wersji 2 i zapisuje trwały ślad
+widoczności oraz decyzji. Wynik i ślad treningowy są eksportowane jako
+`manual-image-selection-output-v1.json` i `manual-image-selection-trace-v1.json`.
+Pozostało wykonać końcowy przegląd integracyjny oraz oznaczyć zadanie jako done
+po akceptacji manualnego przepływu w przeglądarce.

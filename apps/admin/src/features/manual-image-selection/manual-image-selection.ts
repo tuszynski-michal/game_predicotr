@@ -17,6 +17,55 @@ export interface ManualSelectionDecision {
   readonly rangeStart: number;
 }
 
+export type ManualSelectionTraceEventKind =
+  'viewed' | 'accepted' | 'skipped' | 'undo';
+
+export interface ManualSelectionTraceEvent {
+  readonly eventIndex: number;
+  readonly gameId: string;
+  readonly sessionKey: string;
+  readonly kind: ManualSelectionTraceEventKind;
+  readonly rangeEnd: number;
+  readonly rangeStart: number;
+  readonly imagePath: string | null;
+  readonly sourceIndex: number | null;
+  readonly recordedAt: string;
+  readonly visibleMilliseconds: number;
+  readonly decoded: boolean;
+  readonly imageChecksum?: string | null;
+  readonly outputName?: string | null;
+  readonly decisionOrdinal?: number | null;
+  readonly revertsDecisionOrdinal?: number | null;
+}
+
+export interface ManualSelectionOutputManifestV1 {
+  readonly schemaVersion: 1;
+  readonly gameId: string;
+  readonly sessionKey: string;
+  readonly sourceDirectoryName: string;
+  readonly direction: 'ascending' | 'descending';
+  readonly firstLayout: number;
+  readonly updatedAt: string;
+  readonly items: readonly {
+    readonly outputName: string;
+    readonly imagePath: string;
+    readonly imageChecksum: string;
+    readonly rangeStart: number;
+    readonly rangeEnd: number;
+  }[];
+}
+
+export interface ManualSelectionTraceManifestV1 {
+  readonly schemaVersion: 1;
+  readonly gameId: string;
+  readonly sessionKey: string;
+  readonly sourceDirectoryName: string;
+  readonly direction: 'ascending' | 'descending';
+  readonly firstLayout: number;
+  readonly exportedAt: string;
+  readonly events: readonly ManualSelectionTraceEvent[];
+}
+
 export interface ManualSelectionState {
   readonly currentIndex: number;
   readonly decisions: readonly ManualSelectionDecision[];
@@ -217,4 +266,105 @@ export async function removeManagedManualOutput(
     throw new Error(`Nie usuwam obcego pliku ${decision.outputName}.`);
   }
   await outputDirectory.removeEntry(decision.outputName);
+}
+
+export async function writeManualOutputManifest(
+  outputDirectory: FileSystemDirectoryHandle,
+  record: ManualSelectionSessionRecord,
+): Promise<void> {
+  const items = record.state.decisions
+    .filter(
+      (
+        decision,
+      ): decision is ManualSelectionDecision & {
+        readonly imagePath: string;
+        readonly imageChecksum: string;
+        readonly outputName: string;
+      } =>
+        decision.action === 'accepted' &&
+        decision.imagePath !== null &&
+        decision.imageChecksum !== null &&
+        decision.outputName !== null,
+    )
+    .map((decision) => ({
+      imageChecksum: decision.imageChecksum,
+      imagePath: decision.imagePath,
+      outputName: decision.outputName,
+      rangeEnd: decision.rangeEnd,
+      rangeStart: decision.rangeStart,
+    }));
+  const manifest: ManualSelectionOutputManifestV1 = {
+    schemaVersion: 1,
+    direction: record.state.direction,
+    firstLayout: record.state.firstLayout,
+    gameId: record.gameId,
+    items,
+    sessionKey: record.key,
+    sourceDirectoryName: record.sourceDirectoryName,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeOwnedJsonFile(
+    outputDirectory,
+    'manual-image-selection-output-v1.json',
+    manifest,
+    record.key,
+  );
+}
+
+export async function writeManualTraceManifest(
+  outputDirectory: FileSystemDirectoryHandle,
+  record: ManualSelectionSessionRecord,
+  events: readonly ManualSelectionTraceEvent[],
+): Promise<void> {
+  const manifest: ManualSelectionTraceManifestV1 = {
+    schemaVersion: 1,
+    direction: record.state.direction,
+    exportedAt: new Date().toISOString(),
+    firstLayout: record.state.firstLayout,
+    gameId: record.gameId,
+    events,
+    sessionKey: record.key,
+    sourceDirectoryName: record.sourceDirectoryName,
+  };
+  await writeOwnedJsonFile(
+    outputDirectory,
+    'manual-image-selection-trace-v1.json',
+    manifest,
+    record.key,
+  );
+}
+
+async function writeOwnedJsonFile(
+  outputDirectory: FileSystemDirectoryHandle,
+  name: string,
+  value: object,
+  sessionKey: string,
+): Promise<void> {
+  try {
+    const existing = await (
+      await outputDirectory.getFileHandle(name)
+    ).getFile();
+    const parsed: unknown = JSON.parse(await existing.text());
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('sessionKey' in parsed) ||
+      typeof parsed.sessionKey !== 'string' ||
+      parsed.sessionKey !== sessionKey
+    )
+      throw new Error(`Plik ${name} należy do innej sesji ręcznej selekcji.`);
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === 'NotFoundError')) {
+      throw error;
+    }
+  }
+  const target = await outputDirectory.getFileHandle(name, { create: true });
+  const writable = await target.createWritable();
+  try {
+    await writable.write(`${JSON.stringify(value, null, 2)}\n`);
+    await writable.close();
+  } catch (error) {
+    await writable.abort().catch(() => undefined);
+    throw error;
+  }
 }
